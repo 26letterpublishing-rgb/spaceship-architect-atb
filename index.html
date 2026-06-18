@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spaceship Architect ATB Sync</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Spaceship Architect</p>
+          <h1>ATB Sync</h1>
+        </div>
+        <div class="room">
+          <span>Room</span>
+          <strong id="roomCode">----</strong>
+        </div>
+      </section>
+
+      <section id="connectionStatus" class="connection-status">
+        Connecting to the ATB room server...
+      </section>
+
+      <section id="joinPanel" class="panel join-panel">
+        <div>
+          <h2>Join Encounter</h2>
+          <p>Enter your player name, character name, and Speed rating.</p>
+        </div>
+        <label>
+          Player Name
+          <input id="playerName" autocomplete="name" placeholder="Jason" />
+        </label>
+        <label>
+          Character Name
+          <input id="characterName" placeholder="Vita" />
+        </label>
+        <label>
+          Speed
+          <input id="speedRating" type="number" min="1" max="20" step="1" value="5" />
+        </label>
+        <div class="join-actions">
+          <button id="joinPlayer" class="primary">Join as Player</button>
+          <button id="openGm">Open GM View</button>
+        </div>
+      </section>
+
+      <section id="gmPanel" class="panel hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">GM Console</p>
+            <h2>Encounter Control</h2>
+          </div>
+          <div class="clock" id="clockState">Paused</div>
+        </div>
+        <div class="controls">
+          <button id="toggleRun" class="primary">Start</button>
+          <button id="stepTick">Step 1 Tick</button>
+          <button id="resetAll">Reset</button>
+        </div>
+        <div class="add-grid">
+          <label>
+            Player
+            <input id="gmPlayerName" placeholder="GM" value="GM" />
+          </label>
+          <label>
+            Character / NPC
+            <input id="gmCharacterName" placeholder="Security Guard" />
+          </label>
+          <label>
+            Speed
+            <input id="gmSpeedRating" type="number" min="1" max="20" step="1" value="5" />
+          </label>
+          <button id="gmAddUnit">Add</button>
+        </div>
+      </section>
+
+      <section id="playerPanel" class="panel hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Player View</p>
+            <h2 id="myCharacter">Character</h2>
+          </div>
+          <div class="clock" id="playerClock">Paused</div>
+        </div>
+        <div id="myTurnBanner" class="turn-banner hidden">
+          <strong>YOUR TURN</strong>
+          <span>Tell the GM when your action is finished.</span>
+        </div>
+        <div id="myUnitCard"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Live Roster</p>
+            <h2>ATB Bars</h2>
+          </div>
+          <span id="readyCount" class="ready-count">0 Ready</span>
+        </div>
+        <div id="unitList" class="unit-list"></div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Log</p>
+            <h2>Encounter Feed</h2>
+          </div>
+        </div>
+        <div id="logList" class="log-list"></div>
+      </section>
+    </main>
+
+    <dialog id="turnDialog" class="turn-dialog">
+      <p class="eyebrow">Turn Ready</p>
+      <h2 id="activeName">Character</h2>
+      <p id="activeOwner">Player</p>
+      <button id="completeTurn" class="complete">Turn Complete</button>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
