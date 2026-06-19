@@ -10,8 +10,8 @@ let audioContext = null;
 let events = null;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
 const pcBuild = {
-  perception: [1, 1],
-  intellect: [1, 1],
+  perception: [1, 1, 0, 0],
+  intellect: [1, 1, 0, 0],
 };
 
 function forgetSavedRoom() {
