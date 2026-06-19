@@ -152,11 +152,17 @@
           <span id="playerCommandStatus">Resolve your action, then end your turn.</span>
           <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
         </div>
-        <button id="enableAlerts">Enable Sound / Vibration</button>
-        <label id="playerColorControl" class="player-color-control hidden">
-          ATB Color
-          <input id="playerColorEdit" type="color" value="#39e58f" />
-        </label>
+        <div class="player-utility">
+          <button id="enableAlerts">Enable Sound / Vibration</button>
+          <label id="playerColorControl" class="player-color-control hidden">
+            ATB Color
+            <input id="playerColorEdit" type="color" value="#39e58f" />
+          </label>
+          <div class="player-room-code">
+            <span>Room</span>
+            <strong id="playerRoomCode">----</strong>
+          </div>
+        </div>
         <div id="myUnitCard"></div>
       </section>
 

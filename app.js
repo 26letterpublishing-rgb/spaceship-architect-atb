@@ -1,12 +1,23 @@
 let state = null;
 let mode = localStorage.getItem("sa-atb-mode") || "welcome";
-let currentRoomCode = localStorage.getItem("sa-atb-room-code") || "";
+let currentRoomCode = (localStorage.getItem("sa-atb-room-code") || "").trim().toUpperCase();
 let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let audioContext = null;
+
+if (!/^[A-Z0-9]{4}$/.test(currentRoomCode)) {
+  currentRoomCode = "";
+  localStorage.removeItem("sa-atb-room-code");
+  localStorage.removeItem("sa-atb-unit-id");
+}
+
+if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
+  mode = "welcome";
+  localStorage.setItem("sa-atb-mode", mode);
+}
 
 const roomCode = document.querySelector("#roomCode");
 const connectionStatus = document.querySelector("#connectionStatus");
@@ -52,6 +63,7 @@ const playerClock = document.querySelector("#playerClock");
 const myCharacter = document.querySelector("#myCharacter");
 const myTurnBanner = document.querySelector("#myTurnBanner");
 const playerEndTurn = document.querySelector("#playerEndTurn");
+const playerRoomCode = document.querySelector("#playerRoomCode");
 const playerCommandDial = document.querySelector("#playerCommandDial");
 const playerCommandTime = document.querySelector("#playerCommandTime");
 const playerCommandStatus = document.querySelector("#playerCommandStatus");
@@ -301,19 +313,35 @@ function statusText() {
   return state.running ? "Clock Engaged" : "Waiting for GM";
 }
 
+function activeUnit() {
+  return state?.units.find((unit) => unit.id === state.activeId) || null;
+}
+
+function unitRoleText(unit) {
+  if (!unit) return "";
+  const side = unit.team === "pc" ? "PC" : "NPC";
+  const type = unit.actorType === "ship" ? "Ship" : "Character";
+  return `${unit.playerName} - ${side} ${type}`;
+}
+
 function renderActivePanel() {
-  const active = state.units.find((unit) => unit.id === state.activeId);
-  activePanel.classList.toggle("turn-live", Boolean(active) && (mode !== "player" || active.id === myUnitId));
+  const active = activeUnit();
+  activePanel.classList.toggle("turn-live", Boolean(active));
+  activePanel.classList.toggle("own-turn", Boolean(active) && active.id === myUnitId);
+  activePanel.classList.toggle("other-turn", Boolean(active) && active.id !== myUnitId);
   activePanel.classList.toggle("clock-running", state.running && !state.pausedForTurn);
 
   if (mode === "player") {
     const mine = state.units.find((unit) => unit.id === myUnitId);
     activeKicker.textContent = "Player Signal";
     if (active && active.id === myUnitId) {
-      activeTitle.textContent = "Your turn is active";
-      activeMeta.textContent = "Resolve your action";
+      activeTitle.textContent = "YOUR TURN";
+      activeMeta.textContent = `${active.characterName} - ${unitRoleText(active)}`;
+    } else if (active) {
+      activeTitle.textContent = `${active.characterName}'s turn`;
+      activeMeta.textContent = unitRoleText(active);
     } else if (mine) {
-      activeTitle.textContent = state.running ? "Awaiting turn signal" : "Waiting for GM";
+      activeTitle.textContent = state.running ? "ATB clock engaged" : "Waiting for GM";
       activeMeta.textContent = estimateTurn(mine);
     } else {
       activeTitle.textContent = "Join or reclaim a character";
@@ -323,14 +351,12 @@ function renderActivePanel() {
   }
 
   if (active) {
-    const side = active.team === "pc" ? "PC" : "NPC";
-    const type = active.actorType === "ship" ? "Ship" : "Character";
     activeKicker.textContent = "Active Turn";
     activeTitle.textContent = active.characterName;
     const command = commandFor(active);
     activeMeta.textContent = command
-      ? `${active.playerName} - ${side} ${type} - ${command.expired ? "interruption pending" : `${formatSeconds(command.remaining)} Command Window`}`
-      : `${active.playerName} - ${side} ${type} - Speed ${formatSpeed(active.speed)}%/sec`;
+      ? `${unitRoleText(active)} - ${command.expired ? "interruption pending" : `${formatSeconds(command.remaining)} Command Window`}`
+      : `${unitRoleText(active)} - Speed ${formatSpeed(active.speed)}%/sec`;
     return;
   }
 
@@ -445,8 +471,9 @@ function playGmSound(name = "tap") {
 
 function playTurnDing() {
   try {
-    tone(880, 0, 0.16, 0.13, "sine");
-    tone(1320, 0.12, 0.22, 0.1, "sine");
+    tone(880, 0, 0.22, 0.28, "sine");
+    tone(1320, 0.12, 0.28, 0.24, "sine");
+    tone(1760, 0.28, 0.2, 0.18, "triangle");
   } catch {
     // The visual turn banner still works if audio is blocked.
   }
@@ -455,18 +482,32 @@ function playTurnDing() {
 function playWarningDing(urgent = false) {
   try {
     if (urgent) {
-      tone(620, 0, 0.08, 0.12, "square");
-      tone(620, 0.16, 0.08, 0.12, "square");
+      tone(620, 0, 0.12, 0.28, "square");
+      tone(620, 0.18, 0.12, 0.28, "square");
+      tone(420, 0.36, 0.16, 0.24, "sawtooth");
       return;
     }
-    tone(520, 0, 0.12, 0.1, "triangle");
-    tone(780, 0.1, 0.14, 0.1, "triangle");
+    tone(520, 0, 0.2, 0.24, "triangle");
+    tone(780, 0.12, 0.24, 0.24, "triangle");
+    tone(1040, 0.28, 0.2, 0.18, "sine");
   } catch {
     // Visual warning remains visible if audio is blocked.
   }
 }
 
+function enablePlayerAlerts({ testSound = false } = {}) {
+  alertsEnabled = true;
+  localStorage.setItem("sa-atb-alerts", "on");
+  ensureAudio();
+  if (testSound) playTurnDing();
+}
+
 function render() {
+  if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
+    mode = "welcome";
+    localStorage.setItem("sa-atb-mode", mode);
+  }
+
   welcomePanel.classList.toggle("hidden", mode !== "welcome");
   roomJoinPanel.classList.toggle("hidden", mode !== "roomJoin");
   joinPanel.classList.toggle("hidden", mode !== "join");
@@ -477,9 +518,11 @@ function render() {
   initiativePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || mode === "player");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
+  document.body.classList.toggle("player-mode", mode === "player");
 
   if (!state) {
     roomCode.textContent = currentRoomCode || "----";
+    playerRoomCode.textContent = currentRoomCode || "----";
     activePanel.classList.add("hidden");
     unitList.innerHTML = "";
     logList.innerHTML = "";
@@ -487,6 +530,7 @@ function render() {
   }
 
   roomCode.textContent = state.roomCode;
+  playerRoomCode.textContent = state.roomCode;
   activePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
 
   const ready = state.units.filter((unit) => unit.atb >= state.threshold);
@@ -499,10 +543,13 @@ function render() {
   gmMuteSound.textContent = gmSoundsMuted ? "Unmute Sounds" : "Mute Sounds";
   renderActivePanel();
   renderRejoinOptions();
+  const active = activeUnit();
+  document.body.classList.toggle("own-turn-active", mode === "player" && Boolean(active) && active.id === myUnitId);
+  document.body.classList.toggle("other-turn-active", mode === "player" && Boolean(active) && active.id !== myUnitId);
 
   const sorted =
     mode === "player"
-      ? state.units.filter((unit) => unit.id === myUnitId)
+      ? [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0))
       : [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0));
   renderUnitList(sorted);
   syncGmCommandWindowVisibility();
@@ -512,7 +559,7 @@ function render() {
     myCharacter.textContent = mine.characterName;
     playerColorControl.classList.remove("hidden");
     playerColorEdit.value = mine.color || "#39e58f";
-    myUnitCard.innerHTML = unitCard(mine);
+    myUnitCard.innerHTML = "";
     myTurnBanner.classList.toggle("hidden", state.activeId !== mine.id);
     renderPlayerCommand(mine);
   } else if (mode === "player") {
@@ -562,6 +609,7 @@ function syncGmCommandWindowVisibility() {
 }
 
 joinPlayer.addEventListener("click", async () => {
+  enablePlayerAlerts();
   const next = await action({
     action: "join",
     playerName: playerName.value || "Player",
@@ -625,6 +673,7 @@ confirmJoinRoom.addEventListener("click", async () => {
 });
 openGm.addEventListener("click", () => setMode("welcome"));
 rejoinPlayer.addEventListener("click", () => {
+  enablePlayerAlerts();
   myUnitId = rejoinSelect.value;
   localStorage.setItem("sa-atb-unit-id", myUnitId);
   setMode("player");
@@ -647,9 +696,7 @@ playerEndTurn.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "completeTurn", id: myUnitId });
 });
 enableAlerts.addEventListener("click", () => {
-  alertsEnabled = true;
-  localStorage.setItem("sa-atb-alerts", "on");
-  playTurnDing();
+  enablePlayerAlerts({ testSound: true });
   render();
 });
 playerColorEdit.addEventListener("change", () => {

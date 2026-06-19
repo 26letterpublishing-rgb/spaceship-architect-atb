@@ -93,6 +93,8 @@ label {
   width: min(1120px, calc(100% - 28px));
   margin: 0 auto;
   padding: 22px 0 42px;
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar,
@@ -731,6 +733,267 @@ h2 {
   width: auto;
   min-width: 180px;
   max-width: 100%;
+}
+
+.player-mode .shell {
+  width: min(960px, calc(100% - 18px));
+  padding-top: 10px;
+}
+
+.player-mode .topbar {
+  order: 1;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.player-mode .topbar .eyebrow {
+  font-size: 0.62rem;
+}
+
+.player-mode .topbar h1 {
+  font-size: 1.45rem;
+}
+
+.player-mode .room {
+  display: none;
+}
+
+.player-mode .room span {
+  font-size: 0.62rem;
+}
+
+.player-mode .room strong {
+  font-size: 0.94rem;
+}
+
+.player-mode .connection-status {
+  order: 2;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.player-mode .active-panel {
+  order: 3;
+}
+
+.player-mode .initiative-panel,
+.player-mode #initiativePanel {
+  order: 4;
+}
+
+.player-mode #playerPanel {
+  order: 5;
+}
+
+.player-mode #playerPanel {
+  padding: 10px;
+  opacity: 0.82;
+}
+
+.player-mode #playerPanel .section-head {
+  margin-bottom: 8px;
+}
+
+.player-mode #playerPanel h2 {
+  font-size: 1rem;
+}
+
+.player-mode #playerPanel .eyebrow,
+.player-mode #playerPanel .clock {
+  font-size: 0.68rem;
+}
+
+.player-mode #enableAlerts {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+}
+
+.player-mode .player-color-control {
+  margin: 0;
+  max-width: 170px;
+  font-size: 0.68rem;
+}
+
+.player-mode .player-color-control input {
+  min-height: 34px;
+}
+
+.player-utility {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.player-room-code {
+  min-height: 34px;
+  display: grid;
+  align-content: center;
+  padding: 5px 9px;
+  border: 1px solid rgba(155, 92, 255, 0.46);
+  background: rgba(155, 92, 255, 0.1);
+}
+
+.player-room-code span {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.player-room-code strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+}
+
+.player-mode .active-panel {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 30;
+  width: auto;
+  max-width: min(220px, 54vw);
+  min-height: 0;
+  margin: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  background: rgba(8, 15, 23, 0.94);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.42);
+}
+
+.player-mode .active-panel h2 {
+  font-size: 0.82rem;
+  line-height: 1.05;
+}
+
+.player-mode .active-panel .eyebrow {
+  font-size: 0.58rem;
+  margin: 0;
+}
+
+.player-mode .active-meta {
+  font-size: 0.62rem;
+  text-align: left;
+}
+
+.player-mode .active-panel.other-turn {
+  left: 8px;
+  right: 8px;
+  max-width: none;
+  padding: 14px 16px;
+  border-color: var(--yellow);
+  background:
+    linear-gradient(90deg, rgba(255, 208, 90, 0.16), rgba(40, 215, 255, 0.08)),
+    rgba(8, 15, 23, 0.98);
+  box-shadow: 0 0 28px rgba(255, 208, 90, 0.2);
+}
+
+.player-mode .active-panel.other-turn h2 {
+  color: var(--yellow);
+  font-size: clamp(1.35rem, 8vw, 2.2rem);
+}
+
+.player-mode.own-turn-active .active-panel {
+  display: none;
+}
+
+.player-mode #initiativePanel {
+  margin-top: 6px;
+}
+
+.player-mode #initiativePanel .section-head {
+  margin-bottom: 8px;
+}
+
+.player-mode #initiativePanel h2 {
+  font-size: 1.1rem;
+}
+
+.player-mode .unit-list {
+  gap: 8px;
+}
+
+.player-mode .unit-card {
+  padding: 10px;
+}
+
+.player-mode .unit-top {
+  grid-template-columns: 1fr auto;
+}
+
+.player-mode .unit-name {
+  font-size: 1rem;
+}
+
+.player-mode .unit-owner {
+  font-size: 0.72rem;
+}
+
+.player-mode .unit-readout {
+  min-width: 72px;
+}
+
+.player-mode .unit-readout span {
+  font-size: 0.62rem;
+}
+
+.player-mode .meter {
+  height: 28px;
+}
+
+.player-mode .turn-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  min-height: 100vh;
+  padding: 28px;
+  margin: 0;
+  border: 0;
+  background:
+    radial-gradient(circle at center, rgba(255, 208, 90, 0.2), transparent 54%),
+    linear-gradient(180deg, rgba(20, 15, 3, 0.98), rgba(5, 7, 10, 0.98));
+  text-align: center;
+}
+
+.player-mode .turn-banner strong {
+  font-size: clamp(4rem, 20vw, 7.5rem);
+  line-height: 0.9;
+  text-shadow:
+    0 4px 0 #000,
+    0 0 32px rgba(255, 208, 90, 0.65);
+}
+
+.player-mode .turn-banner span {
+  max-width: 420px;
+  color: #fff2bd;
+  font-size: clamp(1.1rem, 5vw, 1.55rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #000;
+}
+
+.player-mode .turn-banner .player-complete {
+  min-width: 0;
+  width: min(280px, 82vw);
+  min-height: 52px;
+  font-size: 0.95rem;
+}
+
+.player-mode .command-dial {
+  width: min(82vw, 380px);
+  opacity: 0.42;
+}
+
+.player-mode .command-dial-ring span {
+  font-size: clamp(3.2rem, 18vw, 5.5rem);
 }
 
 @media (max-width: 760px) {
