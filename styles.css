@@ -998,14 +998,17 @@ h2 {
 }
 
 .player-mode.own-turn-active #initiativePanel {
-  position: fixed;
-  inset: 64px 10px auto 10px;
-  z-index: 101;
-  max-height: 34vh;
+  position: relative;
+  z-index: 120;
+  width: min(330px, calc(100% - 24px));
+  max-height: 28vh;
+  margin: 62vh auto 12px;
   overflow: auto;
-  opacity: 0.32;
-  filter: saturate(0.7) brightness(0.75);
-  pointer-events: none;
+  opacity: 0.78;
+  filter: saturate(0.85) brightness(0.85);
+  pointer-events: auto;
+  padding: 8px;
+  background: rgba(8, 15, 23, 0.72);
 }
 
 .player-mode.own-turn-active #initiativePanel .section-head {
@@ -1013,13 +1016,39 @@ h2 {
 }
 
 .player-mode.own-turn-active #initiativePanel .unit-card {
+  padding: 7px;
   background: rgba(18, 23, 34, 0.72);
 }
 
 .player-mode.own-turn-active .turn-banner {
   z-index: 110;
-  padding-top: 36vh;
+  padding: 18vh 22px 38vh;
   align-content: start;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-owner {
+  display: none;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-name {
+  font-size: 0.82rem;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-readout {
+  min-width: 54px;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-readout strong {
+  font-size: 0.86rem;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-readout span {
+  font-size: 0.52rem;
+}
+
+.player-mode.own-turn-active #initiativePanel .meter {
+  height: 12px;
+  margin-top: 5px;
 }
 
 .player-mode .turn-banner strong {

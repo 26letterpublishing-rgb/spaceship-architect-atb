@@ -204,7 +204,7 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 }
 
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
-  const multiplier = slow ? 0.1 : 1;
+  const multiplier = slow ? 0.2 : 1;
   for (const unit of room.units) {
     if (unit.id === skipId || !unit.speed) continue;
     if (unit.atb < room.threshold) unit.atb += unit.speed * seconds * multiplier;
@@ -235,7 +235,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
   const times = room.units
     .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
-    .map((unit) => Math.max(0, (room.threshold - unit.atb) / (unit.speed * (interruptedId ? 0.1 : 1))));
+    .map((unit) => Math.max(0, (room.threshold - unit.atb) / (unit.speed * (interruptedId ? 0.2 : 1))));
   if (!times.length) return;
 
   const nextReadyIn = Math.min(...times);

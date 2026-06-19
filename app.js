@@ -236,7 +236,7 @@ async function verifySavedRoomStillExists() {
   }
 }
 
-function unitCard(unit, { gm = false } = {}) {
+function unitCard(unit, { gm = false, player = false } = {}) {
   const ready = unit.atb >= state.threshold;
   const atbPercent = Math.min(100, unit.atb);
   const close = atbPercent >= 80 && !ready;
@@ -254,11 +254,11 @@ function unitCard(unit, { gm = false } = {}) {
       <div class="unit-top">
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
-          <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type} - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}</div>
+          <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
         </div>
         <div class="unit-readout">
           <strong>${Math.floor(atbPercent)}%</strong>
-          <span>${escapeHtml(estimateTurn(unit))}</span>
+          <span>${player ? (ready ? "Ready" : "Charging") : escapeHtml(estimateTurn(unit))}</span>
         </div>
         ${
           gm
@@ -312,7 +312,7 @@ function renderUnitList(sorted) {
     ]),
   );
 
-  unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm: mode === "gm" })).join("");
+  unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("");
 
   const cards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   for (const card of cards) {
