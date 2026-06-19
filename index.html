@@ -37,12 +37,23 @@
           <input id="characterName" placeholder="Vita" />
         </label>
         <label>
-          Speed
-          <input id="speedRating" type="number" min="1" max="20" step="1" value="5" />
+          Speed % / Sec
+          <input id="speedRating" type="number" min="1" max="100" step="0.5" value="5" />
+        </label>
+        <label>
+          ATB Color
+          <input id="playerColor" type="color" value="#39e58f" />
         </label>
         <div class="join-actions">
           <button id="joinPlayer" class="primary">Join as Player</button>
           <button id="openGm">Open GM View</button>
+        </div>
+        <div id="rejoinBlock" class="rejoin-block hidden">
+          <label>
+            Reclaim Character
+            <select id="rejoinSelect"></select>
+          </label>
+          <button id="rejoinPlayer">Rejoin</button>
         </div>
       </section>
 
@@ -55,9 +66,11 @@
           <div class="clock" id="clockState">Paused</div>
         </div>
         <div class="controls">
-          <button id="toggleRun" class="primary">Start</button>
-          <button id="stepTick">Step 1 Tick</button>
+          <button id="toggleRun" class="primary">Engage Clock</button>
+          <button id="stepTick">Step 1 Sec</button>
           <button id="resetAll">Reset</button>
+          <button id="gmMuteSound">Mute Sounds</button>
+          <button id="clearEncounter" class="danger">Clear Encounter</button>
         </div>
         <div class="add-grid">
           <label>
@@ -69,8 +82,26 @@
             <input id="gmCharacterName" placeholder="Security Guard" />
           </label>
           <label>
-            Speed
-            <input id="gmSpeedRating" type="number" min="1" max="20" step="1" value="5" />
+            Speed % / Sec
+            <input id="gmSpeedRating" type="number" min="1" max="100" step="0.5" value="5" />
+          </label>
+          <label>
+            ATB Color
+            <input id="gmColor" type="color" value="#39e58f" />
+          </label>
+          <label>
+            Side
+            <select id="gmTeam">
+              <option value="npc" selected>NPC</option>
+              <option value="pc">PC</option>
+            </select>
+          </label>
+          <label>
+            Type
+            <select id="gmActorType">
+              <option value="character" selected>Character</option>
+              <option value="ship">Ship</option>
+            </select>
           </label>
           <button id="gmAddUnit">Add</button>
         </div>
@@ -86,16 +117,30 @@
         </div>
         <div id="myTurnBanner" class="turn-banner hidden">
           <strong>YOUR TURN</strong>
-          <span>Tell the GM when your action is finished.</span>
+          <span>Resolve your action, then end your turn.</span>
+          <button id="playerEndTurn" class="complete">End Turn</button>
         </div>
+        <button id="enableAlerts">Enable Sound / Vibration</button>
+        <label id="playerColorControl" class="player-color-control hidden">
+          ATB Color
+          <input id="playerColorEdit" type="color" value="#39e58f" />
+        </label>
         <div id="myUnitCard"></div>
+      </section>
+
+      <section id="activePanel" class="active-panel">
+        <div>
+          <p class="eyebrow" id="activeKicker">Clock Status</p>
+          <h2 id="activeTitle">Waiting for GM to engage clock</h2>
+        </div>
+        <div id="activeMeta" class="active-meta">No active turn</div>
       </section>
 
       <section class="panel">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Live Roster</p>
-            <h2>ATB Bars</h2>
+            <p class="eyebrow">Initiative Console</p>
+            <h2>ATB Monitor</h2>
           </div>
           <span id="readyCount" class="ready-count">0 Ready</span>
         </div>
@@ -106,7 +151,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Log</p>
-            <h2>Encounter Feed</h2>
+            <h2>Combat Log</h2>
           </div>
         </div>
         <div id="logList" class="log-list"></div>
@@ -117,7 +162,7 @@
       <p class="eyebrow">Turn Ready</p>
       <h2 id="activeName">Character</h2>
       <p id="activeOwner">Player</p>
-      <button id="completeTurn" class="complete">Turn Complete</button>
+      <button id="completeTurn" class="complete">Action Resolved</button>
     </dialog>
 
     <script src="app.js"></script>

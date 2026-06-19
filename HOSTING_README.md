@@ -6,7 +6,8 @@ This prototype can be hosted online so phones can connect from any network.
 
 - One shared room per running server.
 - Character Speed only.
-- Threshold is 10 ATB.
+- ATB fills from 0% to 100%.
+- Speed is percent filled per second. Example: Speed 5 fills 5% per second and acts in about 20 seconds.
 - No starships, recovery frames, cooldowns, login accounts, or permanent storage yet.
 - If the hosting service restarts or sleeps, the encounter resets.
 

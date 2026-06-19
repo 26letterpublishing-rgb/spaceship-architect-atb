@@ -11,9 +11,10 @@ const state = {
   roomCode: "SA-" + Math.floor(1000 + Math.random() * 9000),
   running: false,
   pausedForTurn: false,
+  resumeAfterTurn: false,
   activeId: null,
   lastTick: Date.now(),
-  threshold: 10,
+  threshold: 100,
   units: [],
   log: [],
 };
@@ -51,10 +52,34 @@ function broadcast() {
   for (const res of clients) sendEvent(res, "state", data);
 }
 
+function normalizeSpeed(value) {
+  return Math.max(1, Math.min(100, Number(value) || 1));
+}
+
+function normalizeTeam(value) {
+  return value === "pc" ? "pc" : "npc";
+}
+
+function normalizeActorType(value) {
+  return value === "ship" ? "ship" : "character";
+}
+
+function normalizeColor(value) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#39e58f";
+}
+
+function tieCompare(a, b) {
+  if (a.actorType !== b.actorType) return a.actorType === "character" ? -1 : 1;
+  if (a.actorType === "character" && a.team !== b.team) return a.team === "pc" ? -1 : 1;
+  if (a.speed !== b.speed) return b.speed - a.speed;
+  return a.tieSeed - b.tieSeed;
+}
+
 function findReadyUnit() {
   return state.units
     .filter((unit) => unit.atb >= state.threshold)
-    .sort((a, b) => b.atb - a.atb || b.speed - a.speed || a.characterName.localeCompare(b.characterName))[0];
+    .sort((a, b) => tieCompare(a, b))[0];
 }
 
 function pauseForReadyUnit(unit) {
@@ -62,23 +87,44 @@ function pauseForReadyUnit(unit) {
   state.pausedForTurn = true;
   state.running = false;
   state.activeId = unit.id;
-  unit.atb = state.threshold;
   pushLog(`${unit.characterName} is ready.`);
 }
 
-function advanceTicks(ticks = 1) {
+function addProgress(seconds) {
+  for (const unit of state.units) {
+    if (unit.atb < state.threshold) {
+      unit.atb = unit.atb + unit.speed * seconds;
+    }
+  }
+}
+
+function advanceSeconds(seconds = 1, { exact = false } = {}) {
   if (state.pausedForTurn) return;
-  for (let i = 0; i < ticks; i += 1) {
-    for (const unit of state.units) {
-      if (unit.atb < state.threshold) {
-        unit.atb = Math.min(state.threshold, unit.atb + unit.speed);
-      }
-    }
+
+  if (!exact) {
+    addProgress(seconds);
     const ready = findReadyUnit();
-    if (ready) {
-      pauseForReadyUnit(ready);
-      break;
-    }
+    if (ready) pauseForReadyUnit(ready);
+    return;
+  }
+
+  const alreadyReady = findReadyUnit();
+  if (alreadyReady) {
+    pauseForReadyUnit(alreadyReady);
+    return;
+  }
+
+  const times = state.units
+    .filter((unit) => unit.speed > 0)
+    .map((unit) => Math.max(0, (state.threshold - unit.atb) / unit.speed));
+  if (!times.length) return;
+
+  const nextReadyIn = Math.min(...times);
+  if (nextReadyIn <= seconds) {
+    addProgress(nextReadyIn);
+    pauseForReadyUnit(findReadyUnit());
+  } else {
+    addProgress(seconds);
   }
 }
 
@@ -86,12 +132,11 @@ setInterval(() => {
   if (!state.running || state.pausedForTurn) return;
   const now = Date.now();
   const elapsed = now - state.lastTick;
-  if (elapsed < 1000) return;
-  const ticks = Math.floor(elapsed / 1000);
-  state.lastTick += ticks * 1000;
-  advanceTicks(ticks);
+  if (elapsed < 80) return;
+  state.lastTick = now;
+  advanceSeconds(elapsed / 1000, { exact: true });
   broadcast();
-}, 200);
+}, 100);
 
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -155,7 +200,7 @@ async function handleAction(req, res) {
   if (action === "join" || action === "addUnit") {
     const playerName = String(body.playerName || "Player").trim().slice(0, 40);
     const characterName = String(body.characterName || "Character").trim().slice(0, 40);
-    const speed = Math.max(1, Math.min(20, Math.floor(Number(body.speed) || 1)));
+    const speed = normalizeSpeed(body.speed);
     const unit = {
       id: id(),
       playerName,
@@ -163,6 +208,10 @@ async function handleAction(req, res) {
       speed,
       atb: 0,
       controlledBy: body.controlledBy || "player",
+      team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
+      actorType: normalizeActorType(body.actorType),
+      color: normalizeColor(body.color),
+      tieSeed: Math.random(),
     };
     state.units.push(unit);
     pushLog(`${characterName} joined at Speed ${speed}.`);
@@ -180,34 +229,86 @@ async function handleAction(req, res) {
 
   if (action === "setRunning") {
     state.running = Boolean(body.running) && !state.pausedForTurn;
+    state.resumeAfterTurn = state.running;
     state.lastTick = Date.now();
     pushLog(state.running ? "Clock started." : "Clock paused.");
   }
 
+  if (action === "setSpeed") {
+    const unit = state.units.find((entry) => entry.id === body.id);
+    if (unit) {
+      const oldSpeed = unit.speed;
+      unit.speed = normalizeSpeed(body.speed);
+      pushLog(`${unit.characterName}'s Speed changed from ${oldSpeed} to ${unit.speed}.`);
+    }
+  }
+
+  if (action === "setName") {
+    const unit = state.units.find((entry) => entry.id === body.id);
+    if (unit) {
+      const oldName = unit.characterName;
+      unit.characterName = String(body.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
+      pushLog(`${oldName} renamed to ${unit.characterName}.`);
+    }
+  }
+
+  if (action === "setColor") {
+    const unit = state.units.find((entry) => entry.id === body.id);
+    if (unit) {
+      unit.color = normalizeColor(body.color);
+      pushLog(`${unit.characterName}'s ATB color changed.`);
+    }
+  }
+
   if (action === "step") {
-    advanceTicks(1);
-    pushLog("GM advanced one tick.");
+    state.resumeAfterTurn = false;
+    advanceSeconds(1);
+    pushLog("GM advanced one second.");
   }
 
   if (action === "reset") {
     for (const unit of state.units) unit.atb = 0;
     state.running = false;
     state.pausedForTurn = false;
+    state.resumeAfterTurn = false;
     state.activeId = null;
     state.lastTick = Date.now();
     pushLog("Encounter reset.");
   }
 
+  if (action === "clearEncounter") {
+    state.units = [];
+    state.running = false;
+    state.pausedForTurn = false;
+    state.resumeAfterTurn = false;
+    state.activeId = null;
+    state.lastTick = Date.now();
+    pushLog("Encounter cleared.");
+  }
+
   if (action === "completeTurn") {
+    if (body.id && body.id !== state.activeId) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(publicState()));
+      return;
+    }
     const unit = state.units.find((entry) => entry.id === state.activeId);
     if (unit) {
-      unit.atb = 0;
+      unit.atb = Math.max(0, unit.atb - state.threshold);
       pushLog(`${unit.characterName}'s turn completed.`);
     }
     state.pausedForTurn = false;
     state.activeId = null;
     const ready = findReadyUnit();
-    if (ready) pauseForReadyUnit(ready);
+    if (ready) {
+      pauseForReadyUnit(ready);
+    } else if (state.resumeAfterTurn) {
+      state.running = true;
+      state.lastTick = Date.now();
+    } else {
+      state.running = false;
+      state.lastTick = Date.now();
+    }
   }
 
   if (action === "nudge") {
