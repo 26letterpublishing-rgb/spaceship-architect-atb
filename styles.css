@@ -997,7 +997,34 @@ h2 {
   text-align: center;
 }
 
+.player-mode.own-turn-active #initiativePanel {
+  position: fixed;
+  inset: 64px 10px auto 10px;
+  z-index: 101;
+  max-height: 34vh;
+  overflow: auto;
+  opacity: 0.32;
+  filter: saturate(0.7) brightness(0.75);
+  pointer-events: none;
+}
+
+.player-mode.own-turn-active #initiativePanel .section-head {
+  display: none;
+}
+
+.player-mode.own-turn-active #initiativePanel .unit-card {
+  background: rgba(18, 23, 34, 0.72);
+}
+
+.player-mode.own-turn-active .turn-banner {
+  z-index: 110;
+  padding-top: 36vh;
+  align-content: start;
+}
+
 .player-mode .turn-banner strong {
+  position: relative;
+  z-index: 4;
   font-size: clamp(4rem, 20vw, 7.5rem);
   line-height: 0.9;
   text-shadow:
@@ -1006,6 +1033,8 @@ h2 {
 }
 
 .player-mode .turn-banner span {
+  position: relative;
+  z-index: 4;
   max-width: 420px;
   color: #fff2bd;
   font-size: clamp(1.1rem, 5vw, 1.55rem);
@@ -1015,6 +1044,8 @@ h2 {
 }
 
 .player-mode .turn-banner .player-complete {
+  position: relative;
+  z-index: 5;
   min-width: 0;
   width: min(280px, 82vw);
   min-height: 52px;
@@ -1023,7 +1054,8 @@ h2 {
 
 .player-mode .command-dial {
   width: min(82vw, 380px);
-  opacity: 0.42;
+  opacity: 0.28;
+  z-index: 1;
 }
 
 .player-mode .command-dial-ring span {
