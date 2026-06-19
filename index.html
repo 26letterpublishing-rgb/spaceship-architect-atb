@@ -8,7 +8,21 @@
   </head>
   <body>
     <main class="shell">
-      <section class="topbar">
+      <section id="welcomePanel" class="welcome-panel">
+        <div class="logo-frame">
+          <img src="sa-thumbnail.jpg" alt="Spaceship Architect" />
+        </div>
+        <div class="welcome-actions">
+          <p class="eyebrow">ATB Sync Console</p>
+          <h1>Spaceship Architect</h1>
+          <div class="mode-buttons">
+            <button id="createRoom" class="primary">Create Room as GM</button>
+            <button id="showJoinRoom">Join Room as Player</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="topbar" class="topbar">
         <div>
           <p class="eyebrow">Spaceship Architect</p>
           <h1>ATB Sync</h1>
@@ -21,6 +35,19 @@
 
       <section id="connectionStatus" class="connection-status">
         Connecting to the ATB room server...
+      </section>
+
+      <section id="roomJoinPanel" class="panel room-join-panel hidden">
+        <div>
+          <h2>Join Room</h2>
+          <p>Enter the room code from the GM screen.</p>
+        </div>
+        <label>
+          Room Code
+          <input id="joinRoomCode" maxlength="4" placeholder="A7K4" />
+        </label>
+        <button id="confirmJoinRoom" class="primary">Continue</button>
+        <button id="backToWelcome">Back</button>
       </section>
 
       <section id="joinPanel" class="panel join-panel">
@@ -46,7 +73,7 @@
         </label>
         <div class="join-actions">
           <button id="joinPlayer" class="primary">Join as Player</button>
-          <button id="openGm">Open GM View</button>
+          <button id="openGm">Back</button>
         </div>
         <div id="rejoinBlock" class="rejoin-block hidden">
           <label>
@@ -136,7 +163,7 @@
         <div id="activeMeta" class="active-meta">No active turn</div>
       </section>
 
-      <section class="panel">
+      <section id="initiativePanel" class="panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Initiative Console</p>
@@ -147,7 +174,7 @@
         <div id="unitList" class="unit-list"></div>
       </section>
 
-      <section class="panel log-panel">
+      <section id="logPanel" class="panel log-panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Log</p>

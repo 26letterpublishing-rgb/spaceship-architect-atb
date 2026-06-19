@@ -1,5 +1,6 @@
 let state = null;
-let mode = localStorage.getItem("sa-atb-mode") || "join";
+let mode = localStorage.getItem("sa-atb-mode") || "welcome";
+let currentRoomCode = localStorage.getItem("sa-atb-room-code") || "";
 let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
@@ -8,6 +9,14 @@ let audioContext = null;
 
 const roomCode = document.querySelector("#roomCode");
 const connectionStatus = document.querySelector("#connectionStatus");
+const welcomePanel = document.querySelector("#welcomePanel");
+const createRoom = document.querySelector("#createRoom");
+const showJoinRoom = document.querySelector("#showJoinRoom");
+const roomJoinPanel = document.querySelector("#roomJoinPanel");
+const joinRoomCode = document.querySelector("#joinRoomCode");
+const confirmJoinRoom = document.querySelector("#confirmJoinRoom");
+const backToWelcome = document.querySelector("#backToWelcome");
+const topbar = document.querySelector("#topbar");
 const joinPanel = document.querySelector("#joinPanel");
 const gmPanel = document.querySelector("#gmPanel");
 const playerPanel = document.querySelector("#playerPanel");
@@ -33,6 +42,8 @@ const gmColor = document.querySelector("#gmColor");
 const gmTeam = document.querySelector("#gmTeam");
 const gmActorType = document.querySelector("#gmActorType");
 const unitList = document.querySelector("#unitList");
+const initiativePanel = document.querySelector("#initiativePanel");
+const logPanel = document.querySelector("#logPanel");
 const readyCount = document.querySelector("#readyCount");
 const clockState = document.querySelector("#clockState");
 const playerClock = document.querySelector("#playerClock");
@@ -52,6 +63,7 @@ const turnDialog = document.querySelector("#turnDialog");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
+let events = null;
 
 function pct(unit) {
   if (!state) return 0;
@@ -86,20 +98,24 @@ function barStyle(unit) {
   return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};`;
 }
 
-function setConnected(isConnected) {
+function setConnected(isConnected, message) {
   connectionStatus.classList.toggle("connected", isConnected);
   connectionStatus.classList.toggle("disconnected", !isConnected);
   connectionStatus.textContent = isConnected
     ? "Connected."
-    : "Cannot reach the ATB room server. Start the server launcher, then refresh this page.";
+    : message || "Cannot reach the ATB room server. Start the server launcher, then refresh this page.";
 }
 
 async function action(payload, soundName = "tap") {
   const response = await fetch("/api/action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
   });
+  if (!response.ok) {
+    setConnected(false, "Room not found. Return to the welcome screen and rejoin.");
+    return state;
+  }
   state = await response.json();
   if (mode === "gm") playGmSound(soundName);
   render();
@@ -110,6 +126,27 @@ function setMode(next) {
   mode = next;
   localStorage.setItem("sa-atb-mode", mode);
   render();
+}
+
+function setRoom(nextState) {
+  state = nextState;
+  currentRoomCode = state.roomCode;
+  localStorage.setItem("sa-atb-room-code", currentRoomCode);
+  connectEvents();
+}
+
+function connectEvents() {
+  if (events) events.close();
+  if (!currentRoomCode) return;
+  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}`);
+  events.addEventListener("state", (event) => {
+    setConnected(true);
+    state = JSON.parse(event.data);
+    render();
+  });
+  events.addEventListener("error", () => {
+    setConnected(false, "Cannot reach this ATB room. It may have expired or the server may be waking up.");
+  });
 }
 
 function unitCard(unit, { gm = false } = {}) {
@@ -338,12 +375,27 @@ function playTurnDing() {
 }
 
 function render() {
-  if (!state) return;
-
-  roomCode.textContent = state.roomCode;
+  welcomePanel.classList.toggle("hidden", mode !== "welcome");
+  roomJoinPanel.classList.toggle("hidden", mode !== "roomJoin");
   joinPanel.classList.toggle("hidden", mode !== "join");
   gmPanel.classList.toggle("hidden", mode !== "gm");
   playerPanel.classList.toggle("hidden", mode !== "player");
+  topbar.classList.toggle("hidden", mode === "welcome");
+  connectionStatus.classList.toggle("hidden", mode === "welcome");
+  initiativePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
+  logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || mode === "player");
+  document.body.classList.toggle("welcome-mode", mode === "welcome");
+
+  if (!state) {
+    roomCode.textContent = currentRoomCode || "----";
+    activePanel.classList.add("hidden");
+    unitList.innerHTML = "";
+    logList.innerHTML = "";
+    return;
+  }
+
+  roomCode.textContent = state.roomCode;
+  activePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
 
   const ready = state.units.filter((unit) => unit.atb >= state.threshold);
   readyCount.textContent = `${ready.length} Ready`;
@@ -402,7 +454,35 @@ joinPlayer.addEventListener("click", async () => {
   setMode("player");
 });
 
-openGm.addEventListener("click", () => setMode("gm"));
+createRoom.addEventListener("click", async () => {
+  const response = await fetch("/api/create-room", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  setRoom(await response.json());
+  myUnitId = "";
+  localStorage.removeItem("sa-atb-unit-id");
+  setMode("gm");
+});
+
+showJoinRoom.addEventListener("click", () => setMode("roomJoin"));
+backToWelcome.addEventListener("click", () => setMode("welcome"));
+joinRoomCode.addEventListener("input", () => {
+  joinRoomCode.value = joinRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+});
+confirmJoinRoom.addEventListener("click", async () => {
+  const code = joinRoomCode.value.trim().toUpperCase();
+  if (!code) return;
+  const response = await fetch(`/api/state?room=${encodeURIComponent(code)}`);
+  if (!response.ok) {
+    setConnected(false, "Room not found. Check the four-character room code.");
+    return;
+  }
+  setRoom(await response.json());
+  setMode("join");
+});
+openGm.addEventListener("click", () => setMode("welcome"));
 rejoinPlayer.addEventListener("click", () => {
   myUnitId = rejoinSelect.value;
   localStorage.setItem("sa-atb-unit-id", myUnitId);
@@ -465,12 +545,20 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });
 
-const events = new EventSource("/events");
-events.addEventListener("state", (event) => {
-  setConnected(true);
-  state = JSON.parse(event.data);
+if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
+  fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
+    .then((response) => (response.ok ? response.json() : null))
+    .then((nextState) => {
+      if (!nextState) {
+        mode = "welcome";
+        localStorage.setItem("sa-atb-mode", mode);
+        render();
+        return;
+      }
+      setRoom(nextState);
+      render();
+    })
+    .catch(() => render());
+} else {
   render();
-});
-events.addEventListener("error", () => {
-  setConnected(false);
-});
+}
