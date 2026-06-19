@@ -7,11 +7,30 @@ let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let audioContext = null;
+let events = null;
 
-if (!/^[A-Z0-9]{4}$/.test(currentRoomCode)) {
+function forgetSavedRoom() {
   currentRoomCode = "";
+  myUnitId = "";
+  state = null;
+  if (events) {
+    events.close();
+    events = null;
+  }
   localStorage.removeItem("sa-atb-room-code");
   localStorage.removeItem("sa-atb-unit-id");
+}
+
+function returnToWelcome(message = "") {
+  forgetSavedRoom();
+  mode = "welcome";
+  localStorage.setItem("sa-atb-mode", mode);
+  render();
+  if (message) setConnected(false, message);
+}
+
+if (!/^[A-Z0-9]{4}$/.test(currentRoomCode)) {
+  forgetSavedRoom();
 }
 
 if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
@@ -80,7 +99,7 @@ const turnDialog = document.querySelector("#turnDialog");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
-let events = null;
+const gmPanicPause = document.querySelector("#gmPanicPause");
 
 function pct(unit) {
   if (!state) return 0;
@@ -154,7 +173,11 @@ async function action(payload, soundName = "tap") {
     return state;
   }
   if (!response.ok) {
-    setConnected(false, "Room not found. Return to the welcome screen and rejoin.");
+    if (response.status === 404) {
+      returnToWelcome("That room expired. Create or join a new room.");
+    } else {
+      setConnected(false, "The ATB room server rejected that action. Try again.");
+    }
     return state;
   }
   try {
@@ -192,7 +215,25 @@ function connectEvents() {
   });
   events.addEventListener("error", () => {
     setConnected(false, "Cannot reach this ATB room. It may have expired or the server may be waking up.");
+    verifySavedRoomStillExists();
   });
+}
+
+async function verifySavedRoomStillExists() {
+  if (!currentRoomCode || mode === "welcome" || mode === "roomJoin") return;
+  try {
+    const response = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`);
+    if (response.status === 404) {
+      returnToWelcome("That room expired. Create or join a new room.");
+      return;
+    }
+    if (response.ok && !events) {
+      setRoom(await response.json());
+      render();
+    }
+  } catch {
+    // Keep the current screen during brief network wake-ups; the visible warning is enough.
+  }
 }
 
 function unitCard(unit, { gm = false } = {}) {
@@ -396,7 +437,7 @@ function notifyTurnIfNeeded() {
   if (mode === "gm") {
     activeName.textContent = active.characterName;
     activeOwner.textContent = active.playerName;
-    if (!turnDialog.open) turnDialog.showModal();
+    if (!turnDialog.open) turnDialog.show();
   }
 
   if (mode === "player" && active.id === myUnitId && alertsEnabled && lastNotifiedActiveId !== active.id) {
@@ -526,6 +567,7 @@ function render() {
     activePanel.classList.add("hidden");
     unitList.innerHTML = "";
     logList.innerHTML = "";
+    gmPanicPause.classList.add("hidden");
     return;
   }
 
@@ -539,6 +581,10 @@ function render() {
   playerClock.textContent = statusText();
   toggleRun.textContent = state.running ? "Pause Clock" : "Engage Clock";
   if (state.pausedForTurn && state.command && !state.command.expired) toggleRun.textContent = state.holdPaused ? "Resume Timers" : "Pause All";
+  const canResumeEverything = state.holdPaused || (!state.running && Boolean(state.activeId) && !state.pausedForTurn);
+  gmPanicPause.classList.toggle("hidden", mode !== "gm");
+  gmPanicPause.classList.toggle("paused", canResumeEverything);
+  gmPanicPause.textContent = canResumeEverything ? "Resume Everything" : "Pause Everything";
   enableAlerts.textContent = alertsEnabled ? "Sound / Vibration Enabled" : "Enable Sound / Vibration";
   gmMuteSound.textContent = gmSoundsMuted ? "Unmute Sounds" : "Mute Sounds";
   renderActivePanel();
@@ -621,6 +667,7 @@ joinPlayer.addEventListener("click", async () => {
     team: "pc",
     actorType: "character",
   });
+  if (!next) return;
   const unit = next.units[next.units.length - 1];
   myUnitId = unit.id;
   localStorage.setItem("sa-atb-unit-id", myUnitId);
@@ -680,6 +727,11 @@ rejoinPlayer.addEventListener("click", () => {
 });
 
 toggleRun.addEventListener("click", () => action({ action: "setRunning", running: !state.running }, state.running ? "tap" : "start"));
+gmPanicPause.addEventListener("click", () => {
+  if (!state) return;
+  const wantsRunning = Boolean(state.holdPaused || (!state.running && state.activeId));
+  action({ action: "setRunning", running: wantsRunning }, state.holdPaused ? "start" : "tap");
+});
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
 gmMuteSound.addEventListener("click", () => {
@@ -743,18 +795,23 @@ unitList.addEventListener("change", (event) => {
 
 if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
   fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
-    .then((response) => (response.ok ? response.json() : null))
+    .then((response) => {
+      if (response.status === 404) return { expired: true };
+      return response.ok ? response.json() : null;
+    })
     .then((nextState) => {
+      if (nextState?.expired) {
+        returnToWelcome("That room expired. Create or join a new room.");
+        return;
+      }
       if (!nextState) {
-        mode = "welcome";
-        localStorage.setItem("sa-atb-mode", mode);
-        render();
+        returnToWelcome("Could not reconnect to the old room. Create or join a new room.");
         return;
       }
       setRoom(nextState);
       render();
     })
-    .catch(() => render());
+    .catch(() => returnToWelcome("Could not reconnect to the old room. Create or join a new room."));
 } else {
   render();
 }

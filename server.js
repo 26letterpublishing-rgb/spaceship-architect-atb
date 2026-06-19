@@ -408,6 +408,10 @@ async function handleAction(req, res) {
         room.commandHeldRemaining = null;
         pushLog(room, "All timers resumed.");
       }
+    } else if (room.pausedForTurn && room.activeId) {
+      room.holdPaused = !room.holdPaused;
+      room.holdStartedAt = room.holdPaused ? Date.now() : null;
+      pushLog(room, room.holdPaused ? "All timers paused." : "All timers resumed.");
     } else if (wantsRunning && !room.pausedForTurn) {
       if (!canStartClock(room)) {
         pushLog(room, "Clock cannot start until every participant has GM-entered values.");
