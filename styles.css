@@ -964,6 +964,14 @@ h2 {
   letter-spacing: 0.08em;
 }
 
+.leave-room {
+  min-height: 34px;
+  padding: 0 10px;
+  border-color: rgba(255, 79, 105, 0.48);
+  color: #ffd8df;
+  font-size: 0.74rem;
+}
+
 .player-mode .active-panel {
   position: fixed;
   top: 8px;

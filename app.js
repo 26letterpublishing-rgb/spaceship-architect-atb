@@ -98,6 +98,7 @@ const playerCommandDial = document.querySelector("#playerCommandDial");
 const playerCommandTime = document.querySelector("#playerCommandTime");
 const playerCommandStatus = document.querySelector("#playerCommandStatus");
 const enableAlerts = document.querySelector("#enableAlerts");
+const leaveRoom = document.querySelector("#leaveRoom");
 const playerColorControl = document.querySelector("#playerColorControl");
 const playerColorEdit = document.querySelector("#playerColorEdit");
 const myUnitCard = document.querySelector("#myUnitCard");
@@ -806,6 +807,9 @@ playerEndTurn.addEventListener("click", () => {
 enableAlerts.addEventListener("click", () => {
   enablePlayerAlerts({ testSound: true });
   render();
+});
+leaveRoom.addEventListener("click", () => {
+  returnToWelcome("Left the room. Create or join a room when ready.");
 });
 playerColorEdit.addEventListener("change", () => {
   if (myUnitId) action({ action: "setColor", id: myUnitId, color: playerColorEdit.value });
