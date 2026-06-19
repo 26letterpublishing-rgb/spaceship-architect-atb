@@ -5,6 +5,7 @@ let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let lastNotifiedActiveId = "";
+let lastCommandWarningKey = "";
 let audioContext = null;
 
 const roomCode = document.querySelector("#roomCode");
@@ -22,7 +23,6 @@ const gmPanel = document.querySelector("#gmPanel");
 const playerPanel = document.querySelector("#playerPanel");
 const playerName = document.querySelector("#playerName");
 const characterName = document.querySelector("#characterName");
-const speedRating = document.querySelector("#speedRating");
 const playerColor = document.querySelector("#playerColor");
 const joinPlayer = document.querySelector("#joinPlayer");
 const openGm = document.querySelector("#openGm");
@@ -38,6 +38,8 @@ const gmAddUnit = document.querySelector("#gmAddUnit");
 const gmPlayerName = document.querySelector("#gmPlayerName");
 const gmCharacterName = document.querySelector("#gmCharacterName");
 const gmSpeedRating = document.querySelector("#gmSpeedRating");
+const gmCommandWindow = document.querySelector("#gmCommandWindow");
+const gmCommandWindowWrap = document.querySelector("#gmCommandWindowWrap");
 const gmColor = document.querySelector("#gmColor");
 const gmTeam = document.querySelector("#gmTeam");
 const gmActorType = document.querySelector("#gmActorType");
@@ -50,6 +52,9 @@ const playerClock = document.querySelector("#playerClock");
 const myCharacter = document.querySelector("#myCharacter");
 const myTurnBanner = document.querySelector("#myTurnBanner");
 const playerEndTurn = document.querySelector("#playerEndTurn");
+const playerCommandDial = document.querySelector("#playerCommandDial");
+const playerCommandTime = document.querySelector("#playerCommandTime");
+const playerCommandStatus = document.querySelector("#playerCommandStatus");
 const enableAlerts = document.querySelector("#enableAlerts");
 const playerColorControl = document.querySelector("#playerColorControl");
 const playerColorEdit = document.querySelector("#playerColorEdit");
@@ -71,15 +76,33 @@ function pct(unit) {
 }
 
 function formatSpeed(value) {
+  if (!value) return "Unset";
   return Number.isInteger(value) ? String(value) : Number(value).toFixed(1);
 }
 
 function estimateTurn(unit) {
+  if (!unit.speed) return "Awaiting GM values";
   if (!state || unit.atb >= state.threshold) return "Ready";
   if (!state.running || state.pausedForTurn) return "Clock paused";
   const seconds = Math.max(0, (state.threshold - unit.atb) / unit.speed);
   if (seconds < 1) return "acts in <1 sec";
   return `acts in ~${Math.ceil(seconds)} sec`;
+}
+
+function formatSeconds(seconds) {
+  const total = Math.max(0, Math.ceil(Number(seconds) || 0));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function commandFor(unit) {
+  return state?.command?.unitId === unit?.id ? state.command : null;
+}
+
+function commandPercent(command) {
+  if (!command || !command.total) return 0;
+  return Math.max(0, Math.min(100, (command.remaining / command.total) * 100));
 }
 
 function hexToRgb(hex) {
@@ -107,16 +130,27 @@ function setConnected(isConnected, message) {
 }
 
 async function action(payload, soundName = "tap") {
-  const response = await fetch("/api/action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
-  });
+  let response;
+  try {
+    response = await fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
+    });
+  } catch {
+    setConnected(false, "Cannot reach the ATB room server. Check the connection, then try again.");
+    return state;
+  }
   if (!response.ok) {
     setConnected(false, "Room not found. Return to the welcome screen and rejoin.");
     return state;
   }
-  state = await response.json();
+  try {
+    state = await response.json();
+  } catch {
+    setConnected(false, "The ATB room server sent an unreadable response. Try again.");
+    return state;
+  }
   if (mode === "gm") playGmSound(soundName);
   render();
   return state;
@@ -154,6 +188,12 @@ function unitCard(unit, { gm = false } = {}) {
   const atbPercent = Math.min(100, unit.atb);
   const close = atbPercent >= 80 && !ready;
   const speed = formatSpeed(unit.speed);
+  const command = commandFor(unit);
+  const speedInputValue = unit.speed ? formatSpeed(unit.speed) : "";
+  const commandLabel = unit.team === "pc" && unit.actorType === "character"
+    ? `${unit.commandWindow || "Unset"} sec Command`
+    : "No Command Window";
+  const setupMissing = !unit.speed || (unit.team === "pc" && unit.actorType === "character" && !unit.commandWindow);
   const side = unit.team === "pc" ? "PC" : "NPC";
   const type = unit.actorType === "ship" ? "Ship" : "Character";
   return `
@@ -161,7 +201,7 @@ function unitCard(unit, { gm = false } = {}) {
       <div class="unit-top">
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
-          <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type} - Speed ${speed}%/sec</div>
+          <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type} - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}</div>
         </div>
         <div class="unit-readout">
           <strong>${Math.floor(atbPercent)}%</strong>
@@ -176,8 +216,16 @@ function unitCard(unit, { gm = false } = {}) {
                 </label>
                 <label class="speed-edit">
                   Speed
-                  <input data-action="speed" data-id="${unit.id}" type="number" min="1" max="100" step="0.5" value="${speed}" />
+                  <input data-action="speed" data-id="${unit.id}" type="number" min="1" max="100" step="0.5" value="${speedInputValue}" />
                 </label>
+                ${
+                  unit.team === "pc" && unit.actorType === "character"
+                    ? `<label class="command-edit">
+                        Command
+                        <input data-action="commandWindow" data-id="${unit.id}" type="number" min="1" max="999" step="1" value="${unit.commandWindow || ""}" />
+                      </label>`
+                    : ""
+                }
                 <label class="color-edit">
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
@@ -188,6 +236,16 @@ function unitCard(unit, { gm = false } = {}) {
             : ""
         }
       </div>
+      ${
+        command
+          ? `<div class="command-bar ${command.expired ? "expired" : ""}">
+              <div class="command-bar-fill" style="width:${command.expired ? 0 : commandPercent(command)}%"></div>
+              <span>${command.expired ? "Interruption pending" : `${formatSeconds(command.remaining)} Command Window`}</span>
+            </div>`
+          : setupMissing && gm
+            ? `<div class="setup-warning">Awaiting GM-entered Speed${unit.team === "pc" && unit.actorType === "character" ? " and Command Window" : ""}.</div>`
+            : ""
+      }
       <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
     </article>
   `;
@@ -269,7 +327,10 @@ function renderActivePanel() {
     const type = active.actorType === "ship" ? "Ship" : "Character";
     activeKicker.textContent = "Active Turn";
     activeTitle.textContent = active.characterName;
-    activeMeta.textContent = `${active.playerName} - ${side} ${type} - Speed ${formatSpeed(active.speed)}%/sec`;
+    const command = commandFor(active);
+    activeMeta.textContent = command
+      ? `${active.playerName} - ${side} ${type} - ${command.expired ? "interruption pending" : `${formatSeconds(command.remaining)} Command Window`}`
+      : `${active.playerName} - ${side} ${type} - Speed ${formatSpeed(active.speed)}%/sec`;
     return;
   }
 
@@ -302,6 +363,7 @@ function notifyTurnIfNeeded() {
   if (!active) {
     if (turnDialog.open) turnDialog.close();
     lastNotifiedActiveId = "";
+    lastCommandWarningKey = "";
     return;
   }
 
@@ -316,6 +378,22 @@ function notifyTurnIfNeeded() {
     if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
     playTurnDing();
   }
+
+  notifyCommandWindowIfNeeded(active);
+}
+
+function notifyCommandWindowIfNeeded(active) {
+  if (mode !== "player" || active.id !== myUnitId || !alertsEnabled) return;
+  const command = commandFor(active);
+  if (!command || command.expired) return;
+  const remaining = Math.ceil(command.remaining);
+  const warningSecond = remaining <= 10 && remaining > 5 ? 10 : remaining <= 5 && remaining >= 1 ? remaining : null;
+  if (!warningSecond) return;
+  const key = `${active.id}:${warningSecond}`;
+  if (lastCommandWarningKey === key) return;
+  lastCommandWarningKey = key;
+  if (navigator.vibrate) navigator.vibrate(warningSecond <= 5 ? [120, 60, 120, 60, 120] : [220, 100, 220]);
+  playWarningDing(warningSecond <= 5);
 }
 
 function ensureAudio() {
@@ -374,6 +452,20 @@ function playTurnDing() {
   }
 }
 
+function playWarningDing(urgent = false) {
+  try {
+    if (urgent) {
+      tone(620, 0, 0.08, 0.12, "square");
+      tone(620, 0.16, 0.08, 0.12, "square");
+      return;
+    }
+    tone(520, 0, 0.12, 0.1, "triangle");
+    tone(780, 0.1, 0.14, 0.1, "triangle");
+  } catch {
+    // Visual warning remains visible if audio is blocked.
+  }
+}
+
 function render() {
   welcomePanel.classList.toggle("hidden", mode !== "welcome");
   roomJoinPanel.classList.toggle("hidden", mode !== "roomJoin");
@@ -402,6 +494,7 @@ function render() {
   clockState.textContent = statusText();
   playerClock.textContent = statusText();
   toggleRun.textContent = state.running ? "Pause Clock" : "Engage Clock";
+  if (state.pausedForTurn && state.command && !state.command.expired) toggleRun.textContent = state.holdPaused ? "Resume Timers" : "Pause All";
   enableAlerts.textContent = alertsEnabled ? "Sound / Vibration Enabled" : "Enable Sound / Vibration";
   gmMuteSound.textContent = gmSoundsMuted ? "Unmute Sounds" : "Mute Sounds";
   renderActivePanel();
@@ -410,8 +503,9 @@ function render() {
   const sorted =
     mode === "player"
       ? state.units.filter((unit) => unit.id === myUnitId)
-      : [...state.units].sort((a, b) => b.atb - a.atb || b.speed - a.speed);
+      : [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0));
   renderUnitList(sorted);
+  syncGmCommandWindowVisibility();
 
   const mine = state.units.find((unit) => unit.id === myUnitId);
   if (mine) {
@@ -420,11 +514,13 @@ function render() {
     playerColorEdit.value = mine.color || "#39e58f";
     myUnitCard.innerHTML = unitCard(mine);
     myTurnBanner.classList.toggle("hidden", state.activeId !== mine.id);
+    renderPlayerCommand(mine);
   } else if (mode === "player") {
     myCharacter.textContent = "Not Connected";
     playerColorControl.classList.add("hidden");
     myUnitCard.innerHTML = "";
     myTurnBanner.classList.add("hidden");
+    renderPlayerCommand(null);
   }
 
   logList.innerHTML = state.log
@@ -437,12 +533,41 @@ function render() {
   notifyTurnIfNeeded();
 }
 
+function renderPlayerCommand(mine) {
+  const command = commandFor(mine);
+  const isMyTurn = mine && state.activeId === mine.id;
+  playerCommandDial.classList.toggle("hidden", !isMyTurn || !command);
+  if (!isMyTurn) {
+    playerCommandStatus.textContent = "Resolve your action, then end your turn.";
+    return;
+  }
+  if (!command) {
+    playerCommandStatus.textContent = state.activeSource === "step"
+      ? "Manual step turn. No Command Window limit."
+      : "Resolve your action, then end your turn.";
+    return;
+  }
+  const percent = command.expired ? 0 : commandPercent(command);
+  playerCommandDial.style.setProperty("--command-percent", `${percent}%`);
+  playerCommandTime.textContent = formatSeconds(command.remaining);
+  playerCommandStatus.textContent = command.expired
+    ? "Your action is about to be interrupted!"
+    : command.remaining <= 10
+      ? "Time is almost up!"
+      : "Resolve your action before your Command Window closes.";
+}
+
+function syncGmCommandWindowVisibility() {
+  gmCommandWindowWrap.classList.toggle("hidden", gmTeam.value !== "pc" || gmActorType.value !== "character");
+}
+
 joinPlayer.addEventListener("click", async () => {
   const next = await action({
     action: "join",
     playerName: playerName.value || "Player",
     characterName: characterName.value || "Character",
-    speed: speedRating.value || 5,
+    speed: null,
+    commandWindow: null,
     color: playerColor.value,
     controlledBy: "player",
     team: "pc",
@@ -455,11 +580,21 @@ joinPlayer.addEventListener("click", async () => {
 });
 
 createRoom.addEventListener("click", async () => {
-  const response = await fetch("/api/create-room", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: "{}",
-  });
+  let response;
+  try {
+    response = await fetch("/api/create-room", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+  } catch {
+    setConnected(false, "Cannot reach the ATB room server. Try again in a moment.");
+    return;
+  }
+  if (!response.ok) {
+    setConnected(false, "Could not create a room. Try again in a moment.");
+    return;
+  }
   setRoom(await response.json());
   myUnitId = "";
   localStorage.removeItem("sa-atb-unit-id");
@@ -474,7 +609,13 @@ joinRoomCode.addEventListener("input", () => {
 confirmJoinRoom.addEventListener("click", async () => {
   const code = joinRoomCode.value.trim().toUpperCase();
   if (!code) return;
-  const response = await fetch(`/api/state?room=${encodeURIComponent(code)}`);
+  let response;
+  try {
+    response = await fetch(`/api/state?room=${encodeURIComponent(code)}`);
+  } catch {
+    setConnected(false, "Cannot reach the ATB room server. Check the room code or try again.");
+    return;
+  }
   if (!response.ok) {
     setConnected(false, "Room not found. Check the four-character room code.");
     return;
@@ -521,6 +662,7 @@ gmAddUnit.addEventListener("click", () => {
     playerName: gmPlayerName.value || "GM",
     characterName: gmCharacterName.value || "NPC",
     speed: gmSpeedRating.value || 5,
+    commandWindow: gmTeam.value === "pc" && gmActorType.value === "character" ? gmCommandWindow.value || 30 : null,
     color: gmColor.value,
     controlledBy: "gm",
     team: gmTeam.value,
@@ -528,6 +670,12 @@ gmAddUnit.addEventListener("click", () => {
   });
   gmCharacterName.value = "";
 });
+
+gmTeam.addEventListener("change", () => {
+  syncGmCommandWindowVisibility();
+});
+
+gmActorType.addEventListener("change", syncGmCommandWindowVisibility);
 
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
@@ -541,6 +689,7 @@ unitList.addEventListener("change", (event) => {
   const input = event.target.closest("input[data-action]");
   if (!input || mode !== "gm") return;
   if (input.dataset.action === "speed") action({ action: "setSpeed", id: input.dataset.id, speed: input.value }, "tap");
+  if (input.dataset.action === "commandWindow") action({ action: "setCommandWindow", id: input.dataset.id, commandWindow: input.value }, "tap");
   if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });

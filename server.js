@@ -30,6 +30,13 @@ function createRoom() {
     pausedForTurn: false,
     resumeAfterTurn: false,
     activeId: null,
+    activeSource: null,
+    commandDeadline: null,
+    commandTotal: 0,
+    commandExpired: false,
+    holdPaused: false,
+    holdStartedAt: null,
+    commandHeldRemaining: null,
     lastTick: Date.now(),
     threshold: 100,
     units: [],
@@ -46,11 +53,15 @@ function getRoom(code) {
 }
 
 function publicState(room) {
+  const command = commandState(room);
   return {
     roomCode: room.roomCode,
     running: room.running,
     pausedForTurn: room.pausedForTurn,
     activeId: room.activeId,
+    activeSource: room.activeSource,
+    command,
+    holdPaused: room.holdPaused,
     threshold: room.threshold,
     units: room.units,
     log: room.log.slice(-30),
@@ -73,7 +84,13 @@ function broadcast(room) {
 }
 
 function normalizeSpeed(value) {
+  if (value === null || value === undefined || value === "") return null;
   return Math.max(1, Math.min(100, Number(value) || 1));
+}
+
+function normalizeCommandWindow(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return Math.max(1, Math.min(999, Math.round(Number(value) || 1)));
 }
 
 function normalizeTeam(value) {
@@ -89,69 +106,169 @@ function normalizeColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#39e58f";
 }
 
+function needsSetup(unit) {
+  return !unit.speed || (unit.team === "pc" && unit.actorType === "character" && !unit.commandWindow);
+}
+
+function canStartClock(room) {
+  return room.units.length > 0 && !room.units.some(needsSetup);
+}
+
 function tieCompare(a, b) {
   if (a.actorType !== b.actorType) return a.actorType === "character" ? -1 : 1;
   if (a.actorType === "character" && a.team !== b.team) return a.team === "pc" ? -1 : 1;
-  if (a.speed !== b.speed) return b.speed - a.speed;
+  if ((a.speed || 0) !== (b.speed || 0)) return (b.speed || 0) - (a.speed || 0);
   return a.tieSeed - b.tieSeed;
 }
 
-function findReadyUnit(room) {
-  return room.units.filter((unit) => unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+function findReadyUnit(room, excludeId = null) {
+  return room.units.filter((unit) => unit.id !== excludeId && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
-function pauseForReadyUnit(room, unit) {
+function nextTurnSource(room, previousSource = null) {
+  if (room.resumeAfterTurn) return "clock";
+  if (previousSource === "step") return "step";
+  return "manual";
+}
+
+function commandState(room) {
+  if (!room.activeId || !room.commandTotal) return null;
+  const remaining = room.holdPaused && room.commandHeldRemaining !== null
+    ? room.commandHeldRemaining
+    : room.commandExpired || !room.commandDeadline
+    ? 0
+    : Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+  return {
+    unitId: room.activeId,
+    total: room.commandTotal,
+    remaining,
+    expired: room.commandExpired,
+  };
+}
+
+function clearActiveCommand(room) {
+  room.activeSource = null;
+  room.commandDeadline = null;
+  room.commandTotal = 0;
+  room.commandExpired = false;
+  room.holdPaused = false;
+  room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
+}
+
+function usesCommandWindow(unit, source) {
+  return source === "clock" && unit?.team === "pc" && unit?.actorType === "character" && unit?.commandWindow;
+}
+
+function pauseForReadyUnit(room, unit, source = "clock") {
   if (!unit || room.pausedForTurn) return;
   room.pausedForTurn = true;
   room.running = false;
   room.activeId = unit.id;
+  room.activeSource = source;
+  room.commandExpired = false;
+  room.holdPaused = false;
+  room.holdStartedAt = null;
+  if (usesCommandWindow(unit, source)) {
+    room.commandTotal = unit.commandWindow;
+    room.commandDeadline = Date.now() + unit.commandWindow * 1000;
+  } else {
+    room.commandTotal = 0;
+    room.commandDeadline = null;
+  }
   pushLog(room, `${unit.characterName} is ready.`);
 }
 
-function addProgress(room, seconds) {
-  for (const unit of room.units) {
-    if (unit.atb < room.threshold) unit.atb += unit.speed * seconds;
+function interruptActiveTurn(room) {
+  const interrupted = room.units.find((unit) => unit.id === room.activeId);
+  if (interrupted) {
+    interrupted.atb = Math.max(0, interrupted.atb - room.threshold);
+    pushLog(room, `${interrupted.characterName}'s turn was interrupted.`);
+  }
+  room.activeId = null;
+  room.pausedForTurn = false;
+  clearActiveCommand(room);
+}
+
+function moveToNextTurnOrClock(room, previousSource = null) {
+  const ready = findReadyUnit(room);
+  if (ready) {
+    pauseForReadyUnit(room, ready, nextTurnSource(room, previousSource));
+  } else if (room.resumeAfterTurn && canStartClock(room)) {
+    room.running = true;
+    room.lastTick = Date.now();
+  } else {
+    room.running = false;
+    room.lastTick = Date.now();
   }
 }
 
-function advanceSeconds(room, seconds = 1, { exact = false } = {}) {
-  if (room.pausedForTurn) return;
+function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
+  const multiplier = slow ? 0.1 : 1;
+  for (const unit of room.units) {
+    if (unit.id === skipId || !unit.speed) continue;
+    if (unit.atb < room.threshold) unit.atb += unit.speed * seconds * multiplier;
+  }
+}
+
+function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } = {}) {
+  if (room.pausedForTurn || room.holdPaused) return;
+
+  const interruptedId = room.commandExpired ? room.activeId : null;
 
   if (!exact) {
-    addProgress(room, seconds);
-    const ready = findReadyUnit(room);
-    if (ready) pauseForReadyUnit(room, ready);
+    addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
+    const ready = findReadyUnit(room, interruptedId);
+    if (ready) {
+      if (interruptedId) interruptActiveTurn(room);
+      pauseForReadyUnit(room, ready, source);
+    }
     return;
   }
 
-  const alreadyReady = findReadyUnit(room);
+  const alreadyReady = findReadyUnit(room, interruptedId);
   if (alreadyReady) {
-    pauseForReadyUnit(room, alreadyReady);
+    if (interruptedId) interruptActiveTurn(room);
+    pauseForReadyUnit(room, alreadyReady, source);
     return;
   }
 
   const times = room.units
-    .filter((unit) => unit.speed > 0)
-    .map((unit) => Math.max(0, (room.threshold - unit.atb) / unit.speed));
+    .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
+    .map((unit) => Math.max(0, (room.threshold - unit.atb) / (unit.speed * (interruptedId ? 0.1 : 1))));
   if (!times.length) return;
 
   const nextReadyIn = Math.min(...times);
   if (nextReadyIn <= seconds) {
-    addProgress(room, nextReadyIn);
-    pauseForReadyUnit(room, findReadyUnit(room));
+    addProgress(room, nextReadyIn, { slow: Boolean(interruptedId), skipId: interruptedId });
+    if (interruptedId) interruptActiveTurn(room);
+    pauseForReadyUnit(room, findReadyUnit(room), source);
   } else {
-    addProgress(room, seconds);
+    addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
   }
 }
 
 setInterval(() => {
   for (const room of rooms.values()) {
-    if (!room.running || room.pausedForTurn) continue;
+    if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
+      if (Date.now() >= room.commandDeadline) {
+        const unit = room.units.find((entry) => entry.id === room.activeId);
+        room.pausedForTurn = false;
+        room.running = true;
+        room.commandExpired = true;
+        room.commandDeadline = null;
+        room.lastTick = Date.now();
+        if (unit) pushLog(room, `${unit.characterName}'s Command Window expired.`);
+      }
+      broadcast(room);
+      continue;
+    }
+    if (!room.running || room.pausedForTurn || room.holdPaused) continue;
     const now = Date.now();
     const elapsed = now - room.lastTick;
     if (elapsed < 80) continue;
     room.lastTick = now;
-    advanceSeconds(room, elapsed / 1000, { exact: true });
+    advanceSeconds(room, elapsed / 1000, { exact: true, source: "clock" });
     broadcast(room);
   }
 }, 100);
@@ -243,11 +360,13 @@ async function handleAction(req, res) {
     const playerName = String(body.playerName || "Player").trim().slice(0, 40);
     const characterName = String(body.characterName || "Character").trim().slice(0, 40);
     const speed = normalizeSpeed(body.speed);
+    const commandWindow = normalizeCommandWindow(body.commandWindow);
     const unit = {
       id: id(),
       playerName,
       characterName,
       speed,
+      commandWindow,
       atb: 0,
       controlledBy: body.controlledBy || "player",
       team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
@@ -256,24 +375,56 @@ async function handleAction(req, res) {
       tieSeed: Math.random(),
     };
     room.units.push(unit);
-    pushLog(room, `${characterName} joined at Speed ${speed}.`);
+    const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
+    pushLog(room, `${characterName} joined (${setupText}).`);
   }
 
   if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    const wasActive = room.activeId === body.id;
+    const previousSource = room.activeSource;
     room.units = room.units.filter((entry) => entry.id !== body.id);
-    if (room.activeId === body.id) {
+    if (wasActive) {
       room.activeId = null;
       room.pausedForTurn = false;
+      clearActiveCommand(room);
+      moveToNextTurnOrClock(room, previousSource);
     }
     if (unit) pushLog(room, `${unit.characterName} removed from combat.`);
   }
 
   if (action === "setRunning") {
-    room.running = Boolean(body.running) && !room.pausedForTurn;
-    room.resumeAfterTurn = room.running;
+    const wantsRunning = Boolean(body.running);
+    if (room.pausedForTurn && room.commandDeadline) {
+      if (!room.holdPaused) {
+        room.holdPaused = true;
+        room.holdStartedAt = Date.now();
+        room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+        pushLog(room, "All timers paused.");
+      } else if (wantsRunning) {
+        room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
+        room.holdPaused = false;
+        room.holdStartedAt = null;
+        room.commandHeldRemaining = null;
+        pushLog(room, "All timers resumed.");
+      }
+    } else if (wantsRunning && !room.pausedForTurn) {
+      if (!canStartClock(room)) {
+        pushLog(room, "Clock cannot start until every participant has GM-entered values.");
+      } else {
+        room.running = true;
+        room.resumeAfterTurn = true;
+        pushLog(room, "Clock started.");
+      }
+    } else {
+      room.running = false;
+      room.resumeAfterTurn = false;
+      room.holdPaused = false;
+      room.holdStartedAt = null;
+      room.commandHeldRemaining = null;
+      pushLog(room, "Clock paused.");
+    }
     room.lastTick = Date.now();
-    pushLog(room, room.running ? "Clock started." : "Clock paused.");
   }
 
   if (action === "setSpeed") {
@@ -282,6 +433,15 @@ async function handleAction(req, res) {
       const oldSpeed = unit.speed;
       unit.speed = normalizeSpeed(body.speed);
       pushLog(room, `${unit.characterName}'s Speed changed from ${oldSpeed} to ${unit.speed}.`);
+    }
+  }
+
+  if (action === "setCommandWindow") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    if (unit) {
+      const oldWindow = unit.commandWindow;
+      unit.commandWindow = normalizeCommandWindow(body.commandWindow);
+      pushLog(room, `${unit.characterName}'s Command Window changed from ${oldWindow || "unset"} to ${unit.commandWindow} seconds.`);
     }
   }
 
@@ -303,8 +463,15 @@ async function handleAction(req, res) {
   }
 
   if (action === "step") {
+    if (room.activeId || room.pausedForTurn) {
+      pushLog(room, "Resolve the active turn before stepping the clock.");
+      sendJson(res, 200, publicState(room));
+      broadcast(room);
+      return;
+    }
     room.resumeAfterTurn = false;
-    advanceSeconds(room, 1);
+    clearActiveCommand(room);
+    advanceSeconds(room, 1, { source: "step" });
     pushLog(room, "GM advanced one second.");
   }
 
@@ -314,6 +481,7 @@ async function handleAction(req, res) {
     room.pausedForTurn = false;
     room.resumeAfterTurn = false;
     room.activeId = null;
+    clearActiveCommand(room);
     room.lastTick = Date.now();
     pushLog(room, "Encounter reset.");
   }
@@ -324,6 +492,7 @@ async function handleAction(req, res) {
     room.pausedForTurn = false;
     room.resumeAfterTurn = false;
     room.activeId = null;
+    clearActiveCommand(room);
     room.lastTick = Date.now();
     pushLog(room, "Encounter cleared.");
   }
@@ -333,6 +502,7 @@ async function handleAction(req, res) {
       sendJson(res, 200, publicState(room));
       return;
     }
+    const previousSource = room.activeSource;
     const unit = room.units.find((entry) => entry.id === room.activeId);
     if (unit) {
       unit.atb = Math.max(0, unit.atb - room.threshold);
@@ -340,23 +510,18 @@ async function handleAction(req, res) {
     }
     room.pausedForTurn = false;
     room.activeId = null;
-    const ready = findReadyUnit(room);
-    if (ready) {
-      pauseForReadyUnit(room, ready);
-    } else if (room.resumeAfterTurn) {
-      room.running = true;
-      room.lastTick = Date.now();
-    } else {
-      room.running = false;
-      room.lastTick = Date.now();
-    }
+    clearActiveCommand(room);
+    moveToNextTurnOrClock(room, previousSource);
   }
 
   if (action === "nudge") {
     const unit = room.units.find((entry) => entry.id === body.id);
     if (unit && !room.pausedForTurn) {
       unit.atb = Math.min(room.threshold, unit.atb + Math.max(1, Number(body.amount) || 1));
-      if (unit.atb >= room.threshold) pauseForReadyUnit(room, unit);
+      if (unit.atb >= room.threshold) {
+        if (room.commandExpired && room.activeId) interruptActiveTurn(room);
+        pauseForReadyUnit(room, unit, room.resumeAfterTurn ? "clock" : "manual");
+      }
     }
   }
 

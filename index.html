@@ -53,7 +53,7 @@
       <section id="joinPanel" class="panel join-panel">
         <div>
           <h2>Join Encounter</h2>
-          <p>Enter your player name, character name, and Speed rating.</p>
+          <p>Enter your player name, character name, and ATB color. The GM enters your combat values.</p>
         </div>
         <label>
           Player Name
@@ -62,10 +62,6 @@
         <label>
           Character Name
           <input id="characterName" placeholder="Vita" />
-        </label>
-        <label>
-          Speed % / Sec
-          <input id="speedRating" type="number" min="1" max="100" step="0.5" value="5" />
         </label>
         <label>
           ATB Color
@@ -112,6 +108,10 @@
             Speed % / Sec
             <input id="gmSpeedRating" type="number" min="1" max="100" step="0.5" value="5" />
           </label>
+          <label id="gmCommandWindowWrap">
+            Command Window
+            <input id="gmCommandWindow" type="number" min="1" max="999" step="1" value="30" />
+          </label>
           <label>
             ATB Color
             <input id="gmColor" type="color" value="#39e58f" />
@@ -143,9 +143,14 @@
           <div class="clock" id="playerClock">Paused</div>
         </div>
         <div id="myTurnBanner" class="turn-banner hidden">
+          <div id="playerCommandDial" class="command-dial hidden" aria-hidden="true">
+            <div class="command-dial-ring">
+              <span id="playerCommandTime">--:--</span>
+            </div>
+          </div>
           <strong>YOUR TURN</strong>
-          <span>Resolve your action, then end your turn.</span>
-          <button id="playerEndTurn" class="complete">End Turn</button>
+          <span id="playerCommandStatus">Resolve your action, then end your turn.</span>
+          <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
         </div>
         <button id="enableAlerts">Enable Sound / Vibration</button>
         <label id="playerColorControl" class="player-color-control hidden">
