@@ -8,6 +8,11 @@ let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let audioContext = null;
 let events = null;
+const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
+const pcBuild = {
+  perception: [1, 1],
+  intellect: [1, 1],
+};
 
 function forgetSavedRoom() {
   currentRoomCode = "";
@@ -54,6 +59,12 @@ const playerPanel = document.querySelector("#playerPanel");
 const playerName = document.querySelector("#playerName");
 const characterName = document.querySelector("#characterName");
 const playerColor = document.querySelector("#playerColor");
+const perceptionDiceGrid = document.querySelector("#perceptionDiceGrid");
+const intellectDiceGrid = document.querySelector("#intellectDiceGrid");
+const awarenessSkill = document.querySelector("#awarenessSkill");
+const reflexSkill = document.querySelector("#reflexSkill");
+const calculatedSpeed = document.querySelector("#calculatedSpeed");
+const calculatedCommand = document.querySelector("#calculatedCommand");
 const joinPlayer = document.querySelector("#joinPlayer");
 const openGm = document.querySelector("#openGm");
 const rejoinBlock = document.querySelector("#rejoinBlock");
@@ -125,6 +136,49 @@ function formatSeconds(seconds) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function clampSkill(value) {
+  return Math.max(0, Math.min(20, Math.floor(Number(value) || 0)));
+}
+
+function purchasedBoxes(rows) {
+  return rows.reduce((total, count) => total + count, 0);
+}
+
+function calculatedPcStats() {
+  const perceptionBoxes = purchasedBoxes(pcBuild.perception);
+  const intellectBoxes = purchasedBoxes(pcBuild.intellect);
+  const awareness = clampSkill(awarenessSkill.value);
+  const reflex = clampSkill(reflexSkill.value);
+  return {
+    speed: Math.max(1, intellectBoxes + reflex),
+    commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 60),
+  };
+}
+
+function renderDiceGrid(statName, grid) {
+  const rows = pcBuild[statName];
+  grid.innerHTML = rows
+    .map((filled, rowIndex) => {
+      const cells = diceColumns
+        .map((die, dieIndex) => {
+          const count = dieIndex + 1;
+          const isFilled = filled >= count;
+          return `<button type="button" class="die-cell ${isFilled ? "filled" : ""}" data-stat="${statName}" data-row="${rowIndex}" data-count="${count}">${die}</button>`;
+        })
+        .join("");
+      return `<div class="die-row">${cells}</div>`;
+    })
+    .join("");
+}
+
+function renderPcBuilder() {
+  renderDiceGrid("perception", perceptionDiceGrid);
+  renderDiceGrid("intellect", intellectDiceGrid);
+  const stats = calculatedPcStats();
+  calculatedSpeed.textContent = String(stats.speed);
+  calculatedCommand.textContent = `${stats.commandWindow} sec`;
 }
 
 function commandFor(unit) {
@@ -560,6 +614,7 @@ function render() {
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || mode === "player");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
+  renderPcBuilder();
 
   if (!state) {
     roomCode.textContent = currentRoomCode || "----";
@@ -656,12 +711,13 @@ function syncGmCommandWindowVisibility() {
 
 joinPlayer.addEventListener("click", async () => {
   enablePlayerAlerts();
+  const pcStats = calculatedPcStats();
   const next = await action({
     action: "join",
     playerName: playerName.value || "Player",
     characterName: characterName.value || "Character",
-    speed: null,
-    commandWindow: null,
+    speed: pcStats.speed,
+    commandWindow: pcStats.commandWindow,
     color: playerColor.value,
     controlledBy: "player",
     team: "pc",
@@ -754,6 +810,20 @@ enableAlerts.addEventListener("click", () => {
 playerColorEdit.addEventListener("change", () => {
   if (myUnitId) action({ action: "setColor", id: myUnitId, color: playerColorEdit.value });
 });
+
+joinPanel.addEventListener("click", (event) => {
+  const button = event.target.closest(".die-cell");
+  if (!button) return;
+  const stat = button.dataset.stat;
+  const row = Number(button.dataset.row);
+  const count = Number(button.dataset.count);
+  if (!pcBuild[stat] || !Number.isInteger(row)) return;
+  pcBuild[stat][row] = pcBuild[stat][row] === count ? 0 : count;
+  renderPcBuilder();
+});
+
+awarenessSkill.addEventListener("input", renderPcBuilder);
+reflexSkill.addEventListener("input", renderPcBuilder);
 
 gmAddUnit.addEventListener("click", () => {
   action({

@@ -53,20 +53,48 @@
       <section id="joinPanel" class="panel join-panel">
         <div>
           <h2>Join Encounter</h2>
-          <p>Enter your player name, character name, and ATB color. The GM enters your combat values.</p>
+          <p>Enter your names, match your character sheet, and choose an ATB color.</p>
         </div>
         <label>
           Player Name
-          <input id="playerName" autocomplete="name" placeholder="Jason" />
+          <input id="playerName" autocomplete="name" placeholder="Enter YOUR name here" />
         </label>
         <label>
           Character Name
-          <input id="characterName" placeholder="Vita" />
+          <input id="characterName" placeholder="Enter your CHARACTERS name here" />
         </label>
         <label>
           ATB Color
           <input id="playerColor" type="color" value="#39e58f" />
         </label>
+        <div class="pc-stat-builder">
+          <div class="stat-board" data-stat="perception">
+            <div class="stat-title">Perception</div>
+            <div class="stat-grid" id="perceptionDiceGrid"></div>
+          </div>
+          <div class="stat-board" data-stat="intellect">
+            <div class="stat-title">Intellect</div>
+            <div class="stat-grid" id="intellectDiceGrid"></div>
+          </div>
+          <label>
+            Awareness
+            <input id="awarenessSkill" type="number" min="0" max="20" step="1" value="0" />
+          </label>
+          <label>
+            Reflex
+            <input id="reflexSkill" type="number" min="0" max="20" step="1" value="0" />
+          </label>
+          <div class="calculated-stats">
+            <div>
+              <span>Speed</span>
+              <strong id="calculatedSpeed">2</strong>
+            </div>
+            <div>
+              <span>Command Window</span>
+              <strong id="calculatedCommand">20 sec</strong>
+            </div>
+          </div>
+        </div>
         <div class="join-actions">
           <button id="joinPlayer" class="primary">Join as Player</button>
           <button id="openGm">Back</button>

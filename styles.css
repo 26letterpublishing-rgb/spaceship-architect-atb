@@ -243,6 +243,87 @@ h2 {
   align-items: end;
 }
 
+.pc-stat-builder {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr)) 110px 110px minmax(180px, 240px);
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid rgba(40, 215, 255, 0.24);
+  background: rgba(8, 15, 23, 0.58);
+}
+
+.stat-board {
+  display: grid;
+  gap: 6px;
+}
+
+.stat-title {
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 52%),
+    #111a26;
+  color: var(--text);
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.die-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.die-cell {
+  min-height: 34px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.die-cell.filled {
+  border-color: var(--green);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 42%),
+    rgba(57, 229, 143, 0.32);
+  color: #dcffef;
+  box-shadow: 0 0 12px rgba(57, 229, 143, 0.18);
+}
+
+.calculated-stats {
+  display: grid;
+  gap: 7px;
+}
+
+.calculated-stats div {
+  min-height: 44px;
+  display: grid;
+  align-content: center;
+  padding: 6px 9px;
+  border: 1px solid rgba(155, 92, 255, 0.5);
+  background: rgba(155, 92, 255, 0.12);
+}
+
+.calculated-stats span {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calculated-stats strong {
+  color: var(--yellow);
+  font-size: 1rem;
+}
+
 .join-actions,
 .controls {
   display: flex;
@@ -1099,6 +1180,7 @@ h2 {
   }
 
   .join-panel,
+  .pc-stat-builder,
   .add-grid,
   .rejoin-block,
   .room-join-panel,
