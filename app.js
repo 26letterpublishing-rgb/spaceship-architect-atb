@@ -6,6 +6,7 @@ let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
+let lastInterruptedNotice = "";
 let audioContext = null;
 let events = null;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
@@ -504,6 +505,16 @@ function notifyTurnIfNeeded() {
   notifyCommandWindowIfNeeded(active);
 }
 
+function notifyInterruptionIfNeeded() {
+  if (mode !== "player" || !alertsEnabled || !state?.lastInterruptedId) return;
+  if (state.lastInterruptedId !== myUnitId) return;
+  const key = `${state.lastInterruptedId}:${state.lastInterruptedAt || ""}`;
+  if (lastInterruptedNotice === key) return;
+  lastInterruptedNotice = key;
+  if (navigator.vibrate) navigator.vibrate([280, 90, 280, 90, 420]);
+  playInterruptedBuzz();
+}
+
 function notifyCommandWindowIfNeeded(active) {
   if (mode !== "player" || active.id !== myUnitId || !alertsEnabled) return;
   const command = commandFor(active);
@@ -588,6 +599,16 @@ function playWarningDing(urgent = false) {
     tone(1040, 0.28, 0.2, 0.18, "sine");
   } catch {
     // Visual warning remains visible if audio is blocked.
+  }
+}
+
+function playInterruptedBuzz() {
+  try {
+    tone(140, 0, 0.22, 0.34, "sawtooth");
+    tone(92, 0.08, 0.26, 0.32, "square");
+    tone(72, 0.32, 0.38, 0.28, "sawtooth");
+  } catch {
+    // The visual interruption still appears in the combat log if audio is blocked.
   }
 }
 
@@ -680,6 +701,7 @@ function render() {
 
   if (!state.pausedForTurn && turnDialog.open) turnDialog.close();
   notifyTurnIfNeeded();
+  notifyInterruptionIfNeeded();
 }
 
 function renderPlayerCommand(mine) {

@@ -37,6 +37,8 @@ function createRoom() {
     holdPaused: false,
     holdStartedAt: null,
     commandHeldRemaining: null,
+    lastInterruptedId: null,
+    lastInterruptedAt: 0,
     lastTick: Date.now(),
     threshold: 100,
     units: [],
@@ -62,6 +64,8 @@ function publicState(room) {
     activeSource: room.activeSource,
     command,
     holdPaused: room.holdPaused,
+    lastInterruptedId: room.lastInterruptedId,
+    lastInterruptedAt: room.lastInterruptedAt,
     threshold: room.threshold,
     units: room.units,
     log: room.log.slice(-30),
@@ -183,6 +187,8 @@ function interruptActiveTurn(room) {
   const interrupted = room.units.find((unit) => unit.id === room.activeId);
   if (interrupted) {
     interrupted.atb = Math.max(0, interrupted.atb - room.threshold);
+    room.lastInterruptedId = interrupted.id;
+    room.lastInterruptedAt = Date.now();
     pushLog(room, `${interrupted.characterName}'s turn was interrupted.`);
   }
   room.activeId = null;
@@ -486,6 +492,8 @@ async function handleAction(req, res) {
     room.resumeAfterTurn = false;
     room.activeId = null;
     clearActiveCommand(room);
+    room.lastInterruptedId = null;
+    room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
     pushLog(room, "Encounter reset.");
   }
@@ -497,6 +505,8 @@ async function handleAction(req, res) {
     room.resumeAfterTurn = false;
     room.activeId = null;
     clearActiveCommand(room);
+    room.lastInterruptedId = null;
+    room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
     pushLog(room, "Encounter cleared.");
   }

@@ -1111,7 +1111,7 @@ h2 {
 
 .player-mode.own-turn-active .turn-banner {
   z-index: 110;
-  padding: 18vh 22px 38vh;
+  padding: 22vh 22px 38vh;
   align-content: start;
 }
 
@@ -1162,12 +1162,19 @@ h2 {
 }
 
 .player-mode .turn-banner .player-complete {
-  position: relative;
-  z-index: 5;
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 140;
+  transform: translateX(-50%);
   min-width: 0;
-  width: min(280px, 82vw);
+  width: min(300px, calc(100vw - 28px));
   min-height: 52px;
   font-size: 0.95rem;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+    0 14px 28px rgba(0, 0, 0, 0.48),
+    0 0 22px rgba(56, 229, 143, 0.35);
 }
 
 .player-mode .command-dial {
