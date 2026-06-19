@@ -1163,7 +1163,8 @@ h2 {
 
 .player-mode .turn-banner .player-complete {
   position: fixed;
-  top: max(14px, env(safe-area-inset-top));
+  top: 12px;
+  top: calc(12px + env(safe-area-inset-top));
   left: 50%;
   z-index: 140;
   transform: translateX(-50%);

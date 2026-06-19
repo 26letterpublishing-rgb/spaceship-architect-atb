@@ -506,7 +506,7 @@ function notifyTurnIfNeeded() {
 }
 
 function notifyInterruptionIfNeeded() {
-  if (mode !== "player" || !alertsEnabled || !state?.lastInterruptedId) return;
+  if (mode !== "player" || !state?.lastInterruptedId) return;
   if (state.lastInterruptedId !== myUnitId) return;
   const key = `${state.lastInterruptedId}:${state.lastInterruptedAt || ""}`;
   if (lastInterruptedNotice === key) return;
@@ -604,9 +604,9 @@ function playWarningDing(urgent = false) {
 
 function playInterruptedBuzz() {
   try {
-    tone(140, 0, 0.22, 0.34, "sawtooth");
-    tone(92, 0.08, 0.26, 0.32, "square");
-    tone(72, 0.32, 0.38, 0.28, "sawtooth");
+    tone(240, 0, 0.2, 0.48, "sawtooth");
+    tone(180, 0.18, 0.22, 0.46, "square");
+    tone(120, 0.4, 0.36, 0.42, "sawtooth");
   } catch {
     // The visual interruption still appears in the combat log if audio is blocked.
   }
