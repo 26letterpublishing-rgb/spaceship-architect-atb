@@ -151,13 +151,6 @@
               <option value="pc">PC</option>
             </select>
           </label>
-          <label>
-            Type
-            <select id="gmActorType">
-              <option value="character" selected>Character</option>
-              <option value="ship">Ship</option>
-            </select>
-          </label>
           <button id="gmAddUnit">Add</button>
         </div>
       </section>
@@ -176,9 +169,13 @@
               <span id="playerCommandTime">--:--</span>
             </div>
           </div>
-          <strong>YOUR TURN</strong>
+          <strong id="playerTurnTitle">YOUR TURN</strong>
           <span id="playerCommandStatus">Resolve your action, then end your turn.</span>
-          <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
+          <div id="playerTurnActions" class="player-turn-actions">
+            <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
+            <button id="playerDelayTimer" class="secondary">Delay Timer</button>
+            <button id="playerDelayedAction" class="secondary">Delayed Action</button>
+          </div>
         </div>
         <div class="player-utility">
           <button id="enableAlerts">Enable Sound / Vibration</button>
@@ -226,10 +223,14 @@
     </main>
 
     <dialog id="turnDialog" class="turn-dialog">
-      <p class="eyebrow">Turn Ready</p>
+      <p id="turnDialogKicker" class="eyebrow">Turn Ready</p>
       <h2 id="activeName">Character</h2>
       <p id="activeOwner">Player</p>
-      <button id="completeTurn" class="complete">Action Resolved</button>
+      <div class="dialog-actions">
+        <button id="completeTurn" class="complete">Action Resolved</button>
+        <button id="gmDelayTimer" class="secondary">Delay Timer</button>
+        <button id="gmDelayedAction" class="secondary">Delayed Action</button>
+      </div>
     </dialog>
 
     <button id="gmPanicPause" class="gm-panic-pause hidden">Pause Everything</button>

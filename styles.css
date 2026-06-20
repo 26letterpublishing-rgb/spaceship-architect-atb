@@ -65,6 +65,19 @@ button:hover {
   border-color: var(--cyan);
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.secondary {
+  border-color: rgba(40, 215, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%),
+    #17283a;
+  color: #d8f6ff;
+}
+
 input,
 select {
   width: 100%;
@@ -446,6 +459,11 @@ h2 {
   box-shadow: 0 0 18px rgba(255, 148, 77, 0.12);
 }
 
+.unit-card.delayed {
+  border-color: rgba(255, 148, 77, 0.58);
+  box-shadow: 0 0 18px rgba(255, 148, 77, 0.12);
+}
+
 .unit-card.ready {
   border-color: var(--yellow);
   background:
@@ -673,6 +691,13 @@ h2 {
   justify-self: start;
 }
 
+.player-turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .command-dial {
   --command-percent: 100%;
   position: absolute;
@@ -753,6 +778,46 @@ h2 {
   color: #ffd8df;
 }
 
+.delay-bar {
+  position: relative;
+  height: 18px;
+  margin-top: 10px;
+  border: 1px solid rgba(255, 148, 77, 0.6);
+  background: rgba(8, 12, 18, 0.9);
+  overflow: hidden;
+}
+
+.delay-bar-fill {
+  height: 100%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 44%),
+    linear-gradient(90deg, #4b210b, var(--orange), #ffe0b7);
+  transition: width 180ms linear;
+}
+
+.delay-bar.action-delay {
+  border-color: rgba(40, 215, 255, 0.62);
+}
+
+.delay-bar.action-delay .delay-bar-fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 44%),
+    linear-gradient(90deg, #123d50, var(--cyan), #d8f6ff);
+}
+
+.delay-bar span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff0da;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px #000;
+}
+
 .setup-warning {
   margin-top: 10px;
   padding: 7px 9px;
@@ -817,6 +882,11 @@ h2 {
   border-color: var(--green);
   color: #03140b;
   font-weight: 900;
+}
+
+.dialog-actions {
+  display: grid;
+  gap: 10px;
 }
 
 .turn-banner .player-complete {
@@ -1162,20 +1232,35 @@ h2 {
 }
 
 .player-mode .turn-banner .player-complete {
+  min-width: 0;
+  width: auto;
+  min-height: 52px;
+  font-size: 0.95rem;
+}
+
+.player-mode .turn-banner .player-turn-actions {
   position: fixed;
   top: 12px;
   top: calc(12px + env(safe-area-inset-top));
   left: 50%;
   z-index: 140;
   transform: translateX(-50%);
-  min-width: 0;
-  width: min(300px, calc(100vw - 28px));
-  min-height: 52px;
-  font-size: 0.95rem;
+  width: min(360px, calc(100vw - 28px));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16) inset,
     0 14px 28px rgba(0, 0, 0, 0.48),
     0 0 22px rgba(56, 229, 143, 0.35);
+}
+
+.player-mode .turn-banner .player-turn-actions .player-complete {
+  grid-column: 1 / -1;
+}
+
+.player-mode .turn-banner .player-turn-actions button {
+  min-height: 42px;
+  font-size: 0.78rem;
 }
 
 .player-mode .command-dial {

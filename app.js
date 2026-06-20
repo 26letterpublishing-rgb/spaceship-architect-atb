@@ -7,8 +7,10 @@ let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let lastInterruptedNotice = "";
+let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
+const KEEP_ALIVE_MS = 30000;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
 const pcBuild = {
   perception: [1, 1, 0, 0],
@@ -84,7 +86,6 @@ const gmCommandWindow = document.querySelector("#gmCommandWindow");
 const gmCommandWindowWrap = document.querySelector("#gmCommandWindowWrap");
 const gmColor = document.querySelector("#gmColor");
 const gmTeam = document.querySelector("#gmTeam");
-const gmActorType = document.querySelector("#gmActorType");
 const unitList = document.querySelector("#unitList");
 const initiativePanel = document.querySelector("#initiativePanel");
 const logPanel = document.querySelector("#logPanel");
@@ -93,7 +94,11 @@ const clockState = document.querySelector("#clockState");
 const playerClock = document.querySelector("#playerClock");
 const myCharacter = document.querySelector("#myCharacter");
 const myTurnBanner = document.querySelector("#myTurnBanner");
+const playerTurnTitle = document.querySelector("#playerTurnTitle");
+const playerTurnActions = document.querySelector("#playerTurnActions");
 const playerEndTurn = document.querySelector("#playerEndTurn");
+const playerDelayTimer = document.querySelector("#playerDelayTimer");
+const playerDelayedAction = document.querySelector("#playerDelayedAction");
 const playerRoomCode = document.querySelector("#playerRoomCode");
 const playerCommandDial = document.querySelector("#playerCommandDial");
 const playerCommandTime = document.querySelector("#playerCommandTime");
@@ -109,9 +114,12 @@ const activeTitle = document.querySelector("#activeTitle");
 const activeMeta = document.querySelector("#activeMeta");
 const logList = document.querySelector("#logList");
 const turnDialog = document.querySelector("#turnDialog");
+const turnDialogKicker = document.querySelector("#turnDialogKicker");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
+const gmDelayTimer = document.querySelector("#gmDelayTimer");
+const gmDelayedAction = document.querySelector("#gmDelayedAction");
 const gmPanicPause = document.querySelector("#gmPanicPause");
 
 function pct(unit) {
@@ -126,6 +134,7 @@ function formatSpeed(value) {
 
 function estimateTurn(unit) {
   if (!unit.speed) return "Awaiting GM values";
+  if (unit.delay) return `${delayText(unit.delay)} - ${formatSeconds(delaySeconds(unit.delay))}`;
   if (!state || unit.atb >= state.threshold) return "Ready";
   if (!state.running || state.pausedForTurn) return "Clock paused";
   const seconds = Math.max(0, (state.threshold - unit.atb) / unit.speed);
@@ -190,6 +199,22 @@ function commandFor(unit) {
 function commandPercent(command) {
   if (!command || !command.total) return 0;
   return Math.max(0, Math.min(100, (command.remaining / command.total) * 100));
+}
+
+function delayPercent(delay) {
+  if (!delay || !delay.total) return 0;
+  return Math.max(0, Math.min(100, (delay.remaining / delay.total) * 100));
+}
+
+function delaySeconds(delay) {
+  if (!delay || !delay.rate) return 0;
+  return Math.max(0, delay.remaining / delay.rate);
+}
+
+function delayText(delay) {
+  if (!delay) return "";
+  if (delay.kind === "action") return `Delayed Action: ${delay.label}`;
+  return "Delay Time";
 }
 
 function hexToRgb(hex) {
@@ -292,21 +317,46 @@ async function verifySavedRoomStillExists() {
   }
 }
 
+async function keepRoomAwake() {
+  if (mode !== "gm" || !currentRoomCode) return;
+  try {
+    const response = await fetch(`/api/keep-alive?room=${encodeURIComponent(currentRoomCode)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (response.status === 404) {
+      returnToWelcome("That room expired. Create or join a new room.");
+      return;
+    }
+    if (!response.ok) {
+      setConnected(false, "Trying to keep the ATB room awake...");
+      return;
+    }
+    state = await response.json();
+    setConnected(true);
+    render();
+  } catch {
+    setConnected(false, "Trying to keep the ATB room awake...");
+  }
+}
+
 function unitCard(unit, { gm = false, player = false } = {}) {
-  const ready = unit.atb >= state.threshold;
+  const delayed = Boolean(unit.delay);
+  const ready = unit.atb >= state.threshold && !delayed;
   const atbPercent = Math.min(100, unit.atb);
-  const close = atbPercent >= 80 && !ready;
+  const close = atbPercent >= 80 && !ready && !delayed;
   const speed = formatSpeed(unit.speed);
   const command = commandFor(unit);
   const speedInputValue = unit.speed ? formatSpeed(unit.speed) : "";
-  const commandLabel = unit.team === "pc" && unit.actorType === "character"
+  const commandLabel = unit.team === "pc"
     ? `${unit.commandWindow || "Unset"} sec Command`
     : "No Command Window";
-  const setupMissing = !unit.speed || (unit.team === "pc" && unit.actorType === "character" && !unit.commandWindow);
+  const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
   const side = unit.team === "pc" ? "PC" : "NPC";
-  const type = unit.actorType === "ship" ? "Ship" : "Character";
+  const type = "Character";
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""}" data-unit-id="${unit.id}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""}" data-unit-id="${unit.id}" style="${barStyle(unit)}">
       <div class="unit-top">
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
@@ -314,7 +364,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
         </div>
         <div class="unit-readout">
           <strong>${Math.floor(atbPercent)}%</strong>
-          <span>${player ? (ready ? "Ready" : "Charging") : escapeHtml(estimateTurn(unit))}</span>
+          <span>${delayed ? "Delayed" : player ? (ready ? "Ready" : "Charging") : escapeHtml(estimateTurn(unit))}</span>
         </div>
         ${
           gm
@@ -328,7 +378,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   <input data-action="speed" data-id="${unit.id}" type="number" min="1" max="100" step="0.5" value="${speedInputValue}" />
                 </label>
                 ${
-                  unit.team === "pc" && unit.actorType === "character"
+                  unit.team === "pc"
                     ? `<label class="command-edit">
                         Command
                         <input data-action="commandWindow" data-id="${unit.id}" type="number" min="1" max="999" step="1" value="${unit.commandWindow || ""}" />
@@ -339,6 +389,8 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
                 </label>
+                <button class="mini" data-action="delayTimer" data-id="${unit.id}">Delay Timer</button>
+                <button class="mini" data-action="delayedAction" data-id="${unit.id}">Delayed Action</button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -352,8 +404,16 @@ function unitCard(unit, { gm = false, player = false } = {}) {
               <span>${command.expired ? "Interruption pending" : `${formatSeconds(command.remaining)} Command Window`}</span>
             </div>`
           : setupMissing && gm
-            ? `<div class="setup-warning">Awaiting GM-entered Speed${unit.team === "pc" && unit.actorType === "character" ? " and Command Window" : ""}.</div>`
+            ? `<div class="setup-warning">Awaiting GM-entered Speed${unit.team === "pc" ? " and Command Window" : ""}.</div>`
             : ""
+      }
+      ${
+        unit.delay
+          ? `<div class="delay-bar ${unit.delay.kind === "action" ? "action-delay" : ""}">
+              <div class="delay-bar-fill" style="width:${delayPercent(unit.delay)}%"></div>
+              <span>${escapeHtml(delayText(unit.delay))} - ${formatSeconds(delaySeconds(unit.delay))}</span>
+            </div>`
+          : ""
       }
       <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
     </article>
@@ -417,21 +477,24 @@ function activeUnit() {
 function unitRoleText(unit) {
   if (!unit) return "";
   const side = unit.team === "pc" ? "PC" : "NPC";
-  const type = unit.actorType === "ship" ? "Ship" : "Character";
-  return `${unit.playerName} - ${side} ${type}`;
+  return `${unit.playerName} - ${side} Character`;
 }
 
 function renderActivePanel() {
   const active = activeUnit();
-  activePanel.classList.toggle("turn-live", Boolean(active));
+  const activeAction = state.activeAction;
+  activePanel.classList.toggle("turn-live", Boolean(active || activeAction));
   activePanel.classList.toggle("own-turn", Boolean(active) && active.id === myUnitId);
-  activePanel.classList.toggle("other-turn", Boolean(active) && active.id !== myUnitId);
+  activePanel.classList.toggle("other-turn", Boolean(activeAction) || (Boolean(active) && active.id !== myUnitId));
   activePanel.classList.toggle("clock-running", state.running && !state.pausedForTurn);
 
   if (mode === "player") {
     const mine = state.units.find((unit) => unit.id === myUnitId);
     activeKicker.textContent = "Player Signal";
-    if (active && active.id === myUnitId) {
+    if (activeAction) {
+      activeTitle.textContent = `Resolve Action: ${activeAction.label}`;
+      activeMeta.textContent = `${activeAction.characterName} - ${activeAction.playerName}`;
+    } else if (active && active.id === myUnitId) {
       activeTitle.textContent = "YOUR TURN";
       activeMeta.textContent = `${active.characterName} - ${unitRoleText(active)}`;
     } else if (active) {
@@ -447,6 +510,13 @@ function renderActivePanel() {
     return;
   }
 
+  if (activeAction) {
+    activeKicker.textContent = "Delayed Action";
+    activeTitle.textContent = `Resolve Action: ${activeAction.label}`;
+    activeMeta.textContent = `${activeAction.characterName} - ${activeAction.playerName}`;
+    return;
+  }
+
   if (active) {
     activeKicker.textContent = "Active Turn";
     activeTitle.textContent = active.characterName;
@@ -459,7 +529,7 @@ function renderActivePanel() {
 
   if (state.running) {
     const next = [...state.units]
-      .filter((unit) => unit.atb < state.threshold)
+      .filter((unit) => !unit.delay && unit.atb < state.threshold)
       .sort((a, b) => (state.threshold - a.atb) / a.speed - (state.threshold - b.atb) / b.speed)[0];
     activeKicker.textContent = "Clock Engaged";
     activeTitle.textContent = next ? `${next.characterName} is next` : "Awaiting participants";
@@ -482,6 +552,22 @@ function renderRejoinOptions() {
 
 function notifyTurnIfNeeded() {
   if (!state) return;
+  if (state.activeAction) {
+    if (mode === "gm") {
+      turnDialogKicker.textContent = "Delayed Action";
+      activeName.textContent = `Resolve Action: ${state.activeAction.label}`;
+      activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
+      completeTurn.textContent = "Action Resolved";
+      gmDelayTimer.classList.add("hidden");
+      gmDelayedAction.classList.add("hidden");
+      if (!turnDialog.open) turnDialog.show();
+    } else if (turnDialog.open) {
+      turnDialog.close();
+    }
+    lastNotifiedActiveId = "";
+    lastCommandWarningKey = "";
+    return;
+  }
   const active = state.units.find((unit) => unit.id === state.activeId);
   if (!active) {
     if (turnDialog.open) turnDialog.close();
@@ -491,8 +577,12 @@ function notifyTurnIfNeeded() {
   }
 
   if (mode === "gm") {
+    turnDialogKicker.textContent = "Turn Ready";
     activeName.textContent = active.characterName;
     activeOwner.textContent = active.playerName;
+    completeTurn.textContent = "Action Resolved";
+    gmDelayTimer.classList.remove("hidden");
+    gmDelayedAction.classList.remove("hidden");
     if (!turnDialog.open) turnDialog.show();
   }
 
@@ -652,7 +742,7 @@ function render() {
   playerRoomCode.textContent = state.roomCode;
   activePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
 
-  const ready = state.units.filter((unit) => unit.atb >= state.threshold);
+  const ready = state.units.filter((unit) => unit.atb >= state.threshold && !unit.delay);
   readyCount.textContent = `${ready.length} Ready`;
   clockState.textContent = statusText();
   playerClock.textContent = statusText();
@@ -667,8 +757,10 @@ function render() {
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
-  document.body.classList.toggle("own-turn-active", mode === "player" && Boolean(active) && active.id === myUnitId);
-  document.body.classList.toggle("other-turn-active", mode === "player" && Boolean(active) && active.id !== myUnitId);
+  const mine = state.units.find((unit) => unit.id === myUnitId);
+  const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (Boolean(mine.delay) && !state.activeAction));
+  document.body.classList.toggle("own-turn-active", showMineOverlay);
+  document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
 
   const sorted =
     mode === "player"
@@ -677,13 +769,12 @@ function render() {
   renderUnitList(sorted);
   syncGmCommandWindowVisibility();
 
-  const mine = state.units.find((unit) => unit.id === myUnitId);
   if (mine) {
     myCharacter.textContent = mine.characterName;
     playerColorControl.classList.remove("hidden");
     playerColorEdit.value = mine.color || "#39e58f";
     myUnitCard.innerHTML = "";
-    myTurnBanner.classList.toggle("hidden", state.activeId !== mine.id);
+    myTurnBanner.classList.toggle("hidden", !showMineOverlay);
     renderPlayerCommand(mine);
   } else if (mode === "player") {
     myCharacter.textContent = "Not Connected";
@@ -702,14 +793,35 @@ function render() {
   if (!state.pausedForTurn && turnDialog.open) turnDialog.close();
   notifyTurnIfNeeded();
   notifyInterruptionIfNeeded();
+  queueGmDelayRequestPrompt();
 }
 
 function renderPlayerCommand(mine) {
   const command = commandFor(mine);
   const isMyTurn = mine && state.activeId === mine.id;
+  const delay = mine?.delay || null;
+  const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
+  playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
+  playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
+  playerDelayTimer.disabled = hasPendingDelayRequest;
+  playerDelayedAction.disabled = hasPendingDelayRequest;
+  playerEndTurn.disabled = hasPendingDelayRequest;
+
+  if (delay && !isMyTurn) {
+    playerCommandDial.classList.remove("hidden");
+    playerCommandDial.style.setProperty("--command-percent", `${delayPercent(delay)}%`);
+    playerCommandTime.textContent = formatSeconds(delaySeconds(delay));
+    playerCommandStatus.textContent = delayText(delay);
+    return;
+  }
+
   playerCommandDial.classList.toggle("hidden", !isMyTurn || !command);
   if (!isMyTurn) {
     playerCommandStatus.textContent = "Resolve your action, then end your turn.";
+    return;
+  }
+  if (hasPendingDelayRequest) {
+    playerCommandStatus.textContent = "Waiting for GM to set the delay.";
     return;
   }
   if (!command) {
@@ -729,7 +841,56 @@ function renderPlayerCommand(mine) {
 }
 
 function syncGmCommandWindowVisibility() {
-  gmCommandWindowWrap.classList.toggle("hidden", gmTeam.value !== "pc" || gmActorType.value !== "character");
+  gmCommandWindowWrap.classList.toggle("hidden", gmTeam.value !== "pc");
+}
+
+function promptForDelay(unit, kind) {
+  if (!unit) return null;
+  let label = "";
+  if (kind === "action") {
+    label = prompt(`Name the delayed action for ${unit.characterName}:`, "Delayed Action");
+    if (label === null) return null;
+  }
+  const rateText = prompt(`Enter Delay Time rating for ${unit.characterName}.\n100 is about 1 second. 1 is about 100 seconds.`, "12");
+  if (rateText === null) return null;
+  const rate = Number(rateText);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    alert("Delay Time must be a number from 1 to 100.");
+    return null;
+  }
+  return {
+    kind,
+    label,
+    rate,
+  };
+}
+
+async function startDelayWithPrompt(unitId, kind) {
+  const unit = state?.units.find((entry) => entry.id === unitId);
+  const delay = promptForDelay(unit, kind);
+  if (!delay) return false;
+  await action({
+    action: "startDelay",
+    id: unitId,
+    kind: delay.kind,
+    label: delay.label,
+    rate: delay.rate,
+  }, delay.kind === "action" ? "start" : "tap");
+  return true;
+}
+
+function queueGmDelayRequestPrompt() {
+  if (mode !== "gm" || !state?.delayRequest) return;
+  if (lastHandledDelayRequest === state.delayRequest.id) return;
+  lastHandledDelayRequest = state.delayRequest.id;
+  setTimeout(async () => {
+    if (mode !== "gm" || !state?.delayRequest || lastHandledDelayRequest !== state.delayRequest.id) return;
+    const request = state.delayRequest;
+    const started = await startDelayWithPrompt(request.unitId, request.kind);
+    if (!started && state?.delayRequest?.id === request.id) {
+      action({ action: "cancelDelayRequest" }, "tap");
+    }
+  }, 0);
 }
 
 joinPlayer.addEventListener("click", async () => {
@@ -823,8 +984,22 @@ clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
 });
 completeTurn.addEventListener("click", () => action({ action: "completeTurn" }, "resolve"));
+gmDelayTimer.addEventListener("click", () => {
+  const active = activeUnit();
+  if (active) startDelayWithPrompt(active.id, "timer");
+});
+gmDelayedAction.addEventListener("click", () => {
+  const active = activeUnit();
+  if (active) startDelayWithPrompt(active.id, "action");
+});
 playerEndTurn.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "completeTurn", id: myUnitId });
+});
+playerDelayTimer.addEventListener("click", () => {
+  if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "timer" }, "tap");
+});
+playerDelayedAction.addEventListener("click", () => {
+  if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
 });
 enableAlerts.addEventListener("click", () => {
   enablePlayerAlerts({ testSound: true });
@@ -857,11 +1032,11 @@ gmAddUnit.addEventListener("click", () => {
     playerName: gmPlayerName.value || "GM",
     characterName: gmCharacterName.value || "NPC",
     speed: gmSpeedRating.value || 5,
-    commandWindow: gmTeam.value === "pc" && gmActorType.value === "character" ? gmCommandWindow.value || 30 : null,
+    commandWindow: gmTeam.value === "pc" ? gmCommandWindow.value || 30 : null,
     color: gmColor.value,
     controlledBy: "gm",
     team: gmTeam.value,
-    actorType: gmActorType.value,
+    actorType: "character",
   });
   gmCharacterName.value = "";
 });
@@ -870,14 +1045,14 @@ gmTeam.addEventListener("change", () => {
   syncGmCommandWindowVisibility();
 });
 
-gmActorType.addEventListener("change", syncGmCommandWindowVisibility);
-
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button || mode !== "gm") return;
   const id = button.dataset.id;
   if (button.dataset.action === "remove") action({ action: "removeUnit", id }, "danger");
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
+  if (button.dataset.action === "delayTimer") startDelayWithPrompt(id, "timer");
+  if (button.dataset.action === "delayedAction") startDelayWithPrompt(id, "action");
 });
 
 unitList.addEventListener("change", (event) => {
@@ -888,6 +1063,8 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });
+
+setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 
 if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
   fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
