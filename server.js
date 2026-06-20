@@ -279,6 +279,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     rate: normalizeDelayRate(rate) || 1,
     remaining: 100,
     total: 100,
+    consumeTurn: wasActive,
     resolving: false,
   };
   clearDelayRequest(room);
@@ -319,6 +320,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
             unit.delay.resolving = true;
             completedActions.push({ unit, delay: unit.delay });
           } else {
+            if (unit.delay.consumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
             unit.delay = null;
             pushLog(room, `${unit.characterName}'s Delay Time ended.`);
           }
