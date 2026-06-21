@@ -227,11 +227,18 @@ function hexToRgb(hex) {
   };
 }
 
+function stableOffset(value, range) {
+  const text = String(value || "");
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) hash = (hash * 31 + text.charCodeAt(index)) % range;
+  return hash;
+}
+
 function barStyle(unit) {
   const color = unit.color || "#39e58f";
   const rgb = hexToRgb(color);
   const flareLeft = Math.max(8, Math.min(96, pct(unit)));
-  const flowDelay = -1 * (Date.now() % 1800);
+  const flowDelay = -1 * stableOffset(unit.id, 1800);
   return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%; --flow-delay:${flowDelay}ms;`;
 }
 

@@ -579,24 +579,28 @@ h2 {
 .fill::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 58%;
   pointer-events: none;
   background:
-    repeating-linear-gradient(
+    linear-gradient(
       105deg,
-      transparent 0 22px,
-      rgba(255, 255, 255, 0.08) 24px 30px,
-      rgba(255, 255, 255, 0.16) 31px 34px,
-      transparent 36px 62px
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 24%,
+      rgba(255, 255, 255, 0.42) 48%,
+      rgba(255, 255, 255, 0.1) 66%,
+      transparent 100%
     );
-  background-size: 180px 100%;
   opacity: 0;
   mix-blend-mode: screen;
+  transform: translateX(-125%) skewX(-16deg);
 }
 
 .clock-active .unit-card:not(.ready):not(.delayed) .fill::before {
-  opacity: 0.46;
-  animation: atbCurrentFlow 1.8s linear infinite;
+  opacity: 0.62;
+  animation: atbCurrentFlow 1.8s ease-in-out infinite;
   animation-delay: var(--flow-delay, 0ms);
 }
 
@@ -614,10 +618,13 @@ h2 {
 }
 
 .player-mode .unit-card.own-unit {
-  border-color: rgba(var(--bar-rgb, 57, 229, 143), 0.7);
+  border-color: var(--bar-color);
+  outline: 2px solid var(--bar-color);
+  outline-offset: 2px;
   box-shadow:
-    0 0 0 1px rgba(var(--bar-rgb, 57, 229, 143), 0.14) inset,
-    0 0 18px rgba(var(--bar-rgb, 57, 229, 143), 0.14);
+    0 0 0 1px rgba(var(--bar-rgb, 57, 229, 143), 0.18) inset,
+    0 0 18px rgba(var(--bar-rgb, 57, 229, 143), 0.28);
+  animation: ownUnitSpectrum 4.8s linear infinite;
 }
 
 .player-mode .unit-card.own-unit .meter {
@@ -676,11 +683,41 @@ h2 {
 
 @keyframes atbCurrentFlow {
   from {
-    background-position: 0 0;
+    transform: translateX(-125%) skewX(-16deg);
   }
 
   to {
-    background-position: 180px 0;
+    transform: translateX(210%) skewX(-16deg);
+  }
+}
+
+@keyframes ownUnitSpectrum {
+  0% {
+    outline-color: var(--bar-color);
+    box-shadow:
+      0 0 0 1px rgba(var(--bar-rgb, 57, 229, 143), 0.18) inset,
+      0 0 16px rgba(var(--bar-rgb, 57, 229, 143), 0.24);
+  }
+
+  33% {
+    outline-color: var(--cyan);
+    box-shadow:
+      0 0 0 1px rgba(40, 215, 255, 0.18) inset,
+      0 0 18px rgba(40, 215, 255, 0.26);
+  }
+
+  66% {
+    outline-color: var(--violet);
+    box-shadow:
+      0 0 0 1px rgba(155, 92, 255, 0.18) inset,
+      0 0 18px rgba(155, 92, 255, 0.24);
+  }
+
+  100% {
+    outline-color: var(--bar-color);
+    box-shadow:
+      0 0 0 1px rgba(var(--bar-rgb, 57, 229, 143), 0.18) inset,
+      0 0 16px rgba(var(--bar-rgb, 57, 229, 143), 0.24);
   }
 }
 
