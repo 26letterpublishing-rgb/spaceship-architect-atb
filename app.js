@@ -231,7 +231,8 @@ function barStyle(unit) {
   const color = unit.color || "#39e58f";
   const rgb = hexToRgb(color);
   const flareLeft = Math.max(8, Math.min(96, pct(unit)));
-  return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%;`;
+  const flowDelay = -1 * (Date.now() % 1800);
+  return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%; --flow-delay:${flowDelay}ms;`;
 }
 
 function setConnected(isConnected, message) {
@@ -357,8 +358,9 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
   const side = unit.team === "pc" ? "PC" : "NPC";
   const type = "Character";
+  const signature = unitSignature(unit, { gm, player });
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}" data-unit-id="${unit.id}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
       <div class="unit-top">
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
@@ -422,7 +424,80 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   `;
 }
 
+function unitSignature(unit, { gm = false, player = false } = {}) {
+  const command = commandFor(unit);
+  const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
+  return [
+    gm ? "gm" : "nogm",
+    player ? "player" : "notplayer",
+    unit.id,
+    unit.playerName,
+    unit.characterName,
+    unit.speed || "",
+    unit.commandWindow || "",
+    unit.color || "",
+    unit.team,
+    unit.delay ? `${unit.delay.kind}:${unit.delay.label}:${unit.delay.resolving ? "resolving" : "waiting"}` : "nodelay",
+    command ? `command:${command.expired ? "expired" : "active"}` : "nocommand",
+    setupMissing ? "setup" : "ready-setup",
+  ].join("|");
+}
+
+function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
+  const delayed = Boolean(unit.delay);
+  const ready = unit.atb >= state.threshold && !delayed;
+  const atbPercent = Math.min(100, unit.atb);
+  const close = atbPercent >= 80 && !ready && !delayed;
+  const own = player && unit.id === myUnitId;
+  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}`.trim();
+  card.setAttribute("style", barStyle(unit));
+
+  const readout = card.querySelector(".unit-readout strong");
+  if (readout) readout.textContent = `${Math.floor(atbPercent)}%`;
+  const status = card.querySelector(".unit-readout span");
+  if (status) status.textContent = delayed ? "Delayed" : player ? (ready ? "Ready" : "Charging") : estimateTurn(unit);
+
+  const fill = card.querySelector(".fill");
+  if (fill) fill.style.width = `${pct(unit)}%`;
+
+  const command = commandFor(unit);
+  const commandBar = card.querySelector(".command-bar");
+  if (command && commandBar) {
+    commandBar.classList.toggle("expired", command.expired);
+    const commandFill = commandBar.querySelector(".command-bar-fill");
+    if (commandFill) commandFill.style.width = `${command.expired ? 0 : commandPercent(command)}%`;
+    const commandLabel = commandBar.querySelector("span");
+    if (commandLabel) commandLabel.textContent = command.expired ? "Interruption pending" : `${formatSeconds(command.remaining)} Command Window`;
+  }
+
+  if (unit.delay) {
+    const delayBar = card.querySelector(".delay-bar");
+    if (delayBar) {
+      delayBar.classList.toggle("action-delay", unit.delay.kind === "action");
+      const delayFill = delayBar.querySelector(".delay-bar-fill");
+      if (delayFill) delayFill.style.width = `${delayPercent(unit.delay)}%`;
+      const delayLabel = delayBar.querySelector("span");
+      if (delayLabel) delayLabel.textContent = `${delayText(unit.delay)} - ${formatSeconds(delaySeconds(unit.delay))}`;
+    }
+  }
+}
+
 function renderUnitList(sorted) {
+  const gm = mode === "gm";
+  const player = mode === "player";
+  const existingCards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
+  const canUpdateInPlace =
+    existingCards.length === sorted.length &&
+    existingCards.every((card, index) => {
+      const unit = sorted[index];
+      return card.dataset.unitId === unit.id && card.dataset.signature === unitSignature(unit, { gm, player });
+    });
+
+  if (canUpdateInPlace) {
+    existingCards.forEach((card, index) => updateUnitCard(card, sorted[index], { gm, player }));
+    return;
+  }
+
   const previousPositions = new Map(
     [...unitList.querySelectorAll(".unit-card[data-unit-id]")].map((card) => [
       card.dataset.unitId,
@@ -440,7 +515,7 @@ function renderUnitList(sorted) {
     }),
   );
 
-  unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("");
+  unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm, player })).join("");
 
   const cards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   for (const card of cards) {
