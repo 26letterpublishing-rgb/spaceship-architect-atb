@@ -561,16 +561,19 @@ h2 {
   width: 0;
   height: 100%;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.16) 18%, transparent 43%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.2) 14%, transparent 31%, rgba(0, 0, 0, 0.12) 58%, rgba(0, 0, 0, 0.52) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0 10%, transparent 11% 80%, rgba(255, 255, 255, 0.18) 81% 88%, rgba(0, 0, 0, 0.58) 89% 100%),
     linear-gradient(
       90deg,
-      rgba(var(--bar-rgb, 57, 229, 143), 0.38) 0%,
-      var(--bar-color, var(--green)) 56%,
-      rgba(255, 255, 255, 0.86) 100%
+      rgba(var(--bar-rgb, 57, 229, 143), 0.24) 0%,
+      rgba(var(--bar-rgb, 57, 229, 143), 0.78) 16%,
+      var(--bar-color, var(--green)) 58%,
+      rgba(255, 255, 255, 0.5) 100%
     );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.28),
+    inset 0 4px 5px rgba(255, 255, 255, 0.12),
+    inset 0 -8px 12px rgba(0, 0, 0, 0.42),
     0 0 14px rgba(var(--bar-rgb, 57, 229, 143), 0.25);
   transition: width 360ms linear;
   overflow: hidden;
@@ -588,9 +591,9 @@ h2 {
     linear-gradient(
       105deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.04) 24%,
-      rgba(255, 255, 255, 0.42) 48%,
-      rgba(255, 255, 255, 0.1) 66%,
+      rgba(255, 255, 255, 0.09) 24%,
+      rgba(255, 255, 255, 0.62) 48%,
+      rgba(255, 255, 255, 0.18) 66%,
       transparent 100%
     );
   opacity: 0;
@@ -599,7 +602,7 @@ h2 {
 }
 
 .clock-active .unit-card:not(.ready):not(.delayed) .fill::before {
-  opacity: 0.62;
+  opacity: 0.82;
   animation: atbCurrentFlow 1.8s ease-in-out infinite;
   animation-delay: var(--flow-delay, 0ms);
 }
@@ -608,13 +611,15 @@ h2 {
   content: "";
   position: absolute;
   top: 0;
-  right: 0;
-  width: 8px;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.86);
+  right: -2px;
+  width: 4px;
+  height: 112%;
+  background: rgba(255, 255, 255, 0.84);
   box-shadow:
-    0 0 10px rgba(255, 255, 255, 0.92),
-    0 0 18px var(--bar-color, currentColor);
+    0 0 7px rgba(255, 255, 255, 0.82),
+    0 0 13px var(--bar-color, currentColor);
+  transform: rotate(35deg);
+  transform-origin: center;
 }
 
 .player-mode .unit-card.own-unit {
@@ -652,32 +657,34 @@ h2 {
 }
 
 .player-mode .unit-card.own-unit .fill::after {
-  width: 10px;
+  width: 4px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 0 12px rgba(255, 255, 255, 0.95),
-    0 0 22px rgba(var(--bar-rgb, 57, 229, 143), 0.72);
+    0 0 8px rgba(255, 255, 255, 0.92),
+    0 0 16px rgba(var(--bar-rgb, 57, 229, 143), 0.72);
 }
 
 .close-ready .fill {
   color: var(--yellow);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.15) 18%, transparent 43%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.18) 14%, transparent 31%, rgba(0, 0, 0, 0.12) 58%, rgba(0, 0, 0, 0.5) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.58) 0 10%, transparent 11% 80%, rgba(255, 255, 255, 0.18) 81% 88%, rgba(0, 0, 0, 0.52) 89% 100%),
     linear-gradient(90deg, #7b2d07 0%, var(--orange) 50%, var(--yellow) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.28),
+    inset 0 -8px 12px rgba(0, 0, 0, 0.4),
     0 0 16px rgba(255, 148, 77, 0.26);
 }
 
 .ready .fill {
   color: #fff4a3;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 18%, transparent 43%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66) 0%, rgba(255, 255, 255, 0.22) 14%, transparent 31%, rgba(0, 0, 0, 0.08) 58%, rgba(0, 0, 0, 0.44) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0 10%, transparent 11% 80%, rgba(255, 255, 255, 0.2) 81% 88%, rgba(0, 0, 0, 0.46) 89% 100%),
     linear-gradient(90deg, #8f6500 0%, var(--yellow) 52%, #fff8bd 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.28),
+    inset 0 -8px 12px rgba(0, 0, 0, 0.34),
     0 0 20px rgba(255, 208, 90, 0.36);
 }
 
