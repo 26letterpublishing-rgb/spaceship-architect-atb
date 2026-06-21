@@ -429,11 +429,29 @@ function renderUnitList(sorted) {
       card.getBoundingClientRect(),
     ]),
   );
+  const previousWidths = new Map(
+    [...unitList.querySelectorAll(".unit-card[data-unit-id]")].map((card) => [
+      card.dataset.unitId,
+      card.querySelector(".fill")?.style.width || "0%",
+    ]),
+  );
 
   unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("");
 
   const cards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   for (const card of cards) {
+    const fill = card.querySelector(".fill");
+    const previousWidth = previousWidths.get(card.dataset.unitId);
+    if (fill && previousWidth) {
+      const targetWidth = fill.style.width;
+      fill.style.transition = "none";
+      fill.style.width = previousWidth;
+      requestAnimationFrame(() => {
+        fill.style.transition = "";
+        fill.style.width = targetWidth;
+      });
+    }
+
     const previous = previousPositions.get(card.dataset.unitId);
     if (!previous) continue;
     const current = card.getBoundingClientRect();

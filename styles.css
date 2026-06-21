@@ -568,53 +568,12 @@ h2 {
       var(--bar-color, var(--green)) 56%,
       rgba(255, 255, 255, 0.86) 100%
     );
-  background-size: 100% 100%, 220% 100%;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
     inset 0 -7px 12px rgba(0, 0, 0, 0.28),
     0 0 14px rgba(var(--bar-rgb, 57, 229, 143), 0.25);
-  transition: width 120ms linear;
+  transition: width 220ms linear;
   overflow: hidden;
-}
-
-.fill::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 46%;
-  background: linear-gradient(
-    100deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    rgba(255, 255, 255, 0.68) 52%,
-    rgba(255, 255, 255, 0.12) 74%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  opacity: 0;
-  transform: translateX(-130%) skewX(-18deg);
-}
-
-.unit-card:not(.ready):not(.delayed) .fill {
-  animation: barFlow 2.2s linear infinite;
-}
-
-.unit-card:not(.ready):not(.delayed) .fill::before {
-  opacity: 0.72;
-  animation: energySweep 1.45s linear infinite;
-}
-
-.ready .fill,
-.delayed .fill {
-  animation: none;
-}
-
-.ready .fill::before,
-.delayed .fill::before {
-  animation: none;
-  opacity: 0;
 }
 
 .fill::after {
@@ -643,14 +602,13 @@ h2 {
   position: absolute;
   top: 50%;
   left: min(96%, max(8%, var(--own-flare-left, 50%)));
-  width: 82px;
-  height: 36px;
+  width: 54px;
+  height: 24px;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.5) 0%, rgba(var(--bar-rgb, 57, 229, 143), 0.22) 22%, transparent 62%),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.36) 0%, rgba(var(--bar-rgb, 57, 229, 143), 0.18) 28%, transparent 66%);
   filter: blur(0.5px);
-  opacity: 0.34;
+  opacity: 0.26;
   transform: translate(-50%, -50%);
   mix-blend-mode: screen;
 }
@@ -675,26 +633,6 @@ h2 {
     inset 0 1px 0 rgba(255, 255, 255, 0.68),
     inset 0 -7px 12px rgba(0, 0, 0, 0.28),
     0 0 20px rgba(255, 208, 90, 0.36);
-}
-
-@keyframes energySweep {
-  from {
-    transform: translateX(-130%) skewX(-18deg);
-  }
-
-  to {
-    transform: translateX(250%) skewX(-18deg);
-  }
-}
-
-@keyframes barFlow {
-  from {
-    background-position: 0 0, 0 0;
-  }
-
-  to {
-    background-position: 0 0, 220% 0;
-  }
 }
 
 .unit-actions {
