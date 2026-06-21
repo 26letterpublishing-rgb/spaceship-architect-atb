@@ -77,6 +77,7 @@ const toggleRun = document.querySelector("#toggleRun");
 const stepTick = document.querySelector("#stepTick");
 const resetAll = document.querySelector("#resetAll");
 const clearEncounter = document.querySelector("#clearEncounter");
+const exitCombat = document.querySelector("#exitCombat");
 const gmMuteSound = document.querySelector("#gmMuteSound");
 const gmAddUnit = document.querySelector("#gmAddUnit");
 const gmPlayerName = document.querySelector("#gmPlayerName");
@@ -1102,6 +1103,9 @@ gmMuteSound.addEventListener("click", () => {
 });
 clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
+});
+exitCombat.addEventListener("click", () => {
+  if (confirm("Exit this combat room and return to the main screen?")) returnToWelcome("Exited combat. Create or join a room when ready.");
 });
 completeTurn.addEventListener("click", () => action({ action: "completeTurn" }, "resolve"));
 gmDelayTimer.addEventListener("click", () => {
