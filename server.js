@@ -184,6 +184,11 @@ function clearDelayRequest(room) {
   room.delayRequest = null;
 }
 
+function copyDelay(delay) {
+  if (!delay) return null;
+  return JSON.parse(JSON.stringify(delay));
+}
+
 function usesCommandWindow(unit, source) {
   return source === "clock" && unit?.team === "pc" && unit?.commandWindow;
 }
@@ -272,6 +277,9 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
   const previousSource = room.activeSource;
   const wasActive = room.activeId === unit.id;
   const normalizedKind = normalizeDelayKind(kind);
+  const resumesDelay = normalizedKind === "timer" && unit.delay && !unit.delay.resolving
+    ? copyDelay(unit.delay)
+    : null;
   unit.delay = {
     id: id(),
     kind: normalizedKind,
@@ -281,6 +289,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     total: 100,
     consumeTurn: wasActive,
     resolving: false,
+    resumesDelay,
   };
   clearDelayRequest(room);
   pushLog(room, `${unit.characterName} started ${unit.delay.kind === "action" ? `Delayed Action: ${unit.delay.label}` : "a Delay Timer"} at ${unit.delay.rate}.`);
@@ -320,9 +329,15 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
             unit.delay.resolving = true;
             completedActions.push({ unit, delay: unit.delay });
           } else {
-            if (unit.delay.consumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
-            unit.delay = null;
-            pushLog(room, `${unit.characterName}'s Delay Time ended.`);
+            const resumedDelay = unit.delay.resumesDelay ? copyDelay(unit.delay.resumesDelay) : null;
+            if (resumedDelay) {
+              unit.delay = resumedDelay;
+              pushLog(room, `${unit.characterName}'s Delay Time ended. Previous delay resumed.`);
+            } else {
+              if (unit.delay.consumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
+              unit.delay = null;
+              pushLog(room, `${unit.characterName}'s Delay Time ended.`);
+            }
           }
         }
       }
