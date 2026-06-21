@@ -430,10 +430,14 @@ function renderUnitList(sorted) {
     ]),
   );
   const previousWidths = new Map(
-    [...unitList.querySelectorAll(".unit-card[data-unit-id]")].map((card) => [
-      card.dataset.unitId,
-      card.querySelector(".fill")?.style.width || "0%",
-    ]),
+    [...unitList.querySelectorAll(".unit-card[data-unit-id]")].map((card) => {
+      const meter = card.querySelector(".meter");
+      const fill = card.querySelector(".fill");
+      const meterWidth = meter?.getBoundingClientRect().width || 0;
+      const fillWidth = fill?.getBoundingClientRect().width || 0;
+      const width = meterWidth > 0 ? `${Math.max(0, Math.min(100, (fillWidth / meterWidth) * 100))}%` : "0%";
+      return [card.dataset.unitId, width];
+    }),
   );
 
   unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("");

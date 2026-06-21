@@ -572,7 +572,7 @@ h2 {
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
     inset 0 -7px 12px rgba(0, 0, 0, 0.28),
     0 0 14px rgba(var(--bar-rgb, 57, 229, 143), 0.25);
-  transition: width 220ms linear;
+  transition: width 360ms linear;
   overflow: hidden;
 }
 
@@ -590,25 +590,25 @@ h2 {
 }
 
 .player-mode .unit-card.own-unit .meter {
-  border-color: rgba(255, 255, 255, 0.38);
+  border-color: rgba(255, 255, 255, 0.52);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -3px 8px rgba(0, 0, 0, 0.72),
-    0 0 16px rgba(var(--bar-rgb, 57, 229, 143), 0.16);
+    0 0 18px rgba(var(--bar-rgb, 57, 229, 143), 0.28);
 }
 
 .player-mode .unit-card.own-unit .meter::after {
   content: "";
   position: absolute;
   top: 50%;
-  left: min(96%, max(8%, var(--own-flare-left, 50%)));
-  width: 54px;
-  height: 24px;
+  left: var(--own-flare-left, 50%);
+  width: 72px;
+  height: 30px;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.36) 0%, rgba(var(--bar-rgb, 57, 229, 143), 0.18) 28%, transparent 66%);
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.58) 0%, rgba(var(--bar-rgb, 57, 229, 143), 0.3) 30%, transparent 68%);
   filter: blur(0.5px);
-  opacity: 0.26;
+  opacity: 0.44;
   transform: translate(-50%, -50%);
   mix-blend-mode: screen;
 }
