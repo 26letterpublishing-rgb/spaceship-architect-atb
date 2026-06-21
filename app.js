@@ -771,6 +771,20 @@ function playGmSound(name = "tap") {
   }
 }
 
+function gmClockIsAudiblyActive() {
+  return mode === "gm" && state?.running && !state.pausedForTurn && !state.holdPaused && !document.hidden;
+}
+
+function playGmClockTick() {
+  if (gmSoundsMuted || !gmClockIsAudiblyActive()) return;
+  try {
+    tone(1180, 0, 0.018, 0.006, "square");
+    tone(880, 0.025, 0.012, 0.003, "triangle");
+  } catch {
+    // Browsers may block audio until the first GM tap.
+  }
+}
+
 function playTurnDing() {
   try {
     tone(880, 0, 0.22, 0.28, "sine");
@@ -1170,6 +1184,7 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });
 
+setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 
 if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
