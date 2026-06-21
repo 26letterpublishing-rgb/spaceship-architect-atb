@@ -726,6 +726,7 @@ function render() {
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || mode === "player");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
+  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused);
   renderPcBuilder();
 
   if (!state) {

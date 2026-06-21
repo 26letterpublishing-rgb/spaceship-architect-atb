@@ -49,9 +49,11 @@ select {
 
 button {
   min-height: 44px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(88, 114, 150, 0.78);
+  border-radius: 7px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06) 42%, rgba(0, 0, 0, 0.22) 100%),
+    linear-gradient(90deg, rgba(40, 215, 255, 0.08), rgba(155, 92, 255, 0.08)),
     #1b2433;
   color: var(--text);
   cursor: pointer;
@@ -59,10 +61,34 @@ button {
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.8),
     0 0 10px rgba(40, 215, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.36),
+    0 2px 0 rgba(0, 0, 0, 0.42),
+    0 8px 18px rgba(0, 0, 0, 0.18);
+  transition:
+    border-color 140ms ease,
+    filter 140ms ease,
+    transform 80ms ease,
+    box-shadow 140ms ease;
 }
 
 button:hover {
   border-color: var(--cyan);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.34),
+    0 2px 0 rgba(0, 0, 0, 0.42),
+    0 0 16px rgba(40, 215, 255, 0.18);
+}
+
+button:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 1px 0 rgba(0, 0, 0, 0.42);
 }
 
 button:disabled {
@@ -73,7 +99,8 @@ button:disabled {
 .secondary {
   border-color: rgba(40, 215, 255, 0.5);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 42%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(90deg, rgba(40, 215, 255, 0.12), rgba(155, 92, 255, 0.1)),
     #17283a;
   color: #d8f6ff;
 }
@@ -565,9 +592,19 @@ h2 {
     transparent 100%
   );
   mix-blend-mode: screen;
-  opacity: 0.72;
+  opacity: 0;
   transform: translateX(-130%) skewX(-18deg);
+}
+
+.clock-active .unit-card:not(.ready):not(.delayed) .fill::before {
+  opacity: 0.72;
   animation: energySweep 1.45s linear infinite;
+}
+
+.ready .fill::before,
+.delayed .fill::before {
+  animation: none;
+  opacity: 0;
 }
 
 .fill::after {
