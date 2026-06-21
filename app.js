@@ -165,7 +165,7 @@ function calculatedPcStats() {
   const reflex = clampSkill(reflexSkill.value);
   return {
     speed: Math.max(1, intellectBoxes + reflex),
-    commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 60),
+    commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 30),
   };
 }
 
