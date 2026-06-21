@@ -230,7 +230,8 @@ function hexToRgb(hex) {
 function barStyle(unit) {
   const color = unit.color || "#39e58f";
   const rgb = hexToRgb(color);
-  return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};`;
+  const flareLeft = Math.max(8, Math.min(96, pct(unit)));
+  return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%;`;
 }
 
 function setConnected(isConnected, message) {
@@ -346,6 +347,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const ready = unit.atb >= state.threshold && !delayed;
   const atbPercent = Math.min(100, unit.atb);
   const close = atbPercent >= 80 && !ready && !delayed;
+  const own = player && unit.id === myUnitId;
   const speed = formatSpeed(unit.speed);
   const command = commandFor(unit);
   const speedInputValue = unit.speed ? formatSpeed(unit.speed) : "";
@@ -356,7 +358,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const side = unit.team === "pc" ? "PC" : "NPC";
   const type = "Character";
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""}" data-unit-id="${unit.id}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}" data-unit-id="${unit.id}" style="${barStyle(unit)}">
       <div class="unit-top">
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
