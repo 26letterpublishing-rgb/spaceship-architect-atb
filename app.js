@@ -14,6 +14,7 @@ let lastInterruptedNotice = "";
 let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
+let pendingHardPause = null;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
@@ -345,8 +346,20 @@ function setConnected(isConnected, message) {
     : message || "Cannot reach the ATB room server. Start the server launcher, then refresh this page.";
 }
 
+function receiveState(nextState, { force = false } = {}) {
+  if (!nextState) return false;
+  if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
+  if (!force && pendingHardPause === true && nextState.hardPaused !== true) return false;
+  if (!force && pendingHardPause === false && nextState.hardPaused !== false) return false;
+  state = nextState;
+  render();
+  return true;
+}
+
 async function action(payload, soundName = "tap") {
   let response;
+  const hardPauseCommand = payload.action === "setHardPaused";
+  if (hardPauseCommand) pendingHardPause = Boolean(payload.paused);
   try {
     response = await fetch("/api/action", {
       method: "POST",
@@ -354,10 +367,12 @@ async function action(payload, soundName = "tap") {
       body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
     });
   } catch {
+    if (hardPauseCommand) pendingHardPause = null;
     setConnected(false, "Cannot reach the ATB room server. Check the connection, then try again.");
     return state;
   }
   if (!response.ok) {
+    if (hardPauseCommand) pendingHardPause = null;
     if (response.status === 404) {
       returnToWelcome("That room expired. Create or join a new room.");
     } else {
@@ -366,13 +381,15 @@ async function action(payload, soundName = "tap") {
     return state;
   }
   try {
-    state = await response.json();
+    const nextState = await response.json();
+    receiveState(nextState, { force: true });
   } catch {
+    if (hardPauseCommand) pendingHardPause = null;
     setConnected(false, "The ATB room server sent an unreadable response. Try again.");
     return state;
   }
+  if (hardPauseCommand) pendingHardPause = null;
   if (mode === "gm") playGmSound(soundName);
-  render();
   return state;
 }
 
@@ -395,8 +412,7 @@ function connectEvents() {
   events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}`);
   events.addEventListener("state", (event) => {
     setConnected(true);
-    state = JSON.parse(event.data);
-    render();
+    receiveState(JSON.parse(event.data));
   });
   events.addEventListener("error", () => {
     setConnected(false, "Cannot reach this ATB room. It may have expired or the server may be waking up.");

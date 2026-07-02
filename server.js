@@ -9,6 +9,7 @@ const PUBLIC_DIR = __dirname;
 
 const rooms = new Map();
 const clients = new Map();
+let stateSequence = 0;
 const HEARTBEAT_MS = 25000;
 
 function id() {
@@ -64,6 +65,7 @@ function publicState(room) {
   migrateRoomDelays(room);
   const command = commandState(room);
   return {
+    revision: ++stateSequence,
     roomCode: room.roomCode,
     running: room.running,
     pausedForTurn: room.pausedForTurn,
