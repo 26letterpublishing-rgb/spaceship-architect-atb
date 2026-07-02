@@ -15,6 +15,8 @@ let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
 let pendingHardPause = null;
+let gmClockActionPending = false;
+let gmClockLockedUntil = 0;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
@@ -358,13 +360,19 @@ function receiveState(nextState, { force = false } = {}) {
 
 async function action(payload, soundName = "tap") {
   let response;
-  const hardPauseCommand = payload.action === "setHardPaused";
-  if (hardPauseCommand) pendingHardPause = Boolean(payload.paused);
+  const expectedHardPaused = payload.action === "setHardPaused"
+    ? Boolean(payload.paused)
+    : typeof payload.expectedHardPaused === "boolean"
+      ? payload.expectedHardPaused
+      : null;
+  const hardPauseCommand = expectedHardPaused !== null;
+  if (hardPauseCommand) pendingHardPause = expectedHardPaused;
+  const { expectedHardPaused: _expectedHardPaused, ...serverPayload } = payload;
   try {
     response = await fetch("/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
+      body: JSON.stringify({ ...serverPayload, roomCode: currentRoomCode }),
     });
   } catch {
     if (hardPauseCommand) pendingHardPause = null;
@@ -982,6 +990,7 @@ function updateGmClockButton() {
   gmPanicPause.classList.toggle("hidden", mode !== "gm");
   gmPanicPause.classList.toggle("engage", showEngage);
   gmPanicPause.classList.toggle("paused", !showEngage);
+  gmPanicPause.disabled = gmClockActionPending;
   gmPanicPause.innerHTML = `<span>${showEngage ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
 }
 
@@ -1283,20 +1292,30 @@ rejoinPlayer.addEventListener("click", () => {
 });
 
 gmPanicPause.addEventListener("click", () => {
-  if (!state) return;
-  if (state.hardPaused) {
+  const now = Date.now();
+  if (!state || gmClockActionPending || now < gmClockLockedUntil) return;
+  gmClockLockedUntil = now + 1200;
+  const shouldResume = Boolean(state.hardPaused);
+  const shouldPause = !shouldResume && Boolean(state.running || state.pausedForTurn || state.holdPaused || state.activeAction);
+  gmClockActionPending = true;
+  if (shouldResume) {
     state = { ...state, hardPaused: false };
-    render();
-    action({ action: "setHardPaused", paused: false }, "engage");
-    return;
-  }
-  if (state.running || state.pausedForTurn || state.holdPaused) {
+  } else if (shouldPause) {
     state = { ...state, hardPaused: true };
-    render();
-    action({ action: "setHardPaused", paused: true }, "pause");
-    return;
   }
-  action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+  render();
+  action(
+    {
+      action: "toggleClock",
+      expectedHardPaused: shouldPause ? true : shouldResume ? false : null,
+    },
+    shouldPause ? "pause" : state.hasEngagedClock ? "engage" : "firstStart",
+  ).finally(() => {
+    setTimeout(() => {
+      gmClockActionPending = false;
+      render();
+    }, 450);
+  });
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));

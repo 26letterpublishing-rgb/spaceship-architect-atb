@@ -637,6 +637,22 @@ async function handleAction(req, res) {
     }
   }
 
+  if (action === "toggleClock") {
+    if (room.hardPaused) {
+      hardResumeRoom(room);
+    } else if (room.running || room.pausedForTurn || room.holdPaused || room.activeAction) {
+      hardPauseRoom(room);
+    } else if (!canStartClock(room)) {
+      pushLog(room, "Clock cannot start until every participant has GM-entered values.");
+    } else {
+      room.running = true;
+      room.resumeAfterTurn = true;
+      room.hasEngagedClock = true;
+      room.lastTick = Date.now();
+      pushLog(room, "Clock started.");
+    }
+  }
+
   if (action === "setSpeed") {
     const unit = room.units.find((entry) => entry.id === body.id);
     if (unit) {
