@@ -44,6 +44,7 @@ function createRoom() {
     lastKeepAliveAt: Date.now(),
     lastTick: Date.now(),
     delayRequest: null,
+    hasEngagedClock: false,
     threshold: 100,
     units: [],
     log: [],
@@ -59,6 +60,7 @@ function getRoom(code) {
 }
 
 function publicState(room) {
+  migrateRoomDelays(room);
   const command = commandState(room);
   return {
     roomCode: room.roomCode,
@@ -70,6 +72,7 @@ function publicState(room) {
     command,
     holdPaused: room.holdPaused,
     delayRequest: room.delayRequest,
+    hasEngagedClock: room.hasEngagedClock,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
     lastKeepAliveAt: room.lastKeepAliveAt,
@@ -106,7 +109,7 @@ function normalizeCommandWindow(value) {
 
 function normalizeDelayRate(value) {
   if (value === null || value === undefined || value === "") return null;
-  return Math.max(1, Math.min(100, Number(value) || 1));
+  return Math.max(0.1, Math.min(100, Number(value) || 1));
 }
 
 function normalizeDelayKind(value) {
@@ -116,6 +119,11 @@ function normalizeDelayKind(value) {
 function normalizeDelayLabel(value, kind = "timer") {
   const fallback = kind === "action" ? "Delayed Action" : "Delay Time";
   return String(value || fallback).trim().slice(0, 60) || fallback;
+}
+
+function normalizeActionLog(value) {
+  const text = String(value || "").trim().replace(/\s+/g, " ").slice(0, 60);
+  return text || "has taken an action";
 }
 
 function normalizeTeam(value) {
@@ -146,7 +154,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.delay && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -189,6 +197,26 @@ function copyDelay(delay) {
   return JSON.parse(JSON.stringify(delay));
 }
 
+function migrateRoomDelays(room) {
+  for (const unit of room.units) {
+    if (!unit.delay) continue;
+    if (unit.delay.kind === "action") {
+      unit.delayedAction = unit.delayedAction || unit.delay;
+    } else {
+      unit.delayTimer = unit.delayTimer || unit.delay;
+    }
+    delete unit.delay;
+  }
+}
+
+function hasDelay(unit) {
+  return Boolean(unit?.delayTimer || unit?.delayedAction || unit?.delay);
+}
+
+function activeDelay(unit) {
+  return unit?.delayTimer || unit?.delayedAction || unit?.delay || null;
+}
+
 function usesCommandWindow(unit, source) {
   return source === "clock" && unit?.team === "pc" && unit?.commandWindow;
 }
@@ -218,7 +246,7 @@ function interruptActiveTurn(room) {
     interrupted.atb = Math.max(0, interrupted.atb - room.threshold);
     room.lastInterruptedId = interrupted.id;
     room.lastInterruptedAt = Date.now();
-    pushLog(room, `${interrupted.characterName}'s turn was interrupted.`);
+    pushLog(room, `${interrupted.characterName}'s action was interrupted!`);
   }
   room.activeId = null;
   room.pausedForTurn = false;
@@ -232,11 +260,11 @@ function pauseForDelayedAction(room, unit, source = "clock") {
   room.running = false;
   room.activeId = null;
   room.activeAction = {
-    id: unit.delay?.id || id(),
+    id: unit.delayedAction?.id || id(),
     unitId: unit.id,
     characterName: unit.characterName,
     playerName: unit.playerName,
-    label: normalizeDelayLabel(unit.delay?.label, "action"),
+    label: normalizeDelayLabel(unit.delayedAction?.label, "action"),
   };
   room.activeSource = source;
   pushLog(room, `Resolve Action: ${room.activeAction.label}.`);
@@ -277,10 +305,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
   const previousSource = room.activeSource;
   const wasActive = room.activeId === unit.id;
   const normalizedKind = normalizeDelayKind(kind);
-  const resumesDelay = normalizedKind === "timer" && unit.delay && !unit.delay.resolving
-    ? copyDelay(unit.delay)
-    : null;
-  unit.delay = {
+  const nextDelay = {
     id: id(),
     kind: normalizedKind,
     label: normalizeDelayLabel(label, normalizedKind),
@@ -289,10 +314,14 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     total: 100,
     consumeTurn: wasActive,
     resolving: false,
-    resumesDelay,
   };
+  if (normalizedKind === "action") {
+    unit.delayedAction = nextDelay;
+  } else {
+    unit.delayTimer = nextDelay;
+  }
   clearDelayRequest(room);
-  pushLog(room, `${unit.characterName} started ${unit.delay.kind === "action" ? `Delayed Action: ${unit.delay.label}` : "a Delay Timer"} at ${unit.delay.rate}.`);
+  pushLog(room, `${unit.characterName} started ${nextDelay.kind === "action" ? `Delayed Action: ${nextDelay.label}` : "a Delay Timer"} at ${nextDelay.rate}.`);
   if (wasActive) {
     room.pausedForTurn = false;
     room.activeId = null;
@@ -320,25 +349,25 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const completedActions = [];
   for (const unit of room.units) {
     if (unit.id === skipId || !unit.speed) continue;
-    if (unit.delay) {
-      if (!unit.delay.resolving) {
-        unit.delay.remaining = Math.max(0, unit.delay.remaining - unit.delay.rate * seconds * multiplier);
-        if (unit.delay.remaining <= 0) {
-          if (unit.delay.kind === "action") {
-            unit.delay.remaining = 0;
-            unit.delay.resolving = true;
-            completedActions.push({ unit, delay: unit.delay });
-          } else {
-            const resumedDelay = unit.delay.resumesDelay ? copyDelay(unit.delay.resumesDelay) : null;
-            if (resumedDelay) {
-              unit.delay = resumedDelay;
-              pushLog(room, `${unit.characterName}'s Delay Time ended. Previous delay resumed.`);
-            } else {
-              if (unit.delay.consumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
-              unit.delay = null;
-              pushLog(room, `${unit.characterName}'s Delay Time ended.`);
-            }
-          }
+    if (unit.delayTimer) {
+      if (!unit.delayTimer.resolving) {
+        unit.delayTimer.remaining = Math.max(0, unit.delayTimer.remaining - unit.delayTimer.rate * seconds * multiplier);
+        if (unit.delayTimer.remaining <= 0) {
+          const shouldConsumeTurn = unit.delayTimer.consumeTurn && !unit.delayedAction;
+          if (shouldConsumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
+          unit.delayTimer = null;
+          pushLog(room, `${unit.characterName}'s Delay Time ended.`);
+        }
+      }
+      continue;
+    }
+    if (unit.delayedAction) {
+      if (!unit.delayedAction.resolving) {
+        unit.delayedAction.remaining = Math.max(0, unit.delayedAction.remaining - unit.delayedAction.rate * seconds * multiplier);
+        if (unit.delayedAction.remaining <= 0) {
+          unit.delayedAction.remaining = 0;
+          unit.delayedAction.resolving = true;
+          completedActions.push({ unit, delay: unit.delayedAction });
         }
       }
       continue;
@@ -379,8 +408,9 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
     .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
     .map((unit) => {
       const multiplier = interruptedId ? 0.2 : 1;
-      if (unit.delay && !unit.delay.resolving) return Math.max(0, unit.delay.remaining / (unit.delay.rate * multiplier));
-      if (unit.delay) return Infinity;
+      const delay = activeDelay(unit);
+      if (delay && !delay.resolving) return Math.max(0, delay.remaining / (delay.rate * multiplier));
+      if (delay) return Infinity;
       return Math.max(0, (room.threshold - unit.atb) / (unit.speed * multiplier));
     })
     .filter((time) => Number.isFinite(time));
@@ -402,6 +432,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    migrateRoomDelays(room);
     if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
       if (Date.now() >= room.commandDeadline) {
         const unit = room.units.find((entry) => entry.id === room.activeId);
@@ -506,6 +537,7 @@ async function handleAction(req, res) {
     sendJson(res, 404, { error: "Room not found" });
     return;
   }
+  migrateRoomDelays(room);
 
   const action = body.action;
   if (action === "join" || action === "addUnit") {
@@ -521,6 +553,8 @@ async function handleAction(req, res) {
       commandWindow,
       atb: 0,
       delay: null,
+      delayTimer: null,
+      delayedAction: null,
       controlledBy: body.controlledBy || "player",
       team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
       actorType: normalizeActorType(body.actorType),
@@ -571,12 +605,17 @@ async function handleAction(req, res) {
       room.holdPaused = !room.holdPaused;
       room.holdStartedAt = room.holdPaused ? Date.now() : null;
       pushLog(room, room.holdPaused ? "All timers paused." : "All timers resumed.");
+    } else if (room.pausedForTurn && room.activeAction) {
+      room.holdPaused = !room.holdPaused;
+      room.holdStartedAt = room.holdPaused ? Date.now() : null;
+      pushLog(room, room.holdPaused ? "All timers paused." : "All timers resumed.");
     } else if (wantsRunning && !room.pausedForTurn) {
       if (!canStartClock(room)) {
         pushLog(room, "Clock cannot start until every participant has GM-entered values.");
       } else {
         room.running = true;
         room.resumeAfterTurn = true;
+        room.hasEngagedClock = true;
         pushLog(room, "Clock started.");
       }
     } else {
@@ -625,6 +664,12 @@ async function handleAction(req, res) {
     }
   }
 
+  if (action === "logPlayerAction") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const label = normalizeActionLog(body.label);
+    if (unit) pushLog(room, `${unit.characterName} ${label}.`);
+  }
+
   if (action === "requestDelay") {
     const unit = room.units.find((entry) => entry.id === body.id);
     requestDelay(room, unit, body.kind);
@@ -660,6 +705,8 @@ async function handleAction(req, res) {
     for (const unit of room.units) {
       unit.atb = 0;
       unit.delay = null;
+      unit.delayTimer = null;
+      unit.delayedAction = null;
     }
     room.running = false;
     room.pausedForTurn = false;
@@ -695,8 +742,8 @@ async function handleAction(req, res) {
       const actionToResolve = room.activeAction;
       const unit = room.units.find((entry) => entry.id === actionToResolve.unitId);
       if (unit) {
-        unit.delay = null;
-        unit.atb = Math.max(0, unit.atb - room.threshold);
+        unit.delayedAction = null;
+        if (!unit.delayTimer) unit.atb = Math.max(0, unit.atb - room.threshold);
         pushLog(room, `Resolved Action: ${actionToResolve.label}.`);
       }
       room.pausedForTurn = false;
@@ -728,7 +775,7 @@ async function handleAction(req, res) {
     const unit = room.units.find((entry) => entry.id === body.id);
     if (unit && !room.pausedForTurn) {
       unit.atb = Math.min(room.threshold, unit.atb + Math.max(1, Number(body.amount) || 1));
-      if (unit.atb >= room.threshold && !unit.delay) {
+      if (unit.atb >= room.threshold && !hasDelay(unit)) {
         if (room.commandExpired && room.activeId) interruptActiveTurn(room);
         pauseForReadyUnit(room, unit, room.resumeAfterTurn ? "clock" : "manual");
       }

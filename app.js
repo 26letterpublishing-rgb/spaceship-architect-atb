@@ -4,6 +4,10 @@ let currentRoomCode = (localStorage.getItem("sa-atb-room-code") || "").trim().to
 let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
+let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
+let selectedCharacterIcon = "";
+let actionLogTimeout = null;
+let pendingActionLog = null;
 let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let lastInterruptedNotice = "";
@@ -11,7 +15,23 @@ let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
 const KEEP_ALIVE_MS = 30000;
+const ACTION_LOG_TIMEOUT_MS = 300000;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
+const actionLogChoices = [
+  ["MELEE ATTACKED", "melee attacked"],
+  ["WRESTLE/TACKLED", "wrestled/tackled"],
+  ["MOVED", "moved"],
+  ["CHARGED GUN", "charged a gun"],
+  ["READIED GUN", "readied a gun"],
+  ["READIED WEAPON", "readied a weapon"],
+  ["USED ITEM", "used an item"],
+  ["DEFENSE ACTION", "took a defensive action"],
+  ["FIRED GUN", "fired a gun"],
+  ["SHIP OPERATION", "performed a ship operation"],
+  ["DELAYED ACTION", "started a delayed action"],
+  ["OTHER", "other"],
+  ["NO ACTION", "took no action"],
+];
 const pcBuild = {
   perception: [1, 1, 0, 0],
   intellect: [1, 1, 0, 0],
@@ -62,10 +82,11 @@ const playerPanel = document.querySelector("#playerPanel");
 const playerName = document.querySelector("#playerName");
 const characterName = document.querySelector("#characterName");
 const playerColor = document.querySelector("#playerColor");
+const characterIcon = document.querySelector("#characterIcon");
 const perceptionDiceGrid = document.querySelector("#perceptionDiceGrid");
 const intellectDiceGrid = document.querySelector("#intellectDiceGrid");
 const awarenessSkill = document.querySelector("#awarenessSkill");
-const reflexSkill = document.querySelector("#reflexSkill");
+const initiativeSkill = document.querySelector("#initiativeSkill");
 const calculatedSpeed = document.querySelector("#calculatedSpeed");
 const calculatedCommand = document.querySelector("#calculatedCommand");
 const joinPlayer = document.querySelector("#joinPlayer");
@@ -73,7 +94,6 @@ const openGm = document.querySelector("#openGm");
 const rejoinBlock = document.querySelector("#rejoinBlock");
 const rejoinSelect = document.querySelector("#rejoinSelect");
 const rejoinPlayer = document.querySelector("#rejoinPlayer");
-const toggleRun = document.querySelector("#toggleRun");
 const stepTick = document.querySelector("#stepTick");
 const resetAll = document.querySelector("#resetAll");
 const clearEncounter = document.querySelector("#clearEncounter");
@@ -106,6 +126,7 @@ const playerCommandTime = document.querySelector("#playerCommandTime");
 const playerCommandStatus = document.querySelector("#playerCommandStatus");
 const enableAlerts = document.querySelector("#enableAlerts");
 const leaveRoom = document.querySelector("#leaveRoom");
+const playerActionLogToggle = document.querySelector("#playerActionLogToggle");
 const playerColorControl = document.querySelector("#playerColorControl");
 const playerColorEdit = document.querySelector("#playerColorEdit");
 const myUnitCard = document.querySelector("#myUnitCard");
@@ -122,10 +143,31 @@ const completeTurn = document.querySelector("#completeTurn");
 const gmDelayTimer = document.querySelector("#gmDelayTimer");
 const gmDelayedAction = document.querySelector("#gmDelayedAction");
 const gmPanicPause = document.querySelector("#gmPanicPause");
+const playerActionSheet = document.querySelector("#playerActionSheet");
+const playerActionChoices = document.querySelector("#playerActionChoices");
+const dismissActionSheet = document.querySelector("#dismissActionSheet");
 
 function pct(unit) {
   if (!state) return 0;
   return Math.min(100, (unit.atb / state.threshold) * 100);
+}
+
+function delayTimerFor(unit) {
+  if (unit?.delayTimer) return unit.delayTimer;
+  return unit?.delay?.kind === "timer" ? unit.delay : null;
+}
+
+function delayedActionFor(unit) {
+  if (unit?.delayedAction) return unit.delayedAction;
+  return unit?.delay?.kind === "action" ? unit.delay : null;
+}
+
+function hasAnyDelay(unit) {
+  return Boolean(delayTimerFor(unit) || delayedActionFor(unit));
+}
+
+function activeDelayFor(unit) {
+  return delayTimerFor(unit) || delayedActionFor(unit);
 }
 
 function formatSpeed(value) {
@@ -135,7 +177,8 @@ function formatSpeed(value) {
 
 function estimateTurn(unit) {
   if (!unit.speed) return "Awaiting GM values";
-  if (unit.delay) return `${delayText(unit.delay)} - ${formatSeconds(delaySeconds(unit.delay))}`;
+  const delay = activeDelayFor(unit);
+  if (delay) return `${delayText(delay)} - ${formatSeconds(delaySeconds(delay))}`;
   if (!state || unit.atb >= state.threshold) return "Ready";
   if (!state.running || state.pausedForTurn) return "Clock paused";
   const seconds = Math.max(0, (state.threshold - unit.atb) / unit.speed);
@@ -162,9 +205,9 @@ function calculatedPcStats() {
   const perceptionBoxes = purchasedBoxes(pcBuild.perception);
   const intellectBoxes = purchasedBoxes(pcBuild.intellect);
   const awareness = clampSkill(awarenessSkill.value);
-  const reflex = clampSkill(reflexSkill.value);
+  const initiative = clampSkill(initiativeSkill.value);
   return {
-    speed: Math.max(1, intellectBoxes + reflex),
+    speed: Math.max(1, intellectBoxes + initiative),
     commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 30),
   };
 }
@@ -218,6 +261,26 @@ function delayText(delay) {
   return "Delay Time";
 }
 
+function delayBars(unit) {
+  const bars = [];
+  const timer = delayTimerFor(unit);
+  const actionDelay = delayedActionFor(unit);
+  if (actionDelay) bars.push({ delay: actionDelay, className: "action-delay" });
+  if (timer) bars.push({ delay: timer, className: "timer-delay" });
+  return bars;
+}
+
+function delayBarsMarkup(unit) {
+  return delayBars(unit)
+    .map(({ delay, className }) => `
+      <div class="delay-bar ${className}">
+        <div class="delay-bar-fill" style="width:${delayPercent(delay)}%"></div>
+        <span>${escapeHtml(delayText(delay))} - ${formatSeconds(delaySeconds(delay))}</span>
+      </div>
+    `)
+    .join("");
+}
+
 function hexToRgb(hex) {
   const clean = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#39e58f";
   const value = Number.parseInt(clean.slice(1), 16);
@@ -240,6 +303,38 @@ function barStyle(unit) {
   const rgb = hexToRgb(color);
   const flareLeft = Math.max(8, Math.min(96, pct(unit)));
   return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%;`;
+}
+
+function iconStore() {
+  try {
+    return JSON.parse(localStorage.getItem("sa-atb-character-icons") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveIconForCharacter(name, dataUrl) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!key || !dataUrl) return;
+  const icons = iconStore();
+  icons[key] = dataUrl;
+  localStorage.setItem("sa-atb-character-icons", JSON.stringify(icons));
+}
+
+function iconForCharacter(name) {
+  const key = String(name || "").trim().toLowerCase();
+  return key ? iconStore()[key] || "" : "";
+}
+
+function myIconForUnit(unit) {
+  if (!unit || unit.id !== myUnitId) return "";
+  return selectedCharacterIcon || iconForCharacter(unit.characterName);
+}
+
+function setActionLogEnabled(enabled) {
+  playerActionLogEnabled = Boolean(enabled);
+  localStorage.setItem("sa-atb-action-log-enabled", playerActionLogEnabled ? "on" : "off");
+  if (playerActionLogToggle) playerActionLogToggle.checked = playerActionLogEnabled;
 }
 
 function setConnected(isConnected, message) {
@@ -351,11 +446,13 @@ async function keepRoomAwake() {
 }
 
 function unitCard(unit, { gm = false, player = false } = {}) {
-  const delayed = Boolean(unit.delay);
+  const delayed = hasAnyDelay(unit);
   const ready = unit.atb >= state.threshold && !delayed;
   const atbPercent = Math.min(100, unit.atb);
-  const close = atbPercent >= 80 && !ready && !delayed;
+  const close = atbPercent >= 75 && !ready && !delayed;
+  const hotClass = atbPercent >= 95 && !ready && !delayed ? "charge-critical" : atbPercent >= 90 && !ready && !delayed ? "charge-hot" : close ? "charge-warm" : "";
   const own = player && unit.id === myUnitId;
+  const icon = player ? myIconForUnit(unit) : "";
   const speed = formatSpeed(unit.speed);
   const command = commandFor(unit);
   const speedInputValue = unit.speed ? formatSpeed(unit.speed) : "";
@@ -367,8 +464,9 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const type = "Character";
   const signature = unitSignature(unit, { gm, player });
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""} ${icon ? "has-avatar" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
       <div class="unit-top">
+        ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
@@ -419,12 +517,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
             : ""
       }
       ${
-        unit.delay
-          ? `<div class="delay-bar ${unit.delay.kind === "action" ? "action-delay" : ""}">
-              <div class="delay-bar-fill" style="width:${delayPercent(unit.delay)}%"></div>
-              <span>${escapeHtml(delayText(unit.delay))} - ${formatSeconds(delaySeconds(unit.delay))}</span>
-            </div>`
-          : ""
+        delayBarsMarkup(unit)
       }
       <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
     </article>
@@ -444,19 +537,22 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.commandWindow || "",
     unit.color || "",
     unit.team,
-    unit.delay ? `${unit.delay.kind}:${unit.delay.label}:${unit.delay.resolving ? "resolving" : "waiting"}` : "nodelay",
+    delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
+    delayedActionFor(unit) ? `action:${delayedActionFor(unit).label}:${delayedActionFor(unit).remaining}:${delayedActionFor(unit).rate}:${delayedActionFor(unit).resolving ? "resolving" : "waiting"}` : "noaction",
+    myIconForUnit(unit) ? "icon" : "noicon",
     command ? `command:${command.expired ? "expired" : "active"}` : "nocommand",
     setupMissing ? "setup" : "ready-setup",
   ].join("|");
 }
 
 function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
-  const delayed = Boolean(unit.delay);
+  const delayed = hasAnyDelay(unit);
   const ready = unit.atb >= state.threshold && !delayed;
   const atbPercent = Math.min(100, unit.atb);
-  const close = atbPercent >= 80 && !ready && !delayed;
+  const close = atbPercent >= 75 && !ready && !delayed;
+  const hotClass = atbPercent >= 95 && !ready && !delayed ? "charge-critical" : atbPercent >= 90 && !ready && !delayed ? "charge-hot" : close ? "charge-warm" : "";
   const own = player && unit.id === myUnitId;
-  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""}`.trim();
+  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""} ${myIconForUnit(unit) ? "has-avatar" : ""}`.trim();
   card.setAttribute("style", barStyle(unit));
 
   const readout = card.querySelector(".unit-readout strong");
@@ -477,15 +573,20 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
     if (commandLabel) commandLabel.textContent = command.expired ? "Interruption pending" : `${formatSeconds(command.remaining)} Command Window`;
   }
 
-  if (unit.delay) {
-    const delayBar = card.querySelector(".delay-bar");
-    if (delayBar) {
-      delayBar.classList.toggle("action-delay", unit.delay.kind === "action");
-      const delayFill = delayBar.querySelector(".delay-bar-fill");
-      if (delayFill) delayFill.style.width = `${delayPercent(unit.delay)}%`;
-      const delayLabel = delayBar.querySelector("span");
-      if (delayLabel) delayLabel.textContent = `${delayText(unit.delay)} - ${formatSeconds(delaySeconds(unit.delay))}`;
-    }
+  const nextDelayMarkup = delayBarsMarkup(unit);
+  const currentDelayBars = card.querySelectorAll(".delay-bar");
+  if (currentDelayBars.length !== delayBars(unit).length) {
+    const meter = card.querySelector(".meter");
+    currentDelayBars.forEach((bar) => bar.remove());
+    if (meter && nextDelayMarkup) meter.insertAdjacentHTML("beforebegin", nextDelayMarkup);
+  } else {
+    delayBars(unit).forEach(({ delay }, index) => {
+      const delayBar = currentDelayBars[index];
+      const delayFill = delayBar?.querySelector(".delay-bar-fill");
+      if (delayFill) delayFill.style.width = `${delayPercent(delay)}%`;
+      const delayLabel = delayBar?.querySelector("span");
+      if (delayLabel) delayLabel.textContent = `${delayText(delay)} - ${formatSeconds(delaySeconds(delay))}`;
+    });
   }
 }
 
@@ -572,6 +673,7 @@ function escapeHtml(value) {
 
 function statusText() {
   if (!state) return "Connecting";
+  if (state.holdPaused) return "Paused";
   if (state.pausedForTurn) return "Turn Paused";
   return state.running ? "Clock Engaged" : "Waiting for GM";
 }
@@ -635,7 +737,7 @@ function renderActivePanel() {
 
   if (state.running) {
     const next = [...state.units]
-      .filter((unit) => !unit.delay && unit.atb < state.threshold)
+      .filter((unit) => !hasAnyDelay(unit) && unit.atb < state.threshold && unit.speed)
       .sort((a, b) => (state.threshold - a.atb) / a.speed - (state.threshold - b.atb) / b.speed)[0];
     activeKicker.textContent = "Clock Engaged";
     activeTitle.textContent = next ? `${next.characterName} is next` : "Awaiting participants";
@@ -755,6 +857,23 @@ function playGmSound(name = "tap") {
       tone(440, 0.08, 0.08, 0.04, "square");
       return;
     }
+    if (name === "firstStart") {
+      tone(180, 0, 0.18, 0.055, "sawtooth");
+      tone(360, 0.2, 0.18, 0.052, "sawtooth");
+      tone(720, 0.42, 0.2, 0.046, "square");
+      return;
+    }
+    if (name === "engage") {
+      tone(340, 0, 0.08, 0.035, "triangle");
+      tone(680, 0.07, 0.1, 0.04, "sine");
+      tone(1040, 0.16, 0.12, 0.035, "triangle");
+      return;
+    }
+    if (name === "pause") {
+      tone(620, 0, 0.07, 0.034, "square");
+      tone(360, 0.08, 0.09, 0.032, "square");
+      return;
+    }
     if (name === "danger") {
       tone(160, 0, 0.12, 0.05, "sawtooth");
       tone(110, 0.12, 0.12, 0.04, "sawtooth");
@@ -829,6 +948,21 @@ function enablePlayerAlerts({ testSound = false } = {}) {
   if (testSound) playTurnDing();
 }
 
+function shouldShowEngageClock() {
+  if (!state) return false;
+  if (state.holdPaused) return true;
+  return !state.running && !state.pausedForTurn;
+}
+
+function updateGmClockButton() {
+  const showEngage = shouldShowEngageClock();
+  const footer = state?.pausedForTurn && !state?.holdPaused ? "Turn is active" : "";
+  gmPanicPause.classList.toggle("hidden", mode !== "gm");
+  gmPanicPause.classList.toggle("engage", showEngage);
+  gmPanicPause.classList.toggle("paused", !showEngage);
+  gmPanicPause.innerHTML = `<span>${showEngage ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
+}
+
 function render() {
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
     mode = "welcome";
@@ -843,7 +977,7 @@ function render() {
   topbar.classList.toggle("hidden", mode === "welcome");
   connectionStatus.classList.toggle("hidden", mode === "welcome");
   initiativePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
-  logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || mode === "player");
+  logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
   document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused);
@@ -863,23 +997,20 @@ function render() {
   playerRoomCode.textContent = state.roomCode;
   activePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
 
-  const ready = state.units.filter((unit) => unit.atb >= state.threshold && !unit.delay);
+  const ready = state.units.filter((unit) => unit.atb >= state.threshold && !hasAnyDelay(unit));
   readyCount.textContent = `${ready.length} Ready`;
   clockState.textContent = statusText();
   playerClock.textContent = statusText();
-  toggleRun.textContent = state.running ? "Pause Clock" : "Engage Clock";
-  if (state.pausedForTurn && state.command && !state.command.expired) toggleRun.textContent = state.holdPaused ? "Resume Timers" : "Pause All";
-  const canResumeEverything = state.holdPaused || (!state.running && Boolean(state.activeId) && !state.pausedForTurn);
-  gmPanicPause.classList.toggle("hidden", mode !== "gm");
-  gmPanicPause.classList.toggle("paused", canResumeEverything);
-  gmPanicPause.textContent = canResumeEverything ? "Resume Everything" : "Pause Everything";
+  updateGmClockButton();
   enableAlerts.textContent = alertsEnabled ? "Sound / Vibration Enabled" : "Enable Sound / Vibration";
-  gmMuteSound.textContent = gmSoundsMuted ? "Unmute Sounds" : "Mute Sounds";
+  gmMuteSound.classList.toggle("muted", gmSoundsMuted);
+  gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
+  playerActionLogToggle.checked = playerActionLogEnabled;
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
-  const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (Boolean(mine.delay) && !state.activeAction));
+  const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
 
@@ -920,7 +1051,7 @@ function render() {
 function renderPlayerCommand(mine) {
   const command = commandFor(mine);
   const isMyTurn = mine && state.activeId === mine.id;
-  const delay = mine?.delay || null;
+  const delay = activeDelayFor(mine);
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
   playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
   playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
@@ -972,11 +1103,11 @@ function promptForDelay(unit, kind) {
     label = prompt(`Name the delayed action for ${unit.characterName}:`, "Delayed Action");
     if (label === null) return null;
   }
-  const rateText = prompt(`Enter Delay Time rating for ${unit.characterName}.\n100 is about 1 second. 1 is about 100 seconds.`, "12");
+  const rateText = prompt(`Enter Delay Time rating for ${unit.characterName}.\n100 is about 1 second. 1 is about 100 seconds. 0.1 is a very long delay.`, "12");
   if (rateText === null) return null;
   const rate = Number(rateText);
-  if (!Number.isFinite(rate) || rate <= 0) {
-    alert("Delay Time must be a number from 1 to 100.");
+  if (!Number.isFinite(rate) || rate < 0.1 || rate > 100) {
+    alert("Delay Time must be a number from 0.1 to 100.");
     return null;
   }
   return {
@@ -1014,6 +1145,44 @@ function queueGmDelayRequestPrompt() {
   }, 0);
 }
 
+function renderActionChoices() {
+  playerActionChoices.innerHTML = actionLogChoices
+    .map(([label, value]) => `<button type="button" data-action-log="${escapeHtml(value)}">${escapeHtml(label)}</button>`)
+    .join("");
+}
+
+function hideActionSheet() {
+  playerActionSheet.classList.add("hidden");
+  if (actionLogTimeout) {
+    clearTimeout(actionLogTimeout);
+    actionLogTimeout = null;
+  }
+}
+
+async function submitPlayerActionLog(label = "has taken an action") {
+  if (!pendingActionLog) return;
+  const pending = pendingActionLog;
+  pendingActionLog = null;
+  hideActionSheet();
+  await action({ action: "logPlayerAction", id: pending.unitId, label }, "tap");
+}
+
+function queuePlayerActionLog(unit) {
+  if (!playerActionLogEnabled || !unit) return;
+  pendingActionLog = {
+    unitId: unit.id,
+    characterName: unit.characterName,
+  };
+  setTimeout(() => {
+    if (!pendingActionLog || pendingActionLog.unitId !== unit.id || mode !== "player") return;
+    playerActionSheet.classList.remove("hidden");
+    if (actionLogTimeout) clearTimeout(actionLogTimeout);
+    actionLogTimeout = setTimeout(() => {
+      submitPlayerActionLog("has taken an action");
+    }, ACTION_LOG_TIMEOUT_MS);
+  }, 1000);
+}
+
 joinPlayer.addEventListener("click", async () => {
   enablePlayerAlerts();
   const pcStats = calculatedPcStats();
@@ -1031,6 +1200,7 @@ joinPlayer.addEventListener("click", async () => {
   if (!next) return;
   const unit = next.units[next.units.length - 1];
   myUnitId = unit.id;
+  if (selectedCharacterIcon) saveIconForCharacter(unit.characterName, selectedCharacterIcon);
   localStorage.setItem("sa-atb-unit-id", myUnitId);
   setMode("player");
 });
@@ -1087,11 +1257,11 @@ rejoinPlayer.addEventListener("click", () => {
   setMode("player");
 });
 
-toggleRun.addEventListener("click", () => action({ action: "setRunning", running: !state.running }, state.running ? "tap" : "start"));
 gmPanicPause.addEventListener("click", () => {
   if (!state) return;
-  const wantsRunning = Boolean(state.holdPaused || (!state.running && state.activeId));
-  action({ action: "setRunning", running: wantsRunning }, state.holdPaused ? "start" : "tap");
+  const wantsRunning = shouldShowEngageClock();
+  const soundName = wantsRunning ? (state.hasEngagedClock ? "engage" : "firstStart") : "pause";
+  action({ action: "setRunning", running: wantsRunning }, soundName);
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
@@ -1117,7 +1287,10 @@ gmDelayedAction.addEventListener("click", () => {
   if (active) startDelayWithPrompt(active.id, "action");
 });
 playerEndTurn.addEventListener("click", () => {
-  if (state && state.activeId === myUnitId) action({ action: "completeTurn", id: myUnitId });
+  if (state && state.activeId === myUnitId) {
+    const unit = state.units.find((entry) => entry.id === myUnitId);
+    action({ action: "completeTurn", id: myUnitId }).then(() => queuePlayerActionLog(unit));
+  }
 });
 playerDelayTimer.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "timer" }, "tap");
@@ -1135,6 +1308,34 @@ leaveRoom.addEventListener("click", () => {
 playerColorEdit.addEventListener("change", () => {
   if (myUnitId) action({ action: "setColor", id: myUnitId, color: playerColorEdit.value });
 });
+playerActionLogToggle.addEventListener("change", () => setActionLogEnabled(playerActionLogToggle.checked));
+characterIcon.addEventListener("change", () => {
+  const file = characterIcon.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    selectedCharacterIcon = String(reader.result || "");
+    saveIconForCharacter(characterName.value, selectedCharacterIcon);
+    render();
+  });
+  reader.readAsDataURL(file);
+});
+characterName.addEventListener("input", () => {
+  selectedCharacterIcon = iconForCharacter(characterName.value) || selectedCharacterIcon;
+});
+dismissActionSheet.addEventListener("click", hideActionSheet);
+playerActionChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action-log]");
+  if (!button) return;
+  const value = button.dataset.actionLog;
+  if (value === "other") {
+    const text = prompt("What did you do?", "took a special action");
+    if (text === null) return;
+    submitPlayerActionLog(text);
+    return;
+  }
+  submitPlayerActionLog(value);
+});
 
 joinPanel.addEventListener("click", (event) => {
   const button = event.target.closest(".die-cell");
@@ -1148,7 +1349,7 @@ joinPanel.addEventListener("click", (event) => {
 });
 
 awarenessSkill.addEventListener("input", renderPcBuilder);
-reflexSkill.addEventListener("input", renderPcBuilder);
+initiativeSkill.addEventListener("input", renderPcBuilder);
 
 gmAddUnit.addEventListener("click", () => {
   action({
@@ -1188,6 +1389,8 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });
 
+renderActionChoices();
+setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 

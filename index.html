@@ -67,6 +67,10 @@
           ATB Color
           <input id="playerColor" type="color" value="#39e58f" />
         </label>
+        <label>
+          Character Icon
+          <input id="characterIcon" type="file" accept="image/jpeg,image/png" />
+        </label>
         <div class="pc-stat-builder">
           <div class="stat-board" data-stat="perception">
             <div class="stat-title">Perception</div>
@@ -81,8 +85,8 @@
             <input id="awarenessSkill" type="number" min="0" max="20" step="1" value="0" />
           </label>
           <label>
-            Reflex
-            <input id="reflexSkill" type="number" min="0" max="20" step="1" value="0" />
+            Initiative
+            <input id="initiativeSkill" type="number" min="0" max="20" step="1" value="0" />
           </label>
           <div class="calculated-stats">
             <div>
@@ -114,15 +118,15 @@
             <p class="eyebrow">GM Console</p>
             <h2>Encounter Control</h2>
           </div>
-          <div class="clock" id="clockState">Paused</div>
+          <div class="gm-head-actions">
+            <button id="gmMuteSound" class="sound-toggle" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
+            <div class="clock" id="clockState">Paused</div>
+          </div>
         </div>
-        <div class="controls">
-          <button id="toggleRun" class="primary">Engage Clock</button>
-          <button id="stepTick">Step 1 Sec</button>
-          <button id="resetAll">Reset</button>
-          <button id="gmMuteSound">Mute Sounds</button>
-          <button id="clearEncounter" class="danger">Clear Encounter</button>
-          <button id="exitCombat" class="danger">Exit Combat</button>
+        <div class="controls gm-control-grid">
+          <button id="stepTick" class="control-square">Step<br />1 Sec</button>
+          <button id="resetAll" class="control-square">Reset</button>
+          <button id="clearEncounter" class="control-square danger">Clear<br />Encounter</button>
         </div>
         <div class="add-grid">
           <label>
@@ -154,6 +158,7 @@
           </label>
           <button id="gmAddUnit">Add</button>
         </div>
+        <button id="exitCombat" class="danger exit-combat">Exit Combat</button>
       </section>
 
       <section id="playerPanel" class="panel hidden">
@@ -180,6 +185,10 @@
         </div>
         <div class="player-utility">
           <button id="enableAlerts">Enable Sound / Vibration</button>
+          <label class="combat-log-toggle">
+            <input id="playerActionLogToggle" type="checkbox" checked />
+            Show Combat Log Popup
+          </label>
           <label id="playerColorControl" class="player-color-control hidden">
             ATB Color
             <input id="playerColorEdit" type="color" value="#39e58f" />
@@ -235,6 +244,14 @@
     </dialog>
 
     <button id="gmPanicPause" class="gm-panic-pause hidden">Pause Everything</button>
+
+    <div id="playerActionSheet" class="player-action-sheet hidden">
+      <div class="action-sheet-head">
+        <strong>What did you do?</strong>
+        <button id="dismissActionSheet" class="mini">Later</button>
+      </div>
+      <div id="playerActionChoices" class="action-choice-grid"></div>
+    </div>
 
     <script src="app.js"></script>
   </body>
