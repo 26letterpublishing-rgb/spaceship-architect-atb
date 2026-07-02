@@ -15,8 +15,7 @@ let lastInterruptedNotice = "";
 let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
-let pendingHardPause = null;
-let gmClockActionPending = false;
+let lastGmClockClickAt = 0;
 let ringDrag = null;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
@@ -579,8 +578,6 @@ function setConnected(isConnected, message) {
 function receiveState(nextState, { force = false } = {}) {
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
-  if (!force && pendingHardPause === true && nextState.hardPaused !== true) return false;
-  if (!force && pendingHardPause === false && nextState.hardPaused !== false) return false;
   state = nextState;
   render();
   return true;
@@ -588,27 +585,17 @@ function receiveState(nextState, { force = false } = {}) {
 
 async function action(payload, soundName = "tap") {
   let response;
-  const expectedHardPaused = payload.action === "setHardPaused"
-    ? Boolean(payload.paused)
-    : typeof payload.expectedHardPaused === "boolean"
-      ? payload.expectedHardPaused
-      : null;
-  const hardPauseCommand = expectedHardPaused !== null;
-  if (hardPauseCommand) pendingHardPause = expectedHardPaused;
-  const { expectedHardPaused: _expectedHardPaused, ...serverPayload } = payload;
   try {
     response = await fetch("/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...serverPayload, roomCode: currentRoomCode }),
+      body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
     });
   } catch {
-    if (hardPauseCommand) pendingHardPause = null;
     setConnected(false, "Cannot reach the ATB room server. Check the connection, then try again.");
     return state;
   }
   if (!response.ok) {
-    if (hardPauseCommand) pendingHardPause = null;
     if (response.status === 404) {
       returnToWelcome("That room expired. Create or join a new room.");
     } else {
@@ -620,11 +607,9 @@ async function action(payload, soundName = "tap") {
     const nextState = await response.json();
     receiveState(nextState, { force: true });
   } catch {
-    if (hardPauseCommand) pendingHardPause = null;
     setConnected(false, "The ATB room server sent an unreadable response. Try again.");
     return state;
   }
-  if (hardPauseCommand) pendingHardPause = null;
   if (mode === "gm") playGmSound(soundName);
   return state;
 }
@@ -1213,17 +1198,17 @@ function shouldShowEngageClock() {
 
 function updateGmClockButton() {
   const showEngage = shouldShowEngageClock();
-  const isResume = Boolean(state?.hardPaused);
+  const isPaused = Boolean(state?.hardPaused);
   const footer = state?.pausedForTurn && !state?.hardPaused
     ? "Turn is active"
     : state?.pausedForTurn && state?.hardPaused
       ? "Turn remains active"
       : "";
   gmPanicPause.classList.toggle("hidden", mode !== "gm");
-  gmPanicPause.classList.toggle("engage", showEngage || isResume);
-  gmPanicPause.classList.toggle("paused", !showEngage && !isResume);
-  gmPanicPause.disabled = gmClockActionPending;
-  gmPanicPause.innerHTML = `<span>${isResume ? "Resume Everything" : showEngage ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
+  gmPanicPause.classList.toggle("engage", showEngage || isPaused);
+  gmPanicPause.classList.toggle("paused", !showEngage && !isPaused);
+  gmPanicPause.disabled = false;
+  gmPanicPause.innerHTML = `<span>${showEngage || isPaused ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
 }
 
 function render() {
@@ -1561,27 +1546,18 @@ rejoinPlayer.addEventListener("click", () => {
 });
 
 gmPanicPause.addEventListener("click", () => {
-  if (!state || gmClockActionPending) return;
-  const shouldResume = Boolean(state.hardPaused);
-  const shouldPause = !shouldResume && Boolean(state.running || state.pausedForTurn || state.holdPaused || state.activeAction);
-  gmClockActionPending = true;
-  if (shouldResume) {
-    state = { ...state, hardPaused: false };
-  } else if (shouldPause) {
-    state = { ...state, hardPaused: true };
-  }
-  render();
-  const payload = shouldResume
-    ? { action: "setHardPaused", paused: false }
-    : shouldPause
-      ? { action: "setHardPaused", paused: true }
-      : { action: "setRunning", running: true };
-  action(payload, shouldPause ? "pause" : state.hasEngagedClock ? "engage" : "firstStart").finally(() => {
-    setTimeout(() => {
-      gmClockActionPending = false;
-      render();
-    }, 900);
-  });
+  if (!state) return;
+  const now = Date.now();
+  if (now - lastGmClockClickAt < 180) return;
+  lastGmClockClickAt = now;
+  const soundName = state.hardPaused
+    ? "engage"
+    : state.running || state.pausedForTurn || state.holdPaused || state.activeAction
+      ? "pause"
+      : state.hasEngagedClock
+        ? "engage"
+        : "firstStart";
+  action({ action: "toggleClock" }, soundName);
 });
 visualModeToggle.addEventListener("click", () => {
   visualMode = visualMode === "ring" ? "bars" : "ring";
