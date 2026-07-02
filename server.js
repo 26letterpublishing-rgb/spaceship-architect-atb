@@ -36,6 +36,7 @@ function createRoom() {
     commandDeadline: null,
     commandTotal: 0,
     commandExpired: false,
+    hardPaused: false,
     holdPaused: false,
     holdStartedAt: null,
     commandHeldRemaining: null,
@@ -70,6 +71,7 @@ function publicState(room) {
     activeAction: room.activeAction,
     activeSource: room.activeSource,
     command,
+    hardPaused: room.hardPaused,
     holdPaused: room.holdPaused,
     delayRequest: room.delayRequest,
     hasEngagedClock: room.hasEngagedClock,
@@ -165,7 +167,7 @@ function nextTurnSource(room, previousSource = null) {
 
 function commandState(room) {
   if (!room.activeId || !room.commandTotal) return null;
-  const remaining = room.holdPaused && room.commandHeldRemaining !== null
+  const remaining = (room.hardPaused || room.holdPaused) && room.commandHeldRemaining !== null
     ? room.commandHeldRemaining
     : room.commandExpired || !room.commandDeadline
     ? 0
@@ -190,6 +192,29 @@ function clearActiveCommand(room) {
 
 function clearDelayRequest(room) {
   room.delayRequest = null;
+}
+
+function hardPauseRoom(room) {
+  if (room.hardPaused) return;
+  if (room.commandDeadline && !room.commandExpired) {
+    room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+  }
+  room.hardPaused = true;
+  room.holdStartedAt = Date.now();
+  room.lastTick = Date.now();
+  pushLog(room, "All timers paused.");
+}
+
+function hardResumeRoom(room) {
+  if (!room.hardPaused) return;
+  if (room.commandHeldRemaining !== null && room.commandDeadline) {
+    room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
+  }
+  room.hardPaused = false;
+  room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
+  room.lastTick = Date.now();
+  pushLog(room, "All timers resumed.");
 }
 
 function copyDelay(delay) {
@@ -433,6 +458,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 setInterval(() => {
   for (const room of rooms.values()) {
     migrateRoomDelays(room);
+    if (room.hardPaused) continue;
     if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
       if (Date.now() >= room.commandDeadline) {
         const unit = room.units.find((entry) => entry.id === room.activeId);
@@ -446,7 +472,7 @@ setInterval(() => {
       broadcast(room);
       continue;
     }
-    if (!room.running || room.pausedForTurn || room.holdPaused) continue;
+    if (!room.running || room.pausedForTurn || room.holdPaused || room.hardPaused) continue;
     const now = Date.now();
     const elapsed = now - room.lastTick;
     if (elapsed < 80) continue;
@@ -588,45 +614,21 @@ async function handleAction(req, res) {
 
   if (action === "setRunning") {
     const wantsRunning = Boolean(body.running);
-    if (room.pausedForTurn && room.commandDeadline) {
-      if (!room.holdPaused) {
-        room.holdPaused = true;
-        room.holdStartedAt = Date.now();
-        room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
-        pushLog(room, "All timers paused.");
-      } else if (wantsRunning) {
-        room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
-        room.holdPaused = false;
-        room.holdStartedAt = null;
-        room.commandHeldRemaining = null;
-        pushLog(room, "All timers resumed.");
-      }
-    } else if (room.pausedForTurn && room.activeId) {
-      room.holdPaused = !room.holdPaused;
-      room.holdStartedAt = room.holdPaused ? Date.now() : null;
-      pushLog(room, room.holdPaused ? "All timers paused." : "All timers resumed.");
-    } else if (room.pausedForTurn && room.activeAction) {
-      room.holdPaused = !room.holdPaused;
-      room.holdStartedAt = room.holdPaused ? Date.now() : null;
-      pushLog(room, room.holdPaused ? "All timers paused." : "All timers resumed.");
-    } else if (wantsRunning && !room.pausedForTurn) {
+    if (!wantsRunning) {
+      hardPauseRoom(room);
+    } else if (room.hardPaused) {
+      hardResumeRoom(room);
+    } else if (!room.pausedForTurn) {
       if (!canStartClock(room)) {
         pushLog(room, "Clock cannot start until every participant has GM-entered values.");
       } else {
         room.running = true;
         room.resumeAfterTurn = true;
         room.hasEngagedClock = true;
+        room.lastTick = Date.now();
         pushLog(room, "Clock started.");
       }
-    } else {
-      room.running = false;
-      room.resumeAfterTurn = false;
-      room.holdPaused = false;
-      room.holdStartedAt = null;
-      room.commandHeldRemaining = null;
-      pushLog(room, "Clock paused.");
     }
-    room.lastTick = Date.now();
   }
 
   if (action === "setSpeed") {
@@ -689,6 +691,12 @@ async function handleAction(req, res) {
   }
 
   if (action === "step") {
+    if (room.hardPaused) {
+      pushLog(room, "Clock is hard paused. Engage Clock before stepping time.");
+      sendJson(res, 200, publicState(room));
+      broadcast(room);
+      return;
+    }
     if (room.activeId || room.pausedForTurn) {
       pushLog(room, "Resolve the active turn before stepping the clock.");
       sendJson(res, 200, publicState(room));
@@ -711,6 +719,7 @@ async function handleAction(req, res) {
     room.running = false;
     room.pausedForTurn = false;
     room.resumeAfterTurn = false;
+    room.hardPaused = false;
     room.activeId = null;
     room.activeAction = null;
     clearDelayRequest(room);
@@ -726,6 +735,7 @@ async function handleAction(req, res) {
     room.running = false;
     room.pausedForTurn = false;
     room.resumeAfterTurn = false;
+    room.hardPaused = false;
     room.activeId = null;
     room.activeAction = null;
     clearDelayRequest(room);

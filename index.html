@@ -23,9 +23,10 @@
       </section>
 
       <section id="topbar" class="topbar">
-        <div>
+        <div class="topbar-title">
           <p class="eyebrow">Spaceship Architect</p>
           <h1>ATB Sync</h1>
+          <button id="gmMuteSound" class="sound-toggle hidden" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
         </div>
         <div class="room">
           <span>Room</span>
@@ -118,10 +119,7 @@
             <p class="eyebrow">GM Console</p>
             <h2>Encounter Control</h2>
           </div>
-          <div class="gm-head-actions">
-            <button id="gmMuteSound" class="sound-toggle" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
-            <div class="clock" id="clockState">Paused</div>
-          </div>
+          <div class="clock" id="clockState">Paused</div>
         </div>
         <div class="controls gm-control-grid">
           <button id="stepTick" class="control-square">Step<br />1 Sec</button>

@@ -200,6 +200,25 @@ label {
   margin-bottom: 14px;
 }
 
+.topbar-title {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.topbar-title .eyebrow {
+  grid-column: 1 / -1;
+}
+
+.topbar-title h1 {
+  grid-column: 1;
+}
+
+.topbar-title .sound-toggle {
+  grid-column: 2;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--cyan);
@@ -415,6 +434,13 @@ h2 {
   display: none !important;
 }
 
+.hard-paused *,
+.hard-paused *::before,
+.hard-paused *::after {
+  animation-play-state: paused !important;
+  transition-duration: 0ms !important;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -423,44 +449,66 @@ h2 {
   margin-bottom: 12px;
 }
 
-.gm-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .sound-toggle {
   position: relative;
-  width: 42px;
-  min-height: 38px;
+  width: 46px;
+  min-height: 42px;
   padding: 0;
+  border-radius: 10px;
   border-color: rgba(255, 132, 190, 0.55);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 44%),
     rgba(77, 28, 55, 0.58);
 }
 
-.sound-toggle span::before {
-  content: "";
+.sound-toggle span {
   position: absolute;
-  left: 11px;
-  top: 14px;
-  width: 8px;
-  height: 10px;
+  left: 8px;
+  top: 13px;
+  width: 18px;
+  height: 16px;
   background: #ff93c6;
-  box-shadow: 0 0 10px rgba(255, 147, 198, 0.35);
+  clip-path: polygon(0 27%, 34% 27%, 100% 0, 100% 100%, 34% 73%, 0 73%);
+  -webkit-clip-path: polygon(0 27%, 34% 27%, 100% 0, 100% 100%, 34% 73%, 0 73%);
+  filter: drop-shadow(0 0 8px rgba(255, 147, 198, 0.45));
 }
 
+.sound-toggle::before,
+.sound-toggle span::before,
 .sound-toggle span::after {
   content: "";
   position: absolute;
-  left: 18px;
-  top: 10px;
-  width: 12px;
-  height: 18px;
-  border: 3px solid #ff93c6;
+  border: solid #ff93c6;
   border-left: 0;
-  border-radius: 0 16px 16px 0;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 0 999px 999px 0;
+}
+
+.sound-toggle span::before {
+  left: 18px;
+  top: -1px;
+  width: 9px;
+  height: 18px;
+  border-width: 3px;
+}
+
+.sound-toggle span::after {
+  left: 25px;
+  top: -6px;
+  width: 14px;
+  height: 28px;
+  border-width: 4px;
+  opacity: 0.78;
+}
+
+.sound-toggle::before {
+  left: 37px;
+  top: 6px;
+  width: 17px;
+  height: 30px;
+  border-width: 4px;
+  opacity: 0.44;
 }
 
 .sound-toggle.muted {
@@ -471,9 +519,9 @@ h2 {
 .sound-toggle.muted::after {
   content: "";
   position: absolute;
-  left: 9px;
-  top: 17px;
-  width: 25px;
+  left: 8px;
+  top: 20px;
+  width: 31px;
   height: 3px;
   background: #b7a8b0;
   transform: rotate(-38deg);

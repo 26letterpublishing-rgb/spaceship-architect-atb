@@ -673,7 +673,7 @@ function escapeHtml(value) {
 
 function statusText() {
   if (!state) return "Connecting";
-  if (state.holdPaused) return "Paused";
+  if (state.hardPaused) return "Paused";
   if (state.pausedForTurn) return "Turn Paused";
   return state.running ? "Clock Engaged" : "Waiting for GM";
 }
@@ -892,7 +892,7 @@ function playGmSound(name = "tap") {
 }
 
 function gmClockIsAudiblyActive() {
-  return mode === "gm" && state?.running && !state.pausedForTurn && !state.holdPaused && !document.hidden;
+  return mode === "gm" && state?.running && !state.pausedForTurn && !state.holdPaused && !state.hardPaused && !document.hidden;
 }
 
 function playGmClockTick() {
@@ -950,13 +950,13 @@ function enablePlayerAlerts({ testSound = false } = {}) {
 
 function shouldShowEngageClock() {
   if (!state) return false;
-  if (state.holdPaused) return true;
+  if (state.hardPaused) return true;
   return !state.running && !state.pausedForTurn;
 }
 
 function updateGmClockButton() {
   const showEngage = shouldShowEngageClock();
-  const footer = state?.pausedForTurn && !state?.holdPaused ? "Turn is active" : "";
+  const footer = state?.pausedForTurn && !state?.hardPaused ? "Turn is active" : "";
   gmPanicPause.classList.toggle("hidden", mode !== "gm");
   gmPanicPause.classList.toggle("engage", showEngage);
   gmPanicPause.classList.toggle("paused", !showEngage);
@@ -980,7 +980,8 @@ function render() {
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
-  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused);
+  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused);
+  document.body.classList.toggle("hard-paused", Boolean(state?.hardPaused));
   renderPcBuilder();
 
   if (!state) {
@@ -990,6 +991,7 @@ function render() {
     unitList.innerHTML = "";
     logList.innerHTML = "";
     gmPanicPause.classList.add("hidden");
+    gmMuteSound.classList.add("hidden");
     return;
   }
 
@@ -1003,6 +1005,7 @@ function render() {
   playerClock.textContent = statusText();
   updateGmClockButton();
   enableAlerts.textContent = alertsEnabled ? "Sound / Vibration Enabled" : "Enable Sound / Vibration";
+  gmMuteSound.classList.toggle("hidden", mode !== "gm");
   gmMuteSound.classList.toggle("muted", gmSoundsMuted);
   gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
   playerActionLogToggle.checked = playerActionLogEnabled;
@@ -1261,6 +1264,8 @@ gmPanicPause.addEventListener("click", () => {
   if (!state) return;
   const wantsRunning = shouldShowEngageClock();
   const soundName = wantsRunning ? (state.hasEngagedClock ? "engage" : "firstStart") : "pause";
+  state = { ...state, hardPaused: !wantsRunning };
+  render();
   action({ action: "setRunning", running: wantsRunning }, soundName);
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
