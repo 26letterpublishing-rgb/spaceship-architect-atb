@@ -216,6 +216,9 @@ function hardResumeRoom(room) {
   room.holdStartedAt = null;
   room.commandHeldRemaining = null;
   room.lastTick = Date.now();
+  if (!room.running && !room.pausedForTurn && !room.holdPaused && !room.activeAction && hasActiveDelayCountdown(room) && canStartClock(room)) {
+    room.running = true;
+  }
   pushLog(room, "All timers resumed.");
 }
 
@@ -242,6 +245,14 @@ function hasDelay(unit) {
 
 function activeDelay(unit) {
   return unit?.delayTimer || unit?.delayedAction || unit?.delay || null;
+}
+
+function hasActiveDelayCountdown(room) {
+  return room.units.some((unit) =>
+    (unit.delayTimer && !unit.delayTimer.resolving) ||
+    (unit.delayedAction && !unit.delayedAction.resolving) ||
+    (unit.delay && !unit.delay.resolving),
+  );
 }
 
 function usesCommandWindow(unit, source) {
