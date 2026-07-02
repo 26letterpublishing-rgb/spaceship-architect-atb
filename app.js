@@ -181,7 +181,7 @@ function estimateTurn(unit) {
   const delay = activeDelayFor(unit);
   if (delay) return `${delayText(delay)} - ${formatSeconds(delaySeconds(delay))}`;
   if (!state || unit.atb >= state.threshold) return "Ready";
-  if (!state.running || state.pausedForTurn) return "Clock paused";
+  if (!state.running || state.pausedForTurn || state.hardPaused || state.holdPaused) return "Clock paused";
   const seconds = Math.max(0, (state.threshold - unit.atb) / unit.speed);
   if (seconds < 1) return "acts in <1 sec";
   return `acts in ~${Math.ceil(seconds)} sec`;
@@ -453,9 +453,8 @@ async function keepRoomAwake() {
       setConnected(false, "Trying to keep the ATB room awake...");
       return;
     }
-    state = await response.json();
+    receiveState(await response.json());
     setConnected(true);
-    render();
   } catch {
     setConnected(false, "Trying to keep the ATB room awake...");
   }
@@ -710,7 +709,7 @@ function renderActivePanel() {
   activePanel.classList.toggle("turn-live", Boolean(active || activeAction));
   activePanel.classList.toggle("own-turn", Boolean(active) && active.id === myUnitId);
   activePanel.classList.toggle("other-turn", Boolean(activeAction) || (Boolean(active) && active.id !== myUnitId));
-  activePanel.classList.toggle("clock-running", state.running && !state.pausedForTurn);
+  activePanel.classList.toggle("clock-running", state.running && !state.pausedForTurn && !state.hardPaused);
 
   if (mode === "player") {
     const mine = state.units.find((unit) => unit.id === myUnitId);
@@ -725,7 +724,7 @@ function renderActivePanel() {
       activeTitle.textContent = `${active.characterName}'s turn`;
       activeMeta.textContent = unitRoleText(active);
     } else if (mine) {
-      activeTitle.textContent = state.running ? "ATB clock engaged" : "Waiting for GM";
+      activeTitle.textContent = state.hardPaused ? "ATB clock paused" : state.running ? "ATB clock engaged" : "Waiting for GM";
       activeMeta.textContent = estimateTurn(mine);
     } else {
       activeTitle.textContent = "Join or reclaim a character";
@@ -748,6 +747,13 @@ function renderActivePanel() {
     activeMeta.textContent = command
       ? `${unitRoleText(active)} - ${command.expired ? "interruption pending" : `${formatSeconds(command.remaining)} Command Window`}`
       : `${unitRoleText(active)} - Speed ${formatSpeed(active.speed)}%/sec`;
+    return;
+  }
+
+  if (state.hardPaused) {
+    activeKicker.textContent = "Clock Status";
+    activeTitle.textContent = "All timers paused";
+    activeMeta.textContent = "Engage Clock to resume";
     return;
   }
 
