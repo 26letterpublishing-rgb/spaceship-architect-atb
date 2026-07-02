@@ -16,7 +16,6 @@ let audioContext = null;
 let events = null;
 let pendingHardPause = null;
 let gmClockActionPending = false;
-let gmClockLockedUntil = 0;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
@@ -980,18 +979,22 @@ function enablePlayerAlerts({ testSound = false } = {}) {
 
 function shouldShowEngageClock() {
   if (!state) return false;
-  if (state.hardPaused) return true;
   return !state.running && !state.pausedForTurn;
 }
 
 function updateGmClockButton() {
   const showEngage = shouldShowEngageClock();
-  const footer = state?.pausedForTurn && !state?.hardPaused ? "Turn is active" : "";
+  const isResume = Boolean(state?.hardPaused);
+  const footer = state?.pausedForTurn && !state?.hardPaused
+    ? "Turn is active"
+    : state?.pausedForTurn && state?.hardPaused
+      ? "Turn remains active"
+      : "";
   gmPanicPause.classList.toggle("hidden", mode !== "gm");
-  gmPanicPause.classList.toggle("engage", showEngage);
-  gmPanicPause.classList.toggle("paused", !showEngage);
+  gmPanicPause.classList.toggle("engage", showEngage || isResume);
+  gmPanicPause.classList.toggle("paused", !showEngage && !isResume);
   gmPanicPause.disabled = gmClockActionPending;
-  gmPanicPause.innerHTML = `<span>${showEngage ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
+  gmPanicPause.innerHTML = `<span>${isResume ? "Resume Everything" : showEngage ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
 }
 
 function render() {
@@ -1292,9 +1295,7 @@ rejoinPlayer.addEventListener("click", () => {
 });
 
 gmPanicPause.addEventListener("click", () => {
-  const now = Date.now();
-  if (!state || gmClockActionPending || now < gmClockLockedUntil) return;
-  gmClockLockedUntil = now + 1200;
+  if (!state || gmClockActionPending) return;
   const shouldResume = Boolean(state.hardPaused);
   const shouldPause = !shouldResume && Boolean(state.running || state.pausedForTurn || state.holdPaused || state.activeAction);
   gmClockActionPending = true;
@@ -1304,17 +1305,16 @@ gmPanicPause.addEventListener("click", () => {
     state = { ...state, hardPaused: true };
   }
   render();
-  action(
-    {
-      action: "toggleClock",
-      expectedHardPaused: shouldPause ? true : shouldResume ? false : null,
-    },
-    shouldPause ? "pause" : state.hasEngagedClock ? "engage" : "firstStart",
-  ).finally(() => {
+  const payload = shouldResume
+    ? { action: "setHardPaused", paused: false }
+    : shouldPause
+      ? { action: "setHardPaused", paused: true }
+      : { action: "setRunning", running: true };
+  action(payload, shouldPause ? "pause" : state.hasEngagedClock ? "engage" : "firstStart").finally(() => {
     setTimeout(() => {
       gmClockActionPending = false;
       render();
-    }, 450);
+    }, 900);
   });
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
