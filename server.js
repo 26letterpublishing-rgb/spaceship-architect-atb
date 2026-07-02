@@ -614,11 +614,7 @@ async function handleAction(req, res) {
 
   if (action === "setRunning") {
     const wantsRunning = Boolean(body.running);
-    if (!wantsRunning) {
-      hardPauseRoom(room);
-    } else if (room.hardPaused) {
-      hardResumeRoom(room);
-    } else if (!room.pausedForTurn) {
+    if (wantsRunning && !room.pausedForTurn && !room.hardPaused) {
       if (!canStartClock(room)) {
         pushLog(room, "Clock cannot start until every participant has GM-entered values.");
       } else {
@@ -628,6 +624,14 @@ async function handleAction(req, res) {
         room.lastTick = Date.now();
         pushLog(room, "Clock started.");
       }
+    }
+  }
+
+  if (action === "setHardPaused") {
+    if (Boolean(body.paused)) {
+      hardPauseRoom(room);
+    } else {
+      hardResumeRoom(room);
     }
   }
 

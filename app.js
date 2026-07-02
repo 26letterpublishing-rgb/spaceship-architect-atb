@@ -1262,11 +1262,19 @@ rejoinPlayer.addEventListener("click", () => {
 
 gmPanicPause.addEventListener("click", () => {
   if (!state) return;
-  const wantsRunning = shouldShowEngageClock();
-  const soundName = wantsRunning ? (state.hasEngagedClock ? "engage" : "firstStart") : "pause";
-  state = { ...state, hardPaused: !wantsRunning };
-  render();
-  action({ action: "setRunning", running: wantsRunning }, soundName);
+  if (state.hardPaused) {
+    state = { ...state, hardPaused: false };
+    render();
+    action({ action: "setHardPaused", paused: false }, "engage");
+    return;
+  }
+  if (state.running || state.pausedForTurn || state.holdPaused) {
+    state = { ...state, hardPaused: true };
+    render();
+    action({ action: "setHardPaused", paused: true }, "pause");
+    return;
+  }
+  action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
