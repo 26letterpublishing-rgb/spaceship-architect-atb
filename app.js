@@ -5,6 +5,7 @@ let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
+let visualMode = localStorage.getItem("sa-atb-visual-mode") === "ring" ? "ring" : "bars";
 let selectedCharacterIcon = "";
 let actionLogTimeout = null;
 let pendingActionLog = null;
@@ -16,8 +17,12 @@ let audioContext = null;
 let events = null;
 let pendingHardPause = null;
 let gmClockActionPending = false;
+let ringDrag = null;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
+const ICON_MAX_SIZE = 192;
+const ICON_STORAGE_LIMIT = 240000;
+const ICON_JPEG_QUALITY = 0.78;
 const diceColumns = ["D4", "D6", "D8", "D10", "D12"];
 const actionLogChoices = [
   ["MELEE ATTACKED", "melee attacked"],
@@ -39,6 +44,21 @@ const pcBuild = {
   intellect: [1, 1, 0, 0],
 };
 
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    try {
+      if (key !== "sa-atb-character-icons") localStorage.removeItem("sa-atb-character-icons");
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function forgetSavedRoom() {
   currentRoomCode = "";
   myUnitId = "";
@@ -54,7 +74,7 @@ function forgetSavedRoom() {
 function returnToWelcome(message = "") {
   forgetSavedRoom();
   mode = "welcome";
-  localStorage.setItem("sa-atb-mode", mode);
+  safeLocalStorageSet("sa-atb-mode", mode);
   render();
   if (message) setConnected(false, message);
 }
@@ -65,7 +85,7 @@ if (!/^[A-Z0-9]{4}$/.test(currentRoomCode)) {
 
 if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
   mode = "welcome";
-  localStorage.setItem("sa-atb-mode", mode);
+  safeLocalStorageSet("sa-atb-mode", mode);
 }
 
 const roomCode = document.querySelector("#roomCode");
@@ -145,6 +165,7 @@ const completeTurn = document.querySelector("#completeTurn");
 const gmDelayTimer = document.querySelector("#gmDelayTimer");
 const gmDelayedAction = document.querySelector("#gmDelayedAction");
 const gmPanicPause = document.querySelector("#gmPanicPause");
+const visualModeToggle = document.querySelector("#visualModeToggle");
 const playerActionSheet = document.querySelector("#playerActionSheet");
 const playerActionChoices = document.querySelector("#playerActionChoices");
 const dismissActionSheet = document.querySelector("#dismissActionSheet");
@@ -307,6 +328,176 @@ function barStyle(unit) {
   return `--bar-color:${color}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b}; --own-flare-left:${flareLeft}%;`;
 }
 
+function ringOrderKey() {
+  return `sa-atb-ring-order-${currentRoomCode || "local"}-${mode === "gm" ? "gm" : "player"}`;
+}
+
+function loadRingOrder() {
+  try {
+    const order = JSON.parse(localStorage.getItem(ringOrderKey()) || "[]");
+    return Array.isArray(order) ? order : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRingOrder(order) {
+  safeLocalStorageSet(ringOrderKey(), JSON.stringify(order));
+}
+
+function ringOrderedUnits(units) {
+  const remaining = new Map(units.map((unit) => [unit.id, unit]));
+  const ordered = [];
+  for (const id of loadRingOrder()) {
+    const unit = remaining.get(id);
+    if (!unit) continue;
+    ordered.push(unit);
+    remaining.delete(id);
+  }
+  return [...ordered, ...units.filter((unit) => remaining.has(unit.id))];
+}
+
+function setRingOrderFromUnits(units) {
+  saveRingOrder(units.map((unit) => unit.id));
+}
+
+function polarPoint(cx, cy, radius, degrees) {
+  const radians = (degrees - 90) * (Math.PI / 180);
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+}
+
+function describeWedge(cx, cy, radius, startAngle, endAngle) {
+  if (radius <= 1) return `M ${cx} ${cy}`;
+  const start = polarPoint(cx, cy, radius, startAngle);
+  const end = polarPoint(cx, cy, radius, endAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)} Z`;
+}
+
+function describeArc(cx, cy, radius, startAngle, endAngle) {
+  const start = polarPoint(cx, cy, radius, startAngle);
+  const end = polarPoint(cx, cy, radius, endAngle);
+  const largeArc = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+function ringSliceLabel(unit) {
+  const prefix = unit.team === "pc" ? "" : "NPC: ";
+  return `${prefix}${unit.characterName || "Character"}`;
+}
+
+function shortRingLabel(unit) {
+  const name = unit.characterName || "Character";
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "?";
+}
+
+function ringDelayPocket(delay, startAngle, endAngle, radius, className) {
+  if (!delay) return "";
+  const gap = Math.min(5, Math.max(1.5, (endAngle - startAngle) * 0.08));
+  const usableStart = startAngle + gap;
+  const usableEnd = Math.max(usableStart + 0.1, endAngle - gap);
+  const targetEnd = usableStart + (usableEnd - usableStart) * (delayPercent(delay) / 100);
+  return `<path class="ring-delay-pocket ${className}" d="${describeArc(160, 160, radius, usableStart, targetEnd)}" />`;
+}
+
+function tacticalRingMarkup(units) {
+  if (!units.length) {
+    return `
+      <div class="tactical-ring-empty">
+        <strong>No combatants loaded.</strong>
+        <span>Add characters or NPCs to populate the tactical ring.</span>
+      </div>
+    `;
+  }
+
+  const ordered = ringOrderedUnits(units);
+  const slice = 360 / ordered.length;
+  const gap = Math.min(2.2, slice * 0.08);
+  const active = activeUnit();
+  const defs = [];
+  const slices = [];
+  const labels = [];
+  const controls = [];
+
+  ordered.forEach((unit, index) => {
+    const start = index * slice + gap / 2;
+    const end = (index + 1) * slice - gap / 2;
+    const mid = start + (end - start) / 2;
+    const rgb = hexToRgb(unit.color || "#39e58f");
+    const gradId = `ringGrad${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
+    const labelPathId = `ringLabel${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
+    const atbRadius = 18 + (116 * pct(unit)) / 100;
+    const delayed = hasAnyDelay(unit);
+    const ready = unit.atb >= state.threshold && !delayed;
+    const own = mode === "player" && unit.id === myUnitId;
+    const icon = mode === "player" ? myIconForUnit(unit) : "";
+    const labelPoint = polarPoint(160, 160, 78, mid);
+
+    defs.push(`
+      <radialGradient id="${gradId}" cx="50%" cy="50%" r="62%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.84)" />
+        <stop offset="24%" stop-color="rgba(${rgb.r},${rgb.g},${rgb.b},0.9)" />
+        <stop offset="74%" stop-color="${escapeHtml(unit.color || "#39e58f")}" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0.62)" />
+      </radialGradient>
+      <path id="${labelPathId}" d="${describeArc(160, 160, 144, start + 4, end - 4)}" />
+    `);
+
+    slices.push(`
+      <g class="ring-unit ${ready ? "ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-ring-unit" : ""} ${active?.id === unit.id ? "active-ring-unit" : ""} ${ringDrag?.id === unit.id ? "dragging" : ""}" data-unit-id="${unit.id}" style="--bar-color:${escapeHtml(unit.color || "#39e58f")}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};">
+        <path class="ring-slice-shell" d="${describeWedge(160, 160, 136, start, end)}" />
+        <path class="ring-slice-fill" d="${describeWedge(160, 160, atbRadius, start, end)}" fill="url(#${gradId})" />
+        <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
+        ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
+        ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
+        <circle class="ring-edge-cap" cx="${polarPoint(160, 160, atbRadius, mid).x.toFixed(2)}" cy="${polarPoint(160, 160, atbRadius, mid).y.toFixed(2)}" r="${Math.max(3, Math.min(9, slice / 8)).toFixed(2)}" />
+        <text class="ring-initials" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}">${escapeHtml(shortRingLabel(unit))}</text>
+        ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
+      </g>
+    `);
+
+    labels.push(`
+      <text class="ring-edge-label ${unit.team === "pc" ? "pc-label" : "npc-label"}">
+        <textPath href="#${labelPathId}" xlink:href="#${labelPathId}" startOffset="50%" text-anchor="middle">${escapeHtml(ringSliceLabel(unit))}</textPath>
+      </text>
+    `);
+
+    controls.push(`<path class="ring-slice-control ${unit.team === "pc" ? "draggable" : ""}" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
+  });
+
+  return `
+    <div class="tactical-ring-view" data-count="${ordered.length}">
+      <div class="ring-instructions">${mode === "gm" ? "Long-hold a PC slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
+      <div class="ring-stage">
+        <svg class="tactical-ring-svg" viewBox="0 0 320 320" role="img" aria-label="ATB tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
+          <defs>${defs.join("")}</defs>
+          <ellipse class="ring-shadow" cx="160" cy="174" rx="132" ry="116" />
+          <circle class="ring-backplate" cx="160" cy="160" r="139" />
+          ${slices.join("")}
+          ${labels.join("")}
+          <circle class="ring-core" cx="160" cy="160" r="34" />
+          <text class="ring-core-text" x="160" y="153">${state.running && !state.hardPaused ? "ATB" : "HOLD"}</text>
+          <text class="ring-core-subtext" x="160" y="172">${readyCount.textContent}</text>
+          ${controls.join("")}
+        </svg>
+      </div>
+      <div class="ring-legend">
+        <span><i class="timer-delay"></i>Reload/Recovery</span>
+        <span><i class="action-delay"></i>Delayed Resolution</span>
+      </div>
+    </div>
+  `;
+}
+
 function iconStore() {
   try {
     return JSON.parse(localStorage.getItem("sa-atb-character-icons") || "{}");
@@ -315,12 +506,50 @@ function iconStore() {
   }
 }
 
+async function imageFileToIconDataUrl(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) return "";
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", reject, { once: true });
+      image.src = objectUrl;
+    });
+    if (!image.naturalWidth || !image.naturalHeight) return "";
+
+    let size = ICON_MAX_SIZE;
+    while (size >= 96) {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (!context) return "";
+      context.fillStyle = "#08111f";
+      context.fillRect(0, 0, size, size);
+      const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+      const width = image.naturalWidth * scale;
+      const height = image.naturalHeight * scale;
+      context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", ICON_JPEG_QUALITY);
+      if (dataUrl.length <= ICON_STORAGE_LIMIT || size === 96) return dataUrl;
+      size = Math.floor(size * 0.75);
+    }
+  } catch {
+    return "";
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+  return "";
+}
+
 function saveIconForCharacter(name, dataUrl) {
   const key = String(name || "").trim().toLowerCase();
-  if (!key || !dataUrl) return;
+  if (!key || !dataUrl || dataUrl.length > ICON_STORAGE_LIMIT) return false;
   const icons = iconStore();
   icons[key] = dataUrl;
-  localStorage.setItem("sa-atb-character-icons", JSON.stringify(icons));
+  if (safeLocalStorageSet("sa-atb-character-icons", JSON.stringify(icons))) return true;
+  return safeLocalStorageSet("sa-atb-character-icons", JSON.stringify({ [key]: dataUrl }));
 }
 
 function iconForCharacter(name) {
@@ -335,7 +564,7 @@ function myIconForUnit(unit) {
 
 function setActionLogEnabled(enabled) {
   playerActionLogEnabled = Boolean(enabled);
-  localStorage.setItem("sa-atb-action-log-enabled", playerActionLogEnabled ? "on" : "off");
+  safeLocalStorageSet("sa-atb-action-log-enabled", playerActionLogEnabled ? "on" : "off");
   if (playerActionLogToggle) playerActionLogToggle.checked = playerActionLogEnabled;
 }
 
@@ -402,14 +631,14 @@ async function action(payload, soundName = "tap") {
 
 function setMode(next) {
   mode = next;
-  localStorage.setItem("sa-atb-mode", mode);
+  safeLocalStorageSet("sa-atb-mode", mode);
   render();
 }
 
 function setRoom(nextState) {
   state = nextState;
   currentRoomCode = state.roomCode;
-  localStorage.setItem("sa-atb-room-code", currentRoomCode);
+  safeLocalStorageSet("sa-atb-room-code", currentRoomCode);
   connectEvents();
 }
 
@@ -972,7 +1201,7 @@ function playInterruptedBuzz() {
 
 function enablePlayerAlerts({ testSound = false } = {}) {
   alertsEnabled = true;
-  localStorage.setItem("sa-atb-alerts", "on");
+  safeLocalStorageSet("sa-atb-alerts", "on");
   ensureAudio();
   if (testSound) playTurnDing();
 }
@@ -1000,7 +1229,7 @@ function updateGmClockButton() {
 function render() {
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
     mode = "welcome";
-    localStorage.setItem("sa-atb-mode", mode);
+    safeLocalStorageSet("sa-atb-mode", mode);
   }
 
   welcomePanel.classList.toggle("hidden", mode !== "welcome");
@@ -1014,6 +1243,7 @@ function render() {
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
+  document.body.classList.toggle("ring-view-mode", visualMode === "ring");
   document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused);
   document.body.classList.toggle("hard-paused", Boolean(state?.hardPaused));
   renderPcBuilder();
@@ -1026,6 +1256,7 @@ function render() {
     logList.innerHTML = "";
     gmPanicPause.classList.add("hidden");
     gmMuteSound.classList.add("hidden");
+    visualModeToggle.classList.add("hidden");
     return;
   }
 
@@ -1042,6 +1273,9 @@ function render() {
   gmMuteSound.classList.toggle("hidden", mode !== "gm");
   gmMuteSound.classList.toggle("muted", gmSoundsMuted);
   gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
+  visualModeToggle.classList.toggle("hidden", mode !== "gm" && mode !== "player");
+  visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
+  visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   playerActionLogToggle.checked = playerActionLogEnabled;
   renderActivePanel();
   renderRejoinOptions();
@@ -1055,7 +1289,11 @@ function render() {
     mode === "player"
       ? [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0))
       : [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0));
-  renderUnitList(sorted);
+  if (visualMode === "ring") {
+    unitList.innerHTML = tacticalRingMarkup(state.units);
+  } else {
+    renderUnitList(sorted);
+  }
   syncGmCommandWindowVisibility();
 
   if (mine) {
@@ -1220,6 +1458,34 @@ function queuePlayerActionLog(unit) {
   }, 1000);
 }
 
+function ringIndexFromPointer(event) {
+  const svg = unitList.querySelector(".tactical-ring-svg");
+  if (!svg || !state?.units?.length) return -1;
+  const rect = svg.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 320;
+  const y = ((event.clientY - rect.top) / rect.height) * 320;
+  const degrees = (Math.atan2(y - 160, x - 160) * 180) / Math.PI + 90;
+  const angle = (degrees + 360) % 360;
+  const units = ringOrderedUnits(state.units);
+  return Math.max(0, Math.min(units.length - 1, Math.floor(angle / (360 / units.length))));
+}
+
+function moveRingUnit(id, targetIndex) {
+  const units = ringOrderedUnits(state.units);
+  const fromIndex = units.findIndex((unit) => unit.id === id);
+  if (fromIndex < 0 || targetIndex < 0 || targetIndex === fromIndex) return;
+  const [unit] = units.splice(fromIndex, 1);
+  units.splice(targetIndex, 0, unit);
+  setRingOrderFromUnits(units);
+  unitList.innerHTML = tacticalRingMarkup(state.units);
+}
+
+function clearRingDrag() {
+  if (ringDrag?.timer) clearTimeout(ringDrag.timer);
+  ringDrag = null;
+  document.body.classList.remove("ring-dragging");
+}
+
 joinPlayer.addEventListener("click", async () => {
   enablePlayerAlerts();
   const pcStats = calculatedPcStats();
@@ -1237,9 +1503,9 @@ joinPlayer.addEventListener("click", async () => {
   if (!next) return;
   const unit = next.units[next.units.length - 1];
   myUnitId = unit.id;
-  if (selectedCharacterIcon) saveIconForCharacter(unit.characterName, selectedCharacterIcon);
-  localStorage.setItem("sa-atb-unit-id", myUnitId);
+  safeLocalStorageSet("sa-atb-unit-id", myUnitId);
   setMode("player");
+  if (selectedCharacterIcon) saveIconForCharacter(unit.characterName, selectedCharacterIcon);
 });
 
 createRoom.addEventListener("click", async () => {
@@ -1290,7 +1556,7 @@ openGm.addEventListener("click", () => setMode("welcome"));
 rejoinPlayer.addEventListener("click", () => {
   enablePlayerAlerts();
   myUnitId = rejoinSelect.value;
-  localStorage.setItem("sa-atb-unit-id", myUnitId);
+  safeLocalStorageSet("sa-atb-unit-id", myUnitId);
   setMode("player");
 });
 
@@ -1317,11 +1583,16 @@ gmPanicPause.addEventListener("click", () => {
     }, 900);
   });
 });
+visualModeToggle.addEventListener("click", () => {
+  visualMode = visualMode === "ring" ? "bars" : "ring";
+  safeLocalStorageSet("sa-atb-visual-mode", visualMode);
+  render();
+});
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
 gmMuteSound.addEventListener("click", () => {
   gmSoundsMuted = !gmSoundsMuted;
-  localStorage.setItem("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
   playGmSound("tap");
   render();
 });
@@ -1363,16 +1634,19 @@ playerColorEdit.addEventListener("change", () => {
   if (myUnitId) action({ action: "setColor", id: myUnitId, color: playerColorEdit.value });
 });
 playerActionLogToggle.addEventListener("change", () => setActionLogEnabled(playerActionLogToggle.checked));
-characterIcon.addEventListener("change", () => {
+characterIcon.addEventListener("change", async () => {
   const file = characterIcon.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    selectedCharacterIcon = String(reader.result || "");
-    saveIconForCharacter(characterName.value, selectedCharacterIcon);
+  const iconDataUrl = await imageFileToIconDataUrl(file);
+  if (!iconDataUrl) {
+    selectedCharacterIcon = "";
+    setConnected(false, "That portrait could not be prepared. Try a smaller JPG or PNG.");
     render();
-  });
-  reader.readAsDataURL(file);
+    return;
+  }
+  selectedCharacterIcon = iconDataUrl;
+  saveIconForCharacter(characterName.value, selectedCharacterIcon);
+  render();
 });
 characterName.addEventListener("input", () => {
   selectedCharacterIcon = iconForCharacter(characterName.value) || selectedCharacterIcon;
@@ -1442,6 +1716,36 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
 });
+
+unitList.addEventListener("pointerdown", (event) => {
+  if (visualMode !== "ring" || !state) return;
+  const control = event.target.closest(".ring-slice-control.draggable");
+  if (!control) return;
+  const id = control.dataset.unitId;
+  const unit = state.units.find((entry) => entry.id === id);
+  if (!unit || unit.team !== "pc") return;
+  clearRingDrag();
+  ringDrag = {
+    id,
+    pointerId: event.pointerId,
+    timer: setTimeout(() => {
+      ringDrag = { id, pointerId: event.pointerId, active: true };
+      document.body.classList.add("ring-dragging");
+      unitList.innerHTML = tacticalRingMarkup(state.units);
+    }, 460),
+  };
+  control.setPointerCapture?.(event.pointerId);
+});
+
+document.addEventListener("pointermove", (event) => {
+  if (!ringDrag?.active || visualMode !== "ring") return;
+  event.preventDefault();
+  const targetIndex = ringIndexFromPointer(event);
+  if (targetIndex >= 0) moveRingUnit(ringDrag.id, targetIndex);
+});
+
+document.addEventListener("pointerup", clearRingDrag);
+document.addEventListener("pointercancel", clearRingDrag);
 
 renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);
