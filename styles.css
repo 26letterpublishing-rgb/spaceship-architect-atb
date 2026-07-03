@@ -439,7 +439,7 @@ h2 {
 
 .gm-control-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(104px, 128px));
+  grid-template-columns: repeat(4, minmax(104px, 128px));
   gap: 10px;
 }
 
@@ -448,6 +448,21 @@ h2 {
   aspect-ratio: 1.25;
   border-radius: 12px;
   line-height: 1.1;
+}
+
+.control-square.undo {
+  border-color: rgba(255, 208, 90, 0.58);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 45%, rgba(0, 0, 0, 0.24)),
+    linear-gradient(90deg, rgba(255, 208, 90, 0.14), rgba(40, 215, 255, 0.07)),
+    #1a2230;
+  color: #fff3c2;
+}
+
+.control-square.undo:disabled {
+  border-color: rgba(88, 114, 150, 0.36);
+  color: rgba(237, 246, 255, 0.42);
+  filter: none;
 }
 
 .exit-combat {
@@ -723,11 +738,14 @@ h2 {
 }
 
 .ring-delay-pocket.action-delay {
-  stroke: var(--violet);
+  stroke: #36e2ff;
+  animation: ringDelayActionPulse 700ms ease-in-out infinite alternate;
 }
 
 .ring-delay-pocket.timer-delay {
-  stroke: var(--orange);
+  stroke: #11151c;
+  opacity: 0.82;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.65));
 }
 
 .ring-edge-label {
@@ -1183,6 +1201,22 @@ h2 {
   }
 }
 
+@keyframes ringDelayActionPulse {
+  from {
+    opacity: 0.78;
+    filter:
+      drop-shadow(0 0 4px rgba(40, 215, 255, 0.28))
+      drop-shadow(0 0 2px rgba(255, 255, 255, 0.12));
+  }
+
+  to {
+    opacity: 1;
+    filter:
+      drop-shadow(0 0 12px rgba(40, 215, 255, 0.62))
+      drop-shadow(0 0 6px rgba(255, 208, 90, 0.22));
+  }
+}
+
 @keyframes ringLift {
   from {
     transform: scale(1.035);
@@ -1439,7 +1473,9 @@ h2 {
 }
 
 .delay-bar-fill {
+  position: relative;
   height: 100%;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 44%),
     linear-gradient(90deg, #181b20, #555e68, #929aa4);
@@ -1447,17 +1483,43 @@ h2 {
 }
 
 .delay-bar.action-delay {
-  border-color: rgba(196, 203, 211, 0.72);
+  border-color: rgba(40, 215, 255, 0.68);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 12px rgba(40, 215, 255, 0.16);
 }
 
 .delay-bar.action-delay .delay-bar-fill {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 44%),
-    linear-gradient(90deg, #515760, #aeb7c2, #edf2f8);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 38%, rgba(0, 0, 0, 0.28)),
+    linear-gradient(90deg, #1c77ad, #36e2ff 48%, #ffe47a 78%, #ff5d73);
+  animation: delayedActionPulse 650ms ease-in-out infinite alternate;
+}
+
+.clock-active .delay-bar.action-delay .delay-bar-fill::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: -45%;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  transform: skewX(-22deg);
+  animation: delayActionSweep 1.35s linear infinite;
 }
 
 .delay-bar.timer-delay {
-  border-color: rgba(76, 82, 92, 0.76);
+  border-color: rgba(48, 54, 62, 0.88);
+  background: #05070a;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.8);
+}
+
+.delay-bar.timer-delay .delay-bar-fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 48%, rgba(0, 0, 0, 0.32)),
+    linear-gradient(90deg, #050608, #1a1d22, #343943);
+  animation: none;
+  box-shadow: none;
 }
 
 .delay-bar span {
@@ -1471,6 +1533,26 @@ h2 {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   text-shadow: 0 1px 2px #000;
+}
+
+@keyframes delayedActionPulse {
+  from {
+    filter: brightness(0.94) saturate(1.02);
+  }
+
+  to {
+    filter: brightness(1.22) saturate(1.28);
+  }
+}
+
+@keyframes delayActionSweep {
+  from {
+    transform: translateX(0) skewX(-22deg);
+  }
+
+  to {
+    transform: translateX(390%) skewX(-22deg);
+  }
 }
 
 .setup-warning {
@@ -2169,6 +2251,10 @@ h2 {
     padding: 0 8px;
     font-size: 0.78rem;
     line-height: 1.08;
+  }
+
+  .gm-control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .active-panel {

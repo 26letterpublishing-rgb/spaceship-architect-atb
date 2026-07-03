@@ -50,6 +50,7 @@ function createRoom() {
     threshold: 100,
     units: [],
     log: [],
+    undoSnapshot: null,
   };
   rooms.set(code, room);
   clients.set(code, new Set());
@@ -83,6 +84,7 @@ function publicState(room) {
     threshold: room.threshold,
     units: room.units,
     log: room.log.slice(-30),
+    undoAvailable: Boolean(room.undoSnapshot),
   };
 }
 
@@ -90,6 +92,86 @@ function pushLog(room, text) {
   room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text });
   room.log = room.log.slice(-80);
 }
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function snapshotRoom(room) {
+  return {
+    running: room.running,
+    pausedForTurn: room.pausedForTurn,
+    resumeAfterTurn: room.resumeAfterTurn,
+    activeId: room.activeId,
+    activeAction: clone(room.activeAction),
+    activeSource: room.activeSource,
+    commandRemaining: room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : null,
+    commandTotal: room.commandTotal,
+    commandExpired: room.commandExpired,
+    hardPaused: room.hardPaused,
+    holdPaused: room.holdPaused,
+    holdStartedAt: room.holdStartedAt,
+    commandHeldRemaining: room.commandHeldRemaining,
+    lastInterruptedId: room.lastInterruptedId,
+    lastInterruptedAt: room.lastInterruptedAt,
+    delayRequest: clone(room.delayRequest),
+    hasEngagedClock: room.hasEngagedClock,
+    threshold: room.threshold,
+    units: clone(room.units),
+    log: clone(room.log),
+  };
+}
+
+function saveUndoSnapshot(room) {
+  room.undoSnapshot = snapshotRoom(room);
+}
+
+function restoreUndoSnapshot(room) {
+  if (!room.undoSnapshot) return false;
+  const snapshot = room.undoSnapshot;
+  room.running = snapshot.running;
+  room.pausedForTurn = snapshot.pausedForTurn;
+  room.resumeAfterTurn = snapshot.resumeAfterTurn;
+  room.activeId = snapshot.activeId;
+  room.activeAction = clone(snapshot.activeAction);
+  room.activeSource = snapshot.activeSource;
+  room.commandDeadline = snapshot.commandRemaining === null ? null : Date.now() + snapshot.commandRemaining * 1000;
+  room.commandTotal = snapshot.commandTotal;
+  room.commandExpired = snapshot.commandExpired;
+  room.hardPaused = snapshot.hardPaused;
+  room.holdPaused = snapshot.holdPaused;
+  room.holdStartedAt = snapshot.holdStartedAt;
+  room.commandHeldRemaining = snapshot.commandHeldRemaining;
+  room.lastInterruptedId = snapshot.lastInterruptedId;
+  room.lastInterruptedAt = snapshot.lastInterruptedAt;
+  room.delayRequest = clone(snapshot.delayRequest);
+  room.hasEngagedClock = snapshot.hasEngagedClock;
+  room.threshold = snapshot.threshold;
+  room.units = clone(snapshot.units);
+  room.log = clone(snapshot.log);
+  room.undoSnapshot = null;
+  room.lastTick = Date.now();
+  pushLog(room, "GM undid the last timing change.");
+  return true;
+}
+
+const undoableActions = new Set([
+  "addUnit",
+  "removeUnit",
+  "setRunning",
+  "setHardPaused",
+  "toggleClock",
+  "setSpeed",
+  "setCommandWindow",
+  "requestDelay",
+  "cancelDelayRequest",
+  "startDelay",
+  "step",
+  "reset",
+  "clearEncounter",
+  "completeTurn",
+  "nudge",
+]);
 
 function sendEvent(res, event, data) {
   res.write(`event: ${event}\n`);
@@ -275,7 +357,9 @@ function pauseForReadyUnit(room, unit, source = "clock") {
     room.commandTotal = 0;
     room.commandDeadline = null;
   }
-  pushLog(room, `${unit.characterName} is ready.`);
+  pushLog(room, usesCommandWindow(unit, source)
+    ? `${unit.characterName} is ready. Command Window started (${unit.commandWindow} sec).`
+    : `${unit.characterName} is ready.`);
 }
 
 function interruptActiveTurn(room) {
@@ -579,6 +663,17 @@ async function handleAction(req, res) {
   migrateRoomDelays(room);
 
   const action = body.action;
+  if (action === "undoLastTiming") {
+    restoreUndoSnapshot(room);
+    sendJson(res, 200, publicState(room));
+    broadcast(room);
+    return;
+  }
+
+  if (undoableActions.has(action) && !(action === "join" && body.controlledBy === "player")) {
+    saveUndoSnapshot(room);
+  }
+
   if (action === "join" || action === "addUnit") {
     const playerName = String(body.playerName || "Player").trim().slice(0, 40);
     const characterName = String(body.characterName || "Character").trim().slice(0, 40);

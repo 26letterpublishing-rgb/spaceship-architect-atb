@@ -119,6 +119,7 @@ const rejoinPlayer = document.querySelector("#rejoinPlayer");
 const stepTick = document.querySelector("#stepTick");
 const resetAll = document.querySelector("#resetAll");
 const clearEncounter = document.querySelector("#clearEncounter");
+const undoLastTiming = document.querySelector("#undoLastTiming");
 const exitCombat = document.querySelector("#exitCombat");
 const gmMuteSound = document.querySelector("#gmMuteSound");
 const gmAddUnit = document.querySelector("#gmAddUnit");
@@ -1319,6 +1320,8 @@ function render() {
   visualModeToggle.classList.toggle("hidden", mode !== "gm" && mode !== "player");
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
+  undoLastTiming.disabled = !state.undoAvailable;
+  undoLastTiming.title = state.undoAvailable ? "Undo the last timing/control change" : "No timing change to undo";
   playerActionLogToggle.checked = playerActionLogEnabled;
   renderActivePanel();
   renderRejoinOptions();
@@ -1638,6 +1641,10 @@ gmMuteSound.addEventListener("click", () => {
   safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
   playGmSound("tap");
   render();
+});
+undoLastTiming.addEventListener("click", () => {
+  if (!state?.undoAvailable) return;
+  action({ action: "undoLastTiming" }, "resolve");
 });
 clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
