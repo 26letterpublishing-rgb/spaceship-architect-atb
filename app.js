@@ -240,6 +240,10 @@ function activeDelayFor(unit) {
   return delayTimerFor(unit) || delayedActionFor(unit);
 }
 
+function editableDelayFor(unit) {
+  return delayTimerFor(unit) || delayedActionFor(unit);
+}
+
 function delayConsoleAllowed() {
   return Boolean(state?.hardPaused);
 }
@@ -424,6 +428,24 @@ function calculateDelayRate() {
   return calculateDelayDetails().rate;
 }
 
+function currentDelaySettings() {
+  if (!delayModalState) return null;
+  return {
+    base: delayModalState.base,
+    factors: Object.fromEntries(c4Factors.map((factor) => [factor, delayModalState.factors?.[factor] || 0])),
+  };
+}
+
+function delaySettingsFromExisting(delay) {
+  const saved = delay?.settings || {};
+  const base = delayBaseOptions.some((option) => option.value === Number(saved.base)) ? Number(saved.base) : 8;
+  const factors = Object.fromEntries(c4Factors.map((factor) => {
+    const value = Number(saved.factors?.[factor]) || 0;
+    return [factor, Math.max(-4, Math.min(4, value))];
+  }));
+  return { base, factors };
+}
+
 function delayModifierText(details) {
   const parts = [`Base ${details.base}`];
   if (details.flat) parts.push(`${details.flat > 0 ? "+" : ""}${details.flat}`);
@@ -449,15 +471,17 @@ function renderDelayDialog() {
   delayDialog.classList.remove("hidden");
   delayDialogTitle.textContent = delayModalState.kind === "action" ? "Delayed Resolution" : "Delay Timer";
   delayDialogTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
-  const instantResolution = delayDetails.rate > 99;
+  const instantResolution = !delayModalState.editing && delayDetails.rate > 99;
   delayRatePreview.textContent = instantResolution ? "Instant Resolution!" : delayDetails.rate.toFixed(1);
   delayRatePreview.classList.toggle("instant-resolution", instantResolution);
   delayModifierPreview.textContent = delayModifierText(delayDetails);
   delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action");
   delayActionName.value = delayModalState.label;
+  confirmDelayDialog.textContent = delayModalState.editing ? "Confirm Changes" : "Confirm Delay";
 
   delayDialog.querySelectorAll("[data-delay-kind]").forEach((button) => {
     button.classList.toggle("active", button.dataset.delayKind === delayModalState.kind);
+    button.disabled = Boolean(delayModalState.editing);
   });
 
   delayBaseGrid.innerHTML = delayBaseOptions
@@ -488,23 +512,34 @@ function renderDelayDialog() {
     .join("");
 }
 
-function openDelayDialog(unitId, kind = "timer", requestId = "") {
+function openDelayDialog(unitId, kind = "timer", requestId = "", existingDelay = null) {
   const unit = state?.units.find((entry) => entry.id === unitId);
   if (!unit) return;
+  const settings = delaySettingsFromExisting(existingDelay);
+  const resolvedKind = existingDelay?.kind || kind;
   delayModalState = {
     unitId,
     requestId,
-    kind: kind === "action" ? "action" : "timer",
-    label: "",
-    base: 8,
-    factors: Object.fromEntries(c4Factors.map((factor) => [factor, 0])),
+    editing: Boolean(existingDelay),
+    delayId: existingDelay?.id || "",
+    kind: resolvedKind === "action" ? "action" : "timer",
+    label: existingDelay?.label || "",
+    base: settings.base,
+    factors: settings.factors,
   };
   if (delayModalState.kind === "action") delayModalState.label = "Delayed Resolution";
+  if (existingDelay?.kind === "action") delayModalState.label = existingDelay.label || "Delayed Resolution";
   renderDelayDialog();
 }
 
 function openDelayForUnit(unitId, kind = "timer") {
   if (!delayConsoleAllowed()) return;
+  const unit = state?.units.find((entry) => entry.id === unitId);
+  const existingDelay = editableDelayFor(unit);
+  if (existingDelay) {
+    openDelayDialog(unitId, existingDelay.kind, "", existingDelay);
+    return;
+  }
   if (state?.activeId === unitId && !state.delayRequest) {
     action({ action: "requestDelay", id: unitId, kind, requestedBy: "gm" }, "tap");
     return;
@@ -528,15 +563,31 @@ async function confirmDelayDialogAction() {
     kind: delayModalState.kind,
     label: delayModalState.kind === "action" ? delayActionName.value.trim() : "",
     rate: calculateDelayRate(),
+    settings: currentDelaySettings(),
+    editing: delayModalState.editing,
+    delayId: delayModalState.delayId,
   };
   delayModalState = null;
   renderDelayDialog();
+  if (delay.editing) {
+    await action({
+      action: "updateDelay",
+      id: delay.unitId,
+      delayId: delay.delayId,
+      kind: delay.kind,
+      label: delay.label,
+      rate: delay.rate,
+      settings: delay.settings,
+    }, "resolve");
+    return;
+  }
   if (delay.rate > 99) {
     await action({
       action: "instantDelay",
       id: delay.unitId,
       kind: delay.kind,
       label: delay.label,
+      settings: delay.settings,
     }, "resolve");
     return;
   }
@@ -546,6 +597,7 @@ async function confirmDelayDialogAction() {
     kind: delay.kind,
     label: delay.label,
     rate: delay.rate,
+    settings: delay.settings,
   }, delay.kind === "action" ? "start" : "tap");
 }
 
@@ -689,7 +741,7 @@ function ringActionButtons(unit, midAngle) {
   const delayDisabled = !delayConsoleAllowed();
   return `
     <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
-      <button class="ring-action-btn" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" ${delayDisabled ? "disabled" : ""}>DL</button>
+      <button class="ring-action-btn delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">DL</span><span class="delay-label-blocked">Pause</span></button>
       <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
@@ -1030,7 +1082,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
                 </label>
-                <button class="mini" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" ${delayDisabled ? "disabled" : ""}>Delay</button>
+                <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay (Pause Everything first!)</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -1340,8 +1392,11 @@ function notifyTurnIfNeeded() {
     activeOwner.textContent = active.playerName;
     completeTurn.textContent = "Action Resolved";
     gmDelay.classList.remove("hidden");
-    gmDelay.disabled = !delayConsoleAllowed();
+    gmDelay.disabled = false;
+    gmDelay.classList.toggle("delay-button", true);
+    gmDelay.classList.toggle("delay-blocked", !delayConsoleAllowed());
     gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
+    gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay (Pause Everything first!)</span>`;
     if (!turnPanelOpen()) showTurnPanel();
   }
 

@@ -1405,6 +1405,45 @@ h2 {
   padding: 0 10px;
 }
 
+.delay-button {
+  display: inline-grid;
+  place-items: center;
+  white-space: nowrap;
+}
+
+.delay-button .delay-label-main,
+.delay-button .delay-label-blocked {
+  grid-area: 1 / 1;
+}
+
+.delay-button .delay-label-blocked {
+  display: none;
+}
+
+.delay-button.delay-blocked {
+  --button-accent: var(--orange);
+}
+
+.delay-button.delay-blocked:hover .delay-label-main,
+.delay-button.delay-blocked:active .delay-label-main,
+.delay-button.delay-blocked:focus-visible .delay-label-main {
+  display: none;
+}
+
+.delay-button.delay-blocked:hover .delay-label-blocked,
+.delay-button.delay-blocked:active .delay-label-blocked,
+.delay-button.delay-blocked:focus-visible .delay-label-blocked {
+  display: inline;
+}
+
+.mini.delay-button.delay-blocked {
+  width: 170px;
+}
+
+.ring-action-btn.delay-button.delay-blocked {
+  width: 36px;
+}
+
 .danger {
   border-color: rgba(255, 79, 105, 0.7);
 }

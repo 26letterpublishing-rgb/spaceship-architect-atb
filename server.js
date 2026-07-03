@@ -166,6 +166,7 @@ const undoableActions = new Set([
   "requestDelay",
   "cancelDelayRequest",
   "startDelay",
+  "updateDelay",
   "instantDelay",
   "step",
   "reset",
@@ -206,6 +207,20 @@ function normalizeDelayKind(value) {
 function normalizeDelayLabel(value, kind = "timer") {
   const fallback = kind === "action" ? "Delayed Action" : "Delay Time";
   return String(value || fallback).trim().slice(0, 60) || fallback;
+}
+
+function normalizeDelaySettings(value) {
+  const base = Number(value?.base);
+  const allowedBases = new Set([3, 6, 8, 10, 14]);
+  const factors = {};
+  for (const factor of ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"]) {
+    const raw = Number(value?.factors?.[factor]) || 0;
+    factors[factor] = Math.max(-4, Math.min(4, Math.round(raw)));
+  }
+  return {
+    base: allowedBases.has(base) ? base : 8,
+    factors,
+  };
 }
 
 function normalizeActionLog(value) {
@@ -431,7 +446,7 @@ function cancelDelayRequest(room) {
   pushLog(room, "Delay request cancelled.");
 }
 
-function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {}) {
+function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", settings = null } = {}) {
   if (!unit) return;
   const isRequestedDelay = room.delayRequest?.unitId === unit.id;
   if (!room.hardPaused && !isRequestedDelay) {
@@ -446,6 +461,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     kind: normalizedKind,
     label: normalizeDelayLabel(label, normalizedKind),
     rate: normalizeDelayRate(rate) || 1,
+    settings: normalizeDelaySettings(settings),
     remaining: 100,
     total: 100,
     consumeTurn: wasActive,
@@ -465,6 +481,24 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     clearActiveCommand(room);
     moveToNextTurnOrClock(room, previousSource);
   }
+}
+
+function updateUnitDelay(room, unit, { delayId = "", kind = "timer", rate = 1, label = "", settings = null } = {}) {
+  if (!unit || !room.hardPaused) {
+    pushLog(room, "Pause Everything before changing a delay.");
+    return;
+  }
+  const normalizedKind = normalizeDelayKind(kind);
+  const delay = normalizedKind === "timer" ? unit.delayTimer : unit.delayedAction;
+  if (!delay || (delayId && delay.id !== delayId)) {
+    pushLog(room, "That delay is no longer active.");
+    return;
+  }
+  delay.rate = normalizeDelayRate(rate) || delay.rate || 1;
+  delay.label = normalizeDelayLabel(label, normalizedKind);
+  delay.settings = normalizeDelaySettings(settings);
+  delay.kind = normalizedKind;
+  pushLog(room, `${unit.characterName}'s ${normalizedKind === "action" ? "Delayed Resolution" : "Delay Timer"} was changed to ${delay.rate}.`);
 }
 
 function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
@@ -854,6 +888,18 @@ async function handleAction(req, res) {
       kind: body.kind,
       rate: body.rate,
       label: body.label,
+      settings: body.settings,
+    });
+  }
+
+  if (action === "updateDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    updateUnitDelay(room, unit, {
+      delayId: body.delayId,
+      kind: body.kind,
+      rate: body.rate,
+      label: body.label,
+      settings: body.settings,
     });
   }
 
