@@ -16,6 +16,7 @@ let lastHandledDelayRequest = "";
 let audioContext = null;
 let events = null;
 let lastGmClockClickAt = 0;
+let lastRingActionPressAt = 0;
 let ringDrag = null;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
@@ -1737,14 +1738,22 @@ gmTeam.addEventListener("change", () => {
   syncGmCommandWindowVisibility();
 });
 
-unitList.addEventListener("click", (event) => {
-  const button = event.target.closest("button");
+function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
+  event?.preventDefault();
+  event?.stopPropagation();
   const id = button.dataset.id;
   if (button.dataset.action === "remove") action({ action: "removeUnit", id }, "danger");
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
   if (button.dataset.action === "delayTimer") startDelayWithPrompt(id, "timer");
   if (button.dataset.action === "delayedAction") startDelayWithPrompt(id, "action");
+}
+
+unitList.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button || mode !== "gm") return;
+  if (button.classList.contains("ring-action-btn") && Date.now() - lastRingActionPressAt < 650) return;
+  handleUnitActionButton(button, event);
 });
 
 unitList.addEventListener("change", (event) => {
@@ -1758,6 +1767,12 @@ unitList.addEventListener("change", (event) => {
 
 unitList.addEventListener("pointerdown", (event) => {
   if (visualMode !== "ring" || !state) return;
+  const ringButton = event.target.closest(".ring-action-btn");
+  if (ringButton) {
+    lastRingActionPressAt = Date.now();
+    handleUnitActionButton(ringButton, event);
+    return;
+  }
   const control = event.target.closest(".ring-slice-control.draggable");
   if (!control) return;
   const id = control.dataset.unitId;
