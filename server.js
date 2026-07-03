@@ -166,6 +166,7 @@ const undoableActions = new Set([
   "requestDelay",
   "cancelDelayRequest",
   "startDelay",
+  "instantDelay",
   "step",
   "reset",
   "clearEncounter",
@@ -464,6 +465,30 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {
     clearActiveCommand(room);
     moveToNextTurnOrClock(room, previousSource);
   }
+}
+
+function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
+  if (!unit) return;
+  const previousSource = room.activeSource;
+  const wasActive = room.activeId === unit.id;
+  const normalizedKind = normalizeDelayKind(kind);
+  const resolvedLabel = normalizeDelayLabel(label, normalizedKind);
+  clearDelayRequest(room);
+  if (wasActive) {
+    unit.atb = Math.max(0, unit.atb - room.threshold);
+    room.pausedForTurn = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearActiveCommand(room);
+    pushLog(room, normalizedKind === "action"
+      ? `Instant Resolution: ${resolvedLabel}.`
+      : `${unit.characterName}'s Delay resolved instantly.`);
+    moveToNextTurnOrClock(room, previousSource);
+    return;
+  }
+  pushLog(room, normalizedKind === "action"
+    ? `Instant Resolution: ${resolvedLabel}. No delay created.`
+    : `${unit.characterName}'s Delay resolved instantly. No delay created.`);
 }
 
 function moveToNextTurnOrClock(room, previousSource = null) {
@@ -827,6 +852,14 @@ async function handleAction(req, res) {
     startUnitDelay(room, unit, {
       kind: body.kind,
       rate: body.rate,
+      label: body.label,
+    });
+  }
+
+  if (action === "instantDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    resolveInstantDelay(room, unit, {
+      kind: body.kind,
       label: body.label,
     });
   }

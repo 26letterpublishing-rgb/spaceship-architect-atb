@@ -51,7 +51,8 @@ const delayBaseOptions = [
   { label: "Fast", value: 10 },
   { label: "Very Fast", value: 14 },
 ];
-const c4Factors = ["Situation", "Ingenuity", "Execution", "Quality", "Performance", "Efficiency"];
+const c4Factors = ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"];
+const c4CharacterFactors = new Set(["Quality", "Performance", "Efficiency"]);
 const c4PositiveSteps = [
   { flat: 2, percent: 0, label: "+2" },
   { flat: 3, percent: 0, label: "+3" },
@@ -433,7 +434,9 @@ function renderDelayDialog() {
   delayDialog.classList.remove("hidden");
   delayDialogTitle.textContent = delayModalState.kind === "action" ? "Delayed Resolution" : "Delay Timer";
   delayDialogTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
-  delayRatePreview.textContent = delayDetails.rate.toFixed(1);
+  const instantResolution = delayDetails.rate > 99;
+  delayRatePreview.textContent = instantResolution ? "Instant Resolution!" : delayDetails.rate.toFixed(1);
+  delayRatePreview.classList.toggle("instant-resolution", instantResolution);
   delayModifierPreview.textContent = delayModifierText(delayDetails);
   delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action");
   delayActionName.value = delayModalState.label;
@@ -457,8 +460,9 @@ function renderDelayDialog() {
   delayC4Grid.innerHTML = c4Factors
     .map((factor, index) => {
       const value = delayModalState.factors[factor] || 0;
+      const factorClass = c4CharacterFactors.has(factor) ? "character-factor" : "gm-factor";
       return `
-        <div class="c4-control" data-c4-factor="${escapeHtml(factor)}">
+        <div class="c4-control ${factorClass}" data-c4-factor="${escapeHtml(factor)}">
           <button type="button" class="c4-hit left" data-c4-index="${index}" data-c4-side="left" aria-label="${escapeHtml(factor)} down"></button>
           ${c4IconMarkup(value)}
           <button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>
@@ -512,6 +516,15 @@ async function confirmDelayDialogAction() {
   };
   delayModalState = null;
   renderDelayDialog();
+  if (delay.rate > 99) {
+    await action({
+      action: "instantDelay",
+      id: delay.unitId,
+      kind: delay.kind,
+      label: delay.label,
+    }, "resolve");
+    return;
+  }
   await action({
     action: "startDelay",
     id: delay.unitId,
@@ -1846,7 +1859,7 @@ playerEndTurn.addEventListener("click", () => {
   }
 });
 playerDelay.addEventListener("click", () => {
-  if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "timer" }, "tap");
+  if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
 });
 cancelDelayDialog.addEventListener("click", () => closeDelayDialog({ cancelRequest: true }));
 confirmDelayDialog.addEventListener("click", confirmDelayDialogAction);
