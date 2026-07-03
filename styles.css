@@ -608,13 +608,53 @@ h2 {
 }
 
 .ring-stage {
+  position: relative;
   width: min(560px, 100%);
   display: grid;
   place-items: center;
-  perspective: 880px;
+  perspective: 980px;
+  isolation: isolate;
+}
+
+.ring-stage::before,
+.ring-stage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.ring-stage::before {
+  z-index: 0;
+  top: 47%;
+  width: min(548px, 91vw);
+  height: min(168px, 28vw);
+  background:
+    linear-gradient(90deg, rgba(84, 12, 19, 0.96), rgba(174, 49, 55, 0.98) 26%, rgba(101, 16, 24, 0.98) 58%, rgba(54, 8, 13, 0.98)),
+    #7b1f27;
+  box-shadow:
+    inset 0 16px 18px rgba(255, 255, 255, 0.12),
+    inset 0 -30px 42px rgba(0, 0, 0, 0.34),
+    0 22px 34px rgba(0, 0, 0, 0.46);
+}
+
+.ring-stage::after {
+  z-index: 1;
+  top: 35%;
+  width: min(552px, 92vw);
+  height: min(268px, 44vw);
+  border: 12px solid rgba(132, 30, 37, 0.98);
+  box-shadow:
+    inset 0 4px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 12px rgba(0, 0, 0, 0.28),
+    0 2px 0 rgba(255, 255, 255, 0.08);
 }
 
 .tactical-ring-svg {
+  position: relative;
+  z-index: 2;
   width: min(540px, 90vw);
   height: auto;
   max-height: min(58vh, 540px);
@@ -622,7 +662,7 @@ h2 {
   filter:
     drop-shadow(0 28px 24px rgba(0, 0, 0, 0.46))
     drop-shadow(0 0 24px rgba(40, 215, 255, 0.12));
-  transform: rotateX(10deg);
+  transform: rotateX(58deg) rotateZ(-7deg) translateY(-5%);
   transform-origin: center;
   touch-action: none;
   user-select: none;
@@ -635,22 +675,25 @@ h2 {
 
 .ring-backplate {
   fill:
-    rgba(7, 11, 16, 0.96);
-  stroke: rgba(104, 132, 168, 0.58);
-  stroke-width: 4;
+    rgba(46, 8, 13, 0.98);
+  stroke: rgba(170, 47, 54, 0.96);
+  stroke-width: 7;
 }
 
 .ring-slice-shell {
-  fill: rgba(15, 22, 32, 0.96);
-  stroke: rgba(104, 132, 168, 0.42);
-  stroke-width: 1.2;
+  fill: rgba(var(--bar-rgb, 57, 229, 143), 0.22);
+  stroke: rgba(86, 18, 25, 0.92);
+  stroke-width: 3.2;
+  filter:
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 7px rgba(var(--bar-rgb, 57, 229, 143), 0.12));
 }
 
 .ring-slice-fill {
-  opacity: 0.93;
+  opacity: 0.96;
   filter:
-    drop-shadow(0 0 8px rgba(var(--bar-rgb, 57, 229, 143), 0.22))
-    drop-shadow(0 0 3px rgba(255, 255, 255, 0.12));
+    drop-shadow(0 4px 4px rgba(0, 0, 0, 0.32))
+    drop-shadow(0 0 6px rgba(var(--bar-rgb, 57, 229, 143), 0.24));
   transition: d 360ms linear, opacity 180ms ease;
 }
 
@@ -659,19 +702,10 @@ h2 {
 }
 
 .ring-slice-sheen {
-  fill: rgba(255, 255, 255, 0.04);
-  stroke: rgba(255, 255, 255, 0.16);
-  stroke-width: 0.8;
+  fill: rgba(255, 255, 255, 0.13);
+  stroke: rgba(255, 255, 255, 0.24);
+  stroke-width: 1;
   mix-blend-mode: screen;
-}
-
-.ring-edge-cap {
-  fill: rgba(255, 255, 255, 0.85);
-  stroke: rgba(var(--bar-rgb, 57, 229, 143), 0.72);
-  stroke-width: 1.2;
-  filter:
-    drop-shadow(0 0 6px rgba(255, 255, 255, 0.52))
-    drop-shadow(0 0 9px rgba(var(--bar-rgb, 57, 229, 143), 0.58));
 }
 
 .ring-delay-pocket {
@@ -721,9 +755,9 @@ h2 {
 
 .ring-core {
   fill:
-    rgba(8, 15, 23, 0.96);
-  stroke: rgba(40, 215, 255, 0.58);
-  stroke-width: 2;
+    rgba(58, 12, 18, 0.98);
+  stroke: rgba(170, 47, 54, 0.94);
+  stroke-width: 4;
   filter:
     drop-shadow(0 0 14px rgba(40, 215, 255, 0.22))
     drop-shadow(0 5px 8px rgba(0, 0, 0, 0.42));
@@ -751,6 +785,46 @@ h2 {
 .ring-slice-control {
   fill: transparent;
   cursor: default;
+}
+
+.ring-action-orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.ring-action-cluster {
+  position: absolute;
+  left: var(--ring-action-x);
+  top: var(--ring-action-y);
+  display: grid;
+  grid-template-columns: repeat(2, 28px);
+  gap: 3px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.ring-action-btn {
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  border-color: rgba(40, 215, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08) 46%, rgba(0, 0, 0, 0.3)),
+    rgba(10, 20, 31, 0.94);
+  color: #e6faff;
+  font-size: 0.58rem;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.42);
+}
+
+.ring-action-btn.danger {
+  border-color: rgba(255, 79, 105, 0.62);
+  color: #ffdce3;
 }
 
 .ring-slice-control.draggable {

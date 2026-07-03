@@ -408,6 +408,22 @@ function ringDelayPocket(delay, startAngle, endAngle, radius, className) {
   return `<path class="ring-delay-pocket ${className}" d="${describeArc(160, 160, radius, usableStart, targetEnd)}" />`;
 }
 
+function ringActionButtons(unit, midAngle) {
+  if (mode !== "gm") return "";
+  const radians = (midAngle - 90) * (Math.PI / 180);
+  const x = 50 + Math.cos(radians) * 45;
+  const y = 49 + Math.sin(radians) * 31;
+  const id = escapeHtml(unit.id);
+  return `
+    <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
+      <button class="ring-action-btn" data-action="delayTimer" data-id="${id}" title="Delay Timer">DT</button>
+      <button class="ring-action-btn" data-action="delayedAction" data-id="${id}" title="Delayed Action">DA</button>
+      <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
+      <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
+    </div>
+  `;
+}
+
 function tacticalRingMarkup(units) {
   if (!units.length) {
     return `
@@ -426,6 +442,7 @@ function tacticalRingMarkup(units) {
   const slices = [];
   const labels = [];
   const controls = [];
+  const actionButtons = [];
 
   ordered.forEach((unit, index) => {
     const start = index * slice + gap / 2;
@@ -442,11 +459,11 @@ function tacticalRingMarkup(units) {
     const labelPoint = polarPoint(160, 160, 78, mid);
 
     defs.push(`
-      <radialGradient id="${gradId}" cx="50%" cy="50%" r="62%">
-        <stop offset="0%" stop-color="rgba(255,255,255,0.84)" />
-        <stop offset="24%" stop-color="rgba(${rgb.r},${rgb.g},${rgb.b},0.9)" />
-        <stop offset="74%" stop-color="${escapeHtml(unit.color || "#39e58f")}" />
-        <stop offset="100%" stop-color="rgba(255,255,255,0.62)" />
+      <radialGradient id="${gradId}" cx="50%" cy="46%" r="70%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.36)" />
+        <stop offset="22%" stop-color="rgba(${rgb.r},${rgb.g},${rgb.b},0.84)" />
+        <stop offset="67%" stop-color="${escapeHtml(unit.color || "#39e58f")}" />
+        <stop offset="100%" stop-color="rgba(${Math.max(0, rgb.r - 58)},${Math.max(0, rgb.g - 58)},${Math.max(0, rgb.b - 58)},0.96)" />
       </radialGradient>
       <path id="${labelPathId}" d="${describeArc(160, 160, 144, start + 4, end - 4)}" />
     `);
@@ -458,7 +475,6 @@ function tacticalRingMarkup(units) {
         <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
         ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
-        <circle class="ring-edge-cap" cx="${polarPoint(160, 160, atbRadius, mid).x.toFixed(2)}" cy="${polarPoint(160, 160, atbRadius, mid).y.toFixed(2)}" r="${Math.max(3, Math.min(9, slice / 8)).toFixed(2)}" />
         <text class="ring-initials" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}">${escapeHtml(shortRingLabel(unit))}</text>
         ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
       </g>
@@ -471,6 +487,7 @@ function tacticalRingMarkup(units) {
     `);
 
     controls.push(`<path class="ring-slice-control ${unit.team === "pc" ? "draggable" : ""}" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
+    actionButtons.push(ringActionButtons(unit, mid));
   });
 
   return `
@@ -488,6 +505,7 @@ function tacticalRingMarkup(units) {
           <text class="ring-core-subtext" x="160" y="172">${readyCount.textContent}</text>
           ${controls.join("")}
         </svg>
+        ${mode === "gm" ? `<div class="ring-action-orbit">${actionButtons.join("")}</div>` : ""}
       </div>
       <div class="ring-legend">
         <span><i class="timer-delay"></i>Reload/Recovery</span>
@@ -1060,6 +1078,7 @@ function notifyTurnIfNeeded() {
 
 function notifyInterruptionIfNeeded() {
   if (mode !== "player" || !state?.lastInterruptedId) return;
+  if (!alertsEnabled) return;
   if (state.lastInterruptedId !== myUnitId) return;
   const key = `${state.lastInterruptedId}:${state.lastInterruptedAt || ""}`;
   if (lastInterruptedNotice === key) return;
@@ -1196,11 +1215,25 @@ function playInterruptedBuzz() {
   }
 }
 
+function vibrationAvailable() {
+  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+}
+
+function playerAlertLabel() {
+  const alertType = vibrationAvailable() ? "Sound / Vibration" : "Sound";
+  return alertsEnabled ? `Disable ${alertType}` : `Enable ${alertType}`;
+}
+
 function enablePlayerAlerts({ testSound = false } = {}) {
   alertsEnabled = true;
   safeLocalStorageSet("sa-atb-alerts", "on");
   ensureAudio();
   if (testSound) playTurnDing();
+}
+
+function disablePlayerAlerts() {
+  alertsEnabled = false;
+  safeLocalStorageSet("sa-atb-alerts", "off");
 }
 
 function shouldShowEngageClock() {
@@ -1273,7 +1306,7 @@ function render() {
   clockState.textContent = statusText();
   playerClock.textContent = statusText();
   updateGmClockButton();
-  enableAlerts.textContent = alertsEnabled ? "Sound / Vibration Enabled" : "Enable Sound / Vibration";
+  enableAlerts.textContent = playerAlertLabel();
   gmMuteSound.classList.toggle("hidden", mode !== "gm");
   gmMuteSound.classList.toggle("muted", gmSoundsMuted);
   gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
@@ -1626,7 +1659,11 @@ playerDelayedAction.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
 });
 enableAlerts.addEventListener("click", () => {
-  enablePlayerAlerts({ testSound: true });
+  if (alertsEnabled) {
+    disablePlayerAlerts();
+  } else {
+    enablePlayerAlerts({ testSound: true });
+  }
   render();
 });
 leaveRoom.addEventListener("click", () => {
