@@ -918,6 +918,18 @@ function activeUnit() {
   return state?.units.find((unit) => unit.id === state.activeId) || null;
 }
 
+function turnPanelOpen() {
+  return !turnDialog.classList.contains("hidden");
+}
+
+function showTurnPanel() {
+  turnDialog.classList.remove("hidden");
+}
+
+function closeTurnPanel() {
+  turnDialog.classList.add("hidden");
+}
+
 function unitRoleText(unit) {
   if (!unit) return "";
   const side = unit.team === "pc" ? "PC" : "NPC";
@@ -1011,9 +1023,9 @@ function notifyTurnIfNeeded() {
       completeTurn.textContent = "Action Resolved";
       gmDelayTimer.classList.add("hidden");
       gmDelayedAction.classList.add("hidden");
-      if (!turnDialog.open) turnDialog.show();
-    } else if (turnDialog.open) {
-      turnDialog.close();
+      if (!turnPanelOpen()) showTurnPanel();
+    } else if (turnPanelOpen()) {
+      closeTurnPanel();
     }
     lastNotifiedActiveId = "";
     lastCommandWarningKey = "";
@@ -1021,7 +1033,7 @@ function notifyTurnIfNeeded() {
   }
   const active = state.units.find((unit) => unit.id === state.activeId);
   if (!active) {
-    if (turnDialog.open) turnDialog.close();
+    if (turnPanelOpen()) closeTurnPanel();
     lastNotifiedActiveId = "";
     lastCommandWarningKey = "";
     return;
@@ -1034,7 +1046,7 @@ function notifyTurnIfNeeded() {
     completeTurn.textContent = "Action Resolved";
     gmDelayTimer.classList.remove("hidden");
     gmDelayedAction.classList.remove("hidden");
-    if (!turnDialog.open) turnDialog.show();
+    if (!turnPanelOpen()) showTurnPanel();
   }
 
   if (mode === "player" && active.id === myUnitId && alertsEnabled && lastNotifiedActiveId !== active.id) {
@@ -1199,6 +1211,8 @@ function shouldShowEngageClock() {
 function updateGmClockButton() {
   const showEngage = shouldShowEngageClock();
   const isPaused = Boolean(state?.hardPaused);
+  const clockAction = isPaused ? "resume" : showEngage ? "start" : "pause";
+  const label = clockAction === "pause" ? "Pause Everything" : "Engage Clock";
   const footer = state?.pausedForTurn && !state?.hardPaused
     ? "Turn is active"
     : state?.pausedForTurn && state?.hardPaused
@@ -1208,7 +1222,12 @@ function updateGmClockButton() {
   gmPanicPause.classList.toggle("engage", showEngage || isPaused);
   gmPanicPause.classList.toggle("paused", !showEngage && !isPaused);
   gmPanicPause.disabled = false;
-  gmPanicPause.innerHTML = `<span>${showEngage || isPaused ? "Engage Clock" : "Pause Everything"}</span>${footer ? `<small>${footer}</small>` : ""}`;
+  if (gmPanicPause.dataset.clockAction !== clockAction || gmPanicPause.dataset.footer !== footer) {
+    gmPanicPause.dataset.clockAction = clockAction;
+    gmPanicPause.dataset.footer = footer;
+    gmPanicPause.innerHTML = `<span>${label}</span>${footer ? `<small>${footer}</small>` : ""}`;
+    gmPanicPause.setAttribute("aria-label", label);
+  }
 }
 
 function render() {
@@ -1302,7 +1321,7 @@ function render() {
     .map((entry) => `<div><strong>${escapeHtml(entry.at)}</strong> ${escapeHtml(entry.text)}</div>`)
     .join("");
 
-  if (!state.pausedForTurn && turnDialog.open) turnDialog.close();
+  if (!state.pausedForTurn && turnPanelOpen()) closeTurnPanel();
   notifyTurnIfNeeded();
   notifyInterruptionIfNeeded();
   queueGmDelayRequestPrompt();
@@ -1545,20 +1564,27 @@ rejoinPlayer.addEventListener("click", () => {
   setMode("player");
 });
 
-gmPanicPause.addEventListener("click", () => {
+function pressGmClockButton(event) {
   if (!state) return;
+  event?.preventDefault();
+  event?.stopPropagation();
   const now = Date.now();
-  if (now - lastGmClockClickAt < 180) return;
+  if (now - lastGmClockClickAt < 650) return;
   lastGmClockClickAt = now;
-  const soundName = state.hardPaused
-    ? "engage"
-    : state.running || state.pausedForTurn || state.holdPaused || state.activeAction
-      ? "pause"
-      : state.hasEngagedClock
-        ? "engage"
-        : "firstStart";
-  action({ action: "toggleClock" }, soundName);
-});
+  const clockAction = gmPanicPause.dataset.clockAction || (state.hardPaused ? "resume" : shouldShowEngageClock() ? "start" : "pause");
+  if (clockAction === "pause") {
+    action({ action: "setHardPaused", paused: true }, "pause");
+    return;
+  }
+  if (clockAction === "resume") {
+    action({ action: "setHardPaused", paused: false }, "engage");
+    return;
+  }
+  action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+}
+
+gmPanicPause.addEventListener("pointerdown", pressGmClockButton);
+gmPanicPause.addEventListener("click", pressGmClockButton);
 visualModeToggle.addEventListener("click", () => {
   visualMode = visualMode === "ring" ? "bars" : "ring";
   safeLocalStorageSet("sa-atb-visual-mode", visualMode);
