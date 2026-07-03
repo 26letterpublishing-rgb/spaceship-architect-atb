@@ -707,6 +707,31 @@ function describeArc(cx, cy, radius, startAngle, endAngle) {
   return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
 }
 
+function describeRingSideWall(cx, cy, radius, startAngle, endAngle, depth) {
+  const start = polarPoint(cx, cy, radius, startAngle);
+  const end = polarPoint(cx, cy, radius, endAngle);
+  const startDrop = { x: start.x, y: start.y + depth };
+  const endDrop = { x: end.x, y: end.y + depth };
+  const largeArc = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+  return [
+    `M ${start.x.toFixed(2)} ${start.y.toFixed(2)}`,
+    `A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`,
+    `L ${endDrop.x.toFixed(2)} ${endDrop.y.toFixed(2)}`,
+    `A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 ${largeArc} 0 ${startDrop.x.toFixed(2)} ${startDrop.y.toFixed(2)}`,
+    "Z",
+  ].join(" ");
+}
+
+function ringFrontSeamPath(angle, radius = 137, depth = 38) {
+  const normalized = (angle + 360) % 360;
+  if (normalized < 88 || normalized > 272) return "";
+  const frontFactor = Math.sin(((normalized - 88) / 184) * Math.PI);
+  if (frontFactor <= 0.08) return "";
+  const top = polarPoint(160, 160, radius, normalized);
+  const bottom = { x: top.x, y: top.y + depth * (0.28 + frontFactor * 0.72) };
+  return `<path class="ring-side-seam" d="M ${top.x.toFixed(2)} ${top.y.toFixed(2)} L ${bottom.x.toFixed(2)} ${bottom.y.toFixed(2)}" />`;
+}
+
 function ringSliceLabel(unit) {
   const prefix = unit.team === "pc" ? "" : "NPC: ";
   return `${prefix}${unit.characterName || "Character"}`;
@@ -767,6 +792,7 @@ function tacticalRingMarkup(units) {
   const labels = [];
   const controls = [];
   const actionButtons = [];
+  const sideSeams = [];
 
   ordered.forEach((unit, index) => {
     const start = index * slice + gap / 2;
@@ -812,6 +838,7 @@ function tacticalRingMarkup(units) {
 
     controls.push(`<path class="ring-slice-control draggable" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
     actionButtons.push(ringActionButtons(unit, mid));
+    sideSeams.push(ringFrontSeamPath(index * slice));
   });
 
   return `
@@ -819,11 +846,28 @@ function tacticalRingMarkup(units) {
       <div class="ring-instructions">${mode === "gm" ? "Long-hold any slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
       <div class="ring-stage">
         <svg class="tactical-ring-svg" viewBox="0 0 320 320" role="img" aria-label="ATB tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
-          <defs>${defs.join("")}</defs>
+          <defs>
+            <linearGradient id="ringWallGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#d61624" />
+              <stop offset="42%" stop-color="#98101b" />
+              <stop offset="100%" stop-color="#38050a" />
+            </linearGradient>
+            <linearGradient id="ringLipGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#5e0710" />
+              <stop offset="18%" stop-color="#e31928" />
+              <stop offset="52%" stop-color="#ff2936" />
+              <stop offset="82%" stop-color="#93101a" />
+              <stop offset="100%" stop-color="#3b0509" />
+            </linearGradient>
+            ${defs.join("")}
+          </defs>
           <ellipse class="ring-shadow" cx="160" cy="174" rx="132" ry="116" />
+          <path class="ring-side-wall" d="${describeRingSideWall(160, 160, 141, 88, 272, 38)}" />
+          ${sideSeams.join("")}
           <circle class="ring-backplate" cx="160" cy="160" r="139" />
           ${slices.join("")}
           ${labels.join("")}
+          <path class="ring-front-lip" d="${describeArc(160, 160, 141, 88, 272)}" />
           <circle class="ring-core" cx="160" cy="160" r="34" />
           <text class="ring-core-text" x="160" y="153">${state.running && !state.hardPaused ? "ATB" : "HOLD"}</text>
           <text class="ring-core-subtext" x="160" y="172">${readyCount.textContent}</text>

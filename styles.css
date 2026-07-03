@@ -474,15 +474,20 @@ h2 {
 
 .gm-control-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(104px, 128px));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(118px, 150px));
+  gap: 12px;
 }
 
 .control-square {
-  min-height: 74px;
-  aspect-ratio: 1.25;
-  border-radius: 12px;
-  line-height: 1.1;
+  width: 100%;
+  max-width: 150px;
+  min-height: 56px;
+  aspect-ratio: auto;
+  border-radius: 999px;
+  padding: 0 18px;
+  line-height: 1.04;
+  font-size: 0.96rem;
+  letter-spacing: 0;
 }
 
 .control-square.undo {
@@ -709,6 +714,23 @@ h2 {
   isolation: isolate;
 }
 
+.ring-stage::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 11%;
+  right: 7%;
+  bottom: 7%;
+  height: 30%;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.68) 36%, rgba(0, 0, 0, 0.2) 68%, transparent 78%);
+  filter: blur(8px);
+  opacity: 0.9;
+  transform: translateY(14%) rotate(-3deg);
+}
+
 .tactical-ring-svg {
   position: relative;
   z-index: 2;
@@ -734,6 +756,39 @@ h2 {
     rgba(46, 8, 13, 0.98);
   stroke: rgba(170, 47, 54, 0.96);
   stroke-width: 7;
+  filter:
+    drop-shadow(0 3px 2px rgba(255, 87, 78, 0.18))
+    drop-shadow(0 8px 7px rgba(0, 0, 0, 0.42));
+}
+
+.ring-side-wall {
+  fill: url(#ringWallGradient);
+  stroke: rgba(74, 4, 9, 0.96);
+  stroke-width: 2;
+  filter:
+    drop-shadow(0 12px 12px rgba(0, 0, 0, 0.58))
+    drop-shadow(0 0 10px rgba(255, 45, 51, 0.18));
+}
+
+.ring-side-seam {
+  fill: none;
+  stroke: rgba(41, 3, 7, 0.84);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter:
+    drop-shadow(1px 0 0 rgba(255, 99, 82, 0.24))
+    drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+}
+
+.ring-front-lip {
+  fill: none;
+  stroke: url(#ringLipGradient);
+  stroke-width: 10;
+  stroke-linecap: round;
+  filter:
+    drop-shadow(0 3px 2px rgba(0, 0, 0, 0.54))
+    drop-shadow(0 0 7px rgba(255, 59, 64, 0.38));
+  pointer-events: none;
 }
 
 .ring-slice-shell {
@@ -2648,7 +2703,17 @@ h2 {
   }
 
   .gm-control-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(124px, 1fr));
+    gap: 10px;
+    justify-items: stretch;
+  }
+
+  .controls.gm-control-grid .control-square {
+    width: 100%;
+    max-width: none;
+    min-height: 54px;
+    padding: 0 14px;
+    font-size: 0.92rem;
   }
 
   .active-panel {
