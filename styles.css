@@ -31,6 +31,16 @@ body {
   letter-spacing: 0.01em;
 }
 
+body.welcome-mode {
+  background:
+    linear-gradient(180deg, rgba(7, 9, 13, 0.1), rgba(7, 9, 13, 0.72)),
+    linear-gradient(90deg, rgba(40, 215, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(40, 215, 255, 0.06) 1px, transparent 1px),
+    url("star-background.jpg") center / cover fixed,
+    #07090d;
+  background-size: auto, 42px 42px, 42px 42px, cover, auto;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -39,6 +49,19 @@ body::before {
   background: linear-gradient(rgba(255, 255, 255, 0.035) 50%, transparent 50%);
   background-size: 100% 4px;
   opacity: 0.18;
+}
+
+body:not(.welcome-mode)::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    url("blueticle.png") left 3vw top 18vh / min(30vw, 300px) auto no-repeat,
+    url("redicle.png") right 4vw bottom 12vh / min(22vw, 220px) auto no-repeat;
+  opacity: 0.13;
+  filter: drop-shadow(0 0 18px rgba(40, 215, 255, 0.18));
 }
 
 button,
@@ -130,6 +153,8 @@ label {
 }
 
 .shell {
+  position: relative;
+  z-index: 1;
   width: min(1120px, calc(100% - 28px));
   margin: 0 auto;
   padding: 22px 0 42px;
@@ -315,6 +340,20 @@ h2 {
   padding: 12px;
   border: 1px solid rgba(40, 215, 255, 0.24);
   background: rgba(8, 15, 23, 0.58);
+}
+
+.dice-strip {
+  grid-column: 1 / -1;
+  display: block;
+  justify-self: center;
+  width: min(520px, 92%);
+  height: auto;
+  margin: -2px auto 2px;
+  opacity: 0.28;
+  filter:
+    drop-shadow(0 0 12px rgba(40, 215, 255, 0.28))
+    drop-shadow(0 0 22px rgba(155, 92, 255, 0.18));
+  pointer-events: none;
 }
 
 .stat-board {
@@ -2119,6 +2158,17 @@ h2 {
   .controls button,
   .add-grid button {
     width: 100%;
+  }
+
+  .welcome-panel .mode-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .welcome-panel .mode-buttons button {
+    min-height: 58px;
+    padding: 0 8px;
+    font-size: 0.78rem;
+    line-height: 1.08;
   }
 
   .active-panel {
