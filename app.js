@@ -722,14 +722,35 @@ function describeRingSideWall(cx, cy, radius, startAngle, endAngle, depth) {
   ].join(" ");
 }
 
-function ringFrontSeamPath(angle, radius = 137, depth = 38) {
+function frontDepthForAngle(angle, depth = 38) {
   const normalized = (angle + 360) % 360;
-  if (normalized < 88 || normalized > 272) return "";
+  if (normalized < 88 || normalized > 272) return 0;
   const frontFactor = Math.sin(((normalized - 88) / 184) * Math.PI);
-  if (frontFactor <= 0.08) return "";
+  return frontFactor <= 0.08 ? 0 : depth * (0.28 + frontFactor * 0.72);
+}
+
+function ringFrontSeamPath(angle, radius = 141, depth = 38) {
+  const normalized = (angle + 360) % 360;
+  const seamDepth = frontDepthForAngle(angle, depth);
+  if (!seamDepth) return "";
   const top = polarPoint(160, 160, radius, normalized);
-  const bottom = { x: top.x, y: top.y + depth * (0.28 + frontFactor * 0.72) };
+  const bottom = { x: top.x, y: top.y + seamDepth };
   return `<path class="ring-side-seam" d="M ${top.x.toFixed(2)} ${top.y.toFixed(2)} L ${bottom.x.toFixed(2)} ${bottom.y.toFixed(2)}" />`;
+}
+
+function ringFrontWallSegment(unit, startAngle, endAngle, rgb, radius = 141, depth = 38) {
+  const segmentStart = Math.max(startAngle, 88);
+  const segmentEnd = Math.min(endAngle, 272);
+  if (segmentEnd <= segmentStart) return "";
+  const color = unit.color || "#39e58f";
+  const dark = `rgb(${Math.max(0, rgb.r - 78)}, ${Math.max(0, rgb.g - 78)}, ${Math.max(0, rgb.b - 78)})`;
+  return `
+    <path
+      class="ring-side-wall-segment"
+      d="${describeRingSideWall(160, 160, radius, segmentStart, segmentEnd, depth)}"
+      style="--segment-color:${escapeHtml(color)}; --segment-dark:${dark}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};"
+    />
+  `;
 }
 
 function ringSliceLabel(unit) {
@@ -792,6 +813,7 @@ function tacticalRingMarkup(units) {
   const labels = [];
   const controls = [];
   const actionButtons = [];
+  const sideWalls = [];
   const sideSeams = [];
 
   ordered.forEach((unit, index) => {
@@ -838,7 +860,8 @@ function tacticalRingMarkup(units) {
 
     controls.push(`<path class="ring-slice-control draggable" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
     actionButtons.push(ringActionButtons(unit, mid));
-    sideSeams.push(ringFrontSeamPath(index * slice));
+    sideWalls.push(ringFrontWallSegment(unit, start, end, rgb));
+    sideSeams.push(ringFrontSeamPath(start), ringFrontSeamPath(end));
   });
 
   return `
@@ -847,11 +870,6 @@ function tacticalRingMarkup(units) {
       <div class="ring-stage">
         <svg class="tactical-ring-svg" viewBox="0 0 320 320" role="img" aria-label="ATB tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
           <defs>
-            <linearGradient id="ringWallGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#d61624" />
-              <stop offset="42%" stop-color="#98101b" />
-              <stop offset="100%" stop-color="#38050a" />
-            </linearGradient>
             <linearGradient id="ringLipGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stop-color="#5e0710" />
               <stop offset="18%" stop-color="#e31928" />
@@ -862,7 +880,7 @@ function tacticalRingMarkup(units) {
             ${defs.join("")}
           </defs>
           <ellipse class="ring-shadow" cx="160" cy="174" rx="132" ry="116" />
-          <path class="ring-side-wall" d="${describeRingSideWall(160, 160, 141, 88, 272, 38)}" />
+          ${sideWalls.join("")}
           ${sideSeams.join("")}
           <circle class="ring-backplate" cx="160" cy="160" r="139" />
           ${slices.join("")}

@@ -761,23 +761,28 @@ h2 {
     drop-shadow(0 8px 7px rgba(0, 0, 0, 0.42));
 }
 
-.ring-side-wall {
-  fill: url(#ringWallGradient);
-  stroke: rgba(74, 4, 9, 0.96);
-  stroke-width: 2;
+.ring-side-wall-segment {
+  fill:
+    linear-gradient(180deg, var(--segment-color), var(--segment-dark));
+  fill: var(--segment-color);
+  stroke: rgba(26, 3, 6, 0.78);
+  stroke-width: 1.1;
+  opacity: 0.94;
   filter:
+    brightness(0.62)
+    saturate(1.1)
     drop-shadow(0 12px 12px rgba(0, 0, 0, 0.58))
-    drop-shadow(0 0 10px rgba(255, 45, 51, 0.18));
+    drop-shadow(0 0 8px rgba(var(--bar-rgb, 57, 229, 143), 0.16));
 }
 
 .ring-side-seam {
   fill: none;
-  stroke: rgba(41, 3, 7, 0.84);
-  stroke-width: 4;
+  stroke: rgba(28, 2, 5, 0.58);
+  stroke-width: 1.8;
   stroke-linecap: round;
   filter:
-    drop-shadow(1px 0 0 rgba(255, 99, 82, 0.24))
-    drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+    drop-shadow(0.7px 0 0 rgba(255, 255, 255, 0.08))
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
 .ring-front-lip {
