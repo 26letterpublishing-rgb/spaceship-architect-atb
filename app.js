@@ -753,20 +753,25 @@ function ringFrontWallSegment(unit, startAngle, endAngle, rgb, radius = 141, dep
   `;
 }
 
-function ringSliceLabel(unit) {
-  const prefix = unit.team === "pc" ? "" : "NPC: ";
-  return `${prefix}${unit.characterName || "Character"}`;
+function ringInnerLabel(unit, sliceCount) {
+  const name = unit.characterName || "Character";
+  const words = name.split(/\s+/).filter(Boolean);
+  if (sliceCount >= 12) {
+    return words
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "?";
+  }
+  if (sliceCount >= 9 && words.length > 2) return `${words[0]} ${words[words.length - 1]}`;
+  if (sliceCount >= 9 && name.length > 14) return name.slice(0, 13).trim() + ".";
+  return name;
 }
 
-function shortRingLabel(unit) {
-  const name = unit.characterName || "Character";
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase() || "?";
+function ringInnerLabelSize(label, sliceCount) {
+  const base = sliceCount <= 6 ? 17 : sliceCount <= 8 ? 14 : sliceCount <= 10 ? 11.5 : 9.5;
+  const lengthPenalty = Math.max(0, label.length - 9) * 0.55;
+  return Math.max(6.8, base - lengthPenalty);
 }
 
 function ringDelayPocket(delay, startAngle, endAngle, radius, className) {
@@ -781,8 +786,8 @@ function ringDelayPocket(delay, startAngle, endAngle, radius, className) {
 function ringActionButtons(unit, midAngle) {
   if (mode !== "gm") return "";
   const radians = (midAngle - 90) * (Math.PI / 180);
-  const x = 50 + Math.cos(radians) * 45;
-  const y = 49 + Math.sin(radians) * 31;
+  const x = 50 + Math.cos(radians) * 51;
+  const y = 49 + Math.sin(radians) * 36;
   const id = escapeHtml(unit.id);
   const delayDisabled = !delayConsoleAllowed();
   return `
@@ -810,7 +815,6 @@ function tacticalRingMarkup(units) {
   const active = activeUnit();
   const defs = [];
   const slices = [];
-  const labels = [];
   const controls = [];
   const actionButtons = [];
   const sideWalls = [];
@@ -822,13 +826,14 @@ function tacticalRingMarkup(units) {
     const mid = start + (end - start) / 2;
     const rgb = hexToRgb(unit.color || "#39e58f");
     const gradId = `ringGrad${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
-    const labelPathId = `ringLabel${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
     const atbRadius = 18 + (116 * pct(unit)) / 100;
     const delayed = hasAnyDelay(unit);
     const ready = unit.atb >= state.threshold && !delayed;
     const own = mode === "player" && unit.id === myUnitId;
     const icon = mode === "player" ? myIconForUnit(unit) : "";
-    const labelPoint = polarPoint(160, 160, 78, mid);
+    const labelPoint = polarPoint(160, 160, 83, mid);
+    const label = ringInnerLabel(unit, ordered.length);
+    const labelSize = ringInnerLabelSize(label, ordered.length);
 
     defs.push(`
       <radialGradient id="${gradId}" cx="50%" cy="46%" r="70%">
@@ -837,7 +842,6 @@ function tacticalRingMarkup(units) {
         <stop offset="67%" stop-color="${escapeHtml(unit.color || "#39e58f")}" />
         <stop offset="100%" stop-color="rgba(${Math.max(0, rgb.r - 58)},${Math.max(0, rgb.g - 58)},${Math.max(0, rgb.b - 58)},0.96)" />
       </radialGradient>
-      <path id="${labelPathId}" d="${describeArc(160, 160, 144, start + 4, end - 4)}" />
     `);
 
     slices.push(`
@@ -847,15 +851,9 @@ function tacticalRingMarkup(units) {
         <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
         ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
-        <text class="ring-initials" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}">${escapeHtml(shortRingLabel(unit))}</text>
+        <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;">${escapeHtml(label)}</text>
         ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
       </g>
-    `);
-
-    labels.push(`
-      <text class="ring-edge-label ${unit.team === "pc" ? "pc-label" : "npc-label"}">
-        <textPath href="#${labelPathId}" xlink:href="#${labelPathId}" startOffset="50%" text-anchor="middle">${escapeHtml(ringSliceLabel(unit))}</textPath>
-      </text>
     `);
 
     controls.push(`<path class="ring-slice-control draggable" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
@@ -884,7 +882,6 @@ function tacticalRingMarkup(units) {
           ${sideSeams.join("")}
           <circle class="ring-backplate" cx="160" cy="160" r="139" />
           ${slices.join("")}
-          ${labels.join("")}
           <path class="ring-front-lip" d="${describeArc(160, 160, 141, 88, 272)}" />
           <circle class="ring-core" cx="160" cy="160" r="34" />
           <text class="ring-core-text" x="160" y="153">${state.running && !state.hardPaused ? "ATB" : "HOLD"}</text>
