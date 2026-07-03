@@ -278,9 +278,16 @@ function clearDelayRequest(room) {
   room.delayRequest = null;
 }
 
+function holdCommandWindow(room) {
+  if (!room.commandDeadline || room.commandExpired || room.holdPaused) return;
+  room.holdPaused = true;
+  room.holdStartedAt = Date.now();
+  room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+}
+
 function hardPauseRoom(room) {
   if (room.hardPaused) return;
-  if (room.commandDeadline && !room.commandExpired) {
+  if (!room.holdPaused && room.commandDeadline && !room.commandExpired) {
     room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
   }
   room.hardPaused = true;
@@ -296,7 +303,7 @@ function hardResumeRoom(room) {
   }
   room.hardPaused = false;
   room.holdStartedAt = null;
-  room.commandHeldRemaining = null;
+  if (!room.holdPaused) room.commandHeldRemaining = null;
   room.lastTick = Date.now();
   if (!room.running && !room.pausedForTurn && !room.holdPaused && !room.activeAction && hasActiveDelayCountdown(room) && canStartClock(room)) {
     room.running = true;
@@ -350,6 +357,7 @@ function pauseForReadyUnit(room, unit, source = "clock") {
   room.commandExpired = false;
   room.holdPaused = false;
   room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
   if (usesCommandWindow(unit, source)) {
     room.commandTotal = unit.commandWindow;
     room.commandDeadline = Date.now() + unit.commandWindow * 1000;
@@ -394,15 +402,11 @@ function pauseForDelayedAction(room, unit, source = "clock") {
 
 function requestDelay(room, unit, kind, requestedBy = "player") {
   if (!unit || room.activeId !== unit.id) return;
-  if (!room.hardPaused) {
+  if (requestedBy !== "player" && !room.hardPaused) {
     pushLog(room, "Pause Everything before opening the Delay Console.");
     return;
   }
-  if (room.commandDeadline && !room.holdPaused) {
-    room.holdPaused = true;
-    room.holdStartedAt = Date.now();
-    room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
-  }
+  holdCommandWindow(room);
   room.delayRequest = {
     id: id(),
     unitId: unit.id,
@@ -428,7 +432,8 @@ function cancelDelayRequest(room) {
 
 function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {}) {
   if (!unit) return;
-  if (!room.hardPaused) {
+  const isRequestedDelay = room.delayRequest?.unitId === unit.id;
+  if (!room.hardPaused && !isRequestedDelay) {
     pushLog(room, "Pause Everything before confirming a delay.");
     return;
   }

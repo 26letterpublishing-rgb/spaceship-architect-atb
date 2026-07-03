@@ -1594,11 +1594,10 @@ function renderPlayerCommand(mine) {
   const isMyTurn = mine && state.activeId === mine.id;
   const delay = activeDelayFor(mine);
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
-  const delayBlockedByPause = isMyTurn && !delayConsoleAllowed();
   playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
   playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
-  playerDelay.disabled = hasPendingDelayRequest || delayBlockedByPause;
-  playerDelay.title = delayBlockedByPause ? "GM must pause everything before Delay can be requested" : "Request Delay";
+  playerDelay.disabled = hasPendingDelayRequest;
+  playerDelay.title = "Request Delay";
   playerEndTurn.disabled = hasPendingDelayRequest;
 
   if (delay && !isMyTurn) {
@@ -1616,10 +1615,6 @@ function renderPlayerCommand(mine) {
   }
   if (hasPendingDelayRequest) {
     playerCommandStatus.textContent = "Waiting for GM to set the delay.";
-    return;
-  }
-  if (delayBlockedByPause) {
-    playerCommandStatus.textContent = "GM must pause everything before Delay can be requested.";
     return;
   }
   if (!command) {
