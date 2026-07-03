@@ -5,7 +5,7 @@ let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
-let visualMode = localStorage.getItem("sa-atb-visual-mode") === "ring" ? "ring" : "bars";
+let visualMode = "bars";
 let selectedCharacterIcon = "";
 let actionLogTimeout = null;
 let pendingActionLog = null;
@@ -636,6 +636,11 @@ async function action(payload, soundName = "tap") {
 function setMode(next) {
   mode = next;
   safeLocalStorageSet("sa-atb-mode", mode);
+  render();
+}
+
+function setVisualMode(next) {
+  visualMode = next === "ring" ? "ring" : "bars";
   render();
 }
 
@@ -1542,6 +1547,7 @@ joinPlayer.addEventListener("click", async () => {
   const unit = next.units[next.units.length - 1];
   myUnitId = unit.id;
   safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+  visualMode = "bars";
   setMode("player");
   if (selectedCharacterIcon) saveIconForCharacter(unit.characterName, selectedCharacterIcon);
 });
@@ -1565,6 +1571,7 @@ createRoom.addEventListener("click", async () => {
   setRoom(await response.json());
   myUnitId = "";
   localStorage.removeItem("sa-atb-unit-id");
+  visualMode = "bars";
   setMode("gm");
 });
 
@@ -1588,6 +1595,7 @@ confirmJoinRoom.addEventListener("click", async () => {
     return;
   }
   setRoom(await response.json());
+  visualMode = "bars";
   setMode("join");
 });
 openGm.addEventListener("click", () => setMode("welcome"));
@@ -1595,6 +1603,7 @@ rejoinPlayer.addEventListener("click", () => {
   enablePlayerAlerts();
   myUnitId = rejoinSelect.value;
   safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+  visualMode = "bars";
   setMode("player");
 });
 
@@ -1620,9 +1629,7 @@ function pressGmClockButton(event) {
 gmPanicPause.addEventListener("pointerdown", pressGmClockButton);
 gmPanicPause.addEventListener("click", pressGmClockButton);
 visualModeToggle.addEventListener("click", () => {
-  visualMode = visualMode === "ring" ? "bars" : "ring";
-  safeLocalStorageSet("sa-atb-visual-mode", visualMode);
-  render();
+  setVisualMode(visualMode === "ring" ? "bars" : "ring");
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
