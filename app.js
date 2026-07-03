@@ -52,17 +52,18 @@ const delayBaseOptions = [
   { label: "Very Fast", value: 14 },
 ];
 const c4Factors = ["Situation", "Ingenuity", "Execution", "Quality", "Performance", "Efficiency"];
-const c4Modifiers = {
-  "-4": { flat: 0, percent: -0.33 },
-  "-3": { flat: 0, percent: -0.16 },
-  "-2": { flat: -3, percent: 0 },
-  "-1": { flat: -2, percent: 0 },
-  "0": { flat: 0, percent: 0 },
-  "1": { flat: 2, percent: 0 },
-  "2": { flat: 3, percent: 0 },
-  "3": { flat: 0, percent: 0.16 },
-  "4": { flat: 0, percent: 0.33 },
-};
+const c4PositiveSteps = [
+  { flat: 2, percent: 0, label: "+2" },
+  { flat: 3, percent: 0, label: "+3" },
+  { flat: 0, percent: 0.16, label: "+16%" },
+  { flat: 0, percent: 0.33, label: "+33%" },
+];
+const c4NegativeSteps = [
+  { flat: -2, percent: 0, label: "-2" },
+  { flat: -3, percent: 0, label: "-3" },
+  { flat: 0, percent: -0.16, label: "-16%" },
+  { flat: 0, percent: -0.33, label: "-33%" },
+];
 
 function safeLocalStorageSet(key, value) {
   try {
@@ -187,6 +188,7 @@ const delayDialog = document.querySelector("#delayDialog");
 const delayDialogTitle = document.querySelector("#delayDialogTitle");
 const delayDialogTarget = document.querySelector("#delayDialogTarget");
 const delayRatePreview = document.querySelector("#delayRatePreview");
+const delayModifierPreview = document.querySelector("#delayModifierPreview");
 const delayBaseGrid = document.querySelector("#delayBaseGrid");
 const delayC4Grid = document.querySelector("#delayC4Grid");
 const delayActionNameWrap = document.querySelector("#delayActionNameWrap");
@@ -220,6 +222,10 @@ function hasAnyDelay(unit) {
 
 function activeDelayFor(unit) {
   return delayTimerFor(unit) || delayedActionFor(unit);
+}
+
+function delayConsoleAllowed() {
+  return Boolean(state?.hardPaused);
 }
 
 function formatSpeed(value) {
@@ -364,18 +370,51 @@ function c4IconMarkup(value) {
   return `<svg class="c4-icon" viewBox="0 0 100 100" aria-hidden="true">${paths}</svg>`;
 }
 
-function calculateDelayRate() {
-  if (!delayModalState) return 8;
+function c4StepsForValue(value) {
+  const count = Math.min(4, Math.abs(Number(value) || 0));
+  if (!count) return [];
+  const source = value > 0 ? c4PositiveSteps : c4NegativeSteps;
+  return source.slice(0, count);
+}
+
+function calculateDelayDetails() {
+  if (!delayModalState) {
+    return { base: 8, flat: 0, percent: 0, rate: 8, labels: [] };
+  }
   let flat = 0;
   let percent = 0;
-  for (const value of Object.values(delayModalState.factors)) {
-    const modifier = c4Modifiers[String(value)] || c4Modifiers[0];
-    flat += modifier.flat;
-    percent += modifier.percent;
+  const labels = [];
+  for (const [factor, value] of Object.entries(delayModalState.factors)) {
+    const steps = c4StepsForValue(value);
+    if (!steps.length) continue;
+    for (const step of steps) {
+      flat += step.flat;
+      percent += step.percent;
+    }
+    labels.push(`${factor} ${steps.map((step) => step.label).join(" ")}`);
   }
   const withFlat = delayModalState.base + flat;
   const finalValue = Math.max(0.1, withFlat * (1 + percent));
-  return Math.ceil(finalValue * 10) / 10;
+  return {
+    base: delayModalState.base,
+    flat,
+    percent,
+    rate: Math.ceil(finalValue * 10) / 10,
+    labels,
+  };
+}
+
+function calculateDelayRate() {
+  return calculateDelayDetails().rate;
+}
+
+function delayModifierText(details) {
+  const parts = [`Base ${details.base}`];
+  if (details.flat) parts.push(`${details.flat > 0 ? "+" : ""}${details.flat}`);
+  if (details.percent) parts.push(`${details.percent > 0 ? "+" : ""}${Math.round(details.percent * 100)}%`);
+  const summary = parts.join(" ");
+  if (!details.labels.length) return summary;
+  return `${summary} | ${details.labels.join("; ")}`;
 }
 
 function renderDelayDialog() {
@@ -390,10 +429,12 @@ function renderDelayDialog() {
     return;
   }
 
+  const delayDetails = calculateDelayDetails();
   delayDialog.classList.remove("hidden");
   delayDialogTitle.textContent = delayModalState.kind === "action" ? "Delayed Resolution" : "Delay Timer";
   delayDialogTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
-  delayRatePreview.textContent = calculateDelayRate().toFixed(1);
+  delayRatePreview.textContent = delayDetails.rate.toFixed(1);
+  delayModifierPreview.textContent = delayModifierText(delayDetails);
   delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action");
   delayActionName.value = delayModalState.label;
 
@@ -444,6 +485,7 @@ function openDelayDialog(unitId, kind = "timer", requestId = "") {
 }
 
 function openDelayForUnit(unitId, kind = "timer") {
+  if (!delayConsoleAllowed()) return;
   if (state?.activeId === unitId && !state.delayRequest) {
     action({ action: "requestDelay", id: unitId, kind, requestedBy: "gm" }, "tap");
     return;
@@ -590,9 +632,10 @@ function ringActionButtons(unit, midAngle) {
   const x = 50 + Math.cos(radians) * 45;
   const y = 49 + Math.sin(radians) * 31;
   const id = escapeHtml(unit.id);
+  const delayDisabled = !delayConsoleAllowed();
   return `
     <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
-      <button class="ring-action-btn" data-action="delay" data-id="${id}" title="Delay">DL</button>
+      <button class="ring-action-btn" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" ${delayDisabled ? "disabled" : ""}>DL</button>
       <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
@@ -894,6 +937,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
     ? `${unit.commandWindow || "Unset"} sec Command`
     : "No Command Window";
   const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
+  const delayDisabled = gm && !delayConsoleAllowed();
   const side = unit.team === "pc" ? "PC" : "NPC";
   const type = "Character";
   const signature = unitSignature(unit, { gm, player });
@@ -932,7 +976,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
                 </label>
-                <button class="mini" data-action="delay" data-id="${unit.id}">Delay</button>
+                <button class="mini" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" ${delayDisabled ? "disabled" : ""}>Delay</button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -970,6 +1014,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.commandWindow || "",
     unit.color || "",
     unit.team,
+    state?.hardPaused ? "hardpaused" : "not-hardpaused",
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
     delayedActionFor(unit) ? `action:${delayedActionFor(unit).label}:${delayedActionFor(unit).remaining}:${delayedActionFor(unit).rate}:${delayedActionFor(unit).resolving ? "resolving" : "waiting"}` : "noaction",
     myIconForUnit(unit) ? "icon" : "noicon",
@@ -1241,6 +1286,8 @@ function notifyTurnIfNeeded() {
     activeOwner.textContent = active.playerName;
     completeTurn.textContent = "Action Resolved";
     gmDelay.classList.remove("hidden");
+    gmDelay.disabled = !delayConsoleAllowed();
+    gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
     if (!turnPanelOpen()) showTurnPanel();
   }
 
@@ -1547,9 +1594,11 @@ function renderPlayerCommand(mine) {
   const isMyTurn = mine && state.activeId === mine.id;
   const delay = activeDelayFor(mine);
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
+  const delayBlockedByPause = isMyTurn && !delayConsoleAllowed();
   playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
   playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
-  playerDelay.disabled = hasPendingDelayRequest;
+  playerDelay.disabled = hasPendingDelayRequest || delayBlockedByPause;
+  playerDelay.title = delayBlockedByPause ? "GM must pause everything before Delay can be requested" : "Request Delay";
   playerEndTurn.disabled = hasPendingDelayRequest;
 
   if (delay && !isMyTurn) {
@@ -1567,6 +1616,10 @@ function renderPlayerCommand(mine) {
   }
   if (hasPendingDelayRequest) {
     playerCommandStatus.textContent = "Waiting for GM to set the delay.";
+    return;
+  }
+  if (delayBlockedByPause) {
+    playerCommandStatus.textContent = "GM must pause everything before Delay can be requested.";
     return;
   }
   if (!command) {
@@ -1913,6 +1966,7 @@ gmTeam.addEventListener("change", () => {
 
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
+  if (button.disabled) return;
   event?.preventDefault();
   event?.stopPropagation();
   const id = button.dataset.id;

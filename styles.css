@@ -1698,6 +1698,17 @@ h2 {
   line-height: 1.1;
 }
 
+.delay-rate-readout small {
+  display: block;
+  max-width: 190px;
+  margin-top: 3px;
+  color: rgba(164, 172, 182, 0.56);
+  font-size: 0.58rem;
+  line-height: 1.1;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
 .delay-kind-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2531,6 +2542,11 @@ h2 {
 
   .delay-rate-readout strong {
     font-size: 1.05rem;
+  }
+
+  .delay-rate-readout small {
+    max-width: 116px;
+    font-size: 0.5rem;
   }
 
   .delay-base-grid {

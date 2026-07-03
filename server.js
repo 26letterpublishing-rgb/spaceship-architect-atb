@@ -394,6 +394,10 @@ function pauseForDelayedAction(room, unit, source = "clock") {
 
 function requestDelay(room, unit, kind, requestedBy = "player") {
   if (!unit || room.activeId !== unit.id) return;
+  if (!room.hardPaused) {
+    pushLog(room, "Pause Everything before opening the Delay Console.");
+    return;
+  }
   if (room.commandDeadline && !room.holdPaused) {
     room.holdPaused = true;
     room.holdStartedAt = Date.now();
@@ -424,6 +428,10 @@ function cancelDelayRequest(room) {
 
 function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "" } = {}) {
   if (!unit) return;
+  if (!room.hardPaused) {
+    pushLog(room, "Pause Everything before confirming a delay.");
+    return;
+  }
   const previousSource = room.activeSource;
   const wasActive = room.activeId === unit.id;
   const normalizedKind = normalizeDelayKind(kind);
