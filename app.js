@@ -18,7 +18,10 @@ let events = null;
 let lastGmClockClickAt = 0;
 let lastRingActionPressAt = 0;
 let ringDrag = null;
+let ringMovedId = "";
+let ringMovedTimeout = null;
 let delayModalState = null;
+let npcDefaultBag = [];
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const ICON_MAX_SIZE = 192;
@@ -64,6 +67,18 @@ const c4NegativeSteps = [
   { flat: -3, percent: 0, label: "-3" },
   { flat: 0, percent: -0.16, label: "-16%" },
   { flat: 0, percent: -0.33, label: "-33%" },
+];
+const npcDefaults = [
+  { characterName: "Security Guard", speed: 5, color: "#39e58f" },
+  { characterName: "Space Slug", speed: 3, color: "#7ad66d" },
+  { characterName: "Civilian", speed: 4, color: "#f2d16b" },
+  { characterName: "Chief Security Guard", speed: 7, color: "#35b7ff" },
+  { characterName: "Thug", speed: 6, color: "#f07a4a" },
+  { characterName: "Purple Alien", speed: 8, color: "#a65cff" },
+  { characterName: "Mini Boss", speed: 9, color: "#ff5fa2" },
+  { characterName: "Robot Sentry", speed: 10, color: "#8bd7ff" },
+  { characterName: "Cyber Ninja", speed: 11, color: "#20f5d0" },
+  { characterName: "Final Boss", speed: 12, color: "#ff3d55" },
 ];
 
 function safeLocalStorageSet(key, value) {
@@ -394,7 +409,7 @@ function calculateDelayDetails() {
     }
     labels.push(`${factor} ${steps.map((step) => step.label).join(" ")}`);
   }
-  const withFlat = delayModalState.base + flat;
+  const withFlat = Math.max(1, delayModalState.base + flat);
   const finalValue = Math.max(0.1, withFlat * (1 + percent));
   return {
     base: delayModalState.base,
@@ -591,6 +606,32 @@ function setRingOrderFromUnits(units) {
   saveRingOrder(units.map((unit) => unit.id));
 }
 
+function shuffleNpcDefaultBag() {
+  npcDefaultBag = npcDefaults.slice();
+  for (let i = npcDefaultBag.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [npcDefaultBag[i], npcDefaultBag[j]] = [npcDefaultBag[j], npcDefaultBag[i]];
+  }
+}
+
+function nextNpcDefault() {
+  if (!npcDefaultBag.length) shuffleNpcDefaultBag();
+  return npcDefaultBag.pop() || npcDefaults[0];
+}
+
+function previewNpcDefault() {
+  if (!npcDefaultBag.length) shuffleNpcDefaultBag();
+  return npcDefaultBag[npcDefaultBag.length - 1] || npcDefaults[0];
+}
+
+function applyNpcDefaultPreview({ force = false } = {}) {
+  if (!gmTeam || gmTeam.value !== "npc") return;
+  const next = previewNpcDefault();
+  if (force || !gmCharacterName.value.trim()) gmCharacterName.value = next.characterName;
+  if (force || !gmSpeedRating.value) gmSpeedRating.value = String(next.speed);
+  if (force || !gmColor.value) gmColor.value = next.color;
+}
+
 function polarPoint(cx, cy, radius, degrees) {
   const radians = (degrees - 90) * (Math.PI / 180);
   return {
@@ -700,7 +741,7 @@ function tacticalRingMarkup(units) {
     `);
 
     slices.push(`
-      <g class="ring-unit ${ready ? "ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-ring-unit" : ""} ${active?.id === unit.id ? "active-ring-unit" : ""} ${ringDrag?.id === unit.id ? "dragging" : ""}" data-unit-id="${unit.id}" style="--bar-color:${escapeHtml(unit.color || "#39e58f")}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};">
+      <g class="ring-unit ${ready ? "ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-ring-unit" : ""} ${active?.id === unit.id ? "active-ring-unit" : ""} ${ringDrag?.id === unit.id ? "dragging" : ""} ${ringMovedId === unit.id ? "moved" : ""}" data-unit-id="${unit.id}" style="--bar-color:${escapeHtml(unit.color || "#39e58f")}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};">
         <path class="ring-slice-shell" d="${describeWedge(160, 160, 136, start, end)}" />
         <path class="ring-slice-fill" d="${describeWedge(160, 160, atbRadius, start, end)}" fill="url(#${gradId})" />
         <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
@@ -717,13 +758,13 @@ function tacticalRingMarkup(units) {
       </text>
     `);
 
-    controls.push(`<path class="ring-slice-control ${unit.team === "pc" ? "draggable" : ""}" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
+    controls.push(`<path class="ring-slice-control draggable" data-unit-id="${unit.id}" d="${describeWedge(160, 160, 154, start, end)}" />`);
     actionButtons.push(ringActionButtons(unit, mid));
   });
 
   return `
     <div class="tactical-ring-view" data-count="${ordered.length}">
-      <div class="ring-instructions">${mode === "gm" ? "Long-hold a PC slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
+      <div class="ring-instructions">${mode === "gm" ? "Long-hold any slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
       <div class="ring-stage">
         <svg class="tactical-ring-svg" viewBox="0 0 320 320" role="img" aria-label="ATB tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
           <defs>${defs.join("")}</defs>
@@ -1369,9 +1410,13 @@ function playGmSound(name = "tap") {
       return;
     }
     if (name === "firstStart") {
-      tone(180, 0, 0.18, 0.055, "sawtooth");
-      tone(360, 0.2, 0.18, 0.052, "sawtooth");
-      tone(720, 0.42, 0.2, 0.046, "square");
+      const alarm = new Audio("alarm-noise.mp4");
+      alarm.volume = 0.72;
+      alarm.play().catch(() => {
+        tone(180, 0, 0.18, 0.055, "sawtooth");
+        tone(360, 0.2, 0.18, 0.052, "sawtooth");
+        tone(720, 0.42, 0.2, 0.046, "square");
+      });
       return;
     }
     if (name === "engage") {
@@ -1718,6 +1763,12 @@ function moveRingUnit(id, targetIndex) {
   const [unit] = units.splice(fromIndex, 1);
   units.splice(targetIndex, 0, unit);
   setRingOrderFromUnits(units);
+  ringMovedId = id;
+  if (ringMovedTimeout) clearTimeout(ringMovedTimeout);
+  ringMovedTimeout = setTimeout(() => {
+    ringMovedId = "";
+    if (visualMode === "ring") render();
+  }, 1000);
   unitList.innerHTML = tacticalRingMarkup(state.units);
 }
 
@@ -1954,6 +2005,8 @@ awarenessSkill.addEventListener("input", renderPcBuilder);
 initiativeSkill.addEventListener("input", renderPcBuilder);
 
 gmAddUnit.addEventListener("click", () => {
+  const usingNpcDefault = gmTeam.value === "npc";
+  if (usingNpcDefault) applyNpcDefaultPreview();
   action({
     action: "addUnit",
     playerName: gmPlayerName.value || "GM",
@@ -1965,11 +2018,17 @@ gmAddUnit.addEventListener("click", () => {
     team: gmTeam.value,
     actorType: "character",
   });
-  gmCharacterName.value = "";
+  if (usingNpcDefault) {
+    nextNpcDefault();
+    applyNpcDefaultPreview({ force: true });
+  } else {
+    gmCharacterName.value = "";
+  }
 });
 
 gmTeam.addEventListener("change", () => {
   syncGmCommandWindowVisibility();
+  applyNpcDefaultPreview();
 });
 
 function handleUnitActionButton(button, event = null) {
@@ -2011,7 +2070,7 @@ unitList.addEventListener("pointerdown", (event) => {
   if (!control) return;
   const id = control.dataset.unitId;
   const unit = state.units.find((entry) => entry.id === id);
-  if (!unit || unit.team !== "pc") return;
+  if (!unit) return;
   clearRingDrag();
   ringDrag = {
     id,
@@ -2035,6 +2094,7 @@ document.addEventListener("pointermove", (event) => {
 document.addEventListener("pointerup", clearRingDrag);
 document.addEventListener("pointercancel", clearRingDrag);
 
+applyNpcDefaultPreview({ force: true });
 renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
