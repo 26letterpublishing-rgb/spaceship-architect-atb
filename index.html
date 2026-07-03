@@ -176,8 +176,7 @@
           <span id="playerCommandStatus">Resolve your action, then end your turn.</span>
           <div id="playerTurnActions" class="player-turn-actions">
             <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
-            <button id="playerDelayTimer" class="secondary">Reload/Recovery</button>
-            <button id="playerDelayedAction" class="secondary">Delayed Resolution</button>
+            <button id="playerDelay" class="secondary">Delay</button>
           </div>
         </div>
         <div class="player-utility">
@@ -235,8 +234,41 @@
       <p id="activeOwner">Player</p>
       <div class="dialog-actions">
         <button id="completeTurn" class="complete">Action Resolved</button>
-        <button id="gmDelayTimer" class="secondary">Delay Timer</button>
-        <button id="gmDelayedAction" class="secondary">Delayed Action</button>
+        <button id="gmDelay" class="secondary">Delay</button>
+      </div>
+    </section>
+
+    <section id="delayDialog" class="delay-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="delayDialogTitle">
+      <div class="delay-dialog-panel">
+        <div class="delay-dialog-head">
+          <div>
+            <p class="eyebrow">Delay Console</p>
+            <h2 id="delayDialogTitle">Configure Delay</h2>
+            <p id="delayDialogTarget">Character</p>
+          </div>
+          <div class="delay-rate-readout">
+            <span>Timer</span>
+            <strong id="delayRatePreview">8.0</strong>
+          </div>
+        </div>
+
+        <div class="delay-kind-toggle" aria-label="Delay type">
+          <button type="button" data-delay-kind="timer">Delay Timer</button>
+          <button type="button" data-delay-kind="action">Delayed Resolution</button>
+        </div>
+
+        <label id="delayActionNameWrap" class="delay-action-name">
+          Resolution Name
+          <input id="delayActionName" maxlength="42" placeholder="Missile Impact" />
+        </label>
+
+        <div id="delayBaseGrid" class="delay-base-grid"></div>
+        <div id="delayC4Grid" class="delay-c4-grid"></div>
+
+        <div class="delay-dialog-actions">
+          <button id="cancelDelayDialog" type="button" class="secondary">Cancel</button>
+          <button id="confirmDelayDialog" type="button" class="complete">Confirm Delay</button>
+        </div>
       </div>
     </section>
 

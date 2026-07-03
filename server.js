@@ -392,7 +392,7 @@ function pauseForDelayedAction(room, unit, source = "clock") {
   pushLog(room, `Resolve Action: ${room.activeAction.label}.`);
 }
 
-function requestDelay(room, unit, kind) {
+function requestDelay(room, unit, kind, requestedBy = "player") {
   if (!unit || room.activeId !== unit.id) return;
   if (room.commandDeadline && !room.holdPaused) {
     room.holdPaused = true;
@@ -407,7 +407,7 @@ function requestDelay(room, unit, kind) {
     playerName: unit.playerName,
     requestedAt: Date.now(),
   };
-  pushLog(room, `${unit.characterName} requested ${room.delayRequest.kind === "action" ? "a Delayed Action" : "a Delay Timer"}.`);
+  pushLog(room, requestedBy === "gm" ? `GM opened Delay Console for ${unit.characterName}.` : `${unit.characterName} requested a Delay.`);
 }
 
 function cancelDelayRequest(room) {
@@ -802,7 +802,7 @@ async function handleAction(req, res) {
 
   if (action === "requestDelay") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    requestDelay(room, unit, body.kind);
+    requestDelay(room, unit, body.kind, body.requestedBy);
   }
 
   if (action === "cancelDelayRequest") {

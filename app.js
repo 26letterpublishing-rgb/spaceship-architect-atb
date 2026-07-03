@@ -18,6 +18,7 @@ let events = null;
 let lastGmClockClickAt = 0;
 let lastRingActionPressAt = 0;
 let ringDrag = null;
+let delayModalState = null;
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const ICON_MAX_SIZE = 192;
@@ -42,6 +43,25 @@ const actionLogChoices = [
 const pcBuild = {
   perception: [1, 1, 0, 0],
   intellect: [1, 1, 0, 0],
+};
+const delayBaseOptions = [
+  { label: "Very Slow", value: 3 },
+  { label: "Slow", value: 6 },
+  { label: "Moderate", value: 8 },
+  { label: "Fast", value: 10 },
+  { label: "Very Fast", value: 14 },
+];
+const c4Factors = ["Situation", "Ingenuity", "Execution", "Quality", "Performance", "Efficiency"];
+const c4Modifiers = {
+  "-4": { flat: 0, percent: -0.33 },
+  "-3": { flat: 0, percent: -0.16 },
+  "-2": { flat: -3, percent: 0 },
+  "-1": { flat: -2, percent: 0 },
+  "0": { flat: 0, percent: 0 },
+  "1": { flat: 2, percent: 0 },
+  "2": { flat: 3, percent: 0 },
+  "3": { flat: 0, percent: 0.16 },
+  "4": { flat: 0, percent: 0.33 },
 };
 
 function safeLocalStorageSet(key, value) {
@@ -141,8 +161,7 @@ const myTurnBanner = document.querySelector("#myTurnBanner");
 const playerTurnTitle = document.querySelector("#playerTurnTitle");
 const playerTurnActions = document.querySelector("#playerTurnActions");
 const playerEndTurn = document.querySelector("#playerEndTurn");
-const playerDelayTimer = document.querySelector("#playerDelayTimer");
-const playerDelayedAction = document.querySelector("#playerDelayedAction");
+const playerDelay = document.querySelector("#playerDelay");
 const playerRoomCode = document.querySelector("#playerRoomCode");
 const playerCommandDial = document.querySelector("#playerCommandDial");
 const playerCommandTime = document.querySelector("#playerCommandTime");
@@ -163,8 +182,17 @@ const turnDialogKicker = document.querySelector("#turnDialogKicker");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
-const gmDelayTimer = document.querySelector("#gmDelayTimer");
-const gmDelayedAction = document.querySelector("#gmDelayedAction");
+const gmDelay = document.querySelector("#gmDelay");
+const delayDialog = document.querySelector("#delayDialog");
+const delayDialogTitle = document.querySelector("#delayDialogTitle");
+const delayDialogTarget = document.querySelector("#delayDialogTarget");
+const delayRatePreview = document.querySelector("#delayRatePreview");
+const delayBaseGrid = document.querySelector("#delayBaseGrid");
+const delayC4Grid = document.querySelector("#delayC4Grid");
+const delayActionNameWrap = document.querySelector("#delayActionNameWrap");
+const delayActionName = document.querySelector("#delayActionName");
+const cancelDelayDialog = document.querySelector("#cancelDelayDialog");
+const confirmDelayDialog = document.querySelector("#confirmDelayDialog");
 const gmPanicPause = document.querySelector("#gmPanicPause");
 const visualModeToggle = document.querySelector("#visualModeToggle");
 const playerActionSheet = document.querySelector("#playerActionSheet");
@@ -305,6 +333,152 @@ function delayBarsMarkup(unit) {
     .join("");
 }
 
+function c4ArcPoint(radius, degrees) {
+  const radians = (degrees - 90) * (Math.PI / 180);
+  return {
+    x: 50 + radius * Math.cos(radians),
+    y: 50 + radius * Math.sin(radians),
+  };
+}
+
+function c4ArcPath(radius, startAngle, endAngle, sweep = 1) {
+  const start = c4ArcPoint(radius, startAngle);
+  const end = c4ArcPoint(radius, endAngle);
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 0 ${sweep} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+function c4IconMarkup(value) {
+  const radii = [18, 27, 36, 45];
+  const activeCount = Math.abs(value);
+  const activeSide = value < 0 ? "left" : value > 0 ? "right" : "";
+  const paths = radii
+    .map((radius, index) => {
+      const leftActive = activeSide === "left" && index < activeCount;
+      const rightActive = activeSide === "right" && index < activeCount;
+      return `
+        <path class="c4-ring left ${leftActive ? "active" : ""}" d="${c4ArcPath(radius, 332, 208, 0)}"></path>
+        <path class="c4-ring right ${rightActive ? "active" : ""}" d="${c4ArcPath(radius, 28, 152, 1)}"></path>
+      `;
+    })
+    .join("");
+  return `<svg class="c4-icon" viewBox="0 0 100 100" aria-hidden="true">${paths}</svg>`;
+}
+
+function calculateDelayRate() {
+  if (!delayModalState) return 8;
+  let flat = 0;
+  let percent = 0;
+  for (const value of Object.values(delayModalState.factors)) {
+    const modifier = c4Modifiers[String(value)] || c4Modifiers[0];
+    flat += modifier.flat;
+    percent += modifier.percent;
+  }
+  const withFlat = delayModalState.base + flat;
+  const finalValue = Math.max(0.1, withFlat * (1 + percent));
+  return Math.ceil(finalValue * 10) / 10;
+}
+
+function renderDelayDialog() {
+  if (!delayModalState) {
+    delayDialog.classList.add("hidden");
+    return;
+  }
+  const unit = state?.units.find((entry) => entry.id === delayModalState.unitId);
+  if (!unit) {
+    delayModalState = null;
+    delayDialog.classList.add("hidden");
+    return;
+  }
+
+  delayDialog.classList.remove("hidden");
+  delayDialogTitle.textContent = delayModalState.kind === "action" ? "Delayed Resolution" : "Delay Timer";
+  delayDialogTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
+  delayRatePreview.textContent = calculateDelayRate().toFixed(1);
+  delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action");
+  delayActionName.value = delayModalState.label;
+
+  delayDialog.querySelectorAll("[data-delay-kind]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.delayKind === delayModalState.kind);
+  });
+
+  delayBaseGrid.innerHTML = delayBaseOptions
+    .map((option) => {
+      const words = option.label.split(" ").map((word) => `<span>${escapeHtml(word)}</span>`).join("");
+      return `
+        <button type="button" data-delay-base="${option.value}" class="${option.value === delayModalState.base ? "active" : ""}">
+          ${words}
+          <small>${option.value}</small>
+        </button>
+      `;
+    })
+    .join("");
+
+  delayC4Grid.innerHTML = c4Factors
+    .map((factor, index) => {
+      const value = delayModalState.factors[factor] || 0;
+      return `
+        <div class="c4-control" data-c4-factor="${escapeHtml(factor)}">
+          <button type="button" class="c4-hit left" data-c4-index="${index}" data-c4-side="left" aria-label="${escapeHtml(factor)} down"></button>
+          ${c4IconMarkup(value)}
+          <button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>
+          <div class="c4-label">${escapeHtml(factor)}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function openDelayDialog(unitId, kind = "timer", requestId = "") {
+  const unit = state?.units.find((entry) => entry.id === unitId);
+  if (!unit) return;
+  delayModalState = {
+    unitId,
+    requestId,
+    kind: kind === "action" ? "action" : "timer",
+    label: "",
+    base: 8,
+    factors: Object.fromEntries(c4Factors.map((factor) => [factor, 0])),
+  };
+  if (delayModalState.kind === "action") delayModalState.label = "Delayed Resolution";
+  renderDelayDialog();
+}
+
+function openDelayForUnit(unitId, kind = "timer") {
+  if (state?.activeId === unitId && !state.delayRequest) {
+    action({ action: "requestDelay", id: unitId, kind, requestedBy: "gm" }, "tap");
+    return;
+  }
+  openDelayDialog(unitId, kind, state?.delayRequest?.unitId === unitId ? state.delayRequest.id : "");
+}
+
+function closeDelayDialog({ cancelRequest = false } = {}) {
+  const requestId = delayModalState?.requestId;
+  delayModalState = null;
+  renderDelayDialog();
+  if (cancelRequest && requestId && state?.delayRequest?.id === requestId) {
+    action({ action: "cancelDelayRequest" }, "tap");
+  }
+}
+
+async function confirmDelayDialogAction() {
+  if (!delayModalState) return;
+  const delay = {
+    unitId: delayModalState.unitId,
+    kind: delayModalState.kind,
+    label: delayModalState.kind === "action" ? delayActionName.value.trim() : "",
+    rate: calculateDelayRate(),
+  };
+  delayModalState = null;
+  renderDelayDialog();
+  await action({
+    action: "startDelay",
+    id: delay.unitId,
+    kind: delay.kind,
+    label: delay.label,
+    rate: delay.rate,
+  }, delay.kind === "action" ? "start" : "tap");
+}
+
 function hexToRgb(hex) {
   const clean = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#39e58f";
   const value = Number.parseInt(clean.slice(1), 16);
@@ -418,8 +592,7 @@ function ringActionButtons(unit, midAngle) {
   const id = escapeHtml(unit.id);
   return `
     <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
-      <button class="ring-action-btn" data-action="delayTimer" data-id="${id}" title="Delay Timer">DT</button>
-      <button class="ring-action-btn" data-action="delayedAction" data-id="${id}" title="Delayed Action">DA</button>
+      <button class="ring-action-btn" data-action="delay" data-id="${id}" title="Delay">DL</button>
       <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
@@ -759,8 +932,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
                 </label>
-                <button class="mini" data-action="delayTimer" data-id="${unit.id}">Delay Timer</button>
-                <button class="mini" data-action="delayedAction" data-id="${unit.id}">Delayed Action</button>
+                <button class="mini" data-action="delay" data-id="${unit.id}">Delay</button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -1046,8 +1218,7 @@ function notifyTurnIfNeeded() {
       activeName.textContent = `Resolve Action: ${state.activeAction.label}`;
       activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
       completeTurn.textContent = "Action Resolved";
-      gmDelayTimer.classList.add("hidden");
-      gmDelayedAction.classList.add("hidden");
+      gmDelay.classList.add("hidden");
       if (!turnPanelOpen()) showTurnPanel();
     } else if (turnPanelOpen()) {
       closeTurnPanel();
@@ -1069,8 +1240,7 @@ function notifyTurnIfNeeded() {
     activeName.textContent = active.characterName;
     activeOwner.textContent = active.playerName;
     completeTurn.textContent = "Action Resolved";
-    gmDelayTimer.classList.remove("hidden");
-    gmDelayedAction.classList.remove("hidden");
+    gmDelay.classList.remove("hidden");
     if (!turnPanelOpen()) showTurnPanel();
   }
 
@@ -1293,6 +1463,8 @@ function render() {
   renderPcBuilder();
 
   if (!state) {
+    delayModalState = null;
+    renderDelayDialog();
     roomCode.textContent = currentRoomCode || "----";
     playerRoomCode.textContent = currentRoomCode || "----";
     activePanel.classList.add("hidden");
@@ -1323,6 +1495,7 @@ function render() {
   undoLastTiming.disabled = !state.undoAvailable;
   undoLastTiming.title = state.undoAvailable ? "Undo the last timing/control change" : "No timing change to undo";
   playerActionLogToggle.checked = playerActionLogEnabled;
+  renderDelayDialog();
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
@@ -1376,8 +1549,7 @@ function renderPlayerCommand(mine) {
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
   playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
   playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
-  playerDelayTimer.disabled = hasPendingDelayRequest;
-  playerDelayedAction.disabled = hasPendingDelayRequest;
+  playerDelay.disabled = hasPendingDelayRequest;
   playerEndTurn.disabled = hasPendingDelayRequest;
 
   if (delay && !isMyTurn) {
@@ -1417,52 +1589,14 @@ function syncGmCommandWindowVisibility() {
   gmCommandWindowWrap.classList.toggle("hidden", gmTeam.value !== "pc");
 }
 
-function promptForDelay(unit, kind) {
-  if (!unit) return null;
-  let label = "";
-  if (kind === "action") {
-    label = prompt(`Name the delayed action for ${unit.characterName}:`, "Delayed Action");
-    if (label === null) return null;
-  }
-  const rateText = prompt(`Enter Delay Time rating for ${unit.characterName}.\n100 is about 1 second. 1 is about 100 seconds. 0.1 is a very long delay.`, "12");
-  if (rateText === null) return null;
-  const rate = Number(rateText);
-  if (!Number.isFinite(rate) || rate < 0.1 || rate > 100) {
-    alert("Delay Time must be a number from 0.1 to 100.");
-    return null;
-  }
-  return {
-    kind,
-    label,
-    rate,
-  };
-}
-
-async function startDelayWithPrompt(unitId, kind) {
-  const unit = state?.units.find((entry) => entry.id === unitId);
-  const delay = promptForDelay(unit, kind);
-  if (!delay) return false;
-  await action({
-    action: "startDelay",
-    id: unitId,
-    kind: delay.kind,
-    label: delay.label,
-    rate: delay.rate,
-  }, delay.kind === "action" ? "start" : "tap");
-  return true;
-}
-
 function queueGmDelayRequestPrompt() {
   if (mode !== "gm" || !state?.delayRequest) return;
   if (lastHandledDelayRequest === state.delayRequest.id) return;
   lastHandledDelayRequest = state.delayRequest.id;
-  setTimeout(async () => {
+  setTimeout(() => {
     if (mode !== "gm" || !state?.delayRequest || lastHandledDelayRequest !== state.delayRequest.id) return;
     const request = state.delayRequest;
-    const started = await startDelayWithPrompt(request.unitId, request.kind);
-    if (!started && state?.delayRequest?.id === request.id) {
-      action({ action: "cancelDelayRequest" }, "tap");
-    }
+    openDelayDialog(request.unitId, request.kind, request.id);
   }, 0);
 }
 
@@ -1653,13 +1787,9 @@ exitCombat.addEventListener("click", () => {
   if (confirm("Exit this combat room and return to the main screen?")) returnToWelcome("Exited combat. Create or join a room when ready.");
 });
 completeTurn.addEventListener("click", () => action({ action: "completeTurn" }, "resolve"));
-gmDelayTimer.addEventListener("click", () => {
+gmDelay.addEventListener("click", () => {
   const active = activeUnit();
-  if (active) startDelayWithPrompt(active.id, "timer");
-});
-gmDelayedAction.addEventListener("click", () => {
-  const active = activeUnit();
-  if (active) startDelayWithPrompt(active.id, "action");
+  if (active) openDelayForUnit(active.id, "timer");
 });
 playerEndTurn.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) {
@@ -1667,11 +1797,40 @@ playerEndTurn.addEventListener("click", () => {
     action({ action: "completeTurn", id: myUnitId }).then(() => queuePlayerActionLog(unit));
   }
 });
-playerDelayTimer.addEventListener("click", () => {
+playerDelay.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "timer" }, "tap");
 });
-playerDelayedAction.addEventListener("click", () => {
-  if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
+cancelDelayDialog.addEventListener("click", () => closeDelayDialog({ cancelRequest: true }));
+confirmDelayDialog.addEventListener("click", confirmDelayDialogAction);
+delayDialog.addEventListener("click", (event) => {
+  if (event.target === delayDialog) closeDelayDialog({ cancelRequest: true });
+  const kindButton = event.target.closest("[data-delay-kind]");
+  if (kindButton && delayModalState) {
+    delayModalState.kind = kindButton.dataset.delayKind === "action" ? "action" : "timer";
+    if (delayModalState.kind === "action" && !delayModalState.label) delayModalState.label = "Delayed Resolution";
+    renderDelayDialog();
+    return;
+  }
+  const baseButton = event.target.closest("[data-delay-base]");
+  if (baseButton && delayModalState) {
+    delayModalState.base = Number(baseButton.dataset.delayBase) || 8;
+    renderDelayDialog();
+    return;
+  }
+  const c4Button = event.target.closest("[data-c4-side]");
+  if (c4Button && delayModalState) {
+    const factor = c4Factors[Number(c4Button.dataset.c4Index)];
+    if (!factor) return;
+    const current = delayModalState.factors[factor] || 0;
+    delayModalState.factors[factor] = c4Button.dataset.c4Side === "left"
+      ? Math.max(-4, current - 1)
+      : Math.min(4, current + 1);
+    renderDelayDialog();
+  }
+});
+delayActionName.addEventListener("input", () => {
+  if (!delayModalState) return;
+  delayModalState.label = delayActionName.value;
 });
 enableAlerts.addEventListener("click", () => {
   if (alertsEnabled) {
@@ -1759,8 +1918,7 @@ function handleUnitActionButton(button, event = null) {
   const id = button.dataset.id;
   if (button.dataset.action === "remove") action({ action: "removeUnit", id }, "danger");
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
-  if (button.dataset.action === "delayTimer") startDelayWithPrompt(id, "timer");
-  if (button.dataset.action === "delayedAction") startDelayWithPrompt(id, "action");
+  if (button.dataset.action === "delay") openDelayForUnit(id, "timer");
 }
 
 unitList.addEventListener("click", (event) => {
