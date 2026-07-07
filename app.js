@@ -2101,6 +2101,12 @@ delayDialog.addEventListener("click", (event) => {
     renderDelayDialog();
     return;
   }
+  const critControl = event.target.closest(".c4-control.crit-factor");
+  if (critControl && delayModalState) {
+    delayModalState.factors.Execution = delayModalState.factors.Execution > 0 ? 0 : 1;
+    renderDelayDialog();
+    return;
+  }
   const c4Button = event.target.closest("[data-c4-side]");
   if (c4Button && delayModalState) {
     const factor = c4Factors[Number(c4Button.dataset.c4Index)];
