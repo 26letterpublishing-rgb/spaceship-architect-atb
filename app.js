@@ -54,7 +54,7 @@ const delayBaseOptions = [
   { label: "Fast", value: 10 },
   { label: "Very Fast", value: 14 },
 ];
-const c4Factors = ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"];
+const c4Factors = ["Situation", "Execution", "Quality", "Performance", "Efficiency", "Ingenuity"];
 const c4GreenFactors = new Set(["Situation", "Execution"]);
 const c4PositiveSteps = [
   { flat: 2, percent: 0, label: "+2" },

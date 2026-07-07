@@ -1991,7 +1991,7 @@ h2 {
 
 .delay-c4-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -2025,6 +2025,8 @@ h2 {
 }
 
 .c4-control.orange-factor {
+  min-height: 124px;
+  padding: 6px 5px 9px;
   border-color: rgba(156, 100, 54, 0.36);
   background:
     linear-gradient(180deg, rgba(255, 174, 96, 0.08), transparent 44%),
@@ -2032,7 +2034,7 @@ h2 {
 }
 
 .c4-control.orange-factor .c4-icon {
-  width: min(102px, 82%);
+  width: min(88px, 80%);
 }
 
 .c4-control.orange-factor .c4-ring:not(.active) {
@@ -2044,6 +2046,7 @@ h2 {
 }
 
 .c4-control.green-factor {
+  grid-column: span 2;
   border-color: rgba(57, 229, 143, 0.36);
   background:
     linear-gradient(180deg, rgba(57, 229, 143, 0.08), transparent 44%),
@@ -2072,6 +2075,14 @@ h2 {
 
 .c4-crit-icon .c4-ring {
   stroke-width: 9;
+}
+
+.c4-control.crit-factor .c4-ring.active.left,
+.c4-control.crit-factor .c4-ring.active.right {
+  stroke: #39e58f;
+  filter:
+    drop-shadow(0 0 4px rgba(57, 229, 143, 0.86))
+    drop-shadow(0 0 12px rgba(57, 229, 143, 0.48));
 }
 
 .c4-label small {
@@ -2924,8 +2935,8 @@ h2 {
   }
 
   .delay-c4-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .c4-control {
@@ -2933,16 +2944,25 @@ h2 {
     padding: 6px 5px 9px;
   }
 
+  .c4-control.orange-factor {
+    min-height: 96px;
+    padding: 5px 3px 7px;
+  }
+
   .c4-icon {
     width: min(112px, 100%);
   }
 
   .c4-control.orange-factor .c4-icon {
-    width: min(90px, 82%);
+    width: min(68px, 86%);
   }
 
   .c4-label {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
+  }
+
+  .c4-control.orange-factor .c4-label {
+    font-size: 0.48rem;
   }
 
   input,
