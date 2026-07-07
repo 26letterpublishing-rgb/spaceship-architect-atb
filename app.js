@@ -255,7 +255,8 @@ function editableDelayFor(unit) {
 }
 
 function delayConsoleAllowed() {
-  return Boolean(state?.hardPaused);
+  const active = state?.units.find((unit) => unit.id === state.activeId);
+  return Boolean(state?.hardPaused || (active?.team === "npc" && state?.pausedForTurn));
 }
 
 function formatSpeed(value) {
