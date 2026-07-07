@@ -55,7 +55,7 @@ const delayBaseOptions = [
   { label: "Very Fast", value: 14 },
 ];
 const c4Factors = ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"];
-const c4CharacterFactors = new Set(["Quality", "Performance", "Efficiency"]);
+const c4GreenFactors = new Set(["Situation", "Execution"]);
 const c4PositiveSteps = [
   { flat: 2, percent: 0, label: "+2" },
   { flat: 3, percent: 0, label: "+3" },
@@ -137,6 +137,8 @@ const backToWelcome = document.querySelector("#backToWelcome");
 const topbar = document.querySelector("#topbar");
 const joinPanel = document.querySelector("#joinPanel");
 const gmPanel = document.querySelector("#gmPanel");
+const gmTopControls = document.querySelector("#gmTopControls");
+const playerTopControls = document.querySelector("#playerTopControls");
 const playerPanel = document.querySelector("#playerPanel");
 const playerName = document.querySelector("#playerName");
 const characterName = document.querySelector("#characterName");
@@ -186,8 +188,6 @@ const playerCommandStatus = document.querySelector("#playerCommandStatus");
 const enableAlerts = document.querySelector("#enableAlerts");
 const leaveRoom = document.querySelector("#leaveRoom");
 const playerActionLogToggle = document.querySelector("#playerActionLogToggle");
-const playerColorControl = document.querySelector("#playerColorControl");
-const playerColorEdit = document.querySelector("#playerColorEdit");
 const myUnitCard = document.querySelector("#myUnitCard");
 const activePanel = document.querySelector("#activePanel");
 const activeKicker = document.querySelector("#activeKicker");
@@ -390,6 +390,17 @@ function c4IconMarkup(value) {
   return `<svg class="c4-icon" viewBox="0 0 100 100" aria-hidden="true">${paths}</svg>`;
 }
 
+function c4CritIconMarkup(active) {
+  return `
+    <svg class="c4-icon c4-crit-icon" viewBox="0 0 100 100" aria-hidden="true">
+      <path class="c4-ring left ${active ? "active" : ""}" d="${c4ArcPath(30, 332, 208, 0)}"></path>
+      <path class="c4-ring right ${active ? "active" : ""}" d="${c4ArcPath(30, 28, 152, 1)}"></path>
+      <path class="c4-ring left ${active ? "active" : ""}" d="${c4ArcPath(43, 332, 208, 0)}"></path>
+      <path class="c4-ring right ${active ? "active" : ""}" d="${c4ArcPath(43, 28, 152, 1)}"></path>
+    </svg>
+  `;
+}
+
 function c4StepsForValue(value) {
   const count = Math.min(4, Math.abs(Number(value) || 0));
   if (!count) return [];
@@ -399,12 +410,17 @@ function c4StepsForValue(value) {
 
 function calculateDelayDetails() {
   if (!delayModalState) {
-    return { base: 8, flat: 0, percent: 0, rate: 8, labels: [] };
+    return { base: 8, flat: 0, percent: 0, critBonus: 0, rate: 8, labels: [] };
   }
   let flat = 0;
   let percent = 0;
+  let critBonus = 0;
   const labels = [];
   for (const [factor, value] of Object.entries(delayModalState.factors)) {
+    if (factor === "Execution") {
+      if (value > 0) labels.push("Execution Crit");
+      continue;
+    }
     const steps = c4StepsForValue(value);
     if (!steps.length) continue;
     for (const step of steps) {
@@ -414,11 +430,16 @@ function calculateDelayDetails() {
     labels.push(`${factor} ${steps.map((step) => step.label).join(" ")}`);
   }
   const withFlat = Math.max(1, delayModalState.base + flat);
-  const finalValue = Math.max(0.1, withFlat * (1 + percent));
+  const beforeCrit = Math.max(0.1, withFlat * (1 + percent));
+  if ((delayModalState.factors.Execution || 0) > 0) {
+    critBonus = Math.max(2, beforeCrit * 0.25);
+  }
+  const finalValue = beforeCrit + critBonus;
   return {
     base: delayModalState.base,
     flat,
     percent,
+    critBonus,
     rate: Math.ceil(finalValue * 10) / 10,
     labels,
   };
@@ -441,6 +462,7 @@ function delaySettingsFromExisting(delay) {
   const base = delayBaseOptions.some((option) => option.value === Number(saved.base)) ? Number(saved.base) : 8;
   const factors = Object.fromEntries(c4Factors.map((factor) => {
     const value = Number(saved.factors?.[factor]) || 0;
+    if (factor === "Execution") return [factor, value > 0 ? 1 : 0];
     return [factor, Math.max(-4, Math.min(4, value))];
   }));
   return { base, factors };
@@ -450,6 +472,7 @@ function delayModifierText(details) {
   const parts = [`Base ${details.base}`];
   if (details.flat) parts.push(`${details.flat > 0 ? "+" : ""}${details.flat}`);
   if (details.percent) parts.push(`${details.percent > 0 ? "+" : ""}${Math.round(details.percent * 100)}%`);
+  if (details.critBonus) parts.push(`Crit +${details.critBonus.toFixed(1)}`);
   const summary = parts.join(" ");
   if (!details.labels.length) return summary;
   return `${summary} | ${details.labels.join("; ")}`;
@@ -499,13 +522,14 @@ function renderDelayDialog() {
   delayC4Grid.innerHTML = c4Factors
     .map((factor, index) => {
       const value = delayModalState.factors[factor] || 0;
-      const factorClass = c4CharacterFactors.has(factor) ? "character-factor" : "gm-factor";
+      const factorClass = c4GreenFactors.has(factor) ? "green-factor" : "orange-factor";
+      const crit = factor === "Execution";
       return `
-        <div class="c4-control ${factorClass}" data-c4-factor="${escapeHtml(factor)}">
+        <div class="c4-control ${factorClass} ${crit ? "crit-factor" : ""}" data-c4-factor="${escapeHtml(factor)}">
           <button type="button" class="c4-hit left" data-c4-index="${index}" data-c4-side="left" aria-label="${escapeHtml(factor)} down"></button>
-          ${c4IconMarkup(value)}
+          ${crit ? c4CritIconMarkup(value > 0) : c4IconMarkup(value)}
           <button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>
-          <div class="c4-label">${escapeHtml(factor)}</div>
+          <div class="c4-label">${escapeHtml(factor)}${crit ? "<small>(Crit)</small>" : ""}</div>
         </div>
       `;
     })
@@ -783,6 +807,15 @@ function ringDelayPocket(delay, startAngle, endAngle, radius, className) {
   return `<path class="ring-delay-pocket ${className}" d="${describeArc(160, 160, radius, usableStart, targetEnd)}" />`;
 }
 
+function ringCommandDrain(unit, startAngle, endAngle) {
+  const command = commandFor(unit);
+  if (!command || command.unitId !== unit.id) return "";
+  const remaining = command.expired ? 0 : commandPercent(command);
+  const drainRadius = 18 + (118 * (100 - remaining)) / 100;
+  if (drainRadius <= 20) return "";
+  return `<path class="ring-command-drain" d="${describeWedge(160, 160, Math.min(136, drainRadius), startAngle, endAngle)}" />`;
+}
+
 function ringActionButtons(unit, midAngle) {
   if (mode !== "gm") return "";
   const radians = (midAngle - 90) * (Math.PI / 180);
@@ -792,7 +825,7 @@ function ringActionButtons(unit, midAngle) {
   const delayDisabled = !delayConsoleAllowed();
   return `
     <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
-      <button class="ring-action-btn delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">DL</span><span class="delay-label-blocked">Pause</span></button>
+      <button class="ring-action-btn delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">DL</span><span class="delay-label-blocked">DL</span></button>
       <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
@@ -849,6 +882,7 @@ function tacticalRingMarkup(units) {
         <path class="ring-slice-shell" d="${describeWedge(160, 160, 136, start, end)}" />
         <path class="ring-slice-fill" d="${describeWedge(160, 160, atbRadius, start, end)}" fill="url(#${gradId})" />
         <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
+        ${active?.id === unit.id ? ringCommandDrain(unit, start, end) : ""}
         ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
         <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;">${escapeHtml(label)}</text>
@@ -1114,6 +1148,14 @@ function unitCard(unit, { gm = false, player = false } = {}) {
           <div class="unit-name">${escapeHtml(unit.characterName)}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
         </div>
+        ${
+          player && own
+            ? `<label class="player-color-inline" title="Change your ATB color">
+                <span>Color</span>
+                <input data-action="playerColor" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
+              </label>`
+            : ""
+        }
         <div class="unit-readout">
           <strong>${Math.floor(atbPercent)}%</strong>
           <span>${delayed ? "Delayed" : player ? (ready ? "Ready" : "Charging") : escapeHtml(estimateTurn(unit))}</span>
@@ -1141,7 +1183,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                   Color
                   <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
                 </label>
-                <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay (Pause Everything first!)</span></button>
+                <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -1455,7 +1497,7 @@ function notifyTurnIfNeeded() {
     gmDelay.classList.toggle("delay-button", true);
     gmDelay.classList.toggle("delay-blocked", !delayConsoleAllowed());
     gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
-    gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay (Pause Everything first!)</span>`;
+    gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span>`;
     if (!turnPanelOpen()) showTurnPanel();
   }
 
@@ -1638,19 +1680,22 @@ function shouldShowEngageClock() {
 }
 
 function updateGmClockButton() {
+  const active = activeUnit();
+  const npcActionLocked = Boolean(active && active.team === "npc" && state?.pausedForTurn);
   const showEngage = shouldShowEngageClock();
   const isPaused = Boolean(state?.hardPaused);
-  const clockAction = isPaused ? "resume" : showEngage ? "start" : "pause";
-  const label = clockAction === "pause" ? "Pause Everything" : "Engage Clock";
+  const clockAction = npcActionLocked ? "npc" : isPaused ? "resume" : showEngage ? "start" : "pause";
+  const label = clockAction === "npc" ? "NPC Action" : clockAction === "pause" ? "Pause Everything" : "Engage Clock";
   const footer = state?.pausedForTurn && !state?.hardPaused
-    ? "Turn is active"
+    ? active?.team === "npc" ? "NPC turn active" : "Turn is active"
     : state?.pausedForTurn && state?.hardPaused
       ? "Turn remains active"
       : "";
   gmPanicPause.classList.toggle("hidden", mode !== "gm");
+  gmPanicPause.classList.toggle("npc-action", npcActionLocked);
   gmPanicPause.classList.toggle("engage", showEngage || isPaused);
   gmPanicPause.classList.toggle("paused", !showEngage && !isPaused);
-  gmPanicPause.disabled = false;
+  gmPanicPause.disabled = npcActionLocked;
   if (gmPanicPause.dataset.clockAction !== clockAction || gmPanicPause.dataset.footer !== footer) {
     gmPanicPause.dataset.clockAction = clockAction;
     gmPanicPause.dataset.footer = footer;
@@ -1670,6 +1715,8 @@ function render() {
   joinPanel.classList.toggle("hidden", mode !== "join");
   gmPanel.classList.toggle("hidden", mode !== "gm");
   playerPanel.classList.toggle("hidden", mode !== "player");
+  gmTopControls.classList.toggle("hidden", mode !== "gm");
+  playerTopControls.classList.toggle("hidden", mode !== "player");
   topbar.classList.toggle("hidden", mode === "welcome");
   connectionStatus.classList.toggle("hidden", mode === "welcome");
   initiativePanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join");
@@ -1691,6 +1738,8 @@ function render() {
     logList.innerHTML = "";
     gmPanicPause.classList.add("hidden");
     gmMuteSound.classList.add("hidden");
+    gmTopControls.classList.add("hidden");
+    playerTopControls.classList.add("hidden");
     visualModeToggle.classList.add("hidden");
     return;
   }
@@ -1702,7 +1751,7 @@ function render() {
   const ready = state.units.filter((unit) => unit.atb >= state.threshold && !hasAnyDelay(unit));
   readyCount.textContent = `${ready.length} Ready`;
   clockState.textContent = statusText();
-  playerClock.textContent = statusText();
+  if (playerClock) playerClock.textContent = statusText();
   updateGmClockButton();
   enableAlerts.textContent = playerAlertLabel();
   gmMuteSound.classList.toggle("hidden", mode !== "gm");
@@ -1714,12 +1763,14 @@ function render() {
   undoLastTiming.disabled = !state.undoAvailable;
   undoLastTiming.title = state.undoAvailable ? "Undo the last timing/control change" : "No timing change to undo";
   playerActionLogToggle.checked = playerActionLogEnabled;
+  playerActionLogToggle.closest(".combat-log-toggle")?.classList.toggle("hidden", mode !== "player");
   renderDelayDialog();
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
   const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
 
@@ -1735,15 +1786,12 @@ function render() {
   syncGmCommandWindowVisibility();
 
   if (mine) {
-    myCharacter.textContent = mine.characterName;
-    playerColorControl.classList.remove("hidden");
-    playerColorEdit.value = mine.color || "#39e58f";
+    if (myCharacter) myCharacter.textContent = mine.characterName;
     myUnitCard.innerHTML = "";
     myTurnBanner.classList.toggle("hidden", !showMineOverlay);
     renderPlayerCommand(mine);
   } else if (mode === "player") {
-    myCharacter.textContent = "Not Connected";
-    playerColorControl.classList.add("hidden");
+    if (myCharacter) myCharacter.textContent = "Not Connected";
     myUnitCard.innerHTML = "";
     myTurnBanner.classList.add("hidden");
     renderPlayerCommand(null);
@@ -1978,6 +2026,7 @@ function pressGmClockButton(event) {
   if (now - lastGmClockClickAt < 650) return;
   lastGmClockClickAt = now;
   const clockAction = gmPanicPause.dataset.clockAction || (state.hardPaused ? "resume" : shouldShowEngageClock() ? "start" : "pause");
+  if (clockAction === "npc") return;
   if (clockAction === "pause") {
     action({ action: "setHardPaused", paused: true }, "pause");
     return;
@@ -2047,6 +2096,11 @@ delayDialog.addEventListener("click", (event) => {
   if (c4Button && delayModalState) {
     const factor = c4Factors[Number(c4Button.dataset.c4Index)];
     if (!factor) return;
+    if (factor === "Execution") {
+      delayModalState.factors.Execution = delayModalState.factors.Execution > 0 ? 0 : 1;
+      renderDelayDialog();
+      return;
+    }
     const current = delayModalState.factors[factor] || 0;
     delayModalState.factors[factor] = c4Button.dataset.c4Side === "left"
       ? Math.max(-4, current - 1)
@@ -2068,9 +2122,6 @@ enableAlerts.addEventListener("click", () => {
 });
 leaveRoom.addEventListener("click", () => {
   returnToWelcome("Left the room. Create or join a room when ready.");
-});
-playerColorEdit.addEventListener("change", () => {
-  if (myUnitId) action({ action: "setColor", id: myUnitId, color: playerColorEdit.value });
 });
 playerActionLogToggle.addEventListener("change", () => setActionLogEnabled(playerActionLogToggle.checked));
 characterIcon.addEventListener("change", async () => {
@@ -2165,7 +2216,12 @@ unitList.addEventListener("click", (event) => {
 
 unitList.addEventListener("change", (event) => {
   const input = event.target.closest("input[data-action]");
-  if (!input || mode !== "gm") return;
+  if (!input) return;
+  if (mode === "player" && input.dataset.action === "playerColor" && input.dataset.id === myUnitId) {
+    action({ action: "setColor", id: myUnitId, color: input.value }, "tap");
+    return;
+  }
+  if (mode !== "gm") return;
   if (input.dataset.action === "speed") action({ action: "setSpeed", id: input.dataset.id, speed: input.value }, "tap");
   if (input.dataset.action === "commandWindow") action({ action: "setCommandWindow", id: input.dataset.id, commandWindow: input.value }, "tap");
   if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");

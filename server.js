@@ -215,6 +215,10 @@ function normalizeDelaySettings(value) {
   const factors = {};
   for (const factor of ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"]) {
     const raw = Number(value?.factors?.[factor]) || 0;
+    if (factor === "Execution") {
+      factors[factor] = raw > 0 ? 1 : 0;
+      continue;
+    }
     factors[factor] = Math.max(-4, Math.min(4, Math.round(raw)));
   }
   return {
@@ -912,12 +916,6 @@ async function handleAction(req, res) {
   }
 
   if (action === "step") {
-    if (room.hardPaused) {
-      pushLog(room, "Clock is hard paused. Engage Clock before stepping time.");
-      sendJson(res, 200, publicState(room));
-      broadcast(room);
-      return;
-    }
     if (room.activeId || room.pausedForTurn) {
       pushLog(room, "Resolve the active turn before stepping the clock.");
       sendJson(res, 200, publicState(room));
@@ -925,6 +923,7 @@ async function handleAction(req, res) {
       return;
     }
     room.resumeAfterTurn = false;
+    room.running = false;
     clearActiveCommand(room);
     advanceSeconds(room, 1, { source: "step" });
     pushLog(room, "GM advanced one second.");

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
-    <link rel="stylesheet" href="styles.css?v=20260704-ring-names-1" />
+    <link rel="stylesheet" href="styles.css?v=20260706-ui-c4-1" />
   </head>
   <body>
     <main class="shell">
@@ -23,6 +23,11 @@
       <section id="topbar" class="topbar">
         <div class="topbar-title">
           <img class="topbar-banner" src="SAATBBanner.jpg" alt="Spaceship Architect ATB Sync" />
+          <div id="gmTopControls" class="gm-top-controls hidden">
+            <button id="resetAll" class="top-control-btn warning">Reset</button>
+            <button id="clearEncounter" class="top-control-btn danger">Clear</button>
+            <button id="exitCombat" class="top-control-btn danger exit-combat">Exit Combat</button>
+          </div>
           <button id="gmMuteSound" class="sound-toggle hidden" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
         </div>
         <div class="room">
@@ -119,12 +124,6 @@
           </div>
           <div class="clock" id="clockState">Paused</div>
         </div>
-        <div class="controls gm-control-grid">
-          <button id="undoLastTiming" class="control-square undo">Undo<br />Timing</button>
-          <button id="stepTick" class="control-square">Step<br />1 Sec</button>
-          <button id="resetAll" class="control-square">Reset</button>
-          <button id="clearEncounter" class="control-square danger">Clear<br />Encounter</button>
-        </div>
         <div class="add-grid">
           <label>
             Player
@@ -155,17 +154,13 @@
           </label>
           <button id="gmAddUnit">Add</button>
         </div>
-        <button id="exitCombat" class="danger exit-combat">Exit Combat</button>
+        <div class="controls gm-timing-controls">
+          <button id="undoLastTiming" class="control-square undo">Undo<br />Timing</button>
+          <button id="stepTick" class="control-square">Step<br />1 Sec</button>
+        </div>
       </section>
 
       <section id="playerPanel" class="panel hidden">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Player View</p>
-            <h2 id="myCharacter">Character</h2>
-          </div>
-          <div class="clock" id="playerClock">Paused</div>
-        </div>
         <div id="myTurnBanner" class="turn-banner hidden">
           <div id="playerCommandDial" class="command-dial hidden" aria-hidden="true">
             <div class="command-dial-ring">
@@ -178,22 +173,6 @@
             <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
             <button id="playerDelay" class="secondary">Delay</button>
           </div>
-        </div>
-        <div class="player-utility">
-          <button id="enableAlerts">Enable Sound / Vibration</button>
-          <label class="combat-log-toggle">
-            <input id="playerActionLogToggle" type="checkbox" checked />
-            Show Combat Log Popup
-          </label>
-          <label id="playerColorControl" class="player-color-control hidden">
-            ATB Color
-            <input id="playerColorEdit" type="color" value="#39e58f" />
-          </label>
-          <div class="player-room-code">
-            <span>Room</span>
-            <strong id="playerRoomCode">----</strong>
-          </div>
-          <button id="leaveRoom" class="leave-room">Leave Room</button>
         </div>
         <div id="myUnitCard"></div>
       </section>
@@ -212,6 +191,14 @@
             <p class="eyebrow">Initiative Console</p>
             <h2>ATB Monitor</h2>
           </div>
+          <div id="playerTopControls" class="player-top-controls hidden">
+            <button id="enableAlerts">Enable Sound / Vibration</button>
+            <button id="leaveRoom" class="leave-room">Leave Room</button>
+            <div class="player-room-code">
+              <span>Room</span>
+              <strong id="playerRoomCode">----</strong>
+            </div>
+          </div>
           <span id="readyCount" class="ready-count">0 Ready</span>
         </div>
         <div id="unitList" class="unit-list"></div>
@@ -223,6 +210,10 @@
             <p class="eyebrow">Log</p>
             <h2>Combat Log</h2>
           </div>
+          <label class="combat-log-toggle hidden">
+            <input id="playerActionLogToggle" type="checkbox" checked />
+            Show Combat Log Popup
+          </label>
         </div>
         <div id="logList" class="log-list"></div>
       </section>
@@ -284,6 +275,6 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-    <script src="app.js?v=20260704-ring-names-1"></script>
+    <script src="app.js?v=20260706-ui-c4-1"></script>
   </body>
 </html>
