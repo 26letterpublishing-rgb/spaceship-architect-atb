@@ -21,6 +21,7 @@ let ringDrag = null;
 let ringMovedId = "";
 let ringMovedTimeout = null;
 let delayModalState = null;
+let queuedEffectModalState = null;
 let npcDefaultBag = [];
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
@@ -39,7 +40,7 @@ const actionLogChoices = [
   ["DEFENSE ACTION", "took a defensive action"],
   ["FIRED GUN", "fired a gun"],
   ["SHIP OPERATION", "performed a ship operation"],
-  ["DELAYED ACTION", "started a delayed action"],
+  ["DELAYED RESOLUTION", "started a delayed resolution"],
   ["OTHER", "other"],
   ["NO ACTION", "took no action"],
 ];
@@ -211,6 +212,15 @@ const delayActionNameWrap = document.querySelector("#delayActionNameWrap");
 const delayActionName = document.querySelector("#delayActionName");
 const cancelDelayDialog = document.querySelector("#cancelDelayDialog");
 const confirmDelayDialog = document.querySelector("#confirmDelayDialog");
+const queuedEffectDialog = document.querySelector("#queuedEffectDialog");
+const queuedEffectTarget = document.querySelector("#queuedEffectTarget");
+const queuedEffectRatePreview = document.querySelector("#queuedEffectRatePreview");
+const queuedEffectModifierPreview = document.querySelector("#queuedEffectModifierPreview");
+const queuedEffectName = document.querySelector("#queuedEffectName");
+const queuedEffectBaseGrid = document.querySelector("#queuedEffectBaseGrid");
+const queuedEffectC4Grid = document.querySelector("#queuedEffectC4Grid");
+const cancelQueuedEffectDialog = document.querySelector("#cancelQueuedEffectDialog");
+const confirmQueuedEffectDialog = document.querySelector("#confirmQueuedEffectDialog");
 const gmPanicPause = document.querySelector("#gmPanicPause");
 const visualModeToggle = document.querySelector("#visualModeToggle");
 const playerActionSheet = document.querySelector("#playerActionSheet");
@@ -333,10 +343,27 @@ function delaySeconds(delay) {
   return Math.max(0, delay.remaining / delay.rate);
 }
 
+function queuedEffectsFor(unit) {
+  return Array.isArray(unit?.queuedEffects) ? unit.queuedEffects : [];
+}
+
+function queuedEffectPercent(effect) {
+  if (!effect || !effect.total) return 0;
+  return Math.max(0, Math.min(100, ((Number(effect.progress) || 0) / effect.total) * 100));
+}
+
+function queuedEffectSeconds(effect) {
+  if (!effect || !effect.rate) return 0;
+  const impairmentMultiplier = Math.max(0, 1 - (Math.max(0, Math.min(2, Number(effect.impairments) || 0)) * 0.1));
+  const speed = effect.rate * impairmentMultiplier;
+  return speed > 0 ? Math.max(0, (100 - (Number(effect.progress) || 0)) / speed) : 0;
+}
+
 function delayText(delay) {
   if (!delay) return "";
-  if (delay.kind === "action") return `Delayed Action: ${delay.label}`;
-  return "Delay Time";
+  if (delay.kind === "queued") return `Queued Setup: ${delay.label}`;
+  if (delay.kind === "action") return `Delayed Resolution: ${delay.label}`;
+  return "Reload/Recovery";
 }
 
 function delayBars(unit) {
@@ -356,6 +383,33 @@ function delayBarsMarkup(unit) {
         <span>${escapeHtml(delayText(delay))} - ${formatSeconds(delaySeconds(delay))}</span>
       </div>
     `)
+    .join("");
+}
+
+function queuedEffectsMarkup(unit, { gm = false } = {}) {
+  return queuedEffectsFor(unit)
+    .map((effect) => {
+      const impairments = Math.max(0, Math.min(3, Number(effect.impairments) || 0));
+      return `
+        <div class="queued-effect-bar ${effect.resolving ? "resolving" : ""}" data-effect-id="${escapeHtml(effect.id)}">
+          <div class="queued-effect-fill" style="width:${queuedEffectPercent(effect)}%"></div>
+          <span>${escapeHtml(effect.label)} - ${Math.floor(queuedEffectPercent(effect))}%${effect.resolving ? " - READY" : ` - ${formatSeconds(queuedEffectSeconds(effect))}`}</span>
+          <div class="queued-effect-pips" aria-label="${impairments} impairments">
+            <i class="${impairments >= 1 ? "active" : ""}"></i>
+            <i class="${impairments >= 2 ? "active" : ""}"></i>
+            <i class="${impairments >= 3 ? "active" : ""}"></i>
+          </div>
+          ${
+            gm
+              ? `<div class="queued-effect-actions">
+                  <button class="mini" data-action="impairQueuedEffect" data-id="${unit.id}" data-effect-id="${escapeHtml(effect.id)}">Impair</button>
+                  <button class="mini danger" data-action="removeQueuedEffect" data-id="${unit.id}" data-effect-id="${escapeHtml(effect.id)}">X</button>
+                </div>`
+              : ""
+          }
+        </div>
+      `;
+    })
     .join("");
 }
 
@@ -417,15 +471,15 @@ function c4StepsForValue(value) {
   return source.slice(0, count);
 }
 
-function calculateDelayDetails() {
-  if (!delayModalState) {
+function calculateDelayDetailsFor(modalState) {
+  if (!modalState) {
     return { base: 8, flat: 0, percent: 0, critBonus: 0, rate: 8, labels: [] };
   }
   let flat = 0;
   let percent = 0;
   let critBonus = 0;
   const labels = [];
-  for (const [factor, value] of Object.entries(delayModalState.factors)) {
+  for (const [factor, value] of Object.entries(modalState.factors)) {
     if (factor === "Execution") {
       if (value > 0) labels.push("Execution Crit");
       continue;
@@ -438,14 +492,14 @@ function calculateDelayDetails() {
     }
     labels.push(`${factor} ${steps.map((step) => step.label).join(" ")}`);
   }
-  const withFlat = Math.max(1, delayModalState.base + flat);
+  const withFlat = Math.max(1, modalState.base + flat);
   const beforeCrit = Math.max(0.1, withFlat * (1 + percent));
-  if ((delayModalState.factors.Execution || 0) > 0) {
+  if ((modalState.factors.Execution || 0) > 0) {
     critBonus = Math.max(2, beforeCrit * 0.25);
   }
   const finalValue = beforeCrit + critBonus;
   return {
-    base: delayModalState.base,
+    base: modalState.base,
     flat,
     percent,
     critBonus,
@@ -454,15 +508,23 @@ function calculateDelayDetails() {
   };
 }
 
+function calculateDelayDetails() {
+  return calculateDelayDetailsFor(delayModalState);
+}
+
 function calculateDelayRate() {
   return calculateDelayDetails().rate;
 }
 
 function currentDelaySettings() {
-  if (!delayModalState) return null;
+  return settingsFromModalState(delayModalState);
+}
+
+function settingsFromModalState(modalState) {
+  if (!modalState) return null;
   return {
-    base: delayModalState.base,
-    factors: Object.fromEntries(c4Factors.map((factor) => [factor, delayModalState.factors?.[factor] || 0])),
+    base: modalState.base,
+    factors: Object.fromEntries(c4Factors.map((factor) => [factor, modalState.factors?.[factor] || 0])),
   };
 }
 
@@ -477,6 +539,13 @@ function delaySettingsFromExisting(delay) {
   return { base, factors };
 }
 
+function defaultDelaySettings() {
+  return {
+    base: 8,
+    factors: Object.fromEntries(c4Factors.map((factor) => [factor, 0])),
+  };
+}
+
 function delayModifierText(details) {
   const parts = [`Base ${details.base}`];
   if (details.flat) parts.push(`${details.flat > 0 ? "+" : ""}${details.flat}`);
@@ -485,6 +554,38 @@ function delayModifierText(details) {
   const summary = parts.join(" ");
   if (!details.labels.length) return summary;
   return `${summary} | ${details.labels.join("; ")}`;
+}
+
+function renderBaseGrid(container, modalState, scope) {
+  container.innerHTML = delayBaseOptions
+    .map((option) => {
+      const words = option.label.split(" ").map((word) => `<span>${escapeHtml(word)}</span>`).join("");
+      return `
+        <button type="button" data-delay-base="${option.value}" data-c4-scope="${scope}" class="${option.value === modalState.base ? "active" : ""}">
+          ${words}
+          <small>${option.value}</small>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function renderC4Grid(container, modalState, scope) {
+  container.innerHTML = c4Factors
+    .map((factor, index) => {
+      const value = modalState.factors[factor] || 0;
+      const factorClass = c4GreenFactors.has(factor) ? "green-factor" : "orange-factor";
+      const crit = factor === "Execution";
+      return `
+        <div class="c4-control ${factorClass} ${crit ? "crit-factor" : ""}" data-c4-factor="${escapeHtml(factor)}" data-c4-scope="${scope}">
+          <button type="button" class="c4-hit left ${crit ? "crit-toggle" : ""}" data-c4-index="${index}" data-c4-side="${crit ? "toggle" : "left"}" data-c4-scope="${scope}" aria-label="${escapeHtml(factor)} ${crit ? "toggle" : "down"}"></button>
+          ${crit ? c4CritIconMarkup(value > 0) : c4IconMarkup(value)}
+          ${crit ? "" : `<button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" data-c4-scope="${scope}" aria-label="${escapeHtml(factor)} up"></button>`}
+          <div class="c4-label">${escapeHtml(factor)}${crit ? "<small>(Crit)</small>" : ""}</div>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function renderDelayDialog() {
@@ -501,13 +602,13 @@ function renderDelayDialog() {
 
   const delayDetails = calculateDelayDetails();
   delayDialog.classList.remove("hidden");
-  delayDialogTitle.textContent = delayModalState.kind === "action" ? "Delayed Resolution" : "Delay Timer";
+  delayDialogTitle.textContent = delayModalState.kind === "queued" ? "Queued Effect Setup" : delayModalState.kind === "action" ? "Delayed Resolution" : "Reload/Recovery";
   delayDialogTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
   const instantResolution = !delayModalState.editing && delayDetails.rate > 99;
   delayRatePreview.textContent = instantResolution ? "Instant Resolution!" : delayDetails.rate.toFixed(1);
   delayRatePreview.classList.toggle("instant-resolution", instantResolution);
   delayModifierPreview.textContent = delayModifierText(delayDetails);
-  delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action");
+  delayActionNameWrap.classList.toggle("hidden", delayModalState.kind !== "action" && delayModalState.kind !== "queued");
   delayActionName.value = delayModalState.label;
   confirmDelayDialog.textContent = delayModalState.editing ? "Confirm Changes" : "Confirm Delay";
 
@@ -516,33 +617,8 @@ function renderDelayDialog() {
     button.disabled = Boolean(delayModalState.editing);
   });
 
-  delayBaseGrid.innerHTML = delayBaseOptions
-    .map((option) => {
-      const words = option.label.split(" ").map((word) => `<span>${escapeHtml(word)}</span>`).join("");
-      return `
-        <button type="button" data-delay-base="${option.value}" class="${option.value === delayModalState.base ? "active" : ""}">
-          ${words}
-          <small>${option.value}</small>
-        </button>
-      `;
-    })
-    .join("");
-
-  delayC4Grid.innerHTML = c4Factors
-    .map((factor, index) => {
-      const value = delayModalState.factors[factor] || 0;
-      const factorClass = c4GreenFactors.has(factor) ? "green-factor" : "orange-factor";
-      const crit = factor === "Execution";
-      return `
-        <div class="c4-control ${factorClass} ${crit ? "crit-factor" : ""}" data-c4-factor="${escapeHtml(factor)}">
-          <button type="button" class="c4-hit left ${crit ? "crit-toggle" : ""}" data-c4-index="${index}" data-c4-side="${crit ? "toggle" : "left"}" aria-label="${escapeHtml(factor)} ${crit ? "toggle" : "down"}"></button>
-          ${crit ? c4CritIconMarkup(value > 0) : c4IconMarkup(value)}
-          ${crit ? "" : `<button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>`}
-          <div class="c4-label">${escapeHtml(factor)}${crit ? "<small>(Crit)</small>" : ""}</div>
-        </div>
-      `;
-    })
-    .join("");
+  renderBaseGrid(delayBaseGrid, delayModalState, "delay");
+  renderC4Grid(delayC4Grid, delayModalState, "delay");
 }
 
 function openDelayDialog(unitId, kind = "timer", requestId = "", existingDelay = null) {
@@ -555,14 +631,109 @@ function openDelayDialog(unitId, kind = "timer", requestId = "", existingDelay =
     requestId,
     editing: Boolean(existingDelay),
     delayId: existingDelay?.id || "",
-    kind: resolvedKind === "action" ? "action" : "timer",
+    kind: resolvedKind === "queued" ? "queued" : resolvedKind === "action" ? "action" : "timer",
     label: existingDelay?.label || "",
     base: settings.base,
     factors: settings.factors,
   };
   if (delayModalState.kind === "action") delayModalState.label = "Delayed Resolution";
+  if (delayModalState.kind === "queued") delayModalState.label = existingDelay?.label || "Launch Queued Effect";
   if (existingDelay?.kind === "action") delayModalState.label = existingDelay.label || "Delayed Resolution";
+  if (existingDelay?.kind === "queued") delayModalState.label = existingDelay.label || "Launch Queued Effect";
   renderDelayDialog();
+}
+
+function renderQueuedEffectDialog() {
+  if (!queuedEffectModalState) {
+    queuedEffectDialog.classList.add("hidden");
+    return;
+  }
+  const unit = state?.units.find((entry) => entry.id === queuedEffectModalState.unitId);
+  if (!unit) {
+    queuedEffectModalState = null;
+    queuedEffectDialog.classList.add("hidden");
+    return;
+  }
+  const details = calculateDelayDetailsFor(queuedEffectModalState);
+  queuedEffectDialog.classList.remove("hidden");
+  queuedEffectTarget.textContent = `${unit.characterName} - ${unit.playerName}`;
+  queuedEffectRatePreview.textContent = details.rate.toFixed(1);
+  queuedEffectModifierPreview.textContent = delayModifierText(details);
+  queuedEffectName.value = queuedEffectModalState.label;
+  renderBaseGrid(queuedEffectBaseGrid, queuedEffectModalState, "queued");
+  renderC4Grid(queuedEffectC4Grid, queuedEffectModalState, "queued");
+}
+
+function openQueuedEffectDialog(pendingDelay) {
+  const defaults = defaultDelaySettings();
+  queuedEffectModalState = {
+    ...defaults,
+    pendingDelay,
+    unitId: pendingDelay.unitId,
+    label: "Missile Impact",
+  };
+  renderQueuedEffectDialog();
+}
+
+function closeQueuedEffectDialog() {
+  queuedEffectModalState = null;
+  renderQueuedEffectDialog();
+}
+
+function handleC4DialogClick(event, modalState, renderFn, scope) {
+  if (!modalState) return;
+  const scoped = (element) => !element.dataset.c4Scope || element.dataset.c4Scope === scope;
+  const baseButton = event.target.closest("[data-delay-base]");
+  if (baseButton && scoped(baseButton)) {
+    modalState.base = Number(baseButton.dataset.delayBase) || 8;
+    renderFn();
+    return;
+  }
+  const critControl = event.target.closest(".c4-control.crit-factor");
+  if (critControl && scoped(critControl)) {
+    modalState.factors.Execution = modalState.factors.Execution > 0 ? 0 : 1;
+    renderFn();
+    return;
+  }
+  const c4Button = event.target.closest("[data-c4-side]");
+  if (c4Button && scoped(c4Button)) {
+    const factor = c4Factors[Number(c4Button.dataset.c4Index)];
+    if (!factor) return;
+    if (factor === "Execution") {
+      modalState.factors.Execution = modalState.factors.Execution > 0 ? 0 : 1;
+      renderFn();
+      return;
+    }
+    const current = modalState.factors[factor] || 0;
+    modalState.factors[factor] = c4Button.dataset.c4Side === "left"
+      ? Math.max(-4, current - 1)
+      : Math.min(4, current + 1);
+    renderFn();
+  }
+}
+
+async function confirmQueuedEffectDialogAction() {
+  if (!queuedEffectModalState?.pendingDelay) return;
+  const pending = queuedEffectModalState.pendingDelay;
+  const queuedDetails = calculateDelayDetailsFor(queuedEffectModalState);
+  const queuedEffect = {
+    label: queuedEffectName.value.trim() || "Queued Effect",
+    rate: queuedDetails.rate,
+    settings: settingsFromModalState(queuedEffectModalState),
+  };
+  queuedEffectModalState = null;
+  delayModalState = null;
+  renderQueuedEffectDialog();
+  renderDelayDialog();
+  await action({
+    action: "startDelay",
+    id: pending.unitId,
+    kind: "queued",
+    label: pending.label || "Launch Queued Effect",
+    rate: pending.rate,
+    settings: pending.settings,
+    queuedEffect,
+  }, "start");
 }
 
 function openDelayForUnit(unitId, kind = "timer") {
@@ -594,12 +765,16 @@ async function confirmDelayDialogAction() {
   const delay = {
     unitId: delayModalState.unitId,
     kind: delayModalState.kind,
-    label: delayModalState.kind === "action" ? delayActionName.value.trim() : "",
+    label: (delayModalState.kind === "action" || delayModalState.kind === "queued") ? delayActionName.value.trim() : "",
     rate: calculateDelayRate(),
     settings: currentDelaySettings(),
     editing: delayModalState.editing,
     delayId: delayModalState.delayId,
   };
+  if (!delay.editing && delay.kind === "queued") {
+    openQueuedEffectDialog(delay);
+    return;
+  }
   delayModalState = null;
   renderDelayDialog();
   if (delay.editing) {
@@ -825,6 +1000,25 @@ function ringCommandDrain(unit, startAngle, endAngle) {
   return `<path class="ring-command-drain" d="${describeWedge(160, 160, Math.min(136, drainRadius), startAngle, endAngle)}" />`;
 }
 
+function ringQueuedEffects(unit, startAngle, endAngle) {
+  const effects = queuedEffectsFor(unit);
+  if (!effects.length) return "";
+  const width = Math.max(4, (endAngle - startAngle) * 0.22);
+  return effects
+    .map((effect, index) => {
+      const miniStart = endAngle + 1.5 + index * (width + 1);
+      const miniEnd = miniStart + width;
+      const fillRadius = 18 + (116 * queuedEffectPercent(effect)) / 100;
+      return `
+        <g class="ring-queued-effect ${effect.resolving ? "resolving" : ""}">
+          <path class="ring-queued-shell" d="${describeWedge(160, 160, 136, miniStart, miniEnd)}"></path>
+          <path class="ring-queued-fill" d="${describeWedge(160, 160, Math.min(136, fillRadius), miniStart, miniEnd)}"></path>
+        </g>
+      `;
+    })
+    .join("");
+}
+
 function ringActionButtons(unit, midAngle) {
   if (mode !== "gm") return "";
   const radians = (midAngle - 90) * (Math.PI / 180);
@@ -894,6 +1088,7 @@ function tacticalRingMarkup(units) {
         ${active?.id === unit.id ? ringCommandDrain(unit, start, end) : ""}
         ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
+        ${ringQueuedEffects(unit, start, end)}
         <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;">${escapeHtml(label)}</text>
         ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
       </g>
@@ -1212,6 +1407,9 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       ${
         delayBarsMarkup(unit)
       }
+      ${
+        queuedEffectsMarkup(unit, { gm })
+      }
       <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
     </article>
   `;
@@ -1233,6 +1431,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     state?.hardPaused ? "hardpaused" : "not-hardpaused",
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
     delayedActionFor(unit) ? `action:${delayedActionFor(unit).label}:${delayedActionFor(unit).remaining}:${delayedActionFor(unit).rate}:${delayedActionFor(unit).resolving ? "resolving" : "waiting"}` : "noaction",
+    queuedEffectsFor(unit).map((effect) => `queue:${effect.id}:${effect.label}:${effect.rate}:${effect.impairments}:${effect.resolving ? "resolving" : "filling"}`).join(",") || "noqueue",
     myIconForUnit(unit) ? "icon" : "noicon",
     command ? `command:${command.expired ? "expired" : "active"}` : "nocommand",
     setupMissing ? "setup" : "ready-setup",
@@ -1280,6 +1479,26 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
       if (delayFill) delayFill.style.width = `${delayPercent(delay)}%`;
       const delayLabel = delayBar?.querySelector("span");
       if (delayLabel) delayLabel.textContent = `${delayText(delay)} - ${formatSeconds(delaySeconds(delay))}`;
+    });
+  }
+
+  const nextQueuedMarkup = queuedEffectsMarkup(unit, { gm });
+  const currentQueuedBars = card.querySelectorAll(".queued-effect-bar");
+  if (currentQueuedBars.length !== queuedEffectsFor(unit).length) {
+    currentQueuedBars.forEach((bar) => bar.remove());
+    const meter = card.querySelector(".meter");
+    if (meter && nextQueuedMarkup) meter.insertAdjacentHTML("beforebegin", nextQueuedMarkup);
+  } else {
+    queuedEffectsFor(unit).forEach((effect, index) => {
+      const effectBar = currentQueuedBars[index];
+      effectBar?.classList.toggle("resolving", Boolean(effect.resolving));
+      const effectFill = effectBar?.querySelector(".queued-effect-fill");
+      if (effectFill) effectFill.style.width = `${queuedEffectPercent(effect)}%`;
+      const effectLabel = effectBar?.querySelector("span");
+      if (effectLabel) effectLabel.textContent = `${effect.label} - ${Math.floor(queuedEffectPercent(effect))}%${effect.resolving ? " - READY" : ` - ${formatSeconds(queuedEffectSeconds(effect))}`}`;
+      const pips = effectBar?.querySelectorAll(".queued-effect-pips i") || [];
+      const impairments = Math.max(0, Math.min(3, Number(effect.impairments) || 0));
+      pips.forEach((pip, pipIndex) => pip.classList.toggle("active", pipIndex < impairments));
     });
   }
 }
@@ -1406,7 +1625,7 @@ function renderActivePanel() {
     const mine = state.units.find((unit) => unit.id === myUnitId);
     activeKicker.textContent = "Player Signal";
     if (activeAction) {
-      activeTitle.textContent = `Resolve Action: ${activeAction.label}`;
+      activeTitle.textContent = `${activeAction.kind === "queuedEffect" ? "Resolve Queued Effect" : activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${activeAction.label}`;
       activeMeta.textContent = `${activeAction.characterName} - ${activeAction.playerName}`;
     } else if (active && active.id === myUnitId) {
       activeTitle.textContent = "YOUR TURN";
@@ -1425,8 +1644,8 @@ function renderActivePanel() {
   }
 
   if (activeAction) {
-    activeKicker.textContent = "Delayed Action";
-    activeTitle.textContent = `Resolve Action: ${activeAction.label}`;
+    activeKicker.textContent = activeAction.kind === "queuedEffect" ? "Queued Effect" : activeAction.kind === "queued" ? "Queued Setup" : "Delayed Resolution";
+    activeTitle.textContent = `${activeAction.kind === "queuedEffect" ? "Resolve Queued Effect" : activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${activeAction.label}`;
     activeMeta.textContent = `${activeAction.characterName} - ${activeAction.playerName}`;
     return;
   }
@@ -1475,8 +1694,8 @@ function notifyTurnIfNeeded() {
   if (!state) return;
   if (state.activeAction) {
     if (mode === "gm") {
-      turnDialogKicker.textContent = "Delayed Action";
-      activeName.textContent = `Resolve Action: ${state.activeAction.label}`;
+      turnDialogKicker.textContent = state.activeAction.kind === "queuedEffect" ? "Queued Effect" : state.activeAction.kind === "queued" ? "Queued Setup" : "Delayed Resolution";
+      activeName.textContent = `${state.activeAction.kind === "queuedEffect" ? "Resolve Queued Effect" : state.activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${state.activeAction.label}`;
       activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
       completeTurn.textContent = "Action Resolved";
       gmDelay.classList.add("hidden");
@@ -1739,7 +1958,9 @@ function render() {
 
   if (!state) {
     delayModalState = null;
+    queuedEffectModalState = null;
     renderDelayDialog();
+    renderQueuedEffectDialog();
     roomCode.textContent = currentRoomCode || "----";
     playerRoomCode.textContent = currentRoomCode || "----";
     activePanel.classList.add("hidden");
@@ -1774,6 +1995,7 @@ function render() {
   playerActionLogToggle.checked = playerActionLogEnabled;
   playerActionLogToggle.closest(".combat-log-toggle")?.classList.toggle("hidden", mode !== "player");
   renderDelayDialog();
+  renderQueuedEffectDialog();
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
@@ -2086,45 +2308,29 @@ playerDelay.addEventListener("click", () => {
 });
 cancelDelayDialog.addEventListener("click", () => closeDelayDialog({ cancelRequest: true }));
 confirmDelayDialog.addEventListener("click", confirmDelayDialogAction);
+cancelQueuedEffectDialog.addEventListener("click", closeQueuedEffectDialog);
+confirmQueuedEffectDialog.addEventListener("click", confirmQueuedEffectDialogAction);
 delayDialog.addEventListener("click", (event) => {
   const kindButton = event.target.closest("[data-delay-kind]");
   if (kindButton && delayModalState) {
-    delayModalState.kind = kindButton.dataset.delayKind === "action" ? "action" : "timer";
+    delayModalState.kind = kindButton.dataset.delayKind === "queued" ? "queued" : kindButton.dataset.delayKind === "action" ? "action" : "timer";
     if (delayModalState.kind === "action" && !delayModalState.label) delayModalState.label = "Delayed Resolution";
+    if (delayModalState.kind === "queued" && !delayModalState.label) delayModalState.label = "Launch Queued Effect";
     renderDelayDialog();
     return;
   }
-  const baseButton = event.target.closest("[data-delay-base]");
-  if (baseButton && delayModalState) {
-    delayModalState.base = Number(baseButton.dataset.delayBase) || 8;
-    renderDelayDialog();
-    return;
-  }
-  const critControl = event.target.closest(".c4-control.crit-factor");
-  if (critControl && delayModalState) {
-    delayModalState.factors.Execution = delayModalState.factors.Execution > 0 ? 0 : 1;
-    renderDelayDialog();
-    return;
-  }
-  const c4Button = event.target.closest("[data-c4-side]");
-  if (c4Button && delayModalState) {
-    const factor = c4Factors[Number(c4Button.dataset.c4Index)];
-    if (!factor) return;
-    if (factor === "Execution") {
-      delayModalState.factors.Execution = delayModalState.factors.Execution > 0 ? 0 : 1;
-      renderDelayDialog();
-      return;
-    }
-    const current = delayModalState.factors[factor] || 0;
-    delayModalState.factors[factor] = c4Button.dataset.c4Side === "left"
-      ? Math.max(-4, current - 1)
-      : Math.min(4, current + 1);
-    renderDelayDialog();
-  }
+  handleC4DialogClick(event, delayModalState, renderDelayDialog, "delay");
 });
 delayActionName.addEventListener("input", () => {
   if (!delayModalState) return;
   delayModalState.label = delayActionName.value;
+});
+queuedEffectDialog.addEventListener("click", (event) => {
+  handleC4DialogClick(event, queuedEffectModalState, renderQueuedEffectDialog, "queued");
+});
+queuedEffectName.addEventListener("input", () => {
+  if (!queuedEffectModalState) return;
+  queuedEffectModalState.label = queuedEffectName.value;
 });
 enableAlerts.addEventListener("click", () => {
   if (alertsEnabled) {
@@ -2219,6 +2425,8 @@ function handleUnitActionButton(button, event = null) {
   if (button.dataset.action === "remove") action({ action: "removeUnit", id }, "danger");
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
   if (button.dataset.action === "delay") openDelayForUnit(id, "timer");
+  if (button.dataset.action === "impairQueuedEffect") action({ action: "impairQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
+  if (button.dataset.action === "removeQueuedEffect") action({ action: "removeQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
 }
 
 unitList.addEventListener("click", (event) => {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
-    <link rel="stylesheet" href="styles.css?v=20260706-delay-cancel-5" />
+    <link rel="stylesheet" href="styles.css?v=20260706-queued-effects-1" />
   </head>
   <body>
     <main class="shell">
@@ -245,8 +245,9 @@
         </div>
 
         <div class="delay-kind-toggle" aria-label="Delay type">
-          <button type="button" data-delay-kind="timer">Delay Timer</button>
+          <button type="button" data-delay-kind="timer">Reload/Recovery</button>
           <button type="button" data-delay-kind="action">Delayed Resolution</button>
+          <button type="button" data-delay-kind="queued">Queued Effect</button>
         </div>
 
         <label id="delayActionNameWrap" class="delay-action-name">
@@ -264,6 +265,36 @@
       </div>
     </section>
 
+    <section id="queuedEffectDialog" class="queued-effect-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="queuedEffectTitle">
+      <div class="queued-effect-panel">
+        <div class="delay-dialog-head">
+          <div>
+            <p class="eyebrow">Queued Effect</p>
+            <h2 id="queuedEffectTitle">Configure Queued Effect</h2>
+            <p id="queuedEffectTarget">Character</p>
+          </div>
+          <div class="delay-rate-readout queued-readout">
+            <span>Speed</span>
+            <strong id="queuedEffectRatePreview">8.0</strong>
+            <small id="queuedEffectModifierPreview">Base 8</small>
+          </div>
+        </div>
+
+        <label class="delay-action-name">
+          Effect Name
+          <input id="queuedEffectName" maxlength="42" placeholder="Missile Impact" />
+        </label>
+
+        <div id="queuedEffectBaseGrid" class="delay-base-grid"></div>
+        <div id="queuedEffectC4Grid" class="delay-c4-grid"></div>
+
+        <div class="delay-dialog-actions">
+          <button id="cancelQueuedEffectDialog" type="button" class="secondary">Cancel</button>
+          <button id="confirmQueuedEffectDialog" type="button" class="complete">Confirm Queued Effect</button>
+        </div>
+      </div>
+    </section>
+
     <button id="gmPanicPause" class="gm-panic-pause hidden">Pause Everything</button>
     <button id="visualModeToggle" class="visual-mode-toggle hidden" type="button">Tactical Ring</button>
 
@@ -275,6 +306,6 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-    <script src="app.js?v=20260706-delay-cancel-5"></script>
+    <script src="app.js?v=20260706-queued-effects-1"></script>
   </body>
 </html>

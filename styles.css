@@ -872,6 +872,30 @@ h2 {
   pointer-events: none;
 }
 
+.ring-queued-shell {
+  fill: rgba(116, 124, 134, 0.22);
+  stroke: rgba(210, 216, 226, 0.52);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.08));
+}
+
+.ring-queued-fill {
+  fill: rgba(178, 184, 194, 0.78);
+  stroke: rgba(245, 248, 252, 0.55);
+  stroke-width: 0.8;
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 0 4px rgba(255, 105, 180, 0.14));
+  transition: d 360ms linear;
+}
+
+.ring-queued-effect.resolving .ring-queued-fill {
+  fill: rgba(255, 105, 180, 0.86);
+  filter:
+    drop-shadow(0 0 8px rgba(255, 105, 180, 0.54))
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.22));
+}
+
 .ring-delay-pocket.action-delay {
   stroke: #36e2ff;
   animation: ringDelayActionPulse 700ms ease-in-out infinite alternate;
@@ -1724,6 +1748,96 @@ h2 {
   text-shadow: 0 1px 2px #000;
 }
 
+.queued-effect-bar {
+  position: relative;
+  min-height: 20px;
+  margin-top: 6px;
+  border: 1px solid rgba(185, 190, 198, 0.52);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 42%),
+    #07090d;
+  overflow: hidden;
+}
+
+.queued-effect-fill {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  min-height: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 38%, rgba(0, 0, 0, 0.38)),
+    linear-gradient(90deg, #20242a, #737b86, #d9dde4);
+  transition: width 180ms linear;
+}
+
+.clock-active .queued-effect-fill::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -45%;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transform: skewX(-22deg);
+  animation: delayActionSweep 1.55s linear infinite;
+}
+
+.queued-effect-bar.resolving {
+  border-color: rgba(255, 105, 180, 0.88);
+  box-shadow: 0 0 16px rgba(255, 105, 180, 0.2);
+}
+
+.queued-effect-bar > span {
+  position: absolute;
+  inset: 0 96px 0 0;
+  display: grid;
+  place-items: center;
+  color: #f4f6f9;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+
+.queued-effect-pips {
+  position: absolute;
+  right: 58px;
+  top: 50%;
+  display: flex;
+  gap: 3px;
+  transform: translateY(-50%);
+}
+
+.queued-effect-pips i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(180, 188, 198, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.queued-effect-pips i.active {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(255, 79, 105, 0.55);
+}
+
+.queued-effect-actions {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  transform: translateY(-50%);
+}
+
+.queued-effect-actions .mini {
+  min-height: 16px;
+  padding: 0 5px;
+  font-size: 0.52rem;
+}
+
 @keyframes delayedActionPulse {
   from {
     filter: brightness(0.94) saturate(1.02);
@@ -1842,6 +1956,43 @@ h2 {
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     0 0 42px rgba(40, 215, 255, 0.22),
     0 22px 80px rgba(0, 0, 0, 0.72);
+}
+
+.queued-effect-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 105, 180, 0.18), transparent 36%),
+    rgba(1, 3, 7, 0.42);
+  overflow: auto;
+}
+
+.queued-effect-panel {
+  width: min(860px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(255, 105, 180, 0.72);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 24%),
+    rgba(10, 8, 18, 0.99);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 46px rgba(255, 105, 180, 0.34),
+    0 22px 80px rgba(0, 0, 0, 0.76);
+}
+
+.queued-effect-panel h2 {
+  color: #ff8dca;
+}
+
+.queued-readout {
+  border-color: rgba(255, 105, 180, 0.48);
 }
 
 .delay-dialog-head {
@@ -1969,7 +2120,7 @@ h2 {
 
 .delay-kind-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }

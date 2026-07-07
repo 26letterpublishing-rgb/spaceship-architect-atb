@@ -168,6 +168,8 @@ const undoableActions = new Set([
   "startDelay",
   "updateDelay",
   "instantDelay",
+  "impairQueuedEffect",
+  "removeQueuedEffect",
   "step",
   "reset",
   "clearEncounter",
@@ -201,11 +203,12 @@ function normalizeDelayRate(value) {
 }
 
 function normalizeDelayKind(value) {
+  if (value === "queued") return "queued";
   return value === "action" ? "action" : "timer";
 }
 
 function normalizeDelayLabel(value, kind = "timer") {
-  const fallback = kind === "action" ? "Delayed Action" : "Delay Time";
+  const fallback = kind === "queued" ? "Queued Effect" : kind === "action" ? "Delayed Resolution" : "Reload/Recovery";
   return String(value || fallback).trim().slice(0, 60) || fallback;
 }
 
@@ -224,6 +227,19 @@ function normalizeDelaySettings(value) {
   return {
     base: allowedBases.has(base) ? base : 8,
     factors,
+  };
+}
+
+function normalizeQueuedEffect(value) {
+  return {
+    id: id(),
+    label: normalizeDelayLabel(value?.label, "queued"),
+    rate: normalizeDelayRate(value?.rate) || 1,
+    settings: normalizeDelaySettings(value?.settings),
+    progress: 0,
+    total: 100,
+    impairments: 0,
+    resolving: false,
   };
 }
 
@@ -338,8 +354,11 @@ function copyDelay(delay) {
 
 function migrateRoomDelays(room) {
   for (const unit of room.units) {
+    if (!Array.isArray(unit.queuedEffects)) unit.queuedEffects = [];
     if (!unit.delay) continue;
     if (unit.delay.kind === "action") {
+      unit.delayedAction = unit.delayedAction || unit.delay;
+    } else if (unit.delay.kind === "queued") {
       unit.delayedAction = unit.delayedAction || unit.delay;
     } else {
       unit.delayTimer = unit.delayTimer || unit.delay;
@@ -360,7 +379,8 @@ function hasActiveDelayCountdown(room) {
   return room.units.some((unit) =>
     (unit.delayTimer && !unit.delayTimer.resolving) ||
     (unit.delayedAction && !unit.delayedAction.resolving) ||
-    (unit.delay && !unit.delay.resolving),
+    (unit.delay && !unit.delay.resolving) ||
+    (Array.isArray(unit.queuedEffects) && unit.queuedEffects.some((effect) => !effect.resolving)),
   );
 }
 
@@ -414,10 +434,30 @@ function pauseForDelayedAction(room, unit, source = "clock") {
     unitId: unit.id,
     characterName: unit.characterName,
     playerName: unit.playerName,
-    label: normalizeDelayLabel(unit.delayedAction?.label, "action"),
+    label: normalizeDelayLabel(unit.delayedAction?.label, unit.delayedAction?.kind || "action"),
+    kind: unit.delayedAction?.kind || "action",
   };
   room.activeSource = source;
-  pushLog(room, `Resolve Action: ${room.activeAction.label}.`);
+  pushLog(room, `${room.activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${room.activeAction.label}.`);
+}
+
+function pauseForQueuedEffect(room, unit, effect, source = "clock") {
+  if (!unit || !effect || room.pausedForTurn) return;
+  clearActiveCommand(room);
+  room.pausedForTurn = true;
+  room.running = false;
+  room.activeId = null;
+  room.activeAction = {
+    id: effect.id,
+    unitId: unit.id,
+    effectId: effect.id,
+    characterName: unit.characterName,
+    playerName: unit.playerName,
+    label: normalizeDelayLabel(effect.label, "queued"),
+    kind: "queuedEffect",
+  };
+  room.activeSource = source;
+  pushLog(room, `Resolve Queued Effect: ${room.activeAction.label}.`);
 }
 
 function requestDelay(room, unit, kind, requestedBy = "player") {
@@ -450,7 +490,7 @@ function cancelDelayRequest(room) {
   pushLog(room, "Delay request cancelled.");
 }
 
-function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", settings = null } = {}) {
+function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", settings = null, queuedEffect = null } = {}) {
   if (!unit) return;
   const isRequestedDelay = room.delayRequest?.unitId === unit.id;
   if (!room.hardPaused && !isRequestedDelay) {
@@ -471,13 +511,16 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", sett
     consumeTurn: wasActive,
     resolving: false,
   };
-  if (normalizedKind === "action") {
+  if (normalizedKind === "queued") {
+    nextDelay.queuedEffect = normalizeQueuedEffect(queuedEffect);
+    unit.delayedAction = nextDelay;
+  } else if (normalizedKind === "action") {
     unit.delayedAction = nextDelay;
   } else {
     unit.delayTimer = nextDelay;
   }
   clearDelayRequest(room);
-  pushLog(room, `${unit.characterName} started ${nextDelay.kind === "action" ? `Delayed Action: ${nextDelay.label}` : "a Delay Timer"} at ${nextDelay.rate}.`);
+  pushLog(room, `${unit.characterName} started ${nextDelay.kind === "queued" ? `Queued Effect setup: ${nextDelay.label}` : nextDelay.kind === "action" ? `Delayed Resolution: ${nextDelay.label}` : "Reload/Recovery"} at ${nextDelay.rate}.`);
   if (wasActive) {
     room.pausedForTurn = false;
     room.activeId = null;
@@ -502,7 +545,7 @@ function updateUnitDelay(room, unit, { delayId = "", kind = "timer", rate = 1, l
   delay.label = normalizeDelayLabel(label, normalizedKind);
   delay.settings = normalizeDelaySettings(settings);
   delay.kind = normalizedKind;
-  pushLog(room, `${unit.characterName}'s ${normalizedKind === "action" ? "Delayed Resolution" : "Delay Timer"} was changed to ${delay.rate}.`);
+  pushLog(room, `${unit.characterName}'s ${normalizedKind === "action" ? "Delayed Resolution" : "Reload/Recovery"} was changed to ${delay.rate}.`);
 }
 
 function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
@@ -544,9 +587,21 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
-  const completedActions = [];
+  const completedEvents = [];
   for (const unit of room.units) {
     if (unit.id === skipId || !unit.speed) continue;
+    if (Array.isArray(unit.queuedEffects)) {
+      for (const effect of unit.queuedEffects) {
+        if (effect.resolving) continue;
+        const impairmentMultiplier = Math.max(0, 1 - (Math.max(0, Math.min(2, Number(effect.impairments) || 0)) * 0.1));
+        effect.progress = Math.min(100, (Number(effect.progress) || 0) + effect.rate * impairmentMultiplier * seconds * multiplier);
+        if (effect.progress >= 100) {
+          effect.progress = 100;
+          effect.resolving = true;
+          completedEvents.push({ type: "queued", unit, effect });
+        }
+      }
+    }
     if (unit.delayTimer) {
       if (!unit.delayTimer.resolving) {
         unit.delayTimer.remaining = Math.max(0, unit.delayTimer.remaining - unit.delayTimer.rate * seconds * multiplier);
@@ -554,7 +609,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
           const shouldConsumeTurn = unit.delayTimer.consumeTurn && !unit.delayedAction;
           if (shouldConsumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
           unit.delayTimer = null;
-          pushLog(room, `${unit.characterName}'s Delay Time ended.`);
+          pushLog(room, `${unit.characterName}'s Reload/Recovery ended.`);
         }
       }
       continue;
@@ -565,14 +620,24 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
         if (unit.delayedAction.remaining <= 0) {
           unit.delayedAction.remaining = 0;
           unit.delayedAction.resolving = true;
-          completedActions.push({ unit, delay: unit.delayedAction });
+          completedEvents.push({ type: "delayed", unit, delay: unit.delayedAction });
         }
       }
       continue;
     }
     if (unit.atb < room.threshold) unit.atb += unit.speed * seconds * multiplier;
   }
-  return completedActions;
+  return completedEvents;
+}
+
+function resolveCompletedEvent(room, event, source) {
+  if (!event) return false;
+  if (event.type === "queued") {
+    pauseForQueuedEffect(room, event.unit, event.effect, source);
+    return true;
+  }
+  pauseForDelayedAction(room, event.unit, source);
+  return true;
 }
 
 function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } = {}) {
@@ -581,10 +646,10 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
   const interruptedId = room.commandExpired ? room.activeId : null;
 
   if (!exact) {
-    const completedActions = addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
-    if (completedActions.length) {
+    const completedEvents = addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
+    if (completedEvents.length) {
       if (interruptedId) interruptActiveTurn(room);
-      pauseForDelayedAction(room, completedActions[0].unit, source);
+      resolveCompletedEvent(room, completedEvents[0], source);
       return;
     }
     const ready = findReadyUnit(room, interruptedId);
@@ -604,22 +669,31 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
   const times = room.units
     .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
-    .map((unit) => {
+    .flatMap((unit) => {
       const multiplier = interruptedId ? 0.2 : 1;
+      const effectTimes = Array.isArray(unit.queuedEffects)
+        ? unit.queuedEffects
+          .filter((effect) => !effect.resolving)
+          .map((effect) => {
+            const impairmentMultiplier = Math.max(0, 1 - (Math.max(0, Math.min(2, Number(effect.impairments) || 0)) * 0.1));
+            const speed = effect.rate * multiplier * impairmentMultiplier;
+            return speed > 0 ? Math.max(0, (100 - (Number(effect.progress) || 0)) / speed) : Infinity;
+          })
+        : [];
       const delay = activeDelay(unit);
-      if (delay && !delay.resolving) return Math.max(0, delay.remaining / (delay.rate * multiplier));
-      if (delay) return Infinity;
-      return Math.max(0, (room.threshold - unit.atb) / (unit.speed * multiplier));
+      if (delay && !delay.resolving) return [...effectTimes, Math.max(0, delay.remaining / (delay.rate * multiplier))];
+      if (delay) return [...effectTimes, Infinity];
+      return [...effectTimes, Math.max(0, (room.threshold - unit.atb) / (unit.speed * multiplier))];
     })
     .filter((time) => Number.isFinite(time));
   if (!times.length) return;
 
   const nextReadyIn = Math.min(...times);
   if (nextReadyIn <= seconds) {
-    const completedActions = addProgress(room, nextReadyIn, { slow: Boolean(interruptedId), skipId: interruptedId });
+    const completedEvents = addProgress(room, nextReadyIn, { slow: Boolean(interruptedId), skipId: interruptedId });
     if (interruptedId) interruptActiveTurn(room);
-    if (completedActions.length) {
-      pauseForDelayedAction(room, completedActions[0].unit, source);
+    if (completedEvents.length) {
+      resolveCompletedEvent(room, completedEvents[0], source);
       return;
     }
     pauseForReadyUnit(room, findReadyUnit(room), source);
@@ -766,6 +840,7 @@ async function handleAction(req, res) {
       delay: null,
       delayTimer: null,
       delayedAction: null,
+      queuedEffects: [],
       controlledBy: body.controlledBy || "player",
       team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
       actorType: normalizeActorType(body.actorType),
@@ -893,6 +968,7 @@ async function handleAction(req, res) {
       rate: body.rate,
       label: body.label,
       settings: body.settings,
+      queuedEffect: body.queuedEffect,
     });
   }
 
@@ -915,6 +991,39 @@ async function handleAction(req, res) {
     });
   }
 
+  if (action === "impairQueuedEffect") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const effect = unit?.queuedEffects?.find((entry) => entry.id === body.effectId);
+    if (unit && effect) {
+      effect.impairments = Math.max(0, Math.min(3, (Number(effect.impairments) || 0) + 1));
+      if (effect.impairments >= 3) {
+        unit.queuedEffects = unit.queuedEffects.filter((entry) => entry.id !== effect.id);
+        if (room.activeAction?.effectId === effect.id) {
+          room.activeAction = null;
+          room.pausedForTurn = false;
+          moveToNextTurnOrClock(room, room.activeSource);
+        }
+        pushLog(room, `${effect.label} was destroyed.`);
+      } else {
+        pushLog(room, `${effect.label} impaired (${effect.impairments}/3).`);
+      }
+    }
+  }
+
+  if (action === "removeQueuedEffect") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const effect = unit?.queuedEffects?.find((entry) => entry.id === body.effectId);
+    if (unit && effect) {
+      unit.queuedEffects = unit.queuedEffects.filter((entry) => entry.id !== effect.id);
+      if (room.activeAction?.effectId === effect.id) {
+        room.activeAction = null;
+        room.pausedForTurn = false;
+        moveToNextTurnOrClock(room, room.activeSource);
+      }
+      pushLog(room, `${effect.label} removed.`);
+    }
+  }
+
   if (action === "step") {
     if (room.activeId || room.pausedForTurn) {
       pushLog(room, "Resolve the active turn before stepping the clock.");
@@ -935,6 +1044,7 @@ async function handleAction(req, res) {
       unit.delay = null;
       unit.delayTimer = null;
       unit.delayedAction = null;
+      unit.queuedEffects = [];
     }
     room.running = false;
     room.pausedForTurn = false;
@@ -972,9 +1082,35 @@ async function handleAction(req, res) {
       const actionToResolve = room.activeAction;
       const unit = room.units.find((entry) => entry.id === actionToResolve.unitId);
       if (unit) {
-        unit.delayedAction = null;
-        if (!unit.delayTimer) unit.atb = Math.max(0, unit.atb - room.threshold);
-        pushLog(room, `Resolved Action: ${actionToResolve.label}.`);
+        if (actionToResolve.kind === "queuedEffect") {
+          const before = Array.isArray(unit.queuedEffects) ? unit.queuedEffects.length : 0;
+          unit.queuedEffects = (unit.queuedEffects || []).filter((effect) => effect.id !== actionToResolve.effectId);
+          pushLog(room, before === unit.queuedEffects.length
+            ? `Resolved Queued Effect: ${actionToResolve.label}.`
+            : `Resolved Queued Effect: ${actionToResolve.label}.`);
+        } else {
+          const queuedTemplate = unit.delayedAction?.queuedEffect;
+          unit.delayedAction = null;
+          if (!unit.delayTimer) unit.atb = Math.max(0, unit.atb - room.threshold);
+          if (queuedTemplate) {
+            unit.queuedEffects = Array.isArray(unit.queuedEffects) ? unit.queuedEffects : [];
+            if (unit.queuedEffects.length >= 5) {
+              pushLog(room, `${unit.characterName} cannot queue ${queuedTemplate.label}; maximum queued effects reached.`);
+            } else {
+              unit.queuedEffects.push({
+                ...copyDelay(queuedTemplate),
+                id: id(),
+                progress: 0,
+                total: 100,
+                impairments: 0,
+                resolving: false,
+              });
+              pushLog(room, `${unit.characterName} launched Queued Effect: ${queuedTemplate.label}.`);
+            }
+          } else {
+            pushLog(room, `Resolved Action: ${actionToResolve.label}.`);
+          }
+        }
       }
       room.pausedForTurn = false;
       room.activeAction = null;
