@@ -391,12 +391,21 @@ function c4IconMarkup(value) {
 }
 
 function c4CritIconMarkup(active) {
+  const rainbow = active
+    ? `
+      <path class="c4-crit-rainbow" d="${c4ArcPath(30, 332, 208, 0)}"></path>
+      <path class="c4-crit-rainbow" d="${c4ArcPath(30, 28, 152, 1)}"></path>
+      <path class="c4-crit-rainbow" d="${c4ArcPath(43, 332, 208, 0)}"></path>
+      <path class="c4-crit-rainbow" d="${c4ArcPath(43, 28, 152, 1)}"></path>
+    `
+    : "";
   return `
     <svg class="c4-icon c4-crit-icon" viewBox="0 0 100 100" aria-hidden="true">
       <path class="c4-ring left ${active ? "active" : ""}" d="${c4ArcPath(30, 332, 208, 0)}"></path>
       <path class="c4-ring right ${active ? "active" : ""}" d="${c4ArcPath(30, 28, 152, 1)}"></path>
       <path class="c4-ring left ${active ? "active" : ""}" d="${c4ArcPath(43, 332, 208, 0)}"></path>
       <path class="c4-ring right ${active ? "active" : ""}" d="${c4ArcPath(43, 28, 152, 1)}"></path>
+      ${rainbow}
     </svg>
   `;
 }
@@ -526,9 +535,9 @@ function renderDelayDialog() {
       const crit = factor === "Execution";
       return `
         <div class="c4-control ${factorClass} ${crit ? "crit-factor" : ""}" data-c4-factor="${escapeHtml(factor)}">
-          <button type="button" class="c4-hit left" data-c4-index="${index}" data-c4-side="left" aria-label="${escapeHtml(factor)} down"></button>
+          <button type="button" class="c4-hit left ${crit ? "crit-toggle" : ""}" data-c4-index="${index}" data-c4-side="${crit ? "toggle" : "left"}" aria-label="${escapeHtml(factor)} ${crit ? "toggle" : "down"}"></button>
           ${crit ? c4CritIconMarkup(value > 0) : c4IconMarkup(value)}
-          <button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>
+          ${crit ? "" : `<button type="button" class="c4-hit right" data-c4-index="${index}" data-c4-side="right" aria-label="${escapeHtml(factor)} up"></button>`}
           <div class="c4-label">${escapeHtml(factor)}${crit ? "<small>(Crit)</small>" : ""}</div>
         </div>
       `;

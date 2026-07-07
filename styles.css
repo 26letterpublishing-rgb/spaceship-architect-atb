@@ -562,6 +562,12 @@ h2 {
   transition-duration: 0ms !important;
 }
 
+.hard-paused .delay-dialog *,
+.hard-paused .delay-dialog *::before,
+.hard-paused .delay-dialog *::after {
+  animation-play-state: running !important;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -1935,6 +1941,32 @@ h2 {
   }
 }
 
+@keyframes c4CritRainbow {
+  0% {
+    stroke: #ff4f69;
+  }
+
+  20% {
+    stroke: #ffd05a;
+  }
+
+  40% {
+    stroke: #39e58f;
+  }
+
+  60% {
+    stroke: #28d7ff;
+  }
+
+  80% {
+    stroke: #9b5cff;
+  }
+
+  100% {
+    stroke: #ff4f69;
+  }
+}
+
 .delay-kind-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2061,20 +2093,13 @@ h2 {
   color: #c6ffe2;
 }
 
-.c4-control.crit-factor .c4-hit {
-  width: 100%;
-}
-
-.c4-control.crit-factor .c4-hit.left {
-  right: 0;
-}
-
-.c4-control.crit-factor .c4-hit.right {
-  left: 0;
-}
-
 .c4-crit-icon .c4-ring {
   stroke-width: 9;
+}
+
+.c4-control.crit-factor .c4-hit.crit-toggle {
+  inset: 8px 0 32px;
+  width: 100%;
 }
 
 .c4-control.crit-factor .c4-ring.active.left,
@@ -2083,6 +2108,18 @@ h2 {
   filter:
     drop-shadow(0 0 4px rgba(57, 229, 143, 0.86))
     drop-shadow(0 0 12px rgba(57, 229, 143, 0.48));
+}
+
+.c4-crit-rainbow {
+  fill: none;
+  stroke: #ff4f69;
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+  animation: c4CritRainbow 950ms linear infinite;
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.45))
+    drop-shadow(0 0 7px currentColor);
 }
 
 .c4-label small {
