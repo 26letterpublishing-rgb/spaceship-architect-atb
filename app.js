@@ -2087,7 +2087,6 @@ playerDelay.addEventListener("click", () => {
 cancelDelayDialog.addEventListener("click", () => closeDelayDialog({ cancelRequest: true }));
 confirmDelayDialog.addEventListener("click", confirmDelayDialogAction);
 delayDialog.addEventListener("click", (event) => {
-  if (event.target === delayDialog) closeDelayDialog({ cancelRequest: true });
   const kindButton = event.target.closest("[data-delay-kind]");
   if (kindButton && delayModalState) {
     delayModalState.kind = kindButton.dataset.delayKind === "action" ? "action" : "timer";
