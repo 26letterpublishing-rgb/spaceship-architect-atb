@@ -314,6 +314,11 @@ function clearDelayRequest(room) {
   room.delayRequest = null;
 }
 
+function delayConsoleAllowed(room) {
+  const active = room.units.find((unit) => unit.id === room.activeId);
+  return Boolean(room.hardPaused || (room.pausedForTurn && active?.team === "npc"));
+}
+
 function holdCommandWindow(room) {
   if (!room.commandDeadline || room.commandExpired || room.holdPaused) return;
   room.holdPaused = true;
@@ -462,7 +467,7 @@ function pauseForQueuedEffect(room, unit, effect, source = "clock") {
 
 function requestDelay(room, unit, kind, requestedBy = "player") {
   if (!unit || room.activeId !== unit.id) return;
-  if (requestedBy !== "player" && !room.hardPaused) {
+  if (requestedBy !== "player" && !delayConsoleAllowed(room)) {
     pushLog(room, "Pause Everything before opening the Delay Console.");
     return;
   }
@@ -493,7 +498,7 @@ function cancelDelayRequest(room) {
 function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", settings = null, queuedEffect = null } = {}) {
   if (!unit) return;
   const isRequestedDelay = room.delayRequest?.unitId === unit.id;
-  if (!room.hardPaused && !isRequestedDelay) {
+  if (!delayConsoleAllowed(room) && !isRequestedDelay) {
     pushLog(room, "Pause Everything before confirming a delay.");
     return;
   }
@@ -531,7 +536,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", sett
 }
 
 function updateUnitDelay(room, unit, { delayId = "", kind = "timer", rate = 1, label = "", settings = null } = {}) {
-  if (!unit || !room.hardPaused) {
+  if (!unit || !delayConsoleAllowed(room)) {
     pushLog(room, "Pause Everything before changing a delay.");
     return;
   }

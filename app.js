@@ -1430,6 +1430,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.color || "",
     unit.team,
     state?.hardPaused ? "hardpaused" : "not-hardpaused",
+    gm ? (delayConsoleAllowed() ? "delay-open" : "delay-closed") : "delay-na",
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
     delayedActionFor(unit) ? `action:${delayedActionFor(unit).label}:${delayedActionFor(unit).remaining}:${delayedActionFor(unit).rate}:${delayedActionFor(unit).resolving ? "resolving" : "waiting"}` : "noaction",
     queuedEffectsFor(unit).map((effect) => `queue:${effect.id}:${effect.label}:${effect.rate}:${effect.impairments}:${effect.resolving ? "resolving" : "filling"}`).join(",") || "noqueue",
@@ -1456,6 +1457,16 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
 
   const fill = card.querySelector(".fill");
   if (fill) fill.style.width = `${pct(unit)}%`;
+
+  if (gm) {
+    const delayButtons = card.querySelectorAll('button[data-action="delay"]');
+    const delayDisabled = !delayConsoleAllowed();
+    delayButtons.forEach((button) => {
+      button.classList.toggle("delay-blocked", delayDisabled);
+      button.setAttribute("aria-disabled", delayDisabled ? "true" : "false");
+      button.title = delayDisabled ? "Pause Everything before opening Delay" : "Delay";
+    });
+  }
 
   const command = commandFor(unit);
   const commandBar = card.querySelector(".command-bar");
