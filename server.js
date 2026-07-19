@@ -6,27 +6,11 @@ const os = require("os");
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
 const PUBLIC_DIR = __dirname;
-const HEARTBEAT_MS = 25000;
-const THRESHOLD = 100;
-const DEFAULT_COMMAND_WINDOW = 20;
-const DUMBFOUNDED_RATE = 20;
-const EXPIRED_COMMAND_MULTIPLIER = 0.2;
-const MOVE_EDGE_RATE = 75;
 
 const rooms = new Map();
 const clients = new Map();
 let stateSequence = 0;
-
-const ACTIONS = {
-  move: { id: "move", label: "Move", kind: "move", skill: null, hasResolution: false, targetMode: "none", risk: { preparation: 0, execution: 1, recovery: 0 }, notes: "Move a chosen distance." },
-  use_item: { id: "use_item", label: "Use Item", kind: "item", skill: "initiative", hasResolution: true, targetMode: "optional", risk: { preparation: 1, execution: 3, recovery: 2 }, notes: "Use or activate an item." },
-  defense: { id: "defense", label: "Defense", kind: "standard", skill: "dodge", hasResolution: false, targetMode: "none", risk: { preparation: 0, execution: 0, recovery: 0 }, notes: "Focus entirely on defense." },
-  melee_attack: { id: "melee_attack", label: "Melee Attack", kind: "attack", skill: "melee", hasResolution: true, targetMode: "required", risk: null, notes: "Attack with a melee weapon." },
-  fire_gun: { id: "fire_gun", label: "Fire Gun", kind: "attack", skill: "firearms", hasResolution: true, targetMode: "required", risk: null, notes: "Fire the equipped weapon." },
-  close_quarter: { id: "close_quarter", label: "Close Quarter Action", kind: "attack", skill: "melee", hasResolution: true, targetMode: "required", risk: null, notes: "Wrestle, tackle, disarm, or restrain." },
-  reload_ready: { id: "reload_ready", label: "Reload / Ready", kind: "standard", skill: "firearms", hasResolution: false, targetMode: "none", risk: null, notes: "Reload, draw, ready, or clear a weapon." },
-  improvised: { id: "improvised", label: "Improvised Action", kind: "improvised", skill: null, hasResolution: true, targetMode: "optional", risk: { preparation: 1, execution: 3, recovery: 2 }, notes: "GM-configured special action." },
-};
+const HEARTBEAT_MS = 25000;
 
 function id() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -39,216 +23,6 @@ function roomCode() {
   return code;
 }
 
-function clone(value) {
-  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function number(value, fallback = 0) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function whole(value, fallback = 0, min = 0, max = 999) {
-  return clamp(Math.round(number(value, fallback)), min, max);
-}
-
-function positiveRate(value, fallback = 1) {
-  return Math.max(0.01, number(value, fallback));
-}
-
-function normalizeColor(value) {
-  const color = String(value || "").trim();
-  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#39e58f";
-}
-
-function normalizeTeam(value) {
-  return value === "pc" ? "pc" : "npc";
-}
-
-function normalizeCommandWindow(value, team) {
-  if (team !== "pc") return null;
-  return whole(value, DEFAULT_COMMAND_WINDOW, 1, 999);
-}
-
-function normalizeRisk(value, fallback = 0) {
-  return whole(value, fallback, 0, 3);
-}
-
-function normalizeStats(source = {}) {
-  return {
-    intellect: whole(source.intellect, 7, 0, 20),
-    dexterity: whole(source.dexterity, 7, 0, 20),
-    perception: whole(source.perception, 7, 0, 20),
-    initiative: whole(source.initiative, 7, 0, 99),
-    composure: whole(source.composure, 3, 0, 99),
-    firearms: whole(source.firearms, 7, 0, 99),
-    melee: whole(source.melee, 7, 0, 99),
-    dodge: whole(source.dodge, 7, 0, 99),
-  };
-}
-
-function normalizeWeapon(source = {}) {
-  return {
-    preparation: positiveRate(source.preparation, 10),
-    execution: positiveRate(source.execution, 20),
-    recovery: positiveRate(source.recovery, 15),
-    risk: {
-      preparation: normalizeRisk(source.risk?.preparation ?? source.preparationRisk, 1),
-      execution: normalizeRisk(source.risk?.execution ?? source.executionRisk, 3),
-      recovery: normalizeRisk(source.risk?.recovery ?? source.recoveryRisk, 2),
-    },
-  };
-}
-
-function moveSpeed(dexterity) {
-  const dex = whole(dexterity, 0, 0, 20);
-  if (dex <= 4) return dex;
-  if (dex <= 10) return 4 + Math.floor((dex - 4) / 2);
-  return Math.min(10, 7 + Math.floor((dex - 10) / 3));
-}
-
-function recoveryRate(dexterity, skill, weaponRecovery) {
-  return positiveRate((25 * (number(dexterity) + number(skill) + 6)) / positiveRate(weaponRecovery, 15));
-}
-
-function actionMetadata() {
-  return Object.values(ACTIONS).map((entry) => clone(entry));
-}
-
-function isAttack(action) {
-  return action?.kind === "attack";
-}
-
-function actionRequestFromBody(body = {}) {
-  return {
-    actionId: String(body.actionId || "improvised"),
-    targetId: body.targetId ? String(body.targetId) : null,
-    distance: body.distance === undefined ? null : positiveRate(body.distance, 1),
-    customAction: body.customAction ? clone(body.customAction) : null,
-  };
-}
-
-function targetExists(room, targetId) {
-  return !targetId || room.units.some((unit) => unit.id === targetId);
-}
-
-function requestIsValid(room, request) {
-  const template = ACTIONS[request.actionId];
-  if (!template) return false;
-  if (!targetExists(room, request.targetId)) return false;
-  if (template.kind === "move" && !(number(request.distance) > 0)) return false;
-  return true;
-}
-
-function buildAction(room, unit, request, { queued = false } = {}) {
-  const template = clone(ACTIONS[request.actionId] || ACTIONS.improvised);
-  const stats = unit.stats;
-  const weapon = unit.weapon;
-  const target = room.units.find((entry) => entry.id === request.targetId) || null;
-  const action = {
-    ...template,
-    targetId: target?.id || null,
-    targetName: target?.characterName || "None/N/A",
-    queued,
-    rates: { preparation: 1, execution: 1, recovery: 1 },
-    risk: clone(template.risk || weapon.risk),
-    movement: null,
-    heavyStagger: false,
-    poiseBreaker: false,
-    recoveryReductionStacks: 0,
-  };
-
-  if (template.kind === "improvised") {
-    const custom = request.customAction || {};
-    action.label = String(custom.label || template.label).trim().slice(0, 80) || template.label;
-    action.rates = {
-      preparation: positiveRate(custom.preparationRate, 10),
-      execution: positiveRate(custom.executionRate, 20),
-      recovery: positiveRate(custom.recoveryRate, 15),
-    };
-    action.risk = {
-      preparation: normalizeRisk(custom.preparationRisk, 1),
-      execution: normalizeRisk(custom.executionRisk, 3),
-      recovery: normalizeRisk(custom.recoveryRisk, 2),
-    };
-    action.hasResolution = custom.hasResolution !== false;
-  } else if (template.kind === "move") {
-    const distance = positiveRate(request.distance, 1);
-    const speed = Math.max(1, moveSpeed(stats.dexterity));
-    const duration = (3 * distance) / speed;
-    action.rates = { preparation: MOVE_EDGE_RATE, execution: THRESHOLD / duration, recovery: MOVE_EDGE_RATE };
-    action.movement = { distance, speed, duration };
-  } else if (template.kind === "item") {
-    action.rates = {
-      preparation: positiveRate(stats.perception + stats.initiative + 35),
-      execution: positiveRate(stats.dexterity + stats.initiative + 5),
-      recovery: positiveRate(stats.dexterity + stats.initiative + 35),
-    };
-  } else {
-    const skill = number(stats[template.skill]);
-    action.rates = {
-      preparation: positiveRate(stats.perception + skill + weapon.preparation),
-      execution: positiveRate(stats.dexterity + skill + weapon.execution),
-      recovery: recoveryRate(stats.dexterity, skill, weapon.recovery),
-    };
-  }
-
-  if (queued) action.rates.preparation += 1;
-
-  if (isAttack(action)) {
-    const pending = unit.pendingAttackPoise || {};
-    const totalCost = (pending.heavyStagger ? 2 : 0) + (pending.poiseBreaker ? 2 : 0);
-    if (totalCost <= unit.poiseRemaining) {
-      action.heavyStagger = Boolean(pending.heavyStagger);
-      action.poiseBreaker = Boolean(pending.poiseBreaker);
-      unit.poiseRemaining -= totalCost;
-      if (action.poiseBreaker) action.rates.preparation *= 0.5;
-      if (action.heavyStagger) action.rates.recovery *= 0.5;
-    }
-  }
-  unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false };
-  return action;
-}
-
-function currentPhaseRate(unit) {
-  if (!unit) return 0;
-  if (unit.phase === "decision") {
-    const rate = positiveRate(unit.stats.intellect + unit.stats.initiative);
-    return unit.decisionBoost ? rate * 2 : rate;
-  }
-  if (unit.phase === "dumbfounded") return DUMBFOUNDED_RATE;
-  if (unit.phase === "stagger") return positiveRate(unit.staggerRate);
-  if (!unit.currentAction) return 0;
-  if (unit.phase === "preparation") return positiveRate(unit.currentAction.rates.preparation);
-  if (unit.phase === "execution") return positiveRate(unit.currentAction.rates.execution);
-  if (unit.phase === "recovery") return positiveRate(unit.currentAction.activeRecoveryRate || unit.currentAction.rates.recovery);
-  return 0;
-}
-
-function currentRisk(unit) {
-  if (!unit?.currentAction) return 0;
-  if (unit.phase === "preparation") return normalizeRisk(unit.currentAction.risk.preparation);
-  if (unit.phase === "execution" || unit.phase === "resolution") return normalizeRisk(unit.currentAction.risk.execution);
-  if (unit.phase === "recovery") return normalizeRisk(unit.currentAction.risk.recovery);
-  return 0;
-}
-
-function movementUnits(unit) {
-  if (unit?.phase !== "execution" || unit.currentAction?.kind !== "move") return 0;
-  const distance = number(unit.currentAction.movement?.distance);
-  return Math.min(distance, Math.floor((distance * number(unit.phaseProgress)) / THRESHOLD + 1e-7));
-}
-
-function phaseDirection(phase) {
-  if (phase === "decision" || phase === "execution") return "up";
-  if (["preparation", "recovery", "dumbfounded", "stagger"].includes(phase)) return "down";
-  return "hold";
-}
-
 function createRoom() {
   let code = roomCode();
   while (rooms.has(code)) code = roomCode();
@@ -256,22 +30,24 @@ function createRoom() {
     roomCode: code,
     running: false,
     pausedForTurn: false,
-    pausedForResolution: false,
-    pausedForStagger: false,
     resumeAfterTurn: false,
-    hardPaused: false,
     activeId: null,
     activeAction: null,
-    pendingStagger: null,
+    activeSource: null,
     commandDeadline: null,
     commandTotal: 0,
     commandExpired: false,
+    hardPaused: false,
+    holdPaused: false,
+    holdStartedAt: null,
+    commandHeldRemaining: null,
     lastInterruptedId: null,
     lastInterruptedAt: 0,
     lastKeepAliveAt: Date.now(),
     lastTick: Date.now(),
+    delayRequest: null,
     hasEngagedClock: false,
-    threshold: THRESHOLD,
+    threshold: 100,
     units: [],
     log: [],
     undoSnapshot: null,
@@ -286,67 +62,61 @@ function getRoom(code) {
   return rooms.get(String(code || "").trim().toUpperCase());
 }
 
-function commandState(room) {
-  if (!room.activeId || !room.commandTotal) return null;
-  const remaining = room.commandExpired || !room.commandDeadline ? 0 : Math.max(0, (room.commandDeadline - Date.now()) / 1000);
-  return { unitId: room.activeId, total: room.commandTotal, remaining, expired: room.commandExpired };
-}
-
 function publicState(room) {
+  migrateRoomDelays(room);
+  const command = commandState(room);
   return {
     revision: ++stateSequence,
     roomCode: room.roomCode,
     running: room.running,
     pausedForTurn: room.pausedForTurn,
-    pausedForResolution: room.pausedForResolution,
-    pausedForStagger: room.pausedForStagger,
     activeId: room.activeId,
-    activeAction: clone(room.activeAction),
-    pendingStagger: clone(room.pendingStagger),
-    command: commandState(room),
-    commandExpired: room.commandExpired,
+    activeAction: room.activeAction,
+    activeSource: room.activeSource,
+    command,
     hardPaused: room.hardPaused,
+    holdPaused: room.holdPaused,
+    delayRequest: room.delayRequest,
     hasEngagedClock: room.hasEngagedClock,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
     lastKeepAliveAt: room.lastKeepAliveAt,
     threshold: room.threshold,
-    actions: actionMetadata(),
-    units: room.units.map((unit) => ({
-      ...clone(unit),
-      phaseRate: currentPhaseRate(unit),
-      phaseDirection: phaseDirection(unit.phase),
-      currentRisk: currentRisk(unit),
-      movementUnits: movementUnits(unit),
-      moveSpeed: moveSpeed(unit.stats.dexterity),
-    })),
-    log: room.log.slice(-40),
+    units: room.units,
+    log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
   };
 }
 
 function pushLog(room, text) {
   room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text });
-  room.log = room.log.slice(-100);
+  room.log = room.log.slice(-80);
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function snapshotRoom(room) {
   return {
     running: room.running,
     pausedForTurn: room.pausedForTurn,
-    pausedForResolution: room.pausedForResolution,
-    pausedForStagger: room.pausedForStagger,
     resumeAfterTurn: room.resumeAfterTurn,
-    hardPaused: room.hardPaused,
     activeId: room.activeId,
     activeAction: clone(room.activeAction),
-    pendingStagger: clone(room.pendingStagger),
+    activeSource: room.activeSource,
     commandRemaining: room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : null,
     commandTotal: room.commandTotal,
     commandExpired: room.commandExpired,
+    hardPaused: room.hardPaused,
+    holdPaused: room.holdPaused,
+    holdStartedAt: room.holdStartedAt,
+    commandHeldRemaining: room.commandHeldRemaining,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
+    delayRequest: clone(room.delayRequest),
     hasEngagedClock: room.hasEngagedClock,
+    threshold: room.threshold,
     units: clone(room.units),
     log: clone(room.log),
   };
@@ -358,16 +128,54 @@ function saveUndoSnapshot(room) {
 
 function restoreUndoSnapshot(room) {
   if (!room.undoSnapshot) return false;
-  const snap = room.undoSnapshot;
-  Object.assign(room, clone(snap));
-  room.commandDeadline = snap.commandRemaining === null ? null : Date.now() + snap.commandRemaining * 1000;
+  const snapshot = room.undoSnapshot;
+  room.running = snapshot.running;
+  room.pausedForTurn = snapshot.pausedForTurn;
+  room.resumeAfterTurn = snapshot.resumeAfterTurn;
+  room.activeId = snapshot.activeId;
+  room.activeAction = clone(snapshot.activeAction);
+  room.activeSource = snapshot.activeSource;
+  room.commandDeadline = snapshot.commandRemaining === null ? null : Date.now() + snapshot.commandRemaining * 1000;
+  room.commandTotal = snapshot.commandTotal;
+  room.commandExpired = snapshot.commandExpired;
+  room.hardPaused = snapshot.hardPaused;
+  room.holdPaused = snapshot.holdPaused;
+  room.holdStartedAt = snapshot.holdStartedAt;
+  room.commandHeldRemaining = snapshot.commandHeldRemaining;
+  room.lastInterruptedId = snapshot.lastInterruptedId;
+  room.lastInterruptedAt = snapshot.lastInterruptedAt;
+  room.delayRequest = clone(snapshot.delayRequest);
+  room.hasEngagedClock = snapshot.hasEngagedClock;
+  room.threshold = snapshot.threshold;
+  room.units = clone(snapshot.units);
+  room.log = clone(snapshot.log);
   room.undoSnapshot = null;
   room.lastTick = Date.now();
-  pushLog(room, "Undid last timing change.");
+  pushLog(room, "GM undid the last timing change.");
   return true;
 }
 
-const undoableActions = new Set(["join", "addUnit", "removeUnit", "setRunning", "setHardPaused", "toggleClock", "setCommandWindow", "setName", "setColor", "chooseAction", "queueAction", "removeQueuedAction", "completeResolution", "applyStagger", "resolveStagger", "spendPoise", "step", "reset", "clearEncounter", "nudge"]);
+const undoableActions = new Set([
+  "addUnit",
+  "removeUnit",
+  "setRunning",
+  "setHardPaused",
+  "toggleClock",
+  "setSpeed",
+  "setCommandWindow",
+  "requestDelay",
+  "cancelDelayRequest",
+  "startDelay",
+  "updateDelay",
+  "instantDelay",
+  "impairQueuedEffect",
+  "removeQueuedEffect",
+  "step",
+  "reset",
+  "clearEncounter",
+  "completeTurn",
+  "nudge",
+]);
 
 function sendEvent(res, event, data) {
   res.write(`event: ${event}\n`);
@@ -379,264 +187,401 @@ function broadcast(room) {
   for (const res of clients.get(room.roomCode) || []) sendEvent(res, "state", data);
 }
 
-function canStartClock(room) {
-  return room.units.length > 0 && !room.pausedForTurn && !room.pausedForResolution && !room.pausedForStagger;
+function normalizeSpeed(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return Math.max(1, Math.min(100, Number(value) || 1));
 }
 
-function clearCommand(room) {
-  room.commandDeadline = null;
-  room.commandTotal = 0;
-  room.commandExpired = false;
+function normalizeCommandWindow(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return Math.max(1, Math.min(999, Math.round(Number(value) || 1)));
+}
+
+function normalizeDelayRate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return Math.max(0.1, Math.min(100, Number(value) || 1));
+}
+
+function normalizeDelayKind(value) {
+  if (value === "queued") return "queued";
+  return value === "action" ? "action" : "timer";
+}
+
+function normalizeDelayLabel(value, kind = "timer") {
+  const fallback = kind === "queued" ? "Queued Effect" : kind === "action" ? "Delayed Resolution" : "Reload/Recovery";
+  return String(value || fallback).trim().slice(0, 60) || fallback;
+}
+
+function normalizeDelaySettings(value) {
+  const base = Number(value?.base);
+  const allowedBases = new Set([3, 6, 8, 10, 14]);
+  const factors = {};
+  for (const factor of ["Quality", "Performance", "Efficiency", "Situation", "Ingenuity", "Execution"]) {
+    const raw = Number(value?.factors?.[factor]) || 0;
+    if (factor === "Execution") {
+      factors[factor] = raw > 0 ? 1 : 0;
+      continue;
+    }
+    factors[factor] = Math.max(-4, Math.min(4, Math.round(raw)));
+  }
+  return {
+    base: allowedBases.has(base) ? base : 8,
+    factors,
+  };
+}
+
+function normalizeQueuedEffect(value) {
+  return {
+    id: id(),
+    label: normalizeDelayLabel(value?.label, "queued"),
+    rate: normalizeDelayRate(value?.rate) || 1,
+    settings: normalizeDelaySettings(value?.settings),
+    progress: 0,
+    total: 100,
+    impairments: 0,
+    resolving: false,
+  };
+}
+
+function normalizeActionLog(value) {
+  const text = String(value || "").trim().replace(/\s+/g, " ").slice(0, 60);
+  return text || "has taken an action";
+}
+
+function normalizeTeam(value) {
+  return value === "pc" ? "pc" : "npc";
+}
+
+function normalizeActorType(value) {
+  return "character";
+}
+
+function normalizeColor(value) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#39e58f";
+}
+
+function needsSetup(unit) {
+  return !unit.speed || (unit.team === "pc" && !unit.commandWindow);
+}
+
+function canStartClock(room) {
+  return room.units.length > 0 && !room.units.some(needsSetup);
 }
 
 function tieCompare(a, b) {
   if (a.team !== b.team) return a.team === "pc" ? -1 : 1;
-  const rateDifference = currentPhaseRate(b) - currentPhaseRate(a);
-  return rateDifference || a.tieSeed - b.tieSeed;
+  if ((a.speed || 0) !== (b.speed || 0)) return (b.speed || 0) - (a.speed || 0);
+  return a.tieSeed - b.tieSeed;
 }
 
-function readyUnits(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && unit.phase === "decision" && unit.phaseProgress >= THRESHOLD).sort(tieCompare);
+function findReadyUnit(room, excludeId = null) {
+  return room.units.filter((unit) => unit.id !== excludeId && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
-function clearPoiseBuffs(unit) {
-  unit.staggerImmunity = false;
-  unit.recoveryPoiseStacks = [];
-  unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false };
+function nextTurnSource(room, previousSource = null) {
+  if (room.resumeAfterTurn) return "clock";
+  if (previousSource === "step") return "step";
+  return "manual";
 }
 
-function completeExecutionPoise(room, unit) {
-  unit.cleanExecutionCount = whole(unit.cleanExecutionCount) + 1;
-  unit.totalExecutionCount = whole(unit.totalExecutionCount) + 1;
-  let restored = 0;
-  if (unit.stats.composure >= 8 && unit.cleanExecutionCount >= 5) {
-    unit.cleanExecutionCount = 0;
-    restored += 1;
-  }
-  if (unit.stats.composure >= 10 && unit.totalExecutionCount >= 8) {
-    unit.totalExecutionCount %= 8;
-    restored += 1;
-  }
-  if (restored) {
-    const before = unit.poiseRemaining;
-    unit.poiseRemaining = Math.min(unit.poiseMax, unit.poiseRemaining + restored);
-    if (unit.poiseRemaining > before) pushLog(room, `${unit.characterName} regained ${unit.poiseRemaining - before} Poise.`);
-  }
+function commandState(room) {
+  if (!room.activeId || !room.commandTotal) return null;
+  const remaining = (room.hardPaused || room.holdPaused) && room.commandHeldRemaining !== null
+    ? room.commandHeldRemaining
+    : room.commandExpired || !room.commandDeadline
+    ? 0
+    : Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+  return {
+    unitId: room.activeId,
+    total: room.commandTotal,
+    remaining,
+    expired: room.commandExpired,
+  };
 }
 
-function consumeRecoveryPoise(unit) {
-  const stacks = Array.isArray(unit.recoveryPoiseStacks) ? unit.recoveryPoiseStacks : [];
-  const active = stacks.length;
-  unit.recoveryPoiseStacks = stacks.map((uses) => uses - 1).filter((uses) => uses > 0);
-  return active;
-}
-
-function chooseActionInternal(room, unit, request, { queued = false } = {}) {
-  if (!requestIsValid(room, request)) return false;
-  const action = buildAction(room, unit, request, { queued });
-  unit.currentAction = action;
-  unit.phase = "preparation";
-  unit.phaseProgress = THRESHOLD;
-  unit.commandExpired = false;
-  unit.decisionBoost = false;
-  unit.staggerImmunity = false;
-  room.pausedForTurn = false;
-  room.activeId = null;
-  clearCommand(room);
-  pushLog(room, `${unit.characterName} ${queued ? "activated queued action" : "chose"} ${action.label}${action.targetId ? ` targeting ${action.targetName}` : ""}.`);
-  return true;
-}
-
-function pauseForDecision(room, unit) {
-  if (!unit || room.pausedForTurn || room.pausedForResolution || room.pausedForStagger) return;
-  unit.staggerImmunity = false;
-  if (unit.actionQueue?.length) {
-    const request = unit.actionQueue.shift();
-    if (chooseActionInternal(room, unit, request, { queued: true })) {
-      room.running = room.resumeAfterTurn && !room.hardPaused;
-      room.lastTick = Date.now();
-      return;
-    }
-    pushLog(room, `${unit.characterName}'s queued action became invalid.`);
-  }
-  room.running = false;
-  room.pausedForTurn = true;
-  room.activeId = unit.id;
-  room.activeAction = null;
-  unit.phase = "decision";
-  unit.phaseProgress = THRESHOLD;
-  unit.staggerRate = null;
-  unit.commandExpired = false;
+function clearActiveCommand(room) {
+  room.activeSource = null;
+  room.commandDeadline = null;
+  room.commandTotal = 0;
   room.commandExpired = false;
-  if (unit.team === "pc" && unit.commandWindow) {
+  room.holdPaused = false;
+  room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
+}
+
+function clearDelayRequest(room) {
+  room.delayRequest = null;
+}
+
+function delayConsoleAllowed(room) {
+  const active = room.units.find((unit) => unit.id === room.activeId);
+  return Boolean(room.hardPaused || (room.pausedForTurn && active?.team === "npc"));
+}
+
+function holdCommandWindow(room) {
+  if (!room.commandDeadline || room.commandExpired || room.holdPaused) return;
+  room.holdPaused = true;
+  room.holdStartedAt = Date.now();
+  room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+}
+
+function hardPauseRoom(room) {
+  if (room.hardPaused) return;
+  if (!room.holdPaused && room.commandDeadline && !room.commandExpired) {
+    room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
+  }
+  room.hardPaused = true;
+  room.holdStartedAt = Date.now();
+  room.lastTick = Date.now();
+  pushLog(room, "All timers paused.");
+}
+
+function hardResumeRoom(room) {
+  if (!room.hardPaused) return;
+  if (room.commandHeldRemaining !== null && room.commandDeadline) {
+    room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
+  }
+  room.hardPaused = false;
+  room.holdStartedAt = null;
+  if (!room.holdPaused) room.commandHeldRemaining = null;
+  room.lastTick = Date.now();
+  if (!room.running && !room.pausedForTurn && !room.holdPaused && !room.activeAction && hasActiveDelayCountdown(room) && canStartClock(room)) {
+    room.running = true;
+  }
+  pushLog(room, "All timers resumed.");
+}
+
+function copyDelay(delay) {
+  if (!delay) return null;
+  return JSON.parse(JSON.stringify(delay));
+}
+
+function migrateRoomDelays(room) {
+  for (const unit of room.units) {
+    if (!Array.isArray(unit.queuedEffects)) unit.queuedEffects = [];
+    if (!unit.delay) continue;
+    if (unit.delay.kind === "action") {
+      unit.delayedAction = unit.delayedAction || unit.delay;
+    } else if (unit.delay.kind === "queued") {
+      unit.delayedAction = unit.delayedAction || unit.delay;
+    } else {
+      unit.delayTimer = unit.delayTimer || unit.delay;
+    }
+    delete unit.delay;
+  }
+}
+
+function hasDelay(unit) {
+  return Boolean(unit?.delayTimer || unit?.delayedAction || unit?.delay);
+}
+
+function activeDelay(unit) {
+  return unit?.delayTimer || unit?.delayedAction || unit?.delay || null;
+}
+
+function hasActiveDelayCountdown(room) {
+  return room.units.some((unit) =>
+    (unit.delayTimer && !unit.delayTimer.resolving) ||
+    (unit.delayedAction && !unit.delayedAction.resolving) ||
+    (unit.delay && !unit.delay.resolving) ||
+    (Array.isArray(unit.queuedEffects) && unit.queuedEffects.some((effect) => !effect.resolving)),
+  );
+}
+
+function usesCommandWindow(unit, source) {
+  return source === "clock" && unit?.team === "pc" && unit?.commandWindow;
+}
+
+function pauseForReadyUnit(room, unit, source = "clock") {
+  if (!unit || room.pausedForTurn) return;
+  room.pausedForTurn = true;
+  room.running = false;
+  room.activeId = unit.id;
+  room.activeSource = source;
+  room.commandExpired = false;
+  room.holdPaused = false;
+  room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
+  if (usesCommandWindow(unit, source)) {
     room.commandTotal = unit.commandWindow;
     room.commandDeadline = Date.now() + unit.commandWindow * 1000;
-    pushLog(room, `${unit.characterName} is ready. Command Window started (${unit.commandWindow} sec).`);
   } else {
-    clearCommand(room);
-    pushLog(room, `${unit.characterName} is ready.`);
+    room.commandTotal = 0;
+    room.commandDeadline = null;
   }
+  pushLog(room, usesCommandWindow(unit, source)
+    ? `${unit.characterName} is ready. Command Window started (${unit.commandWindow} sec).`
+    : `${unit.characterName} is ready.`);
 }
 
-function interruptExpiredDecision(room) {
-  if (!room.commandExpired || !room.activeId) return false;
-  const unit = room.units.find((entry) => entry.id === room.activeId);
-  if (!unit) return false;
-  unit.phase = "dumbfounded";
-  unit.phaseProgress = THRESHOLD;
-  unit.currentAction = null;
-  unit.commandExpired = false;
-  unit.decisionBoost = false;
-  unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false };
-  room.lastInterruptedId = unit.id;
-  room.lastInterruptedAt = Date.now();
+function interruptActiveTurn(room) {
+  const interrupted = room.units.find((unit) => unit.id === room.activeId);
+  if (interrupted) {
+    interrupted.atb = Math.max(0, interrupted.atb - room.threshold);
+    room.lastInterruptedId = interrupted.id;
+    room.lastInterruptedAt = Date.now();
+    pushLog(room, `${interrupted.characterName}'s action was interrupted!`);
+  }
   room.activeId = null;
-  clearCommand(room);
-  pushLog(room, `${unit.characterName} is DUMBFOUNDED!`);
-  return true;
+  room.pausedForTurn = false;
+  clearActiveCommand(room);
 }
 
-function startRecovery(room, unit) {
-  if (!unit?.currentAction) return;
-  const reductionStacks = consumeRecoveryPoise(unit);
-  unit.currentAction.recoveryReductionStacks = reductionStacks;
-  unit.currentAction.activeRecoveryRate = unit.currentAction.rates.recovery * (2 ** reductionStacks);
-  unit.phase = "recovery";
-  unit.phaseProgress = THRESHOLD;
-  const reduction = reductionStacks ? ` (Poise x${2 ** reductionStacks} speed)` : "";
-  pushLog(room, `${unit.characterName} entered RECOVERY: ${unit.currentAction.label}${reduction}.`);
-}
-
-function cancelPausedActionFor(room, unit) {
-  let releasedPause = false;
-  if (room.activeId === unit.id) {
-    room.activeId = null;
-    room.pausedForTurn = false;
-    clearCommand(room);
-    releasedPause = true;
-  }
-  if (room.activeAction?.unitId === unit.id) {
-    room.activeAction = null;
-    room.pausedForResolution = false;
-    releasedPause = true;
-  }
-  return releasedPause;
-}
-
-function finishPendingStagger(room) {
-  room.pendingStagger = null;
-  room.pausedForStagger = false;
-  room.lastTick = Date.now();
-  moveToNextOrClock(room);
-}
-
-function applyStaggerNow(room, unit, rawDuration, { poiseBreaker = false } = {}) {
-  if (!unit) return false;
-  let duration = clamp(number(rawDuration, 1), 0.1, 3600);
-  if (poiseBreaker) {
-    clearPoiseBuffs(unit);
-    unit.poiseLocked = true;
-  } else {
-    if (unit.staggerImmunity) {
-      pushLog(room, `${unit.characterName}'s Poise ignored a ${duration.toFixed(2)} sec STAGGER.`);
-      return true;
-    }
-    const stacks = consumeRecoveryPoise(unit);
-    if (stacks) duration /= 2 ** stacks;
-  }
-
-  unit.cleanExecutionCount = 0;
-  const newRate = THRESHOLD / duration;
-  if (unit.phase === "stagger") {
-    const currentRate = positiveRate(unit.staggerRate);
-    const remaining = number(unit.phaseProgress) / currentRate;
-    if (duration > remaining) {
-      unit.phaseProgress = THRESHOLD;
-      unit.staggerRate = newRate;
-      pushLog(room, `${unit.characterName}'s STAGGER was replaced by a longer ${duration.toFixed(2)} sec STAGGER.`);
-    } else {
-      unit.staggerRate = Math.max(0.01, currentRate - 1);
-      pushLog(room, `${unit.characterName}'s STAGGER Rate was reduced by 1.`);
-    }
-    return true;
-  }
-
-  const cancelledLabel = unit.currentAction?.label || (room.activeId === unit.id ? "Decision" : "current action");
-  const releasedPause = cancelPausedActionFor(room, unit);
-  unit.phase = "stagger";
-  unit.phaseProgress = THRESHOLD;
-  unit.staggerRate = newRate;
-  unit.currentAction = null;
-  unit.decisionBoost = false;
-  unit.commandExpired = false;
-  unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false };
-  pushLog(room, `${unit.characterName} took damage. ${cancelledLabel} was voided; STAGGER ${duration.toFixed(2)} sec.`);
-  if (releasedPause) moveToNextOrClock(room);
-  return true;
-}
-
-function requestStagger(room, unit, rawDuration) {
-  if (!unit) return false;
-  let duration = clamp(number(rawDuration, 1), 0.1, 3600);
-  const source = room.activeAction?.action;
-  const matchesTarget = Boolean(source?.targetId && source.targetId === unit.id);
-  const poiseBreaker = matchesTarget && source.poiseBreaker;
-  if (matchesTarget && source.heavyStagger) duration *= 2;
-
-  if (!poiseBreaker && unit.staggerImmunity) return applyStaggerNow(room, unit, duration);
-  const canIgnore = !poiseBreaker && !unit.poiseLocked && unit.stats.composure >= 2 && unit.poiseRemaining >= 1;
-  if (canIgnore) {
-    room.running = false;
-    room.pausedForStagger = true;
-    room.pendingStagger = { id: id(), unitId: unit.id, characterName: unit.characterName, duration, poiseBreaker: false };
-    pushLog(room, `${unit.characterName} must respond to STAGGER (${duration.toFixed(2)} sec).`);
-    return true;
-  }
-  return applyStaggerNow(room, unit, duration, { poiseBreaker });
-}
-
-function resolveStagger(room, unit, choice) {
-  const pending = room.pendingStagger;
-  if (!pending || !unit || pending.unitId !== unit.id) return false;
-  if (choice === "ignore" && unit.stats.composure >= 2 && unit.poiseRemaining >= 1 && !unit.poiseLocked) {
-    unit.poiseRemaining -= 1;
-    pushLog(room, `${unit.characterName} spent 1 Poise and ignored STAGGER.`);
-  } else {
-    applyStaggerNow(room, unit, pending.duration, { poiseBreaker: pending.poiseBreaker });
-  }
-  finishPendingStagger(room);
-  return true;
-}
-
-function pauseForResolution(room, unit) {
-  if (!unit?.currentAction || room.pausedForTurn || room.pausedForResolution || room.pausedForStagger) return;
+function pauseForDelayedAction(room, unit, source = "clock") {
+  if (!unit || room.pausedForTurn) return;
+  clearActiveCommand(room);
+  room.pausedForTurn = true;
   room.running = false;
-  room.pausedForResolution = true;
   room.activeId = null;
-  clearCommand(room);
-  unit.phase = "execution";
-  unit.phaseProgress = THRESHOLD;
-  const target = room.units.find((entry) => entry.id === unit.currentAction.targetId);
-  const movingPenalty = unit.currentAction.id === "fire_gun" && target ? movementUnits(target) : 0;
   room.activeAction = {
-    id: id(),
+    id: unit.delayedAction?.id || id(),
     unitId: unit.id,
     characterName: unit.characterName,
     playerName: unit.playerName,
-    label: unit.currentAction.label,
-    action: clone(unit.currentAction),
-    targetId: target?.id || null,
-    targetName: target?.characterName || "None/N/A",
-    movingTargetPenalty: movingPenalty,
+    label: normalizeDelayLabel(unit.delayedAction?.label, unit.delayedAction?.kind || "action"),
+    kind: unit.delayedAction?.kind || "action",
   };
-  pushLog(room, `RESOLVE: ${unit.currentAction.label} (${unit.characterName})${movingPenalty ? `; moving target To-Hit ${-movingPenalty}` : ""}.`);
+  room.activeSource = source;
+  pushLog(room, `${room.activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${room.activeAction.label}.`);
 }
 
-function moveToNextOrClock(room) {
-  if (room.pausedForStagger || room.pausedForResolution || room.pausedForTurn) return;
-  const ready = readyUnits(room)[0];
-  if (ready) pauseForDecision(room, ready);
-  else if (room.resumeAfterTurn && canStartClock(room) && !room.hardPaused) {
+function pauseForQueuedEffect(room, unit, effect, source = "clock") {
+  if (!unit || !effect || room.pausedForTurn) return;
+  clearActiveCommand(room);
+  room.pausedForTurn = true;
+  room.running = false;
+  room.activeId = null;
+  room.activeAction = {
+    id: effect.id,
+    unitId: unit.id,
+    effectId: effect.id,
+    characterName: unit.characterName,
+    playerName: unit.playerName,
+    label: normalizeDelayLabel(effect.label, "queued"),
+    kind: "queuedEffect",
+  };
+  room.activeSource = source;
+  pushLog(room, `Resolve Queued Effect: ${room.activeAction.label}.`);
+}
+
+function requestDelay(room, unit, kind, requestedBy = "player") {
+  if (!unit || room.activeId !== unit.id) return;
+  if (requestedBy !== "player" && !delayConsoleAllowed(room)) {
+    pushLog(room, "Pause Everything before opening the Delay Console.");
+    return;
+  }
+  holdCommandWindow(room);
+  room.delayRequest = {
+    id: id(),
+    unitId: unit.id,
+    kind: normalizeDelayKind(kind),
+    characterName: unit.characterName,
+    playerName: unit.playerName,
+    requestedAt: Date.now(),
+  };
+  pushLog(room, requestedBy === "gm" ? `GM opened Delay Console for ${unit.characterName}.` : `${unit.characterName} requested a Delay.`);
+}
+
+function cancelDelayRequest(room) {
+  if (!room.delayRequest) return;
+  clearDelayRequest(room);
+  if (room.holdPaused && room.commandHeldRemaining !== null && room.commandDeadline) {
+    room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
+  }
+  room.holdPaused = false;
+  room.holdStartedAt = null;
+  room.commandHeldRemaining = null;
+  pushLog(room, "Delay request cancelled.");
+}
+
+function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", settings = null, queuedEffect = null } = {}) {
+  if (!unit) return;
+  const isRequestedDelay = room.delayRequest?.unitId === unit.id;
+  if (!delayConsoleAllowed(room) && !isRequestedDelay) {
+    pushLog(room, "Pause Everything before confirming a delay.");
+    return;
+  }
+  const previousSource = room.activeSource;
+  const wasActive = room.activeId === unit.id;
+  const normalizedKind = normalizeDelayKind(kind);
+  const nextDelay = {
+    id: id(),
+    kind: normalizedKind,
+    label: normalizeDelayLabel(label, normalizedKind),
+    rate: normalizeDelayRate(rate) || 1,
+    settings: normalizeDelaySettings(settings),
+    remaining: 100,
+    total: 100,
+    consumeTurn: wasActive,
+    resolving: false,
+  };
+  if (normalizedKind === "queued") {
+    nextDelay.queuedEffect = normalizeQueuedEffect(queuedEffect);
+    unit.delayedAction = nextDelay;
+  } else if (normalizedKind === "action") {
+    unit.delayedAction = nextDelay;
+  } else {
+    unit.delayTimer = nextDelay;
+  }
+  clearDelayRequest(room);
+  pushLog(room, `${unit.characterName} started ${nextDelay.kind === "queued" ? `Queued Effect setup: ${nextDelay.label}` : nextDelay.kind === "action" ? `Delayed Resolution: ${nextDelay.label}` : "Reload/Recovery"} at ${nextDelay.rate}.`);
+  if (wasActive) {
+    room.pausedForTurn = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearActiveCommand(room);
+    moveToNextTurnOrClock(room, previousSource);
+  }
+}
+
+function updateUnitDelay(room, unit, { delayId = "", kind = "timer", rate = 1, label = "", settings = null } = {}) {
+  if (!unit || !delayConsoleAllowed(room)) {
+    pushLog(room, "Pause Everything before changing a delay.");
+    return;
+  }
+  const normalizedKind = normalizeDelayKind(kind);
+  const delay = normalizedKind === "timer" ? unit.delayTimer : unit.delayedAction;
+  if (!delay || (delayId && delay.id !== delayId)) {
+    pushLog(room, "That delay is no longer active.");
+    return;
+  }
+  delay.rate = normalizeDelayRate(rate) || delay.rate || 1;
+  delay.label = normalizeDelayLabel(label, normalizedKind);
+  delay.settings = normalizeDelaySettings(settings);
+  delay.kind = normalizedKind;
+  pushLog(room, `${unit.characterName}'s ${normalizedKind === "action" ? "Delayed Resolution" : "Reload/Recovery"} was changed to ${delay.rate}.`);
+}
+
+function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
+  if (!unit) return;
+  const previousSource = room.activeSource;
+  const wasActive = room.activeId === unit.id;
+  const normalizedKind = normalizeDelayKind(kind);
+  const resolvedLabel = normalizeDelayLabel(label, normalizedKind);
+  clearDelayRequest(room);
+  if (wasActive) {
+    unit.atb = Math.max(0, unit.atb - room.threshold);
+    room.pausedForTurn = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearActiveCommand(room);
+    pushLog(room, normalizedKind === "action"
+      ? `Instant Resolution: ${resolvedLabel}.`
+      : `${unit.characterName}'s Delay resolved instantly.`);
+    moveToNextTurnOrClock(room, previousSource);
+    return;
+  }
+  pushLog(room, normalizedKind === "action"
+    ? `Instant Resolution: ${resolvedLabel}. No delay created.`
+    : `${unit.characterName}'s Delay resolved instantly. No delay created.`);
+}
+
+function moveToNextTurnOrClock(room, previousSource = null) {
+  const ready = findReadyUnit(room);
+  if (ready) {
+    pauseForReadyUnit(room, ready, nextTurnSource(room, previousSource));
+  } else if (room.resumeAfterTurn && canStartClock(room)) {
     room.running = true;
     room.lastTick = Date.now();
   } else {
@@ -645,133 +590,128 @@ function moveToNextOrClock(room) {
   }
 }
 
-function spendPoise(room, unit, use) {
-  if (!unit || unit.poiseLocked || unit.poiseRemaining <= 0) return false;
-  const level = unit.stats.composure;
-  let releasedPause = false;
-
-  if (use === "snapBack") {
-    if (level < 1 || unit.poiseRemaining < 1) return false;
-    const cancelled = unit.currentAction?.label || unit.phase.toUpperCase();
-    releasedPause = cancelPausedActionFor(room, unit);
-    unit.poiseRemaining -= 1;
-    unit.phase = "decision";
-    unit.phaseProgress = 0;
-    unit.staggerRate = null;
-    unit.currentAction = null;
-    unit.decisionBoost = true;
-    unit.poiseLocked = false;
-    unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false };
-    pushLog(room, `${unit.characterName} spent 1 Poise: ${cancelled} voided; DECISION x2.`);
-  } else if (use === "staggerImmunity") {
-    if (level < 3 || unit.phase === "decision" || unit.phase === "stagger" || unit.poiseRemaining < 1 || unit.staggerImmunity) return false;
-    unit.poiseRemaining -= 1;
-    unit.staggerImmunity = true;
-    pushLog(room, `${unit.characterName} spent 1 Poise: immune to STAGGER until the next Decision fills.`);
-  } else if (use === "heavyStagger" || use === "poiseBreaker") {
-    const requiredLevel = use === "heavyStagger" ? 4 : 5;
-    if (level < requiredLevel || unit.poiseRemaining < 2 || !["decision", "preparation"].includes(unit.phase)) return false;
-    if (unit.phase === "preparation") {
-      if (!isAttack(unit.currentAction) || unit.currentAction[use]) return false;
-      unit.poiseRemaining -= 2;
-      unit.currentAction[use] = true;
-      if (use === "heavyStagger") unit.currentAction.rates.recovery *= 0.5;
-      if (use === "poiseBreaker") unit.currentAction.rates.preparation *= 0.5;
-      pushLog(room, `${unit.characterName} spent 2 Poise: ${use === "heavyStagger" ? "double STAGGER / double RECOVERY" : "POISE BREAKER"}.`);
-    } else {
-      const pending = unit.pendingAttackPoise || { heavyStagger: false, poiseBreaker: false };
-      pending[use] = !pending[use];
-      const reserved = (pending.heavyStagger ? 2 : 0) + (pending.poiseBreaker ? 2 : 0);
-      if (reserved > unit.poiseRemaining) return false;
-      unit.pendingAttackPoise = pending;
-      pushLog(room, `${unit.characterName} ${pending[use] ? "armed" : "cancelled"} ${use === "heavyStagger" ? "double STAGGER" : "POISE BREAKER"}.`);
+function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
+  const multiplier = slow ? 0.2 : 1;
+  const completedEvents = [];
+  for (const unit of room.units) {
+    if (unit.id === skipId || !unit.speed) continue;
+    if (Array.isArray(unit.queuedEffects)) {
+      for (const effect of unit.queuedEffects) {
+        if (effect.resolving) continue;
+        const impairmentMultiplier = Math.max(0, 1 - (Math.max(0, Math.min(2, Number(effect.impairments) || 0)) * 0.1));
+        effect.progress = Math.min(100, (Number(effect.progress) || 0) + effect.rate * impairmentMultiplier * seconds * multiplier);
+        if (effect.progress >= 100) {
+          effect.progress = 100;
+          effect.resolving = true;
+          completedEvents.push({ type: "queued", unit, effect });
+        }
+      }
     }
-  } else if (use === "rapidRecovery") {
-    if (level < 6 || unit.poiseRemaining < 3) return false;
-    unit.poiseRemaining -= 3;
-    unit.recoveryPoiseStacks.push(3);
-    pushLog(room, `${unit.characterName} spent 3 Poise: next three Recovery/STAGGER durations halved.`);
-  } else {
-    return false;
+    if (unit.delayTimer) {
+      if (!unit.delayTimer.resolving) {
+        unit.delayTimer.remaining = Math.max(0, unit.delayTimer.remaining - unit.delayTimer.rate * seconds * multiplier);
+        if (unit.delayTimer.remaining <= 0) {
+          const shouldConsumeTurn = unit.delayTimer.consumeTurn && !unit.delayedAction;
+          if (shouldConsumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
+          unit.delayTimer = null;
+          pushLog(room, `${unit.characterName}'s Reload/Recovery ended.`);
+        }
+      }
+      continue;
+    }
+    if (unit.delayedAction) {
+      if (!unit.delayedAction.resolving) {
+        unit.delayedAction.remaining = Math.max(0, unit.delayedAction.remaining - unit.delayedAction.rate * seconds * multiplier);
+        if (unit.delayedAction.remaining <= 0) {
+          unit.delayedAction.remaining = 0;
+          unit.delayedAction.resolving = true;
+          completedEvents.push({ type: "delayed", unit, delay: unit.delayedAction });
+        }
+      }
+      continue;
+    }
+    if (unit.atb < room.threshold) unit.atb += unit.speed * seconds * multiplier;
   }
-  if (releasedPause) moveToNextOrClock(room);
+  return completedEvents;
+}
+
+function resolveCompletedEvent(room, event, source) {
+  if (!event) return false;
+  if (event.type === "queued") {
+    pauseForQueuedEffect(room, event.unit, event.effect, source);
+    return true;
+  }
+  pauseForDelayedAction(room, event.unit, source);
   return true;
 }
 
-function addProgress(room, seconds) {
-  const expiredId = room.commandExpired ? room.activeId : null;
-  const globalMultiplier = expiredId ? EXPIRED_COMMAND_MULTIPLIER : 1;
-  let event = null;
+function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } = {}) {
+  if (room.pausedForTurn || room.holdPaused) return;
 
-  for (const unit of room.units) {
-    if (event) break;
-    if (unit.id === expiredId) continue;
-    const rate = currentPhaseRate(unit) * globalMultiplier;
-    if (!(rate > 0)) continue;
+  const interruptedId = room.commandExpired ? room.activeId : null;
 
-    if (unit.phase === "decision") {
-      unit.phaseProgress = Math.min(THRESHOLD, number(unit.phaseProgress) + rate * seconds);
-      if (unit.phaseProgress >= THRESHOLD) event = { type: "decision", unit };
-    } else if (unit.phase === "preparation") {
-      unit.phaseProgress = Math.max(0, number(unit.phaseProgress, THRESHOLD) - rate * seconds);
-      if (unit.phaseProgress <= 0) {
-        unit.phase = "execution";
-        unit.phaseProgress = 0;
-        pushLog(room, `${unit.characterName} began EXECUTION: ${unit.currentAction?.label || "Action"}.`);
-      }
-    } else if (unit.phase === "execution") {
-      unit.phaseProgress = Math.min(THRESHOLD, number(unit.phaseProgress) + rate * seconds);
-      if (unit.phaseProgress >= THRESHOLD) event = { type: "execution", unit };
-    } else if (unit.phase === "recovery") {
-      unit.phaseProgress = Math.max(0, number(unit.phaseProgress, THRESHOLD) - rate * seconds);
-      if (unit.phaseProgress <= 0) {
-        pushLog(room, `${unit.characterName} returned to DECISION.`);
-        unit.phase = "decision";
-        unit.phaseProgress = 0;
-        unit.currentAction = null;
-      }
-    } else if (unit.phase === "stagger") {
-      unit.phaseProgress = Math.max(0, number(unit.phaseProgress, THRESHOLD) - rate * seconds);
-      if (unit.phaseProgress <= 0) {
-        unit.phase = "decision";
-        unit.phaseProgress = 0;
-        unit.staggerRate = null;
-        unit.currentAction = null;
-        unit.poiseLocked = false;
-        pushLog(room, `${unit.characterName} recovered from STAGGER and returned to DECISION.`);
-      }
-    } else if (unit.phase === "dumbfounded") {
-      unit.phaseProgress = Math.max(0, number(unit.phaseProgress, THRESHOLD) - rate * seconds);
-      if (unit.phaseProgress <= 0) {
-        unit.phase = "decision";
-        unit.phaseProgress = 0;
-        unit.currentAction = null;
-        unit.decisionBoost = true;
-        pushLog(room, `${unit.characterName} shook off DUMBFOUNDED and gains a boosted DECISION.`);
-      }
+  if (!exact) {
+    const completedEvents = addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
+    if (completedEvents.length) {
+      if (interruptedId) interruptActiveTurn(room);
+      resolveCompletedEvent(room, completedEvents[0], source);
+      return;
     }
+    const ready = findReadyUnit(room, interruptedId);
+    if (ready) {
+      if (interruptedId) interruptActiveTurn(room);
+      pauseForReadyUnit(room, ready, source);
+    }
+    return;
   }
 
-  if (!event) return;
-  if (event.type === "decision") {
-    if (expiredId && event.unit.id !== expiredId) interruptExpiredDecision(room);
-    pauseForDecision(room, event.unit);
-  } else if (event.type === "execution") {
-    completeExecutionPoise(room, event.unit);
-    if (event.unit.currentAction?.hasResolution) pauseForResolution(room, event.unit);
-    else startRecovery(room, event.unit);
+  const alreadyReady = findReadyUnit(room, interruptedId);
+  if (alreadyReady) {
+    if (interruptedId) interruptActiveTurn(room);
+    pauseForReadyUnit(room, alreadyReady, source);
+    return;
   }
-}
 
-function advanceSeconds(room, seconds = 1) {
-  if (room.pausedForTurn || room.pausedForResolution || room.pausedForStagger || room.hardPaused) return;
-  addProgress(room, seconds);
+  const times = room.units
+    .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
+    .flatMap((unit) => {
+      const multiplier = interruptedId ? 0.2 : 1;
+      const effectTimes = Array.isArray(unit.queuedEffects)
+        ? unit.queuedEffects
+          .filter((effect) => !effect.resolving)
+          .map((effect) => {
+            const impairmentMultiplier = Math.max(0, 1 - (Math.max(0, Math.min(2, Number(effect.impairments) || 0)) * 0.1));
+            const speed = effect.rate * multiplier * impairmentMultiplier;
+            return speed > 0 ? Math.max(0, (100 - (Number(effect.progress) || 0)) / speed) : Infinity;
+          })
+        : [];
+      const delay = activeDelay(unit);
+      if (delay && !delay.resolving) return [...effectTimes, Math.max(0, delay.remaining / (delay.rate * multiplier))];
+      if (delay) return [...effectTimes, Infinity];
+      return [...effectTimes, Math.max(0, (room.threshold - unit.atb) / (unit.speed * multiplier))];
+    })
+    .filter((time) => Number.isFinite(time));
+  if (!times.length) return;
+
+  const nextReadyIn = Math.min(...times);
+  if (nextReadyIn <= seconds) {
+    const completedEvents = addProgress(room, nextReadyIn, { slow: Boolean(interruptedId), skipId: interruptedId });
+    if (interruptedId) interruptActiveTurn(room);
+    if (completedEvents.length) {
+      resolveCompletedEvent(room, completedEvents[0], source);
+      return;
+    }
+    pauseForReadyUnit(room, findReadyUnit(room), source);
+  } else {
+    addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
+  }
 }
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    migrateRoomDelays(room);
     if (room.hardPaused) continue;
-    if (room.pausedForTurn && room.commandDeadline) {
+    if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
       if (Date.now() >= room.commandDeadline) {
         const unit = room.units.find((entry) => entry.id === room.activeId);
         room.pausedForTurn = false;
@@ -779,41 +719,51 @@ setInterval(() => {
         room.commandExpired = true;
         room.commandDeadline = null;
         room.lastTick = Date.now();
-        if (unit) {
-          unit.commandExpired = true;
-          pushLog(room, `${unit.characterName}'s Command Window expired.`);
-        }
+        if (unit) pushLog(room, `${unit.characterName}'s Command Window expired.`);
       }
       broadcast(room);
       continue;
     }
-    if (!room.running || room.pausedForTurn || room.pausedForResolution || room.pausedForStagger) continue;
+    if (!room.running || room.pausedForTurn || room.holdPaused || room.hardPaused) continue;
     const now = Date.now();
     const elapsed = now - room.lastTick;
     if (elapsed < 80) continue;
     room.lastTick = now;
-    advanceSeconds(room, elapsed / 1000);
+    advanceSeconds(room, elapsed / 1000, { exact: true, source: "clock" });
     broadcast(room);
   }
 }, 100);
 
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
-  return { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".mp4": "video/mp4", ".svg": "image/svg+xml" }[ext] || "application/octet-stream";
+  if (ext === ".html") return "text/html; charset=utf-8";
+  if (ext === ".css") return "text/css; charset=utf-8";
+  if (ext === ".js") return "text/javascript; charset=utf-8";
+  if (ext === ".json") return "application/json; charset=utf-8";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".mp4") return "video/mp4";
+  return "application/octet-stream";
 }
 
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const requested = decodeURIComponent(url.pathname);
-  const safePath = path.normalize(requested).replace(/^(\.\.[/\\])+/, "");
-  let filePath = path.join(PUBLIC_DIR, safePath);
-  if (requested === "/" || requested === "") filePath = path.join(PUBLIC_DIR, "index.html");
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403); res.end("Forbidden"); return;
+  let filePath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+  filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
+  const absolute = path.join(PUBLIC_DIR, filePath);
+  if (!absolute.startsWith(PUBLIC_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
   }
-  fs.readFile(filePath, (error, data) => {
-    if (error) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }); res.end("Not found"); return; }
-    res.writeHead(200, { "Content-Type": contentType(filePath), "Cache-Control": "no-store" });
+  fs.readFile(absolute, (error, data) => {
+    if (error) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+    res.writeHead(200, { "Content-Type": contentType(absolute), "Cache-Control": "no-store" });
     res.end(data);
   });
 }
@@ -821,152 +771,385 @@ function serveStatic(req, res) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (chunk) => { body += chunk; if (body.length > 1_000_000) reject(new Error("Body too large")); });
-    req.on("end", () => { try { resolve(body ? JSON.parse(body) : {}); } catch (error) { reject(error); } });
-    req.on("error", reject);
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1_000_000) req.destroy();
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(error);
+      }
+    });
   });
 }
 
 function sendJson(res, status, data) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(data));
 }
 
 async function handleCreateRoom(req, res) {
+  try {
+    await readBody(req);
+  } catch {
+    sendJson(res, 400, { error: "Bad JSON" });
+    return;
+  }
   const room = createRoom();
   sendJson(res, 200, publicState(room));
   broadcast(room);
 }
 
-function createUnit(body) {
-  const team = normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc"));
-  const stats = normalizeStats(body.stats || body);
-  return {
-    id: id(),
-    playerName: String(body.playerName || "Player").trim().slice(0, 40) || "Player",
-    characterName: String(body.characterName || "Character").trim().slice(0, 40) || "Character",
-    stats,
-    weapon: normalizeWeapon(body.weapon || body),
-    commandWindow: normalizeCommandWindow(body.commandWindow, team),
-    phase: "decision",
-    phaseProgress: 0,
-    currentAction: null,
-    actionQueue: [],
-    decisionBoost: false,
-    commandExpired: false,
-    staggerRate: null,
-    staggerImmunity: false,
-    poiseLocked: false,
-    poiseMax: stats.composure,
-    poiseRemaining: stats.composure,
-    pendingAttackPoise: { heavyStagger: false, poiseBreaker: false },
-    recoveryPoiseStacks: [],
-    cleanExecutionCount: 0,
-    totalExecutionCount: 0,
-    controlledBy: body.controlledBy || "player",
-    team,
-    actorType: "character",
-    color: normalizeColor(body.color),
-    tieSeed: Math.random(),
-  };
-}
-
 async function handleAction(req, res) {
   let body;
-  try { body = await readBody(req); } catch { sendJson(res, 400, { error: "Bad JSON" }); return; }
-  const room = getRoom(body.roomCode);
-  if (!room) { sendJson(res, 404, { error: "Room not found" }); return; }
-  const action = body.action;
-
-  if (action === "undoLastTiming") {
-    restoreUndoSnapshot(room); sendJson(res, 200, publicState(room)); broadcast(room); return;
+  try {
+    body = await readBody(req);
+  } catch {
+    sendJson(res, 400, { error: "Bad JSON" });
+    return;
   }
-  if (undoableActions.has(action) && !(action === "join" && body.controlledBy === "player")) saveUndoSnapshot(room);
+
+  const room = getRoom(body.roomCode);
+  if (!room) {
+    sendJson(res, 404, { error: "Room not found" });
+    return;
+  }
+  migrateRoomDelays(room);
+
+  const action = body.action;
+  if (action === "undoLastTiming") {
+    restoreUndoSnapshot(room);
+    sendJson(res, 200, publicState(room));
+    broadcast(room);
+    return;
+  }
+
+  if (undoableActions.has(action) && !(action === "join" && body.controlledBy === "player")) {
+    saveUndoSnapshot(room);
+  }
 
   if (action === "join" || action === "addUnit") {
-    const unit = createUnit(body);
+    const playerName = String(body.playerName || "Player").trim().slice(0, 40);
+    const characterName = String(body.characterName || "Character").trim().slice(0, 40);
+    const speed = normalizeSpeed(body.speed);
+    const commandWindow = normalizeCommandWindow(body.commandWindow);
+    const unit = {
+      id: id(),
+      playerName,
+      characterName,
+      speed,
+      commandWindow,
+      atb: 0,
+      delay: null,
+      delayTimer: null,
+      delayedAction: null,
+      queuedEffects: [],
+      controlledBy: body.controlledBy || "player",
+      team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
+      actorType: normalizeActorType(body.actorType),
+      color: normalizeColor(body.color),
+      tieSeed: Math.random(),
+    };
     room.units.push(unit);
-    pushLog(room, `${unit.characterName} joined (Decision Rate ${unit.stats.intellect + unit.stats.initiative}, Poise ${unit.poiseMax}).`);
-  } else if (action === "removeUnit") {
+    const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
+    pushLog(room, `${characterName} joined (${setupText}).`);
+  }
+
+  if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    const wasActive = room.activeId === body.id;
+    const previousSource = room.activeSource;
     room.units = room.units.filter((entry) => entry.id !== body.id);
-    if (room.activeId === body.id) { room.activeId = null; room.pausedForTurn = false; clearCommand(room); }
-    if (room.activeAction?.unitId === body.id) { room.activeAction = null; room.pausedForResolution = false; }
-    if (room.pendingStagger?.unitId === body.id) finishPendingStagger(room);
+    if (wasActive) {
+      room.activeId = null;
+      room.pausedForTurn = false;
+      clearActiveCommand(room);
+      moveToNextTurnOrClock(room, previousSource);
+    }
+    if (room.activeAction?.unitId === body.id) {
+      room.activeAction = null;
+      room.pausedForTurn = false;
+      moveToNextTurnOrClock(room, room.activeSource);
+    }
+    if (room.delayRequest?.unitId === body.id) clearDelayRequest(room);
     if (unit) pushLog(room, `${unit.characterName} removed from combat.`);
-    moveToNextOrClock(room);
-  } else if (action === "setRunning") {
-    if (Boolean(body.running) && canStartClock(room) && !room.hardPaused) {
-      room.running = true; room.resumeAfterTurn = true; room.hasEngagedClock = true; room.lastTick = Date.now(); pushLog(room, "Clock started.");
+  }
+
+  if (action === "setRunning") {
+    const wantsRunning = Boolean(body.running);
+    if (wantsRunning && !room.pausedForTurn && !room.hardPaused) {
+      if (!canStartClock(room)) {
+        pushLog(room, "Clock cannot start until every participant has GM-entered values.");
+      } else {
+        room.running = true;
+        room.resumeAfterTurn = true;
+        room.hasEngagedClock = true;
+        room.lastTick = Date.now();
+        pushLog(room, "Clock started.");
+      }
     }
-  } else if (action === "setHardPaused") {
-    room.hardPaused = Boolean(body.paused); room.lastTick = Date.now(); pushLog(room, room.hardPaused ? "All timers paused." : "All timers resumed.");
-    if (!room.hardPaused && room.resumeAfterTurn && canStartClock(room)) room.running = true;
-  } else if (action === "toggleClock") {
+  }
+
+  if (action === "setHardPaused") {
+    if (Boolean(body.paused)) {
+      hardPauseRoom(room);
+    } else {
+      hardResumeRoom(room);
+    }
+  }
+
+  if (action === "toggleClock") {
     if (room.hardPaused) {
-      room.hardPaused = false; room.lastTick = Date.now(); if (room.resumeAfterTurn && canStartClock(room)) room.running = true; pushLog(room, "All timers resumed.");
-    } else if (room.running || room.pausedForTurn || room.pausedForResolution || room.pausedForStagger) {
-      room.hardPaused = true; room.lastTick = Date.now(); pushLog(room, "All timers paused.");
-    } else if (canStartClock(room)) {
-      room.running = true; room.resumeAfterTurn = true; room.hasEngagedClock = true; room.lastTick = Date.now(); pushLog(room, "Clock started.");
+      hardResumeRoom(room);
+    } else if (room.running || room.pausedForTurn || room.holdPaused || room.activeAction) {
+      hardPauseRoom(room);
+    } else if (!canStartClock(room)) {
+      pushLog(room, "Clock cannot start until every participant has GM-entered values.");
+    } else {
+      room.running = true;
+      room.resumeAfterTurn = true;
+      room.hasEngagedClock = true;
+      room.lastTick = Date.now();
+      pushLog(room, "Clock started.");
     }
-  } else if (action === "setCommandWindow") {
+  }
+
+  if (action === "setSpeed") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    if (unit) unit.commandWindow = normalizeCommandWindow(body.commandWindow, unit.team);
-  } else if (action === "setName") {
-    const unit = room.units.find((entry) => entry.id === body.id);
-    if (unit) unit.characterName = String(body.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
-  } else if (action === "setColor") {
-    const unit = room.units.find((entry) => entry.id === body.id);
-    if (unit) unit.color = normalizeColor(body.color);
-  } else if (action === "chooseAction") {
-    const unit = room.units.find((entry) => entry.id === body.id);
-    if (unit && room.activeId === unit.id && !room.pausedForResolution) {
-      chooseActionInternal(room, unit, actionRequestFromBody(body));
-      moveToNextOrClock(room);
+    if (unit) {
+      const oldSpeed = unit.speed;
+      unit.speed = normalizeSpeed(body.speed);
+      pushLog(room, `${unit.characterName}'s Speed changed from ${oldSpeed} to ${unit.speed}.`);
     }
-  } else if (action === "queueAction") {
+  }
+
+  if (action === "setCommandWindow") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    const request = actionRequestFromBody(body);
-    if (unit && unit.controlledBy === "player" && unit.actionQueue.length < 2 && requestIsValid(room, request)) {
-      unit.actionQueue.push(request);
-      pushLog(room, `${unit.characterName} queued ${ACTIONS[request.actionId].label}.`);
+    if (unit) {
+      const oldWindow = unit.commandWindow;
+      unit.commandWindow = normalizeCommandWindow(body.commandWindow);
+      pushLog(room, `${unit.characterName}'s Command Window changed from ${oldWindow || "unset"} to ${unit.commandWindow} seconds.`);
     }
-  } else if (action === "removeQueuedAction") {
+  }
+
+  if (action === "setName") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    const index = whole(body.index, -1, -1, 1);
-    if (unit && index >= 0 && index < unit.actionQueue.length) unit.actionQueue.splice(index, 1);
-  } else if (action === "completeResolution") {
-    if (room.activeAction) {
-      const unit = room.units.find((entry) => entry.id === room.activeAction.unitId);
-      const label = room.activeAction.label;
-      if (unit) startRecovery(room, unit);
-      room.pausedForResolution = false; room.activeAction = null; room.activeId = null; pushLog(room, `Resolved: ${label}.`); moveToNextOrClock(room);
+    if (unit) {
+      const oldName = unit.characterName;
+      unit.characterName = String(body.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
+      pushLog(room, `${oldName} renamed to ${unit.characterName}.`);
     }
-  } else if (action === "applyStagger") {
-    requestStagger(room, room.units.find((entry) => entry.id === body.id), body.duration);
-  } else if (action === "resolveStagger") {
-    resolveStagger(room, room.units.find((entry) => entry.id === body.id), body.choice);
-  } else if (action === "spendPoise") {
-    spendPoise(room, room.units.find((entry) => entry.id === body.id), body.use);
-  } else if (action === "step") {
-    if (!room.pausedForTurn && !room.pausedForResolution && !room.pausedForStagger) {
-      room.running = false; room.resumeAfterTurn = false; clearCommand(room); advanceSeconds(room, 1); pushLog(room, "GM advanced one second.");
+  }
+
+  if (action === "setColor") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    if (unit) {
+      unit.color = normalizeColor(body.color);
+      pushLog(room, `${unit.characterName}'s ATB color changed.`);
     }
-  } else if (action === "reset") {
+  }
+
+  if (action === "logPlayerAction") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const label = normalizeActionLog(body.label);
+    if (unit) pushLog(room, `${unit.characterName} ${label}.`);
+  }
+
+  if (action === "requestDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    requestDelay(room, unit, body.kind, body.requestedBy);
+  }
+
+  if (action === "cancelDelayRequest") {
+    cancelDelayRequest(room);
+  }
+
+  if (action === "startDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    startUnitDelay(room, unit, {
+      kind: body.kind,
+      rate: body.rate,
+      label: body.label,
+      settings: body.settings,
+      queuedEffect: body.queuedEffect,
+    });
+  }
+
+  if (action === "updateDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    updateUnitDelay(room, unit, {
+      delayId: body.delayId,
+      kind: body.kind,
+      rate: body.rate,
+      label: body.label,
+      settings: body.settings,
+    });
+  }
+
+  if (action === "instantDelay") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    resolveInstantDelay(room, unit, {
+      kind: body.kind,
+      label: body.label,
+    });
+  }
+
+  if (action === "impairQueuedEffect") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const effect = unit?.queuedEffects?.find((entry) => entry.id === body.effectId);
+    if (unit && effect) {
+      effect.impairments = Math.max(0, Math.min(3, (Number(effect.impairments) || 0) + 1));
+      if (effect.impairments >= 3) {
+        unit.queuedEffects = unit.queuedEffects.filter((entry) => entry.id !== effect.id);
+        if (room.activeAction?.effectId === effect.id) {
+          room.activeAction = null;
+          room.pausedForTurn = false;
+          moveToNextTurnOrClock(room, room.activeSource);
+        }
+        pushLog(room, `${effect.label} was destroyed.`);
+      } else {
+        pushLog(room, `${effect.label} impaired (${effect.impairments}/3).`);
+      }
+    }
+  }
+
+  if (action === "removeQueuedEffect") {
+    const unit = room.units.find((entry) => entry.id === body.id);
+    const effect = unit?.queuedEffects?.find((entry) => entry.id === body.effectId);
+    if (unit && effect) {
+      unit.queuedEffects = unit.queuedEffects.filter((entry) => entry.id !== effect.id);
+      if (room.activeAction?.effectId === effect.id) {
+        room.activeAction = null;
+        room.pausedForTurn = false;
+        moveToNextTurnOrClock(room, room.activeSource);
+      }
+      pushLog(room, `${effect.label} removed.`);
+    }
+  }
+
+  if (action === "step") {
+    if (room.activeId || room.pausedForTurn) {
+      pushLog(room, "Resolve the active turn before stepping the clock.");
+      sendJson(res, 200, publicState(room));
+      broadcast(room);
+      return;
+    }
+    room.resumeAfterTurn = false;
+    room.running = false;
+    clearActiveCommand(room);
+    advanceSeconds(room, 1, { source: "step" });
+    pushLog(room, "GM advanced one second.");
+  }
+
+  if (action === "reset") {
     for (const unit of room.units) {
-      unit.phase = "decision"; unit.phaseProgress = 0; unit.currentAction = null; unit.actionQueue = []; unit.decisionBoost = false; unit.commandExpired = false; unit.staggerRate = null; unit.staggerImmunity = false; unit.poiseLocked = false; unit.poiseMax = unit.stats.composure; unit.poiseRemaining = unit.poiseMax; unit.pendingAttackPoise = { heavyStagger: false, poiseBreaker: false }; unit.recoveryPoiseStacks = []; unit.cleanExecutionCount = 0; unit.totalExecutionCount = 0;
+      unit.atb = 0;
+      unit.delay = null;
+      unit.delayTimer = null;
+      unit.delayedAction = null;
+      unit.queuedEffects = [];
     }
-    room.running = false; room.pausedForTurn = false; room.pausedForResolution = false; room.pausedForStagger = false; room.resumeAfterTurn = false; room.hardPaused = false; room.activeId = null; room.activeAction = null; room.pendingStagger = null; room.lastInterruptedId = null; room.lastInterruptedAt = 0; clearCommand(room); room.lastTick = Date.now(); pushLog(room, "Encounter reset.");
-  } else if (action === "clearEncounter") {
-    room.units = []; room.running = false; room.pausedForTurn = false; room.pausedForResolution = false; room.pausedForStagger = false; room.resumeAfterTurn = false; room.hardPaused = false; room.activeId = null; room.activeAction = null; room.pendingStagger = null; clearCommand(room); room.lastTick = Date.now(); pushLog(room, "Encounter cleared.");
-  } else if (action === "nudge") {
+    room.running = false;
+    room.pausedForTurn = false;
+    room.resumeAfterTurn = false;
+    room.hardPaused = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearDelayRequest(room);
+    clearActiveCommand(room);
+    room.lastInterruptedId = null;
+    room.lastInterruptedAt = 0;
+    room.lastTick = Date.now();
+    pushLog(room, "Encounter reset.");
+  }
+
+  if (action === "clearEncounter") {
+    room.units = [];
+    room.running = false;
+    room.pausedForTurn = false;
+    room.resumeAfterTurn = false;
+    room.hardPaused = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearDelayRequest(room);
+    clearActiveCommand(room);
+    room.lastInterruptedId = null;
+    room.lastInterruptedAt = 0;
+    room.lastTick = Date.now();
+    pushLog(room, "Encounter cleared.");
+  }
+
+  if (action === "completeTurn") {
+    if (room.activeAction) {
+      const previousSource = room.activeSource;
+      const actionToResolve = room.activeAction;
+      const unit = room.units.find((entry) => entry.id === actionToResolve.unitId);
+      if (unit) {
+        if (actionToResolve.kind === "queuedEffect") {
+          const before = Array.isArray(unit.queuedEffects) ? unit.queuedEffects.length : 0;
+          unit.queuedEffects = (unit.queuedEffects || []).filter((effect) => effect.id !== actionToResolve.effectId);
+          pushLog(room, before === unit.queuedEffects.length
+            ? `Resolved Queued Effect: ${actionToResolve.label}.`
+            : `Resolved Queued Effect: ${actionToResolve.label}.`);
+        } else {
+          const queuedTemplate = unit.delayedAction?.queuedEffect;
+          unit.delayedAction = null;
+          if (!unit.delayTimer) unit.atb = Math.max(0, unit.atb - room.threshold);
+          if (queuedTemplate) {
+            unit.queuedEffects = Array.isArray(unit.queuedEffects) ? unit.queuedEffects : [];
+            if (unit.queuedEffects.length >= 5) {
+              pushLog(room, `${unit.characterName} cannot queue ${queuedTemplate.label}; maximum queued effects reached.`);
+            } else {
+              unit.queuedEffects.push({
+                ...copyDelay(queuedTemplate),
+                id: id(),
+                progress: 0,
+                total: 100,
+                impairments: 0,
+                resolving: false,
+              });
+              pushLog(room, `${unit.characterName} launched Queued Effect: ${queuedTemplate.label}.`);
+            }
+          } else {
+            pushLog(room, `Resolved Action: ${actionToResolve.label}.`);
+          }
+        }
+      }
+      room.pausedForTurn = false;
+      room.activeAction = null;
+      room.activeId = null;
+      clearActiveCommand(room);
+      moveToNextTurnOrClock(room, previousSource);
+      sendJson(res, 200, publicState(room));
+      broadcast(room);
+      return;
+    }
+    if (body.id && body.id !== room.activeId) {
+      sendJson(res, 200, publicState(room));
+      return;
+    }
+    const previousSource = room.activeSource;
+    const unit = room.units.find((entry) => entry.id === room.activeId);
+    if (unit) {
+      unit.atb = Math.max(0, unit.atb - room.threshold);
+      pushLog(room, `${unit.characterName}'s turn completed.`);
+    }
+    room.pausedForTurn = false;
+    room.activeId = null;
+    clearActiveCommand(room);
+    moveToNextTurnOrClock(room, previousSource);
+  }
+
+  if (action === "nudge") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    if (unit && !room.pausedForTurn && !room.pausedForResolution && !room.pausedForStagger) {
-      const direction = phaseDirection(unit.phase);
-      const amount = Math.max(1, number(body.amount, 1));
-      unit.phaseProgress = direction === "down" ? Math.max(0, unit.phaseProgress - amount) : Math.min(THRESHOLD, unit.phaseProgress + amount);
-      if (unit.phase === "decision" && unit.phaseProgress >= THRESHOLD) pauseForDecision(room, unit);
+    if (unit && !room.pausedForTurn) {
+      unit.atb = Math.min(room.threshold, unit.atb + Math.max(1, Number(body.amount) || 1));
+      if (unit.atb >= room.threshold && !hasDelay(unit)) {
+        if (room.commandExpired && room.activeId) interruptActiveTurn(room);
+        pauseForReadyUnit(room, unit, room.resumeAfterTurn ? "clock" : "manual");
+      }
     }
   }
 
@@ -976,37 +1159,82 @@ async function handleAction(req, res) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname === "/favicon.ico" && req.method === "GET") { res.writeHead(204, { "Cache-Control": "public, max-age=86400" }); res.end(); return; }
-  if (url.pathname === "/ping" && req.method === "GET") { res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }); res.end("Vector ATB server is reachable."); return; }
-  if (url.pathname === "/healthz" && req.method === "GET") { sendJson(res, 200, { ok: true }); return; }
-  if (url.pathname === "/api/create-room" && req.method === "POST") { handleCreateRoom(req, res); return; }
-  if (url.pathname === "/api/action" && req.method === "POST") { handleAction(req, res); return; }
-  if (url.pathname === "/api/state" && req.method === "GET") {
-    const room = getRoom(url.searchParams.get("room"));
-    if (!room) { sendJson(res, 404, { error: "Room not found" }); return; }
-    sendJson(res, 200, publicState(room)); return;
-  }
-  if (url.pathname === "/api/keep-alive" && req.method === "POST") {
-    const room = getRoom(url.searchParams.get("room"));
-    if (!room) { sendJson(res, 404, { error: "Room not found" }); return; }
-    room.lastKeepAliveAt = Date.now(); sendJson(res, 200, publicState(room)); return;
-  }
-  if (url.pathname === "/events") {
-    const room = getRoom(url.searchParams.get("room"));
-    if (!room) { res.writeHead(404); res.end(); return; }
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-    res.write("retry: 1500\n\n");
-    clients.get(room.roomCode).add(res);
-    sendEvent(res, "state", publicState(room));
-    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), HEARTBEAT_MS);
-    req.on("close", () => { clearInterval(heartbeat); clients.get(room.roomCode)?.delete(res); });
+
+  if (url.pathname === "/ping" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    res.end("Spaceship Architect ATB server is reachable.");
     return;
   }
+
+  if (url.pathname === "/api/create-room" && req.method === "POST") {
+    handleCreateRoom(req, res);
+    return;
+  }
+
+  if (url.pathname === "/api/action" && req.method === "POST") {
+    handleAction(req, res);
+    return;
+  }
+
+  if (url.pathname === "/api/state" && req.method === "GET") {
+    const room = getRoom(url.searchParams.get("room"));
+    if (!room) {
+      sendJson(res, 404, { error: "Room not found" });
+      return;
+    }
+    sendJson(res, 200, publicState(room));
+    return;
+  }
+
+  if (url.pathname === "/api/keep-alive" && req.method === "POST") {
+    const room = getRoom(url.searchParams.get("room"));
+    if (!room) {
+      sendJson(res, 404, { error: "Room not found" });
+      return;
+    }
+    room.lastKeepAliveAt = Date.now();
+    sendJson(res, 200, publicState(room));
+    return;
+  }
+
+  if (url.pathname === "/events") {
+    const room = getRoom(url.searchParams.get("room"));
+    if (!room) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Room not found");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    const roomClients = clients.get(room.roomCode) || new Set();
+    clients.set(room.roomCode, roomClients);
+    roomClients.add(res);
+    const heartbeat = setInterval(() => {
+      res.write(`: keep-alive ${Date.now()}\n\n`);
+    }, HEARTBEAT_MS);
+    sendEvent(res, "state", publicState(room));
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      roomClients.delete(res);
+    });
+    return;
+  }
+
   serveStatic(req, res);
 });
 
 server.listen(PORT, HOST, () => {
-  const addresses = Object.values(os.networkInterfaces()).flat().filter((entry) => entry && entry.family === "IPv4" && !entry.internal).map((entry) => `http://${entry.address}:${PORT}`);
-  console.log(`Vector ATB listening on http://localhost:${PORT}`);
-  for (const address of addresses) console.log(`LAN: ${address}`);
+  const addresses = [];
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries || []) {
+      if (entry.family === "IPv4" && !entry.internal) addresses.push(entry.address);
+    }
+  }
+  console.log("Spaceship Architect ATB multiplayer running");
+  console.log(`Local:   http://127.0.0.1:${PORT}`);
+  for (const address of addresses) console.log(`Phone:   http://${address}:${PORT}`);
 });
