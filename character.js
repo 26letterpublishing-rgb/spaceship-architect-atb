@@ -290,6 +290,20 @@ function boxesFilled(attributeKey) {
   return character.attributes[attributeKey].reduce((total, dieIndex) => total + Math.max(0, dieIndex + 1), 0);
 }
 
+function calculatedExertionMax() {
+  return 1 + character.attributes.willpower.filter((dieIndex) => dieIndex >= 3).length;
+}
+
+function syncExertion(previousMax = null) {
+  const nextMax = calculatedExertionMax();
+  const oldMax = previousMax ?? character.resources.exertionMax;
+  if (nextMax > oldMax && character.resources.exertionCurrent === oldMax) {
+    character.resources.exertionCurrent = nextMax;
+  }
+  character.resources.exertionMax = nextMax;
+  character.resources.exertionCurrent = clamp(character.resources.exertionCurrent, 0, nextMax);
+}
+
 function diceSummary(attributeKey) {
   const dice = character.attributes[attributeKey].filter((value) => value >= 0).map((value) => diceNames[value]);
   return dice.length ? dice.join(" + ") : "No dice";
@@ -373,7 +387,8 @@ function renderAttributes() {
           : `Purchase through ${dieName}`;
         return `<button class="attribute-die ${purchased ? "purchased" : ""} ${next ? "next" : ""} ${locked ? "locked" : ""}" type="button" data-attribute="${definition.key}" data-row="${row}" data-column="${column}" title="${title}">${dieSvg(column, attributeCosts[row][column], purchased)}</button>`;
       }).join("");
-      return `<div class="attribute-row" style="--progress:${progress}%">${buttons}</div>`;
+      const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
+      return `<div class="attribute-row" style="--progress:${progress}%">${wave}${buttons}</div>`;
     }).join("");
     return `<article class="attribute-card" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} · ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
@@ -441,9 +456,11 @@ function renderDerived() {
   derivedStability.textContent = derived.stability;
   derivedCore.textContent = derived.core;
   derivedCorePenalty.textContent = derived.corePenalty;
+  document.querySelector(".core-penalty")?.classList.toggle("active", derived.corePenalty < 0);
 }
 
 function renderResources() {
+  syncExertion();
   exertionCurrent.textContent = character.resources.exertionCurrent;
   exertionMax.textContent = character.resources.exertionMax;
   reverenceCurrent.textContent = character.resources.reverence;
@@ -483,6 +500,7 @@ function refundXp(cost) {
 function purchaseAttribute(attributeKey, row, column) {
   const current = character.attributes[attributeKey][row];
   const definition = attributeDefs.find((entry) => entry.key === attributeKey);
+  const previousExertionMax = calculatedExertionMax();
   if (!definition) return;
 
   if (column > current) {
@@ -503,6 +521,7 @@ function purchaseAttribute(attributeKey, row, column) {
     notice("Use the rightmost filled die to step this row down.");
     return;
   }
+  syncExertion(previousExertionMax);
   queueSave();
   renderAll();
 }
@@ -656,15 +675,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const resourceMaxButton = event.target.closest("[data-resource-max]");
-  if (resourceMaxButton) {
-    const previous = character.resources.exertionMax;
-    character.resources.exertionMax = clamp(previous + Number(resourceMaxButton.dataset.change), 0, 99);
-    if (character.resources.exertionMax > previous && character.resources.exertionCurrent === previous) character.resources.exertionCurrent = character.resources.exertionMax;
-    character.resources.exertionCurrent = Math.min(character.resources.exertionCurrent, character.resources.exertionMax);
-    queueSave();
-    renderResources();
-  }
 });
 
 characterPicker.addEventListener("change", () => {

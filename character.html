@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
-    <link rel="stylesheet" href="character.css?v=20260719-character-1" />
+    <link rel="stylesheet" href="character.css?v=20260719-character-2" />
   </head>
   <body>
     <header class="creator-header">
@@ -73,6 +73,31 @@
           <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
         </aside>
 
+        <section class="sheet-panel resources-panel">
+          <div class="panel-heading"><span>Resources</span></div>
+          <div class="resource-grid">
+            <div class="resource-card">
+              <span>Exertion</span>
+              <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
+              <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
+              <div class="resource-actions">
+                <button type="button" data-resource="exertion" data-change="-1">-</button>
+                <button type="button" data-resource="exertion" data-change="1">+</button>
+              </div>
+            </div>
+            <div class="resource-card">
+              <span>Reverence</span>
+              <strong id="reverenceCurrent">0</strong>
+              <div class="resource-actions">
+                <button type="button" data-resource="reverence" data-change="-1">-</button>
+                <button type="button" data-resource="reverence" data-change="1">+</button>
+              </div>
+            </div>
+            <label>Move Speed<input data-field="resources.moveSpeed" type="number" min="0" step="0.5" /></label>
+            <label>Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
+          </div>
+        </section>
+
         <section class="sheet-panel attributes-panel">
           <div class="panel-heading">
             <span>Attributes</span>
@@ -90,6 +115,7 @@
             <div><span>Core Threshold</span><strong id="derivedCore">2</strong><small>Health boxes + Resist Distress</small></div>
             <div class="core-penalty"><span>Core Penalty</span><strong id="derivedCorePenalty">0</strong><small>Applied to all Attribute rolls</small></div>
           </div>
+          <div id="damageLayers" class="damage-layers"></div>
         </aside>
 
         <section class="sheet-panel skills-panel">
@@ -113,40 +139,6 @@
           </div>
         </section>
 
-        <section class="sheet-panel damage-panel">
-          <div class="panel-heading">
-            <span>Damage Meter</span>
-            <small>Click a Point to erase or restore it</small>
-          </div>
-          <div id="damageLayers" class="damage-layers"></div>
-        </section>
-
-        <section class="sheet-panel resources-panel">
-          <div class="panel-heading"><span>Resources</span></div>
-          <div class="resource-grid">
-            <div class="resource-card">
-              <span>Exertion</span>
-              <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
-              <div class="resource-actions">
-                <button type="button" data-resource="exertion" data-change="-1">-</button>
-                <button type="button" data-resource="exertion" data-change="1">+</button>
-                <button type="button" data-resource-max="exertion" data-change="1">Max +</button>
-                <button type="button" data-resource-max="exertion" data-change="-1">Max -</button>
-              </div>
-            </div>
-            <div class="resource-card">
-              <span>Reverence</span>
-              <strong id="reverenceCurrent">0</strong>
-              <div class="resource-actions">
-                <button type="button" data-resource="reverence" data-change="-1">-</button>
-                <button type="button" data-resource="reverence" data-change="1">+</button>
-              </div>
-            </div>
-            <label>Move Speed<input data-field="resources.moveSpeed" type="number" min="0" step="0.5" /></label>
-            <label>Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
-          </div>
-        </section>
-
         <section class="sheet-panel crew-panel">
           <div class="panel-heading"><span>Crew Roster</span></div>
           <div id="crewRoster" class="crew-roster"></div>
@@ -159,6 +151,6 @@
       </section>
     </main>
 
-    <script src="character.js?v=20260719-character-1"></script>
+    <script src="character.js?v=20260719-character-2"></script>
   </body>
 </html>
