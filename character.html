@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spaceship Architect Character Creation</title>
+    <link rel="stylesheet" href="character.css?v=20260719-character-1" />
+  </head>
+  <body>
+    <header class="creator-header">
+      <a class="brand-link" href="index.html" aria-label="Return to Spaceship Architect ATB Sync">
+        <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
+      </a>
+      <div class="creator-title">
+        <span>Second Edition</span>
+        <h1>Character Creation</h1>
+      </div>
+      <a class="back-link" href="index.html">Back to ATB</a>
+    </header>
+
+    <main class="creator-shell">
+      <section class="library-bar" aria-label="Character library">
+        <label class="character-picker">
+          Saved Character
+          <select id="characterPicker"></select>
+        </label>
+        <div class="library-actions">
+          <button id="newCharacter" type="button">New</button>
+          <button id="duplicateCharacter" type="button">Duplicate</button>
+          <button id="exportCharacter" type="button">Export</button>
+          <label class="import-button">
+            Import
+            <input id="importCharacter" type="file" accept=".sa2character,.json,application/json" />
+          </label>
+          <button id="deleteCharacter" class="danger" type="button">Delete</button>
+        </div>
+        <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
+      </section>
+
+      <section class="sheet-grid">
+        <section class="sheet-panel identity-panel">
+          <div class="panel-heading">
+            <span>Identity</span>
+            <strong id="identityCallsign">New Character</strong>
+          </div>
+          <div class="identity-grid">
+            <label>Player Name<input data-field="identity.playerName" autocomplete="name" /></label>
+            <label>Character Name<input data-field="identity.characterName" /></label>
+            <label>Race<input data-field="identity.race" /></label>
+            <label>Class<input data-field="identity.className" /></label>
+            <label>Home Planet<input data-field="identity.homePlanet" /></label>
+            <label>Sex / Gender<input data-field="identity.sex" /></label>
+            <label>Age<input data-field="identity.age" /></label>
+            <label>Height<input data-field="identity.height" /></label>
+            <label>Weight<input data-field="identity.weight" /></label>
+            <label>Hair<input data-field="identity.hair" /></label>
+            <label>Eyes<input data-field="identity.eyes" /></label>
+            <label class="description-field">Physical Description<textarea data-field="identity.description" rows="3"></textarea></label>
+          </div>
+        </section>
+
+        <aside class="sheet-panel experience-panel">
+          <div class="panel-heading"><span>Experience</span></div>
+          <div class="xp-readouts">
+            <div><span>Available</span><strong id="xpAvailable">0</strong></div>
+            <div><span>Spent</span><strong id="xpSpent">0</strong></div>
+            <div><span>Total Gained</span><strong id="xpTotal">0</strong></div>
+          </div>
+          <div class="xp-grant">
+            <label>Experience Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
+            <button id="grantXp" type="button">Add XP</button>
+          </div>
+          <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
+        </aside>
+
+        <section class="sheet-panel attributes-panel">
+          <div class="panel-heading">
+            <span>Attributes</span>
+            <small>Purchase continuously from left to right</small>
+          </div>
+          <div id="attributeGrid" class="attribute-grid"></div>
+        </section>
+
+        <aside class="sheet-panel derived-panel">
+          <div class="panel-heading"><span>Timing &amp; Damage</span></div>
+          <div class="derived-grid">
+            <div><span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small></div>
+            <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
+            <div><span>Stability Threshold</span><strong id="derivedStability">2</strong><small>Health boxes + Resist Distress</small></div>
+            <div><span>Core Threshold</span><strong id="derivedCore">2</strong><small>Health boxes + Resist Distress</small></div>
+            <div class="core-penalty"><span>Core Penalty</span><strong id="derivedCorePenalty">0</strong><small>Applied to all Attribute rolls</small></div>
+          </div>
+        </aside>
+
+        <section class="sheet-panel skills-panel">
+          <div class="panel-heading skills-heading">
+            <span>Skills</span>
+            <label class="skill-search">Find Skill<input id="skillSearch" type="search" placeholder="Search skills" /></label>
+          </div>
+          <div class="skill-columns">
+            <div>
+              <h2>Spacecraft Skills</h2>
+              <div id="spacecraftSkills" class="skill-list"></div>
+            </div>
+            <div>
+              <h2>General Skills</h2>
+              <div id="generalSkills" class="skill-list general-skill-list"></div>
+            </div>
+          </div>
+          <div class="custom-skills">
+            <h2>Custom Skills</h2>
+            <div id="customSkills" class="custom-skill-list"></div>
+          </div>
+        </section>
+
+        <section class="sheet-panel damage-panel">
+          <div class="panel-heading">
+            <span>Damage Meter</span>
+            <small>Click a Point to erase or restore it</small>
+          </div>
+          <div id="damageLayers" class="damage-layers"></div>
+        </section>
+
+        <section class="sheet-panel resources-panel">
+          <div class="panel-heading"><span>Resources</span></div>
+          <div class="resource-grid">
+            <div class="resource-card">
+              <span>Exertion</span>
+              <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
+              <div class="resource-actions">
+                <button type="button" data-resource="exertion" data-change="-1">-</button>
+                <button type="button" data-resource="exertion" data-change="1">+</button>
+                <button type="button" data-resource-max="exertion" data-change="1">Max +</button>
+                <button type="button" data-resource-max="exertion" data-change="-1">Max -</button>
+              </div>
+            </div>
+            <div class="resource-card">
+              <span>Reverence</span>
+              <strong id="reverenceCurrent">0</strong>
+              <div class="resource-actions">
+                <button type="button" data-resource="reverence" data-change="-1">-</button>
+                <button type="button" data-resource="reverence" data-change="1">+</button>
+              </div>
+            </div>
+            <label>Move Speed<input data-field="resources.moveSpeed" type="number" min="0" step="0.5" /></label>
+            <label>Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
+          </div>
+        </section>
+
+        <section class="sheet-panel crew-panel">
+          <div class="panel-heading"><span>Crew Roster</span></div>
+          <div id="crewRoster" class="crew-roster"></div>
+        </section>
+
+        <section class="sheet-panel notes-panel">
+          <div class="panel-heading"><span>Character Notes</span></div>
+          <textarea data-field="notes" rows="8" placeholder="Background, equipment notes, conditions, and campaign details"></textarea>
+        </section>
+      </section>
+    </main>
+
+    <script src="character.js?v=20260719-character-1"></script>
+  </body>
+</html>

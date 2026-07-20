@@ -244,6 +244,39 @@ label {
   min-height: 68px;
 }
 
+.character-creator-link {
+  --button-accent: var(--violet);
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 320px);
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--violet) 58%, rgba(255, 255, 255, 0.3));
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.08) 22%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(90deg, #292052, #4f2875 50%, #252555);
+  color: var(--text);
+  font-weight: 900;
+  text-decoration: none;
+  text-shadow: 0 1px 0 #000, 0 0 12px rgba(155, 92, 255, 0.55);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.28),
+    0 0 22px rgba(155, 92, 255, 0.24);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+
+.character-creator-link:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.34),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.28),
+    0 0 30px rgba(155, 92, 255, 0.38);
+}
+
 .room-join-panel {
   display: grid;
   grid-template-columns: 1fr 160px 160px 100px;
@@ -3034,6 +3067,11 @@ h2 {
     padding: 0 8px;
     font-size: 0.78rem;
     line-height: 1.08;
+  }
+
+  .welcome-panel .character-creator-link {
+    min-height: 54px;
+    font-size: 0.84rem;
   }
 
   .gm-control-grid {
