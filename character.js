@@ -333,22 +333,22 @@ function derivedValues() {
   };
 }
 
-function diePolygon(index) {
-  return [
-    "50,3 96,47 4,47",
-    "8,4 92,4 92,46 8,46",
-    "50,2 95,25 50,48 5,25",
-    "50,2 91,16 82,44 18,44 9,16",
-    "50,2 78,8 95,26 82,45 18,45 5,26 22,8",
-  ][index];
-}
-
 function dieSvg(column, cost, purchased) {
+  const vectorShapes = [
+    `<path class="die-shape" d="M24 5 43 40H5Z" />`,
+    `<path class="die-shape" d="m24 4 18 10v20L24 44 6 34V14Z" />
+     <path class="die-detail" d="m6 14 18 10 18-10M24 24v20" />`,
+    `<path class="die-shape" d="m24 3 20 20-20 22L4 23Z" />
+     <path class="die-detail" d="M4 23h40M24 3 13 23l11 22 11-22Z" />`,
+    `<path class="die-shape" d="m24 3 20 19-20 23L4 22Z" />
+     <path class="die-detail" d="m24 3 8 17-8 25-8-25ZM4 22l12-2h16l12 2" />`,
+    `<path class="die-shape" d="m24 3 17 10 2 20-19 12L5 33l2-20Z" />
+     <path class="die-inner" d="m24 7 11 7-4 13H17l-4-13Z" />`,
+  ];
   return `
-    <svg viewBox="0 0 100 50" aria-hidden="true">
-      <polygon class="die-shape" points="${diePolygon(column)}"></polygon>
-      <text class="die-label" x="50" y="${purchased ? 29 : 14}">${diceNames[column]}</text>
-      ${purchased ? "" : `<text class="die-cost" x="50" y="31">${cost}</text><text class="die-xp" x="50" y="40">XP</text>`}
+    <svg viewBox="0 0 48 48" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      ${vectorShapes[column]}
+      ${purchased ? "" : `<text class="die-cost" x="24" y="25">${cost}</text><text class="die-xp" x="24" y="33">XP</text>`}
     </svg>`;
 }
 
