@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
-    <link rel="stylesheet" href="character.css?v=20260719-character-3" />
+    <link rel="stylesheet" href="character.css?v=20260719-character-5" />
   </head>
   <body>
     <header class="creator-header">
@@ -78,23 +78,31 @@
           <div class="resource-grid">
             <div class="resource-card">
               <span>Exertion</span>
-              <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
-              <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
-              <div class="resource-actions">
-                <button type="button" data-resource="exertion" data-change="-1">-</button>
-                <button type="button" data-resource="exertion" data-change="1">+</button>
+              <div class="resource-control-line">
+                <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
+                <div class="resource-actions">
+                  <button type="button" data-resource="exertion" data-change="-1" aria-label="Spend Exertion">-</button>
+                  <button type="button" data-resource="exertion" data-change="1" aria-label="Restore Exertion">+</button>
+                </div>
               </div>
+              <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
             </div>
             <div class="resource-card">
               <span>Reverence</span>
-              <strong id="reverenceCurrent">0</strong>
-              <div class="resource-actions">
-                <button type="button" data-resource="reverence" data-change="-1">-</button>
-                <button type="button" data-resource="reverence" data-change="1">+</button>
+              <div class="resource-control-line">
+                <strong id="reverenceCurrent">0</strong>
+                <div class="resource-actions">
+                  <button type="button" data-resource="reverence" data-change="-1" aria-label="Spend Reverence">-</button>
+                  <button type="button" data-resource="reverence" data-change="1" aria-label="Restore Reverence">+</button>
+                </div>
               </div>
             </div>
-            <label>Move Speed<input data-field="resources.moveSpeed" type="number" min="0" step="0.5" /></label>
-            <label>Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
+            <div class="resource-card derived-resource">
+              <span>Move Speed</span>
+              <strong id="moveSpeedValue">2</strong>
+              <small class="resource-formula">2 + each Dexterity die at D10 or higher</small>
+            </div>
+            <label class="credits-resource">Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
           </div>
         </section>
 
@@ -134,13 +142,20 @@
             </div>
           </div>
           <div class="custom-skills">
-            <h2>Custom Skills</h2>
+            <div class="section-subheading">
+              <h2>Custom Skills</h2>
+              <button id="addCustomSkill" class="compact-add" type="button" aria-label="Add custom skill">+</button>
+            </div>
             <div id="customSkills" class="custom-skill-list"></div>
+            <p id="customSkillsEmpty" class="empty-list-note">No custom skills added.</p>
           </div>
         </section>
 
         <section class="sheet-panel crew-panel">
-          <div class="panel-heading"><span>Crew Roster</span></div>
+          <div class="panel-heading">
+            <span>Crew Roster</span>
+            <button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button>
+          </div>
           <div id="crewRoster" class="crew-roster"></div>
         </section>
 
@@ -151,6 +166,6 @@
       </section>
     </main>
 
-    <script src="character.js?v=20260719-character-3"></script>
+    <script src="character.js?v=20260719-character-5"></script>
   </body>
 </html>

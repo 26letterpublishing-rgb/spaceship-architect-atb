@@ -1,7 +1,7 @@
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const FORMAT_NAME = "spaceship-architect-2e-character";
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 const diceNames = ["D4", "D6", "D8", "D10", "D12"];
 const attributeCosts = [
   [0, 15, 30, 60, 120],
@@ -118,7 +118,11 @@ const derivedCorePenalty = document.querySelector("#derivedCorePenalty");
 const exertionCurrent = document.querySelector("#exertionCurrent");
 const exertionMax = document.querySelector("#exertionMax");
 const reverenceCurrent = document.querySelector("#reverenceCurrent");
+const moveSpeedValue = document.querySelector("#moveSpeedValue");
 const crewRoster = document.querySelector("#crewRoster");
+const addCrewRowButton = document.querySelector("#addCrewRow");
+const addCustomSkillButton = document.querySelector("#addCustomSkill");
+const customSkillsEmpty = document.querySelector("#customSkillsEmpty");
 
 let library = loadLibrary();
 let activeId = localStorage.getItem(ACTIVE_KEY) || "";
@@ -163,10 +167,7 @@ function blankCharacter(name = "New Character") {
     experience: { available: 0, spent: 0, totalGained: 0 },
     attributes: Object.fromEntries(attributeDefs.map((attribute) => [attribute.key, [0, 0, -1, -1]])),
     skills: blankSkills(),
-    customSkills: [
-      { name: "", level: 0 },
-      { name: "", level: 0 },
-    ],
+    customSkills: [],
     damage: {
       guard: { max: 0, current: 0, threshold: 0 },
       shell: { max: 0, current: 0, threshold: 0 },
@@ -174,7 +175,7 @@ function blankCharacter(name = "New Character") {
       core: { max: 10, current: 10 },
     },
     resources: { exertionCurrent: 1, exertionMax: 1, reverence: 0, moveSpeed: 2, credits: 0 },
-    crew: Array.from({ length: 8 }, () => ({ name: "", title: "" })),
+    crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
     notes: "",
     updatedAt: new Date().toISOString(),
   };
@@ -191,7 +192,7 @@ function normalizeCharacter(raw) {
     experience: { ...base.experience, ...(source.experience || {}) },
     attributes: { ...base.attributes },
     skills: { ...base.skills, ...(source.skills || {}) },
-    customSkills: Array.isArray(source.customSkills) ? source.customSkills.slice(0, 8) : base.customSkills,
+    customSkills: Array.isArray(source.customSkills) ? source.customSkills.slice(0, 24) : base.customSkills,
     damage: {
       guard: { ...base.damage.guard, ...(source.damage?.guard || {}) },
       shell: { ...base.damage.shell, ...(source.damage?.shell || {}) },
@@ -199,7 +200,7 @@ function normalizeCharacter(raw) {
       core: { ...base.damage.core, ...(source.damage?.core || {}) },
     },
     resources: { ...base.resources, ...(source.resources || {}) },
-    crew: Array.isArray(source.crew) ? source.crew.slice(0, 12) : base.crew,
+    crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
   };
 
   for (const definition of attributeDefs) {
@@ -212,10 +213,15 @@ function normalizeCharacter(raw) {
     normalized.attributes[definition.key][1] = Math.max(0, normalized.attributes[definition.key][1]);
   }
 
-  while (normalized.customSkills.length < 2) normalized.customSkills.push({ name: "", level: 0 });
   normalized.customSkills = normalized.customSkills.map((skill) => ({ name: String(skill?.name || ""), level: clamp(skill?.level, 0, 99) }));
-  while (normalized.crew.length < 8) normalized.crew.push({ name: "", title: "" });
+  if ((Number(source.version) || 1) < 2) {
+    normalized.customSkills = normalized.customSkills.filter((skill) => skill.name.trim() || skill.level > 0);
+    const lastUsedCrew = normalized.crew.reduce((last, member, index) => member?.name || member?.title ? index : last, -1);
+    normalized.crew = normalized.crew.slice(0, Math.max(3, lastUsedCrew + 1));
+  }
+  while (normalized.crew.length < 3) normalized.crew.push({ name: "", title: "" });
   normalized.crew = normalized.crew.map((member) => ({ name: String(member?.name || ""), title: String(member?.title || "") }));
+  normalized.version = FORMAT_VERSION;
 
   for (const definition of damageDefs) {
     const layer = normalized.damage[definition.key];
@@ -294,6 +300,10 @@ function calculatedExertionMax() {
   return 1 + character.attributes.willpower.filter((dieIndex) => dieIndex >= 3).length;
 }
 
+function calculatedMoveSpeed() {
+  return 2 + character.attributes.dexterity.filter((dieIndex) => dieIndex >= 3).length;
+}
+
 function syncExertion(previousMax = null) {
   const nextMax = calculatedExertionMax();
   const oldMax = previousMax ?? character.resources.exertionMax;
@@ -317,6 +327,12 @@ function skillCost(level) {
 function skillRefund(level) {
   const current = Math.max(0, Number(level) || 0);
   return current <= 1 ? 10 : (current - 1) * 30;
+}
+
+function totalSkillXp(level) {
+  let total = 0;
+  for (let current = 0; current < level; current += 1) total += skillCost(current);
+  return total;
 }
 
 function derivedValues() {
@@ -365,6 +381,16 @@ function renderFields() {
     input.value = value ?? "";
   });
   identityCallsign.textContent = character.identity.characterName || "Unnamed Character";
+  renderIdentityTheme();
+}
+
+function renderIdentityTheme() {
+  const identityPanel = document.querySelector(".identity-panel");
+  const value = character.identity.sex.trim().toLowerCase();
+  identityPanel.classList.remove("identity-male", "identity-female", "identity-other");
+  if (value === "m" || value === "male") identityPanel.classList.add("identity-male");
+  else if (value === "f" || value === "female") identityPanel.classList.add("identity-female");
+  else if (value) identityPanel.classList.add("identity-other");
 }
 
 function renderExperience() {
@@ -390,33 +416,41 @@ function renderAttributes() {
       const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
       return `<div class="attribute-row" style="--progress:${progress}%">${wave}${buttons}</div>`;
     }).join("");
-    return `<article class="attribute-card" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} · ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
+    return `<article class="attribute-card" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
+}
+
+function formatSkillName(name) {
+  return escapeHtml(name).replaceAll(" ", "&nbsp;").replaceAll("/", "/<wbr>");
 }
 
 function renderSkillRow(name, level, customIndex = null) {
   const keySkill = ["Awareness", "Initiative", "Resist Distress"].includes(name);
   const attributes = customIndex === null ? `data-skill="${escapeAttribute(name)}"` : `data-custom-skill="${customIndex}"`;
+  const cost = skillCost(level);
   return `<div class="skill-row ${keySkill ? "key-skill" : ""}" data-search-name="${escapeAttribute(name.toLowerCase())}">
-    <span class="skill-name" title="${escapeAttribute(name)}">${escapeHtml(name)}</span>
-    <button type="button" data-skill-action="decrease" ${attributes} aria-label="Decrease ${escapeAttribute(name)}">-</button>
+    <span class="skill-name" title="${escapeAttribute(name)}">${formatSkillName(name)}</span>
+    <button class="skill-refund" type="button" data-skill-action="decrease" ${attributes} aria-label="Decrease ${escapeAttribute(name)}">-</button>
     <span class="skill-level">${level}</span>
-    <button type="button" data-skill-action="increase" ${attributes} aria-label="Increase ${escapeAttribute(name)}">+</button>
-    <span class="skill-cost">${skillCost(level)} XP</span>
+    <button class="skill-buy" type="button" data-skill-action="increase" ${attributes} aria-label="Spend ${cost} XP to increase ${escapeAttribute(name)}"><strong>${cost}</strong><small>XP</small></button>
   </div>`;
 }
 
 function renderSkills() {
   spacecraftSkills.innerHTML = spacecraftSkillNames.map((name) => renderSkillRow(name, character.skills[name])).join("");
   generalSkills.innerHTML = generalSkillNames.map((name) => renderSkillRow(name, character.skills[name])).join("");
-  customSkills.innerHTML = character.customSkills.map((skill, index) => `
+  customSkills.innerHTML = character.customSkills.map((skill, index) => {
+    const cost = skillCost(skill.level);
+    return `
     <div class="custom-skill-row">
       <input data-custom-name="${index}" value="${escapeAttribute(skill.name)}" placeholder="Custom Skill ${index + 1}" aria-label="Custom skill ${index + 1} name" />
-      <button type="button" data-skill-action="decrease" data-custom-skill="${index}" aria-label="Decrease custom skill">-</button>
+      <button class="skill-refund" type="button" data-skill-action="decrease" data-custom-skill="${index}" aria-label="Decrease custom skill">-</button>
       <span class="skill-level">${skill.level}</span>
-      <button type="button" data-skill-action="increase" data-custom-skill="${index}" aria-label="Increase custom skill">+</button>
-      <span class="skill-cost">${skillCost(skill.level)} XP</span>
-    </div>`).join("");
+      <button class="skill-buy" type="button" data-skill-action="increase" data-custom-skill="${index}" aria-label="Spend ${cost} XP to increase custom skill"><strong>${cost}</strong><small>XP</small></button>
+      <button class="row-remove" type="button" data-remove-custom-skill="${index}" aria-label="Remove custom skill">-</button>
+    </div>`;
+  }).join("");
+  customSkillsEmpty.hidden = character.customSkills.length > 0;
   applySkillSearch();
 }
 
@@ -432,7 +466,7 @@ function renderDamage() {
     const layer = character.damage[definition.key];
     const points = Array.from({ length: 10 }, (_, index) => {
       const unavailable = index >= layer.max;
-      const erased = !unavailable && index >= layer.current;
+      const erased = !unavailable && index < layer.max - layer.current;
       return `<button type="button" class="damage-point ${definition.pointClass} ${erased ? "erased" : ""} ${unavailable ? "unavailable" : ""}" data-damage-point="${definition.key}" data-point-index="${index}" aria-label="${definition.label} point ${index + 1}${unavailable ? ", unavailable" : erased ? ", erased" : ", filled"}"></button>`;
     }).join("");
     const thresholdControl = definition.key === "guard" || definition.key === "shell"
@@ -461,13 +495,16 @@ function renderDerived() {
 
 function renderResources() {
   syncExertion();
+  character.resources.moveSpeed = calculatedMoveSpeed();
   exertionCurrent.textContent = character.resources.exertionCurrent;
   exertionMax.textContent = character.resources.exertionMax;
   reverenceCurrent.textContent = character.resources.reverence;
+  moveSpeedValue.textContent = character.resources.moveSpeed;
 }
 
 function renderCrew() {
-  crewRoster.innerHTML = character.crew.map((member, index) => `<div class="crew-row"><input data-crew-index="${index}" data-crew-field="name" value="${escapeAttribute(member.name)}" placeholder="Crewmember" aria-label="Crewmember ${index + 1} name" /><input data-crew-index="${index}" data-crew-field="title" value="${escapeAttribute(member.title)}" placeholder="Title / Station" aria-label="Crewmember ${index + 1} title" /></div>`).join("");
+  const atMinimum = character.crew.length <= 3;
+  crewRoster.innerHTML = character.crew.map((member, index) => `<div class="crew-row"><input data-crew-index="${index}" data-crew-field="name" value="${escapeAttribute(member.name)}" placeholder="Crewmember" aria-label="Crewmember ${index + 1} name" /><input data-crew-index="${index}" data-crew-field="title" value="${escapeAttribute(member.title)}" placeholder="Title / Station" aria-label="Crewmember ${index + 1} title" /><button class="row-remove" type="button" data-remove-crew="${index}" ${atMinimum ? "disabled" : ""} aria-label="Remove crew row ${index + 1}">-</button></div>`).join("");
 }
 
 function renderAll() {
@@ -598,6 +635,7 @@ document.addEventListener("input", (event) => {
       const option = characterPicker.querySelector(`option[value="${activeId}"]`);
       if (option) option.textContent = value || "Unnamed Character";
     }
+    if (field.dataset.field === "identity.sex") renderIdentityTheme();
     queueSave();
     return;
   }
@@ -642,7 +680,9 @@ document.addEventListener("click", (event) => {
     const layer = character.damage[point.dataset.damagePoint];
     const index = Number(point.dataset.pointIndex);
     if (index >= layer.max) return;
-    layer.current = index < layer.current ? index : index + 1;
+    const damageCount = layer.max - layer.current;
+    const nextDamageCount = index < damageCount ? index : index + 1;
+    layer.current = layer.max - nextDamageCount;
     queueSave();
     renderDamage();
     renderDerived();
@@ -675,6 +715,47 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const removeCustomSkill = event.target.closest("[data-remove-custom-skill]");
+  if (removeCustomSkill) {
+    const index = Number(removeCustomSkill.dataset.removeCustomSkill);
+    const skill = character.customSkills[index];
+    if (!skill) return;
+    const refund = totalSkillXp(skill.level);
+    if (refund > 0 && !confirm(`Remove ${skill.name || "this custom skill"} and refund ${refund} XP?`)) return;
+    if (refund > 0) refundXp(refund);
+    character.customSkills.splice(index, 1);
+    queueSave();
+    renderSkills();
+    renderExperience();
+    notice(refund > 0 ? `${refund} XP refunded.` : "Custom skill removed.", "success");
+    return;
+  }
+
+  const removeCrew = event.target.closest("[data-remove-crew]");
+  if (removeCrew) {
+    if (character.crew.length <= 3) return;
+    const index = Number(removeCrew.dataset.removeCrew);
+    const member = character.crew[index];
+    if ((member?.name || member?.title) && !confirm(`Remove ${member.name || "this crew entry"} from the roster?`)) return;
+    character.crew.splice(index, 1);
+    queueSave();
+    renderCrew();
+    return;
+  }
+});
+
+addCustomSkillButton.addEventListener("click", () => {
+  character.customSkills.push({ name: "", level: 0 });
+  queueSave();
+  renderSkills();
+  customSkills.querySelector("[data-custom-name]:last-of-type")?.focus();
+});
+
+addCrewRowButton.addEventListener("click", () => {
+  character.crew.push({ name: "", title: "" });
+  queueSave();
+  renderCrew();
+  crewRoster.querySelector(".crew-row:last-child input")?.focus();
 });
 
 characterPicker.addEventListener("change", () => {
