@@ -4,50 +4,51 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
-    <link rel="stylesheet" href="character.css?v=20260719-character-5" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="character.css?v=20260723-character-7" />
   </head>
   <body>
     <header class="creator-header">
       <a class="brand-link" href="index.html" aria-label="Return to Spaceship Architect ATB Sync">
         <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
       </a>
-      <div class="creator-title">
-        <span>Second Edition</span>
-        <h1>Character Creation</h1>
-      </div>
+      <div class="creator-title"><span>Second Edition</span><h1>Character Creator</h1></div>
       <a class="back-link" href="index.html">Back to ATB</a>
     </header>
 
     <main class="creator-shell">
       <section class="library-bar" aria-label="Character library">
-        <label class="character-picker">
-          Saved Character
-          <select id="characterPicker"></select>
-        </label>
+        <label class="character-picker">Saved Character<select id="characterPicker"></select></label>
         <div class="library-actions">
           <button id="newCharacter" type="button">New</button>
           <button id="duplicateCharacter" type="button">Duplicate</button>
           <button id="exportCharacter" type="button">Export</button>
-          <label class="import-button">
-            Import
-            <input id="importCharacter" type="file" accept=".sa2character,.json,application/json" />
-          </label>
+          <label class="import-button">Import<input id="importCharacter" type="file" accept=".sa2character,.json,application/json" /></label>
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
       </section>
 
-      <section class="sheet-grid">
+      <section class="workflow-bar" aria-label="Character creation progress">
+        <div>
+          <span id="phaseBadge" class="phase-badge">Draft</span>
+          <strong id="nextRequirement">Spend 195 Attribute Points</strong>
+          <small id="workflowDetail">Skills unlock after Attribute allocation is complete.</small>
+        </div>
+        <div class="workflow-actions">
+          <button id="finalizeCharacter" class="primary-action" type="button">Finalize Character</button>
+          <button id="spendExperience" class="primary-action" type="button" hidden>Spend EXP</button>
+        </div>
+      </section>
+
+      <section class="sheet-grid" id="characterSheet">
         <section class="sheet-panel identity-panel">
-          <div class="panel-heading">
-            <span>Identity</span>
-            <strong id="identityCallsign">New Character</strong>
-          </div>
+          <div class="panel-heading"><span>Identity</span><strong id="identityCallsign">New Character</strong></div>
           <div class="identity-grid">
             <label>Player Name<input data-field="identity.playerName" autocomplete="name" /></label>
             <label>Character Name<input data-field="identity.characterName" /></label>
             <label>Race<input data-field="identity.race" /></label>
-            <label>Class<input data-field="identity.className" /></label>
+            <label>Class<select id="classPicker"></select></label>
             <label>Home Planet<input data-field="identity.homePlanet" /></label>
             <label>Sex / Gender<input data-field="identity.sex" /></label>
             <label>Age<input data-field="identity.age" /></label>
@@ -57,18 +58,23 @@
             <label>Eyes<input data-field="identity.eyes" /></label>
             <label class="description-field">Physical Description<textarea data-field="identity.description" rows="3"></textarea></label>
           </div>
+          <div id="classDetails" class="class-details"></div>
         </section>
 
         <aside class="sheet-panel experience-panel">
-          <div class="panel-heading"><span>Experience</span></div>
+          <div class="panel-heading"><span>Advancement</span></div>
+          <div id="creationBudgets" class="creation-budgets">
+            <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong></div>
+            <div><span>Skill Points</span><strong id="skillBudget">Locked</strong></div>
+          </div>
           <div class="xp-readouts">
-            <div><span>Available</span><strong id="xpAvailable">0</strong></div>
-            <div><span>Spent</span><strong id="xpSpent">0</strong></div>
+            <div><span>Available XP</span><strong id="xpAvailable">0</strong></div>
+            <div><span>Spent XP</span><strong id="xpSpent">0</strong></div>
             <div><span>Total Gained</span><strong id="xpTotal">0</strong></div>
           </div>
           <div class="xp-grant">
-            <label>Experience Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
-            <button id="grantXp" type="button">Add XP</button>
+            <label>Debug Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
+            <button id="grantXp" type="button">DEBUG: ADD EXP</button>
           </div>
           <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
         </aside>
@@ -87,43 +93,48 @@
               </div>
               <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
             </div>
-            <div class="resource-card">
-              <span>Reverence</span>
-              <div class="resource-control-line">
-                <strong id="reverenceCurrent">0</strong>
-                <div class="resource-actions">
-                  <button type="button" data-resource="reverence" data-change="-1" aria-label="Spend Reverence">-</button>
-                  <button type="button" data-resource="reverence" data-change="1" aria-label="Restore Reverence">+</button>
-                </div>
-              </div>
-            </div>
             <div class="resource-card derived-resource">
-              <span>Move Speed</span>
-              <strong id="moveSpeedValue">2</strong>
+              <span>Move Speed</span><strong id="moveSpeedValue">2</strong>
               <small class="resource-formula">2 + each Dexterity die at D10 or higher</small>
             </div>
-            <label class="credits-resource">Credits<input data-field="resources.credits" type="number" min="0" step="1" /></label>
+            <div class="resource-card credits-card">
+              <span>Credits</span><strong id="creditsValue">0</strong>
+              <small class="resource-formula">Awarded by the GM; class bonuses apply automatically</small>
+            </div>
+            <div class="resource-card reverence-card">
+              <div class="reverence-heading"><span>Reverence</span><strong id="reverenceCurrent" aria-label="Current Reverence">0</strong></div>
+              <div id="reverenceMeter" class="reverence-meter" aria-label="10 Reverence slots"></div>
+              <div class="reverence-actions">
+                <button type="button" disabled title="Available when Attribute rolling is added">Reroll an Attribute<small>Coming later</small></button>
+                <button type="button" disabled title="Available when Drama Cards are added">Draw a Drama Card<small>Coming later</small></button>
+                <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
+              </div>
+            </div>
           </div>
         </section>
 
         <section class="sheet-panel attributes-panel">
-          <div class="panel-heading">
-            <span>Attributes</span>
-            <small>Purchase continuously from left to right</small>
-          </div>
+          <div class="panel-heading"><span>Attributes</span><small>Purchase continuously from left to right</small></div>
           <div id="attributeGrid" class="attribute-grid"></div>
         </section>
 
         <aside class="sheet-panel derived-panel">
-          <div class="panel-heading"><span>Timing &amp; Damage</span></div>
+          <div class="panel-heading"><span>Timing &amp; Health</span></div>
           <div class="derived-grid">
             <div><span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small></div>
             <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
-            <div><span>Stability Threshold</span><strong id="derivedStability">2</strong><small>Health boxes + Resist Distress</small></div>
-            <div><span>Core Threshold</span><strong id="derivedCore">2</strong><small>Health boxes + Resist Distress</small></div>
-            <div class="core-penalty"><span>Core Penalty</span><strong id="derivedCorePenalty">0</strong><small>Applied to all Attribute rolls</small></div>
+            <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small>Maximum Health dice +20</small></div>
+            <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small>Reverence and other permanent effects</small></div>
           </div>
-          <div id="damageLayers" class="damage-layers"></div>
+          <div class="hp-console">
+            <span>Current HP</span>
+            <div class="hp-control">
+              <button type="button" data-hp-change="-1" aria-label="Lose one HP">-</button>
+              <input id="currentHp" type="number" min="-9999" max="999999" step="1" aria-label="Current HP" />
+              <button type="button" data-hp-change="1" aria-label="Restore one HP">+</button>
+            </div>
+            <button id="restoreHp" type="button">Restore to Maximum</button>
+          </div>
         </aside>
 
         <section class="sheet-panel skills-panel">
@@ -131,31 +142,20 @@
             <span>Skills</span>
             <label class="skill-search">Find Skill<input id="skillSearch" type="search" placeholder="Search skills" /></label>
           </div>
+          <div id="skillLockNotice" class="skill-lock-notice">Spend all 195 Attribute Points to unlock Skills.</div>
           <div class="skill-columns">
-            <div>
-              <h2>Spacecraft Skills</h2>
-              <div id="spacecraftSkills" class="skill-list"></div>
-            </div>
-            <div>
-              <h2>General Skills</h2>
-              <div id="generalSkills" class="skill-list general-skill-list"></div>
-            </div>
+            <div><h2>Spacecraft Skills</h2><div id="spacecraftSkills" class="skill-list"></div></div>
+            <div><h2>General Skills</h2><div id="generalSkills" class="skill-list general-skill-list"></div></div>
           </div>
           <div class="custom-skills">
-            <div class="section-subheading">
-              <h2>Custom Skills</h2>
-              <button id="addCustomSkill" class="compact-add" type="button" aria-label="Add custom skill">+</button>
-            </div>
+            <div class="section-subheading"><h2>Custom Skills</h2><button id="addCustomSkill" class="compact-add" type="button" aria-label="Add custom skill">+</button></div>
             <div id="customSkills" class="custom-skill-list"></div>
             <p id="customSkillsEmpty" class="empty-list-note">No custom skills added.</p>
           </div>
         </section>
 
         <section class="sheet-panel crew-panel">
-          <div class="panel-heading">
-            <span>Crew Roster</span>
-            <button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button>
-          </div>
+          <div class="panel-heading"><span>Crew Roster</span><button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button></div>
           <div id="crewRoster" class="crew-roster"></div>
         </section>
 
@@ -166,6 +166,21 @@
       </section>
     </main>
 
-    <script src="character.js?v=20260719-character-5"></script>
+    <div id="confirmModal" class="modal-shell" hidden>
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <span class="dialog-kicker">Confirm Command</span><h2 id="confirmTitle">Are you sure?</h2><p id="confirmMessage"></p>
+        <div class="dialog-actions"><button id="confirmCancel" type="button">Keep Current Character</button><button id="confirmAccept" class="danger" type="button">Start Over</button></div>
+      </section>
+    </div>
+    <div id="wipeOverlay" class="wipe-overlay" hidden aria-hidden="true"><span></span></div>
+    <div id="diceRoller" class="dice-roller" hidden>
+      <section class="dice-stage" role="dialog" aria-modal="true" aria-labelledby="diceTitle">
+        <div class="dice-copy"><span>Advancement Roll</span><h2 id="diceTitle">Rolling</h2><p id="diceSubtitle"></p></div>
+        <div id="diceCanvas" class="dice-canvas"></div>
+        <strong id="diceResult" class="dice-result" hidden></strong>
+        <div id="diceActions" class="dice-actions"></div>
+      </section>
+    </div>
+    <script type="module" src="character.js?v=20260723-character-7"></script>
   </body>
 </html>

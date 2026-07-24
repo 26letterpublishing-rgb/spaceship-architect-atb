@@ -1,0 +1,250 @@
+export const ATTRIBUTE_POINTS = 195;
+export const BASE_SKILL_POINTS = 35;
+export const MAX_STARTING_SKILL = 3;
+
+export const DICE_NAMES = ["D4", "D6", "D8", "D10", "D12"];
+export const DICE_FACES = [4, 6, 8, 10, 12];
+export const ATTRIBUTE_COSTS = [
+  [0, 15, 30, 60, 120],
+  [0, 15, 30, 60, 120],
+  [15, 30, 60, 120, 240],
+  [15, 30, 60, 120, 240],
+];
+
+export const ATTRIBUTE_DEFS = [
+  { key: "strength", label: "Strength", color: "#ff5b58" },
+  { key: "health", label: "Health", color: "#39e58f" },
+  { key: "perception", label: "Perception", color: "#ffd05a" },
+  { key: "dexterity", label: "Dexterity", color: "#35c9ff" },
+  { key: "luck", label: "Luck", color: "#a86cff" },
+  { key: "charisma", label: "Charisma", color: "#ff68b8" },
+  { key: "intellect", label: "Intellect", color: "#4f83ff" },
+  { key: "willpower", label: "Willpower", color: "#ff984d" },
+];
+
+export const SPACECRAFT_SKILLS = [
+  "Computer Systems",
+  "Engineering",
+  "Hacking",
+  "Pilot/Helm",
+  "Sensor Systems",
+  "Weapon Systems",
+];
+
+export const GENERAL_SKILLS = [
+  "Acting/Lie",
+  "Anatomy/First Aid",
+  "Architecture",
+  "Art/Music",
+  "Astronomy",
+  "Athletics/Endurance",
+  "Awareness",
+  "Break Free/Escape",
+  "Caretaking/Nurture",
+  "Catch/Throw",
+  "Climb",
+  "Common Knowledge",
+  "Cooking",
+  "Demolitions",
+  "Disguise/Mimic",
+  "Dodge/Block",
+  "Drive/Small Vehicle",
+  "Fashion/Etiquette",
+  "Forgotten Languages",
+  "Gambling",
+  "History/Lore",
+  "Identify Taste/Smell",
+  "Initiative",
+  "Intimidate/Taunt",
+  "Intuition/Empathy",
+  "Jump",
+  "Law/Politics",
+  "Leadership",
+  "Lift/Push/Pull",
+  "Lock-picking",
+  "Mathematics",
+  "Melee",
+  "Navigate",
+  "Negotiation/Persuade",
+  "Occult",
+  "Pickpocket",
+  "Projectile",
+  "Psychology",
+  "Religion",
+  "Research",
+  "Resist Distress",
+  "Science/Physics",
+  "Self-Control",
+  "Showmanship",
+  "Stealth/Hide",
+  "Survival/Tracking",
+  "Swim",
+  "Tame Animal",
+  "Teaching",
+  "Technology",
+  "Vehicle Mechanics",
+  "Weapon Mechanics",
+  "Wrestle/Disarm",
+  "Writing",
+];
+
+export const INTELLECT_SKILL_POINT_BONUSES = [0, 3, 5, 10, 20];
+
+export const CLASS_DEFS = [
+  {
+    id: "",
+    name: "No Class",
+    summary: "No class advantage is applied.",
+  },
+  {
+    id: "ambassador-spy",
+    name: "Ambassador / Spy",
+    summary: "After character creation, purchasing a Charisma or Luck die grants a free die of equal or lower value in Charisma or Luck.",
+    manual: "The free Attribute die choice will be automated with post-finalization Attribute advancement.",
+  },
+  {
+    id: "blessed",
+    name: "Blessed",
+    summary: "Starts with full Reverence and five Drama Cards.",
+    effects: { reverenceOnFinalize: 10, dramaCardsOnFinalize: 5 },
+  },
+  {
+    id: "corporate-worker",
+    name: "Corporate Worker / Citizen",
+    summary: "Starts with an additional 15,000 credits.",
+    effects: { creditsBonus: 15000 },
+  },
+  {
+    id: "decker",
+    name: "Decker / Computer Specialist",
+    summary: "Spend 2 Reverence while Hacking to reduce enemy Security Code digits by 1. Computer Systems may be rerolled up to three times per session.",
+  },
+  {
+    id: "demolition-specialist",
+    name: "Demolition Specialist / Pyro",
+    summary: "Add +1 Fire Intensity to Fire Element attacks for every 1.0 in Demolitions. This may exceed Intensity 5.",
+  },
+  {
+    id: "engineer",
+    name: "Engineer",
+    summary: "While stationed aboard a starship, add AU to an action equal to the highest Intellect die face.",
+    manual: "Station AU will be automated when station interfaces are added.",
+  },
+  {
+    id: "gunner",
+    name: "Gunner",
+    summary: "Weapon Systems rolls add one Dexterity or Intellect die. Each Reverence spent adds +2D10 to one damage roll.",
+  },
+  {
+    id: "heavy",
+    name: "Heavy",
+    summary: "Treat all weapons as one Size Class lower and add +15 Maximum HP.",
+    effects: { maxHpBonus: 15 },
+  },
+  {
+    id: "informant",
+    name: "Informant",
+    summary: "Create up to five helpful NPC contacts. Add another contact whenever entering a new star system.",
+  },
+  {
+    id: "marine-soldier",
+    name: "Marine / Soldier",
+    summary: "Projectile triples may fuse. Once per session, roll Willpower and heal the sum of all dice.",
+  },
+  {
+    id: "mastermind",
+    name: "Mastermind",
+    summary: "Legacy benefit modifies Analyze and several former combat actions.",
+    pendingAtb: true,
+  },
+  {
+    id: "medical-officer",
+    name: "Medical Officer",
+    summary: "Triple the effectiveness of HP healing. May heal someone below zero HP for up to 25 combat rounds while vital organs remain.",
+  },
+  {
+    id: "navigator-sensor-tech",
+    name: "Navigator / Sensor Tech",
+    summary: "Pilot/Helm and Navigate are combined when rolling either. Awareness and Sensor Systems are combined when rolling either.",
+  },
+  {
+    id: "ninja",
+    name: "Ninja",
+    summary: "Legacy benefit improves melee defense, climbing, exerted stealth, and Called Shots.",
+    pendingAtb: true,
+  },
+  {
+    id: "peacekeeper",
+    name: "Peacekeeper",
+    summary: "Add 1D12 to Negotiation/Persuade. Draw a Drama Card for preventing combat, up to twice per session.",
+  },
+  {
+    id: "pirate",
+    name: "Pirate",
+    summary: "Identify prices, gain +3.0 to Projectile and Melee against unarmed characters, ignore Disarm requirements, and salvage a random compatible SIC after defeating a starship.",
+  },
+  {
+    id: "playboy-minx",
+    name: "Playboy / Minx",
+    summary: "Combine Negotiation/Persuade and Acting/Lie. Gain +5 XP and +1 Reverence for each new sexual partner.",
+  },
+  {
+    id: "psychopath",
+    name: "Psychopath",
+    summary: "Gain +8 XP after killing a character, up to three times per session.",
+  },
+  {
+    id: "robotics-worker",
+    name: "Robotics Worker / A.I. Psychologist",
+    summary: "Android and Spiddix upgrades cost 25 fewer credits per XP. Spend 1 Reverence to grant either race +8 XP. Cannot combine with those races.",
+  },
+  {
+    id: "rogue-drifter",
+    name: "Rogue / Drifter",
+    summary: "Legacy benefit grants an Ambush Round action and modifies React when ambushed.",
+    pendingAtb: true,
+  },
+  {
+    id: "science-officer",
+    name: "Science Officer",
+    summary: "Add Intellect dice to Perception rolls. At session end, add +0.1 to Research, Science/Physics, or Mathematics.",
+  },
+  {
+    id: "scout-sniper",
+    name: "Scout / Sniper",
+    summary: "After creation, add +2.0 to Survival/Tracking and Awareness. Legacy benefit spends Exertion for additional Aim actions.",
+    pendingAtb: true,
+    effects: { skillBonuses: { "Survival/Tracking": 20, Awareness: 20 } },
+  },
+  {
+    id: "smuggler",
+    name: "Smuggler",
+    summary: "Charisma and Intellect may borrow up to two dice from each other. Six listed skills gain +2.0 after creation.",
+    effects: {
+      skillBonuses: {
+        "Acting/Lie": 20,
+        "Common Knowledge": 20,
+        "History/Lore": 20,
+        "Law/Politics": 20,
+        Navigate: 20,
+        "Negotiation/Persuade": 20,
+      },
+    },
+  },
+  {
+    id: "tactician",
+    name: "Tactician",
+    summary: "Each session distribute up to the number of players +2 Reverence to other players. Personal Drama Cards may be given away at the beginning of a session.",
+  },
+  {
+    id: "other",
+    name: "Other",
+    summary: "Choose one Attribute whose unused dice add to the result decimal. Gain +60 XP immediately after finalization.",
+    effects: { xpOnFinalize: 60 },
+    manual: "The chosen Attribute will be added when the Attribute roller is implemented.",
+  },
+];
+
+export function classById(id) {
+  return CLASS_DEFS.find((entry) => entry.id === id) || CLASS_DEFS[0];
+}

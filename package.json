@@ -9,5 +9,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "cannon-es": "0.20.0",
+    "three": "0.185.1"
   }
 }
