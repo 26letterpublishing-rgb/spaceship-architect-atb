@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260723-character-7" />
+    <link rel="stylesheet" href="character.css?v=20260723-character-8" />
   </head>
   <body>
     <header class="creator-header">
@@ -13,7 +13,7 @@
         <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
       </a>
       <div class="creator-title"><span>Second Edition</span><h1>Character Creator</h1></div>
-      <a class="back-link" href="index.html">Back to ATB</a>
+      <a class="back-link" href="index.html">Back to Main Menu</a>
     </header>
 
     <main class="creator-shell">
@@ -30,10 +30,15 @@
       </section>
 
       <section class="workflow-bar" aria-label="Character creation progress">
-        <div>
+        <div class="workflow-copy">
           <span id="phaseBadge" class="phase-badge">Draft</span>
           <strong id="nextRequirement">Spend 195 Attribute Points</strong>
           <small id="workflowDetail">Skills unlock after Attribute allocation is complete.</small>
+        </div>
+        <div class="workflow-counters" aria-label="Current character creation totals">
+          <div><span>Attribute Points</span><strong id="workflowAttributeRemaining">195 / 195</strong></div>
+          <div><span>Skill Points</span><strong id="workflowSkillRemaining">Locked</strong></div>
+          <div><span>Credits</span><strong id="workflowCredits">0</strong></div>
         </div>
         <div class="workflow-actions">
           <button id="finalizeCharacter" class="primary-action" type="button">Finalize Character</button>
@@ -49,7 +54,10 @@
             <label>Character Name<input data-field="identity.characterName" /></label>
             <label>Race<input data-field="identity.race" /></label>
             <label>Class<select id="classPicker"></select></label>
-            <label>Home Planet<input data-field="identity.homePlanet" /></label>
+            <label>Home Planet
+              <select id="homePlanetPicker" aria-label="Home planet"></select>
+              <input id="homePlanetCustom" type="text" placeholder="Enter your home planet" aria-label="Custom home planet" hidden />
+            </label>
             <label>Sex / Gender<input data-field="identity.sex" /></label>
             <label>Age<input data-field="identity.age" /></label>
             <label>Height<input data-field="identity.height" /></label>
@@ -68,9 +76,8 @@
             <div><span>Skill Points</span><strong id="skillBudget">Locked</strong></div>
           </div>
           <div class="xp-readouts">
-            <div><span>Available XP</span><strong id="xpAvailable">0</strong></div>
+            <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small>Unspent / Total Gained</small></div>
             <div><span>Spent XP</span><strong id="xpSpent">0</strong></div>
-            <div><span>Total Gained</span><strong id="xpTotal">0</strong></div>
           </div>
           <div class="xp-grant">
             <label>Debug Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
@@ -109,6 +116,7 @@
                 <button type="button" disabled title="Available when Drama Cards are added">Draw a Drama Card<small>Coming later</small></button>
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
+              <button id="debugReverence" class="debug-resource" type="button">DEBUG: +1 REVERENCE</button>
             </div>
           </div>
         </section>
@@ -160,8 +168,15 @@
         </section>
 
         <section class="sheet-panel notes-panel">
-          <div class="panel-heading"><span>Character Notes</span></div>
-          <textarea data-field="notes" rows="8" placeholder="Background, equipment notes, conditions, and campaign details"></textarea>
+          <div class="panel-heading background-heading">
+            <span>Character Background</span>
+            <button id="fubsButton" class="fubs-button" type="button">Roll on FUBS Chart</button>
+          </div>
+          <textarea data-field="notes" rows="8" placeholder="Write the history, relationships, defining events, and unresolved questions that shaped this character."></textarea>
+          <div class="fubs-debug-tools">
+            <label>Debug Result<input id="fubsDebugValue" type="number" min="1" max="100" step="1" value="85" /></label>
+            <button id="fubsDebugRoll" type="button">DEBUG: ROLL XX</button>
+          </div>
         </section>
       </section>
     </main>
@@ -169,18 +184,34 @@
     <div id="confirmModal" class="modal-shell" hidden>
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <span class="dialog-kicker">Confirm Command</span><h2 id="confirmTitle">Are you sure?</h2><p id="confirmMessage"></p>
+        <div id="confirmPreview" class="confirm-preview" hidden></div>
         <div class="dialog-actions"><button id="confirmCancel" type="button">Keep Current Character</button><button id="confirmAccept" class="danger" type="button">Start Over</button></div>
       </section>
     </div>
     <div id="wipeOverlay" class="wipe-overlay" hidden aria-hidden="true"><span></span></div>
     <div id="diceRoller" class="dice-roller" hidden>
-      <section class="dice-stage" role="dialog" aria-modal="true" aria-labelledby="diceTitle">
-        <div class="dice-copy"><span>Advancement Roll</span><h2 id="diceTitle">Rolling</h2><p id="diceSubtitle"></p></div>
+      <section class="dice-stage" aria-live="polite">
+        <div class="dice-copy"><h2 id="diceTitle">Rolling</h2><p id="diceSubtitle"></p></div>
         <div id="diceCanvas" class="dice-canvas"></div>
         <strong id="diceResult" class="dice-result" hidden></strong>
         <div id="diceActions" class="dice-actions"></div>
       </section>
     </div>
-    <script type="module" src="character.js?v=20260723-character-7"></script>
+    <div id="fubsModal" class="modal-shell fubs-modal" hidden>
+      <section class="fubs-dialog" role="dialog" aria-modal="true" aria-labelledby="fubsTitle">
+        <span class="dialog-kicker">Funk Up Your Backstory</span>
+        <h2 id="fubsTitle">FUBS Result</h2>
+        <div id="fubsRollChain" class="fubs-roll-chain"></div>
+        <div id="fubsEntryText" class="fubs-entry-text"></div>
+        <div class="fubs-dialog-actions">
+          <div class="fubs-reroll-control">
+            <button id="fubsReroll" type="button">Reroll FUBS</button>
+            <small>One-time use</small>
+          </div>
+          <button id="fubsExit" class="primary-action" type="button">Exit</button>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="character.js?v=20260723-character-8"></script>
   </body>
 </html>

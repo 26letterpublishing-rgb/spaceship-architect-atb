@@ -4,6 +4,7 @@ import {
   MAX_STARTING_SKILL,
   DICE_NAMES,
   DICE_FACES,
+  HOME_PLANETS,
   ATTRIBUTE_COSTS,
   ATTRIBUTE_DEFS,
   SPACECRAFT_SKILLS,
@@ -11,14 +12,15 @@ import {
   INTELLECT_SKILL_POINT_BONUSES,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260723-character-7";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260723-character-7";
+} from "./character-data.js?v=20260723-character-8";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260723-character-8";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260723-character-8";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const FORMAT_NAME = "spaceship-architect-2e-character";
-const FORMAT_VERSION = 3;
+const FORMAT_VERSION = 4;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const $ = (selector) => document.querySelector(selector);
 
@@ -37,6 +39,9 @@ const dom = {
   nextRequirement: $("#nextRequirement"),
   workflowDetail: $("#workflowDetail"),
   workflowBar: $(".workflow-bar"),
+  workflowAttributeRemaining: $("#workflowAttributeRemaining"),
+  workflowSkillRemaining: $("#workflowSkillRemaining"),
+  workflowCredits: $("#workflowCredits"),
   finalizeCharacter: $("#finalizeCharacter"),
   spendExperience: $("#spendExperience"),
   attributeBudget: $("#attributeBudget"),
@@ -46,6 +51,8 @@ const dom = {
   xpTotal: $("#xpTotal"),
   xpGrantAmount: $("#xpGrantAmount"),
   grantXp: $("#grantXp"),
+  homePlanetPicker: $("#homePlanetPicker"),
+  homePlanetCustom: $("#homePlanetCustom"),
   creatorNotice: $("#creatorNotice"),
   attributeGrid: $("#attributeGrid"),
   spacecraftSkills: $("#spacecraftSkills"),
@@ -68,14 +75,25 @@ const dom = {
   reverenceCurrent: $("#reverenceCurrent"),
   reverenceMeter: $("#reverenceMeter"),
   maxHpBonus: $("#maxHpBonus"),
+  debugReverence: $("#debugReverence"),
   crewRoster: $("#crewRoster"),
   addCrewRow: $("#addCrewRow"),
   confirmModal: $("#confirmModal"),
   confirmTitle: $("#confirmTitle"),
   confirmMessage: $("#confirmMessage"),
+  confirmPreview: $("#confirmPreview"),
   confirmCancel: $("#confirmCancel"),
   confirmAccept: $("#confirmAccept"),
   wipeOverlay: $("#wipeOverlay"),
+  fubsButton: $("#fubsButton"),
+  fubsDebugValue: $("#fubsDebugValue"),
+  fubsDebugRoll: $("#fubsDebugRoll"),
+  fubsModal: $("#fubsModal"),
+  fubsDialog: $(".fubs-dialog"),
+  fubsRollChain: $("#fubsRollChain"),
+  fubsEntryText: $("#fubsEntryText"),
+  fubsReroll: $("#fubsReroll"),
+  fubsExit: $("#fubsExit"),
 };
 
 const diceRoller = new PhysicalDiceRoller({
@@ -92,6 +110,7 @@ let saveTimer = null;
 let noticeTimer = null;
 let confirmResolver = null;
 let migrationDetected = false;
+let fubsRollInProgress = false;
 
 function uid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -153,6 +172,7 @@ function blankCharacter(name = "New Character") {
       classId: "",
       className: "No Class",
       homePlanet: "",
+      homePlanetKind: "preset",
       sex: "",
       age: "",
       height: "",
@@ -169,6 +189,11 @@ function blankCharacter(name = "New Character") {
       skillPurchaseOrder: [],
       finalizationQueue: [],
       classGrantsApplied: false,
+    },
+    fubs: {
+      status: "unrolled",
+      rolls: [],
+      rerollUsed: false,
     },
     pendingRoll: null,
     health: { current: null, permanentBonus: 0 },
@@ -247,6 +272,11 @@ function normalizeCharacter(raw) {
   const identity = { ...base.identity, ...(source.identity || {}) };
   identity.classId = identity.classId || classIdFromName(identity.className);
   identity.className = classById(identity.classId).name;
+  identity.homePlanet = String(identity.homePlanet || "");
+  identity.homePlanetKind = identity.homePlanetKind === "other"
+    || (identity.homePlanet && !HOME_PLANETS.includes(identity.homePlanet))
+    ? "other"
+    : "preset";
 
   const normalized = {
     ...base,
@@ -262,6 +292,7 @@ function normalizeCharacter(raw) {
     skills: blankSkills(),
     customSkills: [],
     creation: { ...base.creation, ...(source.creation || {}) },
+    fubs: { ...base.fubs, ...(source.fubs || {}) },
     pendingRoll: legacy ? null : source.pendingRoll || null,
     health: { ...base.health, ...(source.health || {}) },
     resources: {
@@ -296,6 +327,16 @@ function normalizeCharacter(raw) {
     ? source.creation.finalizationQueue.filter((key) => typeof key === "string")
     : [];
   normalized.creation.classGrantsApplied = legacy ? false : Boolean(source.creation?.classGrantsApplied);
+  normalized.fubs.status = ["unrolled", "complete", "not-activated"].includes(normalized.fubs.status)
+    ? normalized.fubs.status
+    : "unrolled";
+  normalized.fubs.rolls = (Array.isArray(normalized.fubs.rolls) ? normalized.fubs.rolls : [])
+    .map((value) => Math.round(Number(value) || 0))
+    .filter((value) => value >= 1 && value <= 100)
+    .slice(0, 20);
+  normalized.fubs.rerollUsed = Boolean(normalized.fubs.rerollUsed);
+  if (normalized.fubs.status === "complete" && !normalized.fubs.rolls.length) normalized.fubs.status = "unrolled";
+  if (normalized.phase === "finalized" && normalized.fubs.status === "unrolled") normalized.fubs.status = "not-activated";
 
   while (normalized.crew.length < 3) normalized.crew.push({ name: "", title: "" });
   normalized.crew = normalized.crew.map((member) => ({ name: String(member?.name || ""), title: String(member?.title || "") }));
@@ -512,6 +553,8 @@ function draftValidation() {
   overCap.forEach((key) => invalidSkills.add(key));
 
   const issues = [];
+  const homePlanetComplete = Boolean(character.identity.homePlanet.trim());
+  if (!homePlanetComplete) issues.push("Choose a Home Planet or enter a custom one.");
   if (attributeSpent !== ATTRIBUTE_POINTS) issues.push(`Attribute allocation is ${attributeSpent - ATTRIBUTE_POINTS > 0 ? `${attributeSpent - ATTRIBUTE_POINTS} over` : `${ATTRIBUTE_POINTS - attributeSpent} short`}.`);
   if (attributeSpent === ATTRIBUTE_POINTS && skillSpent !== skillBudget) issues.push(`Skill allocation is ${skillSpent - skillBudget > 0 ? `${skillSpent - skillBudget} over` : `${skillBudget - skillSpent} short`}.`);
   if (invalidSkills.size) issues.push(`${invalidSkills.size} skill entr${invalidSkills.size === 1 ? "y is" : "ies are"} invalid.`);
@@ -522,7 +565,8 @@ function draftValidation() {
     invalidSkills,
     attributesComplete: attributeSpent === ATTRIBUTE_POINTS,
     skillsComplete: skillSpent === skillBudget,
-    ready: attributeSpent === ATTRIBUTE_POINTS && skillSpent === skillBudget && invalidSkills.size === 0,
+    homePlanetComplete,
+    ready: homePlanetComplete && attributeSpent === ATTRIBUTE_POINTS && skillSpent === skillBudget && invalidSkills.size === 0,
     issues,
   };
 }
@@ -546,6 +590,74 @@ function renderIdentityTheme() {
   else if (value) panel.classList.add("identity-other");
 }
 
+function stableHash(value) {
+  let hash = 0;
+  for (const characterValue of String(value || "")) hash = ((hash << 5) - hash + characterValue.charCodeAt(0)) | 0;
+  return Math.abs(hash);
+}
+
+function planetGradient(planet) {
+  if (planet === "Earth") return ["#124c9b", "#1d8f55"];
+  if (planet === "Mars") return ["#641725", "#f05a5f"];
+  const palettes = [
+    ["#2a3c86", "#a14fbd"],
+    ["#0b6671", "#51a56d"],
+    ["#78401c", "#d5ac3f"],
+    ["#263f72", "#bd5867"],
+    ["#4b3473", "#23a39a"],
+    ["#6b213c", "#cb7540"],
+    ["#31502e", "#aab83d"],
+    ["#263a54", "#718fa9"],
+    ["#6b314e", "#397b9e"],
+    ["#4f3d20", "#b87348"],
+  ];
+  return palettes[stableHash(planet) % palettes.length];
+}
+
+function renderHomePlanet() {
+  dom.homePlanetPicker.innerHTML = [
+    '<option value="">(Choose One)</option>',
+    ...HOME_PLANETS.map((planet) => `<option value="${escapeAttribute(planet)}">${escapeHtml(planet)}</option>`),
+    '<option value="__other__">(Other)</option>',
+  ].join("");
+  const custom = character.identity.homePlanetKind === "other";
+  dom.homePlanetPicker.value = custom ? "__other__" : character.identity.homePlanet;
+  dom.homePlanetPicker.disabled = character.phase !== "draft";
+  dom.homePlanetCustom.hidden = !custom;
+  dom.homePlanetCustom.disabled = character.phase !== "draft";
+  dom.homePlanetCustom.value = custom ? character.identity.homePlanet : "";
+}
+
+function renderBackgroundTheme() {
+  const panel = $(".notes-panel");
+  const planet = character.identity.homePlanet.trim();
+  const [start, end] = planet ? planetGradient(planet) : ["#0d2032", "#101923"];
+  panel.style.setProperty("--planet-start", start);
+  panel.style.setProperty("--planet-end", end);
+  panel.classList.toggle("planet-ready", Boolean(planet));
+}
+
+function renderFubs() {
+  const fubs = character.fubs;
+  const available = character.phase === "draft" && fubs.status === "unrolled" && !fubsRollInProgress;
+  dom.fubsButton.className = "fubs-button";
+  if (fubs.status === "complete") {
+    const label = fubs.rolls.length > 1 ? "FUBS rolls" : "FUBS roll";
+    dom.fubsButton.textContent = `${label}: ${fubs.rolls.join(" > ")}`;
+    dom.fubsButton.classList.add("fubs-complete");
+    dom.fubsButton.disabled = false;
+  } else if (fubs.status === "not-activated" || character.phase !== "draft") {
+    dom.fubsButton.textContent = "FUBS: (Not activated)";
+    dom.fubsButton.classList.add("fubs-inactive");
+    dom.fubsButton.disabled = true;
+  } else {
+    dom.fubsButton.textContent = fubsRollInProgress ? "Rolling FUBS..." : "Roll on FUBS Chart";
+    dom.fubsButton.classList.add("fubs-unrolled");
+    dom.fubsButton.disabled = !available;
+  }
+  $(".fubs-debug-tools").hidden = character.phase !== "draft" || fubsRollInProgress;
+}
+
 function renderFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = getPath(character, input.dataset.field) ?? "";
@@ -553,6 +665,9 @@ function renderFields() {
   });
   dom.identityCallsign.textContent = character.identity.characterName || "Unnamed Character";
   renderIdentityTheme();
+  renderHomePlanet();
+  renderBackgroundTheme();
+  renderFubs();
 }
 
 function renderClass() {
@@ -593,8 +708,11 @@ function renderWorkflow() {
 
   dom.phaseBadge.textContent = character.legacyDraft ? "Legacy Draft" : "Draft";
   dom.finalizeCharacter.textContent = "Finalize Character";
-  dom.finalizeCharacter.disabled = !validation.ready;
-  if (!validation.attributesComplete) {
+  dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
+  if (!validation.homePlanetComplete) {
+    dom.nextRequirement.textContent = "Choose a Home Planet";
+    dom.workflowDetail.textContent = "Select a listed world or choose Other to enter one of your own.";
+  } else if (!validation.attributesComplete) {
     const difference = ATTRIBUTE_POINTS - validation.attributeSpent;
     dom.nextRequirement.textContent = difference > 0 ? `Spend ${difference} more Attribute Points` : `Refund ${Math.abs(difference)} Attribute Points`;
     dom.workflowDetail.textContent = "Skills unlock after Attribute allocation is exactly 195 points.";
@@ -611,13 +729,25 @@ function renderWorkflow() {
 
 function renderExperience() {
   const validation = draftValidation();
-  dom.attributeBudget.textContent = `${validation.attributeSpent} / ${ATTRIBUTE_POINTS}`;
-  dom.attributeBudget.className = validation.attributeSpent === ATTRIBUTE_POINTS ? "complete" : validation.attributeSpent > ATTRIBUTE_POINTS ? "invalid" : "";
-  dom.skillBudget.textContent = validation.attributesComplete ? `${validation.skillSpent} / ${validation.skillBudget}` : "Locked";
-  dom.skillBudget.className = validation.attributesComplete && validation.skillSpent === validation.skillBudget ? "complete" : validation.skillSpent > validation.skillBudget ? "invalid" : "";
+  const attributeRemaining = character.phase === "draft" ? ATTRIBUTE_POINTS - validation.attributeSpent : 0;
+  const skillRemaining = character.phase === "draft" ? validation.skillBudget - validation.skillSpent : 0;
+  dom.attributeBudget.textContent = `${attributeRemaining} / ${ATTRIBUTE_POINTS}`;
+  dom.attributeBudget.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
+  dom.skillBudget.textContent = validation.attributesComplete || character.phase !== "draft"
+    ? `${skillRemaining} / ${validation.skillBudget}`
+    : "Locked";
+  dom.skillBudget.className = validation.attributesComplete && skillRemaining === 0 ? "complete" : skillRemaining < 0 ? "invalid" : "";
   dom.xpAvailable.textContent = character.experience.available;
   dom.xpSpent.textContent = character.experience.spent;
   dom.xpTotal.textContent = character.experience.totalGained;
+  dom.workflowAttributeRemaining.textContent = `${attributeRemaining} / ${ATTRIBUTE_POINTS}`;
+  dom.workflowAttributeRemaining.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
+  dom.workflowSkillRemaining.textContent = validation.attributesComplete || character.phase !== "draft"
+    ? `${skillRemaining} / ${validation.skillBudget}`
+    : "Locked";
+  dom.workflowSkillRemaining.className = validation.attributesComplete && skillRemaining === 0 ? "complete" : skillRemaining < 0 ? "invalid" : "";
+  const credits = character.resources.creditsBase + (Number(classEffects().creditsBonus) || 0);
+  dom.workflowCredits.textContent = credits.toLocaleString();
 }
 
 function dieSvg(column, cost, purchased) {
@@ -665,7 +795,7 @@ function renderAttributes() {
       const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
       return `<div class="attribute-row" style="--progress:${progress}%">${wave}${buttons}</div>`;
     }).join("");
-    return `<article class="attribute-card ${validation.attributeSpent > ATTRIBUTE_POINTS ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
+    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > ATTRIBUTE_POINTS ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
 }
 
@@ -683,9 +813,9 @@ function renderSkillRow(name, skill, key) {
   const nextCost = advancement ? advancementSkillCost(displayed) : level + 1;
   const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && character.experience.available >= nextCost));
   const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll;
-  const invalid = validation.invalidSkills.has(key);
+  const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement);
-  return `<div class="skill-row ${["Awareness", "Initiative"].includes(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""}" data-search-name="${escapeAttribute(name.toLowerCase())}">
+  return `<div class="skill-row ${["Awareness", "Initiative"].includes(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}">
     <span class="skill-name" title="${escapeAttribute(name)}">${formatSkillName(name)}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${bonus ? `+${ratingText(bonus)} CLASS` : ""}</small></span>
@@ -857,13 +987,15 @@ function skillKeysForFinalization() {
   return keys;
 }
 
-function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false }) {
+function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false, previewHtml = "" }) {
   if (confirmResolver) confirmResolver(false);
   dom.confirmTitle.textContent = title;
   dom.confirmMessage.textContent = message;
   dom.confirmAccept.textContent = acceptLabel;
   dom.confirmCancel.textContent = cancelLabel;
   dom.confirmAccept.classList.toggle("danger", danger);
+  dom.confirmPreview.innerHTML = previewHtml;
+  dom.confirmPreview.hidden = !previewHtml;
   dom.confirmModal.hidden = false;
   dom.confirmCancel.focus();
   return new Promise((resolve) => {
@@ -875,6 +1007,8 @@ function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", 
 
 function closeConfirmation(result) {
   dom.confirmModal.hidden = true;
+  dom.confirmPreview.innerHTML = "";
+  dom.confirmPreview.hidden = true;
   const resolver = confirmResolver;
   confirmResolver = null;
   resolver?.(result);
@@ -923,15 +1057,30 @@ async function beginFinalization() {
     notice(validation.issues[0] || "Resolve the remaining creation requirements first.", "error");
     return;
   }
-  const accepted = await askConfirmation({
+  const fubsMissing = character.fubs.status === "unrolled";
+  const accepted = await askConfirmation(fubsMissing ? {
+    title: "You have not rolled FUBS yet. Are you sure?",
+    message: "FUBS is optional, but finalizing without it permanently marks this character as FUBS: (Not activated).",
+    acceptLabel: "Yes, Finalize Without FUBS",
+    cancelLabel: "Return to Character",
+    previewHtml: '<div class="fubs-reminder-preview"><span>Character Background</span><button type="button">Roll on FUBS Chart</button></div>',
+  } : {
     title: "Finalize this character?",
-    message: "Race, Class, Attribute allocation, and starting Skill levels will become permanent. Skill decimals will now be rolled in sheet order.",
+    message: "Race, Class, Home Planet, Attribute allocation, and starting Skill levels will become permanent. Skill decimals will now be rolled in sheet order.",
     acceptLabel: "Begin Finalization",
     cancelLabel: "Continue Editing",
   });
-  if (!accepted) return;
+  if (!accepted) {
+    if (fubsMissing) {
+      $(".notes-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+      dom.fubsButton.classList.remove("fubs-attention");
+      requestAnimationFrame(() => dom.fubsButton.classList.add("fubs-attention"));
+    }
+    return;
+  }
   saveLibrary();
   snapshotRecovery("Before Finalization");
+  if (fubsMissing) character.fubs.status = "not-activated";
   character.phase = "finalizing";
   character.advancementOpen = false;
   character.creation.finalizationQueue = skillKeysForFinalization();
@@ -954,6 +1103,7 @@ function finishFinalization() {
     character.creation.classGrantsApplied = true;
   }
   character.phase = "finalized";
+  if (character.fubs.status === "unrolled") character.fubs.status = "not-activated";
   character.advancementOpen = false;
   character.legacyDraft = false;
   character.pendingRoll = null;
@@ -1010,6 +1160,10 @@ function pendingRollTitle(pending) {
   return resolved?.name || "Skill";
 }
 
+function skillRowFor(key) {
+  return document.querySelector(`.skill-row[data-skill-key="${CSS.escape(key)}"]`);
+}
+
 function rollPending() {
   const pending = character.pendingRoll;
   if (!pending || diceRoller.isActive()) return;
@@ -1026,11 +1180,14 @@ function rollPending() {
   }
   const creation = pending.kind === "creation-d10";
   const remaining = character.creation.finalizationQueue.length;
+  const anchor = skillRowFor(pending.skillKey);
+  anchor?.scrollIntoView({ behavior: "auto", block: "center" });
   diceRoller.roll({
     sides: creation ? 10 : 6,
     title: resolved.name,
     subtitle: creation ? `Finalization decimal roll - ${remaining} skill${remaining === 1 ? "" : "s"} remaining` : `Advancing from ${ratingText(pending.preRatingTenths)} - ${pending.baseCost} XP spent`,
     config: pending.config,
+    anchor,
     onConfig: (config) => {
       character.pendingRoll.config = config;
       saveLibrary("Physical roll in progress");
@@ -1056,7 +1213,7 @@ function handleSettledRoll(result) {
     character.pendingRoll = null;
     saveLibrary("Skill decimal finalized");
     renderAll();
-    diceRoller.celebrate(1000).then(processFinalization);
+    diceRoller.celebrate(420).then(processFinalization);
     return;
   }
   presentAdvancementDecision();
@@ -1094,6 +1251,7 @@ function rerollAdvancement(cost) {
     title: pendingRollTitle(pending),
     subtitle: cost ? `${cost} XP reroll spent - this result is final` : "Free reroll of a 1",
     config: null,
+    anchor: skillRowFor(pending.skillKey),
     onConfig: (config) => {
       character.pendingRoll.config = config;
       saveLibrary("Physical reroll in progress");
@@ -1113,7 +1271,7 @@ function acceptAdvancementResult() {
   saveLibrary("Skill advancement applied");
   renderAll();
   notice(`${resolved.name} increased by +0.${result}.`, "success");
-  diceRoller.celebrate(3500);
+  diceRoller.celebrate(420);
 }
 
 function showPersistedPendingResult() {
@@ -1124,8 +1282,122 @@ function showPersistedPendingResult() {
     title: pendingRollTitle(pending),
     subtitle: "Recovered saved roll result",
     result: displayedResult,
+    anchor: skillRowFor(pending.skillKey),
   });
   if (pending.kind === "advancement-d6") presentAdvancementDecision();
+}
+
+function showFubsResult() {
+  if (character.fubs.status !== "complete" || !character.fubs.rolls.length) return;
+  dom.fubsRollChain.innerHTML = character.fubs.rolls.map((roll, index) => {
+    const arrow = index ? '<span class="fubs-roll-arrow">&gt;</span>' : "";
+    return `${arrow}<span class="fubs-roll-chip">${roll}</span>`;
+  }).join("");
+  dom.fubsEntryText.innerHTML = character.fubs.rolls.map((roll) => (
+    `<article class="fubs-entry"><strong>Roll ${roll}</strong>${escapeHtml(fubsEntry(roll))}</article>`
+  )).join("");
+  const canReroll = character.phase === "draft" && !character.fubs.rerollUsed && !fubsRollInProgress;
+  dom.fubsReroll.hidden = !canReroll;
+  $(".fubs-reroll-control small").hidden = !canReroll;
+  dom.fubsModal.hidden = false;
+  dom.fubsDialog.classList.remove("reveal");
+  void dom.fubsDialog.offsetWidth;
+  dom.fubsDialog.classList.add("reveal");
+  dom.fubsExit.focus();
+}
+
+function closeFubsResult() {
+  dom.fubsModal.hidden = true;
+  dom.fubsDialog.classList.remove("reveal");
+}
+
+function randomTerminalFubsResult() {
+  const values = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(values);
+    values[0] = values[0] % 100 + 1;
+  } while (FUBS_CHAIN_RESULTS.has(values[0]));
+  return values[0];
+}
+
+function rollFubsPercentile() {
+  return new Promise((resolve, reject) => {
+    diceRoller.rollPercentile({
+      title: "FUBS Percentile",
+      subtitle: "Red die: tens | Blue die: ones",
+      anchor: dom.fubsButton,
+      onSettled: (result) => {
+        diceRoller.celebrate(360).then(() => resolve(result.total));
+      },
+    }).catch(reject);
+  });
+}
+
+async function buildFubsRollChain(forcedFirst = null) {
+  const rolls = [];
+  let forced = forcedFirst;
+  for (let index = 0; index < 20; index += 1) {
+    const result = forced ?? await rollFubsPercentile();
+    forced = null;
+    rolls.push(result);
+    if (!FUBS_CHAIN_RESULTS.has(result)) return rolls;
+  }
+  rolls.push(randomTerminalFubsResult());
+  return rolls;
+}
+
+async function performFubsRoll({ forcedFirst = null, reroll = false, debug = false } = {}) {
+  if (character.phase !== "draft" || fubsRollInProgress || character.pendingRoll || diceRoller.isActive()) return;
+  const previousFubs = deepCopy(character.fubs);
+  fubsRollInProgress = true;
+  if (reroll) character.fubs.rerollUsed = true;
+  if (debug) character.fubs.rerollUsed = false;
+  saveLibrary("FUBS roll started");
+  renderAll();
+  $(".notes-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+  try {
+    const rolls = await buildFubsRollChain(forcedFirst);
+    character.fubs.status = "complete";
+    character.fubs.rolls = rolls;
+    saveLibrary("FUBS result saved");
+    fubsRollInProgress = false;
+    renderAll();
+    showFubsResult();
+  } catch {
+    character.fubs = previousFubs;
+    fubsRollInProgress = false;
+    saveLibrary("FUBS roll state restored");
+    renderAll();
+    notice("The FUBS dice could not start. Your previous FUBS state was preserved.", "error");
+  }
+}
+
+async function beginFubsRoll() {
+  if (character.fubs.status !== "unrolled" || character.phase !== "draft") return;
+  const accepted = await askConfirmation({
+    title: "Roll on the FUBS chart?",
+    message: "Two D10s will create a percentile result and assign a permanent backstory prompt to this character.",
+    acceptLabel: "Roll 2D10",
+    cancelLabel: "Not Yet",
+  });
+  if (accepted) performFubsRoll();
+}
+
+async function rerollFubs() {
+  if (character.phase !== "draft" || character.fubs.status !== "complete" || character.fubs.rerollUsed) return;
+  closeFubsResult();
+  const accepted = await askConfirmation({
+    title: "Reroll FUBS?",
+    message: "This permanently replaces the current FUBS result. This character may use this option only once.",
+    acceptLabel: "Use One-Time Reroll",
+    cancelLabel: "Keep Current Result",
+    danger: true,
+  });
+  if (!accepted) {
+    showFubsResult();
+    return;
+  }
+  performFubsRoll({ reroll: true });
 }
 
 function filenameForCharacter() {
@@ -1251,6 +1523,28 @@ dom.classPicker.addEventListener("change", () => {
   notice(`${character.identity.className} selected. Class effects recalculated.`, "success");
 });
 
+dom.homePlanetPicker.addEventListener("change", () => {
+  if (character.phase !== "draft") return;
+  if (dom.homePlanetPicker.value === "__other__") {
+    character.identity.homePlanetKind = "other";
+    character.identity.homePlanet = "";
+  } else {
+    character.identity.homePlanetKind = "preset";
+    character.identity.homePlanet = dom.homePlanetPicker.value;
+  }
+  queueSave();
+  renderAll();
+  if (character.identity.homePlanetKind === "other") dom.homePlanetCustom.focus();
+});
+
+dom.homePlanetCustom.addEventListener("input", () => {
+  if (character.phase !== "draft" || character.identity.homePlanetKind !== "other") return;
+  character.identity.homePlanet = dom.homePlanetCustom.value;
+  queueSave();
+  renderBackgroundTheme();
+  renderWorkflow();
+});
+
 dom.characterPicker.addEventListener("change", () => {
   saveLibrary();
   const [kind, id] = dom.characterPicker.value.split(":");
@@ -1364,6 +1658,30 @@ dom.maxHpBonus.addEventListener("click", () => {
   renderAll();
   notice("6 Reverence spent. Maximum HP permanently increased by +2.", "success");
 });
+
+dom.debugReverence.addEventListener("click", () => {
+  character.resources.reverence = Math.min(10, character.resources.reverence + 1);
+  queueSave();
+  renderResources();
+  notice("DEBUG: +1 Reverence.", "success");
+});
+
+dom.fubsButton.addEventListener("click", () => {
+  if (character.fubs.status === "complete") showFubsResult();
+  else beginFubsRoll();
+});
+
+dom.fubsDebugRoll.addEventListener("click", () => {
+  const value = Math.round(Number(dom.fubsDebugValue.value) || 0);
+  if (value < 1 || value > 100) {
+    notice("DEBUG FUBS result must be from 1 to 100.", "error");
+    return;
+  }
+  performFubsRoll({ forcedFirst: value, debug: true });
+});
+
+dom.fubsReroll.addEventListener("click", rerollFubs);
+dom.fubsExit.addEventListener("click", closeFubsResult);
 
 dom.restoreHp.addEventListener("click", () => {
   character.health.current = maximumHp();
