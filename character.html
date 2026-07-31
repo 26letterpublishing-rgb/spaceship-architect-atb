@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-12" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-13" />
   </head>
   <body>
     <header class="creator-header">
@@ -52,7 +52,13 @@
           <div class="identity-grid">
             <label>Player Name<input data-field="identity.playerName" autocomplete="name" /></label>
             <label>Character Name<input data-field="identity.characterName" /></label>
-            <label>Race<input data-field="identity.race" /></label>
+            <label>Race
+              <select id="racePicker" aria-label="Character race"></select>
+              <input id="raceCustom" type="text" placeholder="Enter your custom race" aria-label="Custom race" hidden />
+            </label>
+            <label id="raceTypeField" hidden>Race Type
+              <select id="raceTypePicker" aria-label="Race type"></select>
+            </label>
             <label>Class<select id="classPicker"></select></label>
             <label>Home Planet
               <select id="homePlanetPicker" aria-label="Home planet"></select>
@@ -88,7 +94,13 @@
         <aside class="sheet-panel derived-panel">
           <div class="panel-heading"><span>Timing &amp; Health</span></div>
           <div class="derived-grid">
-            <div><span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small></div>
+            <div class="speed-stat">
+              <span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small>
+              <div id="speedPreview" class="speed-preview" role="progressbar" aria-label="Live ATB Speed preview" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="speed-preview-track"><span id="speedPreviewFill" class="speed-preview-fill"></span></div>
+                <small><b id="speedPreviewReadout">2%</b> per second preview</small>
+              </div>
+            </div>
             <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
             <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small>Maximum Health dice +20</small></div>
             <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small>Reverence and other permanent effects</small></div>
@@ -286,6 +298,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260730-character-12"></script>
+    <script type="module" src="character.js?v=20260730-character-13"></script>
   </body>
 </html>

@@ -57,6 +57,458 @@ export const ATTRIBUTE_DEFS = [
   { key: "willpower", label: "Willpower", color: "#ff984d" },
 ];
 
+export const RACE_DEFS = [
+  {
+    id: "android",
+    name: "Android",
+    types: [
+      { id: "perfect-android", name: "Perfect Android" },
+      { id: "imperfect-android", name: "Imperfect Android" },
+      { id: "perfect-robot", name: "Perfect Robot" },
+      { id: "imperfect-robot", name: "Imperfect Robot" },
+    ],
+    disadvantages: [
+      "You never gain Experience. You may still record total gained Experience for your next character.",
+      "You can only simulate humor, morality, and emotions, if at all.",
+      "Once per week you require a 30-minute recharge from an Engine that provides AU. Failing to recharge shuts down all systems until the recharge is performed.",
+    ],
+    advantages: [
+      "Others may spend 75 Credits to spend 1 Experience on your character sheet for you.",
+      "You do not need to eat, sleep, or breathe; you do not age; you can survive in nearly any temperature; and you cannot be poisoned or become sick.",
+      "Add +5 to Initiative rolls.",
+      "Mechanical devices and weapons may be attached to your body for an additional 25% of their cost. Attached items do not use Weapon Inventory slots.",
+      "Each leg beyond two but below five adds +1 Move Speed and -1 Defense Score. Each arm beyond two but below five adds +1 to combat To-Hit rolls and -1 Defense Score. Additional limbs cost 1,000 Credits each.",
+    ],
+  },
+  {
+    id: "angiluros",
+    name: "Angiluros",
+    disadvantages: [
+      "Whenever you fire or use a weapon made from metal or made by another character, lose one Willpower die and roll Willpower + Resist Distress against Difficulty 13. On a failure, take no further actions this CvC round or the following CvC round. Starship weapons do not cause this penalty.",
+    ],
+    advantages: [
+      "When rolling Jump or Climb, treat regular successes as critical successes and critical failures as regular failures.",
+      "Start with 60 additional points for purchasing starting Skills.",
+      "Unarmed Melee Damage equals all Strength dice +3D6.",
+      "Low-light vision.",
+      "Reroll any one Attribute die up to four times per session.",
+      "+1 Move Speed.",
+      "Spend 2 Exertion to take an additional CvC Combat Action on your turn.",
+    ],
+  },
+  {
+    id: "antropic",
+    name: "Antropic",
+    types: [
+      {
+        id: "fangs",
+        name: "Fangs",
+        disadvantages: ["Colorblind. May go through hibernation cycles."],
+        advantages: [
+          "Night vision.",
+          "Unarmed attacks give the opponent -3 Defense Score.",
+          "Unarmed Melee Damage equals any three Strength dice plus two Health dice.",
+        ],
+      },
+      {
+        id: "feather",
+        name: "Feather",
+        disadvantages: [
+          "Maximum HP equals the highest two purchased Health dice +20.",
+          "You cannot fly while wearing a spacesuit or power armor.",
+        ],
+        advantages: [
+          "Fly in most habitable environments for Move Speed x2 Combat rounds. This ability is lost for one week after taking Fire damage and is unavailable while wet.",
+          "+2 Move Speed.",
+        ],
+      },
+      {
+        id: "fins",
+        name: "Fins",
+        disadvantages: [
+          "Take x2 damage from the Ice property.",
+          "Take one fewer Combat Action in a cold environment.",
+        ],
+        advantages: [
+          "Triple Move Speed while swimming.",
+          "Breathe underwater.",
+          "Each Combat round, roll one Health die and heal that much HP.",
+          "Reattach severed limbs.",
+        ],
+      },
+      {
+        id: "fluffy",
+        name: "Fluffy",
+        disadvantages: ["Take -2 to all Strength rolls."],
+        advantages: [
+          "Reroll up to two dice in Charisma and Dexterity on each roll.",
+          "+2 Move Speed.",
+          "Add +5 when calculating Jump height.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "bruggle",
+    name: "Bruggle",
+    disadvantages: [
+      "Take -2 Defense Score.",
+      "Easily susceptible to alcoholism.",
+    ],
+    advantages: [
+      "Reroll up to two dice in Strength, Dexterity, and Melee damage rolls.",
+      "Breathe underwater.",
+      "Harsh cold and hot environments do not cause discomfort.",
+    ],
+  },
+  {
+    id: "butchers-of-hellmouth",
+    name: "Butchers of Hellmouth",
+    disadvantages: [
+      "You are completely blind to objects 10 meters or farther away and cannot use binoculars or scopes.",
+      "Roll no more than two Perception dice, and Perception dice cost twice as much.",
+    ],
+    advantages: [
+      "Immune to Fire damage, although your body still retains Fire Intensity. While on fire, Melee attacks can ignite the opponent at the same Intensity.",
+      "Maximum HP equals the maximum roll of all Health dice +40.",
+      "Increasing Maximum HP by +2 costs 3 Reverence instead of 6.",
+      "Spend 1 Exertion to restore HP equal to a Health + Athletics/Endurance roll.",
+      "After character creation, add +3.0 to Intimidate/Taunt.",
+      "Whenever you purchase a Strength die, gain another Strength die of equal or lower cost for free.",
+    ],
+  },
+  {
+    id: "draco-prime",
+    name: "Draco Prime",
+    disadvantages: [
+      "When rolling any Attribute, ignore all but one set of fused dice.",
+      "After character creation, Skill upgrade dice cannot be rerolled.",
+    ],
+    advantages: [
+      "Shapeshift to resemble another race of roughly the same size, but not a specific person. Reptilian eyes may show while blinking, and the tongue may briefly revert while speaking.",
+      "Draco Prime do not produce heat signatures.",
+    ],
+  },
+  {
+    id: "epoc",
+    name: "Epoc",
+    disadvantages: [
+      "For each 1 rolled in Strength, Health, Dexterity, or Perception, reduce the final Score by 1.",
+    ],
+    advantages: [
+      "After any Luck, Charisma, Willpower, or Intellect roll, reroll up to two dice.",
+      "While associated with a party, members of that party cannot critically fail Charisma rolls.",
+      "After character creation, add +2.0 to Fashion/Etiquette, Art/Music, Intuition/Empathy, Psychology, Religion, and Showmanship.",
+    ],
+  },
+  {
+    id: "everliving-brethren",
+    name: "Everliving Brethren",
+    disadvantages: [
+      "Take x2 damage from Fire and Fire Intensity dice.",
+      "After rolling Perception, remove the die with the highest result from the pool.",
+    ],
+    advantages: [
+      "Your race has no vital organs and does not need to breathe.",
+      "Regenerate HP equal to your highest Health die type each CvC round, even while as low as -25 HP.",
+      "Reattach severed limbs or replace them with stolen limbs.",
+      "Each leg beyond two but below five adds +1 Move Speed and -1 Defense Score. Each arm beyond two but below five adds +1 to combat To-Hit rolls and -1 Defense Score.",
+    ],
+  },
+  {
+    id: "flavilin",
+    name: "Flavilin",
+    disadvantages: [
+      "If stunned by a Light source, triple the duration.",
+      "Dislikes bright environments.",
+    ],
+    advantages: [
+      "Always add 1D12 to Perception rolls.",
+      "After character creation, add +2.0 to Engineering, Awareness, Technology, Vehicle Mechanics, and Weapon Mechanics.",
+    ],
+  },
+  {
+    id: "garmoc",
+    name: "Garmoc",
+    disadvantages: [
+      "Charisma and Intellect dice results above 8 count as 8.",
+      "Charisma and Intellect dice do not fuse.",
+    ],
+    advantages: [
+      "When D10s or D12s fuse in a Strength, Willpower, or Health roll, add 1D20 to the pool.",
+      "Natural Damage Reduction -10.",
+      "Starting Maximum HP equals the maximum roll of all Health dice +30.",
+      "Carnivorous predators often avoid attacking a Garmoc, even if they are not native to the same planet.",
+    ],
+  },
+  {
+    id: "grey",
+    name: "Grey",
+    disadvantages: [
+      "Maximum HP equals the highest result of any two Health dice.",
+      "-1 Move Speed.",
+      "Do not add Strength dice to Melee damage.",
+    ],
+    advantages: [
+      "Spend one Combat turn and 1 Exertion to skip a target character's next Combat turn within 60 meters and visual range. The target may spend Exertion to recover lost Combat Actions, one per point.",
+      "Spend 2 Exertion to move an object within 60 meters and visual range as though beside it. Using the object as a weapon applies -5 To-Hit in addition to other modifiers.",
+      "Reroll Intellect once per session.",
+    ],
+  },
+  {
+    id: "horus",
+    name: "Horus",
+    disadvantages: [],
+    advantages: [
+      "After character creation, roll 1D8 instead of 1D6 when purchasing a new Skill.",
+      "Treat your eyes as built-in binoculars.",
+      "310-degree vision, with the only blind spot directly behind the head.",
+      "Perception dice can fuse multiple times. For example, results of 2, 2, and 4 become a single 8.",
+    ],
+  },
+  {
+    id: "human",
+    name: "Human",
+    disadvantages: [],
+    advantages: ["Start with +200 Experience."],
+  },
+  {
+    id: "kabuto",
+    name: "Kabuto",
+    disadvantages: [
+      "Cannot use or carry Size Class A or B weapons.",
+      "Maximum HP equals the maximum roll of two Health dice +10.",
+      "Cannot dual wield, gain Charge Bonus Damage from Melee weapons, or wear spacesuits or power armor.",
+    ],
+    advantages: [
+      "+3 Reaction Defense and +2 Move Speed.",
+      "Immune to falling damage and capable of limited gliding.",
+      "You do not feel pain and critically succeed all Resist Distress rolls.",
+      "If you die, your next character starts with 100% of this character's total gained Experience instead of 50%. If the new character is also Kabuto, retain Reverence, Drama Cards, and personal Credits. Offspring may retain the previous character's memories.",
+    ],
+  },
+  {
+    id: "krax-gny-vtek",
+    name: "Krax G'ny V'Tek",
+    disadvantages: [
+      "Maximum HP equals the highest result of any two Health dice +10.",
+      "While missing 5 or more HP, you may roll no more than three Dexterity dice.",
+    ],
+    advantages: [
+      "After character creation, add +3.0 to Intimidate/Taunt, +2.0 to Stealth/Hide, +2 Reaction Defense, and +1 Move Speed.",
+      "Critically succeeding while avoiding a Melee attack grants one immediate free action.",
+      "All successful unarmed Melee attacks count as Critical Hits.",
+      "Nocturnal vision.",
+      "Survive unprotected in the vacuum of space for up to 20 CvC rounds.",
+    ],
+  },
+  {
+    id: "nordic-flaxen",
+    name: "Nordic Flaxen",
+    disadvantages: ["Take x2 damage from the Dark element."],
+    advantages: [
+      "Add all Luck dice to Charisma rolls.",
+      "Maximum HP equals the maximum roll of all Health dice +32.",
+      "After character creation, add +2.0 to one non-bold Skill of your choice.",
+    ],
+  },
+  {
+    id: "pattanilia",
+    name: "Pattanilia",
+    disadvantages: [
+      "Maximum HP equals the highest result of any two Health dice.",
+      "-1 Move Speed.",
+      "Do not add Strength dice to Melee damage.",
+    ],
+    advantages: [
+      "Reroll up to two dice on every Perception, Intellect, and Willpower roll.",
+      "Breathe underwater.",
+      "After character creation, add +1.0 to every Spacecraft Skill.",
+      "Immune to Light damage and able to shift visual spectrum at will, including heat, night, bright, color, radio-wave, sound, and radiation vision.",
+      "After character creation, each unpurchased Skill gains a 1D10 decimal roll; a 10 starts that Skill at 1.0.",
+      "Double all Attribute dice pools while inside Virtuocity.",
+    ],
+  },
+  {
+    id: "skeder",
+    name: "Sked'er",
+    disadvantages: [
+      "Charisma rolls fail unless they are Critical Successes.",
+      "Starship stations require 500-Credit Sked'er customization.",
+      "Standard weapons take -5 To-Hit unless customized for an additional 25% of their cost.",
+      "Difficulty speaking other languages.",
+    ],
+    advantages: [
+      "Customized weapons impose -5 To-Hit when used by another race.",
+      "+2 Reaction Defense.",
+      "Natural Damage Reduction equals the maximum roll of any two Health dice.",
+      "Add +3 when calculating Jump height.",
+      "310-degree vision, with the only blind spot directly behind the head.",
+      "After character creation, add +1.0 to any two Skills of your choice.",
+    ],
+  },
+  {
+    id: "slyn-tanni",
+    name: "Slyn Tanni",
+    disadvantages: [
+      "Take x2 damage from the Ice property.",
+      "Take one fewer Combat Action in a cold environment.",
+    ],
+    advantages: [
+      "Breathe underwater.",
+      "While falling, choose to fall only one meter per CvC round and fly at normal Move Speed.",
+      "After character creation, add +2.0 to Dodge/Block.",
+      "Reroll one Dexterity or Charisma die on each roll.",
+      "Triple Move Speed in water.",
+      "After character creation, gain one free Attribute die upgrade.",
+    ],
+  },
+  {
+    id: "spiddix",
+    name: "Spiddix",
+    disadvantages: [
+      "When detached from your mechanical device, Move Speed becomes 0 and all racial advantages are lost. Outside the device, Maximum HP equals your highest single Health die +5.",
+      "The mechanical body takes x2 damage from Water and Electricity attacks.",
+      "Start with 135 Attribute Points instead of 195 and 20 base Skill Points instead of 35.",
+      "Session Experience cannot be spent on mechanical Attributes or Skills. Non-mechanical Attributes and Skills advance normally.",
+      "Receive half of awarded Experience, rounded down; total gained Experience is not reduced.",
+      "Mechanical Attributes: Strength, Health, and Dexterity.",
+      "Mechanical Skills: Athletics/Endurance, Break Free/Escape, Catch/Throw, Climb, Dodge/Block, Jump, Lift/Push/Pull, Lock-picking, Melee, Pickpocket, Projectile, Stealth/Hide, Swim, and Wrestle/Disarm.",
+    ],
+    advantages: [
+      "Start with +8,000 Credits.",
+      "Spend Exertion on Intellect rolls.",
+      "Rerolling Intellect with Reverence costs 1 instead of 2.",
+      "Spend 100 Credits to buy one mechanical Experience point, used on mechanical Attributes and Skills at normal cost.",
+      "Mechanical devices and weapons may be attached to your body for an additional 25% of their cost. Attached items do not use Weapon Inventory slots.",
+      "Each leg beyond two but below five adds +1 Move Speed and -1 Defense Score. Each arm beyond two but below five adds +1 to combat To-Hit rolls and -1 Defense Score. Additional limbs cost 1,000 Credits each.",
+    ],
+  },
+  {
+    id: "tamalori",
+    name: "TaMalori",
+    disadvantages: [
+      "Maximum HP equals the highest result of any two Health dice +20.",
+      "Enemy Critical Hits deal triple damage instead of double damage.",
+      "Cannot purchase D12s in Strength or spend Reverence to increase Maximum HP.",
+    ],
+    advantages: [
+      "Double the Dexterity dice pool. For example, 2D8 + 1D4 becomes 4D8 + 2D4.",
+      "310-degree vision, with the only blind spot directly behind the head.",
+    ],
+  },
+  {
+    id: "vinolio-paxton",
+    name: "Vinolio Paxton",
+    disadvantages: ["Willpower dice cost twice as much."],
+    advantages: [
+      "Spend 1 Exertion to fly for one Combat round at normal Move Speed.",
+      "Spend 1 Exertion to move an object within 30 meters and visual range as though beside it. Using the object as a weapon applies -5 To-Hit in addition to other modifiers.",
+    ],
+  },
+  {
+    id: "xithx",
+    name: "Xithx",
+    disadvantages: [
+      "Maximum HP equals the highest roll among all Health dice, without adding 20.",
+      "When rolling Stealth/Hide, ignore the highest result.",
+    ],
+    advantages: [
+      "Natural Damage Reduction equals the maximum possible roll of any two Health dice +2. Critical Hits and Fire damage bypass this reduction.",
+      "Recover one Exertion every 15 minutes instead of restoring all Exertion after sleep.",
+      "Night vision, 360-degree vision, +2 Move Speed, and a slight telepathic connection with other Xithx.",
+      "While unencumbered, stand or walk on water and most liquids at half Move Speed, rounded up.",
+    ],
+  },
+  {
+    id: "yetuak-zune",
+    name: "Ye'tuak Zune",
+    disadvantages: [
+      "Maximum HP equals the highest two purchased Health dice +10.",
+      "Charisma dice do not fuse.",
+      "Take x2 damage from Fire and Fire Intensity.",
+    ],
+    advantages: [
+      "Average lifespan of 300 Earth years.",
+      "Reroll Intellect twice per session and Perception twice per session.",
+      "Immune to the effects and damage of cold and ice.",
+      "Night vision and heat vision.",
+      "Survive unprotected in the vacuum of space for up to 15 CvC rounds.",
+    ],
+  },
+  {
+    id: "yuhorn-symitron",
+    name: "Yuhorn Symitron",
+    types: [
+      {
+        id: "ice",
+        name: "Ice",
+        disadvantages: [
+          "-1 Move Speed and -3 Defense Score.",
+          "Cannot tolerate warm or hot environments.",
+          "Take x2 damage from Fire and Fire Intensity.",
+          "Cannot wear spacesuits or power armor.",
+        ],
+        advantages: [
+          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the highest roll of the top two Willpower dice.",
+          "Immune to Ice and Cold damage.",
+          "Unarmed Melee and Wrestle attacks reduce the opponent's Combat Actions by one. The opponent may spend Exertion to restore lost actions.",
+          "Does not produce a heat signature.",
+        ],
+      },
+      {
+        id: "lava",
+        name: "Lava",
+        disadvantages: [
+          "-1 Move Speed and -3 Defense Score.",
+          "Cannot tolerate cold environments.",
+          "Take x2 damage from Ice and cold.",
+          "Cannot wear spacesuits or power armor.",
+        ],
+        advantages: [
+          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the highest Willpower die type.",
+          "Immune to Fire and Heat damage.",
+          "Unarmed attacks deal all Strength dice in damage and cause Fire Intensity equal to the number of purchased Willpower dice.",
+        ],
+      },
+      {
+        id: "rock",
+        name: "Rock",
+        disadvantages: [
+          "-2 Move Speed, to a minimum of 1, and -4 Defense Score.",
+          "Eat raw minerals instead of food and must devour one Mineral twice every 24 hours.",
+          "Cannot wear spacesuits or power armor.",
+        ],
+        advantages: [
+          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the highest roll of all Willpower dice +2.",
+        ],
+      },
+      {
+        id: "wood",
+        name: "Wood",
+        disadvantages: [
+          "-1 Move Speed and -3 Defense Score.",
+          "Take x2 damage from Fire and Fire Intensity.",
+          "Cannot wear spacesuits or power armor.",
+        ],
+        advantages: [
+          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the highest Willpower die type.",
+          "Regenerate 3 HP per CvC round for each point of unspent Exertion.",
+          "Spend 1 Exertion to heal half Maximum HP, rounded down. Fire damage cannot be regenerated this way.",
+        ],
+      },
+    ],
+  },
+];
+
+export function raceById(id) {
+  return RACE_DEFS.find((entry) => entry.id === id) || null;
+}
+
 export const SPACECRAFT_SKILLS = [
   "Computer Systems",
   "Engineering",

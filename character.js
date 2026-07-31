@@ -10,11 +10,13 @@ import {
   SPACECRAFT_SKILLS,
   GENERAL_SKILLS,
   INTELLECT_SKILL_POINT_BONUSES,
+  RACE_DEFS,
+  raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260730-character-12";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-12";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-12";
+} from "./character-data.js?v=20260730-character-13";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-13";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-13";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -33,6 +35,10 @@ const dom = {
   deleteCharacter: $("#deleteCharacter"),
   saveStatus: $("#saveStatus"),
   identityCallsign: $("#identityCallsign"),
+  racePicker: $("#racePicker"),
+  raceCustom: $("#raceCustom"),
+  raceTypeField: $("#raceTypeField"),
+  raceTypePicker: $("#raceTypePicker"),
   classPicker: $("#classPicker"),
   automaticModifiers: $("#automaticModifiers"),
   phaseBadge: $("#phaseBadge"),
@@ -63,6 +69,9 @@ const dom = {
   skillSearch: $("#skillSearch"),
   skillLockNotice: $("#skillLockNotice"),
   derivedSpeed: $("#derivedSpeed"),
+  speedPreview: $("#speedPreview"),
+  speedPreviewFill: $("#speedPreviewFill"),
+  speedPreviewReadout: $("#speedPreviewReadout"),
   derivedCommand: $("#derivedCommand"),
   maximumHp: $("#maximumHp"),
   permanentHpBonus: $("#permanentHpBonus"),
@@ -265,6 +274,10 @@ let migrationDetected = false;
 let fubsRollInProgress = false;
 let rollToastTimer = null;
 let skillCheck = null;
+let speedPreviewFrame = null;
+let speedPreviewStartedAt = performance.now();
+let speedPreviewValue = null;
+let speedPreviewCharacterId = null;
 
 function showRollResultToast(message) {
   if (!dom.rollResultToast) return;
@@ -336,6 +349,9 @@ function blankCharacter(name = "New Character") {
       playerName: "",
       characterName: name,
       race: "",
+      raceId: "",
+      raceKind: "preset",
+      raceType: "",
       classId: "",
       className: "No Class",
       homePlanet: "",
@@ -381,6 +397,11 @@ function blankCharacter(name = "New Character") {
 function classIdFromName(name) {
   const normalized = String(name || "").trim().toLowerCase();
   return CLASS_DEFS.find((entry) => entry.name.toLowerCase() === normalized)?.id || "";
+}
+
+function raceIdFromName(name) {
+  const normalized = String(name || "").trim().toLowerCase();
+  return RACE_DEFS.find((entry) => entry.name.toLowerCase() === normalized)?.id || "";
 }
 
 function normalizeSkill(raw, legacy = false) {
@@ -440,6 +461,16 @@ function normalizeCharacter(raw) {
   const identity = { ...base.identity, ...(source.identity || {}) };
   identity.classId = identity.classId || classIdFromName(identity.className);
   identity.className = classById(identity.classId).name;
+  identity.race = String(identity.race || "");
+  identity.raceId = identity.raceId || raceIdFromName(identity.race);
+  identity.raceKind = identity.raceKind === "other"
+    || (identity.race && !identity.raceId)
+    ? "other"
+    : "preset";
+  identity.raceType = String(identity.raceType || "");
+  if (identity.raceId) identity.race = raceById(identity.raceId)?.name || identity.race;
+  const raceDefinition = raceById(identity.raceId);
+  if (!raceDefinition?.types?.some((type) => type.id === identity.raceType)) identity.raceType = "";
   identity.homePlanet = String(identity.homePlanet || "");
   identity.homePlanetKind = identity.homePlanetKind === "other"
     || (identity.homePlanet && !HOME_PLANETS.includes(identity.homePlanet))
@@ -606,6 +637,22 @@ function classEffects(characterObject = character) {
   return classById(characterObject.identity.classId).effects || {};
 }
 
+function selectedRace(characterObject = character) {
+  return raceById(characterObject.identity.raceId);
+}
+
+function selectedRaceType(characterObject = character) {
+  const definition = selectedRace(characterObject);
+  return definition?.types?.find((type) => type.id === characterObject.identity.raceType) || null;
+}
+
+function raceSelectionComplete(characterObject = character) {
+  if (characterObject.identity.raceKind === "other") return Boolean(characterObject.identity.race.trim());
+  const definition = selectedRace(characterObject);
+  if (!definition) return false;
+  return !definition.types?.length || Boolean(selectedRaceType(characterObject));
+}
+
 function boxesFilled(attributeKey, characterObject = character) {
   return characterObject.attributes[attributeKey].reduce((sum, value) => sum + Math.max(0, value + 1), 0);
 }
@@ -725,6 +772,11 @@ function draftValidation() {
 
   const issues = [];
   const homePlanetComplete = Boolean(character.identity.homePlanet.trim());
+  const raceComplete = raceSelectionComplete();
+  if (!raceComplete) {
+    const definition = selectedRace();
+    issues.push(definition?.types?.length ? `Choose a ${definition.name} type.` : "Choose a Race or enter a custom one.");
+  }
   if (!homePlanetComplete) issues.push("Choose a Home Planet or enter a custom one.");
   if (attributeSpent !== ATTRIBUTE_POINTS) issues.push(`Attribute allocation is ${attributeSpent - ATTRIBUTE_POINTS > 0 ? `${attributeSpent - ATTRIBUTE_POINTS} over` : `${ATTRIBUTE_POINTS - attributeSpent} short`}.`);
   if (attributeSpent === ATTRIBUTE_POINTS && skillSpent !== skillBudget) issues.push(`Skill allocation is ${skillSpent - skillBudget > 0 ? `${skillSpent - skillBudget} over` : `${skillBudget - skillSpent} short`}.`);
@@ -736,8 +788,9 @@ function draftValidation() {
     invalidSkills,
     attributesComplete: attributeSpent === ATTRIBUTE_POINTS,
     skillsComplete: skillSpent === skillBudget,
+    raceComplete,
     homePlanetComplete,
-    ready: homePlanetComplete && attributeSpent === ATTRIBUTE_POINTS && skillSpent === skillBudget && invalidSkills.size === 0,
+    ready: raceComplete && homePlanetComplete && attributeSpent === ATTRIBUTE_POINTS && skillSpent === skillBudget && invalidSkills.size === 0,
     issues,
   };
 }
@@ -747,8 +800,10 @@ function backgroundComplete() {
 }
 
 function identityComplete() {
-  const fields = ["playerName", "characterName", "race", "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description"];
-  return Boolean(character.identity.classId) && fields.every((field) => String(character.identity[field] ?? "").trim());
+  const fields = ["playerName", "characterName", "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description"];
+  return Boolean(character.identity.classId)
+    && raceSelectionComplete()
+    && fields.every((field) => String(character.identity[field] ?? "").trim());
 }
 
 function renderWorkflowRequirements(items) {
@@ -815,6 +870,34 @@ function renderHomePlanet() {
   dom.homePlanetCustom.value = custom ? character.identity.homePlanet : "";
 }
 
+function renderRace() {
+  dom.racePicker.innerHTML = [
+    '<option value="">(Choose Race)</option>',
+    ...RACE_DEFS.map((definition) => `<option value="${definition.id}">${escapeHtml(definition.name)}</option>`),
+    '<option value="__other__">(Other)</option>',
+  ].join("");
+  const custom = character.identity.raceKind === "other";
+  dom.racePicker.value = custom ? "__other__" : character.identity.raceId;
+  dom.racePicker.disabled = character.phase !== "draft";
+  dom.raceCustom.hidden = !custom;
+  dom.raceCustom.disabled = character.phase !== "draft";
+  dom.raceCustom.value = custom ? character.identity.race : "";
+
+  const definition = selectedRace();
+  const types = definition?.types || [];
+  dom.raceTypeField.hidden = types.length === 0;
+  dom.raceTypePicker.innerHTML = types.length
+    ? [
+      `<option value="">(Choose ${escapeHtml(definition.name)} Type)</option>`,
+      ...types.map((type) => `<option value="${type.id}">${escapeHtml(type.name)}</option>`),
+    ].join("")
+    : "";
+  dom.raceTypePicker.value = types.some((type) => type.id === character.identity.raceType)
+    ? character.identity.raceType
+    : "";
+  dom.raceTypePicker.disabled = character.phase !== "draft" || types.length === 0;
+}
+
 function renderBackgroundTheme() {
   const panel = $(".notes-panel");
   const planet = character.identity.homePlanet.trim();
@@ -848,36 +931,58 @@ function renderFubs() {
 function renderFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = getPath(character, input.dataset.field) ?? "";
-    input.disabled = character.phase !== "draft" && input.dataset.field === "identity.race";
   });
   dom.identityCallsign.textContent = character.identity.characterName || "Unnamed Character";
   renderIdentityTheme();
+  renderRace();
   renderHomePlanet();
   renderBackgroundTheme();
   renderFubs();
+}
+
+function modifierRulesMarkup(title, rules, tone) {
+  const entries = rules?.length ? rules : ["No listed disadvantages."];
+  return `
+    <section class="modifier-rule-group ${tone}">
+      <h3>${escapeHtml(title)}</h3>
+      <ul>${entries.map((rule) => `<li>${escapeHtml(rule)}</li>`).join("")}</ul>
+    </section>`;
 }
 
 function renderClass() {
   dom.classPicker.innerHTML = CLASS_DEFS.map((definition) => `<option value="${definition.id}">${escapeHtml(definition.name)}</option>`).join("");
   dom.classPicker.value = character.identity.classId;
   dom.classPicker.disabled = character.phase !== "draft";
-  const definition = classById(character.identity.classId);
-  const raceName = character.identity.race.trim();
-  const raceSummary = raceName
-    ? `No automated racial modifiers have been assigned to ${raceName} yet.`
-    : "Choose a race to display its automated modifiers here.";
-  const classSummary = character.identity.classId
-    ? definition.summary
-    : "Choose a class to display its automatic advantages and disadvantages here.";
+  const classDefinition = classById(character.identity.classId);
+  const raceDefinition = selectedRace();
+  const raceType = selectedRaceType();
+  const customRace = character.identity.raceKind === "other";
+  const raceName = customRace
+    ? character.identity.race.trim()
+    : raceDefinition
+      ? `${raceDefinition.name}${raceType ? ` - ${raceType.name}` : ""}`
+      : "";
+  const raceAdvantages = raceType?.advantages || raceDefinition?.advantages || [];
+  const raceDisadvantages = raceType?.disadvantages || raceDefinition?.disadvantages || [];
+  const raceContent = customRace
+    ? `<p class="modifier-empty">Custom race rules can be recorded in the Unique Advantages / Disadvantages field below.</p>`
+    : raceDefinition
+      ? `${modifierRulesMarkup("Racial Advantages", raceAdvantages, "advantage")}${modifierRulesMarkup("Racial Disadvantages", raceDisadvantages, "disadvantage")}`
+      : `<p class="modifier-empty">Choose a race to display its 1E advantages and disadvantages.</p>`;
+  const classContent = character.identity.classId
+    ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}${modifierRulesMarkup("Class Disadvantages", [], "disadvantage")}`
+    : `<p class="modifier-empty">Choose a class to display its 1E advantage.</p>`;
   dom.automaticModifiers.innerHTML = `
     <article class="modifier-summary race-modifier">
       <strong>${raceName ? escapeHtml(raceName) : "Racial Modifiers"}</strong>
-      <p>${escapeHtml(raceSummary)}</p>
+      ${raceContent}
+      ${raceDefinition ? '<small>Displayed from the 1E rulebook. Race mechanics are not automated yet.</small>' : ""}
     </article>
     <article class="modifier-summary class-modifier">
-      <strong>${escapeHtml(definition.name)}</strong>
-      <p>${escapeHtml(classSummary)}</p>
-      ${definition.manual ? `<small>${escapeHtml(definition.manual)}</small>` : ""}
+      <strong>${escapeHtml(classDefinition.name)}</strong>
+      ${classContent}
+      ${classDefinition.manual ? `<small>${escapeHtml(classDefinition.manual)}</small>` : ""}
+      ${character.identity.classId ? '<small>Class rules are shown here; only already-supported creation effects are currently automated.</small>' : ""}
     </article>`;
 }
 
@@ -917,6 +1022,10 @@ function renderWorkflow() {
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
   const requirements = [];
   if (!character.identity.race.trim()) requirements.push({ label: "Choose Race" });
+  else if (!validation.raceComplete) {
+    const race = selectedRace();
+    requirements.push({ label: `Choose ${race?.name || "Race"} Type` });
+  }
   if (!character.identity.classId) requirements.push({ label: "Choose Class" });
   if (!validation.homePlanetComplete) requirements.push({ label: "Choose Home Planet" });
   if (!validation.attributesComplete) {
@@ -1063,15 +1172,17 @@ function renderSkills() {
 }
 
 function exertionMeterMarkup(current, maximum, { selectable = false, selected = 0 } = {}) {
-  return Array.from({ length: maximum }, (_, index) => {
-    const filled = index < current;
+  const slots = 5;
+  return Array.from({ length: slots }, (_, index) => {
+    const capacity = index < maximum;
+    const filled = capacity && index < current;
     const spend = filled ? current - index : 0;
     const chosen = selected > 0 && index >= current - selected && index < current;
     const element = selectable ? "button" : "span";
     const attributes = selectable && filled
       ? `type="button" data-exertion-spend="${spend}" aria-label="${chosen ? "Cancel" : "Stage"} ${spend} Exertion"`
       : selectable ? "type=\"button\" disabled" : "aria-hidden=\"true\"";
-    return `<${element} class="exertion-unit ${filled ? "filled available" : ""} ${chosen ? "selected" : ""}" ${attributes}><span class="exertion-charge"></span><span class="exertion-capacity"></span></${element}>`;
+    return `<${element} class="exertion-unit ${capacity ? "has-capacity" : "inactive"} ${filled ? "filled available" : ""} ${chosen ? "selected" : ""}" ${attributes}><span class="exertion-charge"></span><span class="exertion-capacity"></span></${element}>`;
   }).join("");
 }
 
@@ -1379,9 +1490,40 @@ function beginSkillReroll() {
   notice("2 Reverence spent. Preserved fused results will remain.", "success");
 }
 
+function animateSpeedPreview(now) {
+  const speed = Math.max(0, Number(speedPreviewValue) || 0);
+  let progress = 0;
+  let ready = false;
+  if (speed > 0) {
+    const fillDuration = 100000 / speed;
+    const cycleDuration = fillDuration + 2000;
+    const elapsed = Math.max(0, now - speedPreviewStartedAt) % cycleDuration;
+    ready = elapsed >= fillDuration;
+    progress = ready ? 1 : Math.min(1, elapsed / fillDuration);
+  }
+  dom.speedPreviewFill.style.transform = `scaleX(${progress})`;
+  dom.speedPreview.classList.toggle("ready", ready);
+  dom.speedPreview.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+  speedPreviewFrame = requestAnimationFrame(animateSpeedPreview);
+}
+
+function syncSpeedPreview(speed) {
+  const normalizedSpeed = Math.max(0, Number(speed) || 0);
+  dom.speedPreviewReadout.textContent = `${formatNumber(normalizedSpeed)}%`;
+  if (speedPreviewValue !== normalizedSpeed || speedPreviewCharacterId !== character.id) {
+    speedPreviewValue = normalizedSpeed;
+    speedPreviewCharacterId = character.id;
+    speedPreviewStartedAt = performance.now();
+    dom.speedPreviewFill.style.transform = "scaleX(0)";
+    dom.speedPreview.classList.remove("ready");
+  }
+  if (speedPreviewFrame === null) speedPreviewFrame = requestAnimationFrame(animateSpeedPreview);
+}
+
 function renderDerived() {
   const derived = derivedValues();
   dom.derivedSpeed.textContent = formatNumber(derived.speed);
+  syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
   dom.maximumHp.textContent = maximumHp();
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -2088,6 +2230,44 @@ document.addEventListener("keydown", (event) => {
   if (!row || event.target.closest("button, input")) return;
   event.preventDefault();
   openSkillCheck(row.dataset.rollSkill);
+});
+
+dom.racePicker.addEventListener("change", () => {
+  if (character.phase !== "draft") return;
+  character.identity.raceType = "";
+  if (dom.racePicker.value === "__other__") {
+    character.identity.raceKind = "other";
+    character.identity.raceId = "";
+    character.identity.race = "";
+  } else {
+    const definition = raceById(dom.racePicker.value);
+    character.identity.raceKind = "preset";
+    character.identity.raceId = definition?.id || "";
+    character.identity.race = definition?.name || "";
+  }
+  queueSave();
+  renderAll();
+  if (character.identity.raceKind === "other") dom.raceCustom.focus();
+  else if (selectedRace()?.types?.length) dom.raceTypePicker.focus();
+});
+
+dom.raceCustom.addEventListener("input", () => {
+  if (character.phase !== "draft" || character.identity.raceKind !== "other") return;
+  character.identity.race = dom.raceCustom.value;
+  queueSave();
+  renderClass();
+  renderWorkflow();
+});
+
+dom.raceTypePicker.addEventListener("change", () => {
+  if (character.phase !== "draft") return;
+  const definition = selectedRace();
+  character.identity.raceType = definition?.types?.some((type) => type.id === dom.raceTypePicker.value)
+    ? dom.raceTypePicker.value
+    : "";
+  queueSave();
+  renderClass();
+  renderWorkflow();
 });
 
 dom.classPicker.addEventListener("change", () => {
