@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-13" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-14" />
   </head>
   <body>
     <header class="creator-header">
@@ -111,6 +111,7 @@
               <button type="button" data-hp-change="-1" aria-label="Lose one HP">-</button>
               <input id="currentHp" type="number" min="-9999" max="999999" step="1" aria-label="Current HP" />
               <button type="button" data-hp-change="1" aria-label="Restore one HP">+</button>
+              <span class="hp-maximum-readout" aria-label="Maximum HP"><small>Max</small><strong id="currentHpMaximum">28</strong></span>
             </div>
             <button id="restoreHp" type="button">Restore to Maximum</button>
           </div>
@@ -119,7 +120,7 @@
         <section class="sheet-panel resources-panel">
           <div class="panel-heading"><span>Resources</span></div>
           <div class="resource-grid">
-            <div class="resource-card">
+            <div class="resource-card exertion-card">
               <div class="exertion-heading">
                 <span>Exertion</span>
                 <button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button>
@@ -298,6 +299,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260730-character-13"></script>
+    <script type="module" src="character.js?v=20260730-character-14"></script>
   </body>
 </html>

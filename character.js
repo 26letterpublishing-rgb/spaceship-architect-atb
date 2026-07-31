@@ -14,9 +14,9 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260730-character-13";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-13";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-13";
+} from "./character-data.js?v=20260730-character-14";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-14";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-14";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -76,6 +76,7 @@ const dom = {
   maximumHp: $("#maximumHp"),
   permanentHpBonus: $("#permanentHpBonus"),
   currentHp: $("#currentHp"),
+  currentHpMaximum: $("#currentHpMaximum"),
   restoreHp: $("#restoreHp"),
   exertionMeter: $("#exertionMeter"),
   restExertion: $("#restExertion"),
@@ -1522,12 +1523,14 @@ function syncSpeedPreview(speed) {
 
 function renderDerived() {
   const derived = derivedValues();
+  const maxHp = maximumHp();
   dom.derivedSpeed.textContent = formatNumber(derived.speed);
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
-  dom.maximumHp.textContent = maximumHp();
+  dom.maximumHp.textContent = maxHp;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
   dom.currentHp.value = character.health.current;
+  dom.currentHpMaximum.textContent = maxHp;
   dom.currentHp.classList.toggle("invalid", character.health.current < 1);
 }
 

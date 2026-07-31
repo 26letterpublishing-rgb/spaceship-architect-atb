@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-VariableFont_wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-Italic-VariableFont_wght.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg: #07090d;
@@ -27,7 +43,8 @@ body {
     #07090d;
   background-size: 42px 42px;
   color: var(--text);
-  font-family: "Bahnschrift", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
   letter-spacing: 0.01em;
 }
 
@@ -83,6 +100,7 @@ button {
   color: var(--text);
   cursor: pointer;
   font-weight: 800;
+  text-transform: uppercase;
   position: relative;
   overflow: hidden;
   text-shadow:
@@ -259,6 +277,7 @@ label {
     linear-gradient(90deg, #292052, #4f2875 50%, #252555);
   color: var(--text);
   font-weight: 900;
+  text-transform: uppercase;
   text-decoration: none;
   text-shadow: 0 1px 0 #000, 0 0 12px rgba(155, 92, 255, 0.55);
   box-shadow:
