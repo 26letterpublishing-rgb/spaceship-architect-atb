@@ -206,6 +206,7 @@ export class PhysicalDiceRoller {
     this.result = elements.result;
     this.actions = elements.actions;
     this.canvasHost = elements.canvasHost;
+    this.onRollStart = elements.onRollStart;
     this.active = null;
     this.frame = null;
     this.lastTime = 0;
@@ -264,6 +265,11 @@ export class PhysicalDiceRoller {
 
   async rollDice({ dice, title, subtitle, config, onConfig, onSettled, anchor }) {
     this.stop();
+    try {
+      this.onRollStart?.({ dice });
+    } catch {
+      // Audio feedback must never prevent a physical roll.
+    }
     this.shell.hidden = false;
     this.shell.classList.remove("celebrating", "choices-ready");
     this.title.textContent = title;

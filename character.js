@@ -12,9 +12,9 @@ import {
   INTELLECT_SKILL_POINT_BONUSES,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260723-character-8";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260723-character-8";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260723-character-8";
+} from "./character-data.js?v=20260730-character-9";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-9";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-9";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -96,6 +96,70 @@ const dom = {
   fubsExit: $("#fubsExit"),
 };
 
+let characterAudioContext = null;
+let diceRollNoiseBuffer = null;
+
+function ensureCharacterAudio() {
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (!Context) return null;
+  if (!characterAudioContext) characterAudioContext = new Context();
+  if (characterAudioContext.state === "suspended") characterAudioContext.resume().catch(() => {});
+  return characterAudioContext;
+}
+
+function scheduleTone(audio, frequency, start, duration, gainValue, type = "sine") {
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  const begins = audio.currentTime + start;
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, begins);
+  gain.gain.setValueAtTime(0.0001, begins);
+  gain.gain.exponentialRampToValueAtTime(gainValue, begins + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, begins + duration);
+  oscillator.connect(gain).connect(audio.destination);
+  oscillator.start(begins);
+  oscillator.stop(begins + duration + 0.02);
+}
+
+function playPurchaseSound() {
+  const audio = ensureCharacterAudio();
+  if (!audio) return;
+  scheduleTone(audio, 520, 0, 0.07, 0.025, "triangle");
+  scheduleTone(audio, 840, 0.045, 0.12, 0.032, "sine");
+  scheduleTone(audio, 1120, 0.1, 0.09, 0.018, "sine");
+}
+
+function playDiceRollSound() {
+  const audio = ensureCharacterAudio();
+  if (!audio) return;
+  const duration = 0.72;
+  if (!diceRollNoiseBuffer || diceRollNoiseBuffer.sampleRate !== audio.sampleRate) {
+    const length = Math.ceil(audio.sampleRate * duration);
+    diceRollNoiseBuffer = audio.createBuffer(1, length, audio.sampleRate);
+    const data = diceRollNoiseBuffer.getChannelData(0);
+    for (let index = 0; index < length; index += 1) {
+      const progress = index / length;
+      const clatter = index % Math.max(80, Math.floor(audio.sampleRate * 0.047)) < 90 ? 1.45 : 0.58;
+      data[index] = (Math.random() * 2 - 1) * Math.pow(1 - progress, 1.45) * clatter;
+    }
+  }
+  const source = audio.createBufferSource();
+  const filter = audio.createBiquadFilter();
+  const gain = audio.createGain();
+  source.buffer = diceRollNoiseBuffer;
+  filter.type = "bandpass";
+  filter.frequency.value = 1450;
+  filter.Q.value = 0.7;
+  gain.gain.setValueAtTime(0.055, audio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + duration);
+  source.connect(filter).connect(gain).connect(audio.destination);
+  source.start();
+  for (let bounce = 0; bounce < 8; bounce += 1) {
+    const start = 0.045 + bounce * 0.073 + Math.random() * 0.018;
+    scheduleTone(audio, 1040 - bounce * 72 + Math.random() * 110, start, 0.022, 0.016 * (1 - bounce / 10), "square");
+  }
+}
+
 const diceRoller = new PhysicalDiceRoller({
   shell: $("#diceRoller"),
   stage: $(".dice-stage"),
@@ -104,6 +168,7 @@ const diceRoller = new PhysicalDiceRoller({
   result: $("#diceResult"),
   actions: $("#diceActions"),
   canvasHost: $("#diceCanvas"),
+  onRollStart: playDiceRollSound,
 });
 
 let saveTimer = null;
@@ -571,6 +636,22 @@ function draftValidation() {
   };
 }
 
+function backgroundComplete() {
+  return Boolean(character.notes.trim());
+}
+
+function identityComplete() {
+  const fields = ["playerName", "characterName", "race", "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description"];
+  return Boolean(character.identity.classId) && fields.every((field) => String(character.identity[field] ?? "").trim());
+}
+
+function renderWorkflowRequirements(items) {
+  dom.nextRequirement.innerHTML = items.map(({ label, tone = "" }) => (
+    `<span class="workflow-requirement ${tone}" role="listitem">${escapeHtml(label)}</span>`
+  )).join("");
+  dom.nextRequirement.setAttribute("aria-label", items.map((item) => item.label).join(". "));
+}
+
 function renderCharacterPicker() {
   const saved = library.map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.legacyDraft ? " [Legacy Draft]" : ""}</option>`).join("");
   const recovery = recoveries.map((entry) => {
@@ -689,7 +770,7 @@ function renderWorkflow() {
   if (character.phase === "finalizing") {
     const remaining = character.creation.finalizationQueue.length;
     dom.phaseBadge.textContent = "Finalizing";
-    dom.nextRequirement.textContent = `Rolling Skill Decimals - ${remaining} remaining`;
+    renderWorkflowRequirements([{ label: `Rolling Skill Decimals - ${remaining} remaining`, tone: "warning" }]);
     dom.workflowDetail.textContent = "Each completed result is saved immediately.";
     dom.finalizeCharacter.textContent = "Finalizing...";
     dom.finalizeCharacter.disabled = true;
@@ -699,7 +780,10 @@ function renderWorkflow() {
   if (character.phase === "finalized") {
     dom.phaseBadge.textContent = character.advancementOpen ? "Advancement" : "Finalized";
     dom.phaseBadge.classList.add("finalized");
-    dom.nextRequirement.textContent = character.advancementOpen ? `${character.experience.available} XP available to spend` : "Character Finalized";
+    renderWorkflowRequirements([{
+      label: character.advancementOpen ? `${character.experience.available} XP available to spend` : "Character Finalized",
+      tone: "ready",
+    }]);
     dom.workflowDetail.textContent = character.advancementOpen ? "Purchases are permanent. Finish spending when you are done." : "Race, Class, and creation allocations are locked.";
     dom.spendExperience.textContent = character.advancementOpen ? "Finish Spending" : "Spend EXP";
     dom.spendExperience.disabled = Boolean(character.pendingRoll);
@@ -709,21 +793,33 @@ function renderWorkflow() {
   dom.phaseBadge.textContent = character.legacyDraft ? "Legacy Draft" : "Draft";
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
-  if (!validation.homePlanetComplete) {
-    dom.nextRequirement.textContent = "Choose a Home Planet";
-    dom.workflowDetail.textContent = "Select a listed world or choose Other to enter one of your own.";
-  } else if (!validation.attributesComplete) {
+  const requirements = [];
+  if (!character.identity.race.trim()) requirements.push({ label: "Choose Race" });
+  if (!character.identity.classId) requirements.push({ label: "Choose Class" });
+  if (!validation.homePlanetComplete) requirements.push({ label: "Choose Home Planet" });
+  if (!validation.attributesComplete) {
     const difference = ATTRIBUTE_POINTS - validation.attributeSpent;
-    dom.nextRequirement.textContent = difference > 0 ? `Spend ${difference} more Attribute Points` : `Refund ${Math.abs(difference)} Attribute Points`;
-    dom.workflowDetail.textContent = "Skills unlock after Attribute allocation is exactly 195 points.";
+    requirements.push({
+      label: difference > 0 ? `Spend ${difference} Attribute Points` : `Refund ${Math.abs(difference)} Attribute Points`,
+      tone: difference < 0 ? "warning" : "",
+    });
   } else if (!validation.skillsComplete || validation.invalidSkills.size) {
     const difference = validation.skillBudget - validation.skillSpent;
-    dom.nextRequirement.textContent = difference > 0 ? `Spend ${difference} more Skill Points` : difference < 0 ? `Refund ${Math.abs(difference)} Skill Points` : `Resolve ${validation.invalidSkills.size} invalid skill ${validation.invalidSkills.size === 1 ? "entry" : "entries"}`;
-    dom.workflowDetail.textContent = "Starting skills cannot exceed level 3.0 and every Custom Skill needs a name.";
-  } else {
-    dom.nextRequirement.textContent = "Ready to Finalize";
-    dom.workflowDetail.textContent = "Finalizing permanently locks Race, Class, and starting allocations.";
+    requirements.push({
+      label: difference > 0 ? `Spend ${difference} Skill Points` : difference < 0 ? `Refund ${Math.abs(difference)} Skill Points` : `Resolve ${validation.invalidSkills.size} invalid skill ${validation.invalidSkills.size === 1 ? "entry" : "entries"}`,
+      tone: difference < 0 || validation.invalidSkills.size ? "warning" : "",
+    });
   }
+  if (!backgroundComplete()) requirements.push({ label: "Write Backstory" });
+  else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ label: "Roll on FUBS Chart" });
+  if (!identityComplete()) requirements.push({ label: "Fill in Identity" });
+  if (validation.ready) requirements.push({ label: "Ready to Finalize", tone: "ready" });
+  renderWorkflowRequirements(requirements);
+  dom.workflowDetail.textContent = validation.ready
+    ? "Finalization is available. Any remaining identity or FUBS steps are shown above."
+    : validation.attributesComplete
+      ? "All currently available creation steps are shown."
+      : "Skills unlock after Attribute allocation is exactly 195 points.";
   if (!validation.ready && (validation.attributeSpent > ATTRIBUTE_POINTS || validation.skillSpent > validation.skillBudget || validation.invalidSkills.size)) dom.workflowBar.classList.add("invalid");
 }
 
@@ -910,6 +1006,7 @@ function purchaseAttribute(attributeKey, row, column) {
         return;
       }
       character.attributes[attributeKey][row] = column;
+      playPurchaseSound();
       notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} Attribute Points.`, "success");
     } else if (column === current) {
       if (row < 2 && column === 0) return;
@@ -923,6 +1020,7 @@ function purchaseAttribute(attributeKey, row, column) {
     const cost = ATTRIBUTE_COSTS[row][column];
     if (!spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`)) return;
     character.attributes[attributeKey][row] = column;
+    playPurchaseSound();
     notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} XP.`, "success");
   } else {
     return;
@@ -964,6 +1062,7 @@ function changeDraftSkill(key, direction) {
     resolved.skill.tenths = (currentLevel + 1) * 10;
     resolved.skill.creationDecimal = null;
     character.creation.skillPurchaseOrder.push({ key, cost });
+    playPurchaseSound();
     notice(`${resolved.name} increased to ${currentLevel + 1}.0 for ${cost} Skill Point${cost === 1 ? "" : "s"}.`, "success");
   } else if (currentLevel > 0) {
     resolved.skill.tenths = (currentLevel - 1) * 10;
@@ -987,12 +1086,13 @@ function skillKeysForFinalization() {
   return keys;
 }
 
-function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false, previewHtml = "" }) {
+function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false, previewHtml = "", singleAction = false }) {
   if (confirmResolver) confirmResolver(false);
   dom.confirmTitle.textContent = title;
   dom.confirmMessage.textContent = message;
-  dom.confirmAccept.textContent = acceptLabel;
+  dom.confirmAccept.textContent = acceptLabel || "Confirm";
   dom.confirmCancel.textContent = cancelLabel;
+  dom.confirmAccept.hidden = singleAction;
   dom.confirmAccept.classList.toggle("danger", danger);
   dom.confirmPreview.innerHTML = previewHtml;
   dom.confirmPreview.hidden = !previewHtml;
@@ -1270,6 +1370,7 @@ function acceptAdvancementResult() {
   character.pendingRoll = null;
   saveLibrary("Skill advancement applied");
   renderAll();
+  playPurchaseSound();
   notice(`${resolved.name} increased by +0.${result}.`, "success");
   diceRoller.celebrate(420);
 }
@@ -1347,6 +1448,10 @@ async function buildFubsRollChain(forcedFirst = null) {
 }
 
 async function performFubsRoll({ forcedFirst = null, reroll = false, debug = false } = {}) {
+  if (!backgroundComplete()) {
+    await showBackstoryRequired();
+    return;
+  }
   if (character.phase !== "draft" || fubsRollInProgress || character.pendingRoll || diceRoller.isActive()) return;
   const previousFubs = deepCopy(character.fubs);
   fubsRollInProgress = true;
@@ -1372,8 +1477,24 @@ async function performFubsRoll({ forcedFirst = null, reroll = false, debug = fal
   }
 }
 
+async function showBackstoryRequired() {
+  await askConfirmation({
+    title: "Write Backstory First.",
+    message: "FUBS can only be rolled after something has been written in the Character Background.",
+    cancelLabel: "Exit",
+    singleAction: true,
+  });
+  const background = document.querySelector('[data-field="notes"]');
+  background?.scrollIntoView({ behavior: "smooth", block: "center" });
+  background?.focus();
+}
+
 async function beginFubsRoll() {
   if (character.fubs.status !== "unrolled" || character.phase !== "draft") return;
+  if (!backgroundComplete()) {
+    await showBackstoryRequired();
+    return;
+  }
   const accepted = await askConfirmation({
     title: "Roll on the FUBS chart?",
     message: "Two D10s will create a percentile result and assign a permanent backstory prompt to this character.",
@@ -1385,6 +1506,11 @@ async function beginFubsRoll() {
 
 async function rerollFubs() {
   if (character.phase !== "draft" || character.fubs.status !== "complete" || character.fubs.rerollUsed) return;
+  if (!backgroundComplete()) {
+    closeFubsResult();
+    await showBackstoryRequired();
+    return;
+  }
   closeFubsResult();
   const accepted = await askConfirmation({
     title: "Reroll FUBS?",
@@ -1428,6 +1554,7 @@ document.addEventListener("input", (event) => {
     }
     if (field.dataset.field === "identity.sex") renderIdentityTheme();
     queueSave();
+    renderWorkflow();
     return;
   }
 
@@ -1671,10 +1798,14 @@ dom.fubsButton.addEventListener("click", () => {
   else beginFubsRoll();
 });
 
-dom.fubsDebugRoll.addEventListener("click", () => {
+dom.fubsDebugRoll.addEventListener("click", async () => {
   const value = Math.round(Number(dom.fubsDebugValue.value) || 0);
   if (value < 1 || value > 100) {
     notice("DEBUG FUBS result must be from 1 to 100.", "error");
+    return;
+  }
+  if (!backgroundComplete()) {
+    await showBackstoryRequired();
     return;
   }
   performFubsRoll({ forcedFirst: value, debug: true });

@@ -139,9 +139,37 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   box-shadow:0 16px 34px rgba(0,0,0,.58),0 0 18px rgba(43,216,255,.11);
 }
 .workflow-bar.invalid { border-color:var(--red); box-shadow:0 0 20px rgba(255,92,112,.16); }
-.workflow-copy { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:3px 10px; }
+.workflow-copy { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:5px 10px; }
 .workflow-bar strong { font-size:1rem; }
 .workflow-copy > small { grid-column:2; color:var(--muted); font-size:.68rem; }
+.workflow-requirements { min-width:0; display:flex; flex-wrap:wrap; gap:4px 6px; }
+.workflow-requirement {
+  position:relative;
+  padding:4px 7px 4px 17px;
+  border:1px solid #38516a;
+  border-radius:4px;
+  color:#e6f2fc;
+  background:rgba(4,11,19,.74);
+  font-size:.66rem;
+  font-weight:900;
+  line-height:1.1;
+  text-transform:uppercase;
+}
+.workflow-requirement::before {
+  content:"";
+  position:absolute;
+  left:6px;
+  top:50%;
+  width:5px;
+  height:5px;
+  border:1px solid var(--cyan);
+  background:rgba(43,216,255,.18);
+  transform:translateY(-50%) rotate(45deg);
+}
+.workflow-requirement.ready { border-color:rgba(47,224,157,.62); color:var(--green); }
+.workflow-requirement.ready::before { border-color:var(--green); background:var(--green); box-shadow:0 0 7px rgba(47,224,157,.65); }
+.workflow-requirement.warning { border-color:rgba(255,206,84,.62); color:var(--yellow); }
+.workflow-requirement.warning::before { border-color:var(--yellow); background:rgba(255,206,84,.3); }
 .phase-badge { grid-row:1 / span 2; min-width:76px; padding:8px 10px; border:1px solid var(--cyan); border-radius:999px; color:var(--cyan); text-align:center; font-size:.65rem; font-weight:950; text-transform:uppercase; }
 .phase-badge.finalized { color:var(--green); border-color:var(--green); }
 .phase-badge.finalizing { color:var(--yellow); border-color:var(--yellow); animation:status-pulse 1s ease-in-out infinite alternate; }
@@ -432,13 +460,18 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   .library-actions { display:grid; grid-template-columns:repeat(3,1fr); }
   .library-actions button,.import-button { width:100%; padding:0 7px; }
   .save-status { text-align:right; }
-  .workflow-bar { top:3px; grid-template-columns:1fr; align-items:stretch; }
+  .workflow-bar { top:3px; min-height:0; padding:7px 8px; grid-template-columns:1fr; align-items:stretch; gap:7px; }
   .workflow-copy { grid-template-columns:auto 1fr; }
+  .workflow-copy > small { grid-column:1 / -1; }
+  .workflow-requirements { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px 8px; }
+  .workflow-requirement { padding:1px 0 1px 10px; border:0; background:transparent; font-size:.59rem; }
+  .workflow-requirement::before { left:1px; width:4px; height:4px; }
+  .phase-badge { min-width:66px; padding:5px 7px; }
   .workflow-counters { grid-column:1; grid-row:auto; grid-template-columns:repeat(3,1fr); }
-  .workflow-counters > div { min-width:0; padding-inline:6px; }
+  .workflow-counters > div { min-width:0; min-height:40px; padding:4px 6px; }
   .workflow-counters strong { font-size:.76rem; }
   .workflow-actions { grid-column:1; grid-row:auto; }
-  .workflow-actions button { width:100%; }
+  .workflow-actions button { width:100%; min-height:38px; }
   .identity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .attribute-grid { grid-template-columns:1fr; }
   .attribute-card { width:100%; }

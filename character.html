@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260723-character-8" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-9" />
   </head>
   <body>
     <header class="creator-header">
@@ -32,8 +32,8 @@
       <section class="workflow-bar" aria-label="Character creation progress">
         <div class="workflow-copy">
           <span id="phaseBadge" class="phase-badge">Draft</span>
-          <strong id="nextRequirement">Spend 195 Attribute Points</strong>
-          <small id="workflowDetail">Skills unlock after Attribute allocation is complete.</small>
+          <div id="nextRequirement" class="workflow-requirements" role="list" aria-label="Available character creation steps"></div>
+          <small id="workflowDetail">All currently available creation steps are shown.</small>
         </div>
         <div class="workflow-counters" aria-label="Current character creation totals">
           <div><span>Attribute Points</span><strong id="workflowAttributeRemaining">195 / 195</strong></div>
@@ -212,6 +212,6 @@
         </div>
       </section>
     </div>
-    <script type="module" src="character.js?v=20260723-character-8"></script>
+    <script type="module" src="character.js?v=20260730-character-9"></script>
   </body>
 </html>
