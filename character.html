@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-9" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-10" />
   </head>
   <body>
     <header class="creator-header">
@@ -66,7 +66,6 @@
             <label>Eyes<input data-field="identity.eyes" /></label>
             <label class="description-field">Physical Description<textarea data-field="identity.description" rows="3"></textarea></label>
           </div>
-          <div id="classDetails" class="class-details"></div>
         </section>
 
         <aside class="sheet-panel experience-panel">
@@ -84,6 +83,25 @@
             <button id="grantXp" type="button">DEBUG: ADD EXP</button>
           </div>
           <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
+        </aside>
+
+        <aside class="sheet-panel derived-panel">
+          <div class="panel-heading"><span>Timing &amp; Health</span></div>
+          <div class="derived-grid">
+            <div><span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small></div>
+            <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
+            <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small>Maximum Health dice +20</small></div>
+            <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small>Reverence and other permanent effects</small></div>
+          </div>
+          <div class="hp-console">
+            <span>Current HP</span>
+            <div class="hp-control">
+              <button type="button" data-hp-change="-1" aria-label="Lose one HP">-</button>
+              <input id="currentHp" type="number" min="-9999" max="999999" step="1" aria-label="Current HP" />
+              <button type="button" data-hp-change="1" aria-label="Restore one HP">+</button>
+            </div>
+            <button id="restoreHp" type="button">Restore to Maximum</button>
+          </div>
         </aside>
 
         <section class="sheet-panel resources-panel">
@@ -126,25 +144,6 @@
           <div id="attributeGrid" class="attribute-grid"></div>
         </section>
 
-        <aside class="sheet-panel derived-panel">
-          <div class="panel-heading"><span>Timing &amp; Health</span></div>
-          <div class="derived-grid">
-            <div><span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small></div>
-            <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
-            <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small>Maximum Health dice +20</small></div>
-            <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small>Reverence and other permanent effects</small></div>
-          </div>
-          <div class="hp-console">
-            <span>Current HP</span>
-            <div class="hp-control">
-              <button type="button" data-hp-change="-1" aria-label="Lose one HP">-</button>
-              <input id="currentHp" type="number" min="-9999" max="999999" step="1" aria-label="Current HP" />
-              <button type="button" data-hp-change="1" aria-label="Restore one HP">+</button>
-            </div>
-            <button id="restoreHp" type="button">Restore to Maximum</button>
-          </div>
-        </aside>
-
         <section class="sheet-panel skills-panel">
           <div class="panel-heading skills-heading">
             <span>Skills</span>
@@ -160,6 +159,15 @@
             <div id="customSkills" class="custom-skill-list"></div>
             <p id="customSkillsEmpty" class="empty-list-note">No custom skills added.</p>
           </div>
+        </section>
+
+        <section class="sheet-panel advantages-panel">
+          <div class="panel-heading"><span>Advantages / Disadvantages</span></div>
+          <div id="automaticModifiers" class="automatic-modifiers"></div>
+          <div class="advantages-divider" aria-hidden="true"></div>
+          <label class="advantages-notes">Unique Advantages / Disadvantages
+            <textarea data-field="advantagesNotes" rows="4" placeholder="Record unique benefits, drawbacks, contacts, conditions, and campaign-specific modifiers."></textarea>
+          </label>
         </section>
 
         <section class="sheet-panel crew-panel">
@@ -208,10 +216,12 @@
             <button id="fubsReroll" type="button">Reroll FUBS</button>
             <small>One-time use</small>
           </div>
+          <p class="fubs-backstory-guidance">(incorporate this prompt into your backstory!)</p>
           <button id="fubsExit" class="primary-action" type="button">Exit</button>
         </div>
       </section>
     </div>
-    <script type="module" src="character.js?v=20260730-character-9"></script>
+    <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="character.js?v=20260730-character-10"></script>
   </body>
 </html>

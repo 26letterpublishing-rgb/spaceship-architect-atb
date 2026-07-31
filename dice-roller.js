@@ -30,23 +30,23 @@ function generatedThrow(index = 0, count = 1) {
 
 function numberTexture(value, accent) {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const context = canvas.getContext("2d");
-  context.clearRect(0, 0, 256, 256);
+  context.clearRect(0, 0, 512, 512);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.font = "900 136px Arial, sans-serif";
-  context.lineWidth = 24;
+  context.font = '900 304px "Arial Black", Impact, sans-serif';
+  context.lineWidth = 44;
   context.strokeStyle = "rgba(1, 5, 10, .98)";
-  context.strokeText(String(value), 128, 132);
+  context.strokeText(String(value), 256, 270);
   context.fillStyle = accent;
   context.shadowColor = accent;
-  context.shadowBlur = 15;
-  context.fillText(String(value), 128, 132);
+  context.shadowBlur = 28;
+  context.fillText(String(value), 256, 270);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
   return texture;
 }
 
@@ -55,11 +55,14 @@ function faceLabel(value, normal, position, accent, size) {
     map: numberTexture(value, accent),
     transparent: true,
     depthWrite: false,
+    alphaTest: 0.04,
+    toneMapped: false,
     side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
   mesh.position.copy(position).addScaledVector(normal, 0.025);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  mesh.renderOrder = 4;
   mesh.userData.baseScale = size;
   return mesh;
 }
@@ -89,7 +92,7 @@ function d6Visual({ color = 0x18354e, accent = "#b9f4ff" } = {}) {
     { value: 3, normal: new THREE.Vector3(0, 0, 1) },
     { value: 4, normal: new THREE.Vector3(0, 0, -1) },
   ].map((face) => {
-    const label = faceLabel(face.value, face.normal, face.normal.clone().multiplyScalar(0.75), accent, 0.56);
+    const label = faceLabel(face.value, face.normal, face.normal.clone().multiplyScalar(0.755), accent, 0.84);
     group.add(label);
     return { ...face, label };
   });
@@ -154,7 +157,7 @@ function d10Visual({ color = 0x17354e, alternate = 0x10283d, accent = "#b9f4ff" 
     ).normalize();
     const center = points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(0.25);
     const value = index + 1;
-    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.43);
+    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.61);
     group.add(label);
     normals.push({ value, normal, label });
   });
@@ -229,7 +232,7 @@ export class PhysicalDiceRoller {
     this.stage.style.setProperty("--dice-top", `${y}px`);
   }
 
-  roll({ sides, title, subtitle, config, onConfig, onSettled, anchor }) {
+  roll({ sides, title, subtitle, config, onConfig, onResolved, onSettled, anchor }) {
     const visual = sides === 10
       ? { sides: 10, color: 0x17354e, alternate: 0x10283d, accent: "#b9f4ff" }
       : { sides: 6, color: 0x18354e, accent: "#b9f4ff" };
@@ -239,12 +242,18 @@ export class PhysicalDiceRoller {
       subtitle,
       config: config ? [config] : null,
       onConfig: (configs) => onConfig?.(configs[0]),
+      onResolved: (results) => onResolved?.(results[0]),
       onSettled: (results) => onSettled?.(results[0]),
       anchor,
     });
   }
 
-  rollPercentile({ title, subtitle, config, onConfig, onSettled, anchor }) {
+  rollPercentile({ title, subtitle, config, onConfig, onResolved, onSettled, anchor }) {
+    const percentileResult = (results) => {
+      const tens = results[0] === 10 ? 0 : results[0];
+      const ones = results[1] === 10 ? 0 : results[1];
+      return { tens, ones, total: tens === 0 && ones === 0 ? 100 : tens * 10 + ones };
+    };
     return this.rollDice({
       dice: [
         { sides: 10, role: "tens", color: 0x7a101d, alternate: 0x4f0913, accent: "#ffb5bf" },
@@ -254,16 +263,13 @@ export class PhysicalDiceRoller {
       subtitle,
       config,
       onConfig,
-      onSettled: (results) => {
-        const tens = results[0] === 10 ? 0 : results[0];
-        const ones = results[1] === 10 ? 0 : results[1];
-        onSettled?.({ tens, ones, total: tens === 0 && ones === 0 ? 100 : tens * 10 + ones });
-      },
+      onResolved: (results) => onResolved?.(percentileResult(results)),
+      onSettled: (results) => onSettled?.(percentileResult(results)),
       anchor,
     });
   }
 
-  async rollDice({ dice, title, subtitle, config, onConfig, onSettled, anchor }) {
+  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor }) {
     this.stop();
     try {
       this.onRollStart?.({ dice });
@@ -344,6 +350,7 @@ export class PhysicalDiceRoller {
 
     this.active = {
       dice: activeDice,
+      onResolved,
       onSettled,
       resolved: false,
       delivered: false,
@@ -410,6 +417,11 @@ export class PhysicalDiceRoller {
       item.body.angularVelocity.setZero();
       return item.winningFace.value;
     });
+    try {
+      this.active.onResolved?.(this.active.results);
+    } catch {
+      // A notification should never interrupt the physical roll.
+    }
   }
 
   animateResolution(time) {

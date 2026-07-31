@@ -12,9 +12,9 @@ import {
   INTELLECT_SKILL_POINT_BONUSES,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260730-character-9";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-9";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-9";
+} from "./character-data.js?v=20260730-character-10";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-10";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-10";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -34,7 +34,7 @@ const dom = {
   saveStatus: $("#saveStatus"),
   identityCallsign: $("#identityCallsign"),
   classPicker: $("#classPicker"),
-  classDetails: $("#classDetails"),
+  automaticModifiers: $("#automaticModifiers"),
   phaseBadge: $("#phaseBadge"),
   nextRequirement: $("#nextRequirement"),
   workflowDetail: $("#workflowDetail"),
@@ -94,6 +94,7 @@ const dom = {
   fubsEntryText: $("#fubsEntryText"),
   fubsReroll: $("#fubsReroll"),
   fubsExit: $("#fubsExit"),
+  rollResultToast: $("#rollResultToast"),
 };
 
 let characterAudioContext = null;
@@ -121,12 +122,70 @@ function scheduleTone(audio, frequency, start, duration, gainValue, type = "sine
   oscillator.stop(begins + duration + 0.02);
 }
 
-function playPurchaseSound() {
+function scheduleSweep(audio, from, to, start, duration, gainValue, type = "sine") {
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  const begins = audio.currentTime + start;
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(Math.max(1, from), begins);
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, to), begins + duration);
+  gain.gain.setValueAtTime(0.0001, begins);
+  gain.gain.exponentialRampToValueAtTime(gainValue, begins + Math.min(0.025, duration * 0.18));
+  gain.gain.exponentialRampToValueAtTime(0.0001, begins + duration);
+  oscillator.connect(gain).connect(audio.destination);
+  oscillator.start(begins);
+  oscillator.stop(begins + duration + 0.02);
+}
+
+function playPurchaseSound(attributeKey = "") {
   const audio = ensureCharacterAudio();
   if (!audio) return;
-  scheduleTone(audio, 520, 0, 0.07, 0.025, "triangle");
-  scheduleTone(audio, 840, 0.045, 0.12, 0.032, "sine");
-  scheduleTone(audio, 1120, 0.1, 0.09, 0.018, "sine");
+  switch (attributeKey) {
+    case "strength":
+      scheduleSweep(audio, 230, 72, 0, 0.24, 0.055, "sawtooth");
+      scheduleTone(audio, 92, 0.045, 0.22, 0.035, "sine");
+      break;
+    case "health":
+      scheduleSweep(audio, 210, 610, 0, 0.28, 0.038, "sine");
+      scheduleSweep(audio, 320, 790, 0.035, 0.25, 0.022, "triangle");
+      break;
+    case "perception":
+      scheduleTone(audio, 720, 0, 0.12, 0.026, "sine");
+      scheduleTone(audio, 1180, 0.085, 0.18, 0.036, "sine");
+      scheduleTone(audio, 1680, 0.13, 0.12, 0.012, "sine");
+      break;
+    case "dexterity":
+      scheduleTone(audio, 1320, 0, 0.13, 0.045, "sine");
+      scheduleTone(audio, 1980, 0.018, 0.09, 0.018, "triangle");
+      break;
+    case "luck": {
+      const offset = [0, 70, 145, 240][Math.floor(Math.random() * 4)];
+      scheduleTone(audio, 660 + offset, 0, 0.15, 0.025, "triangle");
+      scheduleTone(audio, 940 + offset, 0.06, 0.2, 0.03, "sine");
+      scheduleSweep(audio, 1380 + offset, 920 + offset, 0.11, 0.17, 0.014, "sine");
+      break;
+    }
+    case "charisma":
+      scheduleTone(audio, 440, 0, 0.27, 0.021, "sine");
+      scheduleTone(audio, 550, 0.025, 0.26, 0.021, "sine");
+      scheduleTone(audio, 660, 0.05, 0.25, 0.021, "sine");
+      break;
+    case "intellect":
+      scheduleTone(audio, 520, 0, 0.08, 0.025, "square");
+      scheduleTone(audio, 700, 0.055, 0.09, 0.024, "triangle");
+      scheduleTone(audio, 940, 0.11, 0.12, 0.03, "sine");
+      break;
+    case "willpower":
+      scheduleSweep(audio, 180, 430, 0, 0.3, 0.044, "triangle");
+      scheduleTone(audio, 430, 0.12, 0.21, 0.025, "sine");
+      scheduleTone(audio, 860, 0.16, 0.17, 0.014, "sine");
+      break;
+    default:
+      scheduleTone(audio, 520, 0, 0.07, 0.025, "triangle");
+      scheduleTone(audio, 840, 0.045, 0.12, 0.032, "sine");
+      scheduleTone(audio, 1120, 0.1, 0.09, 0.018, "sine");
+      break;
+  }
 }
 
 function playDiceRollSound() {
@@ -176,6 +235,20 @@ let noticeTimer = null;
 let confirmResolver = null;
 let migrationDetected = false;
 let fubsRollInProgress = false;
+let rollToastTimer = null;
+
+function showRollResultToast(message) {
+  if (!dom.rollResultToast) return;
+  window.clearTimeout(rollToastTimer);
+  dom.rollResultToast.textContent = message;
+  dom.rollResultToast.hidden = false;
+  dom.rollResultToast.style.animation = "none";
+  void dom.rollResultToast.offsetWidth;
+  dom.rollResultToast.style.animation = "";
+  rollToastTimer = window.setTimeout(() => {
+    dom.rollResultToast.hidden = true;
+  }, 1160);
+}
 
 function uid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -270,6 +343,7 @@ function blankCharacter(name = "New Character") {
       dramaCards: 0,
     },
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
+    advantagesNotes: "",
     notes: "",
     updatedAt: new Date().toISOString(),
   };
@@ -401,6 +475,7 @@ function normalizeCharacter(raw) {
     .slice(0, 20);
   normalized.fubs.rerollUsed = Boolean(normalized.fubs.rerollUsed);
   if (normalized.fubs.status === "complete" && !normalized.fubs.rolls.length) normalized.fubs.status = "unrolled";
+  if (normalized.phase === "draft" && normalized.fubs.status === "not-activated") normalized.fubs.status = "unrolled";
   if (normalized.phase === "finalized" && normalized.fubs.status === "unrolled") normalized.fubs.status = "not-activated";
 
   while (normalized.crew.length < 3) normalized.crew.push({ name: "", title: "" });
@@ -416,6 +491,8 @@ function normalizeCharacter(raw) {
   normalized.resources.reverence = Math.round(clamp(normalized.resources.reverence, 0, 10));
   normalized.resources.creditsBase = Math.round(clamp(normalized.resources.creditsBase, 0, 999999999));
   normalized.resources.dramaCards = Math.round(clamp(normalized.resources.dramaCards, 0, 999));
+  normalized.advantagesNotes = typeof source.advantagesNotes === "string" ? source.advantagesNotes : "";
+  normalized.notes = typeof source.notes === "string" ? source.notes : "";
   normalized.health.permanentBonus = Math.round(clamp(normalized.health.permanentBonus, 0, 9999));
   normalized.health.current = source.health?.current === null || source.health?.current === undefined
     ? null
@@ -756,8 +833,23 @@ function renderClass() {
   dom.classPicker.value = character.identity.classId;
   dom.classPicker.disabled = character.phase !== "draft";
   const definition = classById(character.identity.classId);
-  dom.classDetails.className = `class-details ${definition.pendingAtb ? "pending" : ""}`.trim();
-  dom.classDetails.innerHTML = `<strong>${escapeHtml(definition.name)}</strong><p>${escapeHtml(definition.summary)}</p>${definition.manual ? `<small>${escapeHtml(definition.manual)}</small>` : ""}`;
+  const raceName = character.identity.race.trim();
+  const raceSummary = raceName
+    ? `No automated racial modifiers have been assigned to ${raceName} yet.`
+    : "Choose a race to display its automated modifiers here.";
+  const classSummary = character.identity.classId
+    ? definition.summary
+    : "Choose a class to display its automatic advantages and disadvantages here.";
+  dom.automaticModifiers.innerHTML = `
+    <article class="modifier-summary race-modifier">
+      <strong>${raceName ? escapeHtml(raceName) : "Racial Modifiers"}</strong>
+      <p>${escapeHtml(raceSummary)}</p>
+    </article>
+    <article class="modifier-summary class-modifier">
+      <strong>${escapeHtml(definition.name)}</strong>
+      <p>${escapeHtml(classSummary)}</p>
+      ${definition.manual ? `<small>${escapeHtml(definition.manual)}</small>` : ""}
+    </article>`;
 }
 
 function renderWorkflow() {
@@ -1006,7 +1098,7 @@ function purchaseAttribute(attributeKey, row, column) {
         return;
       }
       character.attributes[attributeKey][row] = column;
-      playPurchaseSound();
+      playPurchaseSound(attributeKey);
       notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} Attribute Points.`, "success");
     } else if (column === current) {
       if (row < 2 && column === 0) return;
@@ -1020,7 +1112,7 @@ function purchaseAttribute(attributeKey, row, column) {
     const cost = ATTRIBUTE_COSTS[row][column];
     if (!spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`)) return;
     character.attributes[attributeKey][row] = column;
-    playPurchaseSound();
+    playPurchaseSound(attributeKey);
     notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} XP.`, "success");
   } else {
     return;
@@ -1157,7 +1249,7 @@ async function beginFinalization() {
     notice(validation.issues[0] || "Resolve the remaining creation requirements first.", "error");
     return;
   }
-  const fubsMissing = character.fubs.status === "unrolled";
+  const fubsMissing = character.fubs.status !== "complete";
   const accepted = await askConfirmation(fubsMissing ? {
     title: "You have not rolled FUBS yet. Are you sure?",
     message: "FUBS is optional, but finalizing without it permanently marks this character as FUBS: (Not activated).",
@@ -1264,6 +1356,15 @@ function skillRowFor(key) {
   return document.querySelector(`.skill-row[data-skill-key="${CSS.escape(key)}"]`);
 }
 
+function showPendingRollToast(pending, result) {
+  const resolved = resolveSkill(character, pending.skillKey);
+  if (!resolved) return;
+  const projectedTenths = pending.kind === "creation-d10"
+    ? skillCreationLevel(resolved.skill) * 10 + (result === 10 ? 0 : result)
+    : pending.preRatingTenths + result;
+  showRollResultToast(`${resolved.name}: ${ratingText(projectedTenths)}`);
+}
+
 function rollPending() {
   const pending = character.pendingRoll;
   if (!pending || diceRoller.isActive()) return;
@@ -1292,6 +1393,7 @@ function rollPending() {
       character.pendingRoll.config = config;
       saveLibrary("Physical roll in progress");
     },
+    onResolved: (result) => showPendingRollToast(pending, result),
     onSettled: (result) => handleSettledRoll(result),
   }).catch(() => {
     notice("The 3D dice tray could not start. Reload the page to resume this saved roll.", "error");
@@ -1356,6 +1458,7 @@ function rerollAdvancement(cost) {
       character.pendingRoll.config = config;
       saveLibrary("Physical reroll in progress");
     },
+    onResolved: (result) => showPendingRollToast(pending, result),
     onSettled: (result) => handleSettledRoll(result),
   });
 }
@@ -1427,6 +1530,7 @@ function rollFubsPercentile() {
       title: "FUBS Percentile",
       subtitle: "Red die: tens | Blue die: ones",
       anchor: dom.fubsButton,
+      onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
       onSettled: (result) => {
         diceRoller.celebrate(360).then(() => resolve(result.total));
       },
@@ -1553,6 +1657,7 @@ document.addEventListener("input", (event) => {
       renderCharacterPicker();
     }
     if (field.dataset.field === "identity.sex") renderIdentityTheme();
+    if (field.dataset.field === "identity.race") renderClass();
     queueSave();
     renderWorkflow();
     return;
