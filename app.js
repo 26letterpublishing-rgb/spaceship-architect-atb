@@ -223,6 +223,23 @@ const cancelQueuedEffectDialog = document.querySelector("#cancelQueuedEffectDial
 const confirmQueuedEffectDialog = document.querySelector("#confirmQueuedEffectDialog");
 const gmPanicPause = document.querySelector("#gmPanicPause");
 const visualModeToggle = document.querySelector("#visualModeToggle");
+
+function savedCharacterAtbColor() {
+  try {
+    const library = JSON.parse(localStorage.getItem("sa2e-character-library-v1") || "[]");
+    const activeId = localStorage.getItem("sa2e-active-character-v1") || "";
+    const activeCharacter = Array.isArray(library)
+      ? library.find((entry) => entry?.id === activeId) || library[0]
+      : null;
+    const color = activeCharacter?.presentation?.atbColor;
+    return /^#[0-9a-f]{6}$/i.test(color) ? color : "";
+  } catch {
+    return "";
+  }
+}
+
+const characterSheetAtbColor = savedCharacterAtbColor();
+if (characterSheetAtbColor) playerColor.value = characterSheetAtbColor;
 const playerActionSheet = document.querySelector("#playerActionSheet");
 const playerActionChoices = document.querySelector("#playerActionChoices");
 const dismissActionSheet = document.querySelector("#dismissActionSheet");

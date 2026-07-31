@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-14" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-17" />
   </head>
   <body>
     <header class="creator-header">
@@ -81,7 +81,7 @@
             <div><span>Skill Points</span><strong id="skillBudget">Locked</strong></div>
           </div>
           <div class="xp-readouts">
-            <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small>Unspent / Total Gained</small></div>
+            <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small id="xpFormula">Unspent / Total Gained</small></div>
             <div><span>Spent XP</span><strong id="xpSpent">0</strong></div>
           </div>
           <div class="xp-grant">
@@ -95,15 +95,16 @@
           <div class="panel-heading"><span>Timing &amp; Health</span></div>
           <div class="derived-grid">
             <div class="speed-stat">
-              <span>Speed</span><strong id="derivedSpeed">2</strong><small>Intellect boxes + Initiative</small>
+              <span>Speed</span><strong id="derivedSpeed">2</strong><small id="derivedSpeedFormula">Intellect boxes + Initiative</small>
               <div id="speedPreview" class="speed-preview" role="progressbar" aria-label="Live ATB Speed preview" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div class="speed-preview-track"><span id="speedPreviewFill" class="speed-preview-fill"></span></div>
                 <small><b id="speedPreviewReadout">2%</b> per second preview</small>
               </div>
             </div>
-            <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small>Perception boxes + Awareness</small></div>
-            <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small>Maximum Health dice +20</small></div>
-            <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small>Reverence and other permanent effects</small></div>
+            <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small id="derivedCommandFormula">Perception boxes + Awareness</small></div>
+            <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small id="maximumHpFormula">Health dice maximum +20</small></div>
+            <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small id="permanentHpFormula">Reverence and other permanent effects</small></div>
+            <div class="damage-reduction-stat"><span>Damage Reduction</span><strong id="damageReduction">0</strong><small id="damageReductionFormula">No natural Damage Reduction</small></div>
           </div>
           <div class="hp-console">
             <span>Current HP</span>
@@ -126,15 +127,15 @@
                 <button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button>
               </div>
               <div id="exertionMeter" class="exertion-meter" aria-label="Current and maximum Exertion"></div>
-              <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
+              <small id="exertionFormula" class="resource-formula">1 + each Willpower die at D10 or higher</small>
             </div>
             <div class="resource-card derived-resource">
               <span>Move Speed</span><strong id="moveSpeedValue">2</strong>
-              <small class="resource-formula">2 + each Dexterity die at D10 or higher</small>
+              <small id="moveSpeedFormula" class="resource-formula">2 + each Dexterity die at D10 or higher</small>
             </div>
             <div class="resource-card credits-card">
               <span>Credits</span><strong id="creditsValue">0</strong>
-              <small class="resource-formula">Awarded by the GM; class bonuses apply automatically</small>
+              <small id="creditsFormula" class="resource-formula">Awarded by the GM; finalized bonuses apply automatically</small>
             </div>
             <div class="resource-card reverence-card">
               <div class="reverence-heading"><span>Reverence</span><strong id="reverenceCurrent" aria-label="Current Reverence">0</strong></div>
@@ -144,7 +145,10 @@
                 <button type="button" disabled title="Available when Drama Cards are added">Draw a Drama Card<small>Coming later</small></button>
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
-              <button id="debugReverence" class="debug-resource" type="button">DEBUG: +1 REVERENCE</button>
+              <div class="reverence-footer">
+                <label class="character-atb-color">ATB Color<input id="characterAtbColor" type="color" value="#39e58f" aria-label="Character ATB color" /></label>
+                <button id="debugReverence" class="debug-resource" type="button">DEBUG: +1 REVERENCE</button>
+              </div>
             </div>
           </div>
         </section>
@@ -287,9 +291,10 @@
           </div>
           <div id="skillFusionResults" class="skill-fusion-results" hidden>
             <div class="skill-control-heading">
-              <div><span>Fused Results</span><small>Selected results remain during a Reverence reroll</small></div>
+              <div><span>Fused Results</span><small>You may preserve one fused pair during a Reverence reroll</small></div>
             </div>
             <div id="skillFusionChoices" class="skill-fusion-choices"></div>
+            <p id="skillFusionWarning" class="skill-fusion-warning">No fusion selected. The full dice pool will be rerolled.</p>
           </div>
           <div class="skill-result-actions">
             <button id="rerollSkillCheck" type="button">Spend 2 Reverence to Reroll</button>
@@ -299,6 +304,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260730-character-14"></script>
+    <script type="module" src="character.js?v=20260730-character-17"></script>
   </body>
 </html>

@@ -83,6 +83,7 @@ export const RACE_DEFS = [
   {
     id: "angiluros",
     name: "Angiluros",
+    effects: { moveSpeedModifier: 1 },
     disadvantages: [
       "Whenever you fire or use a weapon made from metal or made by another character, lose one Willpower die and roll Willpower + Resist Distress against Difficulty 13. On a failure, take no further actions this CvC round or the following CvC round. Starship weapons do not cause this penalty.",
     ],
@@ -113,6 +114,10 @@ export const RACE_DEFS = [
       {
         id: "feather",
         name: "Feather",
+        effects: {
+          moveSpeedModifier: 2,
+          hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 20, label: "Two highest Health dice +20" },
+        },
         disadvantages: [
           "Maximum HP equals the highest two purchased Health dice +20.",
           "You cannot fly while wearing a spacesuit or power armor.",
@@ -139,6 +144,7 @@ export const RACE_DEFS = [
       {
         id: "fluffy",
         name: "Fluffy",
+        effects: { moveSpeedModifier: 2 },
         disadvantages: ["Take -2 to all Strength rolls."],
         advantages: [
           "Reroll up to two dice in Charisma and Dexterity on each roll.",
@@ -164,6 +170,11 @@ export const RACE_DEFS = [
   {
     id: "butchers-of-hellmouth",
     name: "Butchers of Hellmouth",
+    effects: {
+      hpFormula: { kind: "sum", attributes: ["health"], bonus: 40, label: "Health dice maximum +40" },
+      maxHpReverenceCost: 3,
+      skillBonuses: { "Intimidate/Taunt": 30 },
+    },
     disadvantages: [
       "You are completely blind to objects 10 meters or farther away and cannot use binoculars or scopes.",
       "Roll no more than two Perception dice, and Perception dice cost twice as much.",
@@ -192,6 +203,16 @@ export const RACE_DEFS = [
   {
     id: "epoc",
     name: "Epoc",
+    effects: {
+      skillBonuses: {
+        "Fashion/Etiquette": 20,
+        "Art/Music": 20,
+        "Intuition/Empathy": 20,
+        Psychology: 20,
+        Religion: 20,
+        Showmanship: 20,
+      },
+    },
     disadvantages: [
       "For each 1 rolled in Strength, Health, Dexterity, or Perception, reduce the final Score by 1.",
     ],
@@ -218,6 +239,15 @@ export const RACE_DEFS = [
   {
     id: "flavilin",
     name: "Flavilin",
+    effects: {
+      skillBonuses: {
+        Engineering: 20,
+        Awareness: 20,
+        Technology: 20,
+        "Vehicle Mechanics": 20,
+        "Weapon Mechanics": 20,
+      },
+    },
     disadvantages: [
       "If stunned by a Light source, triple the duration.",
       "Dislikes bright environments.",
@@ -230,6 +260,10 @@ export const RACE_DEFS = [
   {
     id: "garmoc",
     name: "Garmoc",
+    effects: {
+      hpFormula: { kind: "sum", attributes: ["health"], bonus: 30, label: "Health dice maximum +30" },
+      damageReduction: { kind: "flat", value: 10, label: "Natural Damage Reduction 10" },
+    },
     disadvantages: [
       "Charisma and Intellect dice results above 8 count as 8.",
       "Charisma and Intellect dice do not fuse.",
@@ -244,6 +278,10 @@ export const RACE_DEFS = [
   {
     id: "grey",
     name: "Grey",
+    effects: {
+      moveSpeedModifier: -1,
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
+    },
     disadvantages: [
       "Maximum HP equals the highest result of any two Health dice.",
       "-1 Move Speed.",
@@ -269,12 +307,17 @@ export const RACE_DEFS = [
   {
     id: "human",
     name: "Human",
+    effects: { xpOnFinalize: 200 },
     disadvantages: [],
     advantages: ["Start with +200 Experience."],
   },
   {
     id: "kabuto",
     name: "Kabuto",
+    effects: {
+      moveSpeedModifier: 2,
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
+    },
     disadvantages: [
       "Cannot use or carry Size Class A or B weapons.",
       "Maximum HP equals the maximum roll of two Health dice +10.",
@@ -290,6 +333,11 @@ export const RACE_DEFS = [
   {
     id: "krax-gny-vtek",
     name: "Krax G'ny V'Tek",
+    effects: {
+      moveSpeedModifier: 1,
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
+      skillBonuses: { "Intimidate/Taunt": 30, "Stealth/Hide": 20 },
+    },
     disadvantages: [
       "Maximum HP equals the highest result of any two Health dice +10.",
       "While missing 5 or more HP, you may roll no more than three Dexterity dice.",
@@ -305,6 +353,9 @@ export const RACE_DEFS = [
   {
     id: "nordic-flaxen",
     name: "Nordic Flaxen",
+    effects: {
+      hpFormula: { kind: "sum", attributes: ["health"], bonus: 32, label: "Health dice maximum +32" },
+    },
     disadvantages: ["Take x2 damage from the Dark element."],
     advantages: [
       "Add all Luck dice to Charisma rolls.",
@@ -315,6 +366,18 @@ export const RACE_DEFS = [
   {
     id: "pattanilia",
     name: "Pattanilia",
+    effects: {
+      moveSpeedModifier: -1,
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
+      skillBonuses: {
+        "Pilot/Helm": 10,
+        Navigate: 10,
+        "Computer Systems": 10,
+        Engineering: 10,
+        "Sensor Systems": 10,
+        "Weapon Systems": 10,
+      },
+    },
     disadvantages: [
       "Maximum HP equals the highest result of any two Health dice.",
       "-1 Move Speed.",
@@ -332,6 +395,9 @@ export const RACE_DEFS = [
   {
     id: "skeder",
     name: "Sked'er",
+    effects: {
+      damageReduction: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
+    },
     disadvantages: [
       "Charisma rolls fail unless they are Critical Successes.",
       "Starship stations require 500-Credit Sked'er customization.",
@@ -350,6 +416,7 @@ export const RACE_DEFS = [
   {
     id: "slyn-tanni",
     name: "Slyn Tanni",
+    effects: { skillBonuses: { "Dodge/Block": 20 } },
     disadvantages: [
       "Take x2 damage from the Ice property.",
       "Take one fewer Combat Action in a cold environment.",
@@ -366,6 +433,7 @@ export const RACE_DEFS = [
   {
     id: "spiddix",
     name: "Spiddix",
+    effects: { creditsOnFinalize: 8000 },
     disadvantages: [
       "When detached from your mechanical device, Move Speed becomes 0 and all racial advantages are lost. Outside the device, Maximum HP equals your highest single Health die +5.",
       "The mechanical body takes x2 damage from Water and Electricity attacks.",
@@ -387,6 +455,10 @@ export const RACE_DEFS = [
   {
     id: "tamalori",
     name: "TaMalori",
+    effects: {
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 20, label: "Two highest Health dice +20" },
+      forbidMaxHpReverence: true,
+    },
     disadvantages: [
       "Maximum HP equals the highest result of any two Health dice +20.",
       "Enemy Critical Hits deal triple damage instead of double damage.",
@@ -409,6 +481,11 @@ export const RACE_DEFS = [
   {
     id: "xithx",
     name: "Xithx",
+    effects: {
+      moveSpeedModifier: 2,
+      hpFormula: { kind: "top", attributes: ["health"], count: 1, bonus: 0, label: "Highest Health die; no +20" },
+      damageReduction: { kind: "top", attributes: ["health"], count: 2, bonus: 2, label: "Two highest Health dice +2" },
+    },
     disadvantages: [
       "Maximum HP equals the highest roll among all Health dice, without adding 20.",
       "When rolling Stealth/Hide, ignore the highest result.",
@@ -423,6 +500,9 @@ export const RACE_DEFS = [
   {
     id: "yetuak-zune",
     name: "Ye'tuak Zune",
+    effects: {
+      hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
+    },
     disadvantages: [
       "Maximum HP equals the highest two purchased Health dice +10.",
       "Charisma dice do not fuse.",
@@ -443,6 +523,11 @@ export const RACE_DEFS = [
       {
         id: "ice",
         name: "Ice",
+        effects: {
+          moveSpeedModifier: -1,
+          hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
+          damageReduction: { kind: "top", attributes: ["willpower"], count: 2, bonus: 0, label: "Two highest Willpower dice" },
+        },
         disadvantages: [
           "-1 Move Speed and -3 Defense Score.",
           "Cannot tolerate warm or hot environments.",
@@ -460,6 +545,11 @@ export const RACE_DEFS = [
       {
         id: "lava",
         name: "Lava",
+        effects: {
+          moveSpeedModifier: -1,
+          hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
+          damageReduction: { kind: "top", attributes: ["willpower"], count: 1, bonus: 0, label: "Highest Willpower die" },
+        },
         disadvantages: [
           "-1 Move Speed and -3 Defense Score.",
           "Cannot tolerate cold environments.",
@@ -476,6 +566,12 @@ export const RACE_DEFS = [
       {
         id: "rock",
         name: "Rock",
+        effects: {
+          moveSpeedModifier: -2,
+          moveSpeedMinimum: 1,
+          hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
+          damageReduction: { kind: "sum", attributes: ["willpower"], bonus: 2, label: "Willpower dice maximum +2" },
+        },
         disadvantages: [
           "-2 Move Speed, to a minimum of 1, and -4 Defense Score.",
           "Eat raw minerals instead of food and must devour one Mineral twice every 24 hours.",
@@ -489,6 +585,11 @@ export const RACE_DEFS = [
       {
         id: "wood",
         name: "Wood",
+        effects: {
+          moveSpeedModifier: -1,
+          hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
+          damageReduction: { kind: "top", attributes: ["willpower"], count: 1, bonus: 0, label: "Highest Willpower die" },
+        },
         disadvantages: [
           "-1 Move Speed and -3 Defense Score.",
           "Take x2 damage from Fire and Fire Intensity.",
