@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-10" />
+    <link rel="stylesheet" href="character.css?v=20260730-character-12" />
   </head>
   <body>
     <header class="creator-header">
@@ -108,14 +108,11 @@
           <div class="panel-heading"><span>Resources</span></div>
           <div class="resource-grid">
             <div class="resource-card">
-              <span>Exertion</span>
-              <div class="resource-control-line">
-                <div class="resource-values"><strong id="exertionCurrent">1</strong><small>/</small><strong id="exertionMax">1</strong></div>
-                <div class="resource-actions">
-                  <button type="button" data-resource="exertion" data-change="-1" aria-label="Spend Exertion">-</button>
-                  <button type="button" data-resource="exertion" data-change="1" aria-label="Restore Exertion">+</button>
-                </div>
+              <div class="exertion-heading">
+                <span>Exertion</span>
+                <button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button>
               </div>
+              <div id="exertionMeter" class="exertion-meter" aria-label="Current and maximum Exertion"></div>
               <small class="resource-formula">1 + each Willpower die at D10 or higher</small>
             </div>
             <div class="resource-card derived-resource">
@@ -221,7 +218,74 @@
         </div>
       </section>
     </div>
+    <div id="skillCheckModal" class="modal-shell skill-check-modal" hidden>
+      <section class="skill-check-dialog" role="dialog" aria-modal="true" aria-labelledby="skillCheckTitle">
+        <header class="skill-check-header">
+          <div>
+            <span class="dialog-kicker">Attribute + Skill Check</span>
+            <h2 id="skillCheckTitle">Skill Check</h2>
+            <p id="skillCheckSubtitle"></p>
+          </div>
+          <button id="skillCheckClose" class="dialog-close" type="button" aria-label="Close Skill Check">×</button>
+        </header>
+
+        <section id="skillAttributeStage" class="skill-check-stage">
+          <h3>Roll with which Attribute?</h3>
+          <div id="skillAttributeChoices" class="skill-attribute-choices"></div>
+        </section>
+
+        <section id="skillSetupStage" class="skill-check-stage" hidden>
+          <div class="skill-roll-summary">
+            <button id="changeSkillAttribute" class="attribute-return" type="button" aria-label="Choose a different Attribute">‹</button>
+            <div><span>Attribute</span><strong id="selectedAttributeName">Attribute</strong></div>
+            <div><span>Dice Pool</span><strong id="selectedDicePool">No dice</strong></div>
+            <div><span>Add to Top Two</span><strong id="selectedSkillBonus">+0.0</strong></div>
+          </div>
+
+          <div id="skillExertionBlock" class="skill-exertion-block" hidden>
+            <div class="skill-control-heading">
+              <div><span>Exertion Boost</span><small>Each point adds 1D12 and +1</small></div>
+              <strong id="skillExertionReadout">None selected</strong>
+            </div>
+            <div id="skillExertionMeter" class="exertion-meter selectable" aria-label="Select Exertion to spend"></div>
+          </div>
+
+          <div class="skill-input-grid">
+            <label>Optional Difficulty
+              <input id="skillDifficulty" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="No Difficulty" />
+            </label>
+            <label>Manual Final Score
+              <input id="manualSkillScore" type="number" step="0.1" inputmode="decimal" placeholder="Enter completed result" />
+            </label>
+          </div>
+          <div class="skill-setup-actions">
+            <button id="cancelSkillCheck" type="button">Cancel</button>
+            <button id="calculateManualSkill" type="button">Calculate Manual Result</button>
+            <button id="rollSkillCheck" class="primary-action" type="button">Roll for Me</button>
+          </div>
+        </section>
+
+        <section id="skillResultStage" class="skill-check-stage skill-result-stage" hidden>
+          <div class="skill-result-display">
+            <span id="skillResultLabel">Final Score</span>
+            <strong id="skillResultScore">0.0</strong>
+            <p id="skillResultEquation"></p>
+            <b id="skillResultOutcome"></b>
+          </div>
+          <div id="skillFusionResults" class="skill-fusion-results" hidden>
+            <div class="skill-control-heading">
+              <div><span>Fused Results</span><small>Selected results remain during a Reverence reroll</small></div>
+            </div>
+            <div id="skillFusionChoices" class="skill-fusion-choices"></div>
+          </div>
+          <div class="skill-result-actions">
+            <button id="rerollSkillCheck" type="button">Spend 2 Reverence to Reroll</button>
+            <button id="exitSkillResult" class="primary-action" type="button">Exit</button>
+          </div>
+        </section>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260730-character-10"></script>
+    <script type="module" src="character.js?v=20260730-character-12"></script>
   </body>
 </html>

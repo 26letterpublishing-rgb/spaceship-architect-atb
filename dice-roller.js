@@ -14,16 +14,21 @@ function randomBetween(min, max) {
 }
 
 function generatedThrow(index = 0, count = 1) {
-  const lane = count > 1 ? (index === 0 ? -1 : 1) : 0;
+  const columns = Math.min(4, Math.ceil(Math.sqrt(count)));
+  const rows = Math.ceil(count / columns);
+  const column = index % columns;
+  const row = Math.floor(index / columns);
+  const laneX = (column - (columns - 1) / 2) * 1.45;
+  const laneZ = (row - (rows - 1) / 2) * 1.28;
   const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(
     randomBetween(-Math.PI, Math.PI),
     randomBetween(-Math.PI, Math.PI),
     randomBetween(-Math.PI, Math.PI),
   )).normalize();
   return {
-    position: [lane * 1.25 + randomBetween(-0.25, 0.25), randomBetween(3.5, 4.3), randomBetween(-0.65, 0.45)],
+    position: [laneX + randomBetween(-0.2, 0.2), randomBetween(3.5, 4.7), laneZ + randomBetween(-0.22, 0.22)],
     quaternion: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
-    velocity: [-lane * randomBetween(0.45, 1.1) + randomBetween(-0.35, 0.35), randomBetween(-0.8, -0.15), randomBetween(-0.8, 0.8)],
+    velocity: [-laneX * 0.38 + randomBetween(-0.45, 0.45), randomBetween(-0.85, -0.15), -laneZ * 0.28 + randomBetween(-0.55, 0.55)],
     angularVelocity: [randomBetween(-14, 14), randomBetween(-14, 14), randomBetween(-14, 14)],
   };
 }
@@ -36,7 +41,7 @@ function numberTexture(value, accent) {
   context.clearRect(0, 0, 512, 512);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.font = '900 304px "Arial Black", Impact, sans-serif';
+  context.font = `900 ${String(value).length > 1 ? 224 : 304}px "Arial Black", Impact, sans-serif`;
   context.lineWidth = 44;
   context.strokeStyle = "rgba(1, 5, 10, .98)";
   context.strokeText(String(value), 256, 270);
@@ -171,6 +176,127 @@ function d10Visual({ color = 0x17354e, alternate = 0x10283d, accent = "#b9f4ff" 
   };
 }
 
+function geometryDefinition(geometry) {
+  const source = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+  const position = source.getAttribute("position");
+  const vertices = [];
+  const vertexMap = new Map();
+  const faces = [];
+  const faceData = [];
+  const vertexIndex = (point) => {
+    const key = `${point.x.toFixed(5)}:${point.y.toFixed(5)}:${point.z.toFixed(5)}`;
+    if (!vertexMap.has(key)) {
+      vertexMap.set(key, vertices.length);
+      vertices.push(point.clone());
+    }
+    return vertexMap.get(key);
+  };
+  for (let offset = 0; offset < position.count; offset += 3) {
+    const points = [0, 1, 2].map((step) => new THREE.Vector3().fromBufferAttribute(position, offset + step));
+    const indices = orientFace(points.map(vertexIndex), vertices);
+    const ordered = indices.map((index) => vertices[index]);
+    const normal = new THREE.Vector3().crossVectors(
+      new THREE.Vector3().subVectors(ordered[1], ordered[0]),
+      new THREE.Vector3().subVectors(ordered[2], ordered[0]),
+    ).normalize();
+    const center = ordered.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / 3);
+    faces.push(indices);
+    faceData.push({ normal, center, points: ordered });
+  }
+  return { source, vertices, faces, faceData };
+}
+
+function groupedFaceData(faceData) {
+  const groups = [];
+  for (const face of faceData) {
+    const plane = face.normal.dot(face.center);
+    let group = groups.find((candidate) => candidate.normal.dot(face.normal) > 0.999 && Math.abs(candidate.plane - plane) < 0.012);
+    if (!group) {
+      group = { normal: face.normal.clone(), plane, points: [] };
+      groups.push(group);
+    }
+    face.points.forEach((point) => {
+      if (!group.points.some((entry) => entry.distanceToSquared(point) < 0.00001)) group.points.push(point);
+    });
+  }
+  return groups.map((group) => ({
+    normal: group.normal,
+    center: group.points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / group.points.length),
+  }));
+}
+
+function polyVisual(sides, { color = 0x17354e, accent = "#b9f4ff" } = {}) {
+  const geometryBySides = {
+    4: () => new THREE.TetrahedronGeometry(1.02, 0),
+    8: () => new THREE.OctahedronGeometry(1.02, 0),
+    12: () => new THREE.DodecahedronGeometry(1.02, 0),
+    20: () => new THREE.IcosahedronGeometry(1.04, 0),
+  };
+  const geometry = geometryBySides[sides]();
+  const definition = geometryDefinition(geometry);
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geometry, materialFor(color, 0x071725)));
+  group.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(geometry, 18),
+    new THREE.LineBasicMaterial({ color: new THREE.Color(accent), transparent: true, opacity: 0.72 }),
+  ));
+  const labelSize = { 4: 0.6, 8: 0.48, 12: 0.38, 20: 0.29 }[sides];
+  const normals = groupedFaceData(definition.faceData).map((face, index) => {
+    const value = index + 1;
+    const label = faceLabel(value, face.normal, face.center, accent, labelSize);
+    group.add(label);
+    return { value, normal: face.normal, label };
+  });
+  definition.source.dispose();
+  return {
+    group,
+    normals,
+    shape: new CANNON.ConvexPolyhedron({
+      vertices: definition.vertices.map((vertex) => new CANNON.Vec3(vertex.x, vertex.y, vertex.z)),
+      faces: definition.faces,
+    }),
+  };
+}
+
+function visualFor(spec) {
+  if (spec.sides === 10) return d10Visual(spec);
+  if (spec.sides === 6) return d6Visual(spec);
+  return polyVisual(spec.sides, spec);
+}
+
+function matchingPairs(results) {
+  const groups = new Map();
+  results.forEach((value, index) => {
+    if (!groups.has(value)) groups.set(value, []);
+    groups.get(value).push(index);
+  });
+  const pairs = [];
+  groups.forEach((indices, value) => {
+    for (let offset = 0; offset + 1 < indices.length; offset += 2) {
+      pairs.push({ indices: [indices[offset], indices[offset + 1]], sourceValue: value, value: value * 2 });
+    }
+  });
+  return pairs;
+}
+
+function fusedResultVisual(value) {
+  const group = new THREE.Group();
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0xff54e8,
+    emissive: 0x6f0fff,
+    emissiveIntensity: 2.2,
+    metalness: 0.2,
+    roughness: 0.08,
+    clearcoat: 1,
+    transparent: true,
+  });
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 1), material);
+  group.add(core);
+  const label = faceLabel(value, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.5, 0), "#ffffff", 0.5);
+  group.add(label);
+  return { group, material, label };
+}
+
 function disposeObject(object) {
   object.traverse((child) => {
     child.geometry?.dispose?.();
@@ -269,7 +395,28 @@ export class PhysicalDiceRoller {
     });
   }
 
-  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor }) {
+  rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true }) {
+    const palette = {
+      4: { color: 0x3f1955, accent: "#eac5ff" },
+      6: { color: 0x18354e, accent: "#b9f4ff" },
+      8: { color: 0x174d42, accent: "#b9ffea" },
+      10: { color: 0x5a3212, alternate: 0x3d210b, accent: "#ffe0a8" },
+      12: { color: 0x621d32, accent: "#ffc2d3" },
+      20: { color: 0x28396c, accent: "#c7d3ff" },
+    };
+    return this.rollDice({
+      dice: sides.map((dieSides) => ({ sides: dieSides, ...(palette[dieSides] || palette[6]) })),
+      title,
+      subtitle,
+      onResolved,
+      onSettled,
+      anchor,
+      fusion,
+      pool: true,
+    });
+  }
+
+  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor, fusion = false, pool = false }) {
     this.stop();
     try {
       this.onRollStart?.({ dice });
@@ -278,14 +425,16 @@ export class PhysicalDiceRoller {
     }
     this.shell.hidden = false;
     this.shell.classList.remove("celebrating", "choices-ready");
+    this.shell.classList.toggle("pool-roll", pool);
     this.title.textContent = title;
     this.subtitle.textContent = subtitle;
     this.result.hidden = true;
     this.actions.innerHTML = "";
-    this.positionAt(anchor);
+    this.positionAt(pool ? null : anchor);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.OrthographicCamera(-3.7, 3.7, 2.9, -2.9, 0.1, 30);
+    this.viewHalfHeight = pool ? Math.max(4.7, Math.ceil(dice.length / 4) * 1.15 + 1.35) : 2.9;
+    this.camera = new THREE.OrthographicCamera(-3.7, 3.7, this.viewHalfHeight, -this.viewHalfHeight, 0.1, 30);
     this.camera.position.set(0, 12, 0);
     this.camera.up.set(0, 0, -1);
     this.camera.lookAt(0, 0, 0);
@@ -306,7 +455,7 @@ export class PhysicalDiceRoller {
     rim.position.set(3, 4, -2);
     this.scene.add(rim);
 
-    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), new THREE.ShadowMaterial({ opacity: 0.28 }));
+    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(pool ? 10 : 8, pool ? 7 : 6), new THREE.ShadowMaterial({ opacity: 0.28 }));
     shadowFloor.rotation.x = -Math.PI / 2;
     shadowFloor.receiveShadow = true;
     this.scene.add(shadowFloor);
@@ -318,11 +467,11 @@ export class PhysicalDiceRoller {
     const floorBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
     floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.world.addBody(floorBody);
-    this.addWalls();
+    this.addWalls(pool);
 
     const throwConfigs = config || dice.map((_, index) => generatedThrow(index, dice.length));
     const activeDice = dice.map((spec, index) => {
-      const visual = spec.sides === 10 ? d10Visual(spec) : d6Visual(spec);
+      const visual = visualFor(spec);
       visual.group.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -356,6 +505,10 @@ export class PhysicalDiceRoller {
       delivered: false,
       resolvedAt: 0,
       results: null,
+      fusion,
+      pool,
+      fusionPairs: [],
+      fusedVisuals: [],
     };
     this.startedAt = performance.now();
     this.settleStart = 0;
@@ -365,12 +518,14 @@ export class PhysicalDiceRoller {
     this.frame = requestAnimationFrame((time) => this.tick(time));
   }
 
-  addWalls() {
+  addWalls(pool = false) {
+    const halfWidth = pool ? 4.7 : 3.4;
+    const halfDepth = pool ? 3.15 : 2.45;
     const walls = [
-      { half: [3.4, 1.6, 0.12], position: [0, 1.5, -2.45] },
-      { half: [3.4, 1.6, 0.12], position: [0, 1.5, 2.45] },
-      { half: [0.12, 1.6, 2.45], position: [-3.4, 1.5, 0] },
-      { half: [0.12, 1.6, 2.45], position: [3.4, 1.5, 0] },
+      { half: [halfWidth, 1.6, 0.12], position: [0, 1.5, -halfDepth] },
+      { half: [halfWidth, 1.6, 0.12], position: [0, 1.5, halfDepth] },
+      { half: [0.12, 1.6, halfDepth], position: [-halfWidth, 1.5, 0] },
+      { half: [0.12, 1.6, halfDepth], position: [halfWidth, 1.5, 0] },
     ];
     for (const wall of walls) {
       const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(...wall.half)) });
@@ -402,6 +557,7 @@ export class PhysicalDiceRoller {
       this.animateResolution(time);
     }
 
+    if (!this.active || !this.renderer || !this.scene || !this.camera) return;
     this.renderer.render(this.scene, this.camera);
     if (this.active) this.frame = requestAnimationFrame((nextTime) => this.tick(nextTime));
   }
@@ -417,6 +573,20 @@ export class PhysicalDiceRoller {
       item.body.angularVelocity.setZero();
       return item.winningFace.value;
     });
+    if (this.active.fusion) {
+      this.active.fusionPairs = matchingPairs(this.active.results).map((pair) => {
+        const first = this.active.dice[pair.indices[0]];
+        const second = this.active.dice[pair.indices[1]];
+        const midpoint = first.visual.group.position.clone().add(second.visual.group.position).multiplyScalar(0.5);
+        midpoint.y = Math.max(0.82, midpoint.y + 0.5);
+        return {
+          ...pair,
+          midpoint,
+          starts: [first.visual.group.position.clone(), second.visual.group.position.clone()],
+          visual: null,
+        };
+      });
+    }
     try {
       this.active.onResolved?.(this.active.results);
     } catch {
@@ -426,7 +596,9 @@ export class PhysicalDiceRoller {
 
   animateResolution(time) {
     const age = time - this.active.resolvedAt;
-    for (const item of this.active.dice) {
+    const pairedIndices = new Set(this.active.fusionPairs.flatMap((pair) => pair.indices));
+    for (const [index, item] of this.active.dice.entries()) {
+      if (pairedIndices.has(index)) continue;
       const pulse = 1 + Math.sin(age / 85) * 0.12;
       item.winningFace.label.scale.setScalar(age < 760 ? pulse : 1);
       item.winningFace.label.material.blending = THREE.AdditiveBlending;
@@ -440,9 +612,53 @@ export class PhysicalDiceRoller {
         });
       }
     }
-    if (age >= 1120 && !this.active.delivered) {
+
+    for (const pair of this.active.fusionPairs) {
+      const progress = Math.min(1, age / 430);
+      const eased = 1 - (1 - progress) ** 3;
+      pair.indices.forEach((diceIndex, pairIndex) => {
+        const item = this.active.dice[diceIndex];
+        if (age < 430) {
+          item.visual.group.visible = true;
+          item.visual.group.position.lerpVectors(pair.starts[pairIndex], pair.midpoint, eased);
+          item.visual.group.position.y += Math.sin(progress * Math.PI) * 0.8;
+          item.visual.group.scale.setScalar(1 - eased * 0.58);
+          item.visual.group.rotation.y += 0.075;
+        } else {
+          item.visual.group.visible = false;
+        }
+      });
+      if (age >= 390 && !pair.visual) {
+        pair.visual = fusedResultVisual(pair.value);
+        pair.visual.group.position.copy(pair.midpoint);
+        pair.visual.group.scale.setScalar(0.05);
+        this.scene.add(pair.visual.group);
+        this.active.fusedVisuals.push(pair.visual);
+      }
+      if (pair.visual) {
+        const birth = Math.max(0, age - 390);
+        const scale = Math.min(1, birth / 190);
+        pair.visual.group.scale.setScalar((1 - (1 - scale) ** 3) * (1 + Math.sin(birth / 62) * 0.06));
+        pair.visual.material.color.setHSL((birth / 850) % 1, 0.88, 0.58);
+        pair.visual.material.emissive.setHSL((birth / 850 + 0.16) % 1, 0.92, 0.42);
+        pair.visual.group.rotation.y += 0.055;
+        if (age > 920) {
+          const opacity = Math.max(0, 1 - (age - 920) / 420);
+          pair.visual.group.traverse((child) => {
+            if (child.material) {
+              child.material.transparent = true;
+              child.material.opacity = opacity;
+            }
+          });
+        }
+      }
+    }
+
+    const deliveryAge = this.active.fusionPairs.length ? 1360 : 1120;
+    if (age >= deliveryAge && !this.active.delivered) {
       this.active.delivered = true;
       this.active.dice.forEach((item) => { item.visual.group.visible = false; });
+      this.active.fusedVisuals.forEach((item) => { item.group.visible = false; });
       this.active.onSettled?.(this.active.results);
     }
   }
@@ -494,6 +710,7 @@ export class PhysicalDiceRoller {
     this.frame = null;
     this.resizeObserver.disconnect();
     if (this.active?.dice) this.active.dice.forEach((item) => disposeObject(item.visual.group));
+    if (this.active?.fusedVisuals) this.active.fusedVisuals.forEach((item) => disposeObject(item.group));
     this.renderer?.dispose?.();
     this.canvasHost?.replaceChildren();
     this.active = null;
@@ -502,6 +719,8 @@ export class PhysicalDiceRoller {
     this.renderer = null;
     this.world = null;
     this.shell?.classList.remove("choices-ready");
+    this.shell?.classList.remove("pool-roll");
+    if (this.shell) this.shell.hidden = true;
   }
 
   resize() {
@@ -510,7 +729,7 @@ export class PhysicalDiceRoller {
     const height = Math.max(140, this.canvasHost.clientHeight);
     this.renderer.setSize(width, height, false);
     const aspect = width / height;
-    const halfHeight = 2.9;
+    const halfHeight = this.viewHalfHeight || 2.9;
     this.camera.left = -halfHeight * aspect;
     this.camera.right = halfHeight * aspect;
     this.camera.top = halfHeight;

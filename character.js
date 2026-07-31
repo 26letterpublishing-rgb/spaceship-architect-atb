@@ -12,9 +12,9 @@ import {
   INTELLECT_SKILL_POINT_BONUSES,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260730-character-10";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-10";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-10";
+} from "./character-data.js?v=20260730-character-12";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-12";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-12";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -68,8 +68,8 @@ const dom = {
   permanentHpBonus: $("#permanentHpBonus"),
   currentHp: $("#currentHp"),
   restoreHp: $("#restoreHp"),
-  exertionCurrent: $("#exertionCurrent"),
-  exertionMax: $("#exertionMax"),
+  exertionMeter: $("#exertionMeter"),
+  restExertion: $("#restExertion"),
   moveSpeedValue: $("#moveSpeedValue"),
   creditsValue: $("#creditsValue"),
   reverenceCurrent: $("#reverenceCurrent"),
@@ -94,6 +94,34 @@ const dom = {
   fubsEntryText: $("#fubsEntryText"),
   fubsReroll: $("#fubsReroll"),
   fubsExit: $("#fubsExit"),
+  skillCheckModal: $("#skillCheckModal"),
+  skillCheckTitle: $("#skillCheckTitle"),
+  skillCheckSubtitle: $("#skillCheckSubtitle"),
+  skillCheckClose: $("#skillCheckClose"),
+  skillAttributeStage: $("#skillAttributeStage"),
+  skillAttributeChoices: $("#skillAttributeChoices"),
+  skillSetupStage: $("#skillSetupStage"),
+  changeSkillAttribute: $("#changeSkillAttribute"),
+  selectedAttributeName: $("#selectedAttributeName"),
+  selectedDicePool: $("#selectedDicePool"),
+  selectedSkillBonus: $("#selectedSkillBonus"),
+  skillExertionBlock: $("#skillExertionBlock"),
+  skillExertionReadout: $("#skillExertionReadout"),
+  skillExertionMeter: $("#skillExertionMeter"),
+  skillDifficulty: $("#skillDifficulty"),
+  manualSkillScore: $("#manualSkillScore"),
+  cancelSkillCheck: $("#cancelSkillCheck"),
+  calculateManualSkill: $("#calculateManualSkill"),
+  rollSkillCheck: $("#rollSkillCheck"),
+  skillResultStage: $("#skillResultStage"),
+  skillResultLabel: $("#skillResultLabel"),
+  skillResultScore: $("#skillResultScore"),
+  skillResultEquation: $("#skillResultEquation"),
+  skillResultOutcome: $("#skillResultOutcome"),
+  skillFusionResults: $("#skillFusionResults"),
+  skillFusionChoices: $("#skillFusionChoices"),
+  rerollSkillCheck: $("#rerollSkillCheck"),
+  exitSkillResult: $("#exitSkillResult"),
   rollResultToast: $("#rollResultToast"),
 };
 
@@ -236,6 +264,7 @@ let confirmResolver = null;
 let migrationDetected = false;
 let fubsRollInProgress = false;
 let rollToastTimer = null;
+let skillCheck = null;
 
 function showRollResultToast(message) {
   if (!dom.rollResultToast) return;
@@ -636,7 +665,7 @@ function calculatedMoveSpeed(characterObject = character) {
 function syncDerivedResources(previousMaxHp = null) {
   const nextExertion = calculatedExertionMax();
   const oldExertion = character.resources.exertionMax;
-  if (nextExertion > oldExertion && character.resources.exertionCurrent === oldExertion) character.resources.exertionCurrent = nextExertion;
+  if (nextExertion > oldExertion) character.resources.exertionCurrent += nextExertion - oldExertion;
   character.resources.exertionMax = nextExertion;
   character.resources.exertionCurrent = Math.round(clamp(character.resources.exertionCurrent, 0, nextExertion));
 
@@ -856,6 +885,7 @@ function renderWorkflow() {
   const validation = draftValidation();
   dom.phaseBadge.className = `phase-badge ${character.phase}`;
   dom.workflowBar.classList.remove("invalid");
+  dom.workflowBar.classList.toggle("draft-active", character.phase === "draft");
   dom.finalizeCharacter.hidden = character.phase === "finalized";
   dom.spendExperience.hidden = character.phase !== "finalized";
 
@@ -1003,7 +1033,8 @@ function renderSkillRow(name, skill, key) {
   const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll;
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement);
-  return `<div class="skill-row ${["Awareness", "Initiative"].includes(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}">
+  const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll;
+  return `<div class="skill-row ${["Awareness", "Initiative"].includes(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
     <span class="skill-name" title="${escapeAttribute(name)}">${formatSkillName(name)}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${bonus ? `+${ratingText(bonus)} CLASS` : ""}</small></span>
@@ -1019,8 +1050,11 @@ function renderSkills() {
   dom.customSkills.innerHTML = character.customSkills.map((skill) => {
     const key = skillKeyForCustom(skill.id);
     const row = renderSkillRow(skill.name || "Custom Skill", skill, key);
+    const editableName = character.phase === "draft"
+      ? `<input data-custom-name="${skill.id}" value="${escapeAttribute(skill.name)}" placeholder="Custom Skill" aria-label="Custom skill name" />`
+      : `<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}">${formatSkillName(skill.name || "Custom Skill")}</span>`;
     return `<div class="custom-skill-row-wrapper">${row.replace("<div class=\"skill-row", `<div class=\"skill-row custom-skill-row ${validation.invalidSkills.has(key) ? "invalid" : ""}`)
-      .replace(`<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}">${formatSkillName(skill.name || "Custom Skill")}</span>`, `<input data-custom-name="${skill.id}" value="${escapeAttribute(skill.name)}" placeholder="Custom Skill" aria-label="Custom skill name" ${character.phase === "draft" ? "" : "disabled"} />`)
+      .replace(`<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}">${formatSkillName(skill.name || "Custom Skill")}</span>`, editableName)
       .replace("</div>", `<button class="row-remove" type="button" data-remove-custom-skill="${skill.id}" aria-label="Remove custom skill" ${character.phase === "draft" ? "" : "disabled"}>-</button></div>`)}</div>`;
   }).join("");
   dom.customSkillsEmpty.hidden = character.customSkills.length > 0;
@@ -1028,15 +1062,321 @@ function renderSkills() {
   applySkillSearch();
 }
 
+function exertionMeterMarkup(current, maximum, { selectable = false, selected = 0 } = {}) {
+  return Array.from({ length: maximum }, (_, index) => {
+    const filled = index < current;
+    const spend = filled ? current - index : 0;
+    const chosen = selected > 0 && index >= current - selected && index < current;
+    const element = selectable ? "button" : "span";
+    const attributes = selectable && filled
+      ? `type="button" data-exertion-spend="${spend}" aria-label="${chosen ? "Cancel" : "Stage"} ${spend} Exertion"`
+      : selectable ? "type=\"button\" disabled" : "aria-hidden=\"true\"";
+    return `<${element} class="exertion-unit ${filled ? "filled available" : ""} ${chosen ? "selected" : ""}" ${attributes}><span class="exertion-charge"></span><span class="exertion-capacity"></span></${element}>`;
+  }).join("");
+}
+
 function renderResources() {
   syncDerivedResources();
-  dom.exertionCurrent.textContent = character.resources.exertionCurrent;
-  dom.exertionMax.textContent = character.resources.exertionMax;
+  dom.exertionMeter.innerHTML = exertionMeterMarkup(character.resources.exertionCurrent, character.resources.exertionMax);
+  dom.restExertion.disabled = character.resources.exertionCurrent >= character.resources.exertionMax || Boolean(character.pendingRoll);
   dom.moveSpeedValue.textContent = calculatedMoveSpeed();
   dom.creditsValue.textContent = (character.resources.creditsBase + (Number(classEffects().creditsBonus) || 0)).toLocaleString();
   dom.reverenceCurrent.textContent = character.resources.reverence;
   dom.reverenceMeter.innerHTML = Array.from({ length: 10 }, (_, index) => `<span class="reverence-slot ${index < character.resources.reverence ? "filled" : ""}" aria-hidden="true"></span>`).join("");
   dom.maxHpBonus.disabled = character.phase !== "finalized" || character.resources.reverence < 6 || Boolean(character.pendingRoll);
+}
+
+function attributeDiceSides(attributeKey) {
+  return character.attributes[attributeKey].filter((value) => value >= 0).map((value) => DICE_FACES[value]);
+}
+
+function fusionResults(results) {
+  const groups = new Map();
+  results.forEach((value, index) => {
+    if (!groups.has(value)) groups.set(value, []);
+    groups.get(value).push(index);
+  });
+  const used = new Set();
+  const fusions = [];
+  [...groups.entries()].sort((a, b) => b[0] - a[0]).forEach(([value, indices]) => {
+    for (let offset = 0; offset + 1 < indices.length; offset += 2) {
+      const sourceIndices = [indices[offset], indices[offset + 1]];
+      sourceIndices.forEach((index) => used.add(index));
+      fusions.push({
+        id: uid(),
+        value: value * 2,
+        sourceValue: value,
+        sourceIndices,
+      });
+    }
+  });
+  return {
+    fusions,
+    leftovers: results.filter((_, index) => !used.has(index)),
+  };
+}
+
+function skillOutcome(score, difficulty) {
+  if (!Number.isFinite(difficulty) || difficulty <= 0) return "";
+  if (score >= difficulty * 2) return "Critical Success";
+  if (score >= difficulty) return "Success";
+  if (score <= Math.floor(difficulty / 2)) return "Critical Failure";
+  return "Failure";
+}
+
+function skillCheckAttribute() {
+  return ATTRIBUTE_DEFS.find((definition) => definition.key === skillCheck?.attributeKey) || null;
+}
+
+function skillCheckResolvedSkill() {
+  return skillCheck ? resolveSkill(character, skillCheck.skillKey) : null;
+}
+
+function skillCheckPoolLabel() {
+  if (!skillCheck) return "No dice";
+  const labels = skillCheck.activeSides.map((sides) => `D${sides}`);
+  for (let index = 0; index < skillCheck.stagedExertion; index += 1) labels.push("D12");
+  return labels.length ? labels.join(" + ") : "No dice";
+}
+
+function renderSkillExertion() {
+  if (!skillCheck) return;
+  const physical = ["strength", "dexterity", "health", "willpower"].includes(skillCheck.attributeKey);
+  dom.skillExertionBlock.hidden = !physical;
+  if (!physical) {
+    skillCheck.stagedExertion = 0;
+    return;
+  }
+  dom.skillExertionReadout.textContent = skillCheck.stagedExertion
+    ? `Stage ${skillCheck.stagedExertion}: +${skillCheck.stagedExertion}D12 and +${skillCheck.stagedExertion}`
+    : skillCheck.committedExertion
+      ? `${skillCheck.committedExertion} already committed`
+      : "None selected";
+  dom.skillExertionMeter.innerHTML = exertionMeterMarkup(
+    character.resources.exertionCurrent,
+    character.resources.exertionMax,
+    { selectable: true, selected: skillCheck.stagedExertion },
+  );
+}
+
+function renderSkillSetup() {
+  if (!skillCheck) return;
+  const definition = skillCheckAttribute();
+  const resolved = skillCheckResolvedSkill();
+  if (!definition || !resolved) return;
+  dom.skillCheckTitle.textContent = resolved.name;
+  dom.skillCheckSubtitle.textContent = "Choose the dice, then roll physically or enter your completed Score.";
+  dom.skillAttributeStage.hidden = true;
+  dom.skillSetupStage.hidden = false;
+  dom.skillResultStage.hidden = true;
+  dom.selectedAttributeName.textContent = definition.label;
+  dom.selectedAttributeName.style.color = definition.color;
+  dom.selectedDicePool.textContent = skillCheckPoolLabel();
+  dom.selectedSkillBonus.textContent = `+${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`;
+  dom.skillDifficulty.value = skillCheck.difficulty;
+  dom.manualSkillScore.value = "";
+  renderSkillExertion();
+  dom.selectedDicePool.textContent = skillCheckPoolLabel();
+}
+
+function renderSkillAttributeChoices() {
+  if (!skillCheck) return;
+  const resolved = skillCheckResolvedSkill();
+  dom.skillCheckTitle.textContent = resolved?.name || "Skill Check";
+  dom.skillCheckSubtitle.textContent = "Choose the Attribute that best matches the action.";
+  dom.skillAttributeChoices.innerHTML = ATTRIBUTE_DEFS.map((definition) => `
+    <button class="skill-attribute-choice" type="button" data-skill-attribute="${definition.key}" style="--attribute:${definition.color}">
+      <strong>${escapeHtml(definition.label)}</strong>
+      <small>${escapeHtml(diceSummary(definition.key))}</small>
+    </button>`).join("");
+  dom.skillAttributeStage.hidden = false;
+  dom.skillSetupStage.hidden = true;
+  dom.skillResultStage.hidden = true;
+}
+
+function openSkillCheck(skillKey) {
+  if (character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
+  const resolved = resolveSkill(character, skillKey);
+  if (!resolved) return;
+  skillCheck = {
+    skillKey,
+    attributeKey: null,
+    difficulty: "",
+    stagedExertion: 0,
+    committedExertion: 0,
+    preservedFusions: [],
+    newFusions: [],
+    selectedFusionIds: new Set(),
+    activeSides: [],
+    currentRollSides: [],
+    result: null,
+    manual: false,
+  };
+  dom.skillCheckModal.hidden = false;
+  document.body.classList.add("skill-check-open");
+  renderSkillAttributeChoices();
+}
+
+function closeSkillCheck() {
+  if (diceRoller.isActive()) return;
+  skillCheck = null;
+  dom.skillCheckModal.hidden = true;
+  document.body.classList.remove("skill-check-open", "skill-roll-active");
+}
+
+function selectSkillAttribute(attributeKey) {
+  if (!skillCheck || !character.attributes[attributeKey]) return;
+  skillCheck.attributeKey = attributeKey;
+  skillCheck.stagedExertion = 0;
+  skillCheck.activeSides = attributeDiceSides(attributeKey);
+  renderSkillSetup();
+}
+
+function commitSkillCheckCosts() {
+  if (!skillCheck) return false;
+  const spend = skillCheck.stagedExertion;
+  if (spend > character.resources.exertionCurrent) {
+    notice("The selected Exertion is no longer available.", "error");
+    renderSkillSetup();
+    return false;
+  }
+  if (spend > 0) {
+    character.resources.exertionCurrent -= spend;
+    skillCheck.committedExertion += spend;
+    for (let index = 0; index < spend; index += 1) skillCheck.activeSides.push(12);
+    skillCheck.stagedExertion = 0;
+    queueSave();
+    renderResources();
+  }
+  return true;
+}
+
+function showSkillResult({ score, equation, outcome, newFusions = [], manual = false }) {
+  if (!skillCheck) return;
+  skillCheck.result = score;
+  skillCheck.newFusions = newFusions;
+  skillCheck.selectedFusionIds = new Set(newFusions.map((fusion) => fusion.id));
+  skillCheck.manual = manual;
+  dom.skillAttributeStage.hidden = true;
+  dom.skillSetupStage.hidden = true;
+  dom.skillResultStage.hidden = false;
+  dom.skillResultLabel.textContent = outcome || "Final Score";
+  dom.skillResultScore.textContent = formatNumber(score);
+  dom.skillResultEquation.textContent = equation;
+  dom.skillResultOutcome.textContent = outcome;
+  dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
+  const allFusions = [...skillCheck.preservedFusions.map((fusion) => ({ ...fusion, locked: true })), ...newFusions];
+  dom.skillFusionResults.hidden = manual || allFusions.length === 0;
+  dom.skillFusionChoices.innerHTML = allFusions.map((fusion) => `
+    <button type="button" class="fusion-choice ${fusion.locked ? "locked selected" : "selected"}" data-fusion-id="${fusion.id}" ${fusion.locked ? "disabled" : ""}>
+      <span>${fusion.sourceValue} + ${fusion.sourceValue}</span>
+      <strong>${fusion.value}</strong>
+      <small>${fusion.locked ? "Preserved" : "Keep on reroll"}</small>
+    </button>`).join("");
+  dom.rerollSkillCheck.disabled = character.resources.reverence < 2;
+  dom.rerollSkillCheck.textContent = character.resources.reverence >= 2
+    ? "Spend 2 Reverence to Reroll"
+    : "2 Reverence Required";
+}
+
+function resolvePhysicalSkillRoll(results) {
+  if (!skillCheck) return;
+  const analyzed = fusionResults(results);
+  const values = [
+    ...skillCheck.preservedFusions.map((fusion) => fusion.value),
+    ...analyzed.fusions.map((fusion) => fusion.value),
+    ...analyzed.leftovers,
+  ].sort((a, b) => b - a);
+  const top = values.slice(0, 2);
+  const diceTotal = top.reduce((sum, value) => sum + value, 0);
+  const resolved = skillCheckResolvedSkill();
+  const skillBonus = displayedSkillTenths(resolved.name, resolved.skill) / 10;
+  const score = diceTotal + skillBonus + skillCheck.committedExertion;
+  const difficulty = Number(skillCheck.difficulty);
+  const outcome = skillOutcome(score, difficulty);
+  const equationParts = [
+    `Top two: ${top.length ? top.join(" + ") : "0"}`,
+    `Skill +${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`,
+  ];
+  if (skillCheck.committedExertion) equationParts.push(`Exertion +${skillCheck.committedExertion}`);
+  showSkillResult({
+    score,
+    equation: equationParts.join(" | "),
+    outcome,
+    newFusions: analyzed.fusions,
+  });
+}
+
+function calculateManualSkillResult() {
+  if (!skillCheck) return;
+  const score = Number(dom.manualSkillScore.value);
+  if (dom.manualSkillScore.value.trim() === "" || !Number.isFinite(score)) {
+    notice("Enter the completed Final Score from your physical dice.", "error");
+    dom.manualSkillScore.focus();
+    return;
+  }
+  if (!commitSkillCheckCosts()) return;
+  skillCheck.difficulty = dom.skillDifficulty.value;
+  const outcome = skillOutcome(score, Number(skillCheck.difficulty));
+  const committed = skillCheck.committedExertion ? ` | ${skillCheck.committedExertion} Exertion committed` : "";
+  showSkillResult({
+    score,
+    equation: `Manual Final Score${committed}`,
+    outcome,
+    manual: true,
+  });
+}
+
+function rollSkillCheck() {
+  if (!skillCheck || !skillCheck.attributeKey) return;
+  skillCheck.difficulty = dom.skillDifficulty.value;
+  if (!commitSkillCheckCosts()) return;
+  skillCheck.currentRollSides = [...skillCheck.activeSides];
+  if (!skillCheck.currentRollSides.length) {
+    resolvePhysicalSkillRoll([]);
+    return;
+  }
+  const resolved = skillCheckResolvedSkill();
+  dom.skillCheckModal.hidden = true;
+  document.body.classList.add("skill-roll-active");
+  diceRoller.rollPool({
+    sides: skillCheck.currentRollSides,
+    title: `${resolved.name} + ${skillCheckAttribute().label}`,
+    subtitle: `${skillCheckPoolLabel()} | Top two + ${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`,
+    fusion: true,
+    onResolved: () => {},
+    onSettled: (results) => {
+      document.body.classList.remove("skill-roll-active");
+      diceRoller.stop();
+      dom.skillCheckModal.hidden = false;
+      resolvePhysicalSkillRoll(results);
+    },
+  });
+}
+
+function beginSkillReroll() {
+  if (!skillCheck || character.resources.reverence < 2) return;
+  character.resources.reverence -= 2;
+  if (!skillCheck.manual) {
+    const selected = skillCheck.newFusions.filter((fusion) => skillCheck.selectedFusionIds.has(fusion.id));
+    skillCheck.preservedFusions.push(...selected);
+    const removed = new Set(selected.flatMap((fusion) => fusion.sourceIndices));
+    skillCheck.activeSides = skillCheck.currentRollSides.filter((_, index) => !removed.has(index));
+  } else {
+    skillCheck.activeSides = [
+      ...attributeDiceSides(skillCheck.attributeKey),
+      ...Array.from({ length: skillCheck.committedExertion }, () => 12),
+    ];
+  }
+  skillCheck.newFusions = [];
+  skillCheck.selectedFusionIds = new Set();
+  skillCheck.stagedExertion = 0;
+  skillCheck.result = null;
+  skillCheck.manual = false;
+  queueSave();
+  renderResources();
+  renderSkillSetup();
+  notice("2 Reverence spent. Preserved fused results will remain.", "success");
 }
 
 function renderDerived() {
@@ -1703,6 +2043,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const rollableSkill = event.target.closest("[data-roll-skill]");
+  if (rollableSkill && !event.target.closest("button, input")) {
+    openSkillCheck(rollableSkill.dataset.rollSkill);
+    return;
+  }
+
   const removeCustom = event.target.closest("[data-remove-custom-skill]");
   if (removeCustom && character.phase === "draft") {
     const id = removeCustom.dataset.removeCustomSkill;
@@ -1728,20 +2074,20 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const resourceButton = event.target.closest("[data-resource]");
-  if (resourceButton?.dataset.resource === "exertion") {
-    character.resources.exertionCurrent = Math.round(clamp(character.resources.exertionCurrent + Number(resourceButton.dataset.change), 0, character.resources.exertionMax));
-    queueSave();
-    renderResources();
-    return;
-  }
-
   const hpButton = event.target.closest("[data-hp-change]");
   if (hpButton) {
     character.health.current = Math.round(clamp(character.health.current + Number(hpButton.dataset.hpChange), -9999, 999999));
     queueSave();
     renderDerived();
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  const row = event.target.closest?.("[data-roll-skill]");
+  if (!row || event.target.closest("button, input")) return;
+  event.preventDefault();
+  openSkillCheck(row.dataset.rollSkill);
 });
 
 dom.classPicker.addEventListener("change", () => {
@@ -1897,6 +2243,63 @@ dom.debugReverence.addEventListener("click", () => {
   renderResources();
   notice("DEBUG: +1 Reverence.", "success");
 });
+
+dom.restExertion.addEventListener("click", async () => {
+  if (character.resources.exertionCurrent >= character.resources.exertionMax) return;
+  const accepted = await askConfirmation({
+    title: "Rest for eight hours?",
+    message: "A full eight-hour rest restores every spent Exertion point.",
+    acceptLabel: "Rest and Restore",
+    cancelLabel: "Keep Going",
+  });
+  if (!accepted) return;
+  character.resources.exertionCurrent = character.resources.exertionMax;
+  queueSave();
+  renderResources();
+  notice("Eight-hour rest complete. Exertion restored.", "success");
+});
+
+dom.skillAttributeChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-skill-attribute]");
+  if (button) selectSkillAttribute(button.dataset.skillAttribute);
+});
+
+dom.changeSkillAttribute.addEventListener("click", () => {
+  if (!skillCheck) return;
+  skillCheck.attributeKey = null;
+  skillCheck.stagedExertion = 0;
+  skillCheck.activeSides = [];
+  renderSkillAttributeChoices();
+});
+
+dom.skillExertionMeter.addEventListener("click", (event) => {
+  const unit = event.target.closest("[data-exertion-spend]");
+  if (!unit || !skillCheck) return;
+  const spend = Number(unit.dataset.exertionSpend);
+  skillCheck.stagedExertion = skillCheck.stagedExertion === spend ? 0 : spend;
+  renderSkillExertion();
+  dom.selectedDicePool.textContent = skillCheckPoolLabel();
+});
+
+dom.skillDifficulty.addEventListener("input", () => {
+  if (skillCheck) skillCheck.difficulty = dom.skillDifficulty.value;
+});
+
+dom.skillFusionChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-fusion-id]");
+  if (!button || button.disabled || !skillCheck) return;
+  const id = button.dataset.fusionId;
+  if (skillCheck.selectedFusionIds.has(id)) skillCheck.selectedFusionIds.delete(id);
+  else skillCheck.selectedFusionIds.add(id);
+  button.classList.toggle("selected", skillCheck.selectedFusionIds.has(id));
+});
+
+dom.calculateManualSkill.addEventListener("click", calculateManualSkillResult);
+dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
+dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
+dom.skillCheckClose.addEventListener("click", closeSkillCheck);
+dom.cancelSkillCheck.addEventListener("click", closeSkillCheck);
+dom.exitSkillResult.addEventListener("click", closeSkillCheck);
 
 dom.fubsButton.addEventListener("click", () => {
   if (character.fubs.status === "complete") showFubsResult();
