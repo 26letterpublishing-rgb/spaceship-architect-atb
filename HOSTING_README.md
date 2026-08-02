@@ -20,6 +20,15 @@ The server's startup log and `/ping` page report either `postgres` or `local-fil
 
 Without `DATABASE_URL`, the app falls back to a local JSON file so it remains easy to test on one computer. Files created inside a typical hosted Web Service are temporary and may disappear after a redeploy or service replacement. Do not treat hosted campaign data as permanent until `/ping` reports `Campaign storage: postgres`.
 
+## Local-First Safety
+
+- Campaign characters autosave a device-local copy and synchronize with the campaign server whenever the character is unlocked.
+- `Save & Sync` creates a recovery snapshot, updates the device copy, and immediately requests a server save.
+- The GM Control Panel caches its latest campaign view locally.
+- `Save Campaign Backup` downloads a complete `.sa2campaign` file containing character sheets, PINs, scripts, awards, notes, shared credits, and the paused encounter.
+- `Restore Campaign Backup` can rebuild a missing campaign with its original code and a new GM password.
+- Browser storage is a convenience copy, not guaranteed archival storage. Keep periodic downloaded campaign backups.
+
 ## Current Access Model
 
 - Campaign codes are four characters during private playtesting.

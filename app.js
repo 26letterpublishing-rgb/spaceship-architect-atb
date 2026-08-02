@@ -347,6 +347,7 @@ function calculatedPcStats() {
     speed: Math.max(1, intellectBoxes + initiative),
     commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 30),
   }
+}
 
 function campaignTokenKey(code, characterId) {
   return `sa-character-token-${String(code || "").toUpperCase()}-${characterId}`;
@@ -424,7 +425,6 @@ function connectCampaignEvents() {
     campaignState = JSON.parse(event.data);
     if (mode === "join") renderCampaignCharacterPicker();
   });
-};
 }
 
 function renderDiceGrid(statName, grid) {

@@ -90,6 +90,39 @@ function normalizeCampaign(raw) {
   return campaign;
 }
 
+function campaignBackup(campaign) {
+  return {
+    format: "spaceship-architect-campaign",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    campaign: clone({
+      version: campaign.version,
+      code: campaign.code,
+      name: campaign.name,
+      createdAt: campaign.createdAt,
+      updatedAt: campaign.updatedAt,
+      script: campaign.script,
+      characters: campaign.characters,
+      shipCredits: campaign.shipCredits,
+      bankerCharacterId: campaign.bankerCharacterId,
+      awardHistory: campaign.awardHistory,
+      privateNotes: campaign.privateNotes,
+      rollRequests: campaign.rollRequests,
+      encounter: campaign.encounter,
+    }),
+  };
+}
+
+function campaignFromBackup(backup, { code = "", password = null, currentPassword = null } = {}) {
+  if (backup?.format !== "spaceship-architect-campaign" || !backup?.campaign || !Array.isArray(backup.campaign.characters)) return null;
+  const restored = normalizeCampaign(clone(backup.campaign));
+  restored.code = String(code || restored.code || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(restored.code)) return null;
+  restored.password = currentPassword || passwordRecord(password);
+  restored.updatedAt = new Date().toISOString();
+  return restored;
+}
+
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
   return {
     id: record.id,
@@ -109,10 +142,11 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [] }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {} }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = connectedCharacterIds;
+    this.restoreEncounter = restoreEncounter;
     this.sessions = new Map();
     this.clients = new Map();
     this.campaignCache = new Map();
@@ -315,6 +349,24 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/restore-create" && req.method === "POST") {
+      const password = String(body.password || "");
+      const restored = password.length >= 4 ? campaignFromBackup(body.backup, { password }) : null;
+      if (!restored) {
+        sendJson(res, 400, { error: "A valid campaign backup and a new password of at least four characters are required." });
+        return true;
+      }
+      if (!await this.store.create(restored)) {
+        sendJson(res, 409, { error: `Campaign ${restored.code} already exists. Open it and use Restore This Campaign instead.` });
+        return true;
+      }
+      this.campaignCache.set(restored.code, restored);
+      this.restoreEncounter(restored.code, restored.encounter);
+      const gmToken = this.newSession(restored.code, "gm");
+      sendJson(res, 201, { token: gmToken, campaign: this.state(restored, gmToken) });
+      return true;
+    }
+
     if (path === "/api/campaign/open" && req.method === "POST") {
       const campaign = await this.campaign(code);
       if (!campaign || !passwordMatches(body.password, campaign.password)) {
@@ -334,6 +386,32 @@ class CampaignApi {
 
     if (path === "/api/campaign/state" && req.method === "GET") {
       sendJson(res, 200, this.state(campaign, token));
+      return true;
+    }
+
+    if (path === "/api/campaign/backup" && req.method === "GET") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required to download a campaign backup." });
+        return true;
+      }
+      sendJson(res, 200, campaignBackup(campaign));
+      return true;
+    }
+
+    if (path === "/api/campaign/restore" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required to restore this campaign." });
+        return true;
+      }
+      const backupCode = String(body.backup?.campaign?.code || "").trim().toUpperCase();
+      const restored = backupCode === code ? campaignFromBackup(body.backup, { code, currentPassword: campaign.password }) : null;
+      if (!restored) {
+        sendJson(res, 400, { error: "That backup does not match this campaign." });
+        return true;
+      }
+      await this.save(restored);
+      this.restoreEncounter(code, restored.encounter);
+      sendJson(res, 200, { campaign: this.state(restored, token) });
       return true;
     }
 

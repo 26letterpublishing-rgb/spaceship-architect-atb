@@ -82,6 +82,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
+    for (const unit of room.units) unit.playerConnected = Boolean(unit.playerConnected);
     room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
     room.running = false;
     room.hardPaused = true;
@@ -838,7 +839,7 @@ function readBody(req) {
     let body = "";
     req.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 1_000_000) req.destroy();
+      if (body.length > 8_000_000) req.destroy();
     });
     req.on("end", () => {
       try {
@@ -933,6 +934,7 @@ async function handleAction(req, res) {
       existingCampaignUnit.color = normalizeColor(body.color);
       existingCampaignUnit.controlledBy = "player";
       existingCampaignUnit.team = "pc";
+      existingCampaignUnit.playerConnected = true;
       pushLog(room, `${characterName} rejoined the encounter.`);
       sendJson(res, 200, publicState(room));
       broadcast(room);
@@ -957,6 +959,7 @@ async function handleAction(req, res) {
       color: normalizeColor(body.color),
       tieSeed: Math.random(),
       characterId: String(body.characterId || ""),
+      playerConnected: action === "join" && body.controlledBy === "player",
     };
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
@@ -1353,7 +1356,13 @@ async function startServer() {
   campaignApi = new CampaignApi({
     store: campaignStore,
     storageMode: campaignStore.mode,
-    connectedCharacterIds: (code) => (getRoom(code)?.units || []).filter((unit) => unit.team === "pc" && unit.characterId).map((unit) => unit.characterId),
+    connectedCharacterIds: (code) => (getRoom(code)?.units || []).filter((unit) => unit.team === "pc" && unit.characterId && unit.playerConnected).map((unit) => unit.characterId),
+    restoreEncounter: (code, snapshot) => {
+      for (const response of clients.get(code) || []) response.end();
+      rooms.delete(code);
+      clients.delete(code);
+      createRoom(code, snapshot);
+    },
   });
   server.listen(PORT, HOST, () => {
     const addresses = [];

@@ -14,11 +14,13 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260801-campaign-2";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260801-campaign-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260801-campaign-2";
+} from "./character-data.js?v=20260802-campaign-3";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260802-campaign-3";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260802-campaign-3";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
+const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
+const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const FORMAT_NAME = "spaceship-architect-2e-character";
@@ -165,6 +167,7 @@ const dom = {
   privateNoteCount: $("#privateNoteCount"),
   openCampaignBank: $("#openCampaignBank"),
   campaignBankSummary: $("#campaignBankSummary"),
+  saveAndSyncCharacter: $("#saveAndSyncCharacter"),
   showCharacterPin: $("#showCharacterPin"),
   returnToCampaignRoster: $("#returnToCampaignRoster"),
   campaignPinModal: $("#campaignPinModal"),
@@ -688,6 +691,7 @@ function saveLibrary(message = "Saved locally") {
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
   localStorage.setItem(ACTIVE_KEY, activeId);
+  if (campaignCode && campaignCharacterId) cacheCampaignCharacter();
   dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
   dom.saveStatus.classList.remove("saving");
   if (campaignCode && campaignCharacterId && campaignEditable && !suppressCampaignSave) {
@@ -705,6 +709,35 @@ function queueSave() {
 
 function campaignTokenKey(code, characterId) {
   return `sa-character-token-${String(code || "").toUpperCase()}-${characterId}`;
+}
+
+function campaignCacheKey(code) {
+  return `${CAMPAIGN_CACHE_PREFIX}${String(code || "").toUpperCase()}`;
+}
+
+function localCampaignCharacterKey(code, characterId) {
+  return `${CAMPAIGN_CHARACTER_PREFIX}${String(code || "").toUpperCase()}-${characterId}`;
+}
+
+function cacheCampaign(nextState) {
+  if (!nextState?.code) return;
+  try {
+    localStorage.setItem(campaignCacheKey(nextState.code), JSON.stringify({ savedAt: new Date().toISOString(), campaign: nextState }));
+  } catch {
+    // The character-specific local copy is smaller and remains the primary device backup.
+  }
+}
+
+function cacheCampaignCharacter() {
+  if (!campaignCode || !campaignCharacterId || !character) return;
+  try {
+    localStorage.setItem(localCampaignCharacterKey(campaignCode, campaignCharacterId), JSON.stringify({
+      savedAt: new Date().toISOString(),
+      character,
+    }));
+  } catch {
+    notice("Local storage is full. Export this character to preserve a separate backup.", "error");
+  }
 }
 
 async function campaignRequest(path, options = {}) {
@@ -725,13 +758,14 @@ function campaignPlayerName(record) {
   return record?.character?.identity?.playerName || "Player";
 }
 
-function queueCampaignCharacterSave() {
+function queueCampaignCharacterSave(delay = 280) {
   clearTimeout(campaignSaveTimer);
-  campaignSaveTimer = setTimeout(saveCampaignCharacter, 280);
+  campaignSaveTimer = setTimeout(saveCampaignCharacter, delay);
 }
 
-async function saveCampaignCharacter() {
-  if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return;
+async function saveCampaignCharacter({ force = false } = {}) {
+  if (force && campaignCode && campaignCharacterId && campaignEditable) campaignDirty = true;
+  if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return false;
   campaignSaving = true;
   campaignDirty = false;
   try {
@@ -746,13 +780,16 @@ async function saveCampaignCharacter() {
     });
     dom.saveStatus.textContent = "Saved to campaign";
     dom.saveStatus.classList.remove("saving");
+    cacheCampaignCharacter();
+    return true;
   } catch (error) {
     campaignDirty = true;
     dom.saveStatus.textContent = error.message;
     dom.saveStatus.classList.add("saving");
+    return false;
   } finally {
     campaignSaving = false;
-    if (campaignDirty) queueCampaignCharacterSave();
+    if (campaignDirty) queueCampaignCharacterSave(5000);
   }
 }
 
@@ -782,6 +819,7 @@ function applyCampaignPermissions() {
   dom.campaignAccessRole.textContent = editable ? (campaignState?.role === "gm" ? "GM EDIT" : "UNLOCKED") : "VIEW ONLY";
   dom.unlockCampaignCharacter.hidden = editable;
   dom.showCharacterPin.hidden = !editable || !campaignPin;
+  dom.saveAndSyncCharacter.disabled = !editable;
   document.querySelectorAll("#characterSheet input, #characterSheet textarea, #characterSheet select, #characterSheet button, .workflow-bar button, .experience-panel button").forEach((control) => {
     if (control.closest("#campaignAccessBar")) return;
     if (!editable) control.disabled = true;
@@ -891,6 +929,7 @@ function refreshCampaignRollPrompt() {
 
 function receiveCampaignState(nextState) {
   campaignState = nextState;
+  cacheCampaign(nextState);
   if (!campaignCharacterId) {
     renderCampaignRoster();
     return;
@@ -940,7 +979,17 @@ function connectCampaignState() {
 
 async function loadCampaign(code, token = "") {
   const normalized = String(code || "").trim().toUpperCase();
-  const state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
+  let state;
+  try {
+    state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
+    cacheCampaign(state);
+  } catch (error) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(campaignCacheKey(normalized)) || "null")?.campaign || null; } catch { cached = null; }
+    if (!cached) throw error;
+    state = cached;
+    dom.campaignMessage.textContent = "Server unavailable. Showing the most recent local campaign copy.";
+  }
   campaignCode = normalized;
   campaignToken = token;
   campaignState = state;
@@ -3068,7 +3117,7 @@ dom.skillFusionChoices.addEventListener("click", (event) => {
   renderFusionSelectionState();
 });
 
-dom.characterCampaignForm?.addEventListener("submit", async (event) => {
+dom.campaignForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const code = dom.campaignCode.value.trim().toUpperCase();
   dom.campaignCode.value = code;
@@ -3218,6 +3267,17 @@ dom.privateNotesList?.addEventListener("click", async (event) => {
 dom.openCampaignBank?.addEventListener("click", () => {
   renderCampaignBank();
   dom.campaignBankModal.hidden = false;
+});
+dom.saveAndSyncCharacter?.addEventListener("click", async () => {
+  if (!campaignEditable) return;
+  snapshotRecovery("Session Save");
+  saveLibrary("Saved locally");
+  dom.saveAndSyncCharacter.disabled = true;
+  dom.saveAndSyncCharacter.textContent = "Syncing...";
+  const synced = await saveCampaignCharacter({ force: true });
+  dom.saveAndSyncCharacter.disabled = false;
+  dom.saveAndSyncCharacter.textContent = "Save & Sync";
+  notice(synced ? "Character saved locally and synchronized with the campaign." : "Saved locally. Server synchronization will retry automatically.", synced ? "success" : "error");
 });
 dom.bankCancel?.addEventListener("click", () => { dom.campaignBankModal.hidden = true; });
 dom.bankOperation?.addEventListener("change", renderCampaignBank);

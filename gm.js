@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260801-campaign-2";
+import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260802-campaign-3";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -17,11 +17,20 @@ const dom = {
   newPassword: $("#newCampaignPassword"),
   confirmPassword: $("#confirmCampaignPassword"),
   cancelCreate: $("#cancelCreateCampaign"),
+  restoreFile: $("#restoreCampaignFile"),
+  restoreForm: $("#restoreCampaignForm"),
+  restoreCode: $("#restoreCampaignCode"),
+  restoreName: $("#restoreCampaignName"),
+  restorePassword: $("#restoreCampaignPassword"),
+  cancelRestore: $("#cancelRestoreCampaign"),
   gatewayMessage: $("#gatewayMessage"),
   message: $("#gmMessage"),
   tabs: $(".gm-tabs"),
   script: $("#campaignScript"),
   scriptSaveState: $("#scriptSaveState"),
+  editScriptMode: $("#editScriptMode"),
+  runScriptMode: $("#runScriptMode"),
+  scriptCommandBuilder: $("#scriptCommandBuilder"),
   scriptScope: $("#scriptScope"),
   scriptTargetWrap: $("#scriptTargetWrap"),
   scriptTarget: $("#scriptTarget"),
@@ -54,7 +63,23 @@ const dom = {
   promptHideDifficulty: $("#promptHideDifficulty"),
   rollResults: $("#gmRollResults"),
   atbFrame: $("#atbFrame"),
+  atbSetup: $("#atbSetup"),
+  atbLive: $("#atbLive"),
+  encounterStatus: $("#encounterStatus"),
+  existingEncounterActions: $("#existingEncounterActions"),
+  existingEncounterSummary: $("#existingEncounterSummary"),
+  encounterBuilder: $("#encounterBuilder"),
+  encounterCharacterList: $("#encounterCharacterList"),
+  encounterNpcList: $("#encounterNpcList"),
+  addEncounterNpc: $("#addEncounterNpc"),
+  beginEncounter: $("#beginEncounter"),
+  resumeEncounter: $("#resumeEncounter"),
+  prepareNewEncounter: $("#prepareNewEncounter"),
+  returnToEncounterSetup: $("#returnToEncounterSetup"),
+  liveEncounterCode: $("#liveEncounterCode"),
   storageMode: $("#storageMode"),
+  saveCampaignBackup: $("#saveCampaignBackup"),
+  restoreOpenCampaignFile: $("#restoreOpenCampaignFile"),
   deleteCampaign: $("#deleteCampaign"),
 };
 
@@ -65,8 +90,27 @@ let token = "";
 let events = null;
 let scriptSaveTimer = null;
 let scriptDirty = false;
+let scriptMode = "edit";
 let selectedTargets = new Set();
 const executedCommands = new Set();
+let pendingRestoreBackup = null;
+let encounterState = null;
+let npcSequence = 0;
+let stagedNpcs = [];
+let selectedEncounterCharacters = new Set();
+const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
+const npcDefaults = [
+  ["Security Guard", 5, "#39e58f"],
+  ["Space Slug", 3, "#7ad66d"],
+  ["Civilian", 4, "#f2d16b"],
+  ["Chief Security Guard", 7, "#35b7ff"],
+  ["Thug", 6, "#f07a4a"],
+  ["Purple Alien", 8, "#a65cff"],
+  ["Mini Boss", 9, "#ff5fa2"],
+  ["Robot Sentry", 10, "#8bd7ff"],
+  ["Cyber Ninja", 11, "#20f5d0"],
+  ["Final Boss", 12, "#ff3d55"],
+];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -86,6 +130,48 @@ function tokenKey(campaignCode) {
   return `sa-gm-token-${campaignCode}`;
 }
 
+function cacheCampaignState(nextCampaign) {
+  if (!nextCampaign?.code) return;
+  try {
+    localStorage.setItem(`${CAMPAIGN_CACHE_PREFIX}${nextCampaign.code}`, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      campaign: nextCampaign,
+    }));
+  } catch {
+    // The downloadable backup remains available if browser storage is full.
+  }
+}
+
+function downloadJson(payload, filename) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function validateCampaignBackup(payload) {
+  const backup = payload?.format === "spaceship-architect-campaign" ? payload : null;
+  if (!backup?.campaign?.code || !backup?.campaign?.name || !Array.isArray(backup.campaign.characters)) {
+    throw new Error("That file is not a Spaceship Architect campaign backup.");
+  }
+  return backup;
+}
+
+async function readCampaignBackup(file) {
+  if (!file) throw new Error("Choose a campaign backup file first.");
+  return validateCampaignBackup(JSON.parse(await file.text()));
+}
+
+function cacheFullCampaignBackup(backup) {
+  try {
+    localStorage.setItem(`sa-campaign-full-backup-v1-${backup.campaign.code}`, JSON.stringify(backup));
+  } catch {
+    // Portrait-heavy campaigns may exceed browser storage; the downloaded file remains complete.
+  }
+}
+
 async function api(path, body = null, method = "POST") {
   const response = await fetch(path, {
     method,
@@ -95,6 +181,10 @@ async function api(path, body = null, method = "POST") {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "The server rejected that request.");
   return payload;
+}
+
+async function encounterAction(action, payload = {}) {
+  return api("/api/action", { roomCode: code, gmToken: token, action, ...payload });
 }
 
 function characterName(record) {
@@ -235,16 +325,167 @@ function scriptCommandList() {
   return commands;
 }
 
+function stagedNpc() {
+  const [name, speed, color] = npcDefaults[npcSequence % npcDefaults.length];
+  npcSequence += 1;
+  return { id: `staged-npc-${Date.now()}-${npcSequence}`, name, speed, color };
+}
+
+function ensureEncounterDefaults() {
+  const approved = (campaign?.characters || []).filter((record) => record.approved !== false);
+  if (!selectedEncounterCharacters.size) selectedEncounterCharacters = new Set(approved.map((record) => record.id));
+  if (!stagedNpcs.length) stagedNpcs = [stagedNpc()];
+}
+
+function renderEncounterBuilder() {
+  if (!campaign) return;
+  ensureEncounterDefaults();
+  const approved = campaign.characters.filter((record) => record.approved !== false);
+  dom.encounterCharacterList.innerHTML = approved.length ? approved.map((record) => {
+    const color = record.character?.presentation?.atbColor || "#39e58f";
+    return `<label class="encounter-character-option" style="--character-color:${escapeHtml(color)}">
+      <input type="checkbox" data-encounter-character="${record.id}" ${selectedEncounterCharacters.has(record.id) ? "checked" : ""} />
+      <span><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))}</small></span>
+      <span class="encounter-stat">SPD ${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</span>
+      <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
+    </label>`;
+  }).join("") : '<p>No approved campaign characters are available yet.</p>';
+  dom.encounterNpcList.innerHTML = stagedNpcs.map((npc) => `<div class="encounter-npc-row" data-staged-npc="${npc.id}">
+    <label>Name<input data-npc-field="name" value="${escapeHtml(npc.name)}" maxlength="40" /></label>
+    <label>Speed<input data-npc-field="speed" type="number" min="0.1" max="100" step="0.1" value="${npc.speed}" /></label>
+    <label>Color<input data-npc-field="color" type="color" value="${escapeHtml(npc.color)}" /></label>
+    <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">X</button>
+  </div>`).join("");
+  dom.beginEncounter.disabled = !selectedEncounterCharacters.size && !stagedNpcs.length;
+}
+
+function renderEncounterStatus() {
+  const units = encounterState?.units || [];
+  const hasEncounter = units.length > 0;
+  dom.encounterStatus.textContent = hasEncounter ? `${units.length} Participant${units.length === 1 ? "" : "s"} Saved` : "No Active Encounter";
+  dom.existingEncounterActions.hidden = !hasEncounter;
+  dom.existingEncounterSummary.textContent = hasEncounter
+    ? `${units.map((unit) => unit.characterName).join(", ")} ${encounterState.running ? "are currently on the clock." : "are preserved in a paused encounter."}`
+    : "";
+  dom.encounterBuilder.hidden = hasEncounter;
+  renderEncounterBuilder();
+}
+
+async function refreshEncounterState() {
+  if (!code) return null;
+  encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
+  renderEncounterStatus();
+  return encounterState;
+}
+
+function showEncounterLive() {
+  dom.atbSetup.hidden = true;
+  dom.atbLive.hidden = false;
+  dom.liveEncounterCode.textContent = code;
+  const expected = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
+  if (!dom.atbFrame.getAttribute("src")) dom.atbFrame.src = expected;
+}
+
+function showEncounterSetup({ forceBuilder = false } = {}) {
+  dom.atbLive.hidden = true;
+  dom.atbSetup.hidden = false;
+  if (forceBuilder) {
+    dom.existingEncounterActions.hidden = true;
+    dom.encounterBuilder.hidden = false;
+    renderEncounterBuilder();
+  } else {
+    refreshEncounterState().catch((error) => showMessage(dom.message, error.message, "error"));
+  }
+}
+
+async function beginEncounter() {
+  const selected = campaign.characters.filter((record) => selectedEncounterCharacters.has(record.id) && record.approved !== false);
+  if (!selected.length && !stagedNpcs.length) {
+    showMessage(dom.message, "Select at least one character or add an NPC.", "error");
+    return;
+  }
+  dom.beginEncounter.disabled = true;
+  dom.beginEncounter.textContent = "Preparing Combat...";
+  try {
+    await encounterAction("clearEncounter");
+    for (const record of selected) {
+      await encounterAction("addUnit", {
+        playerName: playerName(record),
+        characterName: characterName(record),
+        speed: characterSpeed(record),
+        commandWindow: commandWindow(record),
+        color: record.character?.presentation?.atbColor || "#39e58f",
+        controlledBy: "player",
+        team: "pc",
+        actorType: "character",
+        characterId: record.id,
+      });
+    }
+    for (const npc of stagedNpcs) {
+      await encounterAction("addUnit", {
+        playerName: "GM",
+        characterName: npc.name || "NPC",
+        speed: npc.speed || 5,
+        commandWindow: null,
+        color: npc.color || "#39e58f",
+        controlledBy: "gm",
+        team: "npc",
+        actorType: "character",
+      });
+    }
+    encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
+    dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}&encounter=${Date.now()}`;
+    showEncounterLive();
+    showMessage(dom.message, "Encounter prepared and paused. Engage the clock when the table is ready.", "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  } finally {
+    dom.beginEncounter.disabled = false;
+    dom.beginEncounter.textContent = "Begin Combat";
+  }
+}
+
 function renderScriptCommands() {
+  const source = dom.script.value;
+  if (!source.trim()) {
+    dom.scriptCommands.innerHTML = '<div class="script-run-empty">Write your campaign script in Edit mode, then return here to run it.</div>';
+    return;
+  }
   const commands = scriptCommandList();
-  dom.scriptCommands.innerHTML = commands.length ? commands.map((command) => {
-    const needsSelection = ["choose", "target"].includes(command.scope) && (!command.targetName || command.scope === "choose");
-    const options = campaign.characters.map((record) => `<option value="${record.id}" ${command.targetName.toLowerCase() === characterName(record).toLowerCase() ? "selected" : ""}>${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
-    return `<article class="command-row ${command.valid ? "" : "invalid"}" data-command-index="${command.id.split("-").at(-1)}">
-      <div><code>::${escapeHtml(command.raw)}::</code><div class="command-meta"><span>${escapeHtml(command.scope || "Invalid recipient")}</span><span>${escapeHtml(command.attribute || "Missing Attribute")}</span><span>${escapeHtml(command.skill || "Missing Skill")}</span><span>${command.difficulty === null ? "No Difficulty" : `Difficulty ${command.difficulty}`}</span></div>${needsSelection ? `<select data-command-target="${command.id}"><option value="">Choose Character</option>${options}</select>` : ""}</div>
-      <button type="button" data-send-command="${command.id}" ${command.valid ? "" : "disabled"}>Send Roll Request</button>
-    </article>`;
-  }).join("") : "<p>No roll commands detected. Commands are enclosed by double colons.</p>";
+  const expression = /::([\s\S]*?)::/g;
+  const pieces = [];
+  let cursor = 0;
+  let index = 0;
+  let match;
+  while ((match = expression.exec(source))) {
+    pieces.push(escapeHtml(source.slice(cursor, match.index)));
+    const command = commands[index];
+    const options = (campaign?.characters || []).map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
+    const needsSelection = command?.scope === "choose" || (command?.scope === "target" && !command.targetName);
+    const label = command?.valid
+      ? `${command.scope === "all" ? "ALL PLAYERS" : command.scope === "choose" ? "CHOOSE PC" : command.targetName.toUpperCase()} / ${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
+      : `INVALID ROLL PROMPT / ${match[1].trim()}`;
+    pieces.push(`<button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>`);
+    if (needsSelection) pieces.push(`<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>`);
+    cursor = expression.lastIndex;
+    index += 1;
+  }
+  pieces.push(escapeHtml(source.slice(cursor)));
+  dom.scriptCommands.innerHTML = pieces.join("");
+}
+
+function setScriptMode(nextMode) {
+  scriptMode = nextMode === "run" ? "run" : "edit";
+  const running = scriptMode === "run";
+  dom.editScriptMode.classList.toggle("active", !running);
+  dom.runScriptMode.classList.toggle("active", running);
+  dom.script.hidden = running;
+  dom.scriptCommandBuilder.hidden = running;
+  dom.scriptCommands.hidden = !running;
+  if (running) {
+    if (scriptDirty) saveScript();
+    renderScriptCommands();
+  }
 }
 
 function renderCampaign() {
@@ -263,10 +504,12 @@ function renderCampaign() {
   renderCharacters();
   renderTargets();
   renderRollResults();
+  renderEncounterBuilder();
 }
 
 function receiveCampaign(next) {
   campaign = next;
+  cacheCampaignState(next);
   renderCampaign();
 }
 
@@ -287,8 +530,12 @@ function openWorkspace(nextCampaign, nextToken) {
   dom.workspace.hidden = false;
   dom.heading.hidden = false;
   dom.logout.hidden = false;
-  dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
+  dom.atbFrame.removeAttribute("src");
+  selectedEncounterCharacters = new Set(campaign.characters.filter((record) => record.approved !== false).map((record) => record.id));
+  npcSequence = 0;
+  stagedNpcs = [stagedNpc()];
   renderCampaign();
+  showEncounterSetup();
   connectCampaignEvents();
 }
 
@@ -342,6 +589,40 @@ dom.createForm.addEventListener("submit", async (event) => {
   }
 });
 
+dom.restoreFile.addEventListener("change", async () => {
+  try {
+    pendingRestoreBackup = await readCampaignBackup(dom.restoreFile.files?.[0]);
+    dom.restoreCode.textContent = pendingRestoreBackup.campaign.code;
+    dom.restoreName.textContent = pendingRestoreBackup.campaign.name;
+    dom.restoreForm.hidden = false;
+    dom.restorePassword.focus();
+    showMessage(dom.gatewayMessage, "Backup loaded. Create a new GM password to restore it.", "success");
+  } catch (error) {
+    pendingRestoreBackup = null;
+    dom.restoreForm.hidden = true;
+    showMessage(dom.gatewayMessage, error.message, "error");
+  }
+});
+
+dom.cancelRestore.addEventListener("click", () => {
+  pendingRestoreBackup = null;
+  dom.restoreFile.value = "";
+  dom.restorePassword.value = "";
+  dom.restoreForm.hidden = true;
+});
+
+dom.restoreForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!pendingRestoreBackup) return;
+  try {
+    const payload = await api("/api/campaign/restore-create", { backup: pendingRestoreBackup, password: dom.restorePassword.value });
+    openWorkspace(payload.campaign, payload.token);
+    showMessage(dom.message, `Campaign ${payload.campaign.code} restored from its local backup.`, "success");
+  } catch (error) {
+    showMessage(dom.gatewayMessage, error.message, "error");
+  }
+});
+
 dom.logout.addEventListener("click", () => {
   events?.close();
   location.href = "index.html";
@@ -356,7 +637,11 @@ dom.tabs.addEventListener("click", (event) => {
     panel.hidden = !active;
     panel.classList.toggle("active", active);
   });
+  if (button.dataset.tab === "atb") showEncounterSetup();
 });
+
+dom.editScriptMode.addEventListener("click", () => setScriptMode("edit"));
+dom.runScriptMode.addEventListener("click", () => setScriptMode("run"));
 
 dom.script.addEventListener("input", () => {
   scriptDirty = true;
@@ -384,14 +669,14 @@ dom.insertCommand.addEventListener("click", () => {
 dom.scriptCommands.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-send-command]");
   if (!button) return;
-  const index = Number(button.dataset.sendCommand.split("-").at(-1));
+  const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
   if (executedCommands.has(command.id) && !confirm("Send this roll request again?")) return;
   let targets = [];
   if (command.scope === "all") targets = campaign.characters.filter((record) => record.connected).map((record) => record.id);
   if (["choose", "target"].includes(command.scope)) {
-    const select = dom.scriptCommands.querySelector(`[data-command-target="${command.id}"]`);
+    const select = dom.scriptCommands.querySelector(`[data-command-target="${index}"]`);
     const selectedId = select?.value || campaign.characters.find((record) => characterName(record).toLowerCase() === command.targetName.toLowerCase())?.id;
     if (selectedId) targets = [selectedId];
   }
@@ -410,6 +695,7 @@ dom.scriptCommands.addEventListener("click", async (event) => {
       connectedOnly: command.scope === "all",
     });
     executedCommands.add(command.id);
+    renderScriptCommands();
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   }
@@ -516,6 +802,69 @@ dom.rollResults.addEventListener("click", async (event) => {
   }
 });
 
+dom.encounterCharacterList.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-encounter-character]");
+  if (!input) return;
+  if (input.checked) selectedEncounterCharacters.add(input.dataset.encounterCharacter);
+  else selectedEncounterCharacters.delete(input.dataset.encounterCharacter);
+  renderEncounterBuilder();
+});
+
+dom.encounterNpcList.addEventListener("input", (event) => {
+  const row = event.target.closest("[data-staged-npc]");
+  const field = event.target.dataset.npcField;
+  const npc = stagedNpcs.find((entry) => entry.id === row?.dataset.stagedNpc);
+  if (!npc || !field) return;
+  npc[field] = field === "speed" ? Math.max(0.1, Math.min(100, Number(event.target.value) || 0.1)) : event.target.value;
+});
+
+dom.encounterNpcList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-staged-npc]");
+  if (!button) return;
+  stagedNpcs = stagedNpcs.filter((entry) => entry.id !== button.dataset.removeStagedNpc);
+  renderEncounterBuilder();
+});
+
+dom.addEncounterNpc.addEventListener("click", () => {
+  stagedNpcs.push(stagedNpc());
+  renderEncounterBuilder();
+});
+dom.beginEncounter.addEventListener("click", beginEncounter);
+dom.resumeEncounter.addEventListener("click", showEncounterLive);
+dom.prepareNewEncounter.addEventListener("click", () => {
+  if (!confirm("Replace the saved encounter when Begin Combat is pressed? The current encounter remains safe until then.")) return;
+  showEncounterSetup({ forceBuilder: true });
+});
+dom.returnToEncounterSetup.addEventListener("click", () => showEncounterSetup());
+
+dom.saveCampaignBackup.addEventListener("click", async () => {
+  try {
+    const backup = await api(`/api/campaign/backup?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
+    cacheFullCampaignBackup(backup);
+    const safeName = campaign.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "campaign";
+    downloadJson(backup, `${safeName}-${campaign.code}.sa2campaign`);
+    showMessage(dom.message, "Campaign synchronized and backed up to this computer.", "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+dom.restoreOpenCampaignFile.addEventListener("change", async () => {
+  try {
+    const backup = await readCampaignBackup(dom.restoreOpenCampaignFile.files?.[0]);
+    if (backup.campaign.code !== code) throw new Error(`That backup belongs to campaign ${backup.campaign.code}, not ${code}.`);
+    if (!confirm(`Restore ${campaign.name} from the backup made ${new Date(backup.exportedAt).toLocaleString()}? Current campaign data will be replaced.`)) return;
+    const payload = await api("/api/campaign/restore", { code, token, backup });
+    receiveCampaign(payload.campaign);
+    await refreshEncounterState();
+    showMessage(dom.message, "Campaign restored from backup.", "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  } finally {
+    dom.restoreOpenCampaignFile.value = "";
+  }
+});
+
 dom.deleteCampaign.addEventListener("click", async () => {
   const typedName = prompt(`Type the campaign name exactly to delete it:\n${campaign.name}`);
   if (typedName === null) return;
@@ -532,6 +881,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
 });
 
 populateRulesControls();
+setScriptMode("edit");
 const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || localStorage.getItem("sa-current-campaign-code") || "";
 if (initialCode) {
   dom.code.value = initialCode;

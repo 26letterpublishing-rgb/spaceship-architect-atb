@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-    <link rel="stylesheet" href="gm.css?v=20260801-campaign-2" />
+    <link rel="stylesheet" href="gm.css?v=20260802-campaign-3" />
   </head>
   <body>
     <main class="gm-shell">
@@ -36,6 +36,15 @@
           <button class="primary" type="submit">Create Permanent Campaign</button>
           <button id="cancelCreateCampaign" type="button">Back</button>
         </form>
+        <section class="restore-gateway">
+          <label class="restore-file">Restore Campaign Backup<input id="restoreCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
+          <form id="restoreCampaignForm" class="restore-form" hidden>
+            <div><span id="restoreCampaignCode">----</span><strong id="restoreCampaignName">Campaign Backup</strong></div>
+            <label>New GM Password<input id="restoreCampaignPassword" type="password" minlength="4" autocomplete="new-password" required /></label>
+            <button class="primary" type="submit">Restore Campaign</button>
+            <button id="cancelRestoreCampaign" type="button">Cancel</button>
+          </form>
+        </section>
         <p id="gatewayMessage" class="status-message" role="status"></p>
       </section>
 
@@ -50,10 +59,17 @@
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
-            <strong id="scriptSaveState">Saved</strong>
+            <div class="script-heading-actions">
+              <div class="script-mode-switch" role="group" aria-label="Story Console mode">
+                <button id="editScriptMode" type="button" class="active">Edit Script</button>
+                <button id="runScriptMode" type="button">Run Script</button>
+              </div>
+              <strong id="scriptSaveState">Saved</strong>
+            </div>
           </div>
           <textarea id="campaignScript" class="script-editor" spellcheck="true" placeholder="Type story notes here. Add interactive rolls with commands such as ::All Players/Perception+Awareness/Difficulty 9::"></textarea>
-          <section class="command-builder">
+          <div id="scriptCommands" class="script-run-view" hidden></div>
+          <section id="scriptCommandBuilder" class="command-builder">
             <h3>Insert Roll Command</h3>
             <div class="builder-grid">
               <label>Recipients<select id="scriptScope"><option>All Players</option><option>Choose PC</option><option>Target Character</option></select></label>
@@ -64,10 +80,6 @@
               <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
-          </section>
-          <section class="detected-commands">
-            <div class="section-title"><h3>Detected Roll Prompts</h3><small>Clicking Send prompts the selected connected characters.</small></div>
-            <div id="scriptCommands" class="command-list"></div>
           </section>
         </section>
 
@@ -126,17 +138,46 @@
         </section>
 
         <section id="atbTab" class="gm-tab atb-tab" data-tab-panel="atb" hidden>
-          <iframe id="atbFrame" title="Spaceship Architect ATB Encounter"></iframe>
+          <section id="atbSetup" class="atb-setup">
+            <div class="tab-heading">
+              <div><span>CAMPAIGN ENCOUNTER</span><h2>Prepare Combat</h2></div>
+              <strong id="encounterStatus">No Active Encounter</strong>
+            </div>
+            <div id="existingEncounterActions" class="existing-encounter-actions" hidden>
+              <p id="existingEncounterSummary">A saved encounter is ready.</p>
+              <button id="resumeEncounter" class="primary" type="button">Resume Encounter</button>
+              <button id="prepareNewEncounter" class="danger" type="button">Start New Encounter</button>
+            </div>
+            <div id="encounterBuilder" class="encounter-builder">
+              <section class="encounter-roster">
+                <div class="section-title"><h3>Campaign Characters</h3><small>Selected characters enter before their phones connect.</small></div>
+                <div id="encounterCharacterList" class="encounter-character-list"></div>
+              </section>
+              <section class="encounter-npcs">
+                <div class="section-title"><h3>NPC Staging</h3><button id="addEncounterNpc" type="button">Add NPC</button></div>
+                <div id="encounterNpcList" class="encounter-npc-list"></div>
+              </section>
+              <button id="beginEncounter" class="primary begin-encounter" type="button">Begin Combat</button>
+            </div>
+          </section>
+          <section id="atbLive" class="atb-live" hidden>
+            <div class="atb-live-toolbar"><button id="returnToEncounterSetup" type="button">Encounter Setup</button><strong id="liveEncounterCode">----</strong></div>
+            <iframe id="atbFrame" title="Spaceship Architect ATB Encounter"></iframe>
+          </section>
         </section>
 
         <footer class="campaign-footer">
           <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
+          <div class="campaign-backup-actions">
+            <button id="saveCampaignBackup" type="button">Save Campaign Backup</button>
+            <label class="restore-file compact">Restore This Campaign<input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
+          </div>
           <button id="deleteCampaign" class="danger" type="button">Delete Campaign</button>
         </footer>
         <p id="gmMessage" class="status-message" role="status"></p>
       </section>
     </main>
 
-    <script type="module" src="gm.js?v=20260801-campaign-2"></script>
+    <script type="module" src="gm.js?v=20260802-campaign-3"></script>
   </body>
 </html>
