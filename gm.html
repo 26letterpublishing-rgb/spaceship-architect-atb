@@ -4,17 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-    <link rel="stylesheet" href="gm.css?v=20260802-campaign-3" />
+    <link rel="stylesheet" href="gm.css?v=20260802-campaign-5" />
   </head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
         <a href="index.html" class="gm-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></a>
+        <button id="gmLogout" class="quiet danger close-control-panel" type="button" hidden>Close Control Panel</button>
         <div id="campaignHeading" class="campaign-heading" hidden>
           <span id="campaignCodeHeading">----</span>
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
-        <button id="gmLogout" class="quiet danger" type="button" hidden>Close Control Panel</button>
+        <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>Exit Combat</button>
       </header>
 
       <section id="campaignGateway" class="gateway-panel">
@@ -59,16 +60,9 @@
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
-            <div class="script-heading-actions">
-              <div class="script-mode-switch" role="group" aria-label="Story Console mode">
-                <button id="editScriptMode" type="button" class="active">Edit Script</button>
-                <button id="runScriptMode" type="button">Run Script</button>
-              </div>
-              <strong id="scriptSaveState">Saved</strong>
-            </div>
+            <div class="script-heading-actions"><strong id="scriptSaveState">Saved</strong></div>
           </div>
-          <textarea id="campaignScript" class="script-editor" spellcheck="true" placeholder="Type story notes here. Add interactive rolls with commands such as ::All Players/Perception+Awareness/Difficulty 9::"></textarea>
-          <div id="scriptCommands" class="script-run-view" hidden></div>
+          <div id="campaignScript" class="script-live-editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" data-placeholder="Type story notes here. Insert clickable roll commands with the controls below."></div>
           <section id="scriptCommandBuilder" class="command-builder">
             <h3>Insert Roll Command</h3>
             <div class="builder-grid">
@@ -107,6 +101,7 @@
               <label>Amount<input id="awardAmount" type="number" step="1" min="1" value="1" required /></label>
               <div class="ship-credit-readout">Ship Credit Pool <strong id="shipCredits">0</strong></div>
               <button class="primary" type="submit">Give Award</button>
+              <p id="awardMessage" class="tool-message" role="status"></p>
               <button id="undoAward" type="button" disabled>Undo Most Recent Award</button>
             </form>
             <form id="privateNoteForm" class="tool-card">
@@ -178,6 +173,6 @@
       </section>
     </main>
 
-    <script type="module" src="gm.js?v=20260802-campaign-3"></script>
+    <script type="module" src="gm.js?v=20260802-campaign-5"></script>
   </body>
 </html>

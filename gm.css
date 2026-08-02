@@ -20,6 +20,35 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 @media(max-width:1000px){.gateway-form,.create-form{grid-template-columns:1fr 1fr}.builder-grid{grid-template-columns:repeat(3,1fr)}.gm-character-list{grid-template-columns:repeat(2,1fr)}.target-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.gm-shell{width:calc(100% - 12px);margin-top:6px}.gm-header{grid-template-columns:1fr auto}.gm-brand{grid-column:1/-1}.campaign-heading{justify-content:flex-start}.gateway-panel{margin:10px auto;padding:12px}.gateway-form,.create-form,.restore-form{grid-template-columns:1fr}.gm-tabs{grid-template-columns:repeat(2,1fr)}.gm-tab{padding:8px}.builder-grid,.roll-grid{grid-template-columns:1fr 1fr}.gm-character-list,.tool-grid{grid-template-columns:1fr}.roll-tool-card{grid-column:auto}.target-grid{grid-template-columns:1fr 1fr}.command-row{grid-template-columns:1fr}.script-heading-actions{align-items:flex-end;flex-direction:column}.script-run-view{padding:12px;font-size:.9rem}.atb-tab{height:calc(100vh - 130px);min-height:560px}.atb-setup{padding:9px}.encounter-builder{grid-template-columns:1fr}.encounter-npc-row{grid-template-columns:minmax(0,1fr) 70px 46px auto}.existing-encounter-actions{grid-template-columns:1fr 1fr}.existing-encounter-actions p{grid-column:1/-1}.campaign-footer{flex-wrap:wrap}.campaign-backup-actions{order:3;width:100%;display:grid;grid-template-columns:1fr 1fr}.campaign-backup-actions>*{width:100%}}
 
+/* Unified live Script and campaign encounter controls */
+.gm-header{grid-template-columns:minmax(220px,460px) auto minmax(220px,1fr) auto}
+.close-control-panel{min-height:34px;padding-inline:12px;font-size:.62rem}
+.exit-encounter{min-height:38px;padding-inline:18px;box-shadow:0 0 16px rgba(255,73,94,.24)}
+.script-live-editor{min-height:360px;margin-top:10px;padding:18px;overflow-wrap:anywhere;border:1px solid #314a61;border-radius:5px;color:#e7f4fc;background:linear-gradient(180deg,#07121e,#050c15);font-family:Arial,sans-serif;font-size:1rem;line-height:1.85;white-space:pre-wrap;outline:none}
+.script-live-editor:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(43,216,255,.12)}
+.script-live-editor:empty::before{content:attr(data-placeholder);color:#6f879c;pointer-events:none}
+.script-command-token{display:inline-flex;max-width:100%;align-items:center;vertical-align:middle;white-space:normal}
+.script-command-token::selection,.script-command-token *::selection{background:rgba(255,92,112,.45)}
+.script-heading-actions strong{color:var(--green);font-size:.68rem;text-transform:uppercase}
+.tool-message{min-height:18px;margin:0;color:var(--muted);font-size:.66rem;line-height:1.25}
+.tool-message.error{color:var(--red)}
+.tool-message.success{color:var(--green)}
+
+@media(min-width:1000px){
+  .gm-tab{min-height:0;padding:11px}
+  .tool-grid{gap:8px;margin-top:8px}
+  .tool-card,.target-console,.roll-results-panel{padding:10px}
+  .gm-character-list{gap:8px}
+}
+
+@media(max-width:650px){
+  .gm-header{grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
+  .gm-brand{grid-column:1/-1}
+  .campaign-heading{grid-column:1 / span 2}
+  .close-control-panel,.exit-encounter{min-height:34px;padding-inline:9px;font-size:.56rem}
+  .script-live-editor{min-height:330px;padding:12px;font-size:.9rem}
+}
+
 .approval-pending{display:block;margin-top:8px;padding:5px 7px;color:var(--yellow)!important;font-size:.62rem;border:1px solid #7d6328;background:#261e09}
 .character-card-actions button{flex:1;min-height:38px;border-color:var(--yellow);background:#4a3511}
 .banker-card p{margin:0;color:var(--muted);font-size:.68rem;line-height:1.45}

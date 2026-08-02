@@ -475,10 +475,17 @@ class CampaignApi {
       }
       const next = clone(body.character);
       next.id = record.id;
+      next.resources ||= {};
+      const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
+      const submittedCredits = Number(next.resources.creditsBase) || 0;
+      const baseCredits = Number(body.baseCredits);
+      next.resources.creditsBase = Number.isFinite(baseCredits)
+        ? Math.round(boundedNumber(serverCredits + (submittedCredits - baseCredits), 0, 999999999))
+        : Math.round(boundedNumber(submittedCredits, 0, 999999999));
       record.character = next;
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
-      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt });
+      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase });
       return true;
     }
 

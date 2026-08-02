@@ -14,9 +14,9 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260802-campaign-3";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260802-campaign-3";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260802-campaign-3";
+} from "./character-data.js?v=20260802-campaign-5";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260802-campaign-5";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260802-campaign-5";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -149,6 +149,7 @@ const dom = {
   exitSkillResult: $("#exitSkillResult"),
   rollResultToast: $("#rollResultToast"),
   campaignGate: $("#characterCampaignGate"),
+  campaignEntryPrompt: $("#campaignEntryPrompt"),
   campaignForm: $("#characterCampaignForm"),
   campaignCode: $("#characterCampaignCode"),
   campaignMessage: $("#characterCampaignMessage"),
@@ -156,12 +157,16 @@ const dom = {
   lobbyCampaignCode: $("#lobbyCampaignCode"),
   lobbyCampaignName: $("#lobbyCampaignName"),
   campaignRosterCards: $("#campaignRosterCards"),
+  changeCampaign: $("#changeCampaign"),
   createCampaignCharacter: $("#createCampaignCharacter"),
   importCampaignCharacter: $("#importCampaignCharacter"),
   characterWorkspace: $("#characterWorkspace"),
   campaignAccessBar: $("#campaignAccessBar"),
   activeCampaignLabel: $("#activeCampaignLabel"),
   campaignAccessRole: $("#campaignAccessRole"),
+  previousCampaignCharacter: $("#previousCampaignCharacter"),
+  nextCampaignCharacter: $("#nextCampaignCharacter"),
+  campaignCharacterPosition: $("#campaignCharacterPosition"),
   unlockCampaignCharacter: $("#unlockCampaignCharacter"),
   openPrivateNotes: $("#openPrivateNotes"),
   privateNoteCount: $("#privateNoteCount"),
@@ -196,6 +201,8 @@ const dom = {
   campaignRollPromptDifficulty: $("#campaignRollPromptDifficulty"),
   openCampaignRoll: $("#openCampaignRoll"),
   skillDiceResults: $("#skillDiceResults"),
+  skillDiceTypes: $("#skillDiceTypes"),
+  skillDiceValues: $("#skillDiceValues"),
 };
 
 let characterAudioContext = null;
@@ -351,6 +358,7 @@ let campaignPin = "";
 let campaignEditable = false;
 let campaignDirty = false;
 let campaignSaving = false;
+let campaignBaselineCredits = 0;
 let campaignSaveTimer = null;
 let suppressCampaignSave = false;
 let pinModalMode = "display";
@@ -758,6 +766,25 @@ function campaignPlayerName(record) {
   return record?.character?.identity?.playerName || "Player";
 }
 
+function updateCampaignCharacterNavigation() {
+  const records = campaignState?.characters || [];
+  const index = records.findIndex((entry) => entry.id === campaignCharacterId);
+  const hasSeveral = records.length > 1 && index >= 0;
+  dom.campaignCharacterPosition.textContent = index >= 0 ? `${index + 1} / ${records.length}` : `0 / ${records.length}`;
+  dom.previousCampaignCharacter.disabled = !hasSeveral;
+  dom.nextCampaignCharacter.disabled = !hasSeveral;
+}
+
+async function browseCampaignCharacter(offset) {
+  const records = campaignState?.characters || [];
+  if (records.length < 2) return;
+  await saveCampaignCharacter();
+  const currentIndex = Math.max(0, records.findIndex((entry) => entry.id === campaignCharacterId));
+  const nextIndex = (currentIndex + offset + records.length) % records.length;
+  showCampaignCharacter(records[nextIndex], { editable: false });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function queueCampaignCharacterSave(delay = 280) {
   clearTimeout(campaignSaveTimer);
   campaignSaveTimer = setTimeout(saveCampaignCharacter, delay);
@@ -769,15 +796,21 @@ async function saveCampaignCharacter({ force = false } = {}) {
   campaignSaving = true;
   campaignDirty = false;
   try {
-    await campaignRequest("/api/campaign/character/save", {
+    const payload = await campaignRequest("/api/campaign/character/save", {
       method: "POST",
       body: JSON.stringify({
         code: campaignCode,
         token: campaignToken,
         characterId: campaignCharacterId,
+        baseCredits: campaignBaselineCredits,
         character,
       }),
     });
+    if (Number.isFinite(Number(payload.creditsBase))) {
+      character.resources.creditsBase = Number(payload.creditsBase);
+      campaignBaselineCredits = Number(payload.creditsBase);
+      renderResources();
+    }
     dom.saveStatus.textContent = "Saved to campaign";
     dom.saveStatus.classList.remove("saving");
     cacheCampaignCharacter();
@@ -795,6 +828,7 @@ async function saveCampaignCharacter({ force = false } = {}) {
 
 function renderCampaignRoster() {
   if (!campaignState) return;
+  dom.campaignEntryPrompt.hidden = true;
   dom.lobbyCampaignCode.textContent = campaignState.code;
   dom.lobbyCampaignName.textContent = campaignState.name;
   const records = campaignState.characters || [];
@@ -805,8 +839,8 @@ function renderCampaignRoster() {
     return `<article class="campaign-character-card" style="--character-color:${escapeAttribute(record.character?.presentation?.atbColor || "#39e58f")}">
       <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong>${pending}</div>
       <div class="campaign-character-card-actions">
-        <button type="button" data-campaign-view="${record.id}">View Sheet</button>
-        <button type="button" class="primary-action" data-campaign-edit="${record.id}">Enter PIN / Edit</button>
+        <button type="button" data-campaign-view="${record.id}">View Characters</button>
+        <button type="button" class="primary-action" data-campaign-edit="${record.id}">Join Game</button>
       </div>
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
@@ -834,6 +868,7 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   library = [opened];
   activeId = opened.id;
   character = opened;
+  campaignBaselineCredits = Number(opened.resources?.creditsBase) || 0;
   campaignCharacterId = record.id;
   campaignToken = token || "";
   campaignPin = pin || record.pin || "";
@@ -847,6 +882,7 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   dom.activeCampaignLabel.textContent = `${campaignState.name} / ${campaignCode}`;
   dom.characterPicker.closest(".library-bar").hidden = true;
   renderAll();
+  updateCampaignCharacterNavigation();
   applyCampaignPermissions();
   refreshPrivateNotes();
   renderCampaignBank();
@@ -944,6 +980,7 @@ function receiveCampaignState(nextState) {
   if (!campaignEditable && !campaignDirty) {
     suppressCampaignSave = true;
     character = normalizeCharacter(deepCopy(remote.character));
+    campaignBaselineCredits = Number(character.resources?.creditsBase) || 0;
     character.id = remote.id;
     library = [character];
     activeId = character.id;
@@ -956,6 +993,7 @@ function receiveCampaignState(nextState) {
     if (remoteRecordTime > localTime + 50) {
       suppressCampaignSave = true;
       character = normalizeCharacter(deepCopy(remote.character));
+      campaignBaselineCredits = Number(character.resources?.creditsBase) || 0;
       character.id = remote.id;
       library = [character];
       activeId = character.id;
@@ -967,6 +1005,7 @@ function receiveCampaignState(nextState) {
   refreshPrivateNotes();
   renderCampaignBank();
   refreshCampaignRollPrompt();
+  updateCampaignCharacterNavigation();
 }
 
 function connectCampaignState() {
@@ -1878,11 +1917,16 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultOutcome.textContent = outcome;
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
-  dom.skillDiceResults.textContent = manual
-    ? "Manual roll"
+  dom.skillDiceTypes.textContent = manual
+    ? "MANUAL ROLL"
     : diceResults.length
-      ? `Dice: ${diceResults.map((result, index) => `D${resultSides[index] || "?"}=${result}`).join(" | ")}`
-      : "No Attribute dice";
+      ? `DICE: ${diceResults.map((result, index) => `D${resultSides[index] || "?"}`).join("  |  ")}`
+      : "NO ATTRIBUTE DICE";
+  dom.skillDiceValues.textContent = manual
+    ? `ENTERED SCORE: ${formatNumber(score)}`
+    : diceResults.length
+      ? `VALUES: ${diceResults.join("  |  ")}`
+      : "VALUES: NONE";
   const allFusions = [...skillCheck.preservedFusions.map((fusion) => ({ ...fusion, locked: true })), ...newFusions];
   dom.skillFusionResults.hidden = manual || allFusions.length === 0;
   dom.skillFusionChoices.innerHTML = allFusions.map((fusion) => `
@@ -3230,6 +3274,8 @@ dom.campaignPinConfirm?.addEventListener("click", async () => {
 
 dom.unlockCampaignCharacter?.addEventListener("click", () => showPinEntry(campaignCharacterId));
 dom.showCharacterPin?.addEventListener("click", () => showPinDisplay());
+dom.previousCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(-1));
+dom.nextCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(1));
 dom.returnToCampaignRoster?.addEventListener("click", async () => {
   await saveCampaignCharacter();
   campaignCharacterId = "";
@@ -3237,7 +3283,25 @@ dom.returnToCampaignRoster?.addEventListener("click", async () => {
   campaignPin = "";
   dom.characterWorkspace.hidden = true;
   dom.campaignGate.hidden = false;
+  dom.campaignEntryPrompt.hidden = true;
   renderCampaignRoster();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+dom.changeCampaign?.addEventListener("click", () => {
+  campaignEvents?.close();
+  campaignEvents = null;
+  campaignCode = "";
+  campaignToken = "";
+  campaignState = null;
+  campaignCharacterId = "";
+  campaignEditable = false;
+  dom.campaignLobby.hidden = true;
+  dom.campaignEntryPrompt.hidden = false;
+  dom.campaignMessage.textContent = "";
+  dom.campaignCode.value = "";
+  localStorage.removeItem("sa-character-campaign-code");
+  dom.campaignCode.focus();
 });
 
 dom.openPrivateNotes?.addEventListener("click", async () => {
@@ -3370,7 +3434,7 @@ dom.skillSearch.addEventListener("input", applySkillSearch);
 window.addEventListener("beforeunload", () => {
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
-    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, character });
+    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, character });
     navigator.sendBeacon?.("/api/campaign/character/save", new Blob([body], { type: "application/json" }));
   }
 });

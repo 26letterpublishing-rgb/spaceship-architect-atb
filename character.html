@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260802-campaign-3" />
+    <link rel="stylesheet" href="character.css?v=20260802-campaign-5" />
   </head>
   <body>
     <header class="creator-header">
@@ -18,16 +18,21 @@
 
     <section id="characterCampaignGate" class="character-campaign-gate">
       <div class="campaign-gate-card">
-        <span>CAMPAIGN CHARACTERS</span>
-        <h1>Enter Campaign</h1>
-        <p>View the entire team, unlock your character, or create someone new.</p>
-        <form id="characterCampaignForm">
-          <label>Campaign Code<input id="characterCampaignCode" maxlength="4" autocomplete="off" placeholder="A7K4" required /></label>
-          <button class="primary-action" type="submit">Open Characters</button>
-        </form>
+        <div id="campaignEntryPrompt">
+          <span>CAMPAIGN CHARACTERS</span>
+          <h1>Enter Campaign</h1>
+          <p>View the entire team, unlock your character, or create someone new.</p>
+          <form id="characterCampaignForm">
+            <label>Campaign Code<input id="characterCampaignCode" maxlength="4" autocomplete="off" placeholder="A7K4" required /></label>
+            <button class="primary-action" type="submit">Open Characters</button>
+          </form>
+        </div>
         <p id="characterCampaignMessage" class="campaign-gate-message" role="status"></p>
         <section id="campaignRosterLobby" class="campaign-roster-lobby" hidden>
-          <div class="campaign-lobby-heading"><div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
+          <div class="campaign-lobby-heading">
+            <div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div>
+            <div class="campaign-lobby-actions"><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
+          </div>
           <div class="campaign-lobby-tools"><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
         </section>
@@ -49,6 +54,11 @@
       <section id="campaignAccessBar" class="campaign-access-bar" hidden>
         <div><span>CAMPAIGN</span><strong id="activeCampaignLabel">----</strong></div>
         <div><span>ACCESS</span><strong id="campaignAccessRole">VIEW ONLY</strong></div>
+        <div class="campaign-character-navigation" aria-label="Browse campaign characters">
+          <button id="previousCampaignCharacter" type="button" aria-label="View previous character">&#9664;</button>
+          <strong id="campaignCharacterPosition">1 / 1</strong>
+          <button id="nextCampaignCharacter" type="button" aria-label="View next character">&#9654;</button>
+        </div>
         <button id="unlockCampaignCharacter" type="button">Enter Character PIN</button>
         <button id="openPrivateNotes" type="button">Private Notes <strong id="privateNoteCount">0</strong></button>
         <button id="openCampaignBank" type="button">Ship Bank <strong id="campaignBankSummary">0</strong></button>
@@ -98,6 +108,7 @@
             <label>Weight<input data-field="identity.weight" /></label>
             <label>Hair<input data-field="identity.hair" /></label>
             <label>Eyes<input data-field="identity.eyes" /></label>
+            <label class="identity-atb-color">ATB Color<input id="characterAtbColor" type="color" value="#39e58f" aria-label="Character ATB color" /></label>
             <label class="description-field">Physical Description<textarea data-field="identity.description" rows="3"></textarea></label>
           </div>
         </section>
@@ -174,7 +185,6 @@
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
               <div class="reverence-footer">
-                <label class="character-atb-color">ATB Color<input id="characterAtbColor" type="color" value="#39e58f" aria-label="Character ATB color" /></label>
                 <button id="debugReverence" class="debug-resource" type="button">DEBUG: +1 REVERENCE</button>
               </div>
             </div>
@@ -350,7 +360,10 @@
 
         <section id="skillResultStage" class="skill-check-stage skill-result-stage" hidden>
           <div class="skill-result-display">
-            <small id="skillDiceResults" class="skill-dice-results"></small>
+            <div id="skillDiceResults" class="skill-dice-results">
+              <span id="skillDiceTypes"></span>
+              <strong id="skillDiceValues"></strong>
+            </div>
             <span id="skillResultLabel">Final Score</span>
             <strong id="skillResultScore">0.0</strong>
             <p id="skillResultEquation"></p>
@@ -371,6 +384,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260802-campaign-3"></script>
+    <script type="module" src="character.js?v=20260802-campaign-5"></script>
   </body>
 </html>

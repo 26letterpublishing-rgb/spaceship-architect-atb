@@ -1344,6 +1344,13 @@ function setConnected(isConnected, message) {
 function receiveState(nextState, { force = false } = {}) {
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
+  if (mode === "player" && nextState.encounterEndedAt && nextState.encounterEndedAt !== state?.encounterEndedAt) {
+    const campaignCode = nextState.roomCode || currentRoomCode;
+    forgetSavedRoom();
+    safeLocalStorageSet("sa-atb-mode", "welcome");
+    window.location.replace(`character.html?campaign=${encodeURIComponent(campaignCode)}`);
+    return false;
+  }
   state = nextState;
   render();
   return true;

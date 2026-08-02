@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260802-campaign-3";
+import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260802-campaign-5";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -8,6 +8,7 @@ const dom = {
   codeHeading: $("#campaignCodeHeading"),
   nameHeading: $("#campaignNameHeading"),
   logout: $("#gmLogout"),
+  exitEncounter: $("#exitEncounter"),
   openForm: $("#openCampaignForm"),
   code: $("#gmCampaignCode"),
   password: $("#gmCampaignPassword"),
@@ -28,8 +29,6 @@ const dom = {
   tabs: $(".gm-tabs"),
   script: $("#campaignScript"),
   scriptSaveState: $("#scriptSaveState"),
-  editScriptMode: $("#editScriptMode"),
-  runScriptMode: $("#runScriptMode"),
   scriptCommandBuilder: $("#scriptCommandBuilder"),
   scriptScope: $("#scriptScope"),
   scriptTargetWrap: $("#scriptTargetWrap"),
@@ -39,7 +38,6 @@ const dom = {
   scriptDifficulty: $("#scriptDifficulty"),
   scriptHideDifficulty: $("#scriptHideDifficulty"),
   insertCommand: $("#insertScriptCommand"),
-  scriptCommands: $("#scriptCommands"),
   characterList: $("#gmCharacterList"),
   characterCount: $("#characterCount"),
   selectedTargetCount: $("#selectedTargetCount"),
@@ -50,6 +48,7 @@ const dom = {
   awardForm: $("#awardForm"),
   awardResource: $("#awardResource"),
   awardAmount: $("#awardAmount"),
+  awardMessage: $("#awardMessage"),
   shipCredits: $("#shipCredits"),
   undoAward: $("#undoAward"),
   bankerCharacter: $("#bankerCharacter"),
@@ -90,8 +89,9 @@ let token = "";
 let events = null;
 let scriptSaveTimer = null;
 let scriptDirty = false;
-let scriptMode = "edit";
+let lastScriptRange = null;
 let selectedTargets = new Set();
+let targetSelectionTouched = false;
 const executedCommands = new Set();
 let pendingRestoreBackup = null;
 let encounterState = null;
@@ -123,7 +123,8 @@ function escapeHtml(value) {
 
 function showMessage(element, message, tone = "") {
   element.textContent = message;
-  element.className = `status-message ${tone}`.trim();
+  const baseClass = element === dom.awardMessage ? "tool-message" : "status-message";
+  element.className = `${baseClass} ${tone}`.trim();
 }
 
 function tokenKey(campaignCode) {
@@ -234,6 +235,9 @@ function syncSelectedTargets() {
 }
 
 function renderTargets() {
+  if (!targetSelectionTouched && !selectedTargets.size && campaign.characters.length === 1) {
+    selectedTargets.add(campaign.characters[0].id);
+  }
   syncSelectedTargets();
   dom.promptTargets.innerHTML = campaign.characters.length
     ? campaign.characters.map((record) => `
@@ -317,11 +321,28 @@ function parseCommand(raw, index) {
   };
 }
 
-function scriptCommandList() {
+function scriptSource() {
+  function serialize(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || "";
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    if (node.matches("[data-script-command]")) return `::${node.dataset.commandRaw || ""}::`;
+    if (node.tagName === "BR") return "\n";
+    const content = [...node.childNodes].map(serialize).join("");
+    return ["DIV", "P"].includes(node.tagName) ? `${content}\n` : content;
+  }
+  return [...dom.script.childNodes]
+    .map(serialize)
+    .join("")
+    .replaceAll("\u00a0", " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n$/, "");
+}
+
+function scriptCommandList(source = scriptSource()) {
   const commands = [];
   const expression = /::([\s\S]*?)::/g;
   let match;
-  while ((match = expression.exec(dom.script.value))) commands.push(parseCommand(match[1], commands.length));
+  while ((match = expression.exec(source))) commands.push(parseCommand(match[1], commands.length));
   return commands;
 }
 
@@ -369,6 +390,12 @@ function renderEncounterStatus() {
     : "";
   dom.encounterBuilder.hidden = hasEncounter;
   renderEncounterBuilder();
+  updateExitEncounterVisibility();
+}
+
+function updateExitEncounterVisibility() {
+  const atbSelected = document.querySelector('.gm-tabs [data-tab="atb"]')?.classList.contains("active");
+  dom.exitEncounter.hidden = !campaign || !atbSelected || !(encounterState?.units?.length);
 }
 
 async function refreshEncounterState() {
@@ -384,6 +411,7 @@ function showEncounterLive() {
   dom.liveEncounterCode.textContent = code;
   const expected = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
   if (!dom.atbFrame.getAttribute("src")) dom.atbFrame.src = expected;
+  updateExitEncounterVisibility();
 }
 
 function showEncounterSetup({ forceBuilder = false } = {}) {
@@ -395,6 +423,45 @@ function showEncounterSetup({ forceBuilder = false } = {}) {
     renderEncounterBuilder();
   } else {
     refreshEncounterState().catch((error) => showMessage(dom.message, error.message, "error"));
+  }
+  updateExitEncounterVisibility();
+}
+
+async function resumeEncounterWithFreshCharacters() {
+  try {
+    await refreshCampaign();
+    await refreshEncounterState();
+    const updates = (encounterState?.units || []).flatMap((unit) => {
+      if (!unit.characterId) return [];
+      const record = campaign.characters.find((entry) => entry.id === unit.characterId);
+      if (!record) return [];
+      return [{
+        characterId: record.id,
+        playerName: playerName(record),
+        characterName: characterName(record),
+        speed: characterSpeed(record),
+        commandWindow: commandWindow(record),
+        color: record.character?.presentation?.atbColor || "#39e58f",
+      }];
+    });
+    if (updates.length) encounterState = await encounterAction("syncCampaignUnits", { units: updates });
+    showEncounterLive();
+    showMessage(dom.message, updates.length ? "Encounter resumed with current campaign character statistics." : "Encounter resumed.", "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+}
+
+async function exitCampaignEncounter() {
+  if (!confirm("End this encounter for every player and return everyone to the campaign roster?")) return;
+  try {
+    encounterState = await encounterAction("exitEncounter");
+    dom.atbFrame.removeAttribute("src");
+    showEncounterSetup({ forceBuilder: true });
+    renderEncounterStatus();
+    showMessage(dom.message, "Combat ended for the entire campaign. Character and campaign data remain saved.", "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
   }
 }
 
@@ -445,13 +512,8 @@ async function beginEncounter() {
   }
 }
 
-function renderScriptCommands() {
-  const source = dom.script.value;
-  if (!source.trim()) {
-    dom.scriptCommands.innerHTML = '<div class="script-run-empty">Write your campaign script in Edit mode, then return here to run it.</div>';
-    return;
-  }
-  const commands = scriptCommandList();
+function renderScriptEditor(source = scriptSource()) {
+  const commands = scriptCommandList(source);
   const expression = /::([\s\S]*?)::/g;
   const pieces = [];
   let cursor = 0;
@@ -465,27 +527,20 @@ function renderScriptCommands() {
     const label = command?.valid
       ? `${command.scope === "all" ? "ALL PLAYERS" : command.scope === "choose" ? "CHOOSE PC" : command.targetName.toUpperCase()} / ${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
       : `INVALID ROLL PROMPT / ${match[1].trim()}`;
-    pieces.push(`<button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>`);
-    if (needsSelection) pieces.push(`<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>`);
+    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>${needsSelection ? `<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>` : ""}</span>`);
     cursor = expression.lastIndex;
     index += 1;
   }
   pieces.push(escapeHtml(source.slice(cursor)));
-  dom.scriptCommands.innerHTML = pieces.join("");
+  dom.script.innerHTML = pieces.join("").replaceAll("\n", "<br>");
+  lastScriptRange = null;
 }
 
-function setScriptMode(nextMode) {
-  scriptMode = nextMode === "run" ? "run" : "edit";
-  const running = scriptMode === "run";
-  dom.editScriptMode.classList.toggle("active", !running);
-  dom.runScriptMode.classList.toggle("active", running);
-  dom.script.hidden = running;
-  dom.scriptCommandBuilder.hidden = running;
-  dom.scriptCommands.hidden = !running;
-  if (running) {
-    if (scriptDirty) saveScript();
-    renderScriptCommands();
-  }
+function rememberScriptSelection() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return;
+  const range = selection.getRangeAt(0);
+  if (dom.script.contains(range.commonAncestorContainer)) lastScriptRange = range.cloneRange();
 }
 
 function renderCampaign() {
@@ -499,8 +554,9 @@ function renderCampaign() {
   dom.scriptTarget.innerHTML = campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("");
   dom.bankerCharacter.innerHTML = `<option value="">No Banker - Any PC May Use Pool</option>${campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("")}`;
   dom.bankerCharacter.value = campaign.bankerCharacterId || "";
-  if (!scriptDirty && document.activeElement !== dom.script) dom.script.value = campaign.script || "";
-  renderScriptCommands();
+  if (!scriptDirty && document.activeElement !== dom.script && scriptSource() !== (campaign.script || "")) {
+    renderScriptEditor(campaign.script || "");
+  }
   renderCharacters();
   renderTargets();
   renderRollResults();
@@ -509,6 +565,9 @@ function renderCampaign() {
 
 function receiveCampaign(next) {
   campaign = next;
+  if (!targetSelectionTouched && !selectedTargets.size && next.characters?.length === 1) {
+    selectedTargets.add(next.characters[0].id);
+  }
   cacheCampaignState(next);
   renderCampaign();
 }
@@ -531,6 +590,8 @@ function openWorkspace(nextCampaign, nextToken) {
   dom.heading.hidden = false;
   dom.logout.hidden = false;
   dom.atbFrame.removeAttribute("src");
+  targetSelectionTouched = false;
+  selectedTargets = campaign.characters.length === 1 ? new Set([campaign.characters[0].id]) : new Set();
   selectedEncounterCharacters = new Set(campaign.characters.filter((record) => record.approved !== false).map((record) => record.id));
   npcSequence = 0;
   stagedNpcs = [stagedNpc()];
@@ -548,7 +609,7 @@ async function saveScript() {
   if (!campaign) return;
   dom.scriptSaveState.textContent = "Saving...";
   try {
-    await api("/api/campaign/script/save", { code, token, script: dom.script.value });
+    await api("/api/campaign/script/save", { code, token, script: scriptSource() });
     scriptDirty = false;
     dom.scriptSaveState.textContent = "Saved";
   } catch (error) {
@@ -638,17 +699,41 @@ dom.tabs.addEventListener("click", (event) => {
     panel.classList.toggle("active", active);
   });
   if (button.dataset.tab === "atb") showEncounterSetup();
+  updateExitEncounterVisibility();
 });
 
-dom.editScriptMode.addEventListener("click", () => setScriptMode("edit"));
-dom.runScriptMode.addEventListener("click", () => setScriptMode("run"));
-
 dom.script.addEventListener("input", () => {
+  rememberScriptSelection();
   scriptDirty = true;
   dom.scriptSaveState.textContent = "Unsaved";
   clearTimeout(scriptSaveTimer);
   scriptSaveTimer = setTimeout(saveScript, 650);
-  renderScriptCommands();
+});
+dom.script.addEventListener("keydown", (event) => {
+  if (!['Backspace', 'Delete'].includes(event.key)) return;
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !selection.isCollapsed) return;
+  const range = selection.getRangeAt(0);
+  const backward = event.key === 'Backspace';
+  let candidate = null;
+  if (range.startContainer === dom.script) {
+    candidate = dom.script.childNodes[range.startOffset + (backward ? -1 : 0)] || null;
+  } else if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    const atEdge = backward ? range.startOffset === 0 : range.startOffset === range.startContainer.nodeValue.length;
+    if (atEdge) candidate = backward ? range.startContainer.previousSibling : range.startContainer.nextSibling;
+  }
+  if (candidate?.nodeName === 'BR') candidate = backward ? candidate.previousSibling : candidate.nextSibling;
+  const token = candidate?.nodeType === Node.ELEMENT_NODE && candidate.matches('[data-script-command]') ? candidate : null;
+  if (!token) return;
+  event.preventDefault();
+  token.remove();
+  dom.script.dispatchEvent(new Event('input', { bubbles: true }));
+});
+dom.script.addEventListener("keyup", rememberScriptSelection);
+dom.script.addEventListener("mouseup", rememberScriptSelection);
+dom.script.addEventListener("blur", (event) => {
+  if (event.relatedTarget?.closest?.("#scriptCommandBuilder")) return;
+  renderScriptEditor(scriptSource());
 });
 dom.scriptScope.addEventListener("change", () => { dom.scriptTargetWrap.hidden = dom.scriptScope.value !== "Target Character"; });
 dom.insertCommand.addEventListener("click", () => {
@@ -659,16 +744,22 @@ dom.insertCommand.addEventListener("click", () => {
   if (dom.scriptDifficulty.value !== "") parts.push(`Difficulty ${dom.scriptDifficulty.value}`);
   if (dom.scriptHideDifficulty.checked) parts.push("Hidden");
   const command = `::${parts.join("/")}::`;
-  const start = dom.script.selectionStart ?? dom.script.value.length;
-  const end = dom.script.selectionEnd ?? start;
-  dom.script.setRangeText(command, start, end, "end");
+  const range = lastScriptRange?.cloneRange();
+  if (range && dom.script.contains(range.commonAncestorContainer)) {
+    range.deleteContents();
+    range.insertNode(document.createTextNode(command));
+  } else {
+    dom.script.append(document.createTextNode(`${scriptSource() ? "\n" : ""}${command}`));
+  }
   dom.script.dispatchEvent(new Event("input", { bubbles: true }));
+  renderScriptEditor(scriptSource());
   dom.script.focus();
 });
 
-dom.scriptCommands.addEventListener("click", async (event) => {
+dom.script.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-send-command]");
   if (!button) return;
+  event.preventDefault();
   const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
@@ -676,7 +767,7 @@ dom.scriptCommands.addEventListener("click", async (event) => {
   let targets = [];
   if (command.scope === "all") targets = campaign.characters.filter((record) => record.connected).map((record) => record.id);
   if (["choose", "target"].includes(command.scope)) {
-    const select = dom.scriptCommands.querySelector(`[data-command-target="${index}"]`);
+    const select = dom.script.querySelector(`[data-command-target="${index}"]`);
     const selectedId = select?.value || campaign.characters.find((record) => characterName(record).toLowerCase() === command.targetName.toLowerCase())?.id;
     if (selectedId) targets = [selectedId];
   }
@@ -695,7 +786,7 @@ dom.scriptCommands.addEventListener("click", async (event) => {
       connectedOnly: command.scope === "all",
     });
     executedCommands.add(command.id);
-    renderScriptCommands();
+    renderScriptEditor(scriptSource());
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   }
@@ -704,13 +795,14 @@ dom.scriptCommands.addEventListener("click", async (event) => {
 dom.promptTargets.addEventListener("change", (event) => {
   const input = event.target.closest("[data-target-id]");
   if (!input) return;
+  targetSelectionTouched = true;
   if (input.checked) selectedTargets.add(input.dataset.targetId);
   else selectedTargets.delete(input.dataset.targetId);
   syncSelectedTargets();
 });
-dom.selectAllTargets.addEventListener("click", () => { selectedTargets = new Set(campaign.characters.map((record) => record.id)); renderTargets(); });
-dom.selectConnectedTargets.addEventListener("click", () => { selectedTargets = new Set(campaign.characters.filter((record) => record.connected).map((record) => record.id)); renderTargets(); });
-dom.clearTargets.addEventListener("click", () => { selectedTargets.clear(); renderTargets(); });
+dom.selectAllTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets = new Set(campaign.characters.map((record) => record.id)); renderTargets(); });
+dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets = new Set(campaign.characters.filter((record) => record.connected).map((record) => record.id)); renderTargets(); });
+dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
 dom.characterList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-approve-character]");
@@ -738,26 +830,31 @@ dom.awardResource.addEventListener("change", () => {
 });
 dom.awardForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  showMessage(dom.awardMessage, "Delivering award...");
   const resource = dom.awardResource.value;
   const targetIds = resource === "shipCredits" ? [] : [...selectedTargets];
   if (resource !== "shipCredits" && !targetIds.length) {
-    showMessage(dom.message, "Select at least one character to receive the award.", "error");
+    showMessage(dom.awardMessage, "Choose at least one recipient above.", "error");
     return;
   }
   try {
-    await api("/api/campaign/award", { code, token, resource, amount: dom.awardAmount.value, targetIds });
-    showMessage(dom.message, "Award delivered immediately.", "success");
+    const payload = await api("/api/campaign/award", { code, token, resource, amount: dom.awardAmount.value, targetIds });
+    receiveCampaign(payload.campaign);
+    const amount = Number(dom.awardAmount.value).toLocaleString();
+    const recipients = resource === "shipCredits" ? "Ship Credit Pool" : selectedRecords().map(characterName).join(", ");
+    showMessage(dom.awardMessage, `${amount} ${dom.awardResource.selectedOptions[0].text} delivered to ${recipients}.`, "success");
   } catch (error) {
-    showMessage(dom.message, error.message, "error");
+    showMessage(dom.awardMessage, error.message, "error");
   }
 });
 dom.undoAward.addEventListener("click", async () => {
   if (!confirm("Undo the most recent campaign award?")) return;
   try {
-    await api("/api/campaign/award/undo", { code, token });
-    showMessage(dom.message, "The most recent award was undone.", "success");
+    const payload = await api("/api/campaign/award/undo", { code, token });
+    receiveCampaign(payload.campaign);
+    showMessage(dom.awardMessage, "The most recent award was undone.", "success");
   } catch (error) {
-    showMessage(dom.message, error.message, "error");
+    showMessage(dom.awardMessage, error.message, "error");
   }
 });
 dom.noteForm.addEventListener("submit", async (event) => {
@@ -830,7 +927,8 @@ dom.addEncounterNpc.addEventListener("click", () => {
   renderEncounterBuilder();
 });
 dom.beginEncounter.addEventListener("click", beginEncounter);
-dom.resumeEncounter.addEventListener("click", showEncounterLive);
+dom.resumeEncounter.addEventListener("click", resumeEncounterWithFreshCharacters);
+dom.exitEncounter.addEventListener("click", exitCampaignEncounter);
 dom.prepareNewEncounter.addEventListener("click", () => {
   if (!confirm("Replace the saved encounter when Begin Combat is pressed? The current encounter remains safe until then.")) return;
   showEncounterSetup({ forceBuilder: true });
@@ -881,7 +979,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
 });
 
 populateRulesControls();
-setScriptMode("edit");
+renderScriptEditor("");
 const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || localStorage.getItem("sa-current-campaign-code") || "";
 if (initialCode) {
   dom.code.value = initialCode;

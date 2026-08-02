@@ -49,6 +49,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     lastInterruptedId: null,
     lastInterruptedAt: 0,
     lastKeepAliveAt: Date.now(),
+    encounterEndedAt: null,
     lastTick: Date.now(),
     delayRequest: null,
     hasEngagedClock: false,
@@ -78,6 +79,7 @@ function createRoom(requestedCode = "", snapshot = null) {
       : Math.max(0, Number(snapshot.commandHeldRemaining) || 0);
     room.lastInterruptedId = snapshot.lastInterruptedId || null;
     room.lastInterruptedAt = Number(snapshot.lastInterruptedAt) || 0;
+    room.encounterEndedAt = snapshot.encounterEndedAt || null;
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
@@ -139,6 +141,7 @@ function publicState(room) {
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
     lastKeepAliveAt: room.lastKeepAliveAt,
+    encounterEndedAt: room.encounterEndedAt,
     threshold: room.threshold,
     units: room.units,
     log: room.log.slice(-30),
@@ -172,6 +175,7 @@ function snapshotRoom(room) {
     commandHeldRemaining: room.commandHeldRemaining,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
+    encounterEndedAt: room.encounterEndedAt,
     delayRequest: clone(room.delayRequest),
     hasEngagedClock: room.hasEngagedClock,
     threshold: room.threshold,
@@ -919,6 +923,7 @@ async function handleAction(req, res) {
   }
 
   if (action === "join" || action === "addUnit") {
+    room.encounterEndedAt = null;
     const playerName = String(body.playerName || "Player").trim().slice(0, 40);
     const characterName = String(body.characterName || "Character").trim().slice(0, 40);
     const speed = normalizeSpeed(body.speed);
@@ -964,6 +969,26 @@ async function handleAction(req, res) {
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
     pushLog(room, `${characterName} joined (${setupText}).`);
+  }
+
+  if (action === "syncCampaignUnits") {
+    let changed = 0;
+    for (const update of Array.isArray(body.units) ? body.units : []) {
+      const unit = room.units.find((entry) => entry.characterId && entry.characterId === String(update.characterId || ""));
+      if (!unit) continue;
+      const nextSpeed = normalizeSpeed(update.speed);
+      const nextCommand = normalizeCommandWindow(update.commandWindow);
+      const nextName = String(update.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
+      const nextPlayer = String(update.playerName || unit.playerName).trim().slice(0, 40) || unit.playerName;
+      const nextColor = normalizeColor(update.color);
+      if (unit.speed !== nextSpeed || unit.commandWindow !== nextCommand || unit.characterName !== nextName || unit.playerName !== nextPlayer || unit.color !== nextColor) changed += 1;
+      unit.speed = nextSpeed;
+      unit.commandWindow = nextCommand;
+      unit.characterName = nextName;
+      unit.playerName = nextPlayer;
+      unit.color = nextColor;
+    }
+    if (changed) pushLog(room, `${changed} campaign character${changed === 1 ? "" : "s"} synchronized from updated sheets.`);
   }
 
   if (action === "removeUnit") {
@@ -1190,7 +1215,26 @@ async function handleAction(req, res) {
     room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
     room.hasEngagedClock = false;
+    room.encounterEndedAt = null;
     pushLog(room, "Encounter cleared.");
+  }
+
+  if (action === "exitEncounter") {
+    room.units = [];
+    room.running = false;
+    room.pausedForTurn = false;
+    room.resumeAfterTurn = false;
+    room.hardPaused = false;
+    room.activeId = null;
+    room.activeAction = null;
+    clearDelayRequest(room);
+    clearActiveCommand(room);
+    room.lastInterruptedId = null;
+    room.lastInterruptedAt = 0;
+    room.lastTick = Date.now();
+    room.hasEngagedClock = false;
+    room.encounterEndedAt = Date.now();
+    pushLog(room, "The GM ended the encounter.");
   }
 
   if (action === "completeTurn") {
@@ -1270,7 +1314,7 @@ async function handleAction(req, res) {
   sendJson(res, 200, publicState(room));
   broadcast(room);
   scheduleRoomPersist(room);
-  if (["join", "addUnit", "removeUnit", "clearEncounter"].includes(action)) campaignApi?.broadcast(room.roomCode).catch(() => {});
+  if (["join", "addUnit", "removeUnit", "clearEncounter", "exitEncounter"].includes(action)) campaignApi?.broadcast(room.roomCode).catch(() => {});
 }
 
 const server = http.createServer(async (req, res) => {
