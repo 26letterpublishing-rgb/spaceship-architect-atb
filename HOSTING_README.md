@@ -1,44 +1,31 @@
-# Spaceship Architect ATB Sync Hosting Notes
+# Spaceship Architect Campaign Hosting Notes
 
-This prototype can be hosted online so phones can connect from any network.
+The application now supports multiple permanent campaign codes. Each campaign keeps its roster, character sheets, GM script, shared credits, private notes, roll requests, and current ATB encounter separate from every other campaign.
 
-## Current Scope
+## Local Testing
 
-- One shared room per running server.
-- Character Speed only.
-- ATB fills from 0% to 100%.
-- Speed is percent filled per second. Example: Speed 5 fills 5% per second and acts in about 20 seconds.
-- No starships, recovery frames, cooldowns, login accounts, or permanent storage yet.
-- If the hosting service restarts or sleeps, the encounter resets.
+Run `START ATB MULTIPLAYER SERVER.cmd` and open the local address it displays. Local testing stores campaigns in `data/campaigns.json`. Encounter clocks restore in a hard-paused state after a restart so no time advances while the server is offline.
 
-## Recommended First Host: Render
+## Hosted Setup
 
-Render is a good first test because this app is a small Node web service.
+1. Upload the contents of `sa-atb-multiplayer` to the GitHub repository.
+2. Keep the Render Web Service connected to that repository.
+3. Use `npm install` as the Build Command and `npm start` as the Start Command.
+4. Attach a PostgreSQL database and add its connection string to the Web Service as an environment variable named `DATABASE_URL`.
+5. Deploy the latest commit.
 
-High-level steps:
+The server's startup log and `/ping` page report either `postgres` or `local-file` storage. A hosted public playtest should report `postgres`.
 
-1. Put the `sa-atb-multiplayer` folder in a GitHub repository.
-2. Create a Render account.
-3. Choose `New` > `Web Service`.
-4. Connect the GitHub repository.
-5. If Render asks for the root directory, use:
-   `sa-atb-multiplayer`
-6. Use these settings:
-   - Runtime: `Node`
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-7. Deploy.
-8. Render will give you an internet URL ending in `onrender.com`.
+## Important Storage Warning
 
-Players open that hosted URL on their phones. The GM opens the same URL and chooses GM View.
+Without `DATABASE_URL`, the app falls back to a local JSON file so it remains easy to test on one computer. Files created inside a typical hosted Web Service are temporary and may disappear after a redeploy or service replacement. Do not treat hosted campaign data as permanent until `/ping` reports `Campaign storage: postgres`.
 
-## Important Limitation
+## Current Access Model
 
-This is not yet a finished Jackbox-style room system. Right now, everyone who opens the hosted URL joins the same shared encounter. That is fine for one private playtest group, but later we should add:
-
-- Real room codes.
-- GM-created rooms.
-- Player reconnect.
-- Basic room passwords.
-- Separate player-private information.
-- A way to recover if the host restarts.
+- Campaign codes are four characters during private playtesting.
+- GMs open a campaign with its code and GM password.
+- Players may view every character in the campaign.
+- A four-digit character PIN is required to edit a character, spend Experience, join the ATB as that character, or transfer credits.
+- The GM can see all character PINs and directly edit every sheet.
+- There is no password recovery yet. Keep the GM password somewhere secure.
+- Imported characters require GM approval; characters created inside the campaign do not.

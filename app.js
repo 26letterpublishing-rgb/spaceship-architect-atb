@@ -23,6 +23,19 @@ let ringMovedTimeout = null;
 let delayModalState = null;
 let queuedEffectModalState = null;
 let npcDefaultBag = [];
+const startupParams = new URLSearchParams(window.location.search);
+const embeddedGm = startupParams.get("embedded") === "gm";
+const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
+let campaignState = null;
+let campaignEvents = null;
+let campaignCharacterId = localStorage.getItem("sa-atb-campaign-character-id") || "";
+let campaignCharacterToken = "";
+let gmCampaignToken = "";
+if (embeddedGm && /^[A-Z0-9]{4}$/.test(requestedCampaignCode)) {
+  mode = "gm";
+  currentRoomCode = requestedCampaignCode;
+  gmCampaignToken = localStorage.getItem(`sa-gm-token-${requestedCampaignCode}`) || "";
+}
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
 const ICON_MAX_SIZE = 192;
@@ -104,6 +117,10 @@ function forgetSavedRoom() {
   if (events) {
     events.close();
     events = null;
+  }
+  if (campaignEvents) {
+    campaignEvents.close();
+    campaignEvents = null;
   }
   localStorage.removeItem("sa-atb-room-code");
   localStorage.removeItem("sa-atb-unit-id");
@@ -223,6 +240,12 @@ const cancelQueuedEffectDialog = document.querySelector("#cancelQueuedEffectDial
 const confirmQueuedEffectDialog = document.querySelector("#confirmQueuedEffectDialog");
 const gmPanicPause = document.querySelector("#gmPanicPause");
 const visualModeToggle = document.querySelector("#visualModeToggle");
+const campaignCharacterPicker = document.querySelector("#campaignCharacterPicker");
+const campaignCharacterPin = document.querySelector("#campaignCharacterPin");
+const campaignCharacterStatus = document.querySelector("#campaignCharacterStatus");
+const gmAlarmAudio = new Audio("alarm-noise.mp4");
+gmAlarmAudio.preload = "auto";
+gmAlarmAudio.volume = 0.72;
 
 function savedCharacterAtbColor() {
   try {
@@ -308,6 +331,14 @@ function purchasedBoxes(rows) {
 }
 
 function calculatedPcStats() {
+  const selected = campaignState?.characters?.find((entry) => entry.id === campaignCharacterPicker?.value);
+  const computed = selected?.character?.computed;
+  if (computed && Number.isFinite(Number(computed.speed)) && Number.isFinite(Number(computed.commandWindow))) {
+    return {
+      speed: Math.max(0.1, Number(computed.speed)),
+      commandWindow: Math.max(1, Number(computed.commandWindow)),
+    };
+  }
   const perceptionBoxes = purchasedBoxes(pcBuild.perception);
   const intellectBoxes = purchasedBoxes(pcBuild.intellect);
   const awareness = clampSkill(awarenessSkill.value);
@@ -315,7 +346,85 @@ function calculatedPcStats() {
   return {
     speed: Math.max(1, intellectBoxes + initiative),
     commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 30),
-  };
+  }
+
+function campaignTokenKey(code, characterId) {
+  return `sa-character-token-${String(code || "").toUpperCase()}-${characterId}`;
+}
+
+function selectedCampaignCharacter() {
+  return campaignState?.characters?.find((entry) => entry.id === campaignCharacterPicker?.value) || null;
+}
+
+function characterDisplayName(record) {
+  return record?.character?.identity?.characterName || "Unnamed Character";
+}
+
+function characterPlayerName(record) {
+  return record?.character?.identity?.playerName || "Player";
+}
+
+async function campaignRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Campaign request failed.");
+  return data;
+}
+
+function renderCampaignCharacterPicker() {
+  if (!campaignCharacterPicker) return;
+  const available = (campaignState?.characters || []).filter((entry) => entry.approved !== false);
+  campaignCharacterPicker.innerHTML = available.length
+    ? available.map((entry) => `<option value="${entry.id}">${escapeHtml(characterDisplayName(entry))} - ${escapeHtml(characterPlayerName(entry))}</option>`).join("")
+    : '<option value="">No campaign characters yet</option>';
+  const preferred = available.some((entry) => entry.id === campaignCharacterId) ? campaignCharacterId : available[0]?.id || "";
+  campaignCharacterPicker.value = preferred;
+  syncCampaignCharacterSelection();
+}
+
+function syncCampaignCharacterSelection() {
+  const record = selectedCampaignCharacter();
+  if (!record) {
+    playerName.value = "";
+    characterName.value = "";
+    campaignCharacterStatus.textContent = "Create a character from the Characters screen first.";
+    joinPlayer.disabled = true;
+    renderPcBuilder();
+    return;
+  }
+  playerName.value = characterPlayerName(record);
+  characterName.value = characterDisplayName(record);
+  const color = record.character?.presentation?.atbColor;
+  if (/^#[0-9a-f]{6}$/i.test(color)) playerColor.value = color;
+  selectedCharacterIcon = record.character?.presentation?.portrait || iconForCharacter(characterName.value) || "";
+  const stats = calculatedPcStats();
+  campaignCharacterStatus.textContent = `${stats.speed}% Speed / ${stats.commandWindow} sec Command Window`;
+  joinPlayer.disabled = false;
+  renderPcBuilder();
+}
+
+async function loadCampaignForEncounter(code) {
+  const normalized = String(code || "").trim().toUpperCase();
+  const data = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}`);
+  campaignState = data;
+  currentRoomCode = normalized;
+  renderCampaignCharacterPicker();
+  return data;
+}
+
+function connectCampaignEvents() {
+  campaignEvents?.close();
+  if (!currentRoomCode) return;
+  const token = mode === "gm" ? gmCampaignToken : campaignCharacterToken;
+  campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(token || "")}`);
+  campaignEvents.addEventListener("campaign", (event) => {
+    campaignState = JSON.parse(event.data);
+    if (mode === "join") renderCampaignCharacterPicker();
+  });
+};
 }
 
 function renderDiceGrid(statName, grid) {
@@ -1246,7 +1355,13 @@ async function action(payload, soundName = "tap") {
     response = await fetch("/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, roomCode: currentRoomCode }),
+      body: JSON.stringify({
+        ...payload,
+        roomCode: currentRoomCode,
+        gmToken: mode === "gm" ? gmCampaignToken : undefined,
+        characterToken: mode === "player" || payload.controlledBy === "player" ? campaignCharacterToken : undefined,
+        characterId: payload.characterId || (mode === "player" ? campaignCharacterId : undefined),
+      }),
     });
   } catch {
     setConnected(false, "Cannot reach the ATB room server. Check the connection, then try again.");
@@ -1287,6 +1402,7 @@ function setRoom(nextState) {
   currentRoomCode = state.roomCode;
   safeLocalStorageSet("sa-atb-room-code", currentRoomCode);
   connectEvents();
+  connectCampaignEvents();
 }
 
 function connectEvents() {
@@ -1712,6 +1828,11 @@ function renderActivePanel() {
 }
 
 function renderRejoinOptions() {
+  if (campaignState) {
+    rejoinBlock.classList.add("hidden");
+    rejoinSelect.innerHTML = "";
+    return;
+  }
   const options = state.units.filter((unit) => unit.controlledBy === "player");
   rejoinBlock.classList.toggle("hidden", mode !== "join" || options.length === 0);
   rejoinSelect.innerHTML = options
@@ -1823,9 +1944,8 @@ function playGmSound(name = "tap") {
       return;
     }
     if (name === "firstStart") {
-      const alarm = new Audio("alarm-noise.mp4");
-      alarm.volume = 0.72;
-      alarm.play().catch(() => {
+      gmAlarmAudio.currentTime = 0;
+      gmAlarmAudio.play().catch(() => {
         tone(180, 0, 0.18, 0.055, "sawtooth");
         tone(360, 0.2, 0.18, 0.052, "sawtooth");
         tone(720, 0.42, 0.2, 0.046, "square");
@@ -2202,6 +2322,29 @@ function clearRingDrag() {
 
 joinPlayer.addEventListener("click", async () => {
   enablePlayerAlerts();
+  const selected = selectedCampaignCharacter();
+  if (!selected) return;
+  let unlocked;
+  try {
+    unlocked = await campaignRequest("/api/campaign/character/unlock", {
+      method: "POST",
+      body: JSON.stringify({
+        code: currentRoomCode,
+        characterId: selected.id,
+        pin: campaignCharacterPin.value,
+      }),
+    });
+  } catch (error) {
+    campaignCharacterStatus.textContent = error.message;
+    campaignCharacterStatus.classList.add("error");
+    return;
+  }
+  campaignCharacterStatus.classList.remove("error");
+  campaignCharacterId = selected.id;
+  campaignCharacterToken = unlocked.token;
+  safeLocalStorageSet("sa-atb-campaign-character-id", campaignCharacterId);
+  safeLocalStorageSet(campaignTokenKey(currentRoomCode, campaignCharacterId), campaignCharacterToken);
+  connectCampaignEvents();
   const pcStats = calculatedPcStats();
   const next = await action({
     action: "join",
@@ -2213,9 +2356,10 @@ joinPlayer.addEventListener("click", async () => {
     controlledBy: "player",
     team: "pc",
     actorType: "character",
+    characterId: selected.id,
   });
   if (!next) return;
-  const unit = next.units[next.units.length - 1];
+  const unit = next.units.find((entry) => entry.characterId === selected.id) || next.units[next.units.length - 1];
   myUnitId = unit.id;
   safeLocalStorageSet("sa-atb-unit-id", myUnitId);
   visualMode = "bars";
@@ -2224,26 +2368,7 @@ joinPlayer.addEventListener("click", async () => {
 });
 
 createRoom.addEventListener("click", async () => {
-  let response;
-  try {
-    response = await fetch("/api/create-room", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-  } catch {
-    setConnected(false, "Cannot reach the ATB room server. Try again in a moment.");
-    return;
-  }
-  if (!response.ok) {
-    setConnected(false, "Could not create a room. Try again in a moment.");
-    return;
-  }
-  setRoom(await response.json());
-  myUnitId = "";
-  localStorage.removeItem("sa-atb-unit-id");
-  visualMode = "bars";
-  setMode("gm");
+  window.location.href = "gm.html";
 });
 
 showJoinRoom.addEventListener("click", () => setMode("roomJoin"));
@@ -2256,6 +2381,7 @@ confirmJoinRoom.addEventListener("click", async () => {
   if (!code) return;
   let response;
   try {
+    await loadCampaignForEncounter(code);
     response = await fetch(`/api/state?room=${encodeURIComponent(code)}`);
   } catch {
     setConnected(false, "Cannot reach the ATB room server. Check the room code or try again.");
@@ -2268,6 +2394,7 @@ confirmJoinRoom.addEventListener("click", async () => {
   setRoom(await response.json());
   visualMode = "bars";
   setMode("join");
+  renderCampaignCharacterPicker();
 });
 openGm.addEventListener("click", () => setMode("welcome"));
 rejoinPlayer.addEventListener("click", () => {
@@ -2276,6 +2403,11 @@ rejoinPlayer.addEventListener("click", () => {
   safeLocalStorageSet("sa-atb-unit-id", myUnitId);
   visualMode = "bars";
   setMode("player");
+});
+campaignCharacterPicker?.addEventListener("change", syncCampaignCharacterSelection);
+campaignCharacterPin?.addEventListener("input", () => {
+  campaignCharacterPin.value = campaignCharacterPin.value.replace(/\D/g, "").slice(0, 4);
+  campaignCharacterStatus.classList.remove("error");
 });
 
 function pressGmClockButton(event) {
@@ -2520,6 +2652,18 @@ renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
+
+if (embeddedGm && currentRoomCode) {
+  document.body.classList.add("embedded-gm");
+  fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
+    .then((response) => response.ok ? response.json() : Promise.reject(new Error("Campaign encounter unavailable")))
+    .then((nextState) => {
+      setRoom(nextState);
+      visualMode = "bars";
+      setMode("gm");
+    })
+    .catch(() => setConnected(false, "Open this campaign again from the GM Control Panel."));
+}
 
 if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
   fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)

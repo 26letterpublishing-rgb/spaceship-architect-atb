@@ -14,9 +14,9 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260730-character-17";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260730-character-17";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260730-character-17";
+} from "./character-data.js?v=20260801-campaign-2";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260801-campaign-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260801-campaign-2";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -146,6 +146,53 @@ const dom = {
   rerollSkillCheck: $("#rerollSkillCheck"),
   exitSkillResult: $("#exitSkillResult"),
   rollResultToast: $("#rollResultToast"),
+  campaignGate: $("#characterCampaignGate"),
+  campaignForm: $("#characterCampaignForm"),
+  campaignCode: $("#characterCampaignCode"),
+  campaignMessage: $("#characterCampaignMessage"),
+  campaignLobby: $("#campaignRosterLobby"),
+  lobbyCampaignCode: $("#lobbyCampaignCode"),
+  lobbyCampaignName: $("#lobbyCampaignName"),
+  campaignRosterCards: $("#campaignRosterCards"),
+  createCampaignCharacter: $("#createCampaignCharacter"),
+  importCampaignCharacter: $("#importCampaignCharacter"),
+  characterWorkspace: $("#characterWorkspace"),
+  campaignAccessBar: $("#campaignAccessBar"),
+  activeCampaignLabel: $("#activeCampaignLabel"),
+  campaignAccessRole: $("#campaignAccessRole"),
+  unlockCampaignCharacter: $("#unlockCampaignCharacter"),
+  openPrivateNotes: $("#openPrivateNotes"),
+  privateNoteCount: $("#privateNoteCount"),
+  openCampaignBank: $("#openCampaignBank"),
+  campaignBankSummary: $("#campaignBankSummary"),
+  showCharacterPin: $("#showCharacterPin"),
+  returnToCampaignRoster: $("#returnToCampaignRoster"),
+  campaignPinModal: $("#campaignPinModal"),
+  campaignPinTitle: $("#campaignPinTitle"),
+  campaignPinMessage: $("#campaignPinMessage"),
+  campaignPinDisplay: $("#campaignPinDisplay"),
+  campaignPinEntryWrap: $("#campaignPinEntryWrap"),
+  campaignPinEntry: $("#campaignPinEntry"),
+  campaignPinCancel: $("#campaignPinCancel"),
+  campaignPinConfirm: $("#campaignPinConfirm"),
+  privateNotesModal: $("#privateNotesModal"),
+  privateNotesList: $("#privateNotesList"),
+  closePrivateNotes: $("#closePrivateNotes"),
+  campaignBankModal: $("#campaignBankModal"),
+  bankPersonalCredits: $("#bankPersonalCredits"),
+  bankShipCredits: $("#bankShipCredits"),
+  bankAuthority: $("#bankAuthority"),
+  bankOperation: $("#bankOperation"),
+  bankTargetWrap: $("#bankTargetWrap"),
+  bankTarget: $("#bankTarget"),
+  bankAmount: $("#bankAmount"),
+  bankCancel: $("#bankCancel"),
+  bankConfirm: $("#bankConfirm"),
+  campaignRollPrompt: $("#campaignRollPrompt"),
+  campaignRollPromptTitle: $("#campaignRollPromptTitle"),
+  campaignRollPromptDifficulty: $("#campaignRollPromptDifficulty"),
+  openCampaignRoll: $("#openCampaignRoll"),
+  skillDiceResults: $("#skillDiceResults"),
 };
 
 let characterAudioContext = null;
@@ -292,6 +339,20 @@ let speedPreviewFrame = null;
 let speedPreviewStartedAt = performance.now();
 let speedPreviewValue = null;
 let speedPreviewCharacterId = null;
+let campaignCode = "";
+let campaignState = null;
+let campaignEvents = null;
+let campaignCharacterId = "";
+let campaignToken = "";
+let campaignPin = "";
+let campaignEditable = false;
+let campaignDirty = false;
+let campaignSaving = false;
+let campaignSaveTimer = null;
+let suppressCampaignSave = false;
+let pinModalMode = "display";
+let pendingPinCharacterId = "";
+let activeCampaignRollRequest = null;
 
 function showRollResultToast(message) {
   if (!dom.rollResultToast) return;
@@ -618,10 +679,21 @@ let character = library.find((entry) => entry.id === activeId) || library[0];
 
 function saveLibrary(message = "Saved locally") {
   character.updatedAt = new Date().toISOString();
+  const computed = derivedValues();
+  character.computed = {
+    speed: computed.speed,
+    commandWindow: computed.command,
+    maximumHp: maximumHp(),
+    moveSpeed: calculatedMoveSpeed(),
+  };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
   localStorage.setItem(ACTIVE_KEY, activeId);
-  dom.saveStatus.textContent = message;
+  dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
   dom.saveStatus.classList.remove("saving");
+  if (campaignCode && campaignCharacterId && campaignEditable && !suppressCampaignSave) {
+    campaignDirty = true;
+    queueCampaignCharacterSave();
+  }
 }
 
 function queueSave() {
@@ -629,6 +701,252 @@ function queueSave() {
   dom.saveStatus.classList.add("saving");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveLibrary(), 160);
+}
+
+function campaignTokenKey(code, characterId) {
+  return `sa-character-token-${String(code || "").toUpperCase()}-${characterId}`;
+}
+
+async function campaignRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Campaign request failed.");
+  return data;
+}
+
+function campaignCharacterName(record) {
+  return record?.character?.identity?.characterName || "Unnamed Character";
+}
+
+function campaignPlayerName(record) {
+  return record?.character?.identity?.playerName || "Player";
+}
+
+function queueCampaignCharacterSave() {
+  clearTimeout(campaignSaveTimer);
+  campaignSaveTimer = setTimeout(saveCampaignCharacter, 280);
+}
+
+async function saveCampaignCharacter() {
+  if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return;
+  campaignSaving = true;
+  campaignDirty = false;
+  try {
+    await campaignRequest("/api/campaign/character/save", {
+      method: "POST",
+      body: JSON.stringify({
+        code: campaignCode,
+        token: campaignToken,
+        characterId: campaignCharacterId,
+        character,
+      }),
+    });
+    dom.saveStatus.textContent = "Saved to campaign";
+    dom.saveStatus.classList.remove("saving");
+  } catch (error) {
+    campaignDirty = true;
+    dom.saveStatus.textContent = error.message;
+    dom.saveStatus.classList.add("saving");
+  } finally {
+    campaignSaving = false;
+    if (campaignDirty) queueCampaignCharacterSave();
+  }
+}
+
+function renderCampaignRoster() {
+  if (!campaignState) return;
+  dom.lobbyCampaignCode.textContent = campaignState.code;
+  dom.lobbyCampaignName.textContent = campaignState.name;
+  const records = campaignState.characters || [];
+  dom.campaignRosterCards.innerHTML = records.length ? records.map((record) => {
+    const name = campaignCharacterName(record);
+    const player = campaignPlayerName(record);
+    const pending = record.approved === false ? '<span class="campaign-approval">Awaiting GM approval</span>' : "";
+    return `<article class="campaign-character-card" style="--character-color:${escapeAttribute(record.character?.presentation?.atbColor || "#39e58f")}">
+      <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong>${pending}</div>
+      <div class="campaign-character-card-actions">
+        <button type="button" data-campaign-view="${record.id}">View Sheet</button>
+        <button type="button" class="primary-action" data-campaign-edit="${record.id}">Enter PIN / Edit</button>
+      </div>
+    </article>`;
+  }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
+  dom.campaignLobby.hidden = false;
+}
+
+function applyCampaignPermissions() {
+  if (!campaignCode) return;
+  const editable = campaignEditable;
+  dom.campaignAccessRole.textContent = editable ? (campaignState?.role === "gm" ? "GM EDIT" : "UNLOCKED") : "VIEW ONLY";
+  dom.unlockCampaignCharacter.hidden = editable;
+  dom.showCharacterPin.hidden = !editable || !campaignPin;
+  document.querySelectorAll("#characterSheet input, #characterSheet textarea, #characterSheet select, #characterSheet button, .workflow-bar button, .experience-panel button").forEach((control) => {
+    if (control.closest("#campaignAccessBar")) return;
+    if (!editable) control.disabled = true;
+  });
+  document.body.classList.toggle("campaign-view-only", !editable);
+}
+
+function showCampaignCharacter(record, { editable = false, token = "", pin = "" } = {}) {
+  suppressCampaignSave = true;
+  const opened = normalizeCharacter(deepCopy(record.character || {}));
+  opened.id = record.id;
+  library = [opened];
+  activeId = opened.id;
+  character = opened;
+  campaignCharacterId = record.id;
+  campaignToken = token || "";
+  campaignPin = pin || record.pin || "";
+  campaignEditable = editable;
+  campaignDirty = false;
+  localStorage.setItem(ACTIVE_KEY, activeId);
+  if (campaignToken) localStorage.setItem(campaignTokenKey(campaignCode, campaignCharacterId), campaignToken);
+  dom.campaignGate.hidden = true;
+  dom.characterWorkspace.hidden = false;
+  dom.campaignAccessBar.hidden = false;
+  dom.activeCampaignLabel.textContent = `${campaignState.name} / ${campaignCode}`;
+  dom.characterPicker.closest(".library-bar").hidden = true;
+  renderAll();
+  applyCampaignPermissions();
+  refreshPrivateNotes();
+  renderCampaignBank();
+  refreshCampaignRollPrompt();
+  suppressCampaignSave = false;
+}
+
+function showPinDisplay({ title = "Character PIN", message = "Keep this PIN. It is required to edit this character and spend Experience." } = {}) {
+  pinModalMode = "display";
+  dom.campaignPinTitle.textContent = title;
+  dom.campaignPinMessage.textContent = message;
+  dom.campaignPinDisplay.textContent = campaignPin || "----";
+  dom.campaignPinDisplay.hidden = false;
+  dom.campaignPinEntryWrap.hidden = true;
+  dom.campaignPinCancel.hidden = true;
+  dom.campaignPinConfirm.textContent = "Continue";
+  dom.campaignPinModal.hidden = false;
+}
+
+function showPinEntry(characterId) {
+  pinModalMode = "unlock";
+  pendingPinCharacterId = characterId;
+  dom.campaignPinTitle.textContent = "Unlock Character";
+  dom.campaignPinMessage.textContent = "Enter this character's four-digit PIN to edit the sheet and spend Experience.";
+  dom.campaignPinDisplay.hidden = true;
+  dom.campaignPinEntryWrap.hidden = false;
+  dom.campaignPinEntry.value = "";
+  dom.campaignPinCancel.hidden = false;
+  dom.campaignPinConfirm.textContent = "Unlock Character";
+  dom.campaignPinModal.hidden = false;
+  setTimeout(() => dom.campaignPinEntry.focus(), 60);
+}
+
+function refreshPrivateNotes() {
+  if (!campaignState || !campaignCharacterId) return;
+  const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
+  const notes = record?.privateNotes || [];
+  const unread = notes.filter((note) => !note.readAt).length;
+  dom.privateNoteCount.textContent = String(unread);
+  dom.openPrivateNotes.classList.toggle("has-unread", unread > 0);
+  dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="private-note ${note.readAt ? "read" : "unread"}" data-note-id="${note.id}">
+    <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p><button type="button" data-delete-note="${note.id}">Delete</button>
+  </article>`).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
+}
+
+function renderCampaignBank() {
+  if (!campaignState || !campaignCharacterId) return;
+  const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
+  const personal = Math.round(Number(record?.character?.resources?.creditsBase) || 0);
+  const pool = Math.round(Number(campaignState.shipCredits) || 0);
+  const banker = campaignState.characters.find((entry) => entry.id === campaignState.bankerCharacterId);
+  const mayUsePool = campaignState.role === "gm" || !campaignState.bankerCharacterId || campaignState.bankerCharacterId === campaignCharacterId;
+  dom.campaignBankSummary.textContent = pool.toLocaleString();
+  dom.bankPersonalCredits.textContent = personal.toLocaleString();
+  dom.bankShipCredits.textContent = pool.toLocaleString();
+  dom.bankAuthority.textContent = banker
+    ? `${campaignCharacterName(banker)} is the campaign banker.${mayUsePool ? " You may transfer Ship Pool credits." : " You may still give personal credits directly."}`
+    : "No banker is assigned. Any unlocked character may transfer Ship Credit Pool funds.";
+  dom.bankTarget.innerHTML = campaignState.characters.filter((entry) => entry.id !== campaignCharacterId).map((entry) => `<option value="${entry.id}">${escapeHtml(campaignCharacterName(entry))}</option>`).join("");
+  const poolRestricted = !mayUsePool && ["deposit", "withdraw", "giftShip"].includes(dom.bankOperation.value);
+  dom.bankConfirm.disabled = !campaignEditable || poolRestricted;
+  dom.bankConfirm.textContent = !campaignEditable ? "Enter PIN to Transfer" : poolRestricted ? "Banker Authorization Required" : "Confirm Transfer";
+  dom.bankTargetWrap.hidden = !["giftPersonal", "giftShip"].includes(dom.bankOperation.value);
+}
+
+function currentOpenRollRequest() {
+  if (!campaignState || !campaignCharacterId) return null;
+  return [...(campaignState.rollRequests || [])].reverse().find((request) => !request.closedAt && request.targetIds.includes(campaignCharacterId) && !request.results?.[campaignCharacterId]) || null;
+}
+
+function refreshCampaignRollPrompt() {
+  activeCampaignRollRequest = currentOpenRollRequest();
+  dom.campaignRollPrompt.hidden = !activeCampaignRollRequest || character.phase !== "finalized";
+  if (!activeCampaignRollRequest) return;
+  dom.campaignRollPromptTitle.textContent = `${activeCampaignRollRequest.attribute} + ${activeCampaignRollRequest.skill}`;
+  dom.campaignRollPromptDifficulty.textContent = activeCampaignRollRequest.hideDifficulty
+    ? "Difficulty hidden by GM"
+    : activeCampaignRollRequest.difficulty === null ? "No Difficulty" : `Difficulty ${activeCampaignRollRequest.difficulty}`;
+}
+
+function receiveCampaignState(nextState) {
+  campaignState = nextState;
+  if (!campaignCharacterId) {
+    renderCampaignRoster();
+    return;
+  }
+  const remote = nextState.characters.find((entry) => entry.id === campaignCharacterId);
+  if (!remote) {
+    dom.characterWorkspace.hidden = true;
+    dom.campaignGate.hidden = false;
+    renderCampaignRoster();
+    return;
+  }
+  if (!campaignEditable && !campaignDirty) {
+    suppressCampaignSave = true;
+    character = normalizeCharacter(deepCopy(remote.character));
+    character.id = remote.id;
+    library = [character];
+    activeId = character.id;
+    renderAll();
+    applyCampaignPermissions();
+    suppressCampaignSave = false;
+  } else if (campaignEditable && !campaignDirty && !campaignSaving) {
+    const remoteRecordTime = Date.parse(remote.updatedAt || 0);
+    const localTime = Date.parse(character.updatedAt || 0);
+    if (remoteRecordTime > localTime + 50) {
+      suppressCampaignSave = true;
+      character = normalizeCharacter(deepCopy(remote.character));
+      character.id = remote.id;
+      library = [character];
+      activeId = character.id;
+      renderAll();
+      applyCampaignPermissions();
+      suppressCampaignSave = false;
+    }
+  }
+  refreshPrivateNotes();
+  renderCampaignBank();
+  refreshCampaignRollPrompt();
+}
+
+function connectCampaignState() {
+  campaignEvents?.close();
+  if (!campaignCode) return;
+  campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
+  campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
+  campaignEvents.addEventListener("error", () => { dom.saveStatus.textContent = "Reconnecting to campaign..."; });
+}
+
+async function loadCampaign(code, token = "") {
+  const normalized = String(code || "").trim().toUpperCase();
+  const state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
+  campaignCode = normalized;
+  campaignToken = token;
+  campaignState = state;
+  localStorage.setItem("sa-character-campaign-code", campaignCode);
+  connectCampaignState();
+  return state;
 }
 
 function snapshotRecovery(reason) {
@@ -1440,7 +1758,7 @@ function renderSkillAttributeChoices() {
 }
 
 function openSkillCheck(skillKey) {
-  if (character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
+  if ((campaignCode && !campaignEditable) || character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
   const resolved = resolveSkill(character, skillKey);
   if (!resolved) return;
   skillCheck = {
@@ -1496,7 +1814,7 @@ function commitSkillCheckCosts() {
   return true;
 }
 
-function showSkillResult({ score, equation, outcome, newFusions = [], manual = false }) {
+function showSkillResult({ score, equation, outcome, newFusions = [], manual = false, diceResults = [] }) {
   if (!skillCheck) return;
   skillCheck.result = score;
   skillCheck.newFusions = newFusions;
@@ -1510,6 +1828,12 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultEquation.textContent = equation;
   dom.skillResultOutcome.textContent = outcome;
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
+  const resultSides = skillCheck.currentRollSides || [];
+  dom.skillDiceResults.textContent = manual
+    ? "Manual roll"
+    : diceResults.length
+      ? `Dice: ${diceResults.map((result, index) => `D${resultSides[index] || "?"}=${result}`).join(" | ")}`
+      : "No Attribute dice";
   const allFusions = [...skillCheck.preservedFusions.map((fusion) => ({ ...fusion, locked: true })), ...newFusions];
   dom.skillFusionResults.hidden = manual || allFusions.length === 0;
   dom.skillFusionChoices.innerHTML = allFusions.map((fusion) => `
@@ -1523,7 +1847,33 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.rerollSkillCheck.textContent = character.resources.reverence >= 2
     ? "Spend 2 Reverence to Reroll"
     : "2 Reverence Required";
+  submitCampaignRollResult({ score, outcome, manual, diceResults });
 }
+
+async function submitCampaignRollResult({ score, outcome, manual, diceResults }) {
+  const requestId = skillCheck?.campaignRequestId;
+  if (!requestId || !campaignCode || !campaignCharacterId || !campaignToken || skillCheck.campaignSubmitted) return;
+  skillCheck.campaignSubmitted = true;
+  try {
+    await campaignRequest("/api/campaign/roll/respond", {
+      method: "POST",
+      body: JSON.stringify({
+        code: campaignCode,
+        token: campaignToken,
+        requestId,
+        characterId: campaignCharacterId,
+        score,
+        outcome,
+        mode: manual ? "manual" : "automatic",
+        diceResults,
+      }),
+    });
+    notice("Roll result sent to the GM.", "success");
+  } catch (error) {
+    skillCheck.campaignSubmitted = false;
+    notice(error.message, "error");
+  }
+ }
 
 function renderFusionSelectionState() {
   if (!skillCheck) return;
@@ -1569,6 +1919,7 @@ function resolvePhysicalSkillRoll(results) {
     equation: equationParts.join(" | "),
     outcome,
     newFusions: analyzed.fusions,
+    diceResults: results,
   });
 }
 
@@ -1589,6 +1940,7 @@ function calculateManualSkillResult() {
     equation: `Manual Final Score${committed}`,
     outcome,
     manual: true,
+    diceResults: [],
   });
 }
 
@@ -1940,21 +2292,21 @@ let identityRevealToken = 0;
 async function playFinalizedIdentityReveal() {
   const token = ++identityRevealToken;
   const name = (character.identity.characterName || "Unnamed Character").toUpperCase();
+  const color = character.presentation?.atbColor || "#39e58f";
   dom.identityPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
-  await new Promise((resolve) => setTimeout(resolve, 360));
+  await new Promise((resolve) => setTimeout(resolve, 620));
   if (token !== identityRevealToken) return;
-  dom.identityCallsign.textContent = "";
+  dom.identityPanel.style.setProperty("--identity-atb-color", color);
+  dom.identityCallsign.style.setProperty("--identity-atb-color", color);
+  dom.identityCallsign.innerHTML = [...name].map((letter, index) => `<span class="identity-name-letter" style="--letter-index:${index};--letter-direction:${index % 2 ? -1 : 1}">${letter === " " ? "&nbsp;" : escapeHtml(letter)}</span>`).join("");
   dom.identityCallsign.classList.add("finalized-name", "name-revealing");
-  for (const letter of name) {
-    if (token !== identityRevealToken) return;
-    dom.identityCallsign.textContent += letter;
-    await new Promise((resolve) => setTimeout(resolve, letter === " " ? 45 : 82));
-  }
-  dom.identityCallsign.classList.remove("name-revealing");
+  await new Promise((resolve) => setTimeout(resolve, 3600));
+  if (token !== identityRevealToken) return;
   dom.identityCallsign.classList.add("name-reveal-complete");
-  window.setTimeout(() => {
-    if (token === identityRevealToken) dom.identityCallsign.classList.remove("name-reveal-complete");
-  }, 1500);
+  await new Promise((resolve) => setTimeout(resolve, 1800));
+  if (token !== identityRevealToken) return;
+  dom.identityCallsign.classList.remove("name-revealing", "name-reveal-complete");
+  dom.identityCallsign.textContent = name;
 }
 
 function applyResourceGrant(effects) {
@@ -1969,7 +2321,7 @@ function applyResourceGrant(effects) {
   if (effects.dramaCardsOnFinalize) character.resources.dramaCards += effects.dramaCardsOnFinalize;
 }
 
-function finishFinalization() {
+async function finishFinalization() {
   if (!character.creation.classGrantsApplied) {
     applyResourceGrant(rawClassEffects());
     character.creation.classGrantsApplied = true;
@@ -1988,7 +2340,37 @@ function finishFinalization() {
   saveLibrary("Character finalized");
   renderAll();
   notice("Character finalized. Advancement rules are now active.", "success");
-  playFinalizedIdentityReveal();
+  await playFinalizedIdentityReveal();
+  if (campaignCode && campaignPin) showPinDisplay({
+    title: "Character Finalized / Save Your PIN",
+    message: "This PIN unlocks advancement and future edits. The GM can also see it if you lose it.",
+  });
+}
+
+function campaignSkillKey(skillName) {
+  if (character.skills[skillName]) return skillKeyForBase(skillName);
+  const custom = character.customSkills.find((entry) => entry.name.trim().toLowerCase() === String(skillName).trim().toLowerCase());
+  return custom ? skillKeyForCustom(custom.id) : "";
+}
+
+function openRequestedCampaignRoll() {
+  const request = activeCampaignRollRequest;
+  if (!request) return;
+  const skillKey = campaignSkillKey(request.skill);
+  const attribute = ATTRIBUTE_DEFS.find((entry) => entry.label.toLowerCase() === String(request.attribute).toLowerCase());
+  if (!skillKey || !attribute) {
+    notice("This GM request references a Skill or Attribute that is not on this character sheet.", "error");
+    return;
+  }
+  openSkillCheck(skillKey);
+  if (!skillCheck) return;
+  skillCheck.campaignRequestId = request.id;
+  skillCheck.campaignSubmitted = false;
+  skillCheck.difficulty = request.hideDifficulty || request.difficulty === null ? "" : String(request.difficulty);
+  selectSkillAttribute(attribute.key);
+  dom.skillCheckSubtitle.textContent = request.hideDifficulty
+    ? "GM-requested roll. The Difficulty is hidden."
+    : "GM-requested roll. The result will be returned automatically.";
 }
 
 function processFinalization() {
@@ -2686,6 +3068,184 @@ dom.skillFusionChoices.addEventListener("click", (event) => {
   renderFusionSelectionState();
 });
 
+dom.characterCampaignForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const code = dom.campaignCode.value.trim().toUpperCase();
+  dom.campaignCode.value = code;
+  try {
+    await loadCampaign(code);
+    dom.campaignMessage.textContent = "";
+    renderCampaignRoster();
+  } catch (error) {
+    dom.campaignMessage.textContent = error.message;
+    dom.campaignLobby.hidden = true;
+  }
+});
+
+dom.campaignCode?.addEventListener("input", () => {
+  dom.campaignCode.value = dom.campaignCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+});
+
+dom.campaignRosterCards?.addEventListener("click", (event) => {
+  const view = event.target.closest("[data-campaign-view]");
+  const edit = event.target.closest("[data-campaign-edit]");
+  const recordId = view?.dataset.campaignView || edit?.dataset.campaignEdit;
+  if (!recordId) return;
+  const record = campaignState.characters.find((entry) => entry.id === recordId);
+  if (!record) return;
+  if (edit) {
+    const stored = localStorage.getItem(campaignTokenKey(campaignCode, recordId)) || "";
+    if (stored) {
+      loadCampaign(campaignCode, stored).then((state) => {
+        const owned = state.role === "character" && state.ownCharacterId === recordId;
+        if (owned) showCampaignCharacter(state.characters.find((entry) => entry.id === recordId), { editable: true, token: stored });
+        else showPinEntry(recordId);
+      }).catch(() => showPinEntry(recordId));
+    } else showPinEntry(recordId);
+    return;
+  }
+  showCampaignCharacter(record, { editable: false });
+});
+
+dom.createCampaignCharacter?.addEventListener("click", async () => {
+  if (!campaignCode) return;
+  try {
+    const created = await campaignRequest("/api/campaign/character/create", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, character: blankCharacter(), imported: false }),
+    });
+    campaignToken = created.token;
+    campaignPin = created.pin;
+    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    showCampaignCharacter(created.record, { editable: true, token: campaignToken, pin: campaignPin });
+    connectCampaignState();
+    showPinDisplay({ title: "New Character PIN", message: "Keep this PIN. It unlocks this character for editing and Experience spending." });
+  } catch (error) {
+    dom.campaignMessage.textContent = error.message;
+  }
+});
+
+dom.importCampaignCharacter?.addEventListener("change", async () => {
+  const file = dom.importCampaignCharacter.files?.[0];
+  if (!file || !campaignCode) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const source = parsed?.format === FORMAT_NAME ? parsed.character : parsed.character || parsed;
+    if (!source?.identity || !source?.attributes) throw new Error("That file does not contain a valid character.");
+    const imported = normalizeCharacter(source);
+    imported.id = uid();
+    const created = await campaignRequest("/api/campaign/character/create", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, character: imported, imported: true }),
+    });
+    campaignToken = created.token;
+    campaignPin = created.pin;
+    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    showCampaignCharacter(created.record, { editable: true, token: campaignToken, pin: campaignPin });
+    connectCampaignState();
+    showPinDisplay({ title: "Imported Character PIN", message: "This imported sheet can be edited now, but it must be approved by the GM before campaign play." });
+  } catch (error) {
+    dom.campaignMessage.textContent = error.message;
+  } finally {
+    dom.importCampaignCharacter.value = "";
+  }
+});
+
+dom.campaignPinEntry?.addEventListener("input", () => {
+  dom.campaignPinEntry.value = dom.campaignPinEntry.value.replace(/\D/g, "").slice(0, 4);
+});
+
+dom.campaignPinCancel?.addEventListener("click", () => { dom.campaignPinModal.hidden = true; });
+dom.campaignPinConfirm?.addEventListener("click", async () => {
+  if (pinModalMode === "display") {
+    dom.campaignPinModal.hidden = true;
+    return;
+  }
+  try {
+    const enteredPin = dom.campaignPinEntry.value;
+    const unlocked = await campaignRequest("/api/campaign/character/unlock", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, characterId: pendingPinCharacterId, pin: enteredPin }),
+    });
+    campaignToken = unlocked.token;
+    campaignPin = enteredPin;
+    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    dom.campaignPinModal.hidden = true;
+    showCampaignCharacter(unlocked.record, { editable: true, token: campaignToken, pin: campaignPin });
+    connectCampaignState();
+  } catch (error) {
+    dom.campaignPinMessage.textContent = error.message;
+    dom.campaignPinEntry.select();
+  }
+});
+
+dom.unlockCampaignCharacter?.addEventListener("click", () => showPinEntry(campaignCharacterId));
+dom.showCharacterPin?.addEventListener("click", () => showPinDisplay());
+dom.returnToCampaignRoster?.addEventListener("click", async () => {
+  await saveCampaignCharacter();
+  campaignCharacterId = "";
+  campaignEditable = false;
+  campaignPin = "";
+  dom.characterWorkspace.hidden = true;
+  dom.campaignGate.hidden = false;
+  renderCampaignRoster();
+});
+
+dom.openPrivateNotes?.addEventListener("click", async () => {
+  refreshPrivateNotes();
+  dom.privateNotesModal.hidden = false;
+  const record = campaignState?.characters.find((entry) => entry.id === campaignCharacterId);
+  const unread = (record?.privateNotes || []).filter((note) => !note.readAt);
+  if (campaignEditable && campaignToken && unread.length) {
+    await Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: note.id }),
+    }).catch(() => null)));
+  }
+});
+dom.closePrivateNotes?.addEventListener("click", () => { dom.privateNotesModal.hidden = true; });
+dom.privateNotesList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-delete-note]");
+  if (!button || !campaignEditable) return;
+  try {
+    await campaignRequest("/api/campaign/note/delete", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: button.dataset.deleteNote }),
+    });
+  } catch (error) { notice(error.message, "error"); }
+});
+
+dom.openCampaignBank?.addEventListener("click", () => {
+  renderCampaignBank();
+  dom.campaignBankModal.hidden = false;
+});
+dom.bankCancel?.addEventListener("click", () => { dom.campaignBankModal.hidden = true; });
+dom.bankOperation?.addEventListener("change", renderCampaignBank);
+dom.bankConfirm?.addEventListener("click", async () => {
+  if (!campaignEditable || dom.bankConfirm.disabled) return;
+  try {
+    await saveCampaignCharacter();
+    const payload = await campaignRequest("/api/campaign/credits/transfer", {
+      method: "POST",
+      body: JSON.stringify({
+        code: campaignCode,
+        token: campaignToken,
+        characterId: campaignCharacterId,
+        operation: dom.bankOperation.value,
+        targetCharacterId: dom.bankTarget.value || null,
+        amount: dom.bankAmount.value,
+      }),
+    });
+    receiveCampaignState(payload.campaign);
+    dom.campaignBankModal.hidden = true;
+    notice("Campaign credits transferred.", "success");
+  } catch (error) {
+    dom.bankAuthority.textContent = error.message;
+  }
+});
+
+dom.openCampaignRoll?.addEventListener("click", openRequestedCampaignRoll);
+
 dom.calculateManualSkill.addEventListener("click", calculateManualSkillResult);
 dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
 dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
@@ -2747,7 +3307,13 @@ dom.importCharacter.addEventListener("change", async () => {
 });
 
 dom.skillSearch.addEventListener("input", applySkillSearch);
-window.addEventListener("beforeunload", () => saveLibrary());
+window.addEventListener("beforeunload", () => {
+  saveLibrary();
+  if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
+    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, character });
+    navigator.sendBeacon?.("/api/campaign/character/save", new Blob([body], { type: "application/json" }));
+  }
+});
 
 if (migrationDetected) {
   library = [blankCharacter()];
@@ -2757,7 +3323,42 @@ if (migrationDetected) {
   localStorage.removeItem(RECOVERY_KEY);
 }
 
+async function initializeCharacterApp() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedCode = String(params.get("campaign") || localStorage.getItem("sa-character-campaign-code") || "").trim().toUpperCase();
+  const requestedCharacter = String(params.get("character") || "");
+  const gmAccess = params.get("gm") === "1";
+  dom.campaignCode.value = /^[A-Z0-9]{4}$/.test(requestedCode) ? requestedCode : "";
+  dom.characterWorkspace.hidden = true;
+  dom.campaignGate.hidden = false;
+  if (requestedCode && requestedCharacter) {
+    const token = gmAccess
+      ? localStorage.getItem(`sa-gm-token-${requestedCode}`) || ""
+      : localStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
+    try {
+      const state = await loadCampaign(requestedCode, token);
+      const record = state.characters.find((entry) => entry.id === requestedCharacter);
+      if (record) {
+        const editable = state.role === "gm" || (state.role === "character" && state.ownCharacterId === requestedCharacter);
+        showCampaignCharacter(record, { editable, token, pin: state.role === "gm" ? record.pin : "" });
+        if (editable && character.phase === "finalizing") window.setTimeout(processFinalization, 120);
+        else if (editable && character.pendingRoll) window.setTimeout(rollPending, 120);
+        return;
+      }
+    } catch (error) {
+      dom.campaignMessage.textContent = error.message;
+    }
+  }
+  if (requestedCode) {
+    try {
+      await loadCampaign(requestedCode);
+      renderCampaignRoster();
+    } catch (error) {
+      dom.campaignMessage.textContent = error.message;
+    }
+  }
+}
+
 renderAll();
 saveLibrary(migrationDetected ? "Old prototype characters cleared" : "Saved locally");
-if (character.phase === "finalizing") window.setTimeout(processFinalization, 120);
-else if (character.pendingRoll) window.setTimeout(rollPending, 120);
+initializeCharacterApp();

@@ -2,6 +2,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { CampaignStore } = require("./campaign-store");
+const { CampaignApi } = require("./campaign-api");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -9,6 +11,9 @@ const PUBLIC_DIR = __dirname;
 
 const rooms = new Map();
 const clients = new Map();
+const roomPersistTimers = new Map();
+const campaignStore = new CampaignStore();
+let campaignApi = null;
 let stateSequence = 0;
 const HEARTBEAT_MS = 25000;
 
@@ -23,9 +28,9 @@ function roomCode() {
   return code;
 }
 
-function createRoom() {
-  let code = roomCode();
-  while (rooms.has(code)) code = roomCode();
+function createRoom(requestedCode = "", snapshot = null) {
+  let code = String(requestedCode || "").trim().toUpperCase() || roomCode();
+  while (!requestedCode && rooms.has(code)) code = roomCode();
   const room = {
     roomCode: code,
     running: false,
@@ -51,15 +56,67 @@ function createRoom() {
     units: [],
     log: [],
     undoSnapshot: null,
+    lastPersistRequestAt: 0,
   };
+  if (snapshot && typeof snapshot === "object") {
+    room.running = Boolean(snapshot.running);
+    room.pausedForTurn = Boolean(snapshot.pausedForTurn);
+    room.resumeAfterTurn = Boolean(snapshot.resumeAfterTurn);
+    room.activeId = snapshot.activeId || null;
+    room.activeAction = clone(snapshot.activeAction);
+    room.activeSource = snapshot.activeSource || null;
+    room.commandDeadline = snapshot.commandRemaining === null || snapshot.commandRemaining === undefined
+      ? null
+      : Date.now() + Math.max(0, Number(snapshot.commandRemaining) || 0) * 1000;
+    room.commandTotal = Math.max(0, Number(snapshot.commandTotal) || 0);
+    room.commandExpired = Boolean(snapshot.commandExpired);
+    room.hardPaused = Boolean(snapshot.hardPaused);
+    room.holdPaused = Boolean(snapshot.holdPaused);
+    room.holdStartedAt = snapshot.holdPaused ? Date.now() : null;
+    room.commandHeldRemaining = snapshot.commandHeldRemaining === null || snapshot.commandHeldRemaining === undefined
+      ? null
+      : Math.max(0, Number(snapshot.commandHeldRemaining) || 0);
+    room.lastInterruptedId = snapshot.lastInterruptedId || null;
+    room.lastInterruptedAt = Number(snapshot.lastInterruptedAt) || 0;
+    room.delayRequest = clone(snapshot.delayRequest);
+    room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
+    room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
+    room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
+    room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
+    room.running = false;
+    room.hardPaused = true;
+  }
   rooms.set(code, room);
   clients.set(code, new Set());
-  pushLog(room, `Room ${code} created.`);
+  pushLog(room, snapshot ? `Campaign encounter ${code} restored in a paused state.` : `Room ${code} created.`);
   return room;
 }
 
 function getRoom(code) {
   return rooms.get(String(code || "").trim().toUpperCase());
+}
+
+async function ensureCampaignRoom(code) {
+  const normalized = String(code || "").trim().toUpperCase();
+  const existing = getRoom(normalized);
+  if (existing) return existing;
+  if (!campaignApi) return null;
+  const campaign = await campaignApi.campaign(normalized);
+  if (!campaign) return null;
+  return createRoom(normalized, campaign.encounter);
+}
+
+function scheduleRoomPersist(room, delay = 250) {
+  if (!campaignApi || !room?.roomCode) return;
+  clearTimeout(roomPersistTimers.get(room.roomCode));
+  roomPersistTimers.set(room.roomCode, setTimeout(async () => {
+    roomPersistTimers.delete(room.roomCode);
+    try {
+      await campaignApi.saveEncounter(room.roomCode, snapshotRoom(room));
+    } catch (error) {
+      console.error(`Could not persist encounter ${room.roomCode}:`, error.message);
+    }
+  }, delay));
 }
 
 function publicState(room) {
@@ -722,6 +779,10 @@ setInterval(() => {
         if (unit) pushLog(room, `${unit.characterName}'s Command Window expired.`);
       }
       broadcast(room);
+      if (Date.now() - room.lastPersistRequestAt >= 2000) {
+        room.lastPersistRequestAt = Date.now();
+        scheduleRoomPersist(room, 0);
+      }
       continue;
     }
     if (!room.running || room.pausedForTurn || room.holdPaused || room.hardPaused) continue;
@@ -731,6 +792,10 @@ setInterval(() => {
     room.lastTick = now;
     advanceSeconds(room, elapsed / 1000, { exact: true, source: "clock" });
     broadcast(room);
+    if (now - room.lastPersistRequestAt >= 2000) {
+      room.lastPersistRequestAt = now;
+      scheduleRoomPersist(room, 0);
+    }
   }
 }, 100);
 
@@ -811,7 +876,7 @@ async function handleAction(req, res) {
     return;
   }
 
-  const room = getRoom(body.roomCode);
+  const room = getRoom(body.roomCode) || await ensureCampaignRoom(body.roomCode);
   if (!room) {
     sendJson(res, 404, { error: "Room not found" });
     return;
@@ -819,10 +884,32 @@ async function handleAction(req, res) {
   migrateRoomDelays(room);
 
   const action = body.action;
+  const gmAuthorized = await campaignApi?.verifyGmAccess(room.roomCode, body.gmToken);
+  const playerUnit = body.id ? room.units.find((entry) => entry.id === body.id) : null;
+  const playerAuthorized = playerUnit?.characterId
+    && playerUnit.characterId === String(body.characterId || "")
+    && await campaignApi?.verifyCharacterAccess(room.roomCode, playerUnit.characterId, body.characterToken);
+  const joiningPlayer = action === "join" && body.controlledBy === "player";
+  if (joiningPlayer) {
+    const allowed = body.characterId && await campaignApi?.verifyCharacterAccess(room.roomCode, String(body.characterId), body.characterToken);
+    if (!allowed) {
+      sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
+      return;
+    }
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor"].includes(action) && body.id) {
+    if (!playerAuthorized && !gmAuthorized) {
+      sendJson(res, 403, { error: "Character or GM authorization is required." });
+      return;
+    }
+  } else if (!gmAuthorized) {
+    sendJson(res, 403, { error: "GM authorization is required for that encounter control." });
+    return;
+  }
   if (action === "undoLastTiming") {
     restoreUndoSnapshot(room);
     sendJson(res, 200, publicState(room));
     broadcast(room);
+    scheduleRoomPersist(room, 0);
     return;
   }
 
@@ -835,6 +922,24 @@ async function handleAction(req, res) {
     const characterName = String(body.characterName || "Character").trim().slice(0, 40);
     const speed = normalizeSpeed(body.speed);
     const commandWindow = normalizeCommandWindow(body.commandWindow);
+    const existingCampaignUnit = action === "join" && body.characterId
+      ? room.units.find((entry) => entry.characterId === String(body.characterId))
+      : null;
+    if (existingCampaignUnit) {
+      existingCampaignUnit.playerName = playerName;
+      existingCampaignUnit.characterName = characterName;
+      existingCampaignUnit.speed = speed;
+      existingCampaignUnit.commandWindow = commandWindow;
+      existingCampaignUnit.color = normalizeColor(body.color);
+      existingCampaignUnit.controlledBy = "player";
+      existingCampaignUnit.team = "pc";
+      pushLog(room, `${characterName} rejoined the encounter.`);
+      sendJson(res, 200, publicState(room));
+      broadcast(room);
+      scheduleRoomPersist(room, 0);
+      campaignApi?.broadcast(room.roomCode).catch(() => {});
+      return;
+    }
     const unit = {
       id: id(),
       playerName,
@@ -851,6 +956,7 @@ async function handleAction(req, res) {
       actorType: normalizeActorType(body.actorType),
       color: normalizeColor(body.color),
       tieSeed: Math.random(),
+      characterId: String(body.characterId || ""),
     };
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
@@ -1034,6 +1140,7 @@ async function handleAction(req, res) {
       pushLog(room, "Resolve the active turn before stepping the clock.");
       sendJson(res, 200, publicState(room));
       broadcast(room);
+      scheduleRoomPersist(room, 0);
       return;
     }
     room.resumeAfterTurn = false;
@@ -1062,6 +1169,7 @@ async function handleAction(req, res) {
     room.lastInterruptedId = null;
     room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
+    room.hasEngagedClock = false;
     pushLog(room, "Encounter reset.");
   }
 
@@ -1078,6 +1186,7 @@ async function handleAction(req, res) {
     room.lastInterruptedId = null;
     room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
+    room.hasEngagedClock = false;
     pushLog(room, "Encounter cleared.");
   }
 
@@ -1124,10 +1233,12 @@ async function handleAction(req, res) {
       moveToNextTurnOrClock(room, previousSource);
       sendJson(res, 200, publicState(room));
       broadcast(room);
+      scheduleRoomPersist(room, 0);
       return;
     }
     if (body.id && body.id !== room.activeId) {
       sendJson(res, 200, publicState(room));
+      scheduleRoomPersist(room, 0);
       return;
     }
     const previousSource = room.activeSource;
@@ -1155,19 +1266,29 @@ async function handleAction(req, res) {
 
   sendJson(res, 200, publicState(room));
   broadcast(room);
+  scheduleRoomPersist(room);
+  if (["join", "addUnit", "removeUnit", "clearEncounter"].includes(action)) campaignApi?.broadcast(room.roomCode).catch(() => {});
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  try {
+    if (campaignApi && await campaignApi.handle(req, res, url, readBody, sendJson)) return;
+  } catch (error) {
+    console.error("Campaign request failed:", error);
+    if (!res.headersSent) sendJson(res, 500, { error: "Campaign request failed." });
+    else res.end();
+    return;
+  }
 
   if (url.pathname === "/ping" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
-    res.end("Spaceship Architect ATB server is reachable.");
+    res.end(`Spaceship Architect server is reachable. Campaign storage: ${campaignStore.mode}.`);
     return;
   }
 
   if (url.pathname === "/api/create-room" && req.method === "POST") {
-    handleCreateRoom(req, res);
+    sendJson(res, 410, { error: "Standalone rooms were replaced by permanent campaigns." });
     return;
   }
 
@@ -1177,7 +1298,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname === "/api/state" && req.method === "GET") {
-    const room = getRoom(url.searchParams.get("room"));
+    const room = await ensureCampaignRoom(url.searchParams.get("room"));
     if (!room) {
       sendJson(res, 404, { error: "Room not found" });
       return;
@@ -1187,7 +1308,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname === "/api/keep-alive" && req.method === "POST") {
-    const room = getRoom(url.searchParams.get("room"));
+    const room = await ensureCampaignRoom(url.searchParams.get("room"));
     if (!room) {
       sendJson(res, 404, { error: "Room not found" });
       return;
@@ -1198,7 +1319,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname === "/events") {
-    const room = getRoom(url.searchParams.get("room"));
+    const room = await ensureCampaignRoom(url.searchParams.get("room"));
     if (!room) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
       res.end("Room not found");
@@ -1227,14 +1348,28 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
-server.listen(PORT, HOST, () => {
-  const addresses = [];
-  for (const entries of Object.values(os.networkInterfaces())) {
-    for (const entry of entries || []) {
-      if (entry.family === "IPv4" && !entry.internal) addresses.push(entry.address);
+async function startServer() {
+  await campaignStore.init();
+  campaignApi = new CampaignApi({
+    store: campaignStore,
+    storageMode: campaignStore.mode,
+    connectedCharacterIds: (code) => (getRoom(code)?.units || []).filter((unit) => unit.team === "pc" && unit.characterId).map((unit) => unit.characterId),
+  });
+  server.listen(PORT, HOST, () => {
+    const addresses = [];
+    for (const entries of Object.values(os.networkInterfaces())) {
+      for (const entry of entries || []) {
+        if (entry.family === "IPv4" && !entry.internal) addresses.push(entry.address);
+      }
     }
-  }
-  console.log("Spaceship Architect ATB multiplayer running");
-  console.log(`Local:   http://127.0.0.1:${PORT}`);
-  for (const address of addresses) console.log(`Phone:   http://${address}:${PORT}`);
+    console.log("Spaceship Architect campaign and ATB server running");
+    console.log(`Campaign storage: ${campaignStore.mode}`);
+    console.log(`Local:   http://127.0.0.1:${PORT}`);
+    for (const address of addresses) console.log(`Phone:   http://${address}:${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Spaceship Architect server could not start:", error);
+  process.exitCode = 1;
 });

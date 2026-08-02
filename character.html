@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260730-character-17" />
+    <link rel="stylesheet" href="character.css?v=20260801-campaign-2" />
   </head>
   <body>
     <header class="creator-header">
@@ -16,7 +16,25 @@
       <a class="back-link" href="index.html">Back to Main Menu</a>
     </header>
 
-    <main class="creator-shell">
+    <section id="characterCampaignGate" class="character-campaign-gate">
+      <div class="campaign-gate-card">
+        <span>CAMPAIGN CHARACTERS</span>
+        <h1>Enter Campaign</h1>
+        <p>View the entire team, unlock your character, or create someone new.</p>
+        <form id="characterCampaignForm">
+          <label>Campaign Code<input id="characterCampaignCode" maxlength="4" autocomplete="off" placeholder="A7K4" required /></label>
+          <button class="primary-action" type="submit">Open Characters</button>
+        </form>
+        <p id="characterCampaignMessage" class="campaign-gate-message" role="status"></p>
+        <section id="campaignRosterLobby" class="campaign-roster-lobby" hidden>
+          <div class="campaign-lobby-heading"><div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
+          <div class="campaign-lobby-tools"><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
+          <div id="campaignRosterCards" class="campaign-roster-cards"></div>
+        </section>
+      </div>
+    </section>
+
+    <main id="characterWorkspace" class="creator-shell" hidden>
       <section class="library-bar" aria-label="Character library">
         <label class="character-picker">Saved Character<select id="characterPicker"></select></label>
         <div class="library-actions">
@@ -27,6 +45,15 @@
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
+      </section>
+      <section id="campaignAccessBar" class="campaign-access-bar" hidden>
+        <div><span>CAMPAIGN</span><strong id="activeCampaignLabel">----</strong></div>
+        <div><span>ACCESS</span><strong id="campaignAccessRole">VIEW ONLY</strong></div>
+        <button id="unlockCampaignCharacter" type="button">Enter Character PIN</button>
+        <button id="openPrivateNotes" type="button">Private Notes <strong id="privateNoteCount">0</strong></button>
+        <button id="openCampaignBank" type="button">Ship Bank <strong id="campaignBankSummary">0</strong></button>
+        <button id="showCharacterPin" type="button" hidden>Show PIN</button>
+        <button id="returnToCampaignRoster" type="button">Campaign Roster</button>
       </section>
 
       <section class="workflow-bar" aria-label="Character creation progress">
@@ -203,6 +230,44 @@
       </section>
     </main>
 
+    <div id="campaignPinModal" class="modal-shell" hidden>
+      <section class="confirm-dialog campaign-pin-dialog" role="dialog" aria-modal="true" aria-labelledby="campaignPinTitle">
+        <span class="dialog-kicker">Character Access</span>
+        <h2 id="campaignPinTitle">Character PIN</h2>
+        <p id="campaignPinMessage">Keep this PIN. It is required to edit this character and spend Experience.</p>
+        <strong id="campaignPinDisplay" class="campaign-pin-display">----</strong>
+        <label id="campaignPinEntryWrap" hidden>Enter PIN<input id="campaignPinEntry" type="password" maxlength="4" inputmode="numeric" autocomplete="off" /></label>
+        <div class="dialog-actions"><button id="campaignPinCancel" type="button">Exit</button><button id="campaignPinConfirm" class="primary-action" type="button">Continue</button></div>
+      </section>
+    </div>
+
+    <div id="privateNotesModal" class="modal-shell" hidden>
+      <section class="confirm-dialog private-notes-dialog" role="dialog" aria-modal="true" aria-labelledby="privateNotesTitle">
+        <span class="dialog-kicker">Private GM Messages</span>
+        <h2 id="privateNotesTitle">Private Notes</h2>
+        <div id="privateNotesList" class="private-notes-list"></div>
+        <div class="dialog-actions"><button id="closePrivateNotes" class="primary-action" type="button">Close Inbox</button></div>
+      </section>
+    </div>
+
+    <div id="campaignBankModal" class="modal-shell" hidden>
+      <section class="confirm-dialog campaign-bank-dialog" role="dialog" aria-modal="true" aria-labelledby="campaignBankTitle">
+        <span class="dialog-kicker">Campaign Resources</span>
+        <h2 id="campaignBankTitle">Ship Credit Pool</h2>
+        <div class="campaign-bank-balances"><div><span>Personal Credits</span><strong id="bankPersonalCredits">0</strong></div><div><span>Ship Credit Pool</span><strong id="bankShipCredits">0</strong></div></div>
+        <p id="bankAuthority" class="campaign-bank-authority"></p>
+        <label>Transfer Type<select id="bankOperation"><option value="deposit">Personal to Ship Pool</option><option value="withdraw">Ship Pool to Personal</option><option value="giftPersonal">Personal to Another Character</option><option value="giftShip">Ship Pool to Another Character</option></select></label>
+        <label id="bankTargetWrap" hidden>Recipient<select id="bankTarget"></select></label>
+        <label>Credits<input id="bankAmount" type="number" min="1" step="1" inputmode="numeric" value="1" /></label>
+        <div class="dialog-actions"><button id="bankCancel" type="button">Cancel</button><button id="bankConfirm" class="primary-action" type="button">Confirm Transfer</button></div>
+      </section>
+    </div>
+
+    <div id="campaignRollPrompt" class="campaign-roll-prompt" hidden>
+      <div><span>GM ROLL REQUEST</span><strong id="campaignRollPromptTitle">Attribute + Skill</strong><small id="campaignRollPromptDifficulty"></small></div>
+      <button id="openCampaignRoll" class="primary-action" type="button">Open Roll</button>
+    </div>
+
     <div id="confirmModal" class="modal-shell" hidden>
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <span class="dialog-kicker">Confirm Command</span><h2 id="confirmTitle">Are you sure?</h2><p id="confirmMessage"></p>
@@ -284,6 +349,7 @@
 
         <section id="skillResultStage" class="skill-check-stage skill-result-stage" hidden>
           <div class="skill-result-display">
+            <small id="skillDiceResults" class="skill-dice-results"></small>
             <span id="skillResultLabel">Final Score</span>
             <strong id="skillResultScore">0.0</strong>
             <p id="skillResultEquation"></p>
@@ -304,6 +370,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260730-character-17"></script>
+    <script type="module" src="character.js?v=20260801-campaign-2"></script>
   </body>
 </html>

@@ -3240,3 +3240,12 @@ h2 {
     stroke-width: 2.2px;
   }
 }
+
+/* Permanent campaign integration */
+.campaign-character-status{grid-column:1/-1;min-height:18px;margin:0;color:var(--muted);font-size:.68rem}.campaign-character-status.error{color:var(--danger)}
+.join-panel #campaignCharacterPicker,.join-panel #campaignCharacterPin{font-size:16px}
+body.embedded-gm .welcome-panel,body.embedded-gm .room-join-panel,body.embedded-gm .join-panel{display:none!important}
+body.embedded-gm .shell{width:100%;max-width:none;margin:0;padding:6px}
+body.embedded-gm .topbar{margin-top:0}
+body.embedded-gm #exitCombat{display:none!important}
+.join-panel .pc-stat-builder{display:block;padding:0;border:0;background:transparent}.join-panel .pc-stat-builder>.stat-board,.join-panel .pc-stat-builder>label{display:none}.join-panel .calculated-stats{margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}.join-panel .dice-strip{display:none}.campaign-character-status.error{font-weight:800}

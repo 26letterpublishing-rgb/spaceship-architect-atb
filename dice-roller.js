@@ -26,10 +26,10 @@ function generatedThrow(index = 0, count = 1) {
     randomBetween(-Math.PI, Math.PI),
   )).normalize();
   return {
-    position: [laneX + randomBetween(-0.2, 0.2), randomBetween(3.5, 4.7), laneZ + randomBetween(-0.22, 0.22)],
+    position: [laneX + randomBetween(-0.2, 0.2), randomBetween(2.45, 3.25), laneZ + randomBetween(-0.22, 0.22)],
     quaternion: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
-    velocity: [-laneX * 0.38 + randomBetween(-0.45, 0.45), randomBetween(-0.85, -0.15), -laneZ * 0.28 + randomBetween(-0.55, 0.55)],
-    angularVelocity: [randomBetween(-14, 14), randomBetween(-14, 14), randomBetween(-14, 14)],
+    velocity: [-laneX * 0.38 + randomBetween(-0.45, 0.45), randomBetween(-0.35, 0.1), -laneZ * 0.28 + randomBetween(-0.55, 0.55)],
+    angularVelocity: [randomBetween(-11, 11), randomBetween(-11, 11), randomBetween(-11, 11)],
   };
 }
 
@@ -41,8 +41,8 @@ function numberTexture(value, accent) {
   context.clearRect(0, 0, 512, 512);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.font = `900 ${String(value).length > 1 ? 224 : 304}px "Arial Black", Impact, sans-serif`;
-  context.lineWidth = 44;
+  context.font = `900 ${String(value).length > 1 ? 300 : 390}px "Arial Black", Impact, sans-serif`;
+  context.lineWidth = 30;
   context.strokeStyle = "rgba(1, 5, 10, .98)";
   context.strokeText(String(value), 256, 270);
   context.fillStyle = accent;
@@ -97,7 +97,7 @@ function d6Visual({ color = 0x18354e, accent = "#b9f4ff" } = {}) {
     { value: 3, normal: new THREE.Vector3(0, 0, 1) },
     { value: 4, normal: new THREE.Vector3(0, 0, -1) },
   ].map((face) => {
-    const label = faceLabel(face.value, face.normal, face.normal.clone().multiplyScalar(0.755), accent, 0.84);
+    const label = faceLabel(face.value, face.normal, face.normal.clone().multiplyScalar(0.755), accent, 1.05);
     group.add(label);
     return { ...face, label };
   });
@@ -162,7 +162,7 @@ function d10Visual({ color = 0x17354e, alternate = 0x10283d, accent = "#b9f4ff" 
     ).normalize();
     const center = points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(0.25);
     const value = index + 1;
-    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.61);
+    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.78);
     group.add(label);
     normals.push({ value, normal, label });
   });
@@ -240,7 +240,7 @@ function polyVisual(sides, { color = 0x17354e, accent = "#b9f4ff" } = {}) {
     new THREE.EdgesGeometry(geometry, 18),
     new THREE.LineBasicMaterial({ color: new THREE.Color(accent), transparent: true, opacity: 0.72 }),
   ));
-  const labelSize = { 4: 0.6, 8: 0.48, 12: 0.38, 20: 0.29 }[sides];
+  const labelSize = { 4: 0.86, 8: 0.72, 12: 0.58, 20: 0.46 }[sides];
   const normals = groupedFaceData(definition.faceData).map((face, index) => {
     const value = index + 1;
     const label = faceLabel(value, face.normal, face.center, accent, labelSize);
@@ -460,10 +460,10 @@ export class PhysicalDiceRoller {
     shadowFloor.receiveShadow = true;
     this.scene.add(shadowFloor);
 
-    this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -18, 0) });
+    this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -34, 0) });
     this.world.allowSleep = true;
-    this.world.defaultContactMaterial.friction = 0.32;
-    this.world.defaultContactMaterial.restitution = 0.32;
+    this.world.defaultContactMaterial.friction = 0.44;
+    this.world.defaultContactMaterial.restitution = 0.2;
     const floorBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
     floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.world.addBody(floorBody);
@@ -482,8 +482,8 @@ export class PhysicalDiceRoller {
       const body = new CANNON.Body({
         mass: 1,
         shape: visual.shape,
-        linearDamping: 0.18,
-        angularDamping: 0.15,
+        linearDamping: 0.26,
+        angularDamping: 0.24,
         sleepSpeedLimit: 0.1,
         sleepTimeLimit: 0.42,
       });
@@ -568,6 +568,13 @@ export class PhysicalDiceRoller {
     this.active.resolvedAt = time;
     this.active.results = this.active.dice.map((item) => {
       item.winningFace = topFace(item.visual, item.body);
+      item.settleQuaternion = item.visual.group.quaternion.clone();
+      const winningNormal = item.winningFace.normal.clone().applyQuaternion(item.settleQuaternion).normalize();
+      const correction = new THREE.Quaternion().setFromUnitVectors(winningNormal, UP);
+      item.targetQuaternion = correction.multiply(item.settleQuaternion.clone()).normalize();
+      item.settlePosition = item.visual.group.position.clone();
+      item.targetPosition = item.settlePosition.clone();
+      item.targetPosition.y = Math.max(item.targetPosition.y, 0.82);
       item.body.type = CANNON.Body.STATIC;
       item.body.velocity.setZero();
       item.body.angularVelocity.setZero();
@@ -598,12 +605,16 @@ export class PhysicalDiceRoller {
     const age = time - this.active.resolvedAt;
     const pairedIndices = new Set(this.active.fusionPairs.flatMap((pair) => pair.indices));
     for (const [index, item] of this.active.dice.entries()) {
+      const settleProgress = Math.min(1, age / 260);
+      const settleEase = 1 - (1 - settleProgress) ** 3;
+      item.visual.group.quaternion.slerpQuaternions(item.settleQuaternion, item.targetQuaternion, settleEase);
+      item.visual.group.position.lerpVectors(item.settlePosition, item.targetPosition, settleEase);
       if (pairedIndices.has(index)) continue;
       const pulse = 1 + Math.sin(age / 85) * 0.12;
-      item.winningFace.label.scale.setScalar(age < 760 ? pulse : 1);
+      item.winningFace.label.scale.setScalar(age < 1350 ? 1.16 * pulse : 1.08);
       item.winningFace.label.material.blending = THREE.AdditiveBlending;
-      if (age > 700) {
-        const opacity = Math.max(0, 1 - (age - 700) / 420);
+      if (age > 1420) {
+        const opacity = Math.max(0, 1 - (age - 1420) / 360);
         item.visual.group.traverse((child) => {
           if (child.material) {
             child.material.transparent = true;
@@ -642,8 +653,8 @@ export class PhysicalDiceRoller {
         pair.visual.material.color.setHSL((birth / 850) % 1, 0.88, 0.58);
         pair.visual.material.emissive.setHSL((birth / 850 + 0.16) % 1, 0.92, 0.42);
         pair.visual.group.rotation.y += 0.055;
-        if (age > 920) {
-          const opacity = Math.max(0, 1 - (age - 920) / 420);
+        if (age > 1380) {
+          const opacity = Math.max(0, 1 - (age - 1380) / 420);
           pair.visual.group.traverse((child) => {
             if (child.material) {
               child.material.transparent = true;
@@ -654,7 +665,7 @@ export class PhysicalDiceRoller {
       }
     }
 
-    const deliveryAge = this.active.fusionPairs.length ? 1360 : 1120;
+    const deliveryAge = this.active.fusionPairs.length ? 1840 : 1800;
     if (age >= deliveryAge && !this.active.delivered) {
       this.active.delivered = true;
       this.active.dice.forEach((item) => { item.visual.group.visible = false; });
