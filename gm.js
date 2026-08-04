@@ -100,6 +100,7 @@ let lastScriptRange = null;
 let selectedTargets = new Set();
 let targetSelectionTouched = false;
 const executedCommands = new Set();
+const scriptTargetSelections = new Map();
 let pendingRestoreBackup = null;
 let encounterState = null;
 let npcSequence = 0;
@@ -365,7 +366,7 @@ function renderInbox() {
     </article>`;
   }).join("");
   const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
-    <div><span>${note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
   </article>`).join("");
   dom.inboxList.innerHTML = requestMarkup + messageMarkup || '<p class="empty-inbox">No campaign messages or pending characters.</p>';
@@ -563,7 +564,9 @@ function renderScriptEditor(source = scriptSource()) {
   while ((match = expression.exec(source))) {
     pieces.push(escapeHtml(source.slice(cursor, match.index)));
     const command = commands[index];
-    const options = (campaign?.characters || []).map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
+    const selectionKey = `${index}:${command?.raw || ""}`;
+    const selectedTargetId = scriptTargetSelections.get(selectionKey) || "";
+    const options = (campaign?.characters || []).map((record) => `<option value="${record.id}" ${record.id === selectedTargetId ? "selected" : ""}>${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
     const needsSelection = command?.scope === "choose" || (command?.scope === "target" && !command.targetName);
     const label = command?.valid
       ? `${command.scope === "all" ? "ALL PLAYERS" : command.scope === "choose" ? "CHOOSE PC" : command.targetName.toUpperCase()} / ${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
@@ -747,6 +750,13 @@ dom.tabs.addEventListener("click", (event) => {
   updateExitEncounterVisibility();
 });
 
+dom.script.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-command-target]");
+  if (!select) return;
+  const index = Number(select.dataset.commandTarget);
+  const command = scriptCommandList()[index];
+  if (command) scriptTargetSelections.set(`${index}:${command.raw}`, select.value);
+});
 dom.script.addEventListener("input", () => {
   rememberScriptSelection();
   scriptDirty = true;
@@ -777,6 +787,7 @@ dom.script.addEventListener("keydown", (event) => {
 dom.script.addEventListener("keyup", rememberScriptSelection);
 dom.script.addEventListener("mouseup", rememberScriptSelection);
 dom.script.addEventListener("blur", (event) => {
+  if (event.relatedTarget && dom.script.contains(event.relatedTarget)) return;
   if (event.relatedTarget?.closest?.("#scriptCommandBuilder")) return;
   renderScriptEditor(scriptSource());
 });
@@ -813,11 +824,18 @@ dom.script.addEventListener("click", async (event) => {
   if (command.scope === "all") targets = campaign.characters.filter((record) => record.connected).map((record) => record.id);
   if (["choose", "target"].includes(command.scope)) {
     const select = dom.script.querySelector(`[data-command-target="${index}"]`);
-    const selectedId = select?.value || campaign.characters.find((record) => characterName(record).toLowerCase() === command.targetName.toLowerCase())?.id;
-    if (selectedId) targets = [selectedId];
+    const selectionKey = `${index}:${command.raw}`;
+    const namedTarget = command.targetName
+      ? campaign.characters.find((record) => characterName(record).toLowerCase() === command.targetName.toLowerCase())?.id
+      : "";
+    const selectedId = select?.value || scriptTargetSelections.get(selectionKey) || namedTarget;
+    if (selectedId) {
+      scriptTargetSelections.set(selectionKey, selectedId);
+      targets = [selectedId];
+    }
   }
   if (!targets.length) {
-    showMessage(dom.message, "That command has no connected target character.", "error");
+    showMessage(dom.message, "Choose a target character for that command.", "error");
     return;
   }
   try {

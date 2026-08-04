@@ -2,6 +2,8 @@ const crypto = require("crypto");
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SCRIPT_LENGTH = 250000;
+const PLAYER_INBOX_LIMIT = 20;
+const GM_INBOX_LIMIT = 50;
 
 function uid(prefix = "id") {
   return `${prefix}-${crypto.randomBytes(9).toString("base64url")}`;
@@ -37,6 +39,14 @@ function safeCharacterName(record) {
   return String(record?.character?.identity?.characterName || "Unnamed Character").trim().slice(0, 80) || "Unnamed Character";
 }
 
+function trimPrivateNotes(campaign) {
+  const notes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes : [];
+  const keep = new Set(notes.slice(-GM_INBOX_LIMIT).map((note) => note.id));
+  for (const record of campaign.characters || []) {
+    notes.filter((note) => note.characterId === record.id).slice(-PLAYER_INBOX_LIMIT).forEach((note) => keep.add(note.id));
+  }
+  campaign.privateNotes = notes.filter((note) => keep.has(note.id));
+}
 function defaultCampaign({ code, name, gmCode }) {
   const now = new Date().toISOString();
   return {
@@ -96,12 +106,15 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: note?.kind === "system" ? "system" : "message",
+    kind: ["system", "award", "roll-request"].includes(note?.kind) ? note.kind : "message",
+    rollRequestId: String(note?.rollRequestId || ""),
+    awardId: String(note?.awardId || ""),
     message: String(note?.message || "").slice(0, 4000),
     createdAt: note?.createdAt || new Date().toISOString(),
     readAt: note?.readAt || null,
   }));
   campaign.rollRequests = Array.isArray(campaign.rollRequests) ? campaign.rollRequests.slice(-250) : [];
+  trimPrivateNotes(campaign);
   return campaign;
 }
 
@@ -230,6 +243,7 @@ class CampaignApi {
   }
 
   async save(campaign, { broadcast = true } = {}) {
+    trimPrivateNotes(campaign);
     this.campaignCache.set(campaign.code, campaign);
     const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
     const queued = previous.catch(() => {}).then(async () => {
@@ -274,12 +288,12 @@ class CampaignApi {
       bankerCharacterId: campaign.bankerCharacterId,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
-      inbox: gm ? clone(campaign.privateNotes.slice(-250)) : undefined,
+      inbox: gm ? clone(campaign.privateNotes.slice(-GM_INBOX_LIMIT)) : undefined,
       characters: campaign.characters.map((record) => ({
         ...publicCharacter(record, {
           gm,
           own: record.id === ownId,
-          notes: notesByCharacter.get(record.id) || [],
+          notes: (notesByCharacter.get(record.id) || []).slice(-PLAYER_INBOX_LIMIT),
         }),
         connected: connectedIds.has(record.id),
       })),
@@ -860,6 +874,23 @@ class CampaignApi {
         before,
         at: new Date().toISOString(),
       };
+      if (resource !== "shipCredits") {
+        const label = { experience: "Experience", credits: "Credits", reverence: "Reverence" }[resource] || resource;
+        const verb = amount > 0 ? "awarded" : "adjusted";
+        for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
+          campaign.privateNotes.push({
+            id: uid("note"),
+            characterId: record.id,
+            characterName: safeCharacterName(record),
+            direction: "to-character",
+            kind: "award",
+            awardId: award.id,
+            message: `The GM ${verb} ${Math.abs(amount).toLocaleString()} ${label}.`,
+            createdAt: award.at,
+            readAt: null,
+          });
+        }
+      }
       campaign.awardHistory.push(award);
       campaign.awardHistory = campaign.awardHistory.slice(-20);
       await this.save(campaign);
@@ -886,6 +917,24 @@ class CampaignApi {
         record.character.resources.creditsBase = snapshot.creditsBase;
         record.character.resources.reverence = snapshot.reverence;
         record.updatedAt = new Date().toISOString();
+      }
+      if (award.resource !== "shipCredits") {
+        const label = { experience: "Experience", credits: "Credits", reverence: "Reverence" }[award.resource] || award.resource;
+        for (const snapshot of award.before.characters || []) {
+          const record = campaign.characters.find((entry) => entry.id === snapshot.id);
+          if (!record) continue;
+          campaign.privateNotes.push({
+            id: uid("note"),
+            characterId: record.id,
+            characterName: safeCharacterName(record),
+            direction: "to-character",
+            kind: "system",
+            awardId: award.id,
+            message: `The GM reversed the most recent ${label} award. Your balance has been restored.`,
+            createdAt: new Date().toISOString(),
+            readAt: null,
+          });
+        }
       }
       await this.save(campaign);
       sendJson(res, 200, { undone: award.id, campaign: this.state(campaign, token) });
@@ -1014,6 +1063,24 @@ class CampaignApi {
         closedAt: null,
       };
       campaign.rollRequests.push(request);
+      for (const characterId of targetIds) {
+        const record = campaign.characters.find((entry) => entry.id === characterId);
+        if (!record) continue;
+        const difficultyText = request.hideDifficulty
+          ? "Hidden Difficulty"
+          : request.difficulty === null ? "No Difficulty" : `Difficulty ${request.difficulty}`;
+        campaign.privateNotes.push({
+          id: uid("note"),
+          characterId,
+          characterName: safeCharacterName(record),
+          direction: "to-character",
+          kind: "roll-request",
+          rollRequestId: request.id,
+          message: `Roll requested: ${request.attribute} + ${request.skill} (${difficultyText}).`,
+          createdAt: request.createdAt,
+          readAt: null,
+        });
+      }
       await this.save(campaign);
       sendJson(res, 201, { request: clone(request) });
       return true;
@@ -1033,6 +1100,7 @@ class CampaignApi {
         outcome: String(body.outcome || "").slice(0, 40),
         respondedAt: new Date().toISOString(),
       };
+      campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.rollRequestId === request.id && note.characterId === characterId));
       await this.save(campaign);
       sendJson(res, 200, { recorded: true });
       return true;
@@ -1044,7 +1112,10 @@ class CampaignApi {
         return true;
       }
       const request = campaign.rollRequests.find((entry) => entry.id === body.requestId);
-      if (request) request.closedAt = new Date().toISOString();
+      if (request) {
+        request.closedAt = new Date().toISOString();
+        campaign.privateNotes = campaign.privateNotes.filter((note) => note.rollRequestId !== request.id);
+      }
       await this.save(campaign);
       sendJson(res, 200, { closed: Boolean(request) });
       return true;

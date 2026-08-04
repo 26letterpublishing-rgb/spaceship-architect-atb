@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260803-campaign-6" />
+    <link rel="stylesheet" href="character.css?v=20260803-print-1" />
   </head>
   <body>
     <header class="creator-header">
@@ -74,6 +74,7 @@
         <button id="openCampaignBank" type="button">Ship Bank <strong id="campaignBankSummary">0</strong></button>
         <button id="saveAndSyncCharacter" type="button">Save &amp; Sync</button>
         <button id="showCharacterPin" type="button" hidden>Show PC Code</button>
+        <button id="printCharacterSheet" type="button">Print Character Sheet</button>
         <button id="returnToCampaignRoster" type="button" hidden>Campaign Roster</button>
       </section>
 
@@ -84,6 +85,7 @@
           <small id="workflowDetail">All currently available creation steps are shown.</small>
         </div>
         <div class="workflow-counters" aria-label="Current character creation totals">
+          <div><span>Experience</span><strong id="workflowExperience">0 / 0</strong></div>
           <div><span>Attribute Points</span><strong id="workflowAttributeRemaining">195 / 195</strong></div>
           <div><span>Skill Points</span><strong id="workflowSkillRemaining">Locked</strong></div>
           <div><span>Credits</span><strong id="workflowCredits">0</strong></div>
@@ -284,8 +286,14 @@
     </section>
 
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
-      <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>ATB</h1></div>
-      <div class="player-atb-launch"><p>Open the current campaign encounter using this character's synchronized statistics.</p><button id="launchPlayerAtb" class="primary-action" type="button">Open ATB Encounter</button></div>
+      <div class="player-atb-heading">
+        <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>ATB</h1></div>
+        <button id="launchPlayerAtb" type="button">Reload Encounter</button>
+      </div>
+      <div class="player-atb-live">
+        <p id="playerAtbStatus">The encounter remains active while you inspect other character tabs.</p>
+        <iframe id="playerAtbFrame" class="player-atb-frame" title="Spaceship Architect live ATB encounter" allow="autoplay"></iframe>
+      </div>
     </section>
 
     <div id="campaignPinModal" class="modal-shell" hidden>
@@ -443,6 +451,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260803-campaign-6"></script>
+    <script type="module" src="character.js?v=20260803-print-1"></script>
   </body>
 </html>

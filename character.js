@@ -17,6 +17,7 @@ import {
 } from "./character-data.js?v=20260803-campaign-6";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260803-campaign-6";
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260803-campaign-6";
+import { openPrintableCharacterSheet } from "./character-print.js?v=20260803-print-1";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -48,6 +49,7 @@ const dom = {
   nextRequirement: $("#nextRequirement"),
   workflowDetail: $("#workflowDetail"),
   workflowBar: $(".workflow-bar"),
+  workflowExperience: $("#workflowExperience"),
   workflowAttributeRemaining: $("#workflowAttributeRemaining"),
   workflowSkillRemaining: $("#workflowSkillRemaining"),
   workflowCredits: $("#workflowCredits"),
@@ -174,6 +176,7 @@ const dom = {
   campaignBankSummary: $("#campaignBankSummary"),
   saveAndSyncCharacter: $("#saveAndSyncCharacter"),
   showCharacterPin: $("#showCharacterPin"),
+  printCharacterSheet: $("#printCharacterSheet"),
   returnToCampaignRoster: $("#returnToCampaignRoster"),
   campaignPinModal: $("#campaignPinModal"),
   campaignPinTitle: $("#campaignPinTitle"),
@@ -224,6 +227,8 @@ const dom = {
   settingsLogout: $("#settingsLogout"),
   playerAtbPanel: $("#playerAtbPanel"),
   launchPlayerAtb: $("#launchPlayerAtb"),
+  playerAtbFrame: $("#playerAtbFrame"),
+  playerAtbStatus: $("#playerAtbStatus"),
   pcCodeModal: $("#pcCodeModal"),
   pcCodeFirst: $("#pcCodeFirst"),
   pcCodeConfirm: $("#pcCodeConfirm"),
@@ -877,6 +882,27 @@ async function saveCampaignCharacter({ force = false } = {}) {
 
 let activeCharacterTab = "sheet";
 let joinStatusTimer = null;
+let playerAtbLoading = false;
+
+async function loadPlayerAtb({ reload = false } = {}) {
+  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  if (!campaignCode || !ownId || !dom.playerAtbFrame || playerAtbLoading) return;
+  const expectedBase = `index.html?embedded=player&campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(ownId)}`;
+  if (!reload && dom.playerAtbFrame.dataset.encounterBase === expectedBase && dom.playerAtbFrame.getAttribute("src")) return;
+  playerAtbLoading = true;
+  dom.playerAtbStatus.textContent = "Synchronizing your character and opening the live encounter...";
+  dom.launchPlayerAtb.disabled = true;
+  try {
+    await saveCampaignCharacter({ force: true });
+    dom.playerAtbFrame.dataset.encounterBase = expectedBase;
+    dom.playerAtbFrame.src = `${expectedBase}&view=${Date.now()}`;
+  } catch (error) {
+    dom.playerAtbStatus.textContent = error.message;
+  } finally {
+    playerAtbLoading = false;
+    dom.launchPlayerAtb.disabled = false;
+  }
+}
 
 function showCharacterPanel(tab = "sheet") {
   const available = [...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
@@ -887,6 +913,7 @@ function showCharacterPanel(tab = "sheet") {
   dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
   if (activeCharacterTab === "roster") renderCampaignRoster();
   if (activeCharacterTab === "inbox") refreshPrivateNotes();
+  if (activeCharacterTab === "atb") void loadPlayerAtb();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -911,6 +938,7 @@ function renderCharacterNavigation() {
   dom.settingsLeaveCampaign.disabled = !linked || gmView;
   dom.messageGmForm.hidden = !linked || gmView;
   dom.launchPlayerAtb.disabled = !linked || gmView;
+  dom.printCharacterSheet.disabled = character.phase !== "finalized";
   if (pending) {
     dom.joinCampaignStatus.innerHTML = `<strong>Awaiting GM Approval</strong><span>${escapeHtml(character.campaignLink.campaignName || "Campaign")} | Room ${escapeHtml(roomCode)}</span><p>${escapeHtml(character.campaignLink.message || "The character will link automatically after approval.")}</p>`;
   } else if (!linked) {
@@ -1022,7 +1050,7 @@ function refreshPrivateNotes() {
     <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p><button type="button" data-delete-note="${note.id}">Delete</button>
   </article>`).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
   dom.playerInboxList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="player-inbox-card ${note.direction !== "to-gm" && !note.readAt ? "unread" : ""}" data-player-note="${note.id}">
-    <div><span>${note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "MESSAGE SENT" : "PRIVATE GM MESSAGE"}</span><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "MESSAGE SENT" : "PRIVATE GM MESSAGE"}</span><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
   </article>`).join("") : '<p class="campaign-empty-roster">No private messages.</p>';
 }
@@ -1835,6 +1863,7 @@ function renderExperience() {
   dom.xpFormula.textContent = xpGrantParts.length
     ? `Unspent / Total Gained | Includes ${xpGrantParts.join(" and ")} finalization grant`
     : "Unspent / Total Gained";
+  dom.workflowExperience.textContent = `${character.experience.available} / ${character.experience.totalGained}`;
   dom.workflowAttributeRemaining.textContent = `${attributeRemaining} / ${ATTRIBUTE_POINTS}`;
   dom.workflowAttributeRemaining.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
   dom.workflowSkillRemaining.textContent = validation.attributesComplete || character.phase !== "draft"
@@ -2396,6 +2425,76 @@ function renderCrew() {
   dom.crewRoster.innerHTML = character.crew.map((member, index) => `<div class="crew-row"><input data-crew-index="${index}" data-crew-field="name" value="${escapeAttribute(member.name)}" placeholder="Crewmember" aria-label="Crewmember ${index + 1} name" /><input data-crew-index="${index}" data-crew-field="title" value="${escapeAttribute(member.title)}" placeholder="Title / Station" aria-label="Crewmember ${index + 1} title" /><button class="row-remove" type="button" data-remove-crew="${index}" ${atMinimum ? "disabled" : ""} aria-label="Remove crew row ${index + 1}">-</button></div>`).join("");
 }
 
+function printableCharacterData() {
+  const values = derivedValues();
+  const hp = maximumHpDetails();
+  const move = calculatedMoveSpeedDetails();
+  const reduction = damageReductionDetails();
+  const raceDefinition = selectedRace();
+  const raceType = selectedRaceType();
+  const classDefinition = classById(character.identity.classId);
+  const raceName = character.identity.raceKind === "other"
+    ? character.identity.race.trim() || "Custom Race"
+    : raceDefinition
+      ? `${raceDefinition.name}${raceType ? ` - ${raceType.name}` : ""}`
+      : "No Race";
+  const raceAdvantages = raceType?.advantages || raceDefinition?.advantages || [];
+  const raceDisadvantages = raceType?.disadvantages || raceDefinition?.disadvantages || [];
+  const modifierGroups = [
+    { title: "Racial Advantages", entries: raceAdvantages },
+    { title: "Racial Disadvantages", entries: raceDisadvantages },
+    { title: "Class", entries: character.identity.classId ? [classDefinition.summary, classDefinition.manual].filter(Boolean) : [] },
+    { title: "Unique", entries: character.advantagesNotes.trim() ? [character.advantagesNotes.trim()] : [] },
+  ].filter((group) => group.entries.length);
+  const skills = [
+    ...SPACECRAFT_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "Spacecraft" })),
+    ...GENERAL_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "General" })),
+    ...character.customSkills.filter((skill) => skill.name.trim()).map((skill) => ({ name: skill.name.trim(), value: ratingText(skill.tenths), group: "Custom" })),
+  ];
+  const classCredits = Number(classEffects().creditsBonus) || 0;
+  return {
+    identity: {
+      playerName: character.identity.playerName,
+      characterName: character.identity.characterName || "Unnamed Character",
+      race: raceName,
+      className: classDefinition.name,
+      homePlanet: character.identity.homePlanet,
+      sex: character.identity.sex,
+      age: character.identity.age,
+      height: character.identity.height,
+      weight: character.identity.weight,
+      hair: character.identity.hair,
+      eyes: character.identity.eyes,
+      description: character.identity.description,
+    },
+    phase: character.phase,
+    campaign: campaignState?.name || character.campaignLink?.campaignName || "",
+    roomCode: campaignCode || character.campaignLink?.roomCode || "",
+    atbColor: character.presentation.atbColor,
+    experience: { ...character.experience },
+    attributes: ATTRIBUTE_DEFS.map((definition) => ({
+      name: definition.label,
+      dice: character.attributes[definition.key].filter((value) => value >= 0).map((value) => DICE_NAMES[value]),
+    })),
+    skills,
+    stats: {
+      speed: formatNumber(values.speed),
+      command: `${formatNumber(values.command)} sec`,
+      maximumHp: hp.value,
+      damageReduction: reduction.value,
+      moveSpeed: move.value,
+    },
+    resources: {
+      exertionMax: character.resources.exertionMax,
+      reverence: character.resources.reverence,
+      credits: character.resources.creditsBase + classCredits,
+      dramaCards: character.resources.dramaCards,
+    },
+    modifiers: modifierGroups,
+    crew: character.crew.map((member) => ({ name: member.name.trim(), title: member.title.trim() })),
+    fubs: character.fubs.status === "complete" ? character.fubs.rolls.join(" > ") : "Not activated",
+  };
+}
 function renderAll() {
   renderCharacterPicker();
   renderFields();
@@ -3529,6 +3628,9 @@ dom.campaignPinConfirm?.addEventListener("click", async () => {
 
 dom.unlockCampaignCharacter?.addEventListener("click", () => showPinEntry(campaignCharacterId));
 dom.showCharacterPin?.addEventListener("click", () => showPinDisplay());
+dom.printCharacterSheet?.addEventListener("click", () => {
+  openPrintableCharacterSheet(printableCharacterData());
+});
 dom.previousCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(-1));
 dom.nextCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(1));
 dom.returnToCampaignRoster?.addEventListener("click", async () => {
@@ -3711,11 +3813,12 @@ dom.settingsLogout?.addEventListener("click", async () => {
   window.location.href = "index.html";
 });
 
-dom.launchPlayerAtb?.addEventListener("click", async () => {
-  await saveCampaignCharacter({ force: true });
-  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
-  if (!campaignCode || !ownId) return;
-  window.location.href = `index.html?embedded=player&campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(ownId)}`;
+dom.playerAtbFrame?.addEventListener("load", () => {
+  dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
+});
+
+dom.launchPlayerAtb?.addEventListener("click", () => {
+  void loadPlayerAtb({ reload: true });
 });
 
 dom.openPrivateNotes?.addEventListener("click", async () => {
