@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
-    <link rel="stylesheet" href="styles.css?v=20260802-campaign-5" />
+    <link rel="stylesheet" href="styles.css?v=20260803-campaign-6" />
   </head>
   <body>
     <main class="shell">
@@ -12,12 +12,24 @@
         <div class="welcome-hero">
           <img class="welcome-banner" src="SAATBBanner.jpg" alt="Spaceship Architect ATB Sync" />
         </div>
-        <div class="welcome-actions">
-          <div class="mode-buttons">
-            <button id="createRoom" class="primary">GM Control Panel</button>
-            <button id="showJoinRoom">Join Encounter</button>
-            <a class="character-creator-link" href="character.html">Characters</a>
+        <div class="campaign-main-menu">
+          <label class="campaign-name-field">Campaign Name
+            <input id="mainCampaignName" type="text" maxlength="80" autocomplete="organization" placeholder="Order of the White Flame" />
+          </label>
+          <div class="campaign-code-row">
+            <label>GM Code
+              <span class="code-entry"><input id="mainGmCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter GM Code" /><button id="enterGmCampaign" type="button">Enter as GM</button></span>
+            </label>
+            <label>PC Code
+              <span class="code-entry"><input id="mainPcCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter PC Code" /><button id="enterPcCampaign" type="button">Enter as Player</button></span>
+            </label>
           </div>
+          <div class="campaign-menu-divider"></div>
+          <div class="campaign-create-actions">
+            <a id="createCharacterMain" class="character-creator-link" href="character.html?new=1">Create New Character</a>
+            <button id="createRoom" class="primary" type="button">Create New Campaign</button>
+          </div>
+          <p id="mainMenuMessage" class="main-menu-message" role="status"></p>
         </div>
       </section>
 
@@ -57,15 +69,15 @@
       <section id="joinPanel" class="panel join-panel">
         <div>
           <h2>Join Encounter</h2>
-          <p>Select your campaign character and enter its PIN.</p>
+          <p>Select your campaign character and enter its PC Code.</p>
         </div>
         <label>
           Campaign Character
           <select id="campaignCharacterPicker"></select>
         </label>
         <label>
-          Character PIN
-          <input id="campaignCharacterPin" type="password" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="4-digit PIN" />
+          PC Code
+          <input id="campaignCharacterPin" type="text" maxlength="120" autocomplete="off" placeholder="PC Code" />
         </label>
         <p id="campaignCharacterStatus" class="campaign-character-status"></p>
         <label>
@@ -316,6 +328,6 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-    <script src="app.js?v=20260802-campaign-5"></script>
+    <script src="app.js?v=20260803-campaign-6"></script>
   </body>
 </html>

@@ -4,15 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-    <link rel="stylesheet" href="gm.css?v=20260802-campaign-5" />
+    <link rel="stylesheet" href="gm.css?v=20260803-campaign-6" />
   </head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
         <a href="index.html" class="gm-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></a>
-        <button id="gmLogout" class="quiet danger close-control-panel" type="button" hidden>Close Control Panel</button>
         <div id="campaignHeading" class="campaign-heading" hidden>
-          <span id="campaignCodeHeading">----</span>
+          <span>ROOM <b id="campaignCodeHeading">----</b></span>
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
         <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>Exit Combat</button>
@@ -25,15 +24,15 @@
           <p>Open a permanent campaign or create a new one.</p>
         </div>
         <form id="openCampaignForm" class="gateway-form">
-          <label>Campaign Code<input id="gmCampaignCode" maxlength="4" autocomplete="off" placeholder="A7K4" required /></label>
-          <label>GM Password<input id="gmCampaignPassword" type="password" autocomplete="current-password" required /></label>
+          <label>Campaign Name<input id="gmCampaignCode" maxlength="80" autocomplete="off" placeholder="Order of the White Flame" required /></label>
+          <label>GM Code<input id="gmCampaignPassword" type="text" maxlength="120" autocomplete="off" required /></label>
           <button class="primary" type="submit">Open Campaign</button>
           <button id="showCreateCampaign" type="button">Create Campaign</button>
         </form>
         <form id="createCampaignForm" class="gateway-form create-form" hidden>
           <label>Campaign Name<input id="newCampaignName" maxlength="80" placeholder="Friday Night Campaign" required /></label>
-          <label>Create GM Password<input id="newCampaignPassword" type="password" minlength="4" autocomplete="new-password" required /></label>
-          <label>Confirm Password<input id="confirmCampaignPassword" type="password" minlength="4" autocomplete="new-password" required /></label>
+          <label>Create GM Code<input id="newCampaignPassword" type="text" maxlength="120" autocomplete="off" required /></label>
+          <label>Confirm GM Code<input id="confirmCampaignPassword" type="text" maxlength="120" autocomplete="off" required /></label>
           <button class="primary" type="submit">Create Permanent Campaign</button>
           <button id="cancelCreateCampaign" type="button">Back</button>
         </form>
@@ -41,7 +40,7 @@
           <label class="restore-file">Restore Campaign Backup<input id="restoreCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
           <form id="restoreCampaignForm" class="restore-form" hidden>
             <div><span id="restoreCampaignCode">----</span><strong id="restoreCampaignName">Campaign Backup</strong></div>
-            <label>New GM Password<input id="restoreCampaignPassword" type="password" minlength="4" autocomplete="new-password" required /></label>
+            <label>New GM Code<input id="restoreCampaignPassword" type="text" maxlength="120" autocomplete="off" required /></label>
             <button class="primary" type="submit">Restore Campaign</button>
             <button id="cancelRestoreCampaign" type="button">Cancel</button>
           </form>
@@ -54,7 +53,9 @@
           <button type="button" data-tab="script" class="active">Script</button>
           <button type="button" data-tab="characters">View Characters</button>
           <button type="button" data-tab="prompt">Prompt / Give</button>
+          <button type="button" data-tab="inbox">Inbox <strong id="gmInboxCount">0</strong></button>
           <button type="button" data-tab="atb">ATB</button>
+          <button type="button" data-tab="settings">Settings</button>
         </nav>
 
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
@@ -75,6 +76,14 @@
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
           </section>
+        </section>
+
+        <section id="inboxTab" class="gm-tab" data-tab-panel="inbox" hidden>
+          <div class="tab-heading">
+            <div><span>CAMPAIGN COMMUNICATIONS</span><h2>Inbox</h2></div>
+            <strong id="pendingJoinCount">0 Pending</strong>
+          </div>
+          <div id="gmInboxList" class="gm-inbox-list"></div>
         </section>
 
         <section id="charactersTab" class="gm-tab" data-tab-panel="characters" hidden>
@@ -161,18 +170,40 @@
           </section>
         </section>
 
-        <footer class="campaign-footer">
-          <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
-          <div class="campaign-backup-actions">
-            <button id="saveCampaignBackup" type="button">Save Campaign Backup</button>
-            <label class="restore-file compact">Restore This Campaign<input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
+        <section id="settingsTab" class="gm-tab" data-tab-panel="settings" hidden>
+          <div class="tab-heading"><div><span>CAMPAIGN ADMINISTRATION</span><h2>Settings</h2></div></div>
+          <div class="settings-grid">
+            <section class="settings-card">
+              <h3>Kick Player</h3>
+              <p>Remove a character from this campaign. They must request approval again to return.</p>
+              <label>Character<select id="kickCharacter"></select></label>
+              <button id="kickCharacterButton" class="danger" type="button">Kick Player</button>
+            </section>
+            <section class="settings-card">
+              <h3>Adjust Character</h3>
+              <p>Open a character sheet with GM editing authority.</p>
+              <label>Character<select id="adjustCharacter"></select></label>
+              <button id="adjustCharacterButton" type="button">Adjust Character</button>
+            </section>
+            <section class="settings-card">
+              <h3>Campaign Backup</h3>
+              <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
+              <div class="campaign-backup-actions">
+                <button id="saveCampaignBackup" type="button">Save Campaign Backup</button>
+                <label class="restore-file compact">Restore This Campaign<input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
+              </div>
+            </section>
+            <section class="settings-card danger-settings">
+              <h3>Campaign Access</h3>
+              <button id="deleteCampaign" class="danger" type="button">Delete Campaign</button>
+              <button id="gmLogout" class="quiet" type="button">Log Out</button>
+            </section>
           </div>
-          <button id="deleteCampaign" class="danger" type="button">Delete Campaign</button>
-        </footer>
+        </section>
         <p id="gmMessage" class="status-message" role="status"></p>
       </section>
     </main>
 
-    <script type="module" src="gm.js?v=20260802-campaign-5"></script>
+    <script type="module" src="gm.js?v=20260803-campaign-6"></script>
   </body>
 </html>

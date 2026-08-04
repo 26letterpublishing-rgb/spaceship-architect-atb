@@ -14,9 +14,9 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260802-campaign-5";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260802-campaign-5";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260802-campaign-5";
+} from "./character-data.js?v=20260803-campaign-6";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260803-campaign-6";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260803-campaign-6";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -203,6 +203,33 @@ const dom = {
   skillDiceResults: $("#skillDiceResults"),
   skillDiceTypes: $("#skillDiceTypes"),
   skillDiceValues: $("#skillDiceValues"),
+  tabs: $("#characterTabs"),
+  roomCode: $("#characterRoomCode"),
+  roomCodeValue: $("#characterRoomCodeValue"),
+  backToMain: $("#backToMainMenu"),
+  joinCampaignPanel: $("#joinCampaignPanel"),
+  joinCampaignForm: $("#joinCampaignForm"),
+  joinCampaignRoomCode: $("#joinCampaignRoomCode"),
+  joinCampaignStatus: $("#joinCampaignStatus"),
+  playerInboxPanel: $("#playerInboxPanel"),
+  playerInboxCount: $("#playerInboxCount"),
+  playerInboxList: $("#playerInboxList"),
+  messageGmForm: $("#messageGmForm"),
+  messageGmText: $("#messageGmText"),
+  playerSettingsPanel: $("#playerSettingsPanel"),
+  settingsLoadCharacter: $("#settingsLoadCharacter"),
+  settingsExportCharacter: $("#settingsExportCharacter"),
+  settingsNewCharacter: $("#settingsNewCharacter"),
+  settingsLeaveCampaign: $("#settingsLeaveCampaign"),
+  settingsLogout: $("#settingsLogout"),
+  playerAtbPanel: $("#playerAtbPanel"),
+  launchPlayerAtb: $("#launchPlayerAtb"),
+  pcCodeModal: $("#pcCodeModal"),
+  pcCodeFirst: $("#pcCodeFirst"),
+  pcCodeConfirm: $("#pcCodeConfirm"),
+  pcCodeMessage: $("#pcCodeMessage"),
+  pcCodeCancel: $("#pcCodeCancel"),
+  pcCodeAccept: $("#pcCodeAccept"),
 };
 
 let characterAudioContext = null;
@@ -341,6 +368,7 @@ const diceRoller = new PhysicalDiceRoller({
 let saveTimer = null;
 let noticeTimer = null;
 let confirmResolver = null;
+let pcCodeResolver = null;
 let migrationDetected = false;
 let fubsRollInProgress = false;
 let rollToastTimer = null;
@@ -475,6 +503,9 @@ function blankCharacter(name = "New Character") {
       dramaCards: 0,
     },
     presentation: { atbColor: "#39e58f" },
+    access: { pcCode: "" },
+    campaignLink: { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" },
+    localInbox: [],
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
     advantagesNotes: "",
     notes: "",
@@ -588,6 +619,16 @@ function normalizeCharacter(raw) {
       creditsBase: source.resources?.creditsBase ?? source.resources?.credits ?? 0,
     },
     presentation: { ...base.presentation, ...(source.presentation || {}) },
+    access: { ...base.access, ...(source.access || {}) },
+    campaignLink: { ...base.campaignLink, ...(source.campaignLink || {}) },
+    localInbox: (Array.isArray(source.localInbox) ? source.localInbox : []).slice(-20).map((note) => ({
+      id: String(note?.id || uid()),
+      kind: "system",
+      direction: "to-character",
+      message: String(note?.message || "").slice(0, 1000),
+      createdAt: note?.createdAt || new Date().toISOString(),
+      readAt: note?.readAt || null,
+    })).filter((note) => note.message),
     crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
   };
 
@@ -617,6 +658,14 @@ function normalizeCharacter(raw) {
   normalized.creation.classGrantsApplied = legacy ? false : Boolean(source.creation?.classGrantsApplied);
   normalized.creation.raceGrantsApplied = legacy ? false : Boolean(source.creation?.raceGrantsApplied);
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
+  normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
+  normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").replace(/\D/g, "").slice(0, 4);
+  normalized.campaignLink.campaignName = String(normalized.campaignLink.campaignName || "").slice(0, 80);
+  normalized.campaignLink.status = ["unlinked", "pending", "linked"].includes(normalized.campaignLink.status)
+    ? normalized.campaignLink.status
+    : "unlinked";
+  normalized.campaignLink.requestId = String(normalized.campaignLink.requestId || "");
+  normalized.campaignLink.message = String(normalized.campaignLink.message || "").slice(0, 1000);
   normalized.fubs.status = ["unrolled", "complete", "not-activated"].includes(normalized.fubs.status)
     ? normalized.fubs.status
     : "unrolled";
@@ -826,6 +875,53 @@ async function saveCampaignCharacter({ force = false } = {}) {
   }
 }
 
+let activeCharacterTab = "sheet";
+let joinStatusTimer = null;
+
+function showCharacterPanel(tab = "sheet") {
+  const available = [...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
+  activeCharacterTab = available ? tab : "sheet";
+  document.querySelectorAll("[data-character-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.characterPanel !== activeCharacterTab;
+  });
+  dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
+  if (activeCharacterTab === "roster") renderCampaignRoster();
+  if (activeCharacterTab === "inbox") refreshPrivateNotes();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderCharacterNavigation() {
+  const linked = Boolean(campaignCode && campaignCharacterId && campaignState);
+  const pending = character.campaignLink?.status === "pending";
+  const mayJoin = character.phase === "finalized" && !linked;
+  const gmView = campaignState?.role === "gm";
+  const hasLocalInbox = Boolean(character.localInbox?.length);
+  dom.tabs.hidden = false;
+  for (const button of dom.tabs.querySelectorAll("[data-character-tab]")) {
+    const tab = button.dataset.characterTab;
+    if (tab === "sheet" || tab === "settings") button.hidden = false;
+    if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
+    if (tab === "inbox") button.hidden = (!linked && !hasLocalInbox) || gmView;
+    if (tab === "join") button.hidden = !mayJoin || gmView;
+  }
+  const roomCode = linked ? campaignCode : character.campaignLink?.roomCode || "";
+  dom.roomCode.hidden = !roomCode;
+  dom.roomCodeValue.textContent = roomCode || "----";
+  dom.backToMain.hidden = linked;
+  dom.settingsLeaveCampaign.disabled = !linked || gmView;
+  dom.messageGmForm.hidden = !linked || gmView;
+  dom.launchPlayerAtb.disabled = !linked || gmView;
+  if (pending) {
+    dom.joinCampaignStatus.innerHTML = `<strong>Awaiting GM Approval</strong><span>${escapeHtml(character.campaignLink.campaignName || "Campaign")} | Room ${escapeHtml(roomCode)}</span><p>${escapeHtml(character.campaignLink.message || "The character will link automatically after approval.")}</p>`;
+  } else if (!linked) {
+    dom.joinCampaignStatus.innerHTML = "";
+  }
+  if (![...dom.tabs.querySelectorAll("[data-character-tab]")].some((button) => button.dataset.characterTab === activeCharacterTab && !button.hidden)) {
+    activeCharacterTab = "sheet";
+  }
+  showCharacterPanel(activeCharacterTab);
+}
+
 function renderCampaignRoster() {
   if (!campaignState) return;
   dom.campaignEntryPrompt.hidden = true;
@@ -835,12 +931,10 @@ function renderCampaignRoster() {
   dom.campaignRosterCards.innerHTML = records.length ? records.map((record) => {
     const name = campaignCharacterName(record);
     const player = campaignPlayerName(record);
-    const pending = record.approved === false ? '<span class="campaign-approval">Awaiting GM approval</span>' : "";
     return `<article class="campaign-character-card" style="--character-color:${escapeAttribute(record.character?.presentation?.atbColor || "#39e58f")}">
-      <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong>${pending}</div>
+      <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong></div>
       <div class="campaign-character-card-actions">
         <button type="button" data-campaign-view="${record.id}">View Characters</button>
-        <button type="button" class="primary-action" data-campaign-edit="${record.id}">Join Game</button>
       </div>
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
@@ -871,13 +965,13 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   campaignBaselineCredits = Number(opened.resources?.creditsBase) || 0;
   campaignCharacterId = record.id;
   campaignToken = token || "";
-  campaignPin = pin || record.pin || "";
+  campaignPin = pin || record.pcCode || opened.access?.pcCode || "";
   campaignEditable = editable;
   campaignDirty = false;
   localStorage.setItem(ACTIVE_KEY, activeId);
   if (campaignToken) localStorage.setItem(campaignTokenKey(campaignCode, campaignCharacterId), campaignToken);
-  dom.campaignGate.hidden = true;
-  dom.characterWorkspace.hidden = false;
+  opened.campaignLink = { roomCode: campaignCode, campaignName: campaignState.name, status: "linked", requestId: "", message: "" };
+  opened.access = { ...(opened.access || {}), pcCode: campaignPin };
   dom.campaignAccessBar.hidden = false;
   dom.activeCampaignLabel.textContent = `${campaignState.name} / ${campaignCode}`;
   dom.characterPicker.closest(".library-bar").hidden = true;
@@ -887,10 +981,11 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   refreshPrivateNotes();
   renderCampaignBank();
   refreshCampaignRollPrompt();
+  renderCharacterNavigation();
   suppressCampaignSave = false;
 }
 
-function showPinDisplay({ title = "Character PIN", message = "Keep this PIN. It is required to edit this character and spend Experience." } = {}) {
+function showPinDisplay({ title = "PC Code", message = "This PC Code opens the character after it joins a campaign." } = {}) {
   pinModalMode = "display";
   dom.campaignPinTitle.textContent = title;
   dom.campaignPinMessage.textContent = message;
@@ -906,7 +1001,7 @@ function showPinEntry(characterId) {
   pinModalMode = "unlock";
   pendingPinCharacterId = characterId;
   dom.campaignPinTitle.textContent = "Unlock Character";
-  dom.campaignPinMessage.textContent = "Enter this character's four-digit PIN to edit the sheet and spend Experience.";
+  dom.campaignPinMessage.textContent = "Enter this character's PC Code to edit the sheet and spend Experience.";
   dom.campaignPinDisplay.hidden = true;
   dom.campaignPinEntryWrap.hidden = false;
   dom.campaignPinEntry.value = "";
@@ -917,15 +1012,19 @@ function showPinEntry(characterId) {
 }
 
 function refreshPrivateNotes() {
-  if (!campaignState || !campaignCharacterId) return;
-  const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
-  const notes = record?.privateNotes || [];
-  const unread = notes.filter((note) => !note.readAt).length;
+  const record = campaignState?.characters?.find((entry) => entry.id === campaignCharacterId);
+  const notes = [...(record?.privateNotes || []), ...(character.localInbox || [])];
+  const unread = notes.filter((note) => note.direction !== "to-gm" && !note.readAt).length;
   dom.privateNoteCount.textContent = String(unread);
+  dom.playerInboxCount.textContent = String(unread);
   dom.openPrivateNotes.classList.toggle("has-unread", unread > 0);
   dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="private-note ${note.readAt ? "read" : "unread"}" data-note-id="${note.id}">
     <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p><button type="button" data-delete-note="${note.id}">Delete</button>
   </article>`).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
+  dom.playerInboxList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="player-inbox-card ${note.direction !== "to-gm" && !note.readAt ? "unread" : ""}" data-player-note="${note.id}">
+    <div><span>${note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "MESSAGE SENT" : "PRIVATE GM MESSAGE"}</span><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <p>${escapeHtml(note.message)}</p>
+  </article>`).join("") : '<p class="campaign-empty-roster">No private messages.</p>';
 }
 
 function renderCampaignBank() {
@@ -944,7 +1043,7 @@ function renderCampaignBank() {
   dom.bankTarget.innerHTML = campaignState.characters.filter((entry) => entry.id !== campaignCharacterId).map((entry) => `<option value="${entry.id}">${escapeHtml(campaignCharacterName(entry))}</option>`).join("");
   const poolRestricted = !mayUsePool && ["deposit", "withdraw", "giftShip"].includes(dom.bankOperation.value);
   dom.bankConfirm.disabled = !campaignEditable || poolRestricted;
-  dom.bankConfirm.textContent = !campaignEditable ? "Enter PIN to Transfer" : poolRestricted ? "Banker Authorization Required" : "Confirm Transfer";
+  dom.bankConfirm.textContent = !campaignEditable ? "Enter PC Code to Transfer" : poolRestricted ? "Banker Authorization Required" : "Confirm Transfer";
   dom.bankTargetWrap.hidden = !["giftPersonal", "giftShip"].includes(dom.bankOperation.value);
 }
 
@@ -972,9 +1071,24 @@ function receiveCampaignState(nextState) {
   }
   const remote = nextState.characters.find((entry) => entry.id === campaignCharacterId);
   if (!remote) {
-    dom.characterWorkspace.hidden = true;
-    dom.campaignGate.hidden = false;
-    renderCampaignRoster();
+    const removedName = campaignState?.name || character.campaignLink?.campaignName || "the campaign";
+    character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+    campaignEvents?.close();
+    campaignEvents = null;
+    campaignCode = "";
+    campaignState = null;
+    campaignCharacterId = "";
+    campaignToken = "";
+    campaignPin = character.access?.pcCode || "";
+    campaignEditable = false;
+    dom.campaignAccessBar.hidden = true;
+    dom.characterPicker.closest(".library-bar").hidden = false;
+    document.body.classList.remove("campaign-view-only");
+    saveLibrary("Character saved locally");
+    renderAll();
+    renderCharacterNavigation();
+    showCharacterPanel("sheet");
+    notice(`This character is no longer linked to ${removedName}.`, "error");
     return;
   }
   if (!campaignEditable && !campaignDirty) {
@@ -1006,6 +1120,7 @@ function receiveCampaignState(nextState) {
   renderCampaignBank();
   refreshCampaignRollPrompt();
   updateCampaignCharacterNavigation();
+  renderCharacterNavigation();
 }
 
 function connectCampaignState() {
@@ -1035,6 +1150,135 @@ async function loadCampaign(code, token = "") {
   localStorage.setItem("sa-character-campaign-code", campaignCode);
   connectCampaignState();
   return state;
+}
+
+function scheduleJoinStatusCheck(delay = 3000) {
+  clearTimeout(joinStatusTimer);
+  if (character.campaignLink?.status !== "pending") return;
+  joinStatusTimer = setTimeout(checkJoinStatus, delay);
+}
+
+async function checkJoinStatus() {
+  const link = character.campaignLink || {};
+  if (link.status !== "pending" || !link.roomCode || !character.access?.pcCode) return;
+  try {
+    const result = await campaignRequest("/api/campaign/join/status", {
+      method: "POST",
+      body: JSON.stringify({
+        code: link.roomCode,
+        characterId: character.id,
+        pcCode: character.access.pcCode,
+        character,
+      }),
+    });
+    if (result.status === "approved") {
+      campaignCode = result.campaign.code;
+      campaignToken = result.token;
+      campaignState = result.campaign;
+      campaignCharacterId = result.characterId;
+      campaignPin = character.access.pcCode;
+      localStorage.setItem("sa-character-campaign-code", campaignCode);
+      localStorage.setItem(campaignTokenKey(campaignCode, campaignCharacterId), campaignToken);
+      const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
+      if (record) showCampaignCharacter(record, { editable: true, token: campaignToken, pin: campaignPin });
+      connectCampaignState();
+      notice(`Character approved for ${campaignState.name}.`, "success");
+      return;
+    }
+    if (result.status === "rejected") {
+      const rejectionMessage = result.message || "The campaign request was rejected.";
+      character.localInbox = [...(character.localInbox || []), {
+        id: `local-${Date.now()}`,
+        kind: "system",
+        direction: "to-character",
+        message: rejectionMessage,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      }].slice(-20);
+      character.campaignLink = {
+        roomCode: "",
+        campaignName: "",
+        status: "unlinked",
+        requestId: "",
+        message: "",
+      };
+      saveLibrary("Campaign request updated");
+      renderCharacterNavigation();
+      refreshPrivateNotes();
+      notice(rejectionMessage, "error");
+      return;
+    }
+    character.campaignLink.message = result.message || "Awaiting GM approval.";
+    saveLibrary("Campaign request pending");
+    renderCharacterNavigation();
+    scheduleJoinStatusCheck();
+  } catch (error) {
+    dom.joinCampaignStatus.textContent = error.message;
+    scheduleJoinStatusCheck(7000);
+  }
+}
+
+async function requestCampaignJoin(roomCode) {
+  const normalized = String(roomCode || "").replace(/\D/g, "").slice(0, 4);
+  if (!/^\d{4}$/.test(normalized)) throw new Error("Enter the complete four-digit Room Code.");
+  if (character.phase !== "finalized" || !character.access?.pcCode) throw new Error("Finalize this character and choose a PC Code first.");
+  const result = await campaignRequest("/api/campaign/join/request", {
+    method: "POST",
+    body: JSON.stringify({ code: normalized, pcCode: character.access.pcCode, character }),
+  });
+  character.campaignLink = {
+    roomCode: result.roomCode,
+    campaignName: result.campaignName,
+    status: "pending",
+    requestId: result.requestId,
+    message: "Awaiting GM approval.",
+  };
+  saveLibrary("Campaign request saved locally");
+  renderCharacterNavigation();
+  scheduleJoinStatusCheck(1200);
+}
+
+async function detachCurrentCharacter({ notify = true } = {}) {
+  clearTimeout(joinStatusTimer);
+  const previousCode = campaignCode || character.campaignLink?.roomCode || "";
+  if (campaignCode && campaignCharacterId && campaignToken) {
+    await saveCampaignCharacter({ force: true });
+    const result = await campaignRequest("/api/campaign/character/leave", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId }),
+    });
+    character = normalizeCharacter(result.character || character);
+    const index = library.findIndex((entry) => entry.id === activeId);
+    if (index >= 0) library[index] = character;
+  } else if (character.campaignLink?.status === "pending" && previousCode) {
+    try {
+      await campaignRequest("/api/campaign/join/cancel", {
+        method: "POST",
+        body: JSON.stringify({ code: previousCode, characterId: character.id, pcCode: character.access?.pcCode || "" }),
+      });
+    } catch {
+      // The GM may already have resolved the request; the local character still detaches safely.
+    }
+  }
+  campaignEvents?.close();
+  campaignEvents = null;
+  if (previousCode && campaignCharacterId) localStorage.removeItem(campaignTokenKey(previousCode, campaignCharacterId));
+  localStorage.removeItem("sa-character-campaign-code");
+  campaignCode = "";
+  campaignState = null;
+  campaignCharacterId = "";
+  campaignToken = "";
+  campaignPin = character.access?.pcCode || "";
+  campaignEditable = false;
+  campaignDirty = false;
+  character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+  dom.campaignAccessBar.hidden = true;
+  dom.characterPicker.closest(".library-bar").hidden = false;
+  document.body.classList.remove("campaign-view-only");
+  saveLibrary("Character detached from campaign");
+  renderAll();
+  renderCharacterNavigation();
+  if (notify) notice("Character is no longer linked to a campaign.", "success");
 }
 
 function snapshotRecovery(reason) {
@@ -2304,6 +2548,25 @@ function closeConfirmation(result) {
   resolver?.(result);
 }
 
+function requestPcCode({ title = "Choose a PC Code", acceptLabel = "Save PC Code and Finalize" } = {}) {
+  if (pcCodeResolver) pcCodeResolver("");
+  dom.pcCodeFirst.value = character.access?.pcCode || "";
+  dom.pcCodeConfirm.value = "";
+  dom.pcCodeMessage.textContent = "";
+  dom.pcCodeModal.querySelector("#pcCodeTitle").textContent = title;
+  dom.pcCodeAccept.textContent = acceptLabel;
+  dom.pcCodeModal.hidden = false;
+  setTimeout(() => dom.pcCodeFirst.focus(), 60);
+  return new Promise((resolve) => { pcCodeResolver = resolve; });
+}
+
+function closePcCodeModal(value = "") {
+  dom.pcCodeModal.hidden = true;
+  const resolver = pcCodeResolver;
+  pcCodeResolver = null;
+  resolver?.(value);
+}
+
 function playWipe(switchCharacter) {
   dom.wipeOverlay.hidden = false;
   void dom.wipeOverlay.offsetWidth;
@@ -2338,6 +2601,7 @@ async function beginNewCharacter() {
     dom.skillSearch.value = "";
     saveLibrary("New character saved locally");
   });
+  renderCharacterNavigation();
   notice("Fresh Character Draft created. The previous character remains saved.", "success");
 }
 
@@ -2368,6 +2632,9 @@ async function beginFinalization() {
     }
     return;
   }
+  const pcCode = await requestPcCode();
+  if (!pcCode) return;
+  character.access.pcCode = pcCode;
   saveLibrary();
   snapshotRecovery("Before Finalization");
   if (fubsMissing) character.fubs.status = "not-activated";
@@ -2434,10 +2701,7 @@ async function finishFinalization() {
   renderAll();
   notice("Character finalized. Advancement rules are now active.", "success");
   await playFinalizedIdentityReveal();
-  if (campaignCode && campaignPin) showPinDisplay({
-    title: "Character Finalized / Save Your PIN",
-    message: "This PIN unlocks advancement and future edits. The GM can also see it if you lose it.",
-  });
+  renderCharacterNavigation();
 }
 
 function campaignSkillKey(skillName) {
@@ -3008,6 +3272,7 @@ dom.characterPicker.addEventListener("change", () => {
   }
   dom.skillSearch.value = "";
   renderAll();
+  renderCharacterNavigation();
   if (character.phase === "finalizing" || character.pendingRoll) window.setTimeout(() => processFinalization() || rollPending(), 100);
 });
 
@@ -3181,23 +3446,13 @@ dom.campaignCode?.addEventListener("input", () => {
 
 dom.campaignRosterCards?.addEventListener("click", (event) => {
   const view = event.target.closest("[data-campaign-view]");
-  const edit = event.target.closest("[data-campaign-edit]");
-  const recordId = view?.dataset.campaignView || edit?.dataset.campaignEdit;
+  const recordId = view?.dataset.campaignView;
   if (!recordId) return;
   const record = campaignState.characters.find((entry) => entry.id === recordId);
   if (!record) return;
-  if (edit) {
-    const stored = localStorage.getItem(campaignTokenKey(campaignCode, recordId)) || "";
-    if (stored) {
-      loadCampaign(campaignCode, stored).then((state) => {
-        const owned = state.role === "character" && state.ownCharacterId === recordId;
-        if (owned) showCampaignCharacter(state.characters.find((entry) => entry.id === recordId), { editable: true, token: stored });
-        else showPinEntry(recordId);
-      }).catch(() => showPinEntry(recordId));
-    } else showPinEntry(recordId);
-    return;
-  }
-  showCampaignCharacter(record, { editable: false });
+  const owned = campaignState.role === "character" && campaignState.ownCharacterId === recordId;
+  showCampaignCharacter(record, { editable: owned, token: owned ? campaignToken : "", pin: owned ? record.pcCode : "" });
+  showCharacterPanel("sheet");
 });
 
 dom.createCampaignCharacter?.addEventListener("click", async () => {
@@ -3245,7 +3500,7 @@ dom.importCampaignCharacter?.addEventListener("change", async () => {
 });
 
 dom.campaignPinEntry?.addEventListener("input", () => {
-  dom.campaignPinEntry.value = dom.campaignPinEntry.value.replace(/\D/g, "").slice(0, 4);
+  dom.campaignPinMessage.textContent = "";
 });
 
 dom.campaignPinCancel?.addEventListener("click", () => { dom.campaignPinModal.hidden = true; });
@@ -3258,7 +3513,7 @@ dom.campaignPinConfirm?.addEventListener("click", async () => {
     const enteredPin = dom.campaignPinEntry.value;
     const unlocked = await campaignRequest("/api/campaign/character/unlock", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, characterId: pendingPinCharacterId, pin: enteredPin }),
+      body: JSON.stringify({ code: campaignCode, characterId: pendingPinCharacterId, pcCode: enteredPin }),
     });
     campaignToken = unlocked.token;
     campaignPin = enteredPin;
@@ -3304,11 +3559,170 @@ dom.changeCampaign?.addEventListener("click", () => {
   dom.campaignCode.focus();
 });
 
+dom.tabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-character-tab]");
+  if (!button || button.hidden) return;
+  const tab = button.dataset.characterTab;
+  if (tab === "settings" && campaignState?.role === "character" && campaignState.ownCharacterId && campaignCharacterId !== campaignState.ownCharacterId) {
+    const own = campaignState.characters.find((entry) => entry.id === campaignState.ownCharacterId);
+    if (own) showCampaignCharacter(own, { editable: true, token: campaignToken, pin: own.pcCode });
+  }
+  showCharacterPanel(tab);
+  if (tab === "inbox") {
+    let localChanged = false;
+    character.localInbox = (character.localInbox || []).map((note) => {
+      if (note.readAt) return note;
+      localChanged = true;
+      return { ...note, readAt: new Date().toISOString() };
+    });
+    if (localChanged) saveLibrary("Campaign notices read");
+    const own = campaignState?.characters.find((entry) => entry.id === campaignState.ownCharacterId);
+    const unread = (own?.privateNotes || []).filter((note) => note.direction !== "to-gm" && !note.readAt);
+    Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: note.id }),
+    }).catch(() => null))).then(() => refreshPrivateNotes());
+  }
+});
+
+dom.joinCampaignRoomCode?.addEventListener("input", () => {
+  dom.joinCampaignRoomCode.value = dom.joinCampaignRoomCode.value.replace(/\D/g, "").slice(0, 4);
+});
+
+dom.joinCampaignForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  dom.joinCampaignStatus.textContent = "Sending request...";
+  try {
+    await requestCampaignJoin(dom.joinCampaignRoomCode.value);
+  } catch (error) {
+    if (error.message === "Error: Please try a different code") {
+      const replacement = await requestPcCode({ title: "Choose a Different PC Code", acceptLabel: "Save New PC Code" });
+      if (replacement) {
+        character.access.pcCode = replacement;
+        saveLibrary("PC Code updated");
+        try {
+          await requestCampaignJoin(dom.joinCampaignRoomCode.value);
+          return;
+        } catch (retryError) {
+          dom.joinCampaignStatus.textContent = retryError.message;
+          return;
+        }
+      }
+    }
+    dom.joinCampaignStatus.textContent = error.message;
+  }
+});
+
+dom.messageGmForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const ownId = campaignState?.ownCharacterId;
+  if (!campaignCode || !campaignToken || !ownId) return;
+  try {
+    await campaignRequest("/api/campaign/note/send-to-gm", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: ownId, message: dom.messageGmText.value }),
+    });
+    dom.messageGmText.value = "";
+    notice("Private message sent to the GM.", "success");
+  } catch (error) {
+    notice(error.message, "error");
+  }
+});
+
+async function replaceCurrentCharacter(nextCharacter) {
+  if (campaignCode || character.campaignLink?.status === "pending") await detachCurrentCharacter({ notify: false });
+  snapshotRecovery("Before Character Replacement");
+  const previousId = activeId;
+  library = library.filter((entry) => entry.id !== previousId);
+  const next = normalizeCharacter(nextCharacter);
+  next.id = uid();
+  next.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+  library.push(next);
+  activeId = next.id;
+  character = next;
+  dom.characterPicker.closest(".library-bar").hidden = false;
+  saveLibrary("Replacement character saved locally");
+  renderAll();
+  renderCharacterNavigation();
+  showCharacterPanel("sheet");
+}
+
+dom.settingsExportCharacter?.addEventListener("click", exportCurrentCharacter);
+
+dom.settingsLoadCharacter?.addEventListener("change", async () => {
+  const file = dom.settingsLoadCharacter.files?.[0];
+  if (!file) return;
+  const accepted = await askConfirmation({
+    title: "Replace the current character?",
+    message: "This character will leave the campaign. Export Character Data first if you need a portable backup.",
+    acceptLabel: "Load Replacement",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+  if (!accepted) { dom.settingsLoadCharacter.value = ""; return; }
+  try {
+    const parsed = JSON.parse(await file.text());
+    const source = parsed?.format === FORMAT_NAME ? parsed.character : parsed.character || parsed;
+    if (!source?.identity || !source?.attributes) throw new Error("That file does not contain a valid character.");
+    await replaceCurrentCharacter(source);
+    notice("Replacement character loaded. Use Join Campaign when ready.", "success");
+  } catch (error) {
+    notice(error.message, "error");
+  } finally {
+    dom.settingsLoadCharacter.value = "";
+  }
+});
+
+dom.settingsNewCharacter?.addEventListener("click", async () => {
+  const accepted = await askConfirmation({
+    title: "Replace this character with a new one?",
+    message: "This character will leave the campaign. Export Character Data first if you need a portable backup.",
+    acceptLabel: "Make New Character",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+  if (!accepted) return;
+  await replaceCurrentCharacter(blankCharacter("New Character"));
+  notice("Fresh character created. The previous campaign link was removed.", "success");
+});
+
+dom.settingsLeaveCampaign?.addEventListener("click", async () => {
+  const accepted = await askConfirmation({
+    title: "Leave this campaign?",
+    message: "This character will be removed from the campaign roster and may join a different campaign. Export Character Data first if you need a portable backup.",
+    acceptLabel: "Leave Campaign",
+    cancelLabel: "Stay",
+    danger: true,
+  });
+  if (!accepted) return;
+  try {
+    await detachCurrentCharacter();
+    showCharacterPanel("sheet");
+  } catch (error) {
+    notice(error.message, "error");
+  }
+});
+
+dom.settingsLogout?.addEventListener("click", async () => {
+  await saveCampaignCharacter({ force: true });
+  campaignEvents?.close();
+  if (campaignCode && campaignCharacterId) localStorage.removeItem(campaignTokenKey(campaignCode, campaignCharacterId));
+  localStorage.removeItem("sa-character-campaign-code");
+  window.location.href = "index.html";
+});
+
+dom.launchPlayerAtb?.addEventListener("click", async () => {
+  await saveCampaignCharacter({ force: true });
+  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  if (!campaignCode || !ownId) return;
+  window.location.href = `index.html?embedded=player&campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(ownId)}`;
+});
+
 dom.openPrivateNotes?.addEventListener("click", async () => {
   refreshPrivateNotes();
   dom.privateNotesModal.hidden = false;
   const record = campaignState?.characters.find((entry) => entry.id === campaignCharacterId);
-  const unread = (record?.privateNotes || []).filter((note) => !note.readAt);
+  const unread = (record?.privateNotes || []).filter((note) => note.direction !== "to-gm" && !note.readAt);
   if (campaignEditable && campaignToken && unread.length) {
     await Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
       method: "POST",
@@ -3398,6 +3812,23 @@ dom.fubsDebugRoll.addEventListener("click", async () => {
 dom.fubsReroll.addEventListener("click", rerollFubs);
 dom.fubsExit.addEventListener("click", closeFubsResult);
 
+dom.pcCodeCancel.addEventListener("click", () => closePcCodeModal(""));
+dom.pcCodeAccept.addEventListener("click", () => {
+  const first = dom.pcCodeFirst.value;
+  const repeated = dom.pcCodeConfirm.value;
+  if (!first) {
+    dom.pcCodeMessage.textContent = "Choose a PC Code before continuing.";
+    dom.pcCodeFirst.focus();
+    return;
+  }
+  if (first !== repeated) {
+    dom.pcCodeMessage.textContent = "The two PC Codes do not match. Type it again carefully.";
+    dom.pcCodeConfirm.select();
+    return;
+  }
+  closePcCodeModal(first);
+});
+
 dom.restoreHp.addEventListener("click", () => {
   character.health.current = maximumHp();
   queueSave();
@@ -3452,9 +3883,19 @@ async function initializeCharacterApp() {
   const requestedCode = String(params.get("campaign") || localStorage.getItem("sa-character-campaign-code") || "").trim().toUpperCase();
   const requestedCharacter = String(params.get("character") || "");
   const gmAccess = params.get("gm") === "1";
+  if (params.get("new") === "1" && !requestedCode && !requestedCharacter) {
+    const next = blankCharacter(`New Character ${library.length + 1}`);
+    library.push(next);
+    activeId = next.id;
+    character = next;
+    dom.skillSearch.value = "";
+    saveLibrary("New character saved locally");
+    window.history.replaceState({}, "", "character.html");
+    renderAll();
+  }
   dom.campaignCode.value = /^[A-Z0-9]{4}$/.test(requestedCode) ? requestedCode : "";
-  dom.characterWorkspace.hidden = true;
-  dom.campaignGate.hidden = false;
+  dom.campaignGate.hidden = true;
+  dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {
     const token = gmAccess
       ? localStorage.getItem(`sa-gm-token-${requestedCode}`) || ""
@@ -3464,7 +3905,7 @@ async function initializeCharacterApp() {
       const record = state.characters.find((entry) => entry.id === requestedCharacter);
       if (record) {
         const editable = state.role === "gm" || (state.role === "character" && state.ownCharacterId === requestedCharacter);
-        showCampaignCharacter(record, { editable, token, pin: state.role === "gm" ? record.pin : "" });
+        showCampaignCharacter(record, { editable, token, pin: record.pcCode || "" });
         if (editable && character.phase === "finalizing") window.setTimeout(processFinalization, 120);
         else if (editable && character.pendingRoll) window.setTimeout(rollPending, 120);
         return;
@@ -3473,14 +3914,12 @@ async function initializeCharacterApp() {
       dom.campaignMessage.textContent = error.message;
     }
   }
-  if (requestedCode) {
-    try {
-      await loadCampaign(requestedCode);
-      renderCampaignRoster();
-    } catch (error) {
-      dom.campaignMessage.textContent = error.message;
-    }
+  if (requestedCode && !requestedCharacter) {
+    localStorage.removeItem("sa-character-campaign-code");
   }
+  renderCharacterNavigation();
+  showCharacterPanel("sheet");
+  if (character.campaignLink?.status === "pending") scheduleJoinStatusCheck(800);
 }
 
 renderAll();

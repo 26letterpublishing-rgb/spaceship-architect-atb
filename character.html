@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260802-campaign-5" />
+    <link rel="stylesheet" href="character.css?v=20260803-campaign-6" />
   </head>
   <body>
     <header class="creator-header">
@@ -13,10 +13,20 @@
         <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
       </a>
       <div class="creator-title"><span>Second Edition</span><h1>Character Creator</h1></div>
-      <a class="back-link" href="index.html">Back to Main Menu</a>
+      <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
+      <a id="backToMainMenu" class="back-link" href="index.html">Back to Main Menu</a>
     </header>
 
-    <section id="characterCampaignGate" class="character-campaign-gate">
+    <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
+      <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
+      <button type="button" data-character-tab="roster" hidden>Campaign Roster</button>
+      <button type="button" data-character-tab="inbox" hidden>Inbox <strong id="playerInboxCount">0</strong></button>
+      <button type="button" data-character-tab="join" hidden>Join Campaign</button>
+      <button type="button" data-character-tab="atb" hidden>ATB</button>
+      <button type="button" data-character-tab="settings">Settings</button>
+    </nav>
+
+    <section id="characterCampaignGate" class="character-campaign-gate character-page-panel" data-character-panel="roster" hidden>
       <div class="campaign-gate-card">
         <div id="campaignEntryPrompt">
           <span>CAMPAIGN CHARACTERS</span>
@@ -31,15 +41,15 @@
         <section id="campaignRosterLobby" class="campaign-roster-lobby" hidden>
           <div class="campaign-lobby-heading">
             <div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div>
-            <div class="campaign-lobby-actions"><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
+            <div class="campaign-lobby-actions" hidden><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
           </div>
-          <div class="campaign-lobby-tools"><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
+          <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
         </section>
       </div>
     </section>
 
-    <main id="characterWorkspace" class="creator-shell" hidden>
+    <main id="characterWorkspace" class="creator-shell character-page-panel" data-character-panel="sheet" hidden>
       <section class="library-bar" aria-label="Character library">
         <label class="character-picker">Saved Character<select id="characterPicker"></select></label>
         <div class="library-actions">
@@ -59,12 +69,12 @@
           <strong id="campaignCharacterPosition">1 / 1</strong>
           <button id="nextCampaignCharacter" type="button" aria-label="View next character">&#9654;</button>
         </div>
-        <button id="unlockCampaignCharacter" type="button">Enter Character PIN</button>
+        <button id="unlockCampaignCharacter" type="button" hidden>Enter PC Code</button>
         <button id="openPrivateNotes" type="button">Private Notes <strong id="privateNoteCount">0</strong></button>
         <button id="openCampaignBank" type="button">Ship Bank <strong id="campaignBankSummary">0</strong></button>
         <button id="saveAndSyncCharacter" type="button">Save &amp; Sync</button>
-        <button id="showCharacterPin" type="button" hidden>Show PIN</button>
-        <button id="returnToCampaignRoster" type="button">Campaign Roster</button>
+        <button id="showCharacterPin" type="button" hidden>Show PC Code</button>
+        <button id="returnToCampaignRoster" type="button" hidden>Campaign Roster</button>
       </section>
 
       <section class="workflow-bar" aria-label="Character creation progress">
@@ -241,14 +251,63 @@
       </section>
     </main>
 
+    <section id="joinCampaignPanel" class="character-page-panel character-tool-page" data-character-panel="join" hidden>
+      <div class="character-tool-heading"><span>CAMPAIGN CONNECTION</span><h1>Join Campaign</h1></div>
+      <div class="join-campaign-card">
+        <p>Enter the permanent four-digit Room Code supplied by the GM. Your character will remain unattached until the GM approves the request.</p>
+        <form id="joinCampaignForm">
+          <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="0427" required /></label>
+          <button class="primary-action" type="submit">Request to Join</button>
+        </form>
+        <div id="joinCampaignStatus" class="join-campaign-status"></div>
+      </div>
+    </section>
+
+    <section id="playerInboxPanel" class="character-page-panel character-tool-page" data-character-panel="inbox" hidden>
+      <div class="character-tool-heading"><span>PRIVATE COMMUNICATIONS</span><h1>Inbox</h1></div>
+      <div id="playerInboxList" class="player-inbox-list"></div>
+      <form id="messageGmForm" class="message-gm-form">
+        <label>Private Message to GM<textarea id="messageGmText" rows="4" maxlength="1000" placeholder="Type a short private message..."></textarea></label>
+        <button class="primary-action" type="submit">Send to GM</button>
+      </form>
+    </section>
+
+    <section id="playerSettingsPanel" class="character-page-panel character-tool-page" data-character-panel="settings" hidden>
+      <div class="character-tool-heading"><span>CHARACTER ACCESS</span><h1>Settings</h1></div>
+      <div class="player-settings-grid">
+        <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" accept=".sa2character,.json,application/json" /></label></section>
+        <section><h2>Export Character Data</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Export Character Data</button></section>
+        <section><h2>Make New Character</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
+        <section><h2>Leave Campaign</h2><p>Break this character's campaign link so it may request entry into another campaign.</p><button id="settingsLeaveCampaign" class="danger" type="button">Leave Campaign</button></section>
+        <section><h2>Session</h2><p>Log out on this browser without removing the character from its campaign.</p><button id="settingsLogout" type="button">Log Out</button></section>
+      </div>
+    </section>
+
+    <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
+      <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>ATB</h1></div>
+      <div class="player-atb-launch"><p>Open the current campaign encounter using this character's synchronized statistics.</p><button id="launchPlayerAtb" class="primary-action" type="button">Open ATB Encounter</button></div>
+    </section>
+
     <div id="campaignPinModal" class="modal-shell" hidden>
       <section class="confirm-dialog campaign-pin-dialog" role="dialog" aria-modal="true" aria-labelledby="campaignPinTitle">
         <span class="dialog-kicker">Character Access</span>
-        <h2 id="campaignPinTitle">Character PIN</h2>
-        <p id="campaignPinMessage">Keep this PIN. It is required to edit this character and spend Experience.</p>
+        <h2 id="campaignPinTitle">PC Code</h2>
+        <p id="campaignPinMessage">Your PC Code opens this character after it joins a campaign.</p>
         <strong id="campaignPinDisplay" class="campaign-pin-display">----</strong>
-        <label id="campaignPinEntryWrap" hidden>Enter PIN<input id="campaignPinEntry" type="password" maxlength="4" inputmode="numeric" autocomplete="off" /></label>
+        <label id="campaignPinEntryWrap" hidden>Enter PC Code<input id="campaignPinEntry" type="text" maxlength="120" autocomplete="off" /></label>
         <div class="dialog-actions"><button id="campaignPinCancel" type="button">Exit</button><button id="campaignPinConfirm" class="primary-action" type="button">Continue</button></div>
+      </section>
+    </div>
+
+    <div id="pcCodeModal" class="modal-shell" hidden>
+      <section class="confirm-dialog pc-code-dialog" role="dialog" aria-modal="true" aria-labelledby="pcCodeTitle">
+        <span class="dialog-kicker">Character Access</span>
+        <h2 id="pcCodeTitle">Choose a PC Code</h2>
+        <p>Your PC Code may be anything, even a single character. Choose something easy to remember but unlikely another player will use. Your GM can see your PC Code if you forget it.</p>
+        <label>PC Code<input id="pcCodeFirst" type="text" maxlength="120" autocomplete="off" /></label>
+        <label>Enter It Again<input id="pcCodeConfirm" type="text" maxlength="120" autocomplete="off" /></label>
+        <p id="pcCodeMessage" class="dialog-error" role="status"></p>
+        <div class="dialog-actions"><button id="pcCodeCancel" type="button">Cancel</button><button id="pcCodeAccept" class="primary-action" type="button">Save PC Code and Finalize</button></div>
       </section>
     </div>
 
@@ -384,6 +443,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260802-campaign-5"></script>
+    <script type="module" src="character.js?v=20260803-campaign-6"></script>
   </body>
 </html>

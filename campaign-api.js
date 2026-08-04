@@ -12,14 +12,7 @@ function clone(value) {
 }
 
 function campaignCode() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let index = 0; index < 4; index += 1) code += alphabet[crypto.randomInt(alphabet.length)];
-  return code;
-}
-
-function characterPin() {
-  return String(crypto.randomInt(1000, 10000));
+  return String(crypto.randomInt(0, 10000)).padStart(4, "0");
 }
 
 function passwordRecord(password) {
@@ -44,17 +37,18 @@ function safeCharacterName(record) {
   return String(record?.character?.identity?.characterName || "Unnamed Character").trim().slice(0, 80) || "Unnamed Character";
 }
 
-function defaultCampaign({ code, name, password }) {
+function defaultCampaign({ code, name, gmCode }) {
   const now = new Date().toISOString();
   return {
-    version: 1,
+    version: 2,
     code,
     name: String(name || "New Campaign").trim().slice(0, 80) || "New Campaign",
-    password: passwordRecord(password),
+    gmCode: passwordRecord(gmCode),
     createdAt: now,
     updatedAt: now,
     script: "",
     characters: [],
+    joinRequests: [],
     shipCredits: 0,
     bankerCharacterId: null,
     awardHistory: [],
@@ -66,26 +60,47 @@ function defaultCampaign({ code, name, password }) {
 
 function normalizeCampaign(raw) {
   const campaign = raw && typeof raw === "object" ? raw : {};
-  campaign.version = 1;
+  campaign.version = 2;
   campaign.code = String(campaign.code || "").trim().toUpperCase();
   campaign.name = String(campaign.name || "Campaign").trim().slice(0, 80) || "Campaign";
+  campaign.gmCode = campaign.gmCode || campaign.password || null;
+  delete campaign.password;
   campaign.script = String(campaign.script || "").slice(0, MAX_SCRIPT_LENGTH);
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
   campaign.characters = campaign.characters.map((record) => ({
     id: String(record?.id || record?.character?.id || uid("character")),
-    pin: /^\d{4}$/.test(String(record?.pin || "")) ? String(record.pin) : characterPin(),
-    approved: record?.approved !== false,
+    pcCode: String(record?.pcCode ?? record?.pin ?? "").slice(0, 120),
+    approved: true,
     imported: Boolean(record?.imported),
     createdAt: record?.createdAt || new Date().toISOString(),
     updatedAt: record?.updatedAt || new Date().toISOString(),
     character: record?.character && typeof record.character === "object" ? record.character : {},
+  }));
+  campaign.joinRequests = (Array.isArray(campaign.joinRequests) ? campaign.joinRequests : []).slice(-250).map((request) => ({
+    id: String(request?.id || uid("join")),
+    characterId: String(request?.characterId || request?.character?.id || uid("character")),
+    pcCode: String(request?.pcCode || "").slice(0, 120),
+    status: ["pending", "approved", "rejected"].includes(request?.status) ? request.status : "pending",
+    requestedAt: request?.requestedAt || new Date().toISOString(),
+    resolvedAt: request?.resolvedAt || null,
+    message: String(request?.message || "").slice(0, 1000),
+    character: request?.character && typeof request.character === "object" ? request.character : {},
   }));
   campaign.shipCredits = Math.round(boundedNumber(campaign.shipCredits, 0, 999999999999));
   campaign.bankerCharacterId = campaign.characters.some((record) => record.id === campaign.bankerCharacterId)
     ? campaign.bankerCharacterId
     : null;
   campaign.awardHistory = Array.isArray(campaign.awardHistory) ? campaign.awardHistory.slice(-20) : [];
-  campaign.privateNotes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes.slice(-1000) : [];
+  campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
+    id: String(note?.id || uid("note")),
+    characterId: String(note?.characterId || ""),
+    characterName: String(note?.characterName || "").slice(0, 80),
+    direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
+    kind: note?.kind === "system" ? "system" : "message",
+    message: String(note?.message || "").slice(0, 4000),
+    createdAt: note?.createdAt || new Date().toISOString(),
+    readAt: note?.readAt || null,
+  }));
   campaign.rollRequests = Array.isArray(campaign.rollRequests) ? campaign.rollRequests.slice(-250) : [];
   return campaign;
 }
@@ -103,6 +118,7 @@ function campaignBackup(campaign) {
       updatedAt: campaign.updatedAt,
       script: campaign.script,
       characters: campaign.characters,
+      joinRequests: campaign.joinRequests,
       shipCredits: campaign.shipCredits,
       bankerCharacterId: campaign.bankerCharacterId,
       awardHistory: campaign.awardHistory,
@@ -113,12 +129,12 @@ function campaignBackup(campaign) {
   };
 }
 
-function campaignFromBackup(backup, { code = "", password = null, currentPassword = null } = {}) {
+function campaignFromBackup(backup, { code = "", gmCode = null, currentGmCode = null } = {}) {
   if (backup?.format !== "spaceship-architect-campaign" || !backup?.campaign || !Array.isArray(backup.campaign.characters)) return null;
   const restored = normalizeCampaign(clone(backup.campaign));
   restored.code = String(code || restored.code || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(restored.code)) return null;
-  restored.password = currentPassword || passwordRecord(password);
+  restored.gmCode = currentGmCode || passwordRecord(gmCode);
   restored.updatedAt = new Date().toISOString();
   return restored;
 }
@@ -126,7 +142,7 @@ function campaignFromBackup(backup, { code = "", password = null, currentPasswor
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
   return {
     id: record.id,
-    pin: gm ? record.pin : undefined,
+    pcCode: gm || own ? record.pcCode : undefined,
     approved: record.approved,
     imported: record.imported,
     createdAt: record.createdAt,
@@ -186,6 +202,19 @@ class CampaignApi {
     return session?.role === "character" && session.characterId === characterId ? session : null;
   }
 
+  invalidateCharacterSessions(code, characterId) {
+    for (const [token, session] of this.sessions) {
+      if (session.code === code && session.role === "character" && session.characterId === characterId) {
+        this.sessions.delete(token);
+      }
+    }
+  }
+
+  async campaignsNamed(name) {
+    const records = await this.store.findByName(name);
+    return records.map(normalizeCampaign);
+  }
+
   async campaign(code) {
     const normalizedCode = String(code || "").trim().toUpperCase();
     if (!normalizedCode) return null;
@@ -233,6 +262,7 @@ class CampaignApi {
         : [];
     return {
       code: campaign.code,
+      roomCode: campaign.code,
       name: campaign.name,
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
@@ -243,6 +273,8 @@ class CampaignApi {
       shipCredits: campaign.shipCredits,
       bankerCharacterId: campaign.bankerCharacterId,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
+      joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
+      inbox: gm ? clone(campaign.privateNotes.slice(-250)) : undefined,
       characters: campaign.characters.map((record) => ({
         ...publicCharacter(record, {
           gm,
@@ -328,14 +360,14 @@ class CampaignApi {
 
     if (path === "/api/campaign/create" && req.method === "POST") {
       const name = String(body.name || "").trim();
-      const password = String(body.password || "");
-      if (!name || password.length < 4) {
-        sendJson(res, 400, { error: "Campaign name and a password of at least four characters are required." });
+      const gmCode = String(body.gmCode ?? body.password ?? "");
+      if (!name || !gmCode) {
+        sendJson(res, 400, { error: "Campaign Name and GM Code are required." });
         return true;
       }
       let campaign;
       for (let attempt = 0; attempt < 200; attempt += 1) {
-        campaign = defaultCampaign({ code: campaignCode(), name, password });
+        campaign = defaultCampaign({ code: campaignCode(), name, gmCode });
         if (await this.store.create(campaign)) break;
         campaign = null;
       }
@@ -350,10 +382,10 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/restore-create" && req.method === "POST") {
-      const password = String(body.password || "");
-      const restored = password.length >= 4 ? campaignFromBackup(body.backup, { password }) : null;
+      const gmCode = String(body.gmCode ?? body.password ?? "");
+      const restored = gmCode ? campaignFromBackup(body.backup, { gmCode }) : null;
       if (!restored) {
-        sendJson(res, 400, { error: "A valid campaign backup and a new password of at least four characters are required." });
+        sendJson(res, 400, { error: "A valid campaign backup and a new GM Code are required." });
         return true;
       }
       if (!await this.store.create(restored)) {
@@ -368,13 +400,45 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/open" && req.method === "POST") {
-      const campaign = await this.campaign(code);
-      if (!campaign || !passwordMatches(body.password, campaign.password)) {
-        sendJson(res, 403, { error: "Campaign code or GM password is incorrect." });
+      const name = String(body.name || "").trim();
+      const gmCode = String(body.gmCode ?? body.password ?? "");
+      const candidates = name ? await this.campaignsNamed(name) : [];
+      const campaign = candidates.find((entry) => passwordMatches(gmCode, entry.gmCode));
+      if (!campaign) {
+        sendJson(res, 403, { error: "Campaign Name or GM Code is incorrect." });
         return true;
       }
-      const gmToken = this.newSession(code, "gm");
+      this.campaignCache.set(campaign.code, campaign);
+      const gmToken = this.newSession(campaign.code, "gm");
       sendJson(res, 200, { token: gmToken, campaign: this.state(campaign, gmToken) });
+      return true;
+    }
+
+    if (path === "/api/campaign/player/open" && req.method === "POST") {
+      const name = String(body.name || "").trim();
+      const pcCode = String(body.pcCode || "");
+      const candidates = name ? await this.campaignsNamed(name) : [];
+      let match = null;
+      let campaign = null;
+      for (const candidate of candidates) {
+        const record = candidate.characters.find((entry) => entry.pcCode === pcCode);
+        if (record) {
+          match = record;
+          campaign = candidate;
+          break;
+        }
+      }
+      if (!campaign || !match) {
+        sendJson(res, 403, { error: "Campaign Name or PC Code is incorrect." });
+        return true;
+      }
+      this.campaignCache.set(campaign.code, campaign);
+      const characterToken = this.newSession(campaign.code, "character", match.id);
+      sendJson(res, 200, {
+        token: characterToken,
+        characterId: match.id,
+        campaign: this.state(campaign, characterToken),
+      });
       return true;
     }
 
@@ -386,6 +450,146 @@ class CampaignApi {
 
     if (path === "/api/campaign/state" && req.method === "GET") {
       sendJson(res, 200, this.state(campaign, token));
+      return true;
+    }
+
+    if (path === "/api/campaign/join/request" && req.method === "POST") {
+      const source = body.character && typeof body.character === "object" ? clone(body.character) : null;
+      const pcCode = String(body.pcCode || source?.access?.pcCode || "");
+      if (!source?.id || source.phase !== "finalized" || !pcCode) {
+        sendJson(res, 400, { error: "A finalized character and PC Code are required." });
+        return true;
+      }
+      const codeInUse = campaign.characters.some((entry) => entry.pcCode === pcCode)
+        || campaign.joinRequests.some((entry) => entry.status === "pending" && entry.pcCode === pcCode && entry.characterId !== source.id);
+      if (codeInUse) {
+        sendJson(res, 409, { error: "Error: Please try a different code" });
+        return true;
+      }
+      campaign.joinRequests = campaign.joinRequests.filter((entry) => entry.characterId !== source.id || entry.status === "approved");
+      source.access = { ...(source.access || {}), pcCode };
+      source.campaignLink = {
+        roomCode: campaign.code,
+        campaignName: campaign.name,
+        status: "pending",
+      };
+      const request = {
+        id: uid("join"),
+        characterId: String(source.id),
+        pcCode,
+        status: "pending",
+        requestedAt: new Date().toISOString(),
+        resolvedAt: null,
+        message: "Awaiting GM approval.",
+        character: source,
+      };
+      campaign.joinRequests.push(request);
+      await this.save(campaign);
+      sendJson(res, 201, {
+        requestId: request.id,
+        status: request.status,
+        roomCode: campaign.code,
+        campaignName: campaign.name,
+      });
+      return true;
+    }
+
+    if (path === "/api/campaign/join/status" && req.method === "POST") {
+      const characterId = String(body.characterId || "");
+      const pcCode = String(body.pcCode || "");
+      const linked = campaign.characters.find((entry) => entry.id === characterId && entry.pcCode === pcCode);
+      if (linked) {
+        const characterToken = this.newSession(code, "character", linked.id);
+        sendJson(res, 200, {
+          status: "approved",
+          token: characterToken,
+          characterId: linked.id,
+          campaign: this.state(campaign, characterToken),
+        });
+        return true;
+      }
+      const request = [...campaign.joinRequests].reverse().find((entry) => entry.characterId === characterId && entry.pcCode === pcCode);
+      if (!request) {
+        sendJson(res, 404, { error: "No campaign request was found for this character." });
+        return true;
+      }
+      if (request.status === "pending" && body.character && typeof body.character === "object") {
+        request.character = clone(body.character);
+        request.character.access = { ...(request.character.access || {}), pcCode };
+        request.character.campaignLink = { roomCode: campaign.code, campaignName: campaign.name, status: "pending" };
+        await this.save(campaign);
+      }
+      sendJson(res, 200, {
+        status: request.status,
+        message: request.message,
+        roomCode: campaign.code,
+        campaignName: campaign.name,
+      });
+      return true;
+    }
+
+    if (path === "/api/campaign/join/cancel" && req.method === "POST") {
+      const characterId = String(body.characterId || "");
+      const pcCode = String(body.pcCode || "");
+      const request = campaign.joinRequests.find((entry) => entry.characterId === characterId && entry.pcCode === pcCode && entry.status === "pending");
+      if (!request) {
+        sendJson(res, 404, { error: "No pending campaign request was found." });
+        return true;
+      }
+      campaign.joinRequests = campaign.joinRequests.filter((entry) => entry.id !== request.id);
+      await this.save(campaign);
+      sendJson(res, 200, { cancelled: true });
+      return true;
+    }
+
+    if (path === "/api/campaign/join/respond" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const request = campaign.joinRequests.find((entry) => entry.id === body.requestId && entry.status === "pending");
+      if (!request) {
+        sendJson(res, 404, { error: "That join request is no longer pending." });
+        return true;
+      }
+      const approve = body.decision === "approve";
+      request.status = approve ? "approved" : "rejected";
+      request.resolvedAt = new Date().toISOString();
+      request.message = approve
+        ? `${campaign.name} approved this character.`
+        : `${campaign.name} declined this character's join request.`;
+      if (approve) {
+        if (campaign.characters.some((entry) => entry.pcCode === request.pcCode)) {
+          request.status = "rejected";
+          request.message = "Error: Please try a different code";
+          await this.save(campaign);
+          sendJson(res, 409, { error: request.message });
+          return true;
+        }
+        const source = clone(request.character);
+        source.campaignLink = { roomCode: campaign.code, campaignName: campaign.name, status: "linked" };
+        source.access = { ...(source.access || {}), pcCode: request.pcCode };
+        campaign.characters.push({
+          id: request.characterId,
+          pcCode: request.pcCode,
+          approved: true,
+          imported: Boolean(source.imported),
+          createdAt: request.requestedAt,
+          updatedAt: new Date().toISOString(),
+          character: source,
+        });
+        campaign.privateNotes.push({
+          id: uid("note"),
+          characterId: request.characterId,
+          characterName: safeCharacterName({ character: source }),
+          direction: "to-character",
+          message: `Your character has been approved for ${campaign.name}.`,
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        });
+      }
+      await this.save(campaign);
+      sendJson(res, 200, { status: request.status, campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -404,7 +608,7 @@ class CampaignApi {
         return true;
       }
       const backupCode = String(body.backup?.campaign?.code || "").trim().toUpperCase();
-      const restored = backupCode === code ? campaignFromBackup(body.backup, { code, currentPassword: campaign.password }) : null;
+      const restored = backupCode === code ? campaignFromBackup(body.backup, { code, currentGmCode: campaign.gmCode }) : null;
       if (!restored) {
         sendJson(res, 400, { error: "That backup does not match this campaign." });
         return true;
@@ -416,8 +620,8 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/delete" && req.method === "POST") {
-      if (!this.gmSession(token, code) || body.campaignName !== campaign.name || !passwordMatches(body.password, campaign.password)) {
-        sendJson(res, 403, { error: "GM authorization, the password, and the exact campaign name are required." });
+      if (!this.gmSession(token, code) || body.campaignName !== campaign.name || !passwordMatches(body.gmCode ?? body.password, campaign.gmCode)) {
+        sendJson(res, 403, { error: "GM authorization, the GM Code, and the exact campaign name are required." });
         return true;
       }
       await this.store.delete(code);
@@ -432,11 +636,16 @@ class CampaignApi {
     if (path === "/api/campaign/character/create" && req.method === "POST") {
       const source = body.character && typeof body.character === "object" ? clone(body.character) : {};
       const id = String(source.id || uid("character"));
+      const pcCode = String(body.pcCode || source?.access?.pcCode || "");
+      if (!pcCode || campaign.characters.some((entry) => entry.pcCode === pcCode)) {
+        sendJson(res, 409, { error: "Error: Please try a different code" });
+        return true;
+      }
       source.id = id;
       const record = {
         id,
-        pin: characterPin(),
-        approved: !body.imported,
+        pcCode,
+        approved: true,
         imported: Boolean(body.imported),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -445,14 +654,14 @@ class CampaignApi {
       campaign.characters.push(record);
       await this.save(campaign);
       const characterToken = this.newSession(code, "character", id);
-      sendJson(res, 201, { token: characterToken, pin: record.pin, record: publicCharacter(record, { own: true, notes: [] }) });
+      sendJson(res, 201, { token: characterToken, pcCode: record.pcCode, record: publicCharacter(record, { own: true, notes: [] }) });
       return true;
     }
 
     if (path === "/api/campaign/character/unlock" && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
-      if (!record || String(body.pin || "") !== record.pin) {
-        sendJson(res, 403, { error: "Character PIN is incorrect." });
+      if (!record || String(body.pcCode ?? body.pin ?? "") !== record.pcCode) {
+        sendJson(res, 403, { error: "PC Code is incorrect." });
         return true;
       }
       const characterToken = this.newSession(code, "character", record.id);
@@ -489,15 +698,21 @@ class CampaignApi {
       return true;
     }
 
-    if (path === "/api/campaign/character/change-pin" && req.method === "POST") {
+    if ((path === "/api/campaign/character/change-pc-code" || path === "/api/campaign/character/change-pin") && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
-      if (!record || !this.characterSession(token, code, record.id) || !/^\d{4}$/.test(String(body.pin || ""))) {
-        sendJson(res, 403, { error: "Authorization and a four-digit PIN are required." });
+      const pcCode = String(body.pcCode ?? body.pin ?? "");
+      if (!record || !this.characterSession(token, code, record.id) || !pcCode) {
+        sendJson(res, 403, { error: "Authorization and a PC Code are required." });
         return true;
       }
-      record.pin = String(body.pin);
+      if (campaign.characters.some((entry) => entry.id !== record.id && entry.pcCode === pcCode)) {
+        sendJson(res, 409, { error: "Error: Please try a different code" });
+        return true;
+      }
+      record.pcCode = pcCode;
+      record.character.access = { ...(record.character.access || {}), pcCode };
       await this.save(campaign);
-      sendJson(res, 200, { changed: true, pin: record.pin });
+      sendJson(res, 200, { changed: true, pcCode: record.pcCode });
       return true;
     }
 
@@ -513,6 +728,62 @@ class CampaignApi {
       if (campaign.bankerCharacterId === record.id) campaign.bankerCharacterId = null;
       await this.save(campaign);
       sendJson(res, 200, { deleted: true });
+      return true;
+    }
+
+    if (path === "/api/campaign/character/leave" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const detachedCharacter = clone(record.character);
+      detachedCharacter.campaignLink = { roomCode: "", campaignName: "", status: "unlinked" };
+      campaign.characters = campaign.characters.filter((entry) => entry.id !== record.id);
+      campaign.rollRequests = campaign.rollRequests.filter((request) => !request.targetIds.includes(record.id));
+      if (campaign.bankerCharacterId === record.id) campaign.bankerCharacterId = null;
+      campaign.privateNotes.push({
+        id: uid("note"),
+        characterId: record.id,
+        characterName: safeCharacterName(record),
+        direction: "to-gm",
+        kind: "system",
+        message: `${safeCharacterName(record)} left the campaign.`,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      });
+      this.invalidateCharacterSessions(code, record.id);
+      await this.save(campaign);
+      sendJson(res, 200, { left: true, character: detachedCharacter });
+      return true;
+    }
+
+    if (path === "/api/campaign/character/kick" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record) {
+        sendJson(res, 404, { error: "Character not found." });
+        return true;
+      }
+      campaign.characters = campaign.characters.filter((entry) => entry.id !== record.id);
+      campaign.rollRequests = campaign.rollRequests.filter((request) => !request.targetIds.includes(record.id));
+      if (campaign.bankerCharacterId === record.id) campaign.bankerCharacterId = null;
+      campaign.privateNotes.push({
+        id: uid("note"),
+        characterId: record.id,
+        characterName: safeCharacterName(record),
+        direction: "to-gm",
+        kind: "system",
+        message: `${safeCharacterName(record)} was removed from the campaign by the GM.`,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      });
+      this.invalidateCharacterSessions(code, record.id);
+      await this.save(campaign);
+      sendJson(res, 200, { kicked: true, campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -635,6 +906,9 @@ class CampaignApi {
       const notes = targetIds.filter((targetId) => campaign.characters.some((entry) => entry.id === targetId)).map((characterId) => ({
         id: uid("note"),
         characterId,
+        characterName: safeCharacterName(campaign.characters.find((entry) => entry.id === characterId)),
+        direction: "to-character",
+        kind: "message",
         message,
         createdAt: new Date().toISOString(),
         readAt: null,
@@ -642,6 +916,46 @@ class CampaignApi {
       campaign.privateNotes.push(...notes);
       await this.save(campaign);
       sendJson(res, 200, { sent: notes.length });
+      return true;
+    }
+
+    if (path === "/api/campaign/note/send-to-gm" && req.method === "POST") {
+      const characterId = String(body.characterId || "");
+      const record = campaign.characters.find((entry) => entry.id === characterId);
+      if (!record || !this.characterSession(token, code, characterId)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const message = String(body.message || "").trim().slice(0, 1000);
+      if (!message) {
+        sendJson(res, 400, { error: "Type a message first." });
+        return true;
+      }
+      const note = {
+        id: uid("note"),
+        characterId,
+        characterName: safeCharacterName(record),
+        direction: "to-gm",
+        kind: "message",
+        message,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      };
+      campaign.privateNotes.push(note);
+      await this.save(campaign);
+      sendJson(res, 201, { sent: true, note: clone(note) });
+      return true;
+    }
+
+    if (path === "/api/campaign/note/gm-read" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const note = campaign.privateNotes.find((entry) => entry.id === body.noteId && entry.direction === "to-gm");
+      if (note) note.readAt ||= new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { read: Boolean(note), readAt: note?.readAt || null });
       return true;
     }
 

@@ -57,6 +57,21 @@ class CampaignStore {
     return this.local.has(normalized) ? clone(this.local.get(normalized)) : null;
   }
 
+  async findByName(name) {
+    const normalized = String(name || "").trim().toLocaleLowerCase();
+    if (!normalized) return [];
+    if (this.pool) {
+      const result = await this.pool.query(
+        "SELECT payload FROM sa_campaigns WHERE LOWER(BTRIM(payload->>'name')) = $1",
+        [normalized],
+      );
+      return result.rows.map((row) => clone(row.payload));
+    }
+    return [...this.local.values()]
+      .filter((campaign) => String(campaign?.name || "").trim().toLocaleLowerCase() === normalized)
+      .map(clone);
+  }
+
   async create(campaign) {
     if (this.pool) {
       try {

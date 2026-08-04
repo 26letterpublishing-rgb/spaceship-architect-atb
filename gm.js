@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260802-campaign-5";
+import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260803-campaign-6";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -61,6 +61,9 @@ const dom = {
   promptDifficulty: $("#promptDifficulty"),
   promptHideDifficulty: $("#promptHideDifficulty"),
   rollResults: $("#gmRollResults"),
+  inboxCount: $("#gmInboxCount"),
+  pendingJoinCount: $("#pendingJoinCount"),
+  inboxList: $("#gmInboxList"),
   atbFrame: $("#atbFrame"),
   atbSetup: $("#atbSetup"),
   atbLive: $("#atbLive"),
@@ -80,6 +83,10 @@ const dom = {
   saveCampaignBackup: $("#saveCampaignBackup"),
   restoreOpenCampaignFile: $("#restoreOpenCampaignFile"),
   deleteCampaign: $("#deleteCampaign"),
+  kickCharacter: $("#kickCharacter"),
+  kickCharacterButton: $("#kickCharacterButton"),
+  adjustCharacter: $("#adjustCharacter"),
+  adjustCharacterButton: $("#adjustCharacterButton"),
 };
 
 const allSkills = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
@@ -129,6 +136,13 @@ function showMessage(element, message, tone = "") {
 
 function tokenKey(campaignCode) {
   return `sa-gm-token-${campaignCode}`;
+}
+
+function clearAtbBrowserIdentity() {
+  localStorage.setItem("sa-atb-mode", "welcome");
+  localStorage.removeItem("sa-atb-room-code");
+  localStorage.removeItem("sa-atb-unit-id");
+  localStorage.removeItem("sa-atb-campaign-character-id");
 }
 
 function cacheCampaignState(nextCampaign) {
@@ -256,17 +270,15 @@ function renderCharacters() {
       const color = character.presentation?.atbColor || "#39e58f";
       const notes = record.privateNotes || [];
       const readNotes = notes.filter((note) => note.readAt).length;
-      const approval = record.approved === false ? '<strong class="approval-pending">IMPORTED - APPROVAL REQUIRED</strong>' : "";
       return `<article class="gm-character-card ${record.connected ? "connected" : ""}" style="--character-color:${color}">
         <div class="character-card-head"><span class="character-swatch"></span><div><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))} ${record.connected ? "| CONNECTED" : "| OFFLINE"}</small></div></div>
-        ${approval}
         <div class="character-details">
           <div><span>Speed</span><strong>${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</strong></div>
           <div><span>Command</span><strong>${Math.round(commandWindow(record))} SEC</strong></div>
           <div><span>Notes Read</span><strong>${readNotes}/${notes.length}</strong></div>
         </div>
-        <div class="pin-readout"><span>CHARACTER PIN</span><strong>${record.pin || "----"}</strong></div>
-        <div class="character-card-actions"><a href="character.html?campaign=${campaign.code}&character=${encodeURIComponent(record.id)}&gm=1">Open / Edit Sheet</a>${record.approved === false ? `<button type="button" data-approve-character="${record.id}">Approve Import</button>` : ""}</div>
+        <div class="pin-readout"><span>PC CODE</span><strong>${escapeHtml(record.pcCode || "----")}</strong></div>
+        <div class="character-card-actions"><a href="character.html?campaign=${campaign.code}&character=${encodeURIComponent(record.id)}">View Sheet</a></div>
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can create one from the Characters option on the main menu.</p>";
@@ -336,6 +348,35 @@ function scriptSource() {
     .replaceAll("\u00a0", " ")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\n$/, "");
+}
+
+function renderInbox() {
+  const requests = campaign.joinRequests || [];
+  const inbox = [...(campaign.inbox || [])].reverse();
+  const unread = inbox.filter((entry) => entry.direction === "to-gm" && !entry.readAt).length + requests.length;
+  dom.inboxCount.textContent = unread ? String(unread) : "0";
+  dom.pendingJoinCount.textContent = `${requests.length} Pending`;
+  const requestMarkup = requests.map((request) => {
+    const name = request.character?.identity?.characterName || "Unnamed Character";
+    const player = request.character?.identity?.playerName || "Player";
+    return `<article class="gm-inbox-card join-request-card" data-join-request="${request.id}">
+      <div><span>JOIN REQUEST</span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(player)} | PC Code: ${escapeHtml(request.pcCode)}</small></div>
+      <div class="inbox-actions"><button type="button" data-join-decision="reject">Reject</button><button class="primary" type="button" data-join-decision="approve">Approve</button></div>
+    </article>`;
+  }).join("");
+  const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
+    <div><span>${note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <p>${escapeHtml(note.message)}</p>
+  </article>`).join("");
+  dom.inboxList.innerHTML = requestMarkup + messageMarkup || '<p class="empty-inbox">No campaign messages or pending characters.</p>';
+}
+
+function renderSettings() {
+  const options = campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("");
+  dom.kickCharacter.innerHTML = options || '<option value="">No campaign characters</option>';
+  dom.adjustCharacter.innerHTML = options || '<option value="">No campaign characters</option>';
+  dom.kickCharacterButton.disabled = !campaign.characters.length;
+  dom.adjustCharacterButton.disabled = !campaign.characters.length;
 }
 
 function scriptCommandList(source = scriptSource()) {
@@ -558,6 +599,8 @@ function renderCampaign() {
     renderScriptEditor(campaign.script || "");
   }
   renderCharacters();
+  renderInbox();
+  renderSettings();
   renderTargets();
   renderRollResults();
   renderEncounterBuilder();
@@ -623,11 +666,10 @@ async function sendRollRequest({ targetIds, attribute, skill, difficulty = null,
   showMessage(dom.message, `Roll request sent to ${payload.request.targetIds.length} character${payload.request.targetIds.length === 1 ? "" : "s"}.`, "success");
 }
 
-dom.code.addEventListener("input", () => { dom.code.value = dom.code.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4); });
 dom.openForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    const payload = await api("/api/campaign/open", { code: dom.code.value, password: dom.password.value });
+    const payload = await api("/api/campaign/open", { name: dom.code.value, gmCode: dom.password.value });
     openWorkspace(payload.campaign, payload.token);
   } catch (error) {
     showMessage(dom.gatewayMessage, error.message, "error");
@@ -638,11 +680,11 @@ dom.cancelCreate.addEventListener("click", () => { dom.createForm.hidden = true;
 dom.createForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (dom.newPassword.value !== dom.confirmPassword.value) {
-    showMessage(dom.gatewayMessage, "The two GM passwords do not match.", "error");
+    showMessage(dom.gatewayMessage, "The two GM Codes do not match.", "error");
     return;
   }
   try {
-    const payload = await api("/api/campaign/create", { name: dom.newName.value, password: dom.newPassword.value });
+    const payload = await api("/api/campaign/create", { name: dom.newName.value, gmCode: dom.newPassword.value });
     openWorkspace(payload.campaign, payload.token);
     showMessage(dom.message, `Campaign ${payload.campaign.code} created. This code remains with the campaign.`, "success");
   } catch (error) {
@@ -676,7 +718,7 @@ dom.restoreForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!pendingRestoreBackup) return;
   try {
-    const payload = await api("/api/campaign/restore-create", { backup: pendingRestoreBackup, password: dom.restorePassword.value });
+    const payload = await api("/api/campaign/restore-create", { backup: pendingRestoreBackup, gmCode: dom.restorePassword.value });
     openWorkspace(payload.campaign, payload.token);
     showMessage(dom.message, `Campaign ${payload.campaign.code} restored from its local backup.`, "success");
   } catch (error) {
@@ -686,6 +728,9 @@ dom.restoreForm.addEventListener("submit", async (event) => {
 
 dom.logout.addEventListener("click", () => {
   events?.close();
+  localStorage.removeItem(tokenKey(code));
+  localStorage.removeItem("sa-current-campaign-code");
+  clearAtbBrowserIdentity();
   location.href = "index.html";
 });
 
@@ -804,15 +849,53 @@ dom.selectAllTargets.addEventListener("click", () => { targetSelectionTouched = 
 dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets = new Set(campaign.characters.filter((record) => record.connected).map((record) => record.id)); renderTargets(); });
 dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
-dom.characterList.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-approve-character]");
-  if (!button) return;
+dom.inboxList.addEventListener("click", async (event) => {
+  const decisionButton = event.target.closest("[data-join-decision]");
+  const requestCard = decisionButton?.closest("[data-join-request]");
+  if (decisionButton && requestCard) {
+    const decision = decisionButton.dataset.joinDecision;
+    if (decision === "reject" && !confirm("Reject this character's campaign request?")) return;
+    try {
+      const payload = await api("/api/campaign/join/respond", {
+        code,
+        token,
+        requestId: requestCard.dataset.joinRequest,
+        decision,
+      });
+      if (payload.campaign) receiveCampaign(payload.campaign);
+      showMessage(dom.message, decision === "approve" ? "Character approved and linked to the campaign." : "Character request rejected.", "success");
+    } catch (error) {
+      showMessage(dom.message, error.message, "error");
+    }
+    return;
+  }
+  const note = event.target.closest("[data-gm-note]");
+  if (!note) return;
   try {
-    await api("/api/campaign/character/approve", { code, token, characterId: button.dataset.approveCharacter });
-    showMessage(dom.message, "Imported character approved for campaign play.", "success");
+    await api("/api/campaign/note/gm-read", { code, token, noteId: note.dataset.gmNote });
+    note.classList.remove("unread");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   }
+});
+
+dom.kickCharacterButton.addEventListener("click", async () => {
+  const characterId = dom.kickCharacter.value;
+  const record = campaign.characters.find((entry) => entry.id === characterId);
+  if (!record || !confirm(`Kick ${characterName(record)} from this campaign?`)) return;
+  try {
+    const payload = await api("/api/campaign/character/kick", { code, token, characterId });
+    receiveCampaign(payload.campaign);
+    showMessage(dom.message, `${characterName(record)} was removed from the campaign.`, "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+dom.adjustCharacterButton.addEventListener("click", () => {
+  const characterId = dom.adjustCharacter.value;
+  if (!characterId) return;
+  window.location.href = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1`;
 });
 
 dom.setBanker.addEventListener("click", async () => {
@@ -966,12 +1049,14 @@ dom.restoreOpenCampaignFile.addEventListener("change", async () => {
 dom.deleteCampaign.addEventListener("click", async () => {
   const typedName = prompt(`Type the campaign name exactly to delete it:\n${campaign.name}`);
   if (typedName === null) return;
-  const password = prompt("Enter the GM password to permanently delete this campaign:");
-  if (password === null) return;
+  const gmCode = prompt("Enter the GM Code to permanently delete this campaign:");
+  if (gmCode === null) return;
   if (!confirm("Permanently delete the campaign, every character, script, note, and encounter?")) return;
   try {
-    await api("/api/campaign/delete", { code, token, campaignName: typedName, password });
+    await api("/api/campaign/delete", { code, token, campaignName: typedName, gmCode });
     localStorage.removeItem(tokenKey(code));
+    localStorage.removeItem("sa-current-campaign-code");
+    clearAtbBrowserIdentity();
     location.href = "index.html";
   } catch (error) {
     showMessage(dom.message, error.message, "error");
@@ -982,9 +1067,9 @@ populateRulesControls();
 renderScriptEditor("");
 const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || localStorage.getItem("sa-current-campaign-code") || "";
 if (initialCode) {
-  dom.code.value = initialCode;
   const savedToken = localStorage.getItem(tokenKey(initialCode)) || "";
   if (savedToken) {
+    dom.code.value = initialCode;
     code = initialCode;
     token = savedToken;
     refreshCampaign().then(() => {

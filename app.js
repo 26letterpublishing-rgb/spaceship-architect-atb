@@ -25,7 +25,9 @@ let queuedEffectModalState = null;
 let npcDefaultBag = [];
 const startupParams = new URLSearchParams(window.location.search);
 const embeddedGm = startupParams.get("embedded") === "gm";
+const embeddedPlayer = startupParams.get("embedded") === "player";
 const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
+const requestedCampaignCharacter = String(startupParams.get("character") || "");
 let campaignState = null;
 let campaignEvents = null;
 let campaignCharacterId = localStorage.getItem("sa-atb-campaign-character-id") || "";
@@ -147,7 +149,12 @@ const roomCode = document.querySelector("#roomCode");
 const connectionStatus = document.querySelector("#connectionStatus");
 const welcomePanel = document.querySelector("#welcomePanel");
 const createRoom = document.querySelector("#createRoom");
-const showJoinRoom = document.querySelector("#showJoinRoom");
+const mainCampaignName = document.querySelector("#mainCampaignName");
+const mainGmCode = document.querySelector("#mainGmCode");
+const mainPcCode = document.querySelector("#mainPcCode");
+const enterGmCampaign = document.querySelector("#enterGmCampaign");
+const enterPcCampaign = document.querySelector("#enterPcCampaign");
+const mainMenuMessage = document.querySelector("#mainMenuMessage");
 const roomJoinPanel = document.querySelector("#roomJoinPanel");
 const joinRoomCode = document.querySelector("#joinRoomCode");
 const confirmJoinRoom = document.querySelector("#confirmJoinRoom");
@@ -347,6 +354,12 @@ function calculatedPcStats() {
     speed: Math.max(1, intellectBoxes + initiative),
     commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 30),
   }
+}
+if (embeddedPlayer && /^[A-Z0-9]{4}$/.test(requestedCampaignCode) && requestedCampaignCharacter) {
+  mode = "player";
+  currentRoomCode = requestedCampaignCode;
+  campaignCharacterId = requestedCampaignCharacter;
+  campaignCharacterToken = localStorage.getItem(campaignTokenKey(requestedCampaignCode, requestedCampaignCharacter)) || "";
 }
 
 function campaignTokenKey(code, characterId) {
@@ -1348,7 +1361,8 @@ function receiveState(nextState, { force = false } = {}) {
     const campaignCode = nextState.roomCode || currentRoomCode;
     forgetSavedRoom();
     safeLocalStorageSet("sa-atb-mode", "welcome");
-    window.location.replace(`character.html?campaign=${encodeURIComponent(campaignCode)}`);
+    const characterQuery = campaignCharacterId ? `&character=${encodeURIComponent(campaignCharacterId)}` : "";
+    window.location.replace(`character.html?campaign=${encodeURIComponent(campaignCode)}${characterQuery}`);
     return false;
   }
   state = nextState;
@@ -2338,7 +2352,7 @@ joinPlayer.addEventListener("click", async () => {
       body: JSON.stringify({
         code: currentRoomCode,
         characterId: selected.id,
-        pin: campaignCharacterPin.value,
+        pcCode: campaignCharacterPin.value,
       }),
     });
   } catch (error) {
@@ -2374,11 +2388,63 @@ joinPlayer.addEventListener("click", async () => {
   if (selectedCharacterIcon) saveIconForCharacter(unit.characterName, selectedCharacterIcon);
 });
 
-createRoom.addEventListener("click", async () => {
-  window.location.href = "gm.html";
-});
+function showMainMenuMessage(message, error = false) {
+  if (!mainMenuMessage) return;
+  mainMenuMessage.textContent = message;
+  mainMenuMessage.classList.toggle("error", error);
+}
 
-showJoinRoom.addEventListener("click", () => setMode("roomJoin"));
+async function openGmCampaignFromMenu({ create = false } = {}) {
+  const name = mainCampaignName?.value.trim() || "";
+  const gmCode = mainGmCode?.value || "";
+  if (!name || !gmCode) {
+    showMainMenuMessage("Enter a Campaign Name and GM Code first.", true);
+    return;
+  }
+  try {
+    const payload = await campaignRequest(create ? "/api/campaign/create" : "/api/campaign/open", {
+      method: "POST",
+      body: JSON.stringify({ name, gmCode }),
+    });
+    const roomCode = payload.campaign.code;
+    safeLocalStorageSet(`sa-gm-token-${roomCode}`, payload.token);
+    safeLocalStorageSet("sa-current-campaign-code", roomCode);
+    window.location.href = `gm.html?campaign=${encodeURIComponent(roomCode)}`;
+  } catch (error) {
+    showMainMenuMessage(error.message, true);
+  }
+}
+
+async function openPcCampaignFromMenu() {
+  const name = mainCampaignName?.value.trim() || "";
+  const pcCode = mainPcCode?.value || "";
+  if (!name || !pcCode) {
+    showMainMenuMessage("Enter a Campaign Name and PC Code first.", true);
+    return;
+  }
+  try {
+    const payload = await campaignRequest("/api/campaign/player/open", {
+      method: "POST",
+      body: JSON.stringify({ name, pcCode }),
+    });
+    const roomCode = payload.campaign.code;
+    campaignCharacterId = payload.characterId;
+    campaignCharacterToken = payload.token;
+    safeLocalStorageSet("sa-character-campaign-code", roomCode);
+    safeLocalStorageSet("sa-atb-campaign-character-id", campaignCharacterId);
+    safeLocalStorageSet(campaignTokenKey(roomCode, campaignCharacterId), campaignCharacterToken);
+    window.location.href = `character.html?campaign=${encodeURIComponent(roomCode)}&character=${encodeURIComponent(campaignCharacterId)}`;
+  } catch (error) {
+    showMainMenuMessage(error.message, true);
+  }
+}
+
+createRoom?.addEventListener("click", () => openGmCampaignFromMenu({ create: true }));
+enterGmCampaign?.addEventListener("click", () => openGmCampaignFromMenu());
+enterPcCampaign?.addEventListener("click", openPcCampaignFromMenu);
+mainGmCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openGmCampaignFromMenu(); });
+mainPcCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openPcCampaignFromMenu(); });
+
 backToWelcome.addEventListener("click", () => setMode("welcome"));
 joinRoomCode.addEventListener("input", () => {
   joinRoomCode.value = joinRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
@@ -2413,7 +2479,6 @@ rejoinPlayer.addEventListener("click", () => {
 });
 campaignCharacterPicker?.addEventListener("change", syncCampaignCharacterSelection);
 campaignCharacterPin?.addEventListener("input", () => {
-  campaignCharacterPin.value = campaignCharacterPin.value.replace(/\D/g, "").slice(0, 4);
   campaignCharacterStatus.classList.remove("error");
 });
 
@@ -2660,6 +2725,48 @@ setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 
+async function initializeEmbeddedPlayer() {
+  document.body.classList.add("embedded-player");
+  if (!campaignCharacterToken) {
+    window.location.replace("index.html");
+    return;
+  }
+  try {
+    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(campaignCharacterToken)}`);
+    const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
+    if (!record || campaignState.ownCharacterId !== campaignCharacterId) throw new Error("This character is no longer linked to the campaign.");
+    const encounterResponse = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`);
+    if (!encounterResponse.ok) throw new Error("The GM has not started an encounter yet.");
+    setRoom(await encounterResponse.json());
+    connectCampaignEvents();
+    let unit = state.units.find((entry) => entry.characterId === campaignCharacterId);
+    if (!unit) {
+      const computed = record.character?.computed || {};
+      const joined = await action({
+        action: "join",
+        playerName: characterPlayerName(record),
+        characterName: characterDisplayName(record),
+        speed: Math.max(0.1, Number(computed.speed) || 2),
+        commandWindow: Math.max(1, Number(computed.commandWindow) || 20),
+        color: record.character?.presentation?.atbColor || "#39e58f",
+        controlledBy: "player",
+        team: "pc",
+        actorType: "character",
+        characterId: campaignCharacterId,
+      });
+      unit = joined?.units?.find((entry) => entry.characterId === campaignCharacterId);
+    }
+    if (!unit) throw new Error("This character could not enter the encounter.");
+    myUnitId = unit.id;
+    safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+    visualMode = "bars";
+    setMode("player");
+  } catch (error) {
+    setConnected(false, error.message);
+    setMode("player");
+  }
+}
+
 if (embeddedGm && currentRoomCode) {
   document.body.classList.add("embedded-gm");
   fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
@@ -2672,7 +2779,11 @@ if (embeddedGm && currentRoomCode) {
     .catch(() => setConnected(false, "Open this campaign again from the GM Control Panel."));
 }
 
-if (currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
+if (embeddedPlayer && currentRoomCode && campaignCharacterId) {
+  initializeEmbeddedPlayer();
+}
+
+if (!embeddedGm && !embeddedPlayer && currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
   fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
     .then((response) => {
       if (response.status === 404) return { expired: true };

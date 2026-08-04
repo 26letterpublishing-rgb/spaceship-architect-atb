@@ -52,3 +52,14 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .approval-pending{display:block;margin-top:8px;padding:5px 7px;color:var(--yellow)!important;font-size:.62rem;border:1px solid #7d6328;background:#261e09}
 .character-card-actions button{flex:1;min-height:38px;border-color:var(--yellow);background:#4a3511}
 .banker-card p{margin:0;color:var(--muted);font-size:.68rem;line-height:1.45}
+
+/* Campaign access v2 */
+.gm-header{grid-template-columns:minmax(240px,460px) minmax(250px,1fr) auto}
+.campaign-heading{justify-content:flex-start}.campaign-heading span{display:flex;align-items:center;gap:7px}.campaign-heading b{font-size:1rem;letter-spacing:.14em}
+.gm-tabs{position:static;grid-template-columns:repeat(6,1fr);gap:0;padding:0}
+.gm-tabs button{min-height:48px;border-radius:0;border-width:0 1px 0 0;background:#091521;box-shadow:none}
+.gm-tabs button:last-child{border-right:0}.gm-tabs button strong{margin-left:5px;color:var(--yellow)}
+.gm-inbox-list{display:grid;gap:8px;margin-top:12px}.gm-inbox-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;border:1px solid #29465f;background:#07131f}.gm-inbox-card.unread,.join-request-card{border-color:var(--yellow);box-shadow:0 0 14px rgba(246,210,103,.12)}.gm-inbox-card span,.gm-inbox-card small{display:block;color:var(--muted);font-size:.6rem}.gm-inbox-card strong{display:block;margin:2px 0;color:var(--cyan)}.gm-inbox-card p{grid-column:1/-1;margin:0;white-space:pre-wrap}.inbox-actions{display:flex;align-items:center;gap:7px}.empty-inbox{color:var(--muted)}
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.settings-card{display:grid;align-content:start;gap:10px;padding:14px;border:1px solid #29455c;background:#07131f}.settings-card h3,.settings-card p{margin:0}.settings-card p{color:var(--muted);font-size:.7rem;line-height:1.5}.danger-settings{border-color:#61323a}.campaign-backup-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:900px){.gm-tabs{grid-template-columns:repeat(3,1fr)}.settings-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.gm-header{grid-template-columns:1fr auto}.gm-brand{grid-column:auto}.campaign-heading{grid-column:1/-1;order:3}.gm-tabs{grid-template-columns:repeat(2,1fr)}.gm-inbox-card{grid-template-columns:1fr}.inbox-actions{justify-content:flex-end}}

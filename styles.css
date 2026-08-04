@@ -3248,4 +3248,16 @@ body.embedded-gm .welcome-panel,body.embedded-gm .room-join-panel,body.embedded-
 body.embedded-gm .shell{width:100%;max-width:none;margin:0;padding:6px}
 body.embedded-gm .topbar{margin-top:0}
 body.embedded-gm #exitCombat{display:none!important}
+
+/* Campaign access v2 */
+.campaign-main-menu{padding:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,27,41,.98),rgba(5,12,20,.98));box-shadow:0 16px 38px rgba(0,0,0,.4)}
+.campaign-main-menu label{display:grid;gap:6px;color:#a7bfd0;font-size:.68rem;text-transform:uppercase}.campaign-main-menu input{font-size:16px;text-transform:none}
+.campaign-name-field{width:100%}.campaign-code-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:13px}.code-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.code-entry button{min-width:150px;border-radius:6px}
+.campaign-menu-divider{height:1px;margin:18px 0;background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.campaign-create-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.campaign-create-actions>*{width:100%;max-width:none;min-height:58px;border-radius:6px}.campaign-create-actions .character-creator-link{grid-column:auto;justify-self:stretch}
+.main-menu-message{min-height:20px;margin:10px 0 0;color:var(--green);font-size:.72rem}.main-menu-message.error{color:var(--red)}
+.visual-mode-toggle{position:static;margin:12px 16px 16px auto;display:block}.player-mode .active-panel{position:static;margin-top:10px}
+body.embedded-player .welcome-panel,body.embedded-player .room-join-panel,body.embedded-player .join-panel{display:none!important}
+body.embedded-player .shell{width:min(1120px,calc(100% - 12px));padding-top:6px}
+@media(max-width:700px){.campaign-code-row,.campaign-create-actions{grid-template-columns:1fr}.code-entry{grid-template-columns:1fr}.code-entry button{width:100%}.campaign-main-menu{padding:12px}.campaign-create-actions .character-creator-link{min-height:54px}}
 .join-panel .pc-stat-builder{display:block;padding:0;border:0;background:transparent}.join-panel .pc-stat-builder>.stat-board,.join-panel .pc-stat-builder>label{display:none}.join-panel .calculated-stats{margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}.join-panel .dice-strip{display:none}.campaign-character-status.error{font-weight:800}
