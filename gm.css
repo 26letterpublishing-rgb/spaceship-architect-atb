@@ -52,6 +52,8 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .approval-pending{display:block;margin-top:8px;padding:5px 7px;color:var(--yellow)!important;font-size:.62rem;border:1px solid #7d6328;background:#261e09}
 .character-card-actions button{flex:1;min-height:38px;border-color:var(--yellow);background:#4a3511}
 .banker-card p{margin:0;color:var(--muted);font-size:.68rem;line-height:1.45}
+.session-control{margin-top:10px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #5f5128;background:linear-gradient(90deg,rgba(51,39,10,.88),rgba(5,17,28,.9))}.session-control span,.session-control strong{display:block}.session-control span{color:var(--yellow);font-size:.58rem}.session-control strong{margin-top:2px;font-size:.82rem}.session-control button{min-height:34px;border-color:#c59530;background:linear-gradient(180deg,#786018,#302308)}
+.gm-sheet-viewer{margin-top:12px;border:1px solid #3a617e;background:#050d16;box-shadow:0 0 24px rgba(43,216,255,.13)}.gm-sheet-viewer-toolbar{min-height:45px;padding:6px 9px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #294a63;background:#091827}.gm-sheet-viewer-toolbar strong{overflow:hidden;color:var(--cyan);text-overflow:ellipsis;white-space:nowrap}.gm-sheet-viewer-toolbar button{min-height:32px}.gm-sheet-viewer iframe{display:block;width:100%;height:min(760px,72vh);border:0;background:#030912}
 
 /* Campaign access v2 */
 .gm-header{grid-template-columns:minmax(240px,460px) minmax(250px,1fr) auto}

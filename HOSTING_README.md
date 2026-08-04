@@ -34,7 +34,7 @@ Without `DATABASE_URL`, the app falls back to a local JSON file so it remains ea
 - Campaign codes are four characters during private playtesting.
 - GMs open a campaign with its code and GM password.
 - Players may view every character in the campaign.
-- A four-digit character PIN is required to edit a character, spend Experience, join the ATB as that character, or transfer credits.
+- A player-chosen PC Code is required to edit a character, spend Experience, join the ATB as that character, or transfer credits.
 - The GM can see all character PINs and directly edit every sheet.
 - There is no password recovery yet. Keep the GM password somewhere secure.
 - Imported characters require GM approval; characters created inside the campaign do not.

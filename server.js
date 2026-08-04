@@ -657,6 +657,15 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const completedEvents = [];
   for (const unit of room.units) {
     if (unit.id === skipId || !unit.speed) continue;
+    if (unit.characterId && unit.regenerationRate > 0) {
+      unit.regenerationProgress = (Number(unit.regenerationProgress) || 0) + unit.regenerationRate * seconds * multiplier;
+      const healing = Math.floor(unit.regenerationProgress / 100);
+      if (healing > 0) {
+        unit.regenerationProgress %= 100;
+        campaignApi?.healCharacter(room.roomCode, unit.characterId, healing).catch(() => {});
+        pushLog(room, `${unit.characterName}'s Antropic Fins restored ${healing} HP.`);
+      }
+    }
     if (Array.isArray(unit.queuedEffects)) {
       for (const effect of unit.queuedEffects) {
         if (effect.resolving) continue;
@@ -890,7 +899,9 @@ async function handleAction(req, res) {
 
   const action = body.action;
   const gmAuthorized = await campaignApi?.verifyGmAccess(room.roomCode, body.gmToken);
-  const playerUnit = body.id ? room.units.find((entry) => entry.id === body.id) : null;
+  const playerUnit = body.id
+    ? room.units.find((entry) => entry.id === body.id)
+    : body.characterId ? room.units.find((entry) => entry.characterId === String(body.characterId)) : null;
   const playerAuthorized = playerUnit?.characterId
     && playerUnit.characterId === String(body.characterId || "")
     && await campaignApi?.verifyCharacterAccess(room.roomCode, playerUnit.characterId, body.characterToken);
@@ -901,7 +912,7 @@ async function handleAction(req, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor"].includes(action) && body.id) {
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -953,7 +964,10 @@ async function handleAction(req, res) {
       characterName,
       speed,
       commandWindow,
-      atb: 0,
+      atb: Math.max(0, Math.min(room.threshold - 0.001, Number(body.initialAtb) || 0)),
+      encounterSpeedBonus: 0,
+      regenerationRate: Math.max(0, Math.min(100, Number(body.regenerationRate) || 0)),
+      regenerationProgress: 0,
       delay: null,
       delayTimer: null,
       delayedAction: null,
@@ -982,8 +996,9 @@ async function handleAction(req, res) {
       const nextPlayer = String(update.playerName || unit.playerName).trim().slice(0, 40) || unit.playerName;
       const nextColor = normalizeColor(update.color);
       if (unit.speed !== nextSpeed || unit.commandWindow !== nextCommand || unit.characterName !== nextName || unit.playerName !== nextPlayer || unit.color !== nextColor) changed += 1;
-      unit.speed = nextSpeed;
+      unit.speed = nextSpeed === null ? null : nextSpeed + (Number(unit.encounterSpeedBonus) || 0);
       unit.commandWindow = nextCommand;
+      unit.regenerationRate = Math.max(0, Math.min(100, Number(update.regenerationRate) || 0));
       unit.characterName = nextName;
       unit.playerName = nextPlayer;
       unit.color = nextColor;
@@ -1219,6 +1234,17 @@ async function handleAction(req, res) {
     pushLog(room, "Encounter cleared.");
   }
 
+  if (action === "characterSpeedBoost") {
+    const unit = playerUnit;
+    if (!unit || unit.encounterSpeedBonus) {
+      sendJson(res, 409, { error: "This Angiluros Speed boost is already active for the encounter." });
+      return;
+    }
+    unit.encounterSpeedBonus = 4;
+    unit.speed = normalizeSpeed((Number(unit.speed) || 0) + 4);
+    pushLog(room, `${unit.characterName} spent 2 Exertion for +4 Speed this encounter.`);
+  }
+
   if (action === "exitEncounter") {
     room.units = [];
     room.running = false;
@@ -1406,6 +1432,13 @@ async function startServer() {
       rooms.delete(code);
       clients.delete(code);
       createRoom(code, snapshot);
+    },
+    deleteEncounter: (code) => {
+      for (const response of clients.get(code) || []) response.end();
+      rooms.delete(code);
+      clients.delete(code);
+      clearTimeout(roomPersistTimers.get(code));
+      roomPersistTimers.delete(code);
     },
   });
   server.listen(PORT, HOST, () => {

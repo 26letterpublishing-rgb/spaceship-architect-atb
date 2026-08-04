@@ -14,7 +14,8 @@ function clone(value) {
 }
 
 function campaignCode() {
-  return String(crypto.randomInt(0, 10000)).padStart(4, "0");
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 5 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
 }
 
 function passwordRecord(password) {
@@ -65,6 +66,7 @@ function defaultCampaign({ code, name, gmCode }) {
     privateNotes: [],
     rollRequests: [],
     encounter: null,
+    sessionNumber: 1,
   };
 }
 
@@ -106,7 +108,8 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "roll-request"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "roll-request", "session-end", "science-choice"].includes(note?.kind) ? note.kind : "message",
+    choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
     message: String(note?.message || "").slice(0, 4000),
@@ -114,6 +117,7 @@ function normalizeCampaign(raw) {
     readAt: note?.readAt || null,
   }));
   campaign.rollRequests = Array.isArray(campaign.rollRequests) ? campaign.rollRequests.slice(-250) : [];
+  campaign.sessionNumber = Math.max(1, Math.round(Number(campaign.sessionNumber) || 1));
   trimPrivateNotes(campaign);
   return campaign;
 }
@@ -138,6 +142,7 @@ function campaignBackup(campaign) {
       privateNotes: campaign.privateNotes,
       rollRequests: campaign.rollRequests,
       encounter: campaign.encounter,
+      sessionNumber: campaign.sessionNumber,
     }),
   };
 }
@@ -146,7 +151,7 @@ function campaignFromBackup(backup, { code = "", gmCode = null, currentGmCode = 
   if (backup?.format !== "spaceship-architect-campaign" || !backup?.campaign || !Array.isArray(backup.campaign.characters)) return null;
   const restored = normalizeCampaign(clone(backup.campaign));
   restored.code = String(code || restored.code || "").trim().toUpperCase();
-  if (!/^[A-Z0-9]{4}$/.test(restored.code)) return null;
+  if (!/^[A-Z0-9]{4,5}$/.test(restored.code)) return null;
   restored.gmCode = currentGmCode || passwordRecord(gmCode);
   restored.updatedAt = new Date().toISOString();
   return restored;
@@ -171,11 +176,12 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {} }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {} }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = connectedCharacterIds;
     this.restoreEncounter = restoreEncounter;
+    this.deleteEncounter = deleteEncounter;
     this.sessions = new Map();
     this.clients = new Map();
     this.campaignCache = new Map();
@@ -285,6 +291,7 @@ class CampaignApi {
       ownCharacterId: ownId,
       script: gm ? campaign.script : undefined,
       shipCredits: campaign.shipCredits,
+      sessionNumber: campaign.sessionNumber,
       bankerCharacterId: campaign.bankerCharacterId,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
@@ -319,6 +326,18 @@ class CampaignApi {
 
   async getEncounter(code) {
     return (await this.campaign(code))?.encounter || null;
+  }
+
+  async healCharacter(code, characterId, amount = 1) {
+    const campaign = await this.campaign(code);
+    const record = campaign?.characters.find((entry) => entry.id === characterId);
+    if (!record) return false;
+    record.character.health ||= { current: 0, permanentBonus: 0 };
+    const maximum = Math.max(0, Number(record.character.computed?.maximumHp) || Number(record.character.health.current) || 0);
+    record.character.health.current = Math.min(maximum, (Number(record.character.health.current) || 0) + Math.max(0, Number(amount) || 0));
+    record.updatedAt = new Date().toISOString();
+    await this.save(campaign);
+    return true;
   }
 
   async verifyCharacterAccess(code, characterId, token) {
@@ -638,6 +657,18 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization, the GM Code, and the exact campaign name are required." });
         return true;
       }
+      for (const client of this.clients.get(code) || []) {
+        const session = this.session(client.token, code);
+        const record = session?.role === "character" ? campaign.characters.find((entry) => entry.id === session.characterId) : null;
+        writeEvent(client.response, "campaign-deleted", {
+          campaignName: campaign.name,
+          character: record ? { ...clone(record.character), campaignLink: { roomCode: "", campaignName: "", status: "unlinked" } } : null,
+        });
+      }
+      this.deleteEncounter(code);
+      for (const [sessionToken, session] of this.sessions) {
+        if (session.code === code) this.sessions.delete(sessionToken);
+      }
       await this.store.delete(code);
       this.campaignCache.delete(code);
       this.campaignLoads.delete(code);
@@ -828,6 +859,126 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/session/end" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const endedSession = campaign.sessionNumber;
+      campaign.privateNotes = campaign.privateNotes.filter((note) => !["session-end", "science-choice"].includes(note.kind));
+      for (const record of campaign.characters) {
+        record.character.session = {
+          number: endedSession + 1,
+          freeRerollsUsed: {},
+          marineHealingUsed: false,
+          psychopathAwardsUsed: 0,
+          tacticianReverenceGiven: 0,
+          peacekeeperDramaCardsEarned: 0,
+        };
+        campaign.privateNotes.push({
+          id: uid("note"),
+          characterId: record.id,
+          characterName: safeCharacterName(record),
+          direction: "to-character",
+          kind: "session-end",
+          choices: [],
+          message: `Session ${endedSession} ended. Session abilities have been reset.`,
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        });
+        if (record.character?.identity?.classId === "science-officer") {
+          campaign.privateNotes.push({
+            id: uid("note"),
+            characterId: record.id,
+            characterName: safeCharacterName(record),
+            direction: "to-character",
+            kind: "science-choice",
+            choices: ["Research", "Science/Physics", "Mathematics"],
+            message: `Session ${endedSession}: choose one Science Officer Skill to increase by +0.1.`,
+            createdAt: new Date().toISOString(),
+            readAt: null,
+          });
+        }
+        record.updatedAt = new Date().toISOString();
+      }
+      campaign.sessionNumber += 1;
+      await this.save(campaign);
+      sendJson(res, 200, { sessionEnded: endedSession, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/session/science-choice" && req.method === "POST") {
+      const characterId = String(body.characterId || "");
+      const record = campaign.characters.find((entry) => entry.id === characterId);
+      const note = campaign.privateNotes.find((entry) => entry.id === body.noteId && entry.characterId === characterId && entry.kind === "science-choice");
+      const skill = String(body.skill || "");
+      if (!record || !note || !this.characterSession(token, code, characterId) || !note.choices.includes(skill)) {
+        sendJson(res, 403, { error: "That Science Officer choice is no longer available." });
+        return true;
+      }
+      record.character.skills ||= {};
+      record.character.skills[skill] ||= { tenths: 0, creationDecimal: null };
+      record.character.skills[skill].tenths = Math.max(0, Math.round(Number(record.character.skills[skill].tenths) || 0) + 1);
+      record.updatedAt = new Date().toISOString();
+      campaign.privateNotes = campaign.privateNotes.filter((entry) => entry.id !== note.id);
+      campaign.privateNotes.push({
+        id: uid("note"), characterId, characterName: safeCharacterName(record), direction: "to-character", kind: "system", choices: [],
+        message: `${skill} increased by +0.1 from the Science Officer session benefit.`, createdAt: new Date().toISOString(), readAt: null,
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { applied: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/class-action" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      const action = String(body.action || "");
+      if (!record) {
+        sendJson(res, 404, { error: "Character not found." });
+        return true;
+      }
+      const classId = record.character?.identity?.classId;
+      record.character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+      record.character.resources ||= {};
+      record.character.session ||= { freeRerollsUsed: {}, psychopathAwardsUsed: 0, tacticianReverenceGiven: 0, peacekeeperDramaCardsEarned: 0 };
+      let message = "";
+      if (action === "playboy-reward" && classId === "playboy-minx") {
+        record.character.experience.available = (Number(record.character.experience.available) || 0) + 5;
+        record.character.experience.totalGained = (Number(record.character.experience.totalGained) || 0) + 5;
+        record.character.resources.reverence = Math.min(10, (Number(record.character.resources.reverence) || 0) + 1);
+        message = "Class reward: +5 Experience and +1 Reverence.";
+      } else if (action === "psychopath-reward" && classId === "psychopath") {
+        if ((Number(record.character.session.psychopathAwardsUsed) || 0) >= 3) {
+          sendJson(res, 409, { error: "Psychopath has already received three kill rewards this session." });
+          return true;
+        }
+        record.character.session.psychopathAwardsUsed = (Number(record.character.session.psychopathAwardsUsed) || 0) + 1;
+        record.character.experience.available = (Number(record.character.experience.available) || 0) + 8;
+        record.character.experience.totalGained = (Number(record.character.experience.totalGained) || 0) + 8;
+        message = `Psychopath kill reward ${record.character.session.psychopathAwardsUsed}/3: +8 Experience.`;
+      } else if (action === "peacekeeper-reward" && classId === "peacekeeper") {
+        if ((Number(record.character.session.peacekeeperDramaCardsEarned) || 0) >= 2) {
+          sendJson(res, 409, { error: "Peacekeeper has already earned two Drama Cards this session." });
+          return true;
+        }
+        record.character.session.peacekeeperDramaCardsEarned = (Number(record.character.session.peacekeeperDramaCardsEarned) || 0) + 1;
+        record.character.resources.dramaCards = (Number(record.character.resources.dramaCards) || 0) + 1;
+        message = `Peacekeeper reward ${record.character.session.peacekeeperDramaCardsEarned}/2: +1 Drama Card for preventing combat.`;
+      } else {
+        sendJson(res, 400, { error: "That class action is unavailable." });
+        return true;
+      }
+      record.updatedAt = new Date().toISOString();
+      campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", choices: [], message, createdAt: new Date().toISOString(), readAt: null });
+      await this.save(campaign);
+      sendJson(res, 200, { applied: true, message, campaign: this.state(campaign, token) });
+      return true;
+    }
+
     if (path === "/api/campaign/award" && req.method === "POST") {
       if (!this.gmSession(token, code)) {
         sendJson(res, 403, { error: "GM authorization is required." });
@@ -836,6 +987,7 @@ class CampaignApi {
       const resource = String(body.resource || "");
       const amount = Math.round(Number(body.amount) || 0);
       const targetIds = [...new Set(Array.isArray(body.targetIds) ? body.targetIds.map(String) : [])];
+      const androidExperienceIds = new Set(Array.isArray(body.androidExperienceIds) ? body.androidExperienceIds.map(String) : []);
       if (!amount || !["experience", "credits", "reverence", "shipCredits"].includes(resource)) {
         sendJson(res, 400, { error: "A resource and non-zero amount are required." });
         return true;
@@ -855,13 +1007,19 @@ class CampaignApi {
             reverence: Number(character.resources.reverence) || 0,
           });
           if (resource === "experience") {
-            character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + amount));
+            const raceId = character.identity?.raceId;
+            const received = raceId === "android" ? 0 : raceId === "spiddix" ? Math.floor(amount / 2) : amount;
+            character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + received));
             character.experience.totalGained = Math.max(
               Number(character.experience.spent) + character.experience.available,
               Math.round((Number(character.experience.totalGained) || 0) + amount),
             );
           }
-          if (resource === "credits") character.resources.creditsBase = Math.round(boundedNumber((Number(character.resources.creditsBase) || 0) + amount, 0, 999999999));
+          if (resource === "credits" && amount > 0 && character.identity?.raceId === "android" && androidExperienceIds.has(record.id)) {
+            const converted = Math.max(0, Math.floor(amount / 75));
+            character.experience.available += converted;
+            character.experience.totalGained += converted;
+          } else if (resource === "credits") character.resources.creditsBase = Math.round(boundedNumber((Number(character.resources.creditsBase) || 0) + amount, 0, 999999999));
           if (resource === "reverence") character.resources.reverence = Math.round(boundedNumber((Number(character.resources.reverence) || 0) + amount, 0, 10));
           record.updatedAt = new Date().toISOString();
         }
@@ -878,6 +1036,8 @@ class CampaignApi {
         const label = { experience: "Experience", credits: "Credits", reverence: "Reverence" }[resource] || resource;
         const verb = amount > 0 ? "awarded" : "adjusted";
         for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
+          const convertedAndroidAward = resource === "credits" && amount > 0 && record.character.identity?.raceId === "android" && androidExperienceIds.has(record.id);
+          const androidExperience = convertedAndroidAward ? Math.max(0, Math.floor(amount / 75)) : 0;
           campaign.privateNotes.push({
             id: uid("note"),
             characterId: record.id,
@@ -885,7 +1045,9 @@ class CampaignApi {
             direction: "to-character",
             kind: "award",
             awardId: award.id,
-            message: `The GM ${verb} ${Math.abs(amount).toLocaleString()} ${label}.`,
+            message: convertedAndroidAward
+              ? `The GM converted a ${Math.abs(amount).toLocaleString()} Credit award into ${androidExperience} Android Experience.`
+              : `The GM ${verb} ${Math.abs(amount).toLocaleString()} ${label}.`,
             createdAt: award.at,
             readAt: null,
           });
@@ -1146,7 +1308,8 @@ class CampaignApi {
         sendJson(res, 403, { error: "Unlock this character before transferring credits." });
         return true;
       }
-      if (amount < 1 || !["deposit", "withdraw", "giftPersonal", "giftShip"].includes(operation)) {
+      const validOperations = ["deposit", "withdraw", "giftPersonal", "giftShip", "mechanicalExperience", "giftReverence", "roboticsGrant"];
+      if (amount < 1 || !validOperations.includes(operation)) {
         sendJson(res, 400, { error: "Choose a valid transfer and a positive whole-credit amount." });
         return true;
       }
@@ -1155,7 +1318,7 @@ class CampaignApi {
         sendJson(res, 403, { error: "Only the campaign banker may transfer credits to or from the Ship Credit Pool." });
         return true;
       }
-      if (["giftPersonal", "giftShip"].includes(operation) && (!target || target.id === actor.id)) {
+      if (["giftPersonal", "giftShip", "mechanicalExperience", "giftReverence", "roboticsGrant"].includes(operation) && (!target || target.id === actor.id)) {
         sendJson(res, 400, { error: "Choose another campaign character to receive those credits." });
         return true;
       }
@@ -1165,7 +1328,7 @@ class CampaignApi {
         target.character.resources ||= {};
         target.character.resources.creditsBase = Math.round(boundedNumber(target.character.resources.creditsBase, 0, 999999999));
       }
-      if (["deposit", "giftPersonal"].includes(operation) && actor.character.resources.creditsBase < amount) {
+      if (["deposit", "giftPersonal", "mechanicalExperience"].includes(operation) && actor.character.resources.creditsBase < amount) {
         sendJson(res, 400, { error: "That character does not have enough personal credits." });
         return true;
       }
@@ -1185,6 +1348,67 @@ class CampaignApi {
       } else if (operation === "giftShip") {
         campaign.shipCredits -= amount;
         target.character.resources.creditsBase += amount;
+      } else if (operation === "mechanicalExperience") {
+        const targetRace = target.character.identity?.raceId;
+        if (!["android", "spiddix"].includes(targetRace)) {
+          sendJson(res, 400, { error: "Mechanical Experience may only be purchased for an Android or Spiddix." });
+          return true;
+        }
+        const roboticsDiscount = actor.character.identity?.classId === "robotics-worker" ? 25 : 0;
+        const rate = (targetRace === "android" ? 75 : 100) - roboticsDiscount;
+        if (amount < rate || amount % rate !== 0) {
+          sendJson(res, 400, { error: `Enter a Credit amount divisible by ${rate}. Each ${rate} Credits purchases 1 Experience for this character.` });
+          return true;
+        }
+        const experience = amount / rate;
+        actor.character.resources.creditsBase -= amount;
+        if (targetRace === "android") {
+          target.character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+          target.character.experience.available = (Number(target.character.experience.available) || 0) + experience;
+          target.character.experience.totalGained = (Number(target.character.experience.totalGained) || 0) + experience;
+        } else {
+          target.character.resources.mechanicalExperience = (Number(target.character.resources.mechanicalExperience) || 0) + experience;
+        }
+      } else if (operation === "giftReverence") {
+        if (actor.character.identity?.classId !== "tactician") {
+          sendJson(res, 403, { error: "Only a Tactician may use this Reverence transfer." });
+          return true;
+        }
+        actor.character.session ||= { freeRerollsUsed: {}, psychopathAwardsUsed: 0, tacticianReverenceGiven: 0 };
+        const maximum = campaign.characters.length + 2;
+        const given = Number(actor.character.session.tacticianReverenceGiven) || 0;
+        if (given + amount > maximum) {
+          sendJson(res, 400, { error: `This Tactician may distribute only ${Math.max(0, maximum - given)} more Reverence this session.` });
+          return true;
+        }
+        if ((Number(actor.character.resources.reverence) || 0) < amount || (Number(target.character.resources.reverence) || 0) + amount > 10) {
+          sendJson(res, 400, { error: "The Tactician lacks that Reverence or the recipient would exceed 10." });
+          return true;
+        }
+        actor.character.resources.reverence -= amount;
+        target.character.resources.reverence = (Number(target.character.resources.reverence) || 0) + amount;
+        actor.character.session.tacticianReverenceGiven = given + amount;
+      } else if (operation === "roboticsGrant") {
+        if (actor.character.identity?.classId !== "robotics-worker" || !["android", "spiddix"].includes(target.character.identity?.raceId)) {
+          sendJson(res, 403, { error: "A Robotics Worker may grant this bonus only to an Android or Spiddix." });
+          return true;
+        }
+        if ((Number(actor.character.resources.reverence) || 0) < amount) {
+          sendJson(res, 400, { error: "The Robotics Worker does not have enough Reverence." });
+          return true;
+        }
+        actor.character.resources.reverence -= amount;
+        const experience = amount * 8;
+        target.character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+        target.character.experience.available = (Number(target.character.experience.available) || 0) + experience;
+        target.character.experience.totalGained = (Number(target.character.experience.totalGained) || 0) + experience;
+      }
+      if (target && ["mechanicalExperience", "giftReverence", "roboticsGrant"].includes(operation)) {
+        campaign.privateNotes.push({
+          id: uid("note"), characterId: target.id, characterName: safeCharacterName(target), direction: "to-character", kind: "award", choices: [],
+          message: operation === "giftReverence" ? `${safeCharacterName(actor)} gave you ${amount} Reverence.` : operation === "roboticsGrant" ? `${safeCharacterName(actor)} spent ${amount} Reverence to grant you ${amount * 8} Experience.` : `${safeCharacterName(actor)} purchased mechanical Experience for you.`,
+          createdAt: new Date().toISOString(), readAt: null,
+        });
       }
       actor.updatedAt = new Date().toISOString();
       if (target) target.updatedAt = actor.updatedAt;

@@ -9,15 +9,16 @@ import {
   ATTRIBUTE_DEFS,
   SPACECRAFT_SKILLS,
   GENERAL_SKILLS,
+  BOLD_SKILLS,
   INTELLECT_SKILL_POINT_BONUSES,
   RACE_DEFS,
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260803-campaign-6";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260803-campaign-6";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260803-campaign-6";
-import { openPrintableCharacterSheet } from "./character-print.js?v=20260803-print-1";
+} from "./character-data.js?v=20260804-rules-2";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260804-rules-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260804-rules-2";
+import { openPrintableCharacterSheet } from "./character-print.js?v=20260804-rules-2";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -36,6 +37,8 @@ const dom = {
   exportCharacter: $("#exportCharacter"),
   importCharacter: $("#importCharacter"),
   deleteCharacter: $("#deleteCharacter"),
+  localShowPcCode: $("#localShowPcCode"),
+  localPrintCharacter: $("#localPrintCharacter"),
   saveStatus: $("#saveStatus"),
   identityPanel: $(".identity-panel"),
   identityCallsign: $("#identityCallsign"),
@@ -90,6 +93,7 @@ const dom = {
   currentHp: $("#currentHp"),
   currentHpMaximum: $("#currentHpMaximum"),
   restoreHp: $("#restoreHp"),
+  marineHeal: $("#marineHeal"),
   exertionMeter: $("#exertionMeter"),
   exertionFormula: $("#exertionFormula"),
   restExertion: $("#restExertion"),
@@ -148,6 +152,7 @@ const dom = {
   skillFusionChoices: $("#skillFusionChoices"),
   skillFusionWarning: $("#skillFusionWarning"),
   rerollSkillCheck: $("#rerollSkillCheck"),
+  freeRuleReroll: $("#freeRuleReroll"),
   exitSkillResult: $("#exitSkillResult"),
   rollResultToast: $("#rollResultToast"),
   campaignGate: $("#characterCampaignGate"),
@@ -196,6 +201,7 @@ const dom = {
   bankOperation: $("#bankOperation"),
   bankTargetWrap: $("#bankTargetWrap"),
   bankTarget: $("#bankTarget"),
+  bankAmountLabel: $("#bankAmountLabel"),
   bankAmount: $("#bankAmount"),
   bankCancel: $("#bankCancel"),
   bankConfirm: $("#bankConfirm"),
@@ -227,6 +233,7 @@ const dom = {
   settingsLogout: $("#settingsLogout"),
   playerAtbPanel: $("#playerAtbPanel"),
   launchPlayerAtb: $("#launchPlayerAtb"),
+  angilurosSpeedBoost: $("#angilurosSpeedBoost"),
   playerAtbFrame: $("#playerAtbFrame"),
   playerAtbStatus: $("#playerAtbStatus"),
   pcCodeModal: $("#pcCodeModal"),
@@ -492,6 +499,11 @@ function blankCharacter(name = "New Character") {
       finalizationQueue: [],
       classGrantsApplied: false,
       raceGrantsApplied: false,
+      classAttributeChoice: "",
+      raceSkillChoices: [],
+      raceAttributeChoice: "",
+      racialSkillGrants: {},
+      freeAttributeUpgradeApplied: false,
     },
     fubs: {
       status: "unrolled",
@@ -505,12 +517,21 @@ function blankCharacter(name = "New Character") {
       exertionMax: 1,
       reverence: 0,
       creditsBase: 0,
+      mechanicalExperience: 0,
       dramaCards: 0,
     },
     presentation: { atbColor: "#39e58f" },
     access: { pcCode: "" },
     campaignLink: { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" },
     localInbox: [],
+    session: {
+      number: 1,
+      freeRerollsUsed: {},
+      marineHealingUsed: false,
+      psychopathAwardsUsed: 0,
+      tacticianReverenceGiven: 0,
+      peacekeeperDramaCardsEarned: 0,
+    },
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
     advantagesNotes: "",
     notes: "",
@@ -634,6 +655,11 @@ function normalizeCharacter(raw) {
       createdAt: note?.createdAt || new Date().toISOString(),
       readAt: note?.readAt || null,
     })).filter((note) => note.message),
+    session: {
+      ...base.session,
+      ...(source.session || {}),
+      freeRerollsUsed: { ...base.session.freeRerollsUsed, ...(source.session?.freeRerollsUsed || {}) },
+    },
     crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
   };
 
@@ -664,7 +690,7 @@ function normalizeCharacter(raw) {
   normalized.creation.raceGrantsApplied = legacy ? false : Boolean(source.creation?.raceGrantsApplied);
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
-  normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").replace(/\D/g, "").slice(0, 4);
+  normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
   normalized.campaignLink.campaignName = String(normalized.campaignLink.campaignName || "").slice(0, 80);
   normalized.campaignLink.status = ["unlinked", "pending", "linked"].includes(normalized.campaignLink.status)
     ? normalized.campaignLink.status
@@ -808,7 +834,11 @@ async function campaignRequest(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Campaign request failed.");
+  if (!response.ok) {
+    const error = new Error(data.error || "Campaign request failed.");
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -938,7 +968,11 @@ function renderCharacterNavigation() {
   dom.settingsLeaveCampaign.disabled = !linked || gmView;
   dom.messageGmForm.hidden = !linked || gmView;
   dom.launchPlayerAtb.disabled = !linked || gmView;
+  dom.angilurosSpeedBoost.hidden = !linked || gmView || character.identity.raceId !== "angiluros";
+  dom.angilurosSpeedBoost.disabled = character.resources.exertionCurrent < 2;
   dom.printCharacterSheet.disabled = character.phase !== "finalized";
+  dom.localShowPcCode.hidden = linked || character.phase !== "finalized";
+  dom.localPrintCharacter.hidden = linked || character.phase !== "finalized";
   if (pending) {
     dom.joinCampaignStatus.innerHTML = `<strong>Awaiting GM Approval</strong><span>${escapeHtml(character.campaignLink.campaignName || "Campaign")} | Room ${escapeHtml(roomCode)}</span><p>${escapeHtml(character.campaignLink.message || "The character will link automatically after approval.")}</p>`;
   } else if (!linked) {
@@ -1017,7 +1051,7 @@ function showPinDisplay({ title = "PC Code", message = "This PC Code opens the c
   pinModalMode = "display";
   dom.campaignPinTitle.textContent = title;
   dom.campaignPinMessage.textContent = message;
-  dom.campaignPinDisplay.textContent = campaignPin || "----";
+  dom.campaignPinDisplay.textContent = campaignPin || character.access?.pcCode || "----";
   dom.campaignPinDisplay.hidden = false;
   dom.campaignPinEntryWrap.hidden = true;
   dom.campaignPinCancel.hidden = true;
@@ -1039,6 +1073,11 @@ function showPinEntry(characterId) {
   setTimeout(() => dom.campaignPinEntry.focus(), 60);
 }
 
+function privateNoteActions(note) {
+  if (note.kind !== "science-choice" || !Array.isArray(note.choices)) return "";
+  return `<div class="private-note-actions">${note.choices.map((skill) => `<button type="button" data-science-choice="${escapeAttribute(skill)}" data-note-id="${escapeAttribute(note.id)}">+0.1 ${escapeHtml(skill)}</button>`).join("")}</div>`;
+}
+
 function refreshPrivateNotes() {
   const record = campaignState?.characters?.find((entry) => entry.id === campaignCharacterId);
   const notes = [...(record?.privateNotes || []), ...(character.localInbox || [])];
@@ -1047,11 +1086,11 @@ function refreshPrivateNotes() {
   dom.playerInboxCount.textContent = String(unread);
   dom.openPrivateNotes.classList.toggle("has-unread", unread > 0);
   dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="private-note ${note.readAt ? "read" : "unread"}" data-note-id="${note.id}">
-    <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p><button type="button" data-delete-note="${note.id}">Delete</button>
+    <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}<button type="button" data-delete-note="${note.id}">Delete</button>
   </article>`).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
   dom.playerInboxList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="player-inbox-card ${note.direction !== "to-gm" && !note.readAt ? "unread" : ""}" data-player-note="${note.id}">
     <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "MESSAGE SENT" : "PRIVATE GM MESSAGE"}</span><small>${new Date(note.createdAt).toLocaleString()}</small></div>
-    <p>${escapeHtml(note.message)}</p>
+    <p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}
   </article>`).join("") : '<p class="campaign-empty-roster">No private messages.</p>';
 }
 
@@ -1068,11 +1107,30 @@ function renderCampaignBank() {
   dom.bankAuthority.textContent = banker
     ? `${campaignCharacterName(banker)} is the campaign banker.${mayUsePool ? " You may transfer Ship Pool credits." : " You may still give personal credits directly."}`
     : "No banker is assigned. Any unlocked character may transfer Ship Credit Pool funds.";
+  if ((Number(record?.character?.resources?.mechanicalExperience) || 0) > 0) {
+    dom.bankAuthority.textContent += ` ${Number(record.character.resources.mechanicalExperience)} mechanical XP remains available.`;
+  }
+  const classId = record?.character?.identity?.classId || "";
+  const operations = [
+    ["deposit", "Personal to Ship Pool"],
+    ["withdraw", "Ship Pool to Personal"],
+    ["giftPersonal", "Personal Credits to Another Character"],
+    ["giftShip", "Ship Pool Credits to Another Character"],
+    ["mechanicalExperience", `Buy Android / Spiddix XP (${classId === "robotics-worker" ? "discounted" : "standard"})`],
+  ];
+  if (classId === "tactician") operations.push(["giftReverence", "Tactician: Give Reverence"]);
+  if (classId === "robotics-worker") operations.push(["roboticsGrant", "Robotics Worker: 1 Reverence for 8 XP"]);
+  const previousOperation = dom.bankOperation.value;
+  dom.bankOperation.innerHTML = operations.map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("");
+  if (operations.some(([value]) => value === previousOperation)) dom.bankOperation.value = previousOperation;
+  const targetOperations = ["giftPersonal", "giftShip", "mechanicalExperience", "giftReverence", "roboticsGrant"];
   dom.bankTarget.innerHTML = campaignState.characters.filter((entry) => entry.id !== campaignCharacterId).map((entry) => `<option value="${entry.id}">${escapeHtml(campaignCharacterName(entry))}</option>`).join("");
   const poolRestricted = !mayUsePool && ["deposit", "withdraw", "giftShip"].includes(dom.bankOperation.value);
   dom.bankConfirm.disabled = !campaignEditable || poolRestricted;
   dom.bankConfirm.textContent = !campaignEditable ? "Enter PC Code to Transfer" : poolRestricted ? "Banker Authorization Required" : "Confirm Transfer";
-  dom.bankTargetWrap.hidden = !["giftPersonal", "giftShip"].includes(dom.bankOperation.value);
+  dom.bankTargetWrap.hidden = !targetOperations.includes(dom.bankOperation.value);
+  dom.bankAmountLabel.textContent = dom.bankOperation.value === "giftReverence" || dom.bankOperation.value === "roboticsGrant" ? "Reverence" : "Credits";
+  if (dom.bankOperation.value === "roboticsGrant") dom.bankAmount.value = "1";
 }
 
 function currentOpenRollRequest() {
@@ -1156,6 +1214,28 @@ function connectCampaignState() {
   if (!campaignCode) return;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
   campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
+  campaignEvents.addEventListener("campaign-deleted", (event) => {
+    const payload = JSON.parse(event.data);
+    if (payload.character) character = normalizeCharacter(payload.character);
+    const existing = library.findIndex((entry) => entry.id === character.id);
+    if (existing >= 0) library[existing] = character;
+    else library.push(character);
+    activeId = character.id;
+    campaignEvents?.close();
+    campaignEvents = null;
+    campaignCode = "";
+    campaignState = null;
+    campaignCharacterId = "";
+    campaignToken = "";
+    campaignEditable = false;
+    character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+    localStorage.removeItem("sa-character-campaign-code");
+    saveLibrary("Character preserved locally");
+    renderAll();
+    renderCharacterNavigation();
+    showCharacterPanel("sheet");
+    notice(`${payload.campaignName || "The campaign"} was deleted. Your character was preserved locally.`, "error");
+  });
   campaignEvents.addEventListener("error", () => { dom.saveStatus.textContent = "Reconnecting to campaign..."; });
 }
 
@@ -1166,6 +1246,7 @@ async function loadCampaign(code, token = "") {
     state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
     cacheCampaign(state);
   } catch (error) {
+    if (error.status === 404) throw error;
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(campaignCacheKey(normalized)) || "null")?.campaign || null; } catch { cached = null; }
     if (!cached) throw error;
@@ -1247,8 +1328,8 @@ async function checkJoinStatus() {
 }
 
 async function requestCampaignJoin(roomCode) {
-  const normalized = String(roomCode || "").replace(/\D/g, "").slice(0, 4);
-  if (!/^\d{4}$/.test(normalized)) throw new Error("Enter the complete four-digit Room Code.");
+  const normalized = String(roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  if (!/^[A-Z0-9]{4,5}$/.test(normalized)) throw new Error("Enter the complete Campaign Code.");
   if (character.phase !== "finalized" || !character.access?.pcCode) throw new Error("Finalize this character and choose a PC Code first.");
   const result = await campaignRequest("/api/campaign/join/request", {
     method: "POST",
@@ -1381,21 +1462,48 @@ function boxesFilled(attributeKey, characterObject = character) {
   return characterObject.attributes[attributeKey].reduce((sum, value) => sum + Math.max(0, value + 1), 0);
 }
 
+function attributeStepCost(attributeKey, row, column, characterObject = character) {
+  const base = ATTRIBUTE_COSTS[row]?.[column] ?? 0;
+  const raceId = characterObject.identity.raceId;
+  if ((raceId === "butchers-of-hellmouth" && attributeKey === "perception")
+    || (raceId === "vinolio-paxton" && attributeKey === "willpower")) return base * 2;
+  return base;
+}
+
+function mechanicalSpiddixAttribute(attributeKey, characterObject = character) {
+  return characterObject.identity.raceId === "spiddix" && ["strength", "health", "dexterity"].includes(attributeKey);
+}
+
 function attributePointsSpent(characterObject = character) {
   return ATTRIBUTE_DEFS.reduce((total, definition) => total + characterObject.attributes[definition.key].reduce((subtotal, current, row) => {
     if (current < 0) return subtotal;
-    return subtotal + ATTRIBUTE_COSTS[row].slice(0, current + 1).reduce((sum, cost) => sum + cost, 0);
+    return subtotal + Array.from({ length: current + 1 }, (_, column) => attributeStepCost(definition.key, row, column, characterObject)).reduce((sum, cost) => sum + cost, 0);
   }, 0), 0);
 }
 
+function attributePointBudget(characterObject = character) {
+  return characterObject.identity.raceId === "spiddix" ? 135 : ATTRIBUTE_POINTS;
+}
+
 function skillPointBudget(characterObject = character) {
-  return BASE_SKILL_POINTS + characterObject.attributes.intellect.reduce((sum, dieIndex) => {
+  const base = characterObject.identity.raceId === "spiddix" ? 20 : BASE_SKILL_POINTS;
+  const racial = characterObject.identity.raceId === "angiluros" ? 60 : 0;
+  return base + racial + characterObject.attributes.intellect.reduce((sum, dieIndex) => {
     return sum + (dieIndex >= 0 ? INTELLECT_SKILL_POINT_BONUSES[dieIndex] : 0);
   }, 0);
 }
 
 function skillCreationLevel(skill) {
   return Math.floor((Number(skill?.tenths) || 0) / 10);
+}
+
+const SPIDDIX_MECHANICAL_SKILLS = new Set([
+  "Athletics/Endurance", "Break Free/Escape", "Catch/Throw", "Climb", "Dodge/Block", "Jump",
+  "Lift/Push/Pull", "Lock-picking", "Melee", "Pickpocket", "Projectile", "Stealth/Hide", "Swim", "Wrestle/Disarm",
+]);
+
+function mechanicalSpiddixSkill(name, characterObject = character) {
+  return characterObject.identity.raceId === "spiddix" && SPIDDIX_MECHANICAL_SKILLS.has(name);
 }
 
 function creationSkillCostForLevel(level) {
@@ -1411,15 +1519,18 @@ function skillPointsSpent(characterObject = character) {
 function skillBonusTenths(name, characterObject = character) {
   const classBonus = Number(classEffects(characterObject).skillBonuses?.[name]) || 0;
   const raceBonus = Number(raceEffects(characterObject).skillBonuses?.[name]) || 0;
-  return classBonus + raceBonus;
+  const chosenBonus = finalizedModifiersActive(characterObject) ? Number(characterObject.creation?.racialSkillGrants?.[name]) || 0 : 0;
+  return classBonus + raceBonus + chosenBonus;
 }
 
 function skillBonusParts(name, characterObject = character) {
   const parts = [];
   const raceBonus = Number(raceEffects(characterObject).skillBonuses?.[name]) || 0;
   const classBonus = Number(classEffects(characterObject).skillBonuses?.[name]) || 0;
+  const chosenBonus = finalizedModifiersActive(characterObject) ? Number(characterObject.creation?.racialSkillGrants?.[name]) || 0 : 0;
   if (raceBonus) parts.push({ value: raceBonus, source: "Race" });
   if (classBonus) parts.push({ value: classBonus, source: "Class" });
+  if (chosenBonus) parts.push({ value: chosenBonus, source: "Chosen Race Bonus" });
   return parts;
 }
 
@@ -1508,9 +1619,10 @@ function syncDerivedResources(previousMaxHp = null) {
 function derivedValues() {
   const initiative = displayedSkillTenths("Initiative", character.skills.Initiative) / 10;
   const awareness = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
+  const mastermind = finalizedModifiersActive() && character.identity.classId === "mastermind";
   return {
-    speed: boxesFilled("intellect") + initiative,
-    command: boxesFilled("perception") * 10 + awareness * 30,
+    speed: boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1),
+    command: boxesFilled("perception") * 10 + awareness * (mastermind ? 45 : 20),
   };
 }
 
@@ -1542,6 +1654,7 @@ function invalidSkillKeys() {
 
 function draftValidation() {
   const attributeSpent = attributePointsSpent();
+  const attributeBudget = attributePointBudget();
   const skillSpent = skillPointsSpent();
   const skillBudget = skillPointBudget();
   const invalidSkills = invalidSkillKeys();
@@ -1557,24 +1670,32 @@ function draftValidation() {
   const issues = [];
   const homePlanetComplete = Boolean(character.identity.homePlanet.trim());
   const raceComplete = raceSelectionComplete();
+  const fullIdentityComplete = identityComplete();
+  const backstoryComplete = backgroundComplete();
+  const raceClassCompatible = !(character.identity.classId === "robotics-worker" && ["android", "spiddix"].includes(character.identity.raceId));
   if (!raceComplete) {
     const definition = selectedRace();
     issues.push(definition?.types?.length ? `Choose a ${definition.name} type.` : "Choose a Race or enter a custom one.");
   }
   if (!homePlanetComplete) issues.push("Choose a Home Planet or enter a custom one.");
-  if (attributeSpent !== ATTRIBUTE_POINTS) issues.push(`Attribute allocation is ${attributeSpent - ATTRIBUTE_POINTS > 0 ? `${attributeSpent - ATTRIBUTE_POINTS} over` : `${ATTRIBUTE_POINTS - attributeSpent} short`}.`);
-  if (attributeSpent === ATTRIBUTE_POINTS && skillSpent !== skillBudget) issues.push(`Skill allocation is ${skillSpent - skillBudget > 0 ? `${skillSpent - skillBudget} over` : `${skillBudget - skillSpent} short`}.`);
+  if (!raceClassCompatible) issues.push("Robotics Worker / A.I. Psychologist cannot be combined with Android or Spiddix.");
+  if (!fullIdentityComplete) issues.push("Fill in every Identity field and choose a Class.");
+  if (!backstoryComplete) issues.push("Write a Character Background before finalizing.");
+  if (attributeSpent !== attributeBudget) issues.push(`Attribute allocation is ${attributeSpent - attributeBudget > 0 ? `${attributeSpent - attributeBudget} over` : `${attributeBudget - attributeSpent} short`}.`);
+  if (attributeSpent === attributeBudget && skillSpent !== skillBudget) issues.push(`Skill allocation is ${skillSpent - skillBudget > 0 ? `${skillSpent - skillBudget} over` : `${skillBudget - skillSpent} short`}.`);
   if (invalidSkills.size) issues.push(`${invalidSkills.size} skill entr${invalidSkills.size === 1 ? "y is" : "ies are"} invalid.`);
   return {
     attributeSpent,
     skillSpent,
     skillBudget,
+    attributeBudget,
     invalidSkills,
-    attributesComplete: attributeSpent === ATTRIBUTE_POINTS,
+    attributesComplete: attributeSpent === attributeBudget,
     skillsComplete: skillSpent === skillBudget,
     raceComplete,
+    raceClassCompatible,
     homePlanetComplete,
-    ready: raceComplete && homePlanetComplete && attributeSpent === ATTRIBUTE_POINTS && skillSpent === skillBudget && invalidSkills.size === 0,
+    ready: raceComplete && raceClassCompatible && homePlanetComplete && fullIdentityComplete && backstoryComplete && attributeSpent === attributeBudget && skillSpent === skillBudget && invalidSkills.size === 0,
     issues,
   };
 }
@@ -1813,9 +1934,10 @@ function renderWorkflow() {
     requirements.push({ label: `Choose ${race?.name || "Race"} Type` });
   }
   if (!character.identity.classId) requirements.push({ label: "Choose Class" });
+  if (!validation.raceClassCompatible) requirements.push({ label: "Change incompatible Race or Class", tone: "warning" });
   if (!validation.homePlanetComplete) requirements.push({ label: "Choose Home Planet" });
   if (!validation.attributesComplete) {
-    const difference = ATTRIBUTE_POINTS - validation.attributeSpent;
+    const difference = validation.attributeBudget - validation.attributeSpent;
     requirements.push({
       label: difference > 0 ? `Spend ${difference} Attribute Points` : `Refund ${Math.abs(difference)} Attribute Points`,
       tone: difference < 0 ? "warning" : "",
@@ -1836,15 +1958,15 @@ function renderWorkflow() {
     ? "Finalization is available. Any remaining identity or FUBS steps are shown above."
     : validation.attributesComplete
       ? "All currently available creation steps are shown."
-      : "Skills unlock after Attribute allocation is exactly 195 points.";
-  if (!validation.ready && (validation.attributeSpent > ATTRIBUTE_POINTS || validation.skillSpent > validation.skillBudget || validation.invalidSkills.size)) dom.workflowBar.classList.add("invalid");
+      : `Skills unlock after Attribute allocation is exactly ${validation.attributeBudget} points.`;
+  if (!validation.ready && (validation.attributeSpent > validation.attributeBudget || validation.skillSpent > validation.skillBudget || validation.invalidSkills.size)) dom.workflowBar.classList.add("invalid");
 }
 
 function renderExperience() {
   const validation = draftValidation();
-  const attributeRemaining = character.phase === "draft" ? ATTRIBUTE_POINTS - validation.attributeSpent : 0;
+  const attributeRemaining = character.phase === "draft" ? validation.attributeBudget - validation.attributeSpent : 0;
   const skillRemaining = character.phase === "draft" ? validation.skillBudget - validation.skillSpent : 0;
-  dom.attributeBudget.textContent = `${attributeRemaining} / ${ATTRIBUTE_POINTS}`;
+  dom.attributeBudget.textContent = `${attributeRemaining} / ${validation.attributeBudget}`;
   dom.attributeBudget.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
   dom.skillBudget.textContent = validation.attributesComplete || character.phase !== "draft"
     ? `${skillRemaining} / ${validation.skillBudget}`
@@ -1860,11 +1982,12 @@ function renderExperience() {
     if (racialXp) xpGrantParts.push(`+${racialXp} ${selectedRace()?.name}`);
     if (classXp) xpGrantParts.push(`+${classXp} ${classById(character.identity.classId).name}`);
   }
+  const mechanicalXp = Math.max(0, Math.round(Number(character.resources.mechanicalExperience) || 0));
   dom.xpFormula.textContent = xpGrantParts.length
-    ? `Unspent / Total Gained | Includes ${xpGrantParts.join(" and ")} finalization grant`
-    : "Unspent / Total Gained";
+    ? `Unspent / Total Gained | Includes ${xpGrantParts.join(" and ")} finalization grant${mechanicalXp ? ` | ${mechanicalXp} mechanical XP` : ""}`
+    : `Unspent / Total Gained${mechanicalXp ? ` | ${mechanicalXp} mechanical XP` : ""}`;
   dom.workflowExperience.textContent = `${character.experience.available} / ${character.experience.totalGained}`;
-  dom.workflowAttributeRemaining.textContent = `${attributeRemaining} / ${ATTRIBUTE_POINTS}`;
+  dom.workflowAttributeRemaining.textContent = `${attributeRemaining} / ${validation.attributeBudget}`;
   dom.workflowAttributeRemaining.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
   dom.workflowSkillRemaining.textContent = validation.attributesComplete || character.phase !== "draft"
     ? `${skillRemaining} / ${validation.skillBudget}`
@@ -1906,20 +2029,23 @@ function renderAttributes() {
         const purchased = column <= current;
         const next = column === current + 1;
         const lockedFree = row < 2 && column === 0;
-        const cost = ATTRIBUTE_COSTS[row][column];
-        const allowedDraft = character.phase === "draft" && (next || column === current) && !lockedFree;
-        const allowedAdvancement = advancement && next && character.experience.available >= cost;
+        const cost = attributeStepCost(definition.key, row, column);
+        const raceBlocked = character.identity.raceId === "tamalori" && definition.key === "strength" && column === 4;
+        const allowedDraft = character.phase === "draft" && (next || column === current) && !lockedFree
+          && !(character.identity.raceId === "tamalori" && definition.key === "strength" && column === 4);
+        const advancementFunds = mechanicalSpiddixAttribute(definition.key) ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
+        const allowedAdvancement = advancement && next && advancementFunds >= cost && !raceBlocked;
         const disabled = !interactive || !(allowedDraft || allowedAdvancement);
         let title = purchased ? `${dieName} purchased` : `Purchase ${dieName} for ${cost}`;
         if (lockedFree) title = `${dieName} is a free starting die`;
         else if (character.phase === "draft" && column === current) title = `Refund ${cost} Attribute Points`;
-        else if (advancement && next) title = `Spend ${cost} XP to upgrade to ${dieName}`;
+        else if (advancement && next) title = `Spend ${cost} ${mechanicalSpiddixAttribute(definition.key) ? "mechanical XP" : "XP"} to upgrade to ${dieName}`;
         return `<button class="attribute-die ${purchased ? "purchased" : ""} ${next ? "next" : ""}" type="button" data-attribute="${definition.key}" data-row="${row}" data-column="${column}" title="${escapeAttribute(title)}" ${disabled ? "disabled" : ""}>${dieSvg(column, cost, purchased)}</button>`;
       }).join("");
       const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
       return `<div class="attribute-row" style="--progress:${progress}%">${wave}${buttons}</div>`;
     }).join("");
-    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > ATTRIBUTE_POINTS ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
+    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > validation.attributeBudget ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
 }
 
@@ -1936,16 +2062,18 @@ function renderSkillRow(name, skill, key) {
   const advancement = character.phase === "finalized" && character.advancementOpen;
   const draftBuying = character.phase === "draft" && validation.attributesComplete;
   const nextCost = advancement ? advancementSkillCost(skill.tenths) : level + 1;
-  const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && character.experience.available >= nextCost));
+  const mechanical = mechanicalSpiddixSkill(name);
+  const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
+  const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && advancementFunds >= nextCost));
   const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll;
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement);
   const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll;
-  return `<div class="skill-row ${["Awareness", "Initiative"].includes(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
+  return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
     <span class="skill-name" title="${escapeAttribute(name)}">${formatSkillName(name)}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : ""}</small></span>
-    <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${advancement ? "XP" : "SP"}</small></button>
+    <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
   </div>`;
 }
 
@@ -2014,7 +2142,68 @@ function attributeDiceSides(attributeKey) {
   return character.attributes[attributeKey].filter((value) => value >= 0).map((value) => DICE_FACES[value]);
 }
 
-function fusionResults(results) {
+function highestAttributeDie(attributeKey) {
+  return Math.max(0, ...attributeDiceSides(attributeKey));
+}
+
+function combinedSkillBonusTenths(name, skill) {
+  let total = displayedSkillTenths(name, skill);
+  const classId = character.identity.classId;
+  if (classId === "navigator-sensor-tech") {
+    if (name === "Pilot/Helm") total += displayedSkillTenths("Navigate", character.skills.Navigate);
+    if (name === "Navigate") total += displayedSkillTenths("Pilot/Helm", character.skills["Pilot/Helm"]);
+    if (name === "Awareness") total += displayedSkillTenths("Sensor Systems", character.skills["Sensor Systems"]);
+    if (name === "Sensor Systems") total += displayedSkillTenths("Awareness", character.skills.Awareness);
+  }
+  if (classId === "playboy-minx") {
+    if (name === "Negotiation/Persuade") total += displayedSkillTenths("Acting/Lie", character.skills["Acting/Lie"]);
+    if (name === "Acting/Lie") total += displayedSkillTenths("Negotiation/Persuade", character.skills["Negotiation/Persuade"]);
+  }
+  return total;
+}
+
+function rollDicePool(attributeKey, skillName) {
+  let sides = attributeDiceSides(attributeKey);
+  const classId = character.identity.classId;
+  const raceId = character.identity.raceId;
+  if (classId === "ambassador-spy" && attributeKey === "charisma") sides.push(highestAttributeDie("luck"));
+  if (classId === "ambassador-spy" && attributeKey === "luck") sides.push(highestAttributeDie("charisma"));
+  if (classId === "gunner" && skillName === "Weapon Systems") {
+    sides.push(Math.max(highestAttributeDie("dexterity"), highestAttributeDie("intellect")));
+  }
+  if (classId === "science-officer" && attributeKey === "perception") sides.push(...attributeDiceSides("intellect"));
+  if (classId === "peacekeeper" && skillName === "Negotiation/Persuade") sides.push(12);
+  if (classId === "smuggler" && attributeKey === "charisma") sides.push(...attributeDiceSides("intellect").sort((a, b) => b - a).slice(0, 2));
+  if (classId === "smuggler" && attributeKey === "intellect") sides.push(...attributeDiceSides("charisma").sort((a, b) => b - a).slice(0, 2));
+  if (raceId === "flavilin" && attributeKey === "perception") sides.push(12);
+  if (raceId === "nordic-flaxen" && attributeKey === "charisma") sides.push(...attributeDiceSides("luck"));
+  if (raceId === "tamalori" && attributeKey === "dexterity") sides = [...sides, ...sides];
+  if (raceId === "krax-gny-vtek" && attributeKey === "dexterity" && maximumHp() - character.health.current >= 5) sides = sides.slice(0, 3);
+  if (raceId === "butchers-of-hellmouth" && attributeKey === "perception") sides = sides.slice(0, 2);
+  return sides.filter(Boolean);
+}
+
+function rollRuleProfile() {
+  const resolved = skillCheckResolvedSkill();
+  const attributeKey = skillCheck?.attributeKey || "";
+  const skillName = resolved?.name || "";
+  const raceId = character.identity.raceId;
+  const classId = character.identity.classId;
+  return {
+    raceId,
+    classId,
+    skillName,
+    attributeKey,
+    noFusion: (raceId === "garmoc" && ["charisma", "intellect"].includes(attributeKey))
+      || (raceId === "yetuak-zune" && attributeKey === "charisma"),
+    fusionLimit: raceId === "draco-prime" ? 1 : Infinity,
+    chainFusion: raceId === "horus" && attributeKey === "perception",
+    tripleFusion: classId === "marine-soldier" && skillName === "Projectile",
+  };
+}
+
+function fusionResults(results, profile = {}) {
+  if (profile.noFusion) return { fusions: [], leftovers: [...results] };
   const groups = new Map();
   results.forEach((value, index) => {
     if (!groups.has(value)) groups.set(value, []);
@@ -2023,7 +2212,15 @@ function fusionResults(results) {
   const used = new Set();
   const fusions = [];
   [...groups.entries()].sort((a, b) => b[0] - a[0]).forEach(([value, indices]) => {
+    if (fusions.length >= (profile.fusionLimit ?? Infinity)) return;
+    if (profile.tripleFusion && indices.length >= 3) {
+      const sourceIndices = indices.slice(0, 3);
+      sourceIndices.forEach((index) => used.add(index));
+      fusions.push({ id: uid(), value: value * 3, sourceValue: value, sourceIndices });
+      indices = indices.slice(3);
+    }
     for (let offset = 0; offset + 1 < indices.length; offset += 2) {
+      if (fusions.length >= (profile.fusionLimit ?? Infinity)) break;
       const sourceIndices = [indices[offset], indices[offset + 1]];
       sourceIndices.forEach((index) => used.add(index));
       fusions.push({
@@ -2034,10 +2231,31 @@ function fusionResults(results) {
       });
     }
   });
-  return {
-    fusions,
-    leftovers: results.filter((_, index) => !used.has(index)),
-  };
+  let leftovers = results.filter((_, index) => !used.has(index));
+  if (profile.chainFusion) {
+    const values = [...fusions.map((fusion) => ({ ...fusion })), ...leftovers.map((value, index) => ({ id: uid(), value, sourceValue: value, sourceIndices: [index], loose: true }))];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      outer: for (let left = 0; left < values.length; left += 1) {
+        for (let right = left + 1; right < values.length; right += 1) {
+          if (values[left].value !== values[right].value) continue;
+          const merged = {
+            id: uid(),
+            value: values[left].value * 2,
+            sourceValue: values[left].value,
+            sourceIndices: [...values[left].sourceIndices, ...values[right].sourceIndices],
+          };
+          values.splice(right, 1);
+          values.splice(left, 1, merged);
+          changed = true;
+          break outer;
+        }
+      }
+    }
+    return { fusions: values.filter((value) => !value.loose), leftovers: values.filter((value) => value.loose).map((value) => value.value) };
+  }
+  return { fusions, leftovers };
 }
 
 function skillOutcome(score, difficulty) {
@@ -2046,6 +2264,21 @@ function skillOutcome(score, difficulty) {
   if (score >= difficulty) return "Success";
   if (score <= Math.floor(difficulty / 2)) return "Critical Failure";
   return "Failure";
+}
+
+function adjustedSkillOutcome(score, difficulty) {
+  let outcome = skillOutcome(score, difficulty);
+  if (!outcome || !skillCheck) return outcome;
+  const profile = rollRuleProfile();
+  if (profile.raceId === "angiluros" && ["Jump", "Climb"].includes(profile.skillName)) {
+    if (outcome === "Success") outcome = "Critical Success";
+    if (outcome === "Critical Failure") outcome = "Failure";
+  }
+  if (profile.raceId === "kabuto" && profile.skillName === "Resist Distress" && ["Success", "Critical Success"].includes(outcome)) {
+    outcome = "Critical Success";
+  }
+  if (profile.raceId === "skeder" && profile.attributeKey === "charisma" && outcome !== "Critical Success") outcome = "Failure";
+  return outcome;
 }
 
 function skillCheckAttribute() {
@@ -2065,14 +2298,18 @@ function skillCheckPoolLabel() {
 
 function renderSkillExertion() {
   if (!skillCheck) return;
-  const physical = ["strength", "dexterity", "health", "willpower"].includes(skillCheck.attributeKey);
+  const resolved = skillCheckResolvedSkill();
+  const physical = ["strength", "dexterity", "health", "willpower"].includes(skillCheck.attributeKey)
+    || (character.identity.raceId === "spiddix" && skillCheck.attributeKey === "intellect")
+    || (character.identity.classId === "ninja" && resolved?.name === "Stealth/Hide");
   dom.skillExertionBlock.hidden = !physical;
   if (!physical) {
     skillCheck.stagedExertion = 0;
     return;
   }
+  const ninjaStealth = character.identity.classId === "ninja" && resolved?.name === "Stealth/Hide";
   dom.skillExertionReadout.textContent = skillCheck.stagedExertion
-    ? `Stage ${skillCheck.stagedExertion}: +${skillCheck.stagedExertion}D12 and +${skillCheck.stagedExertion}`
+    ? `Stage ${skillCheck.stagedExertion}: +${skillCheck.stagedExertion}D12 and +${skillCheck.stagedExertion * (ninjaStealth ? 5 : 1)}`
     : skillCheck.committedExertion
       ? `${skillCheck.committedExertion} already committed`
       : "None selected";
@@ -2096,7 +2333,7 @@ function renderSkillSetup() {
   dom.selectedAttributeName.textContent = definition.label;
   dom.selectedAttributeName.style.color = definition.color;
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
-  dom.selectedSkillBonus.textContent = `+${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`;
+  dom.selectedSkillBonus.textContent = `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.manualSkillScore.value = "";
   renderSkillExertion();
@@ -2135,6 +2372,8 @@ function openSkillCheck(skillKey) {
     currentRollSides: [],
     result: null,
     manual: false,
+    freeRerollUsed: false,
+    lastResults: [],
   };
   dom.skillCheckModal.hidden = false;
   document.body.classList.add("skill-check-open");
@@ -2152,7 +2391,8 @@ function selectSkillAttribute(attributeKey) {
   if (!skillCheck || !character.attributes[attributeKey]) return;
   skillCheck.attributeKey = attributeKey;
   skillCheck.stagedExertion = 0;
-  skillCheck.activeSides = attributeDiceSides(attributeKey);
+  const resolved = skillCheckResolvedSkill();
+  skillCheck.activeSides = rollDicePool(attributeKey, resolved?.name || "");
   renderSkillSetup();
 }
 
@@ -2204,15 +2444,19 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillFusionResults.hidden = manual || allFusions.length === 0;
   dom.skillFusionChoices.innerHTML = allFusions.map((fusion) => `
     <button type="button" class="fusion-choice ${fusion.locked ? "locked selected" : ""}" data-fusion-id="${fusion.id}" ${(fusion.locked || skillCheck.preservedFusions.length) ? "disabled" : ""}>
-      <span>${fusion.sourceValue} + ${fusion.sourceValue}</span>
+      <span>${Array.from({ length: fusion.sourceIndices.length }, () => fusion.sourceValue).join(" + ")}</span>
       <strong>${fusion.value}</strong>
       <small>${fusion.locked ? "Preserved" : skillCheck.preservedFusions.length ? "One pair already kept" : "Keep on reroll"}</small>
     </button>`).join("");
   renderFusionSelectionState();
-  dom.rerollSkillCheck.disabled = character.resources.reverence < 2;
-  dom.rerollSkillCheck.textContent = character.resources.reverence >= 2
-    ? "Spend 2 Reverence to Reroll"
-    : "2 Reverence Required";
+  const rerollCost = reverenceRerollCost();
+  dom.rerollSkillCheck.disabled = character.resources.reverence < rerollCost;
+  dom.rerollSkillCheck.textContent = character.resources.reverence >= rerollCost
+    ? `Spend ${rerollCost} Reverence to Reroll`
+    : `${rerollCost} Reverence Required`;
+  const freeRule = manual ? null : availableFreeReroll();
+  dom.freeRuleReroll.hidden = !freeRule;
+  dom.freeRuleReroll.textContent = freeRule?.label || "Use Free Reroll";
   submitCampaignRollResult({ score, outcome, manual, diceResults });
 }
 
@@ -2252,9 +2496,9 @@ function renderFusionSelectionState() {
   const selected = skillCheck.newFusions.find((fusion) => fusion.id === selectedId);
   dom.skillFusionWarning.classList.toggle("active", Boolean(preserved || selected));
   if (preserved) {
-    dom.skillFusionWarning.textContent = `Fusion ${preserved.value} is preserved. This reroll rolls 2 fewer dice.`;
+    dom.skillFusionWarning.textContent = `Fusion ${preserved.value} is preserved. This reroll rolls ${preserved.sourceIndices.length} fewer dice.`;
   } else if (selected) {
-    dom.skillFusionWarning.textContent = `Keeping fusion ${selected.value}: this reroll will roll 2 fewer dice.`;
+    dom.skillFusionWarning.textContent = `Keeping fusion ${selected.value}: this reroll will roll ${selected.sourceIndices.length} fewer dice.`;
   } else {
     dom.skillFusionWarning.textContent = "No fusion selected. The full dice pool will be rerolled.";
   }
@@ -2262,7 +2506,21 @@ function renderFusionSelectionState() {
 
 function resolvePhysicalSkillRoll(results) {
   if (!skillCheck) return;
-  const analyzed = fusionResults(results);
+  skillCheck.lastResults = [...results];
+  const profile = rollRuleProfile();
+  let adjustedResults = [...results];
+  if (profile.raceId === "garmoc" && ["charisma", "intellect"].includes(profile.attributeKey)) {
+    adjustedResults = adjustedResults.map((value) => Math.min(8, value));
+  }
+  if (profile.raceId === "everliving-brethren" && profile.attributeKey === "perception" && adjustedResults.length) {
+    const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
+    adjustedResults.splice(highestIndex, 1);
+  }
+  if (profile.raceId === "xithx" && profile.skillName === "Stealth/Hide" && adjustedResults.length) {
+    const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
+    adjustedResults.splice(highestIndex, 1);
+  }
+  const analyzed = fusionResults(adjustedResults, profile);
   const values = [
     ...skillCheck.preservedFusions.map((fusion) => fusion.value),
     ...analyzed.fusions.map((fusion) => fusion.value),
@@ -2271,21 +2529,41 @@ function resolvePhysicalSkillRoll(results) {
   const top = values.slice(0, 2);
   const diceTotal = top.reduce((sum, value) => sum + value, 0);
   const resolved = skillCheckResolvedSkill();
-  const skillBonus = displayedSkillTenths(resolved.name, resolved.skill) / 10;
-  const score = diceTotal + skillBonus + skillCheck.committedExertion;
+  const skillBonus = combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
+  let flatBonus = skillCheck.committedExertion;
+  if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide") flatBonus += skillCheck.committedExertion * 4;
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy") {
+    if (profile.attributeKey === "strength") flatBonus -= 2;
+    if (profile.skillName === "Jump") flatBonus += 5;
+  }
+  if (profile.raceId === "skeder" && profile.skillName === "Jump") flatBonus += 3;
+  if (profile.raceId === "android" && profile.skillName === "Initiative") flatBonus += 5;
+  if (profile.raceId === "epoc" && ["strength", "health", "dexterity", "perception"].includes(profile.attributeKey)) {
+    flatBonus -= adjustedResults.filter((value) => value === 1).length;
+  }
+  let unusedDiceBonus = 0;
+  if (profile.classId === "other" && character.creation.classAttributeChoice === profile.attributeKey) {
+    unusedDiceBonus = values.slice(2).reduce((sum, value) => sum + value, 0) / 10;
+  }
+  const score = diceTotal + skillBonus + flatBonus + unusedDiceBonus;
   const difficulty = Number(skillCheck.difficulty);
-  const outcome = skillOutcome(score, difficulty);
+  const outcome = adjustedSkillOutcome(score, difficulty);
   const equationParts = [
     `Top two: ${top.length ? top.join(" + ") : "0"}`,
-    `Skill +${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`,
+    `Skill +${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
   ];
-  if (skillCheck.committedExertion) equationParts.push(`Exertion +${skillCheck.committedExertion}`);
+  if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth/Hide" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") equationParts.push("Fluffy Strength -2");
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") equationParts.push("Fluffy Jump +5");
+  if (profile.raceId === "skeder" && profile.skillName === "Jump") equationParts.push("Sked'er Jump +3");
+  if (profile.raceId === "android" && profile.skillName === "Initiative") equationParts.push("Android Initiative +5");
+  if (unusedDiceBonus) equationParts.push(`Unused dice +${formatNumber(unusedDiceBonus)}`);
   showSkillResult({
     score,
     equation: equationParts.join(" | "),
     outcome,
     newFusions: analyzed.fusions,
-    diceResults: results,
+    diceResults: adjustedResults,
   });
 }
 
@@ -2299,7 +2577,7 @@ function calculateManualSkillResult() {
   }
   if (!commitSkillCheckCosts()) return;
   skillCheck.difficulty = dom.skillDifficulty.value;
-  const outcome = skillOutcome(score, Number(skillCheck.difficulty));
+  const outcome = adjustedSkillOutcome(score, Number(skillCheck.difficulty));
   const committed = skillCheck.committedExertion ? ` | ${skillCheck.committedExertion} Exertion committed` : "";
   showSkillResult({
     score,
@@ -2325,7 +2603,7 @@ function rollSkillCheck() {
   diceRoller.rollPool({
     sides: skillCheck.currentRollSides,
     title: `${resolved.name} + ${skillCheckAttribute().label}`,
-    subtitle: `${skillCheckPoolLabel()} | Top two + ${ratingText(displayedSkillTenths(resolved.name, resolved.skill))}`,
+    subtitle: `${skillCheckPoolLabel()} | Top two + ${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
     fusion: true,
     onResolved: () => {},
     onSettled: (results) => {
@@ -2337,9 +2615,14 @@ function rollSkillCheck() {
   });
 }
 
+function reverenceRerollCost() {
+  return character.identity.raceId === "spiddix" && skillCheck?.attributeKey === "intellect" ? 1 : 2;
+}
+
 function beginSkillReroll() {
-  if (!skillCheck || character.resources.reverence < 2) return;
-  character.resources.reverence -= 2;
+  const cost = reverenceRerollCost();
+  if (!skillCheck || character.resources.reverence < cost) return;
+  character.resources.reverence -= cost;
   if (!skillCheck.manual) {
     const selected = skillCheck.preservedFusions.length
       ? []
@@ -2348,8 +2631,9 @@ function beginSkillReroll() {
     const removed = new Set(selected.flatMap((fusion) => fusion.sourceIndices));
     skillCheck.activeSides = skillCheck.currentRollSides.filter((_, index) => !removed.has(index));
   } else {
+    const resolved = skillCheckResolvedSkill();
     skillCheck.activeSides = [
-      ...attributeDiceSides(skillCheck.attributeKey),
+      ...rollDicePool(skillCheck.attributeKey, resolved?.name || ""),
       ...Array.from({ length: skillCheck.committedExertion }, () => 12),
     ];
   }
@@ -2362,8 +2646,8 @@ function beginSkillReroll() {
   renderResources();
   renderSkillSetup();
   notice(skillCheck.preservedFusions.length
-    ? "2 Reverence spent. One fused pair remains and two fewer dice will be rerolled."
-    : "2 Reverence spent. The full dice pool will be rerolled.", "success");
+    ? `${cost} Reverence spent. One fused pair remains and two fewer dice will be rerolled.`
+    : `${cost} Reverence spent. The full dice pool will be rerolled.`, "success");
 }
 
 function animateSpeedPreview(now) {
@@ -2406,7 +2690,8 @@ function renderDerived() {
   dom.derivedSpeedFormula.textContent = `Intellect boxes + Initiative${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
-  dom.derivedCommandFormula.textContent = `Perception boxes x10 + Awareness x30${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 20;
+  dom.derivedCommandFormula.textContent = `Perception boxes x10 + Awareness x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   dom.maximumHp.textContent = hp.value;
   dom.maximumHpFormula.textContent = hp.formula;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -2418,6 +2703,9 @@ function renderDerived() {
   dom.currentHp.value = character.health.current;
   dom.currentHpMaximum.textContent = hp.value;
   dom.currentHp.classList.toggle("invalid", character.health.current < 1);
+  dom.marineHeal.hidden = character.phase !== "finalized" || character.identity.classId !== "marine-soldier";
+  dom.marineHeal.disabled = Boolean(character.session.marineHealingUsed) || diceRoller.isActive();
+  dom.marineHeal.textContent = character.session.marineHealingUsed ? "Marine Recovery Used" : "Marine Recovery";
 }
 
 function renderCrew() {
@@ -2447,9 +2735,9 @@ function printableCharacterData() {
     { title: "Unique", entries: character.advantagesNotes.trim() ? [character.advantagesNotes.trim()] : [] },
   ].filter((group) => group.entries.length);
   const skills = [
-    ...SPACECRAFT_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "Spacecraft" })),
-    ...GENERAL_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "General" })),
-    ...character.customSkills.filter((skill) => skill.name.trim()).map((skill) => ({ name: skill.name.trim(), value: ratingText(skill.tenths), group: "Custom" })),
+    ...SPACECRAFT_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "Spacecraft", bold: BOLD_SKILLS.has(name) })),
+    ...GENERAL_SKILLS.map((name) => ({ name, value: ratingText(displayedSkillTenths(name, character.skills[name])), group: "General", bold: BOLD_SKILLS.has(name) })),
+    ...character.customSkills.filter((skill) => skill.name.trim()).map((skill) => ({ name: skill.name.trim(), value: ratingText(skill.tenths), group: "Custom", bold: false })),
   ];
   const classCredits = Number(classEffects().creditsBonus) || 0;
   return {
@@ -2495,6 +2783,61 @@ function printableCharacterData() {
     fubs: character.fubs.status === "complete" ? character.fubs.rolls.join(" > ") : "Not activated",
   };
 }
+
+function availableFreeReroll() {
+  if (!skillCheck || skillCheck.manual || !skillCheck.lastResults.length) return null;
+  const profile = rollRuleProfile();
+  const used = character.session.freeRerollsUsed || {};
+  if (profile.classId === "decker" && profile.skillName === "Computer Systems" && (used.deckerComputer || 0) < 3) {
+    return { key: "deckerComputer", maximum: 3, count: skillCheck.lastResults.length, label: `Free Computer Reroll (${3 - (used.deckerComputer || 0)} left)` };
+  }
+  if (profile.raceId === "grey" && profile.attributeKey === "intellect" && (used.greyIntellect || 0) < 1) {
+    return { key: "greyIntellect", maximum: 1, count: 1, label: "Free Grey Intellect Reroll" };
+  }
+  if (profile.raceId === "yetuak-zune" && ["intellect", "perception"].includes(profile.attributeKey)) {
+    const key = `yetuak-${profile.attributeKey}`;
+    if ((used[key] || 0) < 2) return { key, maximum: 2, count: 1, label: `Free ${skillCheckAttribute().label} Reroll (${2 - (used[key] || 0)} left)` };
+  }
+  if (skillCheck.freeRerollUsed) return null;
+  if (profile.raceId === "bruggle" && ["strength", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && ["charisma", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
+  if (profile.raceId === "epoc" && ["luck", "charisma", "willpower", "intellect"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
+  if (profile.raceId === "pattanilia" && ["perception", "intellect", "willpower"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
+  if (profile.raceId === "slyn-tanni" && ["dexterity", "charisma"].includes(profile.attributeKey)) return { count: 1, label: "Reroll Lowest Die" };
+  return null;
+}
+
+function useFreeRuleReroll() {
+  const rule = availableFreeReroll();
+  if (!rule || diceRoller.isActive()) return;
+  const ranked = skillCheck.lastResults.map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value || a.index - b.index);
+  const rerollIndices = new Set(ranked.slice(0, Math.max(1, rule.count)).map((entry) => entry.index));
+  const rerollSides = skillCheck.currentRollSides.filter((_, index) => rerollIndices.has(index));
+  const kept = skillCheck.lastResults.map((value, index) => ({ value, index })).filter((entry) => !rerollIndices.has(entry.index));
+  if (!rerollSides.length) return;
+  if (rule.key) character.session.freeRerollsUsed[rule.key] = (character.session.freeRerollsUsed[rule.key] || 0) + 1;
+  else skillCheck.freeRerollUsed = true;
+  queueSave();
+  dom.skillCheckModal.hidden = true;
+  document.body.classList.add("skill-roll-active");
+  diceRoller.rollPool({
+    sides: rerollSides,
+    title: `${skillCheckResolvedSkill().name} Free Reroll`,
+    subtitle: `${rerollSides.length} ${rerollSides.length === 1 ? "die" : "dice"} rerolled`,
+    fusion: true,
+    onResolved: () => {},
+    onSettled: (fresh) => {
+      const combined = Array(skillCheck.currentRollSides.length);
+      kept.forEach((entry) => { combined[entry.index] = entry.value; });
+      let cursor = 0;
+      [...rerollIndices].sort((a, b) => a - b).forEach((index) => { combined[index] = fresh[cursor++]; });
+      document.body.classList.remove("skill-roll-active");
+      diceRoller.stop();
+      dom.skillCheckModal.hidden = false;
+      resolvePhysicalSkillRoll(combined);
+    },
+  });
+}
 function renderAll() {
   renderCharacterPicker();
   renderFields();
@@ -2533,9 +2876,13 @@ function purchaseAttribute(attributeKey, row, column) {
 
   if (character.phase === "draft") {
     if (column === current + 1) {
-      const cost = ATTRIBUTE_COSTS[row][column];
-      if (attributePointsSpent() + cost > ATTRIBUTE_POINTS) {
-        notice(`That purchase would exceed the ${ATTRIBUTE_POINTS}-point Attribute budget.`, "error");
+      if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
+        notice("TaMalori cannot purchase D12 Strength dice.", "error");
+        return;
+      }
+      const cost = attributeStepCost(attributeKey, row, column);
+      if (attributePointsSpent() + cost > attributePointBudget()) {
+        notice(`That purchase would exceed the ${attributePointBudget()}-point Attribute budget.`, "error");
         return;
       }
       character.attributes[attributeKey][row] = column;
@@ -2543,18 +2890,23 @@ function purchaseAttribute(attributeKey, row, column) {
       notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} Attribute Points.`, "success");
     } else if (column === current) {
       if (row < 2 && column === 0) return;
-      const refund = ATTRIBUTE_COSTS[row][column];
+      const refund = attributeStepCost(attributeKey, row, column);
       character.attributes[attributeKey][row] = current - 1;
       notice(`${refund} Attribute Points refunded.`, "success");
     } else {
       return;
     }
   } else if (character.phase === "finalized" && character.advancementOpen && column === current + 1) {
-    const cost = ATTRIBUTE_COSTS[row][column];
-    if (!spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`)) return;
+    if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
+      notice("TaMalori cannot purchase D12 Strength dice.", "error");
+      return;
+    }
+    const cost = attributeStepCost(attributeKey, row, column);
+    const mechanical = mechanicalSpiddixAttribute(attributeKey);
+    if (!(mechanical ? spendMechanicalXp(cost, `${definition.label} ${DICE_NAMES[column]}`) : spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`))) return;
     character.attributes[attributeKey][row] = column;
     playPurchaseSound(attributeKey);
-    notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} XP.`, "success");
+    notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} ${mechanical ? "mechanical XP" : "XP"}.`, "success");
   } else {
     return;
   }
@@ -2576,7 +2928,7 @@ function changeDraftSkill(key, direction) {
   if (character.phase !== "draft" || character.pendingRoll) return;
   const validation = draftValidation();
   if (!validation.attributesComplete) {
-    notice("Spend all 195 Attribute Points before purchasing Skills.", "error");
+    notice(`Spend all ${validation.attributeBudget} Attribute Points before purchasing Skills.`, "error");
     return;
   }
   const resolved = resolveSkill(character, key);
@@ -2611,7 +2963,7 @@ function skillKeysForFinalization() {
   const keys = [];
   for (const name of ALL_SKILLS) {
     const skill = character.skills[name];
-    if (skillCreationLevel(skill) > 0 && skill.creationDecimal === null) keys.push(skillKeyForBase(name));
+    if ((skillCreationLevel(skill) > 0 || character.identity.raceId === "pattanilia") && skill.creationDecimal === null) keys.push(skillKeyForBase(name));
   }
   for (const skill of character.customSkills) {
     if (skillCreationLevel(skill) > 0 && skill.creationDecimal === null) keys.push(skillKeyForCustom(skill.id));
@@ -2704,6 +3056,87 @@ async function beginNewCharacter() {
   notice("Fresh Character Draft created. The previous character remains saved.", "success");
 }
 
+function requestRuleChoices({ title, message, options, count = 1 }) {
+  return new Promise((resolve) => {
+    const shell = document.createElement("div");
+    shell.className = "modal-shell rule-choice-modal";
+    const rows = Array.from({ length: count }, (_, index) => `
+      <label>${count > 1 ? `Choice ${index + 1}` : "Selection"}
+        <select data-rule-choice="${index}"><option value="">Choose One</option>${options.map((option) => `<option value="${escapeAttribute(option.value)}">${escapeHtml(option.label)}</option>`).join("")}</select>
+      </label>`).join("");
+    shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Finalization Choice</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p><div class="rule-choice-fields">${rows}</div><p class="dialog-error" role="status"></p><div class="dialog-actions"><button type="button" data-rule-cancel>Cancel</button><button type="button" class="primary-action" data-rule-confirm>Confirm</button></div></section>`;
+    document.body.append(shell);
+    const close = (value) => { shell.remove(); resolve(value); };
+    shell.querySelector("[data-rule-cancel]").addEventListener("click", () => close(null));
+    shell.querySelector("[data-rule-confirm]").addEventListener("click", () => {
+      const values = [...shell.querySelectorAll("[data-rule-choice]")].map((select) => select.value);
+      if (values.some((value) => !value) || new Set(values).size !== values.length) {
+        shell.querySelector(".dialog-error").textContent = count > 1 ? "Choose different options in every field." : "Choose an option first.";
+        return;
+      }
+      close(values);
+    });
+    shell.querySelector("select")?.focus();
+  });
+}
+
+async function collectFinalizationChoices() {
+  character.creation.racialSkillGrants = {};
+  if (character.identity.classId === "other") {
+    const values = await requestRuleChoices({
+      title: "Other Class Attribute",
+      message: "Choose the Attribute whose unused dice will add to the final Score as a decimal.",
+      options: ATTRIBUTE_DEFS.map((entry) => ({ value: entry.key, label: entry.label })),
+    });
+    if (!values) return false;
+    character.creation.classAttributeChoice = values[0];
+  }
+  if (character.identity.raceId === "nordic-flaxen") {
+    const values = await requestRuleChoices({
+      title: "Nordic Flaxen Skill",
+      message: "Choose one non-bold Skill to receive +2.0 after finalization.",
+      options: ALL_SKILLS.filter((name) => !BOLD_SKILLS.has(name)).map((name) => ({ value: name, label: name })),
+    });
+    if (!values) return false;
+    character.creation.raceSkillChoices = values;
+    character.creation.racialSkillGrants[values[0]] = 20;
+  }
+  if (character.identity.raceId === "skeder") {
+    const values = await requestRuleChoices({
+      title: "Sked'er Skills",
+      message: "Choose two different Skills to receive +1.0 after finalization.",
+      count: 2,
+      options: ALL_SKILLS.map((name) => ({ value: name, label: name })),
+    });
+    if (!values) return false;
+    character.creation.raceSkillChoices = values;
+    values.forEach((name) => { character.creation.racialSkillGrants[name] = 10; });
+  }
+  if (character.identity.raceId === "slyn-tanni") {
+    const options = ATTRIBUTE_DEFS.flatMap((definition) => character.attributes[definition.key].flatMap((current, row) => current < 4
+      ? [{ value: `${definition.key}:${row}`, label: `${definition.label} row ${row + 1}: ${current < 0 ? "None" : DICE_NAMES[current]} to ${DICE_NAMES[current + 1]}` }]
+      : []));
+    const values = await requestRuleChoices({
+      title: "Slyn Tanni Attribute Upgrade",
+      message: "Choose one Attribute die to upgrade for free after finalization.",
+      options,
+    });
+    if (!values) return false;
+    character.creation.raceAttributeChoice = values[0];
+  }
+  return true;
+}
+
+function spendMechanicalXp(cost, description) {
+  const available = Math.max(0, Math.round(Number(character.resources.mechanicalExperience) || 0));
+  if (available < cost) {
+    notice(`You need ${cost} mechanical XP for ${description}. ${available} mechanical XP is available.`, "error");
+    return false;
+  }
+  character.resources.mechanicalExperience = available - cost;
+  return true;
+}
+
 async function beginFinalization() {
   const validation = draftValidation();
   if (!validation.ready || character.phase !== "draft") {
@@ -2731,6 +3164,7 @@ async function beginFinalization() {
     }
     return;
   }
+  if (!await collectFinalizationChoices()) return;
   const pcCode = await requestPcCode();
   if (!pcCode) return;
   character.access.pcCode = pcCode;
@@ -2787,6 +3221,14 @@ async function finishFinalization() {
   }
   if (!character.creation.raceGrantsApplied) {
     applyResourceGrant(rawRaceEffects());
+    if (character.identity.raceId === "slyn-tanni" && character.creation.raceAttributeChoice && !character.creation.freeAttributeUpgradeApplied) {
+      const [attributeKey, rowText] = character.creation.raceAttributeChoice.split(":");
+      const row = Number(rowText);
+      if (character.attributes[attributeKey] && Number.isInteger(row) && character.attributes[attributeKey][row] < 4) {
+        character.attributes[attributeKey][row] += 1;
+        character.creation.freeAttributeUpgradeApplied = true;
+      }
+    }
     character.creation.raceGrantsApplied = true;
   }
   character.phase = "finalized";
@@ -2838,7 +3280,14 @@ function processFinalization() {
   while (character.creation.finalizationQueue.length) {
     const key = character.creation.finalizationQueue[0];
     if (resolveSkill(character, key)) {
-      character.pendingRoll = { kind: "creation-d10", skillKey: key, result: null, config: null };
+      const resolved = resolveSkill(character, key);
+      character.pendingRoll = {
+        kind: "creation-d10",
+        skillKey: key,
+        result: null,
+        config: null,
+        pattaniliaUnpurchased: character.identity.raceId === "pattanilia" && skillCreationLevel(resolved?.skill) === 0,
+      };
       saveLibrary("Finalization roll prepared");
       renderWorkflow();
       rollPending();
@@ -2855,7 +3304,8 @@ function startSkillAdvancement(key) {
   if (!resolved) return;
   const purchased = Number(resolved.skill.tenths) || 0;
   const cost = advancementSkillCost(purchased);
-  if (!spendXp(cost, `${resolved.name} advancement`)) return;
+  const currency = mechanicalSpiddixSkill(resolved.name) ? "mechanical" : "standard";
+  if (!(currency === "mechanical" ? spendMechanicalXp(cost, `${resolved.name} advancement`) : spendXp(cost, `${resolved.name} advancement`))) return;
   character.pendingRoll = {
     kind: "advancement-d6",
     skillKey: key,
@@ -2864,6 +3314,8 @@ function startSkillAdvancement(key) {
     paidRerollUsed: false,
     result: null,
     config: null,
+    sides: character.identity.raceId === "horus" ? 8 : 6,
+    currency,
   };
   saveLibrary("Skill advancement roll prepared");
   renderAll();
@@ -2909,7 +3361,7 @@ function rollPending() {
   const anchor = skillRowFor(pending.skillKey);
   anchor?.scrollIntoView({ behavior: "auto", block: "center" });
   diceRoller.roll({
-    sides: creation ? 10 : 6,
+    sides: creation ? 10 : (pending.sides || 6),
     title: resolved.name,
     subtitle: creation ? `Finalization decimal roll - ${remaining} skill${remaining === 1 ? "" : "s"} remaining` : `Advancing from ${ratingText(pending.preRatingTenths)} - ${pending.baseCost} XP spent`,
     config: pending.config,
@@ -2934,7 +3386,9 @@ function handleSettledRoll(result) {
     const resolved = resolveSkill(character, pending.skillKey);
     if (!resolved) return;
     const decimal = result === 10 ? 0 : result;
-    resolved.skill.tenths = skillCreationLevel(resolved.skill) * 10 + decimal;
+    resolved.skill.tenths = pending.pattaniliaUnpurchased && result === 10
+      ? 10
+      : skillCreationLevel(resolved.skill) * 10 + decimal;
     resolved.skill.creationDecimal = decimal;
     character.creation.finalizationQueue = character.creation.finalizationQueue.filter((key, index) => !(index === 0 && key === pending.skillKey));
     character.pendingRoll = null;
@@ -2949,9 +3403,11 @@ function handleSettledRoll(result) {
 function presentAdvancementDecision() {
   const pending = character.pendingRoll;
   if (!pending || pending.kind !== "advancement-d6" || pending.result === null) return;
-  const freeReroll = pending.preRatingTenths <= 9 && pending.result === 1;
+  const rerollsForbidden = character.identity.raceId === "draco-prime";
+  const freeReroll = !rerollsForbidden && pending.preRatingTenths <= 9 && pending.result === 1;
   const rerollCost = Math.round(pending.baseCost / 5);
-  const paidReroll = pending.preRatingTenths >= 10 && !pending.paidRerollUsed && character.experience.available >= rerollCost;
+  const rerollFunds = pending.currency === "mechanical" ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
+  const paidReroll = !rerollsForbidden && pending.preRatingTenths >= 10 && !pending.paidRerollUsed && rerollFunds >= rerollCost;
   if (!freeReroll && !paidReroll) {
     acceptAdvancementResult();
     return;
@@ -2966,7 +3422,7 @@ function rerollAdvancement(cost) {
   const pending = character.pendingRoll;
   if (!pending) return;
   if (cost > 0) {
-    if (!spendXp(cost, "skill reroll")) return;
+    if (!(pending.currency === "mechanical" ? spendMechanicalXp(cost, "skill reroll") : spendXp(cost, "skill reroll"))) return;
     pending.paidRerollUsed = true;
   }
   pending.result = null;
@@ -2974,7 +3430,7 @@ function rerollAdvancement(cost) {
   saveLibrary("Reroll prepared");
   renderAll();
   diceRoller.reroll({
-    sides: 6,
+    sides: pending.sides || 6,
     title: pendingRollTitle(pending),
     subtitle: cost ? `${cost} XP reroll spent - this result is final` : "Free reroll of a 1",
     config: null,
@@ -3214,6 +3670,28 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  const scienceChoice = event.target.closest("[data-science-choice]");
+  if (scienceChoice) {
+    if (!campaignEditable || !campaignToken) return;
+    scienceChoice.disabled = true;
+    campaignRequest("/api/campaign/session/science-choice", {
+      method: "POST",
+      body: JSON.stringify({
+        code: campaignCode,
+        token: campaignToken,
+        characterId: campaignCharacterId,
+        noteId: scienceChoice.dataset.noteId,
+        skill: scienceChoice.dataset.scienceChoice,
+      }),
+    }).then((payload) => {
+      receiveCampaignState(payload.campaign);
+      notice(`${scienceChoice.dataset.scienceChoice} increased by +0.1.`, "success");
+    }).catch((error) => {
+      scienceChoice.disabled = false;
+      notice(error.message, "error");
+    });
+    return;
+  }
   const attributeButton = event.target.closest("[data-attribute]");
   if (attributeButton) {
     purchaseAttribute(attributeButton.dataset.attribute, Number(attributeButton.dataset.row), Number(attributeButton.dataset.column));
@@ -3279,6 +3757,9 @@ document.addEventListener("keydown", (event) => {
 dom.racePicker.addEventListener("change", () => {
   if (character.phase !== "draft") return;
   character.identity.raceType = "";
+  character.creation.raceSkillChoices = [];
+  character.creation.raceAttributeChoice = "";
+  character.creation.racialSkillGrants = {};
   if (dom.racePicker.value === "__other__") {
     character.identity.raceKind = "other";
     character.identity.raceId = "";
@@ -3319,6 +3800,7 @@ dom.classPicker.addEventListener("change", () => {
   const previousMaxHp = maximumHp();
   character.identity.classId = dom.classPicker.value;
   character.identity.className = classById(dom.classPicker.value).name;
+  character.creation.classAttributeChoice = "";
   syncDerivedResources(previousMaxHp);
   queueSave();
   renderAll();
@@ -3540,7 +4022,7 @@ dom.campaignForm?.addEventListener("submit", async (event) => {
 });
 
 dom.campaignCode?.addEventListener("input", () => {
-  dom.campaignCode.value = dom.campaignCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  dom.campaignCode.value = dom.campaignCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
 });
 
 dom.campaignRosterCards?.addEventListener("click", (event) => {
@@ -3631,6 +4113,12 @@ dom.showCharacterPin?.addEventListener("click", () => showPinDisplay());
 dom.printCharacterSheet?.addEventListener("click", () => {
   openPrintableCharacterSheet(printableCharacterData());
 });
+dom.localShowPcCode?.addEventListener("click", () => showPinDisplay({
+  message: "This PC Code will identify the character after it joins a campaign.",
+}));
+dom.localPrintCharacter?.addEventListener("click", () => {
+  openPrintableCharacterSheet(printableCharacterData());
+});
 dom.previousCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(-1));
 dom.nextCampaignCharacter?.addEventListener("click", () => browseCampaignCharacter(1));
 dom.returnToCampaignRoster?.addEventListener("click", async () => {
@@ -3688,7 +4176,7 @@ dom.tabs?.addEventListener("click", (event) => {
 });
 
 dom.joinCampaignRoomCode?.addEventListener("input", () => {
-  dom.joinCampaignRoomCode.value = dom.joinCampaignRoomCode.value.replace(/\D/g, "").slice(0, 4);
+  dom.joinCampaignRoomCode.value = dom.joinCampaignRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
 });
 
 dom.joinCampaignForm?.addEventListener("submit", async (event) => {
@@ -3821,6 +4309,33 @@ dom.launchPlayerAtb?.addEventListener("click", () => {
   void loadPlayerAtb({ reload: true });
 });
 
+dom.angilurosSpeedBoost?.addEventListener("click", async () => {
+  if (character.identity.raceId !== "angiluros" || character.resources.exertionCurrent < 2 || !campaignCharacterId) return;
+  const accepted = await askConfirmation({
+    title: "Spend 2 Exertion?",
+    message: "This Angiluros gains +4 Speed until the current encounter ends.",
+    acceptLabel: "Spend Exertion",
+    cancelLabel: "Cancel",
+  });
+  if (!accepted) return;
+  character.resources.exertionCurrent -= 2;
+  queueSave();
+  renderResources();
+  try {
+    await campaignRequest("/api/action", {
+      method: "POST",
+      body: JSON.stringify({ roomCode: campaignCode, characterId: campaignCharacterId, characterToken: campaignToken, action: "characterSpeedBoost" }),
+    });
+    dom.angilurosSpeedBoost.disabled = true;
+    notice("+4 encounter Speed activated.", "success");
+  } catch (error) {
+    character.resources.exertionCurrent += 2;
+    queueSave();
+    renderResources();
+    notice(error.message, "error");
+  }
+});
+
 dom.openPrivateNotes?.addEventListener("click", async () => {
   refreshPrivateNotes();
   dom.privateNotesModal.hidden = false;
@@ -3879,7 +4394,7 @@ dom.bankConfirm?.addEventListener("click", async () => {
     });
     receiveCampaignState(payload.campaign);
     dom.campaignBankModal.hidden = true;
-    notice("Campaign credits transferred.", "success");
+    notice("Campaign resource action completed.", "success");
   } catch (error) {
     dom.bankAuthority.textContent = error.message;
   }
@@ -3890,6 +4405,7 @@ dom.openCampaignRoll?.addEventListener("click", openRequestedCampaignRoll);
 dom.calculateManualSkill.addEventListener("click", calculateManualSkillResult);
 dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
 dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
+dom.freeRuleReroll.addEventListener("click", useFreeRuleReroll);
 dom.skillCheckClose.addEventListener("click", closeSkillCheck);
 dom.cancelSkillCheck.addEventListener("click", closeSkillCheck);
 dom.exitSkillResult.addEventListener("click", closeSkillCheck);
@@ -3938,6 +4454,35 @@ dom.restoreHp.addEventListener("click", () => {
   renderDerived();
 });
 
+dom.marineHeal.addEventListener("click", async () => {
+  if (character.identity.classId !== "marine-soldier" || character.session.marineHealingUsed || diceRoller.isActive()) return;
+  const accepted = await askConfirmation({
+    title: "Use Marine Recovery?",
+    message: "Roll every Willpower die and heal the sum. This can be used once per session.",
+    acceptLabel: "Roll Willpower",
+    cancelLabel: "Cancel",
+  });
+  if (!accepted) return;
+  const sides = attributeDiceSides("willpower");
+  character.session.marineHealingUsed = true;
+  queueSave();
+  diceRoller.rollPool({
+    sides,
+    title: "Marine Recovery",
+    subtitle: "Every Willpower die restores HP",
+    fusion: false,
+    onResolved: () => {},
+    onSettled: (results) => {
+      const healing = results.reduce((sum, value) => sum + value, 0);
+      character.health.current = Math.min(maximumHp(), character.health.current + healing);
+      diceRoller.stop();
+      saveLibrary("Marine Recovery applied");
+      renderAll();
+      notice(`Marine Recovery restored ${healing} HP.`, "success");
+    },
+  });
+});
+
 dom.exportCharacter.addEventListener("click", exportCurrentCharacter);
 
 dom.importCharacter.addEventListener("change", async () => {
@@ -3983,6 +4528,7 @@ if (migrationDetected) {
 
 async function initializeCharacterApp() {
   const params = new URLSearchParams(window.location.search);
+  document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
   const requestedCode = String(params.get("campaign") || localStorage.getItem("sa-character-campaign-code") || "").trim().toUpperCase();
   const requestedCharacter = String(params.get("character") || "");
   const gmAccess = params.get("gm") === "1";
@@ -3996,7 +4542,7 @@ async function initializeCharacterApp() {
     window.history.replaceState({}, "", "character.html");
     renderAll();
   }
-  dom.campaignCode.value = /^[A-Z0-9]{4}$/.test(requestedCode) ? requestedCode : "";
+  dom.campaignCode.value = /^[A-Z0-9]{4,5}$/.test(requestedCode) ? requestedCode : "";
   dom.campaignGate.hidden = true;
   dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {
@@ -4015,6 +4561,12 @@ async function initializeCharacterApp() {
       }
     } catch (error) {
       dom.campaignMessage.textContent = error.message;
+      if (error.status === 404 && character.campaignLink?.roomCode === requestedCode) {
+        character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+        localStorage.removeItem("sa-character-campaign-code");
+        saveLibrary("Character preserved locally");
+        notice("That campaign was deleted. Your character remains saved on this device.", "error");
+      }
     }
   }
   if (requestedCode && !requestedCharacter) {

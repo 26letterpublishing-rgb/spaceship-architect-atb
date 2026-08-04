@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260803-print-1" />
+  <link rel="stylesheet" href="character.css?v=20260804-rules-2" />
   </head>
   <body>
     <header class="creator-header">
@@ -33,7 +33,7 @@
           <h1>Enter Campaign</h1>
           <p>View the entire team, unlock your character, or create someone new.</p>
           <form id="characterCampaignForm">
-            <label>Campaign Code<input id="characterCampaignCode" maxlength="4" autocomplete="off" placeholder="A7K4" required /></label>
+            <label>Campaign Code<input id="characterCampaignCode" maxlength="5" autocomplete="off" placeholder="A7K4Q" required /></label>
             <button class="primary-action" type="submit">Open Characters</button>
           </form>
         </div>
@@ -58,6 +58,8 @@
           <button id="exportCharacter" type="button">Export</button>
           <label class="import-button">Import<input id="importCharacter" type="file" accept=".sa2character,.json,application/json" /></label>
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
+          <button id="localShowPcCode" type="button">Show PC Code</button>
+          <button id="localPrintCharacter" type="button">Print Character Sheet</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
       </section>
@@ -166,6 +168,7 @@
               <span class="hp-maximum-readout" aria-label="Maximum HP"><small>Max</small><strong id="currentHpMaximum">28</strong></span>
             </div>
             <button id="restoreHp" type="button">Restore to Maximum</button>
+            <button id="marineHeal" type="button" hidden>Marine Recovery</button>
           </div>
         </aside>
 
@@ -256,7 +259,7 @@
     <section id="joinCampaignPanel" class="character-page-panel character-tool-page" data-character-panel="join" hidden>
       <div class="character-tool-heading"><span>CAMPAIGN CONNECTION</span><h1>Join Campaign</h1></div>
       <div class="join-campaign-card">
-        <p>Enter the permanent four-digit Room Code supplied by the GM. Your character will remain unattached until the GM approves the request.</p>
+        <p>Enter the permanent Campaign Code supplied by the GM. Your character will remain unattached until the GM approves the request.</p>
         <form id="joinCampaignForm">
           <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="0427" required /></label>
           <button class="primary-action" type="submit">Request to Join</button>
@@ -288,7 +291,7 @@
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
       <div class="player-atb-heading">
         <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>ATB</h1></div>
-        <button id="launchPlayerAtb" type="button">Reload Encounter</button>
+        <div class="player-atb-actions"><button id="angilurosSpeedBoost" type="button" hidden>Spend 2 Exertion: +4 Speed</button><button id="launchPlayerAtb" type="button">Reload Encounter</button></div>
       </div>
       <div class="player-atb-live">
         <p id="playerAtbStatus">The encounter remains active while you inspect other character tabs.</p>
@@ -334,9 +337,9 @@
         <h2 id="campaignBankTitle">Ship Credit Pool</h2>
         <div class="campaign-bank-balances"><div><span>Personal Credits</span><strong id="bankPersonalCredits">0</strong></div><div><span>Ship Credit Pool</span><strong id="bankShipCredits">0</strong></div></div>
         <p id="bankAuthority" class="campaign-bank-authority"></p>
-        <label>Transfer Type<select id="bankOperation"><option value="deposit">Personal to Ship Pool</option><option value="withdraw">Ship Pool to Personal</option><option value="giftPersonal">Personal to Another Character</option><option value="giftShip">Ship Pool to Another Character</option></select></label>
+        <label>Transfer Type<select id="bankOperation"></select></label>
         <label id="bankTargetWrap" hidden>Recipient<select id="bankTarget"></select></label>
-        <label>Credits<input id="bankAmount" type="number" min="1" step="1" inputmode="numeric" value="1" /></label>
+        <label><span id="bankAmountLabel">Credits</span><input id="bankAmount" type="number" min="1" step="1" inputmode="numeric" value="1" /></label>
         <div class="dialog-actions"><button id="bankCancel" type="button">Cancel</button><button id="bankConfirm" class="primary-action" type="button">Confirm Transfer</button></div>
       </section>
     </div>
@@ -444,6 +447,7 @@
             <p id="skillFusionWarning" class="skill-fusion-warning">No fusion selected. The full dice pool will be rerolled.</p>
           </div>
           <div class="skill-result-actions">
+            <button id="freeRuleReroll" type="button" hidden>Use Free Reroll</button>
             <button id="rerollSkillCheck" type="button">Spend 2 Reverence to Reroll</button>
             <button id="exitSkillResult" class="primary-action" type="button">Exit</button>
           </div>
@@ -451,6 +455,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="character.js?v=20260803-print-1"></script>
+  <script type="module" src="character.js?v=20260804-rules-2"></script>
   </body>
 </html>

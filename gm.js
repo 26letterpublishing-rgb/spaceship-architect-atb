@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260803-campaign-6";
+import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260804-rules-2";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -38,8 +38,14 @@ const dom = {
   scriptDifficulty: $("#scriptDifficulty"),
   scriptHideDifficulty: $("#scriptHideDifficulty"),
   insertCommand: $("#insertScriptCommand"),
+  endSession: $("#endSession"),
+  sessionNumberLabel: $("#sessionNumberLabel"),
   characterList: $("#gmCharacterList"),
   characterCount: $("#characterCount"),
+  sheetViewer: $("#gmSheetViewer"),
+  sheetViewerTitle: $("#gmSheetViewerTitle"),
+  sheetFrame: $("#gmSheetFrame"),
+  closeSheetViewer: $("#closeGmSheetViewer"),
   selectedTargetCount: $("#selectedTargetCount"),
   promptTargets: $("#promptTargets"),
   selectAllTargets: $("#selectAllTargets"),
@@ -220,13 +226,24 @@ function boxesFilled(record, attribute) {
 }
 
 function characterSpeed(record) {
+  const initiative = (Number(record?.character?.skills?.Initiative?.tenths) || 0) / 10;
+  const multiplier = record?.character?.identity?.classId === "mastermind" ? 1.5 : 1;
   return record?.character?.computed?.speed
-    ?? Math.max(1, boxesFilled(record, "intellect") + (Number(record?.character?.skills?.Initiative?.tenths) || 0) / 10);
+    ?? Math.max(1, boxesFilled(record, "intellect") + initiative * multiplier);
 }
 
 function commandWindow(record) {
+  const awarenessMultiplier = record?.character?.identity?.classId === "mastermind" ? 45 : 20;
   return record?.character?.computed?.commandWindow
-    ?? Math.max(1, boxesFilled(record, "perception") * 10 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * 30);
+    ?? Math.max(1, boxesFilled(record, "perception") * 10 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
+}
+
+function encounterRuleFields(record) {
+  const identity = record?.character?.identity || {};
+  return {
+    initialAtb: identity.classId === "rogue-drifter" ? 99 : 0,
+    regenerationRate: identity.raceId === "antropic" && identity.raceType === "fins" ? boxesFilled(record, "health") : 0,
+  };
 }
 
 function populateRulesControls() {
@@ -271,6 +288,14 @@ function renderCharacters() {
       const color = character.presentation?.atbColor || "#39e58f";
       const notes = record.privateNotes || [];
       const readNotes = notes.filter((note) => note.readAt).length;
+      const classId = character.identity?.classId || "";
+      const classActions = classId === "playboy-minx"
+        ? `<button type="button" data-class-action="playboy-reward" data-character-id="${record.id}">+1 REV / +5 XP</button>`
+        : classId === "psychopath"
+          ? `<button type="button" data-class-action="psychopath-reward" data-character-id="${record.id}">+8 XP KILL</button>`
+          : classId === "peacekeeper"
+            ? `<button type="button" data-class-action="peacekeeper-reward" data-character-id="${record.id}">PREVENTED COMBAT: +1 DRAMA</button>`
+            : "";
       return `<article class="gm-character-card ${record.connected ? "connected" : ""}" style="--character-color:${color}">
         <div class="character-card-head"><span class="character-swatch"></span><div><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))} ${record.connected ? "| CONNECTED" : "| OFFLINE"}</small></div></div>
         <div class="character-details">
@@ -279,7 +304,7 @@ function renderCharacters() {
           <div><span>Notes Read</span><strong>${readNotes}/${notes.length}</strong></div>
         </div>
         <div class="pin-readout"><span>PC CODE</span><strong>${escapeHtml(record.pcCode || "----")}</strong></div>
-        <div class="character-card-actions"><a href="character.html?campaign=${campaign.code}&character=${encodeURIComponent(record.id)}">View Sheet</a></div>
+        <div class="character-card-actions"><button type="button" data-view-sheet="${record.id}">View Sheet</button>${classActions}</div>
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can create one from the Characters option on the main menu.</p>";
@@ -484,6 +509,7 @@ async function resumeEncounterWithFreshCharacters() {
         speed: characterSpeed(record),
         commandWindow: commandWindow(record),
         color: record.character?.presentation?.atbColor || "#39e58f",
+        regenerationRate: encounterRuleFields(record).regenerationRate,
       }];
     });
     if (updates.length) encounterState = await encounterAction("syncCampaignUnits", { units: updates });
@@ -528,6 +554,7 @@ async function beginEncounter() {
         team: "pc",
         actorType: "character",
         characterId: record.id,
+        ...encounterRuleFields(record),
       });
     }
     for (const npc of stagedNpcs) {
@@ -592,6 +619,8 @@ function renderCampaign() {
   dom.codeHeading.textContent = campaign.code;
   dom.nameHeading.textContent = campaign.name;
   dom.shipCredits.textContent = Number(campaign.shipCredits || 0).toLocaleString();
+  dom.sessionNumberLabel.textContent = `Session ${campaign.sessionNumber || 1}`;
+  dom.endSession.textContent = `End Session ${campaign.sessionNumber || 1}`;
   dom.undoAward.disabled = !campaign.lastAward;
   dom.storageMode.textContent = campaign.storageMode === "postgres" ? "Persistent Database" : "Local Test Storage";
   dom.storageMode.style.color = campaign.storageMode === "postgres" ? "var(--green)" : "var(--yellow)";
@@ -897,6 +926,56 @@ dom.inboxList.addEventListener("click", async (event) => {
   }
 });
 
+dom.characterList.addEventListener("click", (event) => {
+  const classAction = event.target.closest("[data-class-action]");
+  if (classAction) {
+    classAction.disabled = true;
+    api("/api/campaign/class-action", {
+      code,
+      token,
+      characterId: classAction.dataset.characterId,
+      action: classAction.dataset.classAction,
+    }).then((payload) => {
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, payload.message, "success");
+    }).catch((error) => {
+      classAction.disabled = false;
+      showMessage(dom.message, error.message, "error");
+    });
+    return;
+  }
+  const button = event.target.closest("[data-view-sheet]");
+  if (!button) return;
+  const record = campaign.characters.find((entry) => entry.id === button.dataset.viewSheet);
+  if (!record) return;
+  dom.sheetViewerTitle.textContent = `${characterName(record)} - GM View`;
+  dom.sheetFrame.src = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(record.id)}&gm=1&embedded=1`;
+  dom.sheetViewer.hidden = false;
+  dom.characterList.hidden = true;
+  dom.sheetViewer.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+dom.closeSheetViewer.addEventListener("click", () => {
+  dom.sheetViewer.hidden = true;
+  dom.sheetFrame.removeAttribute("src");
+  dom.characterList.hidden = false;
+});
+
+dom.endSession.addEventListener("click", async () => {
+  const sessionNumber = campaign.sessionNumber || 1;
+  if (!confirm(`End Session ${sessionNumber}, reset session abilities, and notify every player?`)) return;
+  dom.endSession.disabled = true;
+  try {
+    const payload = await api("/api/campaign/session/end", { code, token });
+    receiveCampaign(payload.campaign);
+    showMessage(dom.message, `Session ${payload.sessionEnded} ended. Player abilities and counters were reset.`, "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  } finally {
+    dom.endSession.disabled = false;
+  }
+});
+
 dom.kickCharacterButton.addEventListener("click", async () => {
   const characterId = dom.kickCharacter.value;
   const record = campaign.characters.find((entry) => entry.id === characterId);
@@ -939,7 +1018,20 @@ dom.awardForm.addEventListener("submit", async (event) => {
     return;
   }
   try {
-    const payload = await api("/api/campaign/award", { code, token, resource, amount: dom.awardAmount.value, targetIds });
+    const androidTargets = resource === "credits" && Number(dom.awardAmount.value) > 0
+      ? selectedRecords().filter((record) => record.character?.identity?.raceId === "android")
+      : [];
+    const convertAndroid = androidTargets.length
+      ? confirm(`Convert this Credit award into Experience for ${androidTargets.map(characterName).join(", ")} at 75 Credits per XP?`)
+      : false;
+    const payload = await api("/api/campaign/award", {
+      code,
+      token,
+      resource,
+      amount: dom.awardAmount.value,
+      targetIds,
+      androidExperienceIds: convertAndroid ? androidTargets.map((record) => record.id) : [],
+    });
     receiveCampaign(payload.campaign);
     const amount = Number(dom.awardAmount.value).toLocaleString();
     const recipients = resource === "shipCredits" ? "Ship Credit Pool" : selectedRecords().map(characterName).join(", ");
@@ -1069,7 +1161,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
   if (typedName === null) return;
   const gmCode = prompt("Enter the GM Code to permanently delete this campaign:");
   if (gmCode === null) return;
-  if (!confirm("Permanently delete the campaign, every character, script, note, and encounter?")) return;
+  if (!confirm("Permanently delete this campaign, its script, notes, and encounter? Player characters will be unlinked and preserved on their devices.")) return;
   try {
     await api("/api/campaign/delete", { code, token, campaignName: typedName, gmCode });
     localStorage.removeItem(tokenKey(code));

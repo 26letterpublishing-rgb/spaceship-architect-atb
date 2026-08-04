@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-    <link rel="stylesheet" href="gm.css?v=20260803-campaign-6" />
+  <link rel="stylesheet" href="gm.css?v=20260804-rules-2" />
   </head>
   <body>
     <main class="gm-shell">
@@ -75,6 +75,7 @@
               <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
+            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 1</strong></div><button id="endSession" type="button">End Session</button></section>
           </section>
         </section>
 
@@ -92,6 +93,10 @@
             <strong id="characterCount">0 Characters</strong>
           </div>
           <div id="gmCharacterList" class="gm-character-list"></div>
+          <section id="gmSheetViewer" class="gm-sheet-viewer" hidden>
+            <div class="gm-sheet-viewer-toolbar"><strong id="gmSheetViewerTitle">Character Sheet</strong><button id="closeGmSheetViewer" type="button">Close Sheet</button></div>
+            <iframe id="gmSheetFrame" title="Campaign character sheet"></iframe>
+          </section>
         </section>
 
         <section id="promptTab" class="gm-tab" data-tab-panel="prompt" hidden>
@@ -204,6 +209,6 @@
       </section>
     </main>
 
-    <script type="module" src="gm.js?v=20260803-campaign-6"></script>
+  <script type="module" src="gm.js?v=20260804-rules-2"></script>
   </body>
 </html>

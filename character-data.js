@@ -619,6 +619,15 @@ export const SPACECRAFT_SKILLS = [
   "Weapon Systems",
 ];
 
+export const BOLD_SKILLS = new Set([
+  ...SPACECRAFT_SKILLS,
+  "Awareness",
+  "Dodge/Block",
+  "Initiative",
+  "Melee",
+  "Projectile",
+]);
+
 export const GENERAL_SKILLS = [
   "Acting/Lie",
   "Anatomy/First Aid",
@@ -700,7 +709,7 @@ export const CLASS_DEFS = [
     id: "corporate-worker",
     name: "Corporate Worker / Citizen",
     summary: "Starts with an additional 15,000 credits.",
-    effects: { creditsBonus: 15000 },
+    effects: { creditsOnFinalize: 15000 },
   },
   {
     id: "decker",
@@ -742,8 +751,7 @@ export const CLASS_DEFS = [
   {
     id: "mastermind",
     name: "Mastermind",
-    summary: "Legacy benefit modifies Analyze and several former combat actions.",
-    pendingAtb: true,
+    summary: "Initiative contributes 1.5 times its rating to Speed. Awareness adds 45 seconds per level to the Command Window.",
   },
   {
     id: "medical-officer",
@@ -758,7 +766,7 @@ export const CLASS_DEFS = [
   {
     id: "ninja",
     name: "Ninja",
-    summary: "Legacy benefit improves melee defense, climbing, exerted stealth, and Called Shots.",
+    summary: "Each Exertion spent on Stealth/Hide adds its normal +1D12 and +1, plus another +4 to the final Score. Legacy melee-defense, climbing, and Called Shot benefits remain for later combat automation.",
     pendingAtb: true,
   },
   {
@@ -789,8 +797,7 @@ export const CLASS_DEFS = [
   {
     id: "rogue-drifter",
     name: "Rogue / Drifter",
-    summary: "Legacy benefit grants an Ambush Round action and modifies React when ambushed.",
-    pendingAtb: true,
+    summary: "Begins each combat with 99% ATB. The former Ambush Round and React wording is replaced by this ATB benefit.",
   },
   {
     id: "science-officer",
@@ -829,7 +836,6 @@ export const CLASS_DEFS = [
     name: "Other",
     summary: "Choose one Attribute whose unused dice add to the result decimal. Gain +60 XP immediately after finalization.",
     effects: { xpOnFinalize: 60 },
-    manual: "The chosen Attribute will be added when the Attribute roller is implemented.",
   },
 ];
 

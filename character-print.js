@@ -40,7 +40,7 @@ export function buildPrintableCharacterSheet(data) {
       <ul>${(group.entries || []).map((entry) => `<li>${filled(entry)}</li>`).join("")}</ul>
     </section>`).join("") || '<p class="empty-copy">No listed advantages or disadvantages.</p>';
   const skills = skillColumns.map((column) => `<div class="skill-column">${column.map((skill) => `
-    <div class="skill-row"><span class="skill-group">${filled(String(skill.group || "").slice(0, 1))}</span><span>${filled(skill.name)}</span><strong>${filled(skill.value, "0.0")}</strong></div>`).join("")}</div>`).join("");
+    <div class="skill-row ${skill.bold ? "bold-skill" : ""}"><span class="skill-group">${filled(String(skill.group || "").slice(0, 1))}</span><span>${filled(skill.name)}</span><strong>${filled(skill.value, "0.0")}</strong></div>`).join("")}</div>`).join("");
   const crewRows = crew.slice(0, 7).map((member) => `<div class="crew-row"><span>${filled(member.name, "")}</span><span>${filled(member.title, "")}</span></div>`).join("");
   const exertionMax = Math.max(0, Number(data.resources?.exertionMax) || 0);
 
@@ -58,16 +58,16 @@ export function buildPrintableCharacterSheet(data) {
     body { padding:20px; }
     .print-toolbar { width:10.5in; margin:0 auto 12px; display:flex; justify-content:flex-end; gap:8px; }
     .print-toolbar button { min-height:38px; padding:0 18px; border:1px solid #222; border-radius:999px; color:#fff; background:linear-gradient(#4d4d4d,#111); font-weight:800; cursor:pointer; }
-    .sheet { width:10.5in; height:8in; margin:auto; padding:.12in; overflow:hidden; display:grid; grid-template-rows:.55in 1.48in minmax(0,1fr) .2in; gap:.07in; background:#f6f6f4; box-shadow:0 8px 34px rgba(0,0,0,.45); }
+    .sheet { width:10.5in; height:8in; margin:auto; padding:.12in; overflow:hidden; display:grid; grid-template-rows:.68in 1.42in minmax(0,1fr) .2in; gap:.07in; background:#f6f6f4; box-shadow:0 8px 34px rgba(0,0,0,.45); }
     .halftone { background-color:#e5e5e3; background-image:radial-gradient(#8b8b8b .45px,transparent .55px); background-size:4px 4px; }
-    .sheet-header { display:grid; grid-template-columns:1.4in 1fr 2.25in; align-items:stretch; border:2px solid #111; background:linear-gradient(110deg,#101010 0 26%,#555 26% 27%,#ededeb 27% 100%); }
+    .sheet-header { display:grid; grid-template-columns:1.58in minmax(0,1fr) 2.34in; align-items:stretch; overflow:hidden; border:2px solid #111; background:linear-gradient(110deg,#101010 0 26%,#555 26% 27%,#ededeb 27% 100%); }
     .edition { padding:.08in .12in; display:grid; align-content:center; color:#fff; }
-    .edition strong { font-size:15pt; letter-spacing:.07em; line-height:.9; }
-    .edition span { margin-top:4px; font-size:6.3pt; letter-spacing:.16em; }
+    .edition strong { font-size:13.5pt; letter-spacing:.055em; line-height:.92; }
+    .edition span { margin-top:4px; font-size:5.2pt; line-height:1.15; letter-spacing:.1em; }
     .character-title { min-width:0; padding:.06in .14in; display:grid; align-content:center; border-left:1px solid #777; }
     .character-title span { color:#555; font-size:6pt; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
-    .character-title h1 { overflow:hidden; margin:1px 0 0; font-size:18pt; line-height:1; text-overflow:ellipsis; text-transform:uppercase; white-space:nowrap; }
-    .header-meta { padding:.05in .1in; display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; align-content:center; border-left:1px solid #777; font-size:6.2pt; }
+    .character-title h1 { overflow:hidden; margin:1px 0 0; font-size:16pt; line-height:1.05; text-overflow:ellipsis; text-transform:uppercase; white-space:nowrap; }
+    .header-meta { min-width:0; padding:.045in .09in; display:grid; grid-template-columns:.68in minmax(0,1fr); gap:2px 6px; align-content:center; border-left:1px solid #777; font-size:5.8pt; }
     .header-meta span { color:#555; font-weight:800; text-transform:uppercase; }
     .header-meta strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .top-grid { display:grid; grid-template-columns:3.45fr 2.75fr 3.8fr; gap:.06in; min-height:0; }
@@ -124,6 +124,8 @@ export function buildPrintableCharacterSheet(data) {
     .skill-row { min-height:16px; display:grid; grid-template-columns:12px minmax(0,1fr) 28px; align-items:center; border-bottom:1px dotted #888; font-size:5.65pt; }
     .skill-row > span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .skill-row strong { font-size:6.5pt; text-align:right; }
+    .skill-row.bold-skill > span:nth-child(2), .skill-row.bold-skill strong { font-weight:950; }
+    .skill-row.bold-skill > span:nth-child(2) { text-decoration:underline; text-decoration-thickness:.7px; text-underline-offset:1px; }
     .skill-group { width:10px; height:10px; display:grid; place-items:center; color:#fff; background:#555; font-size:4.5pt; font-weight:900; }
     .sheet-footer { display:flex; align-items:center; justify-content:space-between; color:#555; border-top:1px solid #777; font-size:5pt; }
     .empty-copy { color:#777; font-style:italic; }
