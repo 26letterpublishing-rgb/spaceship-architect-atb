@@ -15,10 +15,10 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260807-tabs-1";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-1";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-tabs-1";
-import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-1";
+} from "./character-data.js?v=20260807-tabs-2";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-tabs-2";
+import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -26,7 +26,84 @@ const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
+const HUD_VISIBILITY_KEY = "sa2e-character-hud-visible-v1";
+const SKILL_SORT_KEY = "sa2e-character-skill-sort-v1";
 const SHEET_SECTIONS = new Set(["identity", "attributes", "skills", "substats", "resources", "supplies"]);
+const SKILL_SORT_MODES = new Set(["alphabetical", "attribute", "level", "importance", "basic"]);
+const SKILL_ASSOCIATED_ATTRIBUTE = Object.freeze({
+  "Acting/Lie": "charisma",
+  "Anatomy/First Aid": "intellect",
+  "Architecture": "intellect",
+  "Art/Music": "charisma",
+  "Astronomy": "intellect",
+  "Athletics/Endurance": "health",
+  "Awareness": "perception",
+  "Break Free/Escape": "strength",
+  "Caretaking/Nurture": "charisma",
+  "Catch/Throw": "dexterity",
+  "Climb": "strength",
+  "Common Knowledge": "intellect",
+  "Cooking": "intellect",
+  "Demolitions": "intellect",
+  "Disguise/Mimic": "charisma",
+  "Dodge/Block": "dexterity",
+  "Drive/Small Vehicle": "dexterity",
+  "Fashion/Etiquette": "charisma",
+  "Forgotten Languages": "intellect",
+  "Gambling": "luck",
+  "History/Lore": "intellect",
+  "Identify Taste/Smell": "perception",
+  "Initiative": "intellect",
+  "Intimidate/Taunt": "charisma",
+  "Intuition/Empathy": "perception",
+  "Jump": "strength",
+  "Law/Politics": "intellect",
+  "Leadership": "charisma",
+  "Lift/Push/Pull": "strength",
+  "Lock-picking": "dexterity",
+  "Mathematics": "intellect",
+  "Melee": "strength",
+  "Navigate": "perception",
+  "Negotiation/Persuade": "charisma",
+  "Occult": "intellect",
+  "Pickpocket": "dexterity",
+  "Projectile": "dexterity",
+  "Psychology": "intellect",
+  "Religion": "intellect",
+  "Research": "intellect",
+  "Resist Distress": "willpower",
+  "Science/Physics": "intellect",
+  "Self-Control": "willpower",
+  "Showmanship": "charisma",
+  "Stealth/Hide": "dexterity",
+  "Survival/Tracking": "perception",
+  "Swim": "strength",
+  "Tame Animal": "charisma",
+  "Teaching": "charisma",
+  "Technology": "intellect",
+  "Vehicle Mechanics": "intellect",
+  "Weapon Mechanics": "intellect",
+  "Wrestle/Disarm": "strength",
+  "Writing": "intellect",
+});
+const PHYSICAL_SKILLS = new Set([
+  "Athletics/Endurance",
+  "Break Free/Escape",
+  "Catch/Throw",
+  "Climb",
+  "Dodge/Block",
+  "Drive/Small Vehicle",
+  "Identify Taste/Smell",
+  "Jump",
+  "Lift/Push/Pull",
+  "Lock-picking",
+  "Melee",
+  "Pickpocket",
+  "Projectile",
+  "Stealth/Hide",
+  "Swim",
+  "Wrestle/Disarm",
+]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
 const FORMAT_VERSION = 4;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
@@ -45,7 +122,7 @@ const dom = {
   characterSheet: $("#characterSheet"),
   tabbedToolbar: $("#tabbedCharacterToolbar"),
   sheetSectionTabs: $("#sheetSectionTabs"),
-  tabbedStatusStrip: $("#tabbedStatusStrip"),
+  globalCharacterHud: $("#globalCharacterHud"),
   tabStatusExperience: $("#tabStatusExperience"),
   tabStatusHp: $("#tabStatusHp"),
   tabStatusReverence: $("#tabStatusReverence"),
@@ -89,6 +166,7 @@ const dom = {
   customSkillsEmpty: $("#customSkillsEmpty"),
   addCustomSkill: $("#addCustomSkill"),
   skillSearch: $("#skillSearch"),
+  skillSort: $("#skillSort"),
   skillLockNotice: $("#skillLockNotice"),
   derivedSpeed: $("#derivedSpeed"),
   derivedSpeedFormula: $("#derivedSpeedFormula"),
@@ -182,6 +260,7 @@ const dom = {
   lobbyCampaignCode: $("#lobbyCampaignCode"),
   lobbyCampaignName: $("#lobbyCampaignName"),
   campaignRosterCards: $("#campaignRosterCards"),
+  campaignPrivateNotes: $("#campaignPrivateNotes"),
   changeCampaign: $("#changeCampaign"),
   createCampaignCharacter: $("#createCampaignCharacter"),
   importCampaignCharacter: $("#importCampaignCharacter"),
@@ -197,6 +276,7 @@ const dom = {
   privateNoteCount: $("#privateNoteCount"),
   openCampaignBank: $("#openCampaignBank"),
   campaignBankSummary: $("#campaignBankSummary"),
+  campaignBankCard: $("#campaignBankCard"),
   saveAndSyncCharacter: $("#saveAndSyncCharacter"),
   showCharacterPin: $("#showCharacterPin"),
   printCharacterSheet: $("#printCharacterSheet"),
@@ -245,6 +325,7 @@ const dom = {
   messageGmText: $("#messageGmText"),
   playerSettingsPanel: $("#playerSettingsPanel"),
   characterLayoutToggle: $("#characterLayoutToggle"),
+  resourceHudToggle: $("#resourceHudToggle"),
   settingsLoadCharacter: $("#settingsLoadCharacter"),
   settingsExportCharacter: $("#settingsExportCharacter"),
   settingsNewCharacter: $("#settingsNewCharacter"),
@@ -932,6 +1013,9 @@ async function saveCampaignCharacter({ force = false } = {}) {
 let activeCharacterTab = "sheet";
 let activeSheetSection = "identity";
 let characterLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY) === "tabs" ? "tabs" : "sheet";
+let resourceHudVisible = localStorage.getItem(HUD_VISIBILITY_KEY) !== "hidden";
+const storedSkillSort = localStorage.getItem(SKILL_SORT_KEY);
+let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
 let joinStatusTimer = null;
 let playerAtbLoading = false;
 
@@ -945,6 +1029,15 @@ function renderTabbedStatus() {
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = Math.max(0, Number(character.resources.creditsBase) || 0).toLocaleString();
+
+  const visible = resourceHudVisible && character.phase === "finalized";
+  dom.globalCharacterHud.hidden = !visible;
+  document.body.classList.toggle("resource-hud-visible", visible);
+  dom.resourceHudToggle?.querySelectorAll("[data-hud-visible]").forEach((button) => {
+    const selected = (button.dataset.hudVisible === "true") === resourceHudVisible;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
 }
 
 function showSheetSection(section = "identity", { scroll = false } = {}) {
@@ -959,8 +1052,7 @@ function showSheetSection(section = "identity", { scroll = false } = {}) {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
   });
-  dom.tabbedToolbar.classList.toggle("resources-active", activeSheetSection === "resources");
-  dom.tabbedStatusStrip.hidden = !tabbed || activeSheetSection === "resources";
+
   if (scroll && activeCharacterTab === "sheet") {
     dom.characterSheet.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1009,8 +1101,8 @@ function showCharacterPanel(tab = "sheet") {
   dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
   if (activeCharacterTab === "sheet") renderCharacterLayout();
   if (activeCharacterTab === "roster") renderCampaignRoster();
-  if (activeCharacterTab === "inbox") refreshPrivateNotes();
   if (activeCharacterTab === "atb") void loadPlayerAtb();
+  renderTabbedStatus();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1019,13 +1111,11 @@ function renderCharacterNavigation() {
   const pending = character.campaignLink?.status === "pending";
   const mayJoin = character.phase === "finalized" && !linked;
   const gmView = campaignState?.role === "gm";
-  const hasLocalInbox = Boolean(character.localInbox?.length);
   dom.tabs.hidden = false;
   for (const button of dom.tabs.querySelectorAll("[data-character-tab]")) {
     const tab = button.dataset.characterTab;
     if (tab === "sheet" || tab === "settings") button.hidden = false;
     if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
-    if (tab === "inbox") button.hidden = (!linked && !hasLocalInbox) || gmView;
   }
   dom.joinCampaignPanel.hidden = gmView || (!mayJoin && !pending);
   dom.joinCampaignForm.hidden = pending;
@@ -1038,9 +1128,15 @@ function renderCharacterNavigation() {
   dom.launchPlayerAtb.disabled = !linked || gmView;
   dom.angilurosSpeedBoost.hidden = !linked || gmView || character.identity.raceId !== "angiluros";
   dom.angilurosSpeedBoost.disabled = character.resources.exertionCurrent < 2;
+  dom.campaignPrivateNotes.hidden = !linked || gmView;
+  dom.campaignBankCard.hidden = !linked;
+  dom.saveAndSyncCharacter.hidden = !linked || gmView;
+  dom.saveAndSyncCharacter.disabled = !campaignEditable;
+  dom.showCharacterPin.hidden = character.phase !== "finalized"
+    || gmView
+    || !(campaignPin || character.access?.pcCode)
+    || (linked && !campaignEditable);
   dom.printCharacterSheet.disabled = character.phase !== "finalized";
-  dom.localShowPcCode.hidden = linked || character.phase !== "finalized";
-  dom.localPrintCharacter.hidden = linked || character.phase !== "finalized";
   if (pending) {
     dom.joinCampaignStatus.innerHTML = `<strong>Awaiting GM Approval</strong><span>${escapeHtml(character.campaignLink.campaignName || "Campaign")} | Room ${escapeHtml(roomCode)}</span><p>${escapeHtml(character.campaignLink.message || "The character will link automatically after approval.")}</p>`;
   } else if (!linked) {
@@ -1049,11 +1145,15 @@ function renderCharacterNavigation() {
   if (![...dom.tabs.querySelectorAll("[data-character-tab]")].some((button) => button.dataset.characterTab === activeCharacterTab && !button.hidden)) {
     activeCharacterTab = "sheet";
   }
+  renderTabbedStatus();
   showCharacterPanel(activeCharacterTab);
 }
 
 function renderCampaignRoster() {
-  if (!campaignState) return;
+  if (!campaignState) {
+    dom.campaignPrivateNotes.hidden = true;
+    return;
+  }
   dom.campaignEntryPrompt.hidden = true;
   dom.lobbyCampaignCode.textContent = campaignState.code;
   dom.lobbyCampaignName.textContent = campaignState.name;
@@ -1069,6 +1169,8 @@ function renderCampaignRoster() {
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
   dom.campaignLobby.hidden = false;
+  dom.campaignPrivateNotes.hidden = campaignState.role === "gm";
+  refreshPrivateNotes();
 }
 
 function applyCampaignPermissions() {
@@ -1076,7 +1178,7 @@ function applyCampaignPermissions() {
   const editable = campaignEditable;
   dom.campaignAccessRole.textContent = editable ? (campaignState?.role === "gm" ? "GM EDIT" : "UNLOCKED") : "VIEW ONLY";
   dom.unlockCampaignCharacter.hidden = editable;
-  dom.showCharacterPin.hidden = !editable || !campaignPin;
+  dom.showCharacterPin.hidden = character.phase !== "finalized" || !editable || !(campaignPin || character.access?.pcCode);
   dom.saveAndSyncCharacter.disabled = !editable;
   document.querySelectorAll("#characterSheet input, #characterSheet textarea, #characterSheet select, #characterSheet button, .workflow-bar button, .experience-panel button").forEach((control) => {
     if (control.closest("#campaignAccessBar")) return;
@@ -1147,22 +1249,31 @@ function privateNoteActions(note) {
 }
 
 function refreshPrivateNotes() {
-  const record = campaignState?.characters?.find((entry) => entry.id === campaignCharacterId);
-  const notes = [...(record?.privateNotes || []), ...(character.localInbox || [])];
+  const noteCharacterId = campaignState?.ownCharacterId || campaignCharacterId;
+  const record = campaignState?.characters?.find((entry) => entry.id === noteCharacterId);
+  const localNotes = noteCharacterId === campaignCharacterId ? (character.localInbox || []) : (record?.character?.localInbox || []);
+  const notes = [...(record?.privateNotes || []), ...localNotes];
   const unread = notes.filter((note) => note.direction !== "to-gm" && !note.readAt).length;
-  dom.privateNoteCount.textContent = String(unread);
+  dom.privateNoteCount.textContent = `${unread} UNREAD`;
   dom.playerInboxCount.textContent = String(unread);
-  dom.openPrivateNotes.classList.toggle("has-unread", unread > 0);
-  dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="private-note ${note.readAt ? "read" : "unread"}" data-note-id="${note.id}">
-    <small>${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}<button type="button" data-delete-note="${note.id}">Delete</button>
-  </article>`).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
-  dom.playerInboxList.innerHTML = notes.length ? notes.slice().reverse().map((note) => `<article class="player-inbox-card ${note.direction !== "to-gm" && !note.readAt ? "unread" : ""}" data-player-note="${note.id}">
-    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "MESSAGE SENT" : "PRIVATE GM MESSAGE"}</span><small>${new Date(note.createdAt).toLocaleString()}</small></div>
-    <p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}
-  </article>`).join("") : '<p class="campaign-empty-roster">No private messages.</p>';
+  dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => {
+    const label = note.kind === "roll-request"
+      ? "ROLL REQUEST"
+      : note.kind === "award"
+        ? "GM AWARD"
+        : note.kind === "system"
+          ? "CAMPAIGN NOTICE"
+          : note.direction === "to-gm"
+            ? "MESSAGE SENT"
+            : "PRIVATE GM MESSAGE";
+    return `<article class="private-note ${note.direction !== "to-gm" && !note.readAt ? "unread" : "read"}" data-note-id="${note.id}">
+      <small>${label} | ${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}<button type="button" data-delete-note="${note.id}">Delete</button>
+    </article>`;
+  }).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
 }
 
 function renderCampaignBank() {
+  dom.campaignBankCard.hidden = !campaignState || !campaignCharacterId;
   if (!campaignState || !campaignCharacterId) return;
   const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
   const personal = Math.round(Number(record?.character?.resources?.creditsBase) || 0);
@@ -2128,10 +2239,10 @@ function renderAttributes() {
     }).join("");
     const attributeRollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll
       && !diceRoller.isActive() && (!campaignCode || campaignEditable);
-    const rollAttributes = attributeRollable
-      ? ` data-roll-attribute="${definition.key}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(definition.label)} without a Skill"`
-      : "";
-    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > validation.attributeBudget ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head ${attributeRollable ? "rollable" : ""}"${rollAttributes}><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
+    const header = attributeRollable
+      ? `<button type="button" class="attribute-card-head rollable" data-roll-attribute="${definition.key}" aria-label="Roll ${escapeAttribute(definition.label)} without a Skill"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></button>`
+      : `<div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div>`;
+    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > validation.attributeBudget ? "invalid" : ""}" style="--attribute:${definition.color}">${header}<div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
 }
 
@@ -2204,15 +2315,63 @@ function renderSkillRow(name, skill, key) {
   </div>`;
 }
 
+function sortedGeneralSkills() {
+  const names = [...GENERAL_SKILLS];
+  if (skillSortMode === "level") {
+    return names.sort((a, b) => displayedSkillTenths(b, character.skills[b]) - displayedSkillTenths(a, character.skills[a]) || a.localeCompare(b));
+  }
+  if (skillSortMode === "importance") {
+    return names.sort((a, b) => {
+      const aIndicators = skillRuleIndicators(a);
+      const bIndicators = skillRuleIndicators(b);
+      const aRank = (BOLD_SKILLS.has(a) ? 2 : 0) + (aIndicators.positive.length || aIndicators.negative.length ? 1 : 0);
+      const bRank = (BOLD_SKILLS.has(b) ? 2 : 0) + (bIndicators.positive.length || bIndicators.negative.length ? 1 : 0);
+      return bRank - aRank || displayedSkillTenths(b, character.skills[b]) - displayedSkillTenths(a, character.skills[a]) || a.localeCompare(b);
+    });
+  }
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+function renderGeneralSkillCollection() {
+  const renderRows = (names) => names.map((name) => renderSkillRow(name, character.skills[name], skillKeyForBase(name))).join("");
+  if (skillSortMode === "attribute") {
+    dom.generalSkills.classList.add("grouped-skill-list");
+    dom.generalSkills.innerHTML = ATTRIBUTE_DEFS.map((definition) => {
+      const names = GENERAL_SKILLS.filter((name) => SKILL_ASSOCIATED_ATTRIBUTE[name] === definition.key).sort((a, b) => a.localeCompare(b));
+      if (!names.length) return "";
+      return `<section class="skill-sort-group" style="--skill-group-color:${definition.color}"><h3>${definition.label}</h3>${renderRows(names)}</section>`;
+    }).join("");
+    return;
+  }
+  if (skillSortMode === "basic") {
+    dom.generalSkills.classList.add("grouped-skill-list", "basic-skill-groups");
+    const physical = GENERAL_SKILLS.filter((name) => PHYSICAL_SKILLS.has(name)).sort((a, b) => a.localeCompare(b));
+    const mental = GENERAL_SKILLS.filter((name) => !PHYSICAL_SKILLS.has(name)).sort((a, b) => a.localeCompare(b));
+    dom.generalSkills.innerHTML = `<section class="skill-sort-group mental-skill-group"><h3>Mental</h3>${renderRows(mental)}</section><section class="skill-sort-group physical-skill-group"><h3>Physical</h3>${renderRows(physical)}</section>`;
+    return;
+  }
+  dom.generalSkills.classList.remove("grouped-skill-list", "basic-skill-groups");
+  dom.generalSkills.innerHTML = renderRows(sortedGeneralSkills());
+}
+
+function sortedCustomSkills() {
+  const skills = [...character.customSkills];
+  if (skillSortMode === "level") {
+    return skills.sort((a, b) => b.tenths - a.tenths || (a.name || "Custom Skill").localeCompare(b.name || "Custom Skill"));
+  }
+  return skills.sort((a, b) => (a.name || "Custom Skill").localeCompare(b.name || "Custom Skill"));
+}
+
 function renderSkills() {
   const validation = draftValidation();
   const sheetEditable = !campaignCode || campaignEditable;
   const canManageCustomSkills = sheetEditable && !character.pendingRoll
     && ((character.phase === "draft" && validation.attributesComplete) || character.phase === "finalized");
   dom.skillLockNotice.hidden = validation.attributesComplete || character.phase !== "draft";
+  dom.skillSort.value = skillSortMode;
   dom.spacecraftSkills.innerHTML = SPACECRAFT_SKILLS.map((name) => renderSkillRow(name, character.skills[name], skillKeyForBase(name))).join("");
-  dom.generalSkills.innerHTML = GENERAL_SKILLS.map((name) => renderSkillRow(name, character.skills[name], skillKeyForBase(name))).join("");
-  dom.customSkills.innerHTML = character.customSkills.map((skill) => {
+  renderGeneralSkillCollection();
+  dom.customSkills.innerHTML = sortedCustomSkills().map((skill) => {
     const key = skillKeyForCustom(skill.id);
     const row = renderSkillRow(skill.name || "Custom Skill", skill, key);
     const editableName = canManageCustomSkills
@@ -3050,6 +3209,9 @@ function applySkillSearch() {
   const query = dom.skillSearch.value.trim().toLowerCase();
   document.querySelectorAll(".skill-row[data-search-name]").forEach((row) => {
     row.classList.toggle("hidden-by-search", Boolean(query) && !row.dataset.searchName.includes(query));
+  });
+  document.querySelectorAll(".skill-sort-group").forEach((group) => {
+    group.hidden = ![...group.querySelectorAll(".skill-row[data-search-name]")].some((row) => !row.classList.contains("hidden-by-search"));
   });
 }
 function spendXp(cost, description) {
@@ -4401,6 +4563,14 @@ dom.characterLayoutToggle?.addEventListener("click", (event) => {
   renderCharacterLayout();
   notice(characterLayoutMode === "tabs" ? "Tabbed character layout enabled." : "Full character sheet layout enabled.", "success");
 });
+dom.resourceHudToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-hud-visible]");
+  if (!button) return;
+  resourceHudVisible = button.dataset.hudVisible === "true";
+  localStorage.setItem(HUD_VISIBILITY_KEY, resourceHudVisible ? "visible" : "hidden");
+  renderTabbedStatus();
+  notice(resourceHudVisible ? "Resource HUD enabled." : "Resource HUD hidden.", "success");
+});
 
 dom.specialAbilityActions?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-special-action]");
@@ -4417,7 +4587,7 @@ dom.tabs?.addEventListener("click", (event) => {
     if (own) showCampaignCharacter(own, { editable: true, token: campaignToken, pin: own.pcCode });
   }
   showCharacterPanel(tab);
-  if (tab === "inbox") {
+  if (tab === "roster") {
     let localChanged = false;
     character.localInbox = (character.localInbox || []).map((note) => {
       if (note.readAt) return note;
@@ -4595,19 +4765,6 @@ dom.angilurosSpeedBoost?.addEventListener("click", async () => {
   }
 });
 
-dom.openPrivateNotes?.addEventListener("click", async () => {
-  refreshPrivateNotes();
-  dom.privateNotesModal.hidden = false;
-  const record = campaignState?.characters.find((entry) => entry.id === campaignCharacterId);
-  const unread = (record?.privateNotes || []).filter((note) => note.direction !== "to-gm" && !note.readAt);
-  if (campaignEditable && campaignToken && unread.length) {
-    await Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
-      method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: note.id }),
-    }).catch(() => null)));
-  }
-});
-dom.closePrivateNotes?.addEventListener("click", () => { dom.privateNotesModal.hidden = true; });
 dom.privateNotesList?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete-note]");
   if (!button || !campaignEditable) return;
@@ -4769,6 +4926,11 @@ dom.importCharacter.addEventListener("change", async () => {
 });
 
 dom.skillSearch.addEventListener("input", applySkillSearch);
+dom.skillSort?.addEventListener("change", () => {
+  skillSortMode = SKILL_SORT_MODES.has(dom.skillSort.value) ? dom.skillSort.value : "alphabetical";
+  localStorage.setItem(SKILL_SORT_KEY, skillSortMode);
+  renderSkills();
+});
 window.addEventListener("beforeunload", () => {
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {

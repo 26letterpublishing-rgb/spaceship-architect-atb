@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260807-tabs-1" />
+  <link rel="stylesheet" href="character.css?v=20260807-tabs-2" />
   </head>
   <body>
     <header class="creator-header">
@@ -19,12 +19,18 @@
 
     <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
-      <button type="button" data-character-tab="roster" hidden>Campaign Roster</button>
-      <button type="button" data-character-tab="inbox" hidden>Inbox <strong id="playerInboxCount">0</strong></button>
-
+      <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
       <button type="button" data-character-tab="atb" hidden>ATB</button>
       <button type="button" data-character-tab="settings">Settings</button>
     </nav>
+
+    <section id="globalCharacterHud" class="global-character-hud" aria-label="Current character resources" hidden>
+      <div><span>Experience</span><strong id="tabStatusExperience">0 / 0</strong></div>
+      <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
+      <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
+      <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
+      <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
+    </section>
 
     <section id="characterCampaignGate" class="character-campaign-gate character-page-panel" data-character-panel="roster" hidden>
       <div class="campaign-gate-card">
@@ -46,10 +52,31 @@
           <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
         </section>
+        <section id="campaignPrivateNotes" class="campaign-private-notes" hidden>
+          <div class="campaign-private-notes-heading">
+            <div><span>PRIVATE COMMUNICATIONS</span><h2>Private Notes</h2></div>
+            <strong id="privateNoteCount">0 UNREAD</strong>
+          </div>
+          <div id="privateNotesList" class="private-notes-list"></div>
+          <form id="messageGmForm" class="message-gm-form">
+            <label>Private Message to GM<textarea id="messageGmText" rows="4" maxlength="1000" placeholder="Type a short private message..."></textarea></label>
+            <button class="primary-action" type="submit">Send to GM</button>
+          </form>
+        </section>
       </div>
     </section>
 
     <main id="characterWorkspace" class="creator-shell character-page-panel" data-character-panel="sheet" hidden>
+      <section id="tabbedCharacterToolbar" class="tabbed-character-toolbar" hidden>
+        <nav id="sheetSectionTabs" class="sheet-section-tabs" aria-label="Character sheet sections">
+          <button type="button" data-sheet-section-tab="identity" class="active" aria-selected="true">Identity</button>
+          <button type="button" data-sheet-section-tab="attributes" aria-selected="false">Attributes</button>
+          <button type="button" data-sheet-section-tab="skills" aria-selected="false">Skills</button>
+          <button type="button" data-sheet-section-tab="substats" aria-selected="false">Substats</button>
+          <button type="button" data-sheet-section-tab="resources" aria-selected="false">Resources</button>
+          <button type="button" data-sheet-section-tab="supplies" aria-selected="false">Supplies</button>
+        </nav>
+      </section>
       <section class="library-bar" aria-label="Character library">
         <label class="character-picker">Saved Character<select id="characterPicker"></select></label>
         <div class="library-actions">
@@ -58,8 +85,6 @@
           <button id="exportCharacter" type="button">Export</button>
           <label class="import-button">Import<input id="importCharacter" type="file" accept=".sa2character,.json,application/json" /></label>
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
-          <button id="localShowPcCode" type="button">Show PC Code</button>
-          <button id="localPrintCharacter" type="button">Print Character Sheet</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
       </section>
@@ -72,30 +97,7 @@
           <button id="nextCampaignCharacter" type="button" aria-label="View next character">&#9654;</button>
         </div>
         <button id="unlockCampaignCharacter" type="button" hidden>Enter PC Code</button>
-        <button id="openPrivateNotes" type="button">Private Notes <strong id="privateNoteCount">0</strong></button>
-        <button id="openCampaignBank" type="button">Ship Bank <strong id="campaignBankSummary">0</strong></button>
-        <button id="saveAndSyncCharacter" type="button">Save &amp; Sync</button>
-        <button id="showCharacterPin" type="button" hidden>Show PC Code</button>
-        <button id="printCharacterSheet" type="button">Print Character Sheet</button>
-        <button id="returnToCampaignRoster" type="button" hidden>Campaign Roster</button>
-      </section>
-
-      <section id="tabbedCharacterToolbar" class="tabbed-character-toolbar" hidden>
-        <nav id="sheetSectionTabs" class="sheet-section-tabs" aria-label="Character sheet sections">
-          <button type="button" data-sheet-section-tab="identity" class="active" aria-selected="true">Identity</button>
-          <button type="button" data-sheet-section-tab="attributes" aria-selected="false">Attributes</button>
-          <button type="button" data-sheet-section-tab="skills" aria-selected="false">Skills</button>
-          <button type="button" data-sheet-section-tab="substats" aria-selected="false">Substats</button>
-          <button type="button" data-sheet-section-tab="resources" aria-selected="false">Resources</button>
-          <button type="button" data-sheet-section-tab="supplies" aria-selected="false">Supplies</button>
-        </nav>
-        <div id="tabbedStatusStrip" class="tabbed-status-strip" aria-label="Current character status">
-          <div><span>Experience</span><strong id="tabStatusExperience">0 / 0</strong></div>
-          <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
-          <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
-          <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
-          <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
-        </div>
+        <button id="returnToCampaignRoster" type="button" hidden>Campaign</button>
       </section>
       <section class="workflow-bar" aria-label="Character creation progress">
         <div class="workflow-copy">
@@ -207,6 +209,11 @@
               <span>Credits</span><strong id="creditsValue">0</strong>
               <small id="creditsFormula" class="resource-formula">Awarded by the GM; finalized bonuses apply automatically</small>
             </div>
+            <div id="campaignBankCard" class="resource-card campaign-bank-card" hidden>
+              <span>Ship Credit Pool</span><strong id="campaignBankSummary">0</strong>
+              <small class="resource-formula">Shared campaign credits</small>
+              <button id="openCampaignBank" type="button">Open Ship Bank</button>
+            </div>
             <div class="resource-card drama-cards-card">
               <span>Drama Cards</span><strong id="dramaCardsValue">0</strong>
               <small class="resource-formula">Current cards held by this character</small>
@@ -238,7 +245,16 @@
         <section class="sheet-panel skills-panel" data-sheet-section="skills">
           <div class="panel-heading skills-heading">
             <span>Skills</span>
-            <label class="skill-search">Find Skill<input id="skillSearch" type="search" placeholder="Search skills" /></label>
+            <div class="skill-tools">
+              <label class="skill-search">Find Skill<input id="skillSearch" type="search" placeholder="Search skills" /></label>
+              <label class="skill-sort">Sort Skills<select id="skillSort">
+                <option value="alphabetical">Alphabetical</option>
+                <option value="attribute">Attribute</option>
+                <option value="level">Level</option>
+                <option value="importance">Importance</option>
+                <option value="basic">Basic</option>
+              </select></label>
+            </div>
           </div>
           <div id="skillLockNotice" class="skill-lock-notice">Spend all 195 Attribute Points to unlock Skills.</div>
           <div class="skill-columns">
@@ -281,15 +297,6 @@
     </main>
 
 
-    <section id="playerInboxPanel" class="character-page-panel character-tool-page" data-character-panel="inbox" hidden>
-      <div class="character-tool-heading"><span>PRIVATE COMMUNICATIONS</span><h1>Inbox</h1></div>
-      <div id="playerInboxList" class="player-inbox-list"></div>
-      <form id="messageGmForm" class="message-gm-form">
-        <label>Private Message to GM<textarea id="messageGmText" rows="4" maxlength="1000" placeholder="Type a short private message..."></textarea></label>
-        <button class="primary-action" type="submit">Send to GM</button>
-      </form>
-    </section>
-
     <section id="playerSettingsPanel" class="character-page-panel character-tool-page" data-character-panel="settings" hidden>
       <div class="character-tool-heading"><span>CHARACTER ACCESS</span><h1>Settings</h1></div>
       <div class="player-settings-grid">
@@ -298,6 +305,23 @@
           <div id="characterLayoutToggle" class="character-layout-toggle" role="radiogroup" aria-label="Character sheet layout">
             <button type="button" data-layout-mode="sheet" role="radio" aria-checked="true" class="active">Full Sheet</button>
             <button type="button" data-layout-mode="tabs" role="radio" aria-checked="false">Tabbed</button>
+          </div>
+        </section>
+        <section class="hud-settings-card">
+          <h2>Resource HUD</h2>
+          <p>Keep Experience, HP, Reverence, Exertion, and Credits visible while moving between character and combat tabs.</p>
+          <div id="resourceHudToggle" class="character-layout-toggle" role="radiogroup" aria-label="Compact resource HUD visibility">
+            <button type="button" data-hud-visible="true" role="radio" aria-checked="true" class="active">Show HUD</button>
+            <button type="button" data-hud-visible="false" role="radio" aria-checked="false">Hide HUD</button>
+          </div>
+        </section>
+        <section class="character-control-settings">
+          <h2>Character Controls</h2>
+          <p>Save campaign changes, review the PC Code, or prepare a printable sheet.</p>
+          <div class="settings-action-stack">
+            <button id="saveAndSyncCharacter" type="button">Save &amp; Sync</button>
+            <button id="showCharacterPin" type="button" hidden>Show PC Code</button>
+            <button id="printCharacterSheet" type="button">Print Character Sheet</button>
           </div>
         </section>
         <section id="joinCampaignPanel" class="join-campaign-settings" hidden>
@@ -348,15 +372,6 @@
         <label>Enter It Again<input id="pcCodeConfirm" type="text" maxlength="120" autocomplete="off" /></label>
         <p id="pcCodeMessage" class="dialog-error" role="status"></p>
         <div class="dialog-actions"><button id="pcCodeCancel" type="button">Cancel</button><button id="pcCodeAccept" class="primary-action" type="button">Save PC Code and Finalize</button></div>
-      </section>
-    </div>
-
-    <div id="privateNotesModal" class="modal-shell" hidden>
-      <section class="confirm-dialog private-notes-dialog" role="dialog" aria-modal="true" aria-labelledby="privateNotesTitle">
-        <span class="dialog-kicker">Private GM Messages</span>
-        <h2 id="privateNotesTitle">Private Notes</h2>
-        <div id="privateNotesList" class="private-notes-list"></div>
-        <div class="dialog-actions"><button id="closePrivateNotes" class="primary-action" type="button">Close Inbox</button></div>
       </section>
     </div>
 
@@ -484,6 +499,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260807-tabs-1"></script>
+  <script type="module" src="character.js?v=20260807-tabs-2"></script>
   </body>
 </html>

@@ -1113,3 +1113,207 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   .tabbed-layout .resource-grid { grid-template-columns:1fr 1fr; }
   .tabbed-status-strip strong { font-size:.65rem; }
 }
+/* Character navigation, global resource HUD, and skill organization */
+.global-character-hud {
+  position:sticky;
+  top:0;
+  z-index:92;
+  width:min(1500px,calc(100% - 28px));
+  margin:7px auto 0;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:1px;
+  padding:5px;
+  border:1px solid #31516a;
+  background:#030912;
+  box-shadow:0 12px 26px rgba(0,0,0,.52),0 0 18px rgba(43,216,255,.11);
+}
+.global-character-hud[hidden] { display:none; }
+.global-character-hud > div {
+  min-width:0;
+  min-height:43px;
+  display:grid;
+  align-content:center;
+  justify-items:center;
+  padding:4px 6px;
+  border:1px solid #263f54;
+  background:linear-gradient(180deg,rgba(16,31,46,.97),rgba(5,14,23,.98));
+}
+.global-character-hud span {
+  color:#8298aa;
+  font-size:.5rem;
+  font-weight:900;
+  text-transform:uppercase;
+}
+.global-character-hud strong {
+  max-width:100%;
+  overflow:hidden;
+  color:#55e6ff;
+  font-size:.88rem;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:58px; }
+.resource-hud-visible .player-atb-frame { height:calc(100dvh - 275px); }
+
+.tabbed-character-toolbar { margin-top:0; margin-bottom:8px; }
+.creator-shell.tabbed-layout .tabbed-character-toolbar { top:6px; }
+.tabbed-layout .workflow-bar.draft-active { top:50px; }
+.tabbed-layout .tabbed-character-toolbar.resources-active + .workflow-bar.draft-active { top:50px; }
+
+.attribute-card-head.rollable {
+  width:100%;
+  min-width:0;
+  min-height:34px;
+  margin:0;
+  padding:5px 8px;
+  border-radius:0;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  text-transform:none;
+}
+.attribute-card-head.rollable::before { display:none; }
+
+.skill-tools {
+  width:min(630px,72%);
+  margin-left:auto;
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) minmax(130px,.58fr);
+  align-items:end;
+  gap:7px;
+}
+.skill-tools label {
+  min-width:0;
+  display:grid;
+  gap:2px;
+  color:#93a8ba;
+  font-size:.52rem;
+  font-weight:850;
+  text-transform:uppercase;
+}
+.skill-tools input,
+.skill-tools select {
+  width:100%;
+  min-width:0;
+  min-height:34px;
+  font-size:.72rem;
+}
+.general-skill-list.grouped-skill-list {
+  column-count:1;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:start;
+  gap:7px;
+}
+.general-skill-list.basic-skill-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.skill-sort-group {
+  min-width:0;
+  padding:4px;
+  border:1px solid color-mix(in srgb,var(--skill-group-color,#56dff7) 36%,#26374b);
+  background:rgba(4,10,17,.58);
+}
+.skill-sort-group h3 {
+  margin:0 0 4px;
+  padding:5px 7px;
+  border-left:3px solid var(--skill-group-color,#56dff7);
+  color:color-mix(in srgb,var(--skill-group-color,#56dff7) 70%,white);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--skill-group-color,#56dff7) 15%,#07121d),#07121d);
+  font-size:.64rem;
+  text-transform:uppercase;
+}
+.mental-skill-group { --skill-group-color:#b97cff; }
+.physical-skill-group { --skill-group-color:#ff786f; }
+.skill-sort-group .skill-row { margin-bottom:3px; }
+
+.skill-rule-sign {
+  display:inline!important;
+  width:auto!important;
+  height:auto!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  font-size:.82rem!important;
+  line-height:1!important;
+  text-shadow:0 0 6px currentColor;
+}
+.skill-rule-sign.positive { color:#41f0a0; }
+.skill-rule-sign.negative { color:#ff657c; }
+
+.campaign-private-notes {
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid #31506a;
+}
+.campaign-private-notes-heading {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+.campaign-private-notes-heading span { color:var(--cyan); font-size:.58rem; }
+.campaign-private-notes-heading h2 { margin:2px 0 0; text-transform:uppercase; }
+.campaign-private-notes-heading > strong {
+  padding:6px 10px;
+  border:1px solid #6b5727;
+  color:var(--yellow);
+  background:#211a08;
+  font-size:.62rem;
+}
+.campaign-private-notes .private-notes-list {
+  max-height:min(52vh,520px);
+  padding-right:3px;
+}
+.campaign-private-notes .message-gm-form {
+  max-width:none;
+  margin-top:10px;
+}
+.private-note::after { content:""; display:block; clear:both; }
+
+.campaign-bank-card > strong {
+  color:var(--yellow);
+  font-size:1.25rem;
+}
+.campaign-bank-card button { min-height:34px; margin-top:auto; }
+.settings-action-stack { display:grid; gap:7px; }
+.character-control-settings .settings-action-stack button { margin-top:0; }
+
+@media(max-width:1320px) {
+  .general-skill-list.grouped-skill-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:980px) {
+  .general-skill-list.grouped-skill-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .skills-heading { align-items:stretch; }
+  .skill-tools { width:min(560px,76%); }
+}
+@media(max-width:760px) {
+  .global-character-hud {
+    width:calc(100% - 12px);
+    margin-top:4px;
+    padding:3px;
+  }
+  .global-character-hud > div { min-height:38px; padding:3px 2px; }
+  .global-character-hud span { font-size:.42rem; }
+  .global-character-hud strong { font-size:.72rem; }
+  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:46px; }
+  .resource-hud-visible .player-atb-frame { height:calc(100dvh - 255px); }
+  .tabbed-layout .workflow-bar.draft-active,
+  .tabbed-layout .tabbed-character-toolbar.resources-active + .workflow-bar.draft-active { top:79px; }
+  .skill-tools {
+    width:100%;
+    grid-template-columns:minmax(0,1fr) minmax(112px,.58fr);
+  }
+  .skill-tools input,
+  .skill-tools select { min-height:38px; font-size:16px; }
+  .general-skill-list.grouped-skill-list,
+  .general-skill-list.basic-skill-groups { grid-template-columns:1fr; }
+  .campaign-private-notes-heading { align-items:flex-start; }
+}
+@media(max-width:430px) {
+  .global-character-hud strong { font-size:.65rem; }
+  .global-character-hud span { font-size:.39rem; }
+  .campaign-private-notes-heading { display:grid; }
+  .campaign-private-notes-heading > strong { justify-self:start; }
+}
