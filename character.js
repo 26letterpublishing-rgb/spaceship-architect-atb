@@ -1123,7 +1123,7 @@ function renderCharacterNavigation() {
   dom.roomCode.hidden = !roomCode;
   dom.roomCodeValue.textContent = roomCode || "----";
   dom.backToMain.hidden = linked;
-  dom.settingsLeaveCampaign.disabled = !linked || gmView;
+  dom.settingsLeaveCampaign.disabled = (!linked && !pending) || gmView;
   dom.messageGmForm.hidden = !linked || gmView;
   dom.launchPlayerAtb.disabled = !linked || gmView;
   dom.angilurosSpeedBoost.hidden = !linked || gmView || character.identity.raceId !== "angiluros";
@@ -1501,6 +1501,24 @@ async function checkJoinStatus() {
     renderCharacterNavigation();
     scheduleJoinStatusCheck();
   } catch (error) {
+    if (error.status === 404) {
+      const campaignName = character.campaignLink?.campaignName || "That campaign";
+      character.localInbox = [...(character.localInbox || []), {
+        id: `local-${Date.now()}`,
+        kind: "system",
+        direction: "to-character",
+        message: `${campaignName} is no longer available. Your character may join another campaign.`,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      }].slice(-20);
+      character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+      localStorage.removeItem("sa-character-campaign-code");
+      saveLibrary("Unavailable campaign link cleared");
+      renderCharacterNavigation();
+      refreshPrivateNotes();
+      notice(`${campaignName} is no longer available. Your character has been released.`, "error");
+      return;
+    }
     dom.joinCampaignStatus.textContent = error.message;
     scheduleJoinStatusCheck(7000);
   }
@@ -2645,6 +2663,7 @@ function renderSkillSetup() {
     ? "Roll the Attribute by itself, then resolve it physically or enter your completed Score."
     : "Choose the dice, then roll physically or enter your completed Score.";
   dom.changeSkillAttribute.hidden = Boolean(skillCheck.attributeOnly);
+  dom.skillSetupStage.classList.toggle("attribute-only", Boolean(skillCheck.attributeOnly));
   dom.skillAttributeStage.hidden = true;
   dom.skillSetupStage.hidden = false;
   dom.skillResultStage.hidden = true;
@@ -2663,6 +2682,7 @@ function renderSkillAttributeChoices() {
   const resolved = skillCheckResolvedSkill();
   dom.skillCheckKicker.textContent = "Attribute + Skill Check";
   dom.changeSkillAttribute.hidden = false;
+  dom.skillSetupStage.classList.remove("attribute-only");
   dom.skillCheckTitle.textContent = resolved?.name || "Skill Check";
   dom.skillCheckSubtitle.textContent = "Choose the Attribute that best matches the action.";
   dom.skillAttributeChoices.innerHTML = ATTRIBUTE_DEFS.map((definition) => `
@@ -4706,11 +4726,14 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
 });
 
 dom.settingsLeaveCampaign?.addEventListener("click", async () => {
+  const pending = character.campaignLink?.status === "pending";
   const accepted = await askConfirmation({
-    title: "Leave this campaign?",
-    message: "This character will be removed from the campaign roster and may join a different campaign. Export Character Data first if you need a portable backup.",
-    acceptLabel: "Leave Campaign",
-    cancelLabel: "Stay",
+    title: pending ? "Cancel this campaign request?" : "Leave this campaign?",
+    message: pending
+      ? "The GM approval request will be cancelled and this character may request entry into a different campaign."
+      : "This character will be removed from the campaign roster and may join a different campaign. Export Character Data first if you need a portable backup.",
+    acceptLabel: pending ? "Cancel Request" : "Leave Campaign",
+    cancelLabel: pending ? "Keep Waiting" : "Stay",
     danger: true,
   });
   if (!accepted) return;
@@ -4728,6 +4751,16 @@ dom.settingsLogout?.addEventListener("click", async () => {
   if (campaignCode && campaignCharacterId) localStorage.removeItem(campaignTokenKey(campaignCode, campaignCharacterId));
   localStorage.removeItem("sa-character-campaign-code");
   window.location.href = "index.html";
+});
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin || event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if (event.data?.type !== "sa-combat-layout") return;
+  const preview = Boolean(event.data.preview);
+  dom.playerAtbFrame.closest(".player-atb-live")?.classList.toggle("combat-preview", preview);
+  dom.playerAtbStatus.textContent = preview
+    ? "No active encounter. Showing your live Speed preview."
+    : "Live Combat connected. Use the tabs above at any time.";
 });
 
 dom.playerAtbFrame?.addEventListener("load", () => {

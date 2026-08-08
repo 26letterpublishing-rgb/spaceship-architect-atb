@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
-  <link rel="stylesheet" href="styles.css?v=20260807-rules-3" />
+  <link rel="stylesheet" href="styles.css?v=20260808-combat-1" />
   </head>
   <body>
     <main class="shell">
@@ -20,8 +20,8 @@
             <label>GM Code
               <span class="code-entry"><input id="mainGmCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter GM Code" /><button id="enterGmCampaign" type="button">Enter as GM</button></span>
             </label>
-            <label>PC Code
-              <span class="code-entry"><input id="mainPcCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter PC Code" /><button id="enterPcCampaign" type="button">Enter as Player</button></span>
+            <label>PC Code, Player Name, or Character Name
+              <span class="code-entry"><input id="mainPcCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter any character identifier" /><button id="enterPcCampaign" type="button">Enter as Player</button></span>
             </label>
           </div>
           <div class="campaign-menu-divider"></div>
@@ -30,6 +30,10 @@
             <button id="createRoom" class="primary" type="button">Create New Campaign</button>
           </div>
           <p id="mainMenuMessage" class="main-menu-message" role="status"></p>
+          <section id="pcLoginMatches" class="pc-login-matches" hidden aria-label="Matching campaign characters">
+            <strong>Choose Your Character</strong>
+            <div id="pcLoginMatchList"></div>
+          </section>
         </div>
       </section>
 
@@ -328,6 +332,6 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-  <script src="app.js?v=20260807-rules-3"></script>
+  <script src="app.js?v=20260808-combat-1"></script>
   </body>
 </html>

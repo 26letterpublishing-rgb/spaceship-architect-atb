@@ -573,9 +573,11 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
 .skill-attribute-choice strong { color:color-mix(in srgb,var(--attribute) 72%,white); font-size:.78rem; text-transform:uppercase; }
 .skill-attribute-choice small { color:#b6c8d8; font-size:.57rem; line-height:1.15; }
 .skill-roll-summary { display:grid; grid-template-columns:38px .8fr 1.5fr .8fr; align-items:stretch; border:1px solid #31506a; background:rgba(3,9,16,.65); }
+.skill-check-stage.attribute-only .skill-roll-summary { grid-template-columns:minmax(105px,.8fr) minmax(0,1.5fr) minmax(96px,.8fr); }
 .skill-roll-summary > div { padding:9px 10px; display:grid; align-content:center; border-left:1px solid #29445b; }
+.skill-check-stage.attribute-only .skill-roll-summary > div:first-of-type { border-left:0; }
 .skill-roll-summary span,.skill-control-heading span { color:var(--muted); font-size:.56rem; font-weight:900; text-transform:uppercase; }
-.skill-roll-summary strong { color:#eaf8ff; font-size:.83rem; }
+.skill-roll-summary strong { min-width:0; color:#eaf8ff; font-size:.83rem; overflow-wrap:anywhere; }
 .attribute-return { min-width:38px; min-height:100%; padding:0; border:0; border-radius:0; font-size:1.45rem; }
 .skill-exertion-block { margin-top:10px; padding:10px; border:1px solid #315644; background:rgba(7,32,25,.5); }
 .skill-control-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -719,6 +721,7 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   .dice-stage { width:220px; height:185px; }
   .skill-attribute-choices { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .skill-roll-summary { grid-template-columns:34px 1fr 1.4fr; }
+  .skill-check-stage.attribute-only .skill-roll-summary { grid-template-columns:minmax(88px,.8fr) minmax(0,1.45fr) minmax(82px,.8fr); }
   .skill-roll-summary > div:last-child { grid-column:2 / -1; border-top:1px solid #29445b; }
 }
 @media (max-width:430px) {
@@ -1317,3 +1320,6 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   .campaign-private-notes-heading { display:grid; }
   .campaign-private-notes-heading > strong { justify-self:start; }
 }
+/* Compact inactive Combat preview */
+.player-atb-live.combat-preview > p { display:none; }
+.player-atb-live.combat-preview .player-atb-frame { height:168px; min-height:168px; }

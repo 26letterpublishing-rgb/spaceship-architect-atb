@@ -22,6 +22,9 @@ let ringMovedId = "";
 let ringMovedTimeout = null;
 let delayModalState = null;
 let queuedEffectModalState = null;
+let playerPreviewRecord = null;
+let playerPreviewFrame = null;
+let playerPreviewStartedAt = performance.now();
 let npcDefaultBag = [];
 const startupParams = new URLSearchParams(window.location.search);
 const embeddedGm = startupParams.get("embedded") === "gm";
@@ -155,6 +158,7 @@ const mainPcCode = document.querySelector("#mainPcCode");
 const enterGmCampaign = document.querySelector("#enterGmCampaign");
 const enterPcCampaign = document.querySelector("#enterPcCampaign");
 const mainMenuMessage = document.querySelector("#mainMenuMessage");
+const pcLoginMatches = document.querySelector("#pcLoginMatches");
 const roomJoinPanel = document.querySelector("#roomJoinPanel");
 const joinRoomCode = document.querySelector("#joinRoomCode");
 const confirmJoinRoom = document.querySelector("#confirmJoinRoom");
@@ -437,6 +441,10 @@ function connectCampaignEvents() {
   campaignEvents.addEventListener("campaign", (event) => {
     campaignState = JSON.parse(event.data);
     if (mode === "join") renderCampaignCharacterPicker();
+    if (embeddedPlayer) {
+      playerPreviewRecord = campaignState.characters.find((entry) => entry.id === campaignCharacterId) || null;
+      render();
+    }
   });
 }
 
@@ -1357,7 +1365,13 @@ function setConnected(isConnected, message) {
 function receiveState(nextState, { force = false } = {}) {
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
-  if (mode === "player" && nextState.encounterEndedAt && nextState.encounterEndedAt !== state?.encounterEndedAt) {
+
+  if (embeddedPlayer) {
+    const unit = nextState.units.find((entry) => entry.characterId === campaignCharacterId);
+    myUnitId = unit?.id || "";
+    if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+    else localStorage.removeItem("sa-atb-unit-id");
+  } else if (mode === "player" && nextState.encounterEndedAt && nextState.encounterEndedAt !== state?.encounterEndedAt) {
     const campaignCode = nextState.roomCode || currentRoomCode;
     forgetSavedRoom();
     safeLocalStorageSet("sa-atb-mode", "welcome");
@@ -1365,6 +1379,7 @@ function receiveState(nextState, { force = false } = {}) {
     window.location.replace(`character.html?campaign=${encodeURIComponent(campaignCode)}${characterQuery}`);
     return false;
   }
+
   state = nextState;
   render();
   return true;
@@ -2102,6 +2117,67 @@ function updateGmClockButton() {
   }
 }
 
+function stopPlayerPreviewAnimation() {
+  if (playerPreviewFrame !== null) cancelAnimationFrame(playerPreviewFrame);
+  playerPreviewFrame = null;
+}
+
+function playerPreviewStats(record) {
+  const computed = record?.character?.computed || {};
+  return {
+    name: characterDisplayName(record),
+    playerName: characterPlayerName(record),
+    speed: Math.max(0.1, Number(computed.speed) || 0.1),
+    color: record?.character?.presentation?.atbColor || "#39e58f",
+  };
+}
+
+function animatePlayerCombatPreview(now) {
+  const fill = unitList.querySelector(".combat-preview-fill");
+  const readout = unitList.querySelector("[data-combat-preview-percent]");
+  const card = unitList.querySelector(".combat-preview-card");
+  if (!fill || !readout || !card || !document.body.classList.contains("player-combat-preview")) {
+    stopPlayerPreviewAnimation();
+    return;
+  }
+
+  const { speed } = playerPreviewStats(playerPreviewRecord);
+  const fillDuration = 100000 / speed;
+  const cycleDuration = fillDuration + 2000;
+  const elapsed = Math.max(0, now - playerPreviewStartedAt) % cycleDuration;
+  const ready = elapsed >= fillDuration;
+  const progress = ready ? 1 : Math.min(1, elapsed / fillDuration);
+  fill.style.width = `${progress * 100}%`;
+  readout.textContent = `${Math.round(progress * 100)}%`;
+  card.classList.toggle("ready", ready);
+  playerPreviewFrame = requestAnimationFrame(animatePlayerCombatPreview);
+}
+
+function renderPlayerCombatPreview(record) {
+  const stats = playerPreviewStats(record);
+  const signature = `${record?.id || "preview"}|${stats.name}|${stats.playerName}|${stats.speed}|${stats.color}`;
+  const current = unitList.querySelector(".combat-preview-card");
+  if (!current || current.dataset.previewSignature !== signature) {
+    playerPreviewStartedAt = performance.now();
+    unitList.innerHTML = `
+      <article class="unit-card own-unit combat-preview-card" data-preview-signature="${escapeHtml(signature)}" style="--bar-color:${escapeHtml(stats.color)};--bar-rgb:${hexToRgb(stats.color).r}, ${hexToRgb(stats.color).g}, ${hexToRgb(stats.color).b};--own-flare-left:50%;">
+        <div class="unit-top">
+          <div>
+            <div class="unit-name">${escapeHtml(stats.name)}</div>
+            <div class="unit-owner">${escapeHtml(stats.playerName)} - Speed ${formatSpeed(stats.speed)}%/sec preview</div>
+          </div>
+          <div class="unit-readout">
+            <strong data-combat-preview-percent>0%</strong>
+            <span>Combat Preview</span>
+          </div>
+        </div>
+        <div class="meter"><div class="fill combat-preview-fill" style="width:0%"></div></div>
+      </article>
+    `;
+  }
+  if (playerPreviewFrame === null) playerPreviewFrame = requestAnimationFrame(animatePlayerCombatPreview);
+}
+
 function render() {
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
     mode = "welcome";
@@ -2170,19 +2246,33 @@ function render() {
   renderRejoinOptions();
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
+  const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
   const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
+  document.body.classList.toggle("player-combat-preview", playerPreviewMode);
+  if (embeddedPlayer && window.parent !== window) {
+    window.parent.postMessage({ type: "sa-combat-layout", preview: playerPreviewMode }, window.location.origin);
+  }
+  if (playerPreviewMode) {
+    visualModeToggle.classList.add("hidden");
+    hideActionSheet();
+  }
 
-  const sorted =
-    mode === "player"
-      ? [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0))
-      : [...state.units].sort((a, b) => b.atb - a.atb || (b.speed || 0) - (a.speed || 0));
-  if (visualMode === "ring") {
-    unitList.innerHTML = tacticalRingMarkup(state.units);
+  const sorted = [...state.units].sort((a, b) => {
+    if (mode === "player") {
+      if (a.id === myUnitId && b.id !== myUnitId) return -1;
+      if (b.id === myUnitId && a.id !== myUnitId) return 1;
+    }
+    return b.atb - a.atb || (b.speed || 0) - (a.speed || 0);
+  });
+  if (playerPreviewMode) {
+    renderPlayerCombatPreview(playerPreviewRecord);
   } else {
-    renderUnitList(sorted);
+    stopPlayerPreviewAnimation();
+    if (visualMode === "ring") unitList.innerHTML = tacticalRingMarkup(state.units);
+    else renderUnitList(sorted);
   }
   syncGmCommandWindowVisibility();
 
@@ -2415,35 +2505,74 @@ async function openGmCampaignFromMenu({ create = false } = {}) {
   }
 }
 
-async function openPcCampaignFromMenu() {
+function clearPcLoginMatches() {
+  if (!pcLoginMatches || !pcLoginMatchList) return;
+  pcLoginMatches.hidden = true;
+  pcLoginMatchList.innerHTML = "";
+}
+
+function finishPcCampaignLogin(payload) {
+  const roomCode = payload.campaign.code;
+  campaignCharacterId = payload.characterId;
+  campaignCharacterToken = payload.token;
+  safeLocalStorageSet("sa-character-campaign-code", roomCode);
+  safeLocalStorageSet("sa-atb-campaign-character-id", campaignCharacterId);
+  safeLocalStorageSet(campaignTokenKey(roomCode, campaignCharacterId), campaignCharacterToken);
+  window.location.href = `character.html?campaign=${encodeURIComponent(roomCode)}&character=${encodeURIComponent(campaignCharacterId)}`;
+}
+
+async function openPcCampaignFromMenu(selection = null) {
   const name = mainCampaignName?.value.trim() || "";
-  const pcCode = mainPcCode?.value || "";
-  if (!name || !pcCode) {
-    showMainMenuMessage("Enter a Campaign Name and PC Code first.", true);
+  const identifier = mainPcCode?.value.trim() || "";
+  if (!name || !identifier) {
+    clearPcLoginMatches();
+    showMainMenuMessage("Enter a Campaign Name and character identifier first.", true);
     return;
   }
   try {
     const payload = await campaignRequest("/api/campaign/player/open", {
       method: "POST",
-      body: JSON.stringify({ name, pcCode }),
+      body: JSON.stringify({
+        name,
+        identifier,
+        campaignCode: selection?.campaignCode || "",
+        characterId: selection?.characterId || "",
+      }),
     });
-    const roomCode = payload.campaign.code;
-    campaignCharacterId = payload.characterId;
-    campaignCharacterToken = payload.token;
-    safeLocalStorageSet("sa-character-campaign-code", roomCode);
-    safeLocalStorageSet("sa-atb-campaign-character-id", campaignCharacterId);
-    safeLocalStorageSet(campaignTokenKey(roomCode, campaignCharacterId), campaignCharacterToken);
-    window.location.href = `character.html?campaign=${encodeURIComponent(roomCode)}&character=${encodeURIComponent(campaignCharacterId)}`;
+    if (payload.requiresSelection) {
+      pcLoginMatchList.innerHTML = payload.matches.map((match) => `
+        <button type="button" data-pc-match-character="${escapeHtml(match.characterId)}" data-pc-match-campaign="${escapeHtml(match.campaignCode)}">
+          <strong>${escapeHtml(match.characterName)}</strong>
+          <span>${escapeHtml(match.playerName)}</span>
+        </button>
+      `).join("");
+      pcLoginMatches.hidden = false;
+      showMainMenuMessage("More than one character matched. Choose the character you intended.", false);
+      return;
+    }
+    clearPcLoginMatches();
+    finishPcCampaignLogin(payload);
   } catch (error) {
+    clearPcLoginMatches();
     showMainMenuMessage(error.message, true);
   }
 }
 
 createRoom?.addEventListener("click", () => openGmCampaignFromMenu({ create: true }));
 enterGmCampaign?.addEventListener("click", () => openGmCampaignFromMenu());
-enterPcCampaign?.addEventListener("click", openPcCampaignFromMenu);
+enterPcCampaign?.addEventListener("click", () => openPcCampaignFromMenu());
 mainGmCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openGmCampaignFromMenu(); });
 mainPcCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openPcCampaignFromMenu(); });
+mainPcCode?.addEventListener("input", clearPcLoginMatches);
+mainCampaignName?.addEventListener("input", clearPcLoginMatches);
+pcLoginMatchList?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-pc-match-character]");
+  if (!button) return;
+  void openPcCampaignFromMenu({
+    campaignCode: button.dataset.pcMatchCampaign,
+    characterId: button.dataset.pcMatchCharacter,
+  });
+});
 
 backToWelcome.addEventListener("click", () => setMode("welcome"));
 joinRoomCode.addEventListener("input", () => {
@@ -2728,37 +2857,25 @@ setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 async function initializeEmbeddedPlayer() {
   document.body.classList.add("embedded-player");
   if (!campaignCharacterToken) {
-    window.location.replace("index.html");
+    setConnected(false, "Open this character again from the campaign login.");
+    setMode("player");
     return;
   }
   try {
     campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(campaignCharacterToken)}`);
     const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
     if (!record || campaignState.ownCharacterId !== campaignCharacterId) throw new Error("This character is no longer linked to the campaign.");
+    playerPreviewRecord = record;
+
     const encounterResponse = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`);
-    if (!encounterResponse.ok) throw new Error("The GM has not started an encounter yet.");
+    if (!encounterResponse.ok) throw new Error("The campaign Combat state is unavailable.");
     setRoom(await encounterResponse.json());
-    connectCampaignEvents();
-    let unit = state.units.find((entry) => entry.characterId === campaignCharacterId);
-    if (!unit) {
-      const computed = record.character?.computed || {};
-      const joined = await action({
-        action: "join",
-        playerName: characterPlayerName(record),
-        characterName: characterDisplayName(record),
-        speed: Math.max(0.1, Number(computed.speed) || 2),
-        commandWindow: Math.max(1, Number(computed.commandWindow) || 20),
-        color: record.character?.presentation?.atbColor || "#39e58f",
-        controlledBy: "player",
-        team: "pc",
-        actorType: "character",
-        characterId: campaignCharacterId,
-      });
-      unit = joined?.units?.find((entry) => entry.characterId === campaignCharacterId);
-    }
-    if (!unit) throw new Error("This character could not enter the encounter.");
-    myUnitId = unit.id;
-    safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+
+    const unit = state.units.find((entry) => entry.characterId === campaignCharacterId);
+    myUnitId = unit?.id || "";
+    if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
+    else localStorage.removeItem("sa-atb-unit-id");
+
     visualMode = "bars";
     setMode("player");
   } catch (error) {

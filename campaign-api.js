@@ -449,22 +449,48 @@ class CampaignApi {
 
     if (path === "/api/campaign/player/open" && req.method === "POST") {
       const name = String(body.name || "").trim();
-      const pcCode = String(body.pcCode || "");
+      const identifier = String(body.identifier ?? body.pcCode ?? "").trim();
+      const normalizedIdentifier = identifier.toLocaleLowerCase();
       const candidates = name ? await this.campaignsNamed(name) : [];
-      let match = null;
-      let campaign = null;
+      const matches = [];
+
       for (const candidate of candidates) {
-        const record = candidate.characters.find((entry) => entry.pcCode === pcCode);
-        if (record) {
-          match = record;
-          campaign = candidate;
-          break;
+        for (const record of candidate.characters) {
+          const identifiers = [
+            record.pcCode,
+            record.character?.identity?.playerName,
+            record.character?.identity?.characterName,
+          ].map((value) => String(value || "").trim().toLocaleLowerCase());
+          if (!identifiers.includes(normalizedIdentifier)) continue;
+          matches.push({ campaign: candidate, record });
         }
       }
-      if (!campaign || !match) {
-        sendJson(res, 403, { error: "Campaign Name or PC Code is incorrect." });
+
+      const requestedCampaign = String(body.campaignCode || "").trim().toUpperCase();
+      const requestedCharacter = String(body.characterId || "");
+      const selectable = matches.filter(({ campaign, record }) =>
+        (!requestedCampaign || campaign.code === requestedCampaign)
+        && (!requestedCharacter || record.id === requestedCharacter));
+
+      if (!identifier || !selectable.length) {
+        sendJson(res, 403, { error: "Campaign Name or character identifier is incorrect." });
         return true;
       }
+
+      if (selectable.length > 1) {
+        sendJson(res, 200, {
+          requiresSelection: true,
+          matches: selectable.map(({ campaign, record }) => ({
+            campaignCode: campaign.code,
+            characterId: record.id,
+            characterName: safeCharacterName(record),
+            playerName: String(record.character?.identity?.playerName || "Player"),
+          })),
+        });
+        return true;
+      }
+
+      const { campaign, record: match } = selectable[0];
       this.campaignCache.set(campaign.code, campaign);
       const characterToken = this.newSession(campaign.code, "character", match.id);
       sendJson(res, 200, {
@@ -564,14 +590,21 @@ class CampaignApi {
     if (path === "/api/campaign/join/cancel" && req.method === "POST") {
       const characterId = String(body.characterId || "");
       const pcCode = String(body.pcCode || "");
-      const request = campaign.joinRequests.find((entry) => entry.characterId === characterId && entry.pcCode === pcCode && entry.status === "pending");
-      if (!request) {
-        sendJson(res, 404, { error: "No pending campaign request was found." });
+      const request = [...campaign.joinRequests].reverse().find((entry) => entry.characterId === characterId && entry.pcCode === pcCode);
+      const linked = campaign.characters.find((entry) => entry.id === characterId && entry.pcCode === pcCode);
+      if (!request && !linked) {
+        sendJson(res, 404, { error: "No campaign request was found for this character." });
         return true;
       }
-      campaign.joinRequests = campaign.joinRequests.filter((entry) => entry.id !== request.id);
+      campaign.joinRequests = campaign.joinRequests.filter((entry) => entry.characterId !== characterId || entry.pcCode !== pcCode);
+      if (linked) {
+        campaign.characters = campaign.characters.filter((entry) => entry.id !== linked.id);
+        campaign.rollRequests = campaign.rollRequests.filter((rollRequest) => !rollRequest.targetIds.includes(linked.id));
+        if (campaign.bankerCharacterId === linked.id) campaign.bankerCharacterId = null;
+        this.invalidateCharacterSessions(code, linked.id);
+      }
       await this.save(campaign);
-      sendJson(res, 200, { cancelled: true });
+      sendJson(res, 200, { cancelled: true, approvalVoided: Boolean(linked) });
       return true;
     }
 

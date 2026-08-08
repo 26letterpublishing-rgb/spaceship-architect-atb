@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260807-tabs-2" />
+  <link rel="stylesheet" href="character.css?v=20260808-combat-1" />
   </head>
   <body>
     <header class="creator-header">
@@ -20,7 +20,7 @@
     <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
       <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
-      <button type="button" data-character-tab="atb" hidden>ATB</button>
+      <button type="button" data-character-tab="atb" hidden>Combat</button>
       <button type="button" data-character-tab="settings">Settings</button>
     </nav>
 
@@ -343,7 +343,7 @@
 
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
       <div class="player-atb-heading">
-        <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>ATB</h1></div>
+        <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>Combat</h1></div>
         <div class="player-atb-actions"><button id="angilurosSpeedBoost" type="button" hidden>Spend 2 Exertion: +4 Speed</button><button id="launchPlayerAtb" type="button">Reload Encounter</button></div>
       </div>
       <div class="player-atb-live">
@@ -499,6 +499,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260807-tabs-2"></script>
+  <script type="module" src="character.js?v=20260808-combat-1"></script>
   </body>
 </html>

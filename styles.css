@@ -3261,3 +3261,143 @@ body.embedded-player .welcome-panel,body.embedded-player .room-join-panel,body.e
 body.embedded-player .shell{width:min(1120px,calc(100% - 12px));padding-top:6px}
 @media(max-width:700px){.campaign-code-row,.campaign-create-actions{grid-template-columns:1fr}.code-entry{grid-template-columns:1fr}.code-entry button{width:100%}.campaign-main-menu{padding:12px}.campaign-create-actions .character-creator-link{min-height:54px}}
 .join-panel .pc-stat-builder{display:block;padding:0;border:0;background:transparent}.join-panel .pc-stat-builder>.stat-board,.join-panel .pc-stat-builder>label{display:none}.join-panel .calculated-stats{margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}.join-panel .dice-strip{display:none}.campaign-character-status.error{font-weight:800}
+/* Campaign login chooser and embedded player Combat refinement */
+.pc-login-matches {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(40, 215, 255, 0.42);
+  background: rgba(4, 12, 20, 0.88);
+}
+.pc-login-matches > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--cyan);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.pc-login-matches > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+.pc-login-matches button {
+  min-height: 52px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 2px;
+  text-align: left;
+}
+.pc-login-matches button strong { color: #ecfbff; font-size: 0.82rem; }
+.pc-login-matches button span { color: var(--muted); font-size: 0.64rem; }
+
+body.embedded-player .topbar,
+body.embedded-player .connection-status {
+  display: none !important;
+}
+body.embedded-player .shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 8px;
+}
+body.embedded-player.player-combat-preview #activePanel,
+body.embedded-player.player-combat-preview #playerPanel,
+body.embedded-player.player-combat-preview #logPanel,
+body.embedded-player.player-combat-preview #initiativePanel .section-head,
+body.embedded-player.player-combat-preview .visual-mode-toggle {
+  display: none !important;
+}
+body.embedded-player.player-combat-preview #initiativePanel {
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body.embedded-player.player-combat-preview .unit-list {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+body.embedded-player.player-combat-preview .combat-preview-card {
+  margin: 0;
+  opacity: 1;
+}
+body.embedded-player.player-combat-preview .combat-preview-fill {
+  transition: none !important;
+}
+body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
+  animation: nativePulse 150ms steps(2, end) infinite alternate;
+}
+
+.player-mode.own-turn-active #initiativePanel {
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  top: auto;
+  z-index: 120;
+  width: min(760px, calc(100% - 24px));
+  max-height: min(250px, 28vh);
+  margin: 0;
+  padding: 8px;
+  transform: translateX(-50%);
+  overflow: auto;
+}
+.player-mode.own-turn-active .turn-banner {
+  padding: 82px 22px calc(30vh + 22px);
+  place-content: center;
+  align-content: center;
+  gap: 12px;
+}
+.player-mode .turn-banner strong {
+  font-size: 6rem;
+}
+.player-mode .turn-banner span {
+  font-size: 1.25rem;
+}
+.player-mode.ring-view-mode.own-turn-active #initiativePanel {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  margin: 0;
+}
+
+.player-action-sheet {
+  width: min(920px, calc(100% - 24px));
+  max-height: 38vh;
+  padding: 12px;
+}
+.action-choice-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 700px) {
+  .player-action-sheet {
+    width: calc(100% - 14px);
+    max-height: 42vh;
+  }
+  .action-choice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .player-mode.own-turn-active #initiativePanel {
+    width: calc(100% - 16px);
+    max-height: 25vh;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .player-mode.own-turn-active .turn-banner {
+    padding: 76px 16px calc(27vh + 16px);
+  }
+  .player-mode .turn-banner strong {
+    font-size: 4rem;
+  }
+  .player-mode .turn-banner span {
+    font-size: 1rem;
+  }
+}
+@media (max-width: 430px) {
+  .action-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .player-mode .turn-banner strong {
+    font-size: 3.25rem;
+  }
+}
