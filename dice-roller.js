@@ -33,7 +33,7 @@ function generatedThrow(index = 0, count = 1) {
   };
 }
 
-function numberTexture(value, accent) {
+function numberTexture(value, accent, stroke = "rgba(1, 5, 10, .98)") {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -43,7 +43,7 @@ function numberTexture(value, accent) {
   context.textBaseline = "middle";
   context.font = `900 ${String(value).length > 1 ? 300 : 390}px "Arial Black", Impact, sans-serif`;
   context.lineWidth = 30;
-  context.strokeStyle = "rgba(1, 5, 10, .98)";
+  context.strokeStyle = stroke;
   context.strokeText(String(value), 256, 270);
   context.fillStyle = accent;
   context.shadowColor = accent;
@@ -55,9 +55,9 @@ function numberTexture(value, accent) {
   return texture;
 }
 
-function faceLabel(value, normal, position, accent, size) {
+function faceLabel(value, normal, position, accent, size, stroke) {
   const material = new THREE.MeshBasicMaterial({
-    map: numberTexture(value, accent),
+    map: numberTexture(value, accent, stroke),
     transparent: true,
     depthWrite: false,
     alphaTest: 0.04,
@@ -290,9 +290,9 @@ function fusedResultVisual(value) {
     clearcoat: 1,
     transparent: true,
   });
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 1), material);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.66, 1), material);
   group.add(core);
-  const label = faceLabel(value, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.5, 0), "#ffffff", 0.5);
+  const label = faceLabel(value, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.68, 0), "#05070a", 0.72, "#ffeaff");
   group.add(label);
   return { group, material, label };
 }
@@ -633,7 +633,7 @@ export class PhysicalDiceRoller {
           item.visual.group.visible = true;
           item.visual.group.position.lerpVectors(pair.starts[pairIndex], pair.midpoint, eased);
           item.visual.group.position.y += Math.sin(progress * Math.PI) * 0.8;
-          item.visual.group.scale.setScalar(1 - eased * 0.58);
+          item.visual.group.scale.setScalar(1);
           item.visual.group.rotation.y += 0.075;
         } else {
           item.visual.group.visible = false;

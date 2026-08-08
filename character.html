@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260804-rules-2" />
+  <link rel="stylesheet" href="character.css?v=20260807-rules-3" />
   </head>
   <body>
     <header class="creator-header">
@@ -33,7 +33,7 @@
           <h1>Enter Campaign</h1>
           <p>View the entire team, unlock your character, or create someone new.</p>
           <form id="characterCampaignForm">
-            <label>Campaign Code<input id="characterCampaignCode" maxlength="5" autocomplete="off" placeholder="A7K4Q" required /></label>
+            <label>Campaign Code<input id="characterCampaignCode" maxlength="4" autocomplete="off" placeholder="K7M4" required /></label>
             <button class="primary-action" type="submit">Open Characters</button>
           </form>
         </div>
@@ -130,14 +130,13 @@
         <aside class="sheet-panel experience-panel">
           <div class="panel-heading"><span>Advancement</span></div>
           <div id="creationBudgets" class="creation-budgets">
-            <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong></div>
-            <div><span>Skill Points</span><strong id="skillBudget">Locked</strong></div>
+            <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong><small id="attributeBudgetFormula">Standard allocation: 195</small></div>
+            <div><span>Skill Points</span><strong id="skillBudget">Locked</strong><small id="skillBudgetFormula">Base 35 + Intellect</small></div>
           </div>
           <div class="xp-readouts">
             <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small id="xpFormula">Unspent / Total Gained</small></div>
-            <div><span>Spent XP</span><strong id="xpSpent">0</strong></div>
           </div>
-          <div class="xp-grant">
+          <div class="xp-grant" hidden>
             <label>Debug Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
             <button id="grantXp" type="button">DEBUG: ADD EXP</button>
           </div>
@@ -195,11 +194,11 @@
               <div class="reverence-heading"><span>Reverence</span><strong id="reverenceCurrent" aria-label="Current Reverence">0</strong></div>
               <div id="reverenceMeter" class="reverence-meter" aria-label="10 Reverence slots"></div>
               <div class="reverence-actions">
-                <button type="button" disabled title="Available when Attribute rolling is added">Reroll an Attribute<small>Coming later</small></button>
-                <button type="button" disabled title="Available when Drama Cards are added">Draw a Drama Card<small>Coming later</small></button>
+                <button id="manualAttributeReroll" type="button">Reroll an Attribute<small>Spend 2 Reverence</small></button>
+                <button type="button" disabled title="Drama Cards have not been added to the digital sheet yet">Draw a Drama Card</button>
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
-              <div class="reverence-footer">
+              <div class="reverence-footer" hidden>
                 <button id="debugReverence" class="debug-resource" type="button">DEBUG: +1 REVERENCE</button>
               </div>
             </div>
@@ -248,7 +247,7 @@
             <button id="fubsButton" class="fubs-button" type="button">Roll on FUBS Chart</button>
           </div>
           <textarea data-field="notes" rows="8" placeholder="Write the history, relationships, defining events, and unresolved questions that shaped this character."></textarea>
-          <div class="fubs-debug-tools">
+          <div class="fubs-debug-tools" hidden>
             <label>Debug Result<input id="fubsDebugValue" type="number" min="1" max="100" step="1" value="85" /></label>
             <button id="fubsDebugRoll" type="button">DEBUG: ROLL XX</button>
           </div>
@@ -261,7 +260,7 @@
       <div class="join-campaign-card">
         <p>Enter the permanent Campaign Code supplied by the GM. Your character will remain unattached until the GM approves the request.</p>
         <form id="joinCampaignForm">
-          <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="0427" required /></label>
+          <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" autocomplete="off" placeholder="K7M4" required /></label>
           <button class="primary-action" type="submit">Request to Join</button>
         </form>
         <div id="joinCampaignStatus" class="join-campaign-status"></div>
@@ -385,7 +384,7 @@
       <section class="skill-check-dialog" role="dialog" aria-modal="true" aria-labelledby="skillCheckTitle">
         <header class="skill-check-header">
           <div>
-            <span class="dialog-kicker">Attribute + Skill Check</span>
+            <span id="skillCheckKicker" class="dialog-kicker">Attribute + Skill Check</span>
             <h2 id="skillCheckTitle">Skill Check</h2>
             <p id="skillCheckSubtitle"></p>
           </div>
@@ -455,6 +454,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260804-rules-2"></script>
+  <script type="module" src="character.js?v=20260807-rules-3"></script>
   </body>
 </html>

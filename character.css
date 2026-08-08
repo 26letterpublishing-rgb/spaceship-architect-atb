@@ -878,3 +878,85 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
   .workflow-counters strong { font-size:.68rem; }
   .player-atb-live > p { font-size:.55rem; }
 }
+
+
+/* Consolidated rules visibility and interaction polish */
+#grantXp,
+#debugReverence,
+.fubs-debug-tools { display:none!important; }
+
+.creation-budgets > div { gap:2px; }
+.creation-budgets > div > small { color:#71869a; font-size:.5rem; line-height:1.15; }
+.xp-readouts { grid-template-columns:1fr; }
+
+.attribute-card-head.rollable {
+  cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--attribute) 72%,white);
+  border-width:1px 1px 2px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--attribute) 22%,#14202c),rgba(4,10,17,.92));
+  box-shadow:inset 0 1px color-mix(in srgb,var(--attribute) 38%,white),0 0 8px color-mix(in srgb,var(--attribute) 20%,transparent);
+  transition:filter 150ms ease,box-shadow 150ms ease,transform 150ms ease;
+}
+.attribute-card-head.rollable:hover,
+.attribute-card-head.rollable:focus-visible {
+  filter:brightness(1.22);
+  box-shadow:inset 0 1px color-mix(in srgb,var(--attribute) 56%,white),0 0 14px color-mix(in srgb,var(--attribute) 42%,transparent);
+  outline:none;
+}
+.attribute-card-head.rollable:active { transform:translateY(1px); }
+
+.skill-name { display:flex; align-items:center; gap:3px; }
+.skill-name > span:first-child { min-width:0; }
+.skill-rule-sign,
+.modifier-sign {
+  flex:0 0 auto;
+  display:inline-grid;
+  place-items:center;
+  width:14px;
+  height:14px;
+  border:1px solid currentColor;
+  border-radius:50%;
+  font-size:.64rem;
+  font-weight:950;
+  line-height:1;
+}
+.skill-rule-sign.positive,
+.modifier-sign.advantage { color:#41f0a0; background:rgba(14,100,67,.5); box-shadow:0 0 7px rgba(65,240,160,.28); }
+.skill-rule-sign.negative,
+.modifier-sign.disadvantage { color:#ff657c; background:rgba(108,18,38,.52); box-shadow:0 0 7px rgba(255,101,124,.28); }
+.modifier-rule-group h3,
+.modifier-rule-group li { display:flex; align-items:flex-start; gap:6px; }
+.modifier-rule-group ul { padding-left:0; list-style:none; }
+
+.speed-preview { --atb-preview-color:#39e58f; }
+.speed-preview-fill {
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.68) 0 13%,transparent 31%,rgba(0,0,0,.52) 100%),
+    linear-gradient(90deg,color-mix(in srgb,var(--atb-preview-color) 48%,#07131e) 0%,var(--atb-preview-color) 68%,color-mix(in srgb,var(--atb-preview-color) 30%,white) 100%);
+  box-shadow:inset 0 1px rgba(255,255,255,.68),inset 0 -5px 8px rgba(0,0,0,.44),0 0 10px color-mix(in srgb,var(--atb-preview-color) 48%,transparent);
+}
+.speed-preview > small b { color:var(--atb-preview-color); }
+
+.identity-panel .panel-heading > strong.finalized-name {
+  -webkit-text-stroke:.7px rgba(255,255,255,.9);
+  paint-order:stroke fill;
+  text-shadow:0 2px #000,0 0 13px var(--identity-color,var(--cyan));
+}
+
+.workflow-bar.draft-active .workflow-copy {
+  padding:5px 7px;
+  border:1px solid rgba(70,44,0,.48);
+  background:rgba(255,242,170,.84);
+  box-shadow:inset 0 1px rgba(255,255,255,.72);
+}
+.workflow-bar.draft-active .workflow-copy > small,
+.workflow-bar.draft-active .workflow-detail { color:#100a00; font-size:.72rem; font-weight:850; }
+.workflow-bar.draft-active .workflow-requirement { font-size:.7rem; font-weight:900; }
+.workflow-bar.draft-active .workflow-counters span { font-size:.56rem; }
+.workflow-bar.draft-active .workflow-counters strong { font-size:.92rem; }
+
+@media(max-width:430px) {
+  .identity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .description-field { grid-column:1 / -1; }
+  .workflow-bar.draft-active .workflow-requirement { font-size:.65rem; }
+}

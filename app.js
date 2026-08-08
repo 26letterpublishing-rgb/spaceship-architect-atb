@@ -33,7 +33,7 @@ let campaignEvents = null;
 let campaignCharacterId = localStorage.getItem("sa-atb-campaign-character-id") || "";
 let campaignCharacterToken = "";
 let gmCampaignToken = "";
-if (embeddedGm && /^[A-Z0-9]{4,5}$/.test(requestedCampaignCode)) {
+if (embeddedGm && /^[A-Z0-9]{4}$/.test(requestedCampaignCode)) {
   mode = "gm";
   currentRoomCode = requestedCampaignCode;
   gmCampaignToken = localStorage.getItem(`sa-gm-token-${requestedCampaignCode}`) || "";
@@ -136,7 +136,7 @@ function returnToWelcome(message = "") {
   if (message) setConnected(false, message);
 }
 
-if (!/^[A-Z0-9]{4,5}$/.test(currentRoomCode)) {
+if (!/^[A-Z0-9]{4}$/.test(currentRoomCode)) {
   forgetSavedRoom();
 }
 
@@ -355,7 +355,7 @@ function calculatedPcStats() {
     commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 20),
   }
 }
-if (embeddedPlayer && /^[A-Z0-9]{4,5}$/.test(requestedCampaignCode) && requestedCampaignCharacter) {
+if (embeddedPlayer && /^[A-Z0-9]{4}$/.test(requestedCampaignCode) && requestedCampaignCharacter) {
   mode = "player";
   currentRoomCode = requestedCampaignCode;
   campaignCharacterId = requestedCampaignCharacter;
@@ -2447,7 +2447,7 @@ mainPcCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") 
 
 backToWelcome.addEventListener("click", () => setMode("welcome"));
 joinRoomCode.addEventListener("input", () => {
-  joinRoomCode.value = joinRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  joinRoomCode.value = joinRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 });
 confirmJoinRoom.addEventListener("click", async () => {
   const code = joinRoomCode.value.trim().toUpperCase();

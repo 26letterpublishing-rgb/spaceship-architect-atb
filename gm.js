@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260804-rules-2";
+import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260807-rules-3";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {

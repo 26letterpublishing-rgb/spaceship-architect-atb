@@ -15,10 +15,10 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260804-rules-2";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260804-rules-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260804-rules-2";
-import { openPrintableCharacterSheet } from "./character-print.js?v=20260804-rules-2";
+} from "./character-data.js?v=20260807-rules-3";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-rules-3";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-rules-3";
+import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-rules-3";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -28,6 +28,7 @@ const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const FORMAT_NAME = "spaceship-architect-2e-character";
 const FORMAT_VERSION = 4;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
+const DEBUG_CONTROLS_ENABLED = false;
 const $ = (selector) => document.querySelector(selector);
 
 const dom = {
@@ -59,9 +60,10 @@ const dom = {
   finalizeCharacter: $("#finalizeCharacter"),
   spendExperience: $("#spendExperience"),
   attributeBudget: $("#attributeBudget"),
+  attributeBudgetFormula: $("#attributeBudgetFormula"),
   skillBudget: $("#skillBudget"),
+  skillBudgetFormula: $("#skillBudgetFormula"),
   xpAvailable: $("#xpAvailable"),
-  xpSpent: $("#xpSpent"),
   xpTotal: $("#xpTotal"),
   xpFormula: $("#xpFormula"),
   xpGrantAmount: $("#xpGrantAmount"),
@@ -104,6 +106,7 @@ const dom = {
   reverenceCurrent: $("#reverenceCurrent"),
   reverenceMeter: $("#reverenceMeter"),
   maxHpBonus: $("#maxHpBonus"),
+  manualAttributeReroll: $("#manualAttributeReroll"),
   characterAtbColor: $("#characterAtbColor"),
   debugReverence: $("#debugReverence"),
   crewRoster: $("#crewRoster"),
@@ -126,6 +129,7 @@ const dom = {
   fubsExit: $("#fubsExit"),
   skillCheckModal: $("#skillCheckModal"),
   skillCheckTitle: $("#skillCheckTitle"),
+  skillCheckKicker: $("#skillCheckKicker"),
   skillCheckSubtitle: $("#skillCheckSubtitle"),
   skillCheckClose: $("#skillCheckClose"),
   skillAttributeStage: $("#skillAttributeStage"),
@@ -690,7 +694,7 @@ function normalizeCharacter(raw) {
   normalized.creation.raceGrantsApplied = legacy ? false : Boolean(source.creation?.raceGrantsApplied);
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
-  normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
   normalized.campaignLink.campaignName = String(normalized.campaignLink.campaignName || "").slice(0, 80);
   normalized.campaignLink.status = ["unlinked", "pending", "linked"].includes(normalized.campaignLink.status)
     ? normalized.campaignLink.status
@@ -1328,8 +1332,8 @@ async function checkJoinStatus() {
 }
 
 async function requestCampaignJoin(roomCode) {
-  const normalized = String(roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-  if (!/^[A-Z0-9]{4,5}$/.test(normalized)) throw new Error("Enter the complete Campaign Code.");
+  const normalized = String(roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  if (!/^[A-Z0-9]{4}$/.test(normalized)) throw new Error("Enter the complete Campaign Code.");
   if (character.phase !== "finalized" || !character.access?.pcCode) throw new Error("Finalize this character and choose a PC Code first.");
   const result = await campaignRequest("/api/campaign/join/request", {
     method: "POST",
@@ -1613,7 +1617,7 @@ function syncDerivedResources(previousMaxHp = null) {
 
   const nextMaxHp = maximumHp();
   if (character.health.current === null || (previousMaxHp !== null && character.health.current === previousMaxHp)) character.health.current = nextMaxHp;
-  character.health.current = Math.round(clamp(character.health.current, -9999, 999999));
+  character.health.current = Math.round(clamp(character.health.current, -9999, nextMaxHp));
 }
 
 function derivedValues() {
@@ -1830,7 +1834,7 @@ function renderFubs() {
     dom.fubsButton.classList.add("fubs-unrolled");
     dom.fubsButton.disabled = !available;
   }
-  $(".fubs-debug-tools").hidden = character.phase !== "draft" || fubsRollInProgress;
+  $(".fubs-debug-tools").hidden = !DEBUG_CONTROLS_ENABLED || character.phase !== "draft" || fubsRollInProgress;
 }
 
 function renderFields() {
@@ -1838,6 +1842,9 @@ function renderFields() {
     input.value = getPath(character, input.dataset.field) ?? "";
   });
   const callsign = character.identity.characterName || "Unnamed Character";
+  const identityColor = character.presentation?.atbColor || "#39e58f";
+  dom.identityPanel.style.setProperty("--identity-atb-color", identityColor);
+  dom.identityCallsign.style.setProperty("--identity-atb-color", identityColor);
   dom.identityCallsign.textContent = character.phase === "finalized" ? callsign.toUpperCase() : callsign;
   dom.identityCallsign.classList.toggle("finalized-name", character.phase === "finalized");
   renderIdentityTheme();
@@ -1848,11 +1855,12 @@ function renderFields() {
 }
 
 function modifierRulesMarkup(title, rules, tone) {
-  const entries = rules?.length ? rules : ["No listed disadvantages."];
+  const entries = rules?.length ? rules : [tone === "disadvantage" ? "No listed disadvantages." : "No listed advantages."];
+  const sign = tone === "disadvantage" ? "-" : "+";
   return `
     <section class="modifier-rule-group ${tone}">
-      <h3>${escapeHtml(title)}</h3>
-      <ul>${entries.map((rule) => `<li>${escapeHtml(rule)}</li>`).join("")}</ul>
+      <h3><span class="modifier-sign ${tone}">${sign}</span>${escapeHtml(title)}</h3>
+      <ul>${entries.map((rule) => `<li><span class="modifier-sign ${tone}">${sign}</span><span>${escapeHtml(rule)}</span></li>`).join("")}</ul>
     </section>`;
 }
 
@@ -1869,8 +1877,8 @@ function renderClass() {
     : raceDefinition
       ? `${raceDefinition.name}${raceType ? ` - ${raceType.name}` : ""}`
       : "";
-  const raceAdvantages = raceType?.advantages || raceDefinition?.advantages || [];
-  const raceDisadvantages = raceType?.disadvantages || raceDefinition?.disadvantages || [];
+  const raceAdvantages = [...(raceDefinition?.advantages || []), ...(raceType?.advantages || [])];
+  const raceDisadvantages = [...(raceDefinition?.disadvantages || []), ...(raceType?.disadvantages || [])];
   const raceContent = customRace
     ? `<p class="modifier-empty">Custom race rules can be recorded in the Unique Advantages / Disadvantages field below.</p>`
     : raceDefinition
@@ -1971,9 +1979,18 @@ function renderExperience() {
   dom.skillBudget.textContent = validation.attributesComplete || character.phase !== "draft"
     ? `${skillRemaining} / ${validation.skillBudget}`
     : "Locked";
-  dom.skillBudget.className = validation.attributesComplete && skillRemaining === 0 ? "complete" : skillRemaining < 0 ? "invalid" : "";
+  const intellectSkillBonus = character.attributes.intellect.reduce((sum, dieIndex) => sum + (dieIndex >= 0 ? INTELLECT_SKILL_POINT_BONUSES[dieIndex] : 0), 0);
+  const baseSkillBudget = character.identity.raceId === "spiddix" ? 20 : BASE_SKILL_POINTS;
+  const racialSkillBudget = character.identity.raceId === "angiluros" ? 60 : 0;
+  dom.attributeBudgetFormula.textContent = character.identity.raceId === "spiddix"
+    ? "Spiddix starting allocation: 135"
+    : "Standard starting allocation: 195";
+  dom.skillBudgetFormula.textContent = [
+    `Base ${baseSkillBudget}`,
+    `+${intellectSkillBonus} Intellect`,
+    ...(racialSkillBudget ? [`+${racialSkillBudget} Angiluros`] : []),
+  ].join(" ");
   dom.xpAvailable.textContent = character.experience.available;
-  dom.xpSpent.textContent = character.experience.spent;
   dom.xpTotal.textContent = character.experience.totalGained;
   const xpGrantParts = [];
   if (finalizedModifiersActive()) {
@@ -2045,12 +2062,55 @@ function renderAttributes() {
       const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
       return `<div class="attribute-row" style="--progress:${progress}%">${wave}${buttons}</div>`;
     }).join("");
-    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > validation.attributeBudget ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head"><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
+    const attributeRollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll
+      && !diceRoller.isActive() && (!campaignCode || campaignEditable);
+    const rollAttributes = attributeRollable
+      ? ` data-roll-attribute="${definition.key}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(definition.label)} without a Skill"`
+      : "";
+    return `<article class="attribute-card ${character.phase === "draft" && validation.attributeSpent > validation.attributeBudget ? "invalid" : ""}" style="--attribute:${definition.color}"><div class="attribute-card-head ${attributeRollable ? "rollable" : ""}"${rollAttributes}><strong>${definition.label}</strong><span>${diceSummary(definition.key)} | ${boxesFilled(definition.key)} boxes</span></div><div class="attribute-rows">${rowMarkup}</div></article>`;
   }).join("");
 }
 
 function formatSkillName(name) {
   return escapeHtml(name).replaceAll(" ", "&nbsp;").replaceAll("/", "/<wbr>");
+}
+
+function skillRuleIndicators(name) {
+  const positive = [];
+  const negative = [];
+  const add = (tone, label) => {
+    const list = tone === "negative" ? negative : positive;
+    if (!list.includes(label)) list.push(label);
+  };
+  const rawRaceBonus = Number(rawRaceEffects().skillBonuses?.[name]) || 0;
+  const rawClassBonus = Number(rawClassEffects().skillBonuses?.[name]) || 0;
+  const chosenRaceBonus = Number(character.creation?.racialSkillGrants?.[name]) || 0;
+  if (rawRaceBonus || chosenRaceBonus) add((rawRaceBonus + chosenRaceBonus) < 0 ? "negative" : "positive", "RACE");
+  if (rawClassBonus) add(rawClassBonus < 0 ? "negative" : "positive", "CLASS");
+
+  const raceId = character.identity.raceId;
+  const raceType = character.identity.raceType;
+  const classId = character.identity.classId;
+  if (raceId === "android" && name === "Initiative") add("positive", "ANDROID +5 ROLL");
+  if (raceId === "angiluros" && ["Jump", "Climb"].includes(name)) add("positive", "OUTCOME UPGRADE");
+  if (raceId === "antropic" && raceType === "fluffy" && name === "Jump") add("positive", "FLUFFY +5");
+  if (raceId === "kabuto" && name === "Resist Distress") add("positive", "CRITICAL SUCCESS");
+  if (raceId === "skeder" && name === "Jump") add("positive", "SKED'ER +3");
+  if (raceId === "xithx" && name === "Stealth/Hide") add("negative", "REMOVE HIGHEST DIE");
+
+  if (classId === "mastermind" && name === "Initiative") add("positive", "SPEED x1.5");
+  if (classId === "decker" && name === "Computer Systems") add("positive", "3 FREE REROLLS/SESSION");
+  if (classId === "demolition-specialist" && name === "Demolitions") add("positive", "FIRE INTENSITY");
+  if (classId === "gunner" && name === "Weapon Systems") add("positive", "EXTRA DEX/INT DIE");
+  if (classId === "marine-soldier" && name === "Projectile") add("positive", "TRIPLE FUSION");
+  if (classId === "navigator-sensor-tech" && ["Pilot/Helm", "Navigate", "Awareness", "Sensor Systems"].includes(name)) add("positive", "COMBINED CLASS SKILL");
+  if (classId === "ninja" && name === "Stealth/Hide") add("positive", "EXERTION +5 EACH");
+  if (classId === "peacekeeper" && name === "Negotiation/Persuade") add("positive", "+1D12");
+  if (classId === "pirate" && ["Projectile", "Melee"].includes(name)) add("positive", "+3.0 VS UNARMED");
+  if (classId === "playboy-minx" && ["Negotiation/Persuade", "Acting/Lie"].includes(name)) add("positive", "COMBINED CLASS SKILL");
+  if (classId === "science-officer" && ["Research", "Science/Physics", "Mathematics"].includes(name)) add("positive", "SESSION GROWTH");
+
+  return { positive, negative };
 }
 
 function renderSkillRow(name, skill, key) {
@@ -2068,32 +2128,45 @@ function renderSkillRow(name, skill, key) {
   const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll;
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement);
-  const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll;
+  const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll && (!campaignCode || campaignEditable);
+  const indicators = skillRuleIndicators(name);
+  const markerMarkup = `${indicators.positive.length ? `<b class="skill-rule-sign positive" aria-label="Race or Class bonus">+</b>` : ""}${indicators.negative.length ? `<b class="skill-rule-sign negative" aria-label="Race or Class penalty">-</b>` : ""}`;
+  const indicatorDetails = [...indicators.positive, ...indicators.negative].join(" | ");
   return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
-    <span class="skill-name" title="${escapeAttribute(name)}">${formatSkillName(name)}</span>
+    <span class="skill-name" title="${escapeAttribute(name)}"><span>${formatSkillName(name)}</span>${markerMarkup}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
-    <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : ""}</small></span>
+    <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small></span>
     <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
   </div>`;
 }
 
 function renderSkills() {
   const validation = draftValidation();
+  const sheetEditable = !campaignCode || campaignEditable;
+  const canManageCustomSkills = sheetEditable && !character.pendingRoll
+    && ((character.phase === "draft" && validation.attributesComplete) || character.phase === "finalized");
   dom.skillLockNotice.hidden = validation.attributesComplete || character.phase !== "draft";
   dom.spacecraftSkills.innerHTML = SPACECRAFT_SKILLS.map((name) => renderSkillRow(name, character.skills[name], skillKeyForBase(name))).join("");
   dom.generalSkills.innerHTML = GENERAL_SKILLS.map((name) => renderSkillRow(name, character.skills[name], skillKeyForBase(name))).join("");
   dom.customSkills.innerHTML = character.customSkills.map((skill) => {
     const key = skillKeyForCustom(skill.id);
     const row = renderSkillRow(skill.name || "Custom Skill", skill, key);
-    const editableName = character.phase === "draft"
+    const editableName = canManageCustomSkills
       ? `<input data-custom-name="${skill.id}" value="${escapeAttribute(skill.name)}" placeholder="Custom Skill" aria-label="Custom skill name" />`
-      : `<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}">${formatSkillName(skill.name || "Custom Skill")}</span>`;
-    return `<div class="custom-skill-row-wrapper">${row.replace("<div class=\"skill-row", `<div class=\"skill-row custom-skill-row ${validation.invalidSkills.has(key) ? "invalid" : ""}`)
-      .replace(`<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}">${formatSkillName(skill.name || "Custom Skill")}</span>`, editableName)
-      .replace("</div>", `<button class="row-remove" type="button" data-remove-custom-skill="${skill.id}" aria-label="Remove custom skill" ${character.phase === "draft" ? "" : "disabled"}>-</button></div>`)}</div>`;
+      : `<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}"><span>${formatSkillName(skill.name || "Custom Skill")}</span></span>`;
+    let customRow = row.replace(
+      /<span class="skill-name"[\s\S]*?<button class="skill-refund"/,
+      `${editableName}
+    <button class="skill-refund"`,
+    );
+    customRow = customRow.replace("<div class=\"skill-row", `<div class="skill-row custom-skill-row ${validation.invalidSkills.has(key) ? "invalid" : ""}`);
+    customRow = customRow.replace(/\n\s*<\/div>$/, `
+    <button class="row-remove" type="button" data-remove-custom-skill="${skill.id}" aria-label="Remove custom skill" ${(canManageCustomSkills && skill.tenths === 0) ? "" : "disabled"}>-</button>
+  </div>`);
+    return `<div class="custom-skill-row-wrapper">${customRow}</div>`;
   }).join("");
   dom.customSkillsEmpty.hidden = character.customSkills.length > 0;
-  dom.addCustomSkill.disabled = character.phase !== "draft" || !validation.attributesComplete;
+  dom.addCustomSkill.disabled = !canManageCustomSkills;
   applySkillSearch();
 }
 
@@ -2125,17 +2198,21 @@ function renderResources() {
   dom.exertionFormula.textContent = "Base 1 + each Willpower die at D10 or higher";
   dom.moveSpeedValue.textContent = move.value;
   dom.moveSpeedFormula.textContent = move.formula;
-  dom.creditsValue.textContent = (character.resources.creditsBase + classCredits).toLocaleString();
+  const finalizedRaceCredits = finalizedModifiersActive() ? Number(rawRaceEffects().creditsOnFinalize) || 0 : 0;
+  const finalizedClassCredits = finalizedModifiersActive() ? Number(rawClassEffects().creditsOnFinalize) || 0 : 0;
+  dom.creditsValue.textContent = Number(character.resources.creditsBase || 0).toLocaleString();
   const creditParts = ["Awarded and saved credits"];
-  if (finalizedModifiersActive() && Number(rawRaceEffects().creditsOnFinalize)) creditParts.push(`includes +${Number(rawRaceEffects().creditsOnFinalize).toLocaleString()} ${selectedRace()?.name}`);
-  if (classCredits) creditParts.push(`+${classCredits.toLocaleString()} ${classDefinition.name}`);
+  if (finalizedRaceCredits) creditParts.push(`includes +${finalizedRaceCredits.toLocaleString()} ${selectedRace()?.name} finalization grant`);
+  if (finalizedClassCredits) creditParts.push(`includes +${finalizedClassCredits.toLocaleString()} ${classDefinition.name} finalization grant`);
   dom.creditsFormula.textContent = creditParts.join(" ");
   dom.reverenceCurrent.textContent = character.resources.reverence;
   dom.reverenceMeter.innerHTML = Array.from({ length: 10 }, (_, index) => `<span class="reverence-slot ${index < character.resources.reverence ? "filled" : ""}" aria-hidden="true"></span>`).join("");
   dom.maxHpBonus.disabled = character.phase !== "finalized" || maxHpForbidden || character.resources.reverence < maxHpCost || Boolean(character.pendingRoll);
   dom.maxHpBonus.title = maxHpForbidden ? `${selectedRace()?.name || "This race"} cannot purchase Maximum HP with Reverence.` : `Spend ${maxHpCost} Reverence for +2 Maximum HP`;
   dom.maxHpBonus.querySelector("small").textContent = maxHpForbidden ? "Unavailable to this race" : `Spend ${maxHpCost} for +2 HP`;
+  dom.manualAttributeReroll.disabled = character.phase !== "finalized" || character.resources.reverence < 2 || Boolean(character.pendingRoll) || diceRoller.isActive();
   dom.characterAtbColor.value = character.presentation.atbColor;
+  dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
 }
 
 function attributeDiceSides(attributeKey) {
@@ -2286,7 +2363,12 @@ function skillCheckAttribute() {
 }
 
 function skillCheckResolvedSkill() {
-  return skillCheck ? resolveSkill(character, skillCheck.skillKey) : null;
+  if (!skillCheck) return null;
+  if (skillCheck.attributeOnly) {
+    const definition = ATTRIBUTE_DEFS.find((entry) => entry.key === skillCheck.attributeKey);
+    return definition ? { name: `${definition.label} Check`, skill: { tenths: 0 } } : null;
+  }
+  return resolveSkill(character, skillCheck.skillKey);
 }
 
 function skillCheckPoolLabel() {
@@ -2325,15 +2407,19 @@ function renderSkillSetup() {
   const definition = skillCheckAttribute();
   const resolved = skillCheckResolvedSkill();
   if (!definition || !resolved) return;
+  dom.skillCheckKicker.textContent = skillCheck.attributeOnly ? "Attribute Check" : "Attribute + Skill Check";
   dom.skillCheckTitle.textContent = resolved.name;
-  dom.skillCheckSubtitle.textContent = "Choose the dice, then roll physically or enter your completed Score.";
+  dom.skillCheckSubtitle.textContent = skillCheck.attributeOnly
+    ? "Roll the Attribute by itself, then resolve it physically or enter your completed Score."
+    : "Choose the dice, then roll physically or enter your completed Score.";
+  dom.changeSkillAttribute.hidden = Boolean(skillCheck.attributeOnly);
   dom.skillAttributeStage.hidden = true;
   dom.skillSetupStage.hidden = false;
   dom.skillResultStage.hidden = true;
   dom.selectedAttributeName.textContent = definition.label;
   dom.selectedAttributeName.style.color = definition.color;
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
-  dom.selectedSkillBonus.textContent = `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
+  dom.selectedSkillBonus.textContent = skillCheck.attributeOnly ? "NO SKILL" : `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.manualSkillScore.value = "";
   renderSkillExertion();
@@ -2343,6 +2429,8 @@ function renderSkillSetup() {
 function renderSkillAttributeChoices() {
   if (!skillCheck) return;
   const resolved = skillCheckResolvedSkill();
+  dom.skillCheckKicker.textContent = "Attribute + Skill Check";
+  dom.changeSkillAttribute.hidden = false;
   dom.skillCheckTitle.textContent = resolved?.name || "Skill Check";
   dom.skillCheckSubtitle.textContent = "Choose the Attribute that best matches the action.";
   dom.skillAttributeChoices.innerHTML = ATTRIBUTE_DEFS.map((definition) => `
@@ -2361,6 +2449,7 @@ function openSkillCheck(skillKey) {
   if (!resolved) return;
   skillCheck = {
     skillKey,
+    attributeOnly: false,
     attributeKey: null,
     difficulty: "",
     stagedExertion: 0,
@@ -2378,6 +2467,32 @@ function openSkillCheck(skillKey) {
   dom.skillCheckModal.hidden = false;
   document.body.classList.add("skill-check-open");
   renderSkillAttributeChoices();
+}
+
+function openAttributeCheck(attributeKey) {
+  if ((campaignCode && !campaignEditable) || character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
+  const definition = ATTRIBUTE_DEFS.find((entry) => entry.key === attributeKey);
+  if (!definition) return;
+  skillCheck = {
+    skillKey: null,
+    attributeOnly: true,
+    attributeKey,
+    difficulty: "",
+    stagedExertion: 0,
+    committedExertion: 0,
+    preservedFusions: [],
+    newFusions: [],
+    selectedFusionIds: new Set(),
+    activeSides: rollDicePool(attributeKey, ""),
+    currentRollSides: [],
+    result: null,
+    manual: false,
+    freeRerollUsed: false,
+    lastResults: [],
+  };
+  dom.skillCheckModal.hidden = false;
+  document.body.classList.add("skill-check-open");
+  renderSkillSetup();
 }
 
 function closeSkillCheck() {
@@ -2529,7 +2644,7 @@ function resolvePhysicalSkillRoll(results) {
   const top = values.slice(0, 2);
   const diceTotal = top.reduce((sum, value) => sum + value, 0);
   const resolved = skillCheckResolvedSkill();
-  const skillBonus = combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
+  const skillBonus = skillCheck.attributeOnly ? 0 : combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
   let flatBonus = skillCheck.committedExertion;
   if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide") flatBonus += skillCheck.committedExertion * 4;
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy") {
@@ -2548,10 +2663,8 @@ function resolvePhysicalSkillRoll(results) {
   const score = diceTotal + skillBonus + flatBonus + unusedDiceBonus;
   const difficulty = Number(skillCheck.difficulty);
   const outcome = adjustedSkillOutcome(score, difficulty);
-  const equationParts = [
-    `Top two: ${top.length ? top.join(" + ") : "0"}`,
-    `Skill +${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
-  ];
+  const equationParts = [`Top two: ${top.length ? top.join(" + ") : "0"}`];
+  if (!skillCheck.attributeOnly) equationParts.push(`Skill +${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`);
   if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth/Hide" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") equationParts.push("Fluffy Strength -2");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") equationParts.push("Fluffy Jump +5");
@@ -2602,8 +2715,10 @@ function rollSkillCheck() {
   document.body.classList.add("skill-roll-active");
   diceRoller.rollPool({
     sides: skillCheck.currentRollSides,
-    title: `${resolved.name} + ${skillCheckAttribute().label}`,
-    subtitle: `${skillCheckPoolLabel()} | Top two + ${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
+    title: skillCheck.attributeOnly ? resolved.name : `${resolved.name} + ${skillCheckAttribute().label}`,
+    subtitle: skillCheck.attributeOnly
+      ? `${skillCheckPoolLabel()} | Use the top two`
+      : `${skillCheckPoolLabel()} | Top two + ${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
     fusion: true,
     onResolved: () => {},
     onSettled: (results) => {
@@ -2686,12 +2801,17 @@ function renderDerived() {
   const reduction = damageReductionDetails();
   const initiativeParts = skillBonusParts("Initiative");
   const awarenessParts = skillBonusParts("Awareness");
+  const intellectBoxes = boxesFilled("intellect");
+  const initiativeRating = displayedSkillTenths("Initiative", character.skills.Initiative) / 10;
+  const mastermind = character.identity.classId === "mastermind" && finalizedModifiersActive();
   dom.derivedSpeed.textContent = formatNumber(derived.speed);
-  dom.derivedSpeedFormula.textContent = `Intellect boxes + Initiative${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
   const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 20;
-  dom.derivedCommandFormula.textContent = `Perception boxes x10 + Awareness x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  const perceptionBoxes = boxesFilled("perception");
+  const awarenessRating = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
+  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x10 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   dom.maximumHp.textContent = hp.value;
   dom.maximumHpFormula.textContent = hp.formula;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -2726,8 +2846,8 @@ function printableCharacterData() {
     : raceDefinition
       ? `${raceDefinition.name}${raceType ? ` - ${raceType.name}` : ""}`
       : "No Race";
-  const raceAdvantages = raceType?.advantages || raceDefinition?.advantages || [];
-  const raceDisadvantages = raceType?.disadvantages || raceDefinition?.disadvantages || [];
+  const raceAdvantages = [...(raceDefinition?.advantages || []), ...(raceType?.advantages || [])];
+  const raceDisadvantages = [...(raceDefinition?.disadvantages || []), ...(raceType?.disadvantages || [])];
   const modifierGroups = [
     { title: "Racial Advantages", entries: raceAdvantages },
     { title: "Racial Disadvantages", entries: raceDisadvantages },
@@ -3413,8 +3533,8 @@ function presentAdvancementDecision() {
     return;
   }
   diceRoller.showChoices([
-    { label: "Keep", action: () => acceptAdvancementResult() },
     { label: freeReroll ? "Reroll Free" : `Reroll - ${rerollCost} XP`, className: "primary-action", action: () => rerollAdvancement(freeReroll ? 0 : rerollCost) },
+    { label: "Keep", action: () => acceptAdvancementResult() },
   ]);
 }
 
@@ -3646,7 +3766,7 @@ document.addEventListener("input", (event) => {
   }
 
   const customName = event.target.closest("[data-custom-name]");
-  if (customName && character.phase === "draft") {
+  if (customName && (!campaignCode || campaignEditable)) {
     const custom = character.customSkills.find((skill) => skill.id === customName.dataset.customName);
     if (custom) custom.name = customName.value;
     queueSave();
@@ -3663,7 +3783,7 @@ document.addEventListener("input", (event) => {
   }
 
   if (event.target === dom.currentHp) {
-    character.health.current = Math.round(clamp(event.target.value, -9999, 999999));
+    character.health.current = Math.round(clamp(event.target.value, -9999, maximumHp()));
     queueSave();
     renderDerived();
   }
@@ -3707,6 +3827,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const rollableAttribute = event.target.closest("[data-roll-attribute]");
+  if (rollableAttribute) {
+    openAttributeCheck(rollableAttribute.dataset.rollAttribute);
+    return;
+  }
+
   const rollableSkill = event.target.closest("[data-roll-skill]");
   if (rollableSkill && !event.target.closest("button, input")) {
     openSkillCheck(rollableSkill.dataset.rollSkill);
@@ -3714,7 +3840,7 @@ document.addEventListener("click", (event) => {
   }
 
   const removeCustom = event.target.closest("[data-remove-custom-skill]");
-  if (removeCustom && character.phase === "draft") {
+  if (removeCustom && (!campaignCode || campaignEditable)) {
     const id = removeCustom.dataset.removeCustomSkill;
     const custom = character.customSkills.find((skill) => skill.id === id);
     if (!custom) return;
@@ -3740,7 +3866,7 @@ document.addEventListener("click", (event) => {
 
   const hpButton = event.target.closest("[data-hp-change]");
   if (hpButton) {
-    character.health.current = Math.round(clamp(character.health.current + Number(hpButton.dataset.hpChange), -9999, 999999));
+    character.health.current = Math.round(clamp(character.health.current + Number(hpButton.dataset.hpChange), -9999, maximumHp()));
     queueSave();
     renderDerived();
   }
@@ -3748,6 +3874,12 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (!["Enter", " "].includes(event.key)) return;
+  const attribute = event.target.closest?.("[data-roll-attribute]");
+  if (attribute) {
+    event.preventDefault();
+    openAttributeCheck(attribute.dataset.rollAttribute);
+    return;
+  }
   const row = event.target.closest?.("[data-roll-skill]");
   if (!row || event.target.closest("button, input")) return;
   event.preventDefault();
@@ -3918,7 +4050,10 @@ dom.spendExperience.addEventListener("click", () => {
 });
 
 dom.addCustomSkill.addEventListener("click", () => {
-  if (character.phase !== "draft" || !draftValidation().attributesComplete) return;
+  const validation = draftValidation();
+  if ((campaignCode && !campaignEditable)
+    || !((character.phase === "draft" && validation.attributesComplete) || character.phase === "finalized")
+    || character.pendingRoll) return;
   const custom = { id: uid(), name: "", tenths: 0, creationDecimal: null };
   character.customSkills.push(custom);
   queueSave();
@@ -3948,7 +4083,25 @@ dom.maxHpBonus.addEventListener("click", () => {
 
 dom.characterAtbColor.addEventListener("input", () => {
   character.presentation.atbColor = dom.characterAtbColor.value;
+  dom.identityPanel.style.setProperty("--identity-atb-color", character.presentation.atbColor);
+  dom.identityCallsign.style.setProperty("--identity-atb-color", character.presentation.atbColor);
+  dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
   queueSave();
+});
+
+dom.manualAttributeReroll.addEventListener("click", async () => {
+  if (character.phase !== "finalized" || character.resources.reverence < 2 || character.pendingRoll || diceRoller.isActive()) return;
+  const accepted = await askConfirmation({
+    title: "Spend two Reverence?",
+    message: "Spend two Reverence to reroll your Skill Check? (manually rolled dice)",
+    acceptLabel: "Spend 2 Reverence",
+    cancelLabel: "Cancel",
+  });
+  if (!accepted || character.resources.reverence < 2) return;
+  character.resources.reverence -= 2;
+  queueSave();
+  renderResources();
+  notice("2 Reverence spent for a manually rolled Skill Check reroll.", "success");
 });
 
 dom.debugReverence.addEventListener("click", () => {
@@ -4022,7 +4175,7 @@ dom.campaignForm?.addEventListener("submit", async (event) => {
 });
 
 dom.campaignCode?.addEventListener("input", () => {
-  dom.campaignCode.value = dom.campaignCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  dom.campaignCode.value = dom.campaignCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 });
 
 dom.campaignRosterCards?.addEventListener("click", (event) => {
@@ -4176,7 +4329,7 @@ dom.tabs?.addEventListener("click", (event) => {
 });
 
 dom.joinCampaignRoomCode?.addEventListener("input", () => {
-  dom.joinCampaignRoomCode.value = dom.joinCampaignRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  dom.joinCampaignRoomCode.value = dom.joinCampaignRoomCode.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 });
 
 dom.joinCampaignForm?.addEventListener("submit", async (event) => {
@@ -4542,7 +4695,7 @@ async function initializeCharacterApp() {
     window.history.replaceState({}, "", "character.html");
     renderAll();
   }
-  dom.campaignCode.value = /^[A-Z0-9]{4,5}$/.test(requestedCode) ? requestedCode : "";
+  dom.campaignCode.value = /^[A-Z0-9]{4}$/.test(requestedCode) ? requestedCode : "";
   dom.campaignGate.hidden = true;
   dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {

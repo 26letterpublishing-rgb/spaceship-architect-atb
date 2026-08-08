@@ -15,7 +15,7 @@ function clone(value) {
 
 function campaignCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 5 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
+  return Array.from({ length: 4 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
 }
 
 function passwordRecord(password) {
@@ -151,7 +151,7 @@ function campaignFromBackup(backup, { code = "", gmCode = null, currentGmCode = 
   if (backup?.format !== "spaceship-architect-campaign" || !backup?.campaign || !Array.isArray(backup.campaign.characters)) return null;
   const restored = normalizeCampaign(clone(backup.campaign));
   restored.code = String(code || restored.code || "").trim().toUpperCase();
-  if (!/^[A-Z0-9]{4,5}$/.test(restored.code)) return null;
+  if (!/^[A-Z0-9]{4}$/.test(restored.code)) return null;
   restored.gmCode = currentGmCode || passwordRecord(gmCode);
   restored.updatedAt = new Date().toISOString();
   return restored;

@@ -137,7 +137,7 @@ export const RACE_DEFS = [
         advantages: [
           "Triple Move Speed while swimming.",
           "Breathe underwater.",
-          "Each Combat round, roll one Health die and heal that much HP.",
+          "A hidden healing ATB uses the number of purchased Health dice as its Speed. When it fills, heal 1 HP, reset it, and repeat.",
           "Reattach severed limbs.",
         ],
       },
