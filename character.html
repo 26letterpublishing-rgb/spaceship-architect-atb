@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260808-combat-1" />
+  <link rel="stylesheet" href="character.css?v=20260808-layout-2" />
   </head>
   <body>
     <header class="creator-header">
@@ -51,6 +51,18 @@
           </div>
           <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
+        </section>
+        <section id="campaignSheetViewer" class="campaign-sheet-viewer" hidden>
+          <header class="campaign-sheet-viewer-heading">
+            <button id="closeCampaignSheetViewer" type="button">Back to Roster</button>
+            <div><span>VIEWING</span><strong id="campaignSheetViewerName">CHARACTER</strong></div>
+            <nav aria-label="Browse campaign character sheets">
+              <button id="previousCampaignSheet" type="button" aria-label="View previous campaign character">&#9664;</button>
+              <span id="campaignSheetViewerPosition">1 / 1</span>
+              <button id="nextCampaignSheet" type="button" aria-label="View next campaign character">&#9654;</button>
+            </nav>
+          </header>
+          <iframe id="campaignSheetFrame" class="campaign-sheet-frame" title="Campaign character sheet"></iframe>
         </section>
         <section id="campaignPrivateNotes" class="campaign-private-notes" hidden>
           <div class="campaign-private-notes-heading">
@@ -324,6 +336,11 @@
             <button id="printCharacterSheet" type="button">Print Character Sheet</button>
           </div>
         </section>
+        <section id="versionUpdateCard" class="version-update-card" hidden>
+          <h2>Character Version</h2>
+          <p id="versionUpdateMessage">This character was saved by an earlier build. Update its formulas and combat data to the current version.</p>
+          <button id="updateCharacterVersion" class="primary-action" type="button">Update to New Version</button>
+        </section>
         <section id="joinCampaignPanel" class="join-campaign-settings" hidden>
           <h2>Join Campaign</h2>
           <p>Enter the permanent Campaign Code supplied by the GM. Your character remains unattached until the GM approves the request.</p>
@@ -499,6 +516,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260808-combat-1"></script>
+  <script type="module" src="character.js?v=20260808-layout-2"></script>
   </body>
 </html>

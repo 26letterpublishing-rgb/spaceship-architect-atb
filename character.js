@@ -105,9 +105,11 @@ const PHYSICAL_SKILLS = new Set([
   "Wrestle/Disarm",
 ]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
-const FORMAT_VERSION = 4;
+const FORMAT_VERSION = 5;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const DEBUG_CONTROLS_ENABLED = false;
+const PAGE_PARAMS = new URLSearchParams(window.location.search);
+const CAMPAIGN_READ_ONLY_VIEW = PAGE_PARAMS.get("campaignView") === "1";
 const $ = (selector) => document.querySelector(selector);
 
 const dom = {
@@ -260,6 +262,13 @@ const dom = {
   lobbyCampaignCode: $("#lobbyCampaignCode"),
   lobbyCampaignName: $("#lobbyCampaignName"),
   campaignRosterCards: $("#campaignRosterCards"),
+  campaignSheetViewer: $("#campaignSheetViewer"),
+  campaignSheetViewerName: $("#campaignSheetViewerName"),
+  campaignSheetViewerPosition: $("#campaignSheetViewerPosition"),
+  campaignSheetFrame: $("#campaignSheetFrame"),
+  closeCampaignSheetViewer: $("#closeCampaignSheetViewer"),
+  previousCampaignSheet: $("#previousCampaignSheet"),
+  nextCampaignSheet: $("#nextCampaignSheet"),
   campaignPrivateNotes: $("#campaignPrivateNotes"),
   changeCampaign: $("#changeCampaign"),
   createCampaignCharacter: $("#createCampaignCharacter"),
@@ -326,6 +335,9 @@ const dom = {
   playerSettingsPanel: $("#playerSettingsPanel"),
   characterLayoutToggle: $("#characterLayoutToggle"),
   resourceHudToggle: $("#resourceHudToggle"),
+  versionUpdateCard: $("#versionUpdateCard"),
+  versionUpdateMessage: $("#versionUpdateMessage"),
+  updateCharacterVersion: $("#updateCharacterVersion"),
   settingsLoadCharacter: $("#settingsLoadCharacter"),
   settingsExportCharacter: $("#settingsExportCharacter"),
   settingsNewCharacter: $("#settingsNewCharacter"),
@@ -481,7 +493,8 @@ let saveTimer = null;
 let noticeTimer = null;
 let confirmResolver = null;
 let pcCodeResolver = null;
-let migrationDetected = false;
+let finalizationPresentationActive = false;
+let campaignViewerCharacterId = "";
 let fubsRollInProgress = false;
 let rollToastTimer = null;
 let skillCheck = null;
@@ -702,7 +715,8 @@ function rebuildPurchaseOrder(characterObject) {
 function normalizeCharacter(raw) {
   const base = blankCharacter();
   const source = raw && typeof raw === "object" ? raw : {};
-  const legacy = (Number(source.version) || 1) < FORMAT_VERSION;
+  const sourceVersion = Math.max(1, Math.round(Number(source.version) || 1));
+  const legacy = sourceVersion < 4;
   const identity = { ...base.identity, ...(source.identity || {}) };
   identity.classId = identity.classId || classIdFromName(identity.className);
   identity.className = classById(identity.classId).name;
@@ -726,10 +740,10 @@ function normalizeCharacter(raw) {
     ...base,
     ...source,
     id: source.id || uid(),
-    version: FORMAT_VERSION,
-    phase: legacy ? "draft" : ["draft", "finalizing", "finalized"].includes(source.phase) ? source.phase : "draft",
-    advancementOpen: legacy ? false : Boolean(source.advancementOpen),
-    legacyDraft: legacy || Boolean(source.legacyDraft),
+    version: sourceVersion,
+    phase: ["draft", "finalizing", "finalized"].includes(source.phase) ? source.phase : "draft",
+    advancementOpen: Boolean(source.advancementOpen),
+    legacyDraft: Boolean(source.legacyDraft),
     identity,
     experience: { ...base.experience, ...(source.experience || {}) },
     attributes: { ...base.attributes },
@@ -737,7 +751,7 @@ function normalizeCharacter(raw) {
     customSkills: [],
     creation: { ...base.creation, ...(source.creation || {}) },
     fubs: { ...base.fubs, ...(source.fubs || {}) },
-    pendingRoll: legacy ? null : source.pendingRoll || null,
+    pendingRoll: source.pendingRoll || null,
     health: { ...base.health, ...(source.health || {}) },
     resources: {
       ...base.resources,
@@ -786,8 +800,8 @@ function normalizeCharacter(raw) {
   normalized.creation.finalizationQueue = Array.isArray(source.creation?.finalizationQueue)
     ? source.creation.finalizationQueue.filter((key) => typeof key === "string")
     : [];
-  normalized.creation.classGrantsApplied = legacy ? false : Boolean(source.creation?.classGrantsApplied);
-  normalized.creation.raceGrantsApplied = legacy ? false : Boolean(source.creation?.raceGrantsApplied);
+  normalized.creation.classGrantsApplied = Boolean(source.creation?.classGrantsApplied);
+  normalized.creation.raceGrantsApplied = Boolean(source.creation?.raceGrantsApplied);
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
   normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
@@ -841,9 +855,7 @@ function rawLibrary() {
 }
 
 function loadLibrary() {
-  const raw = rawLibrary();
-  migrationDetected = raw.some((entry) => (Number(entry?.version) || 1) < FORMAT_VERSION);
-  return raw.map(normalizeCharacter);
+  return rawLibrary().map(normalizeCharacter);
 }
 
 function loadRecoveries() {
@@ -877,9 +889,11 @@ function saveLibrary(message = "Saved locally") {
     maximumHp: maximumHp(),
     moveSpeed: calculatedMoveSpeed(),
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
-  localStorage.setItem(ACTIVE_KEY, activeId);
-  if (campaignCode && campaignCharacterId) cacheCampaignCharacter();
+  if (!CAMPAIGN_READ_ONLY_VIEW) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
+    localStorage.setItem(ACTIVE_KEY, activeId);
+    if (campaignCode && campaignCharacterId) cacheCampaignCharacter();
+  }
   dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
   dom.saveStatus.classList.remove("saving");
   if (campaignCode && campaignCharacterId && campaignEditable && !suppressCampaignSave) {
@@ -1019,6 +1033,31 @@ let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "a
 let joinStatusTimer = null;
 let playerAtbLoading = false;
 
+function creationLayoutForced() {
+  return character.phase !== "finalized" || finalizationPresentationActive || CAMPAIGN_READ_ONLY_VIEW;
+}
+
+function isTabbedCharacterLayout() {
+  return !creationLayoutForced() && characterLayoutMode === "tabs";
+}
+
+function updateLibraryVisibility() {
+  const libraryBar = dom.characterPicker.closest(".library-bar");
+  if (!libraryBar) return;
+  const localSheet = !campaignCode && !CAMPAIGN_READ_ONLY_VIEW && activeCharacterTab === "sheet";
+  const sectionAllowsLibrary = !isTabbedCharacterLayout() || activeSheetSection === "identity";
+  libraryBar.hidden = !(localSheet && sectionAllowsLibrary);
+}
+
+function renderVersionUpdate() {
+  if (!dom.versionUpdateCard) return;
+  const version = Math.max(1, Math.round(Number(character.version) || 1));
+  const editable = !campaignCode || campaignEditable;
+  const outdated = version < FORMAT_VERSION;
+  dom.versionUpdateCard.hidden = !outdated || !editable || CAMPAIGN_READ_ONLY_VIEW;
+  if (outdated) dom.versionUpdateMessage.textContent = `This character uses version ${version}. Update its formulas and combat data to version ${FORMAT_VERSION}.`;
+}
+
 function renderTabbedStatus() {
   const maximum = maximumHp();
   const current = character.health.current === null || character.health.current === undefined
@@ -1030,7 +1069,7 @@ function renderTabbedStatus() {
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = Math.max(0, Number(character.resources.creditsBase) || 0).toLocaleString();
 
-  const visible = resourceHudVisible && character.phase === "finalized";
+  const visible = resourceHudVisible && character.phase === "finalized" && !CAMPAIGN_READ_ONLY_VIEW;
   dom.globalCharacterHud.hidden = !visible;
   document.body.classList.toggle("resource-hud-visible", visible);
   dom.resourceHudToggle?.querySelectorAll("[data-hud-visible]").forEach((button) => {
@@ -1042,7 +1081,7 @@ function renderTabbedStatus() {
 
 function showSheetSection(section = "identity", { scroll = false } = {}) {
   activeSheetSection = SHEET_SECTIONS.has(section) ? section : "identity";
-  const tabbed = characterLayoutMode === "tabs";
+  const tabbed = isTabbedCharacterLayout();
   dom.characterSheet.dataset.activeSection = activeSheetSection;
   dom.characterSheet.querySelectorAll("[data-sheet-section]").forEach((panel) => {
     panel.hidden = tabbed && panel.dataset.sheetSection !== activeSheetSection;
@@ -1052,6 +1091,7 @@ function showSheetSection(section = "identity", { scroll = false } = {}) {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
   });
+  updateLibraryVisibility();
 
   if (scroll && activeCharacterTab === "sheet") {
     dom.characterSheet.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1059,7 +1099,10 @@ function showSheetSection(section = "identity", { scroll = false } = {}) {
 }
 
 function renderCharacterLayout() {
-  const tabbed = characterLayoutMode === "tabs";
+  const tabbed = isTabbedCharacterLayout();
+  const creationActive = character.phase !== "finalized" || finalizationPresentationActive;
+  document.body.classList.toggle("character-creation-active", creationActive);
+  document.body.classList.toggle("campaign-sheet-embed", CAMPAIGN_READ_ONLY_VIEW);
   dom.characterWorkspace.classList.toggle("tabbed-layout", tabbed);
   dom.characterWorkspace.classList.toggle("character-finalized", character.phase === "finalized");
   dom.tabbedToolbar.hidden = !tabbed;
@@ -1067,11 +1110,13 @@ function renderCharacterLayout() {
     const selected = button.dataset.layoutMode === characterLayoutMode;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-checked", String(selected));
+    button.disabled = creationActive || CAMPAIGN_READ_ONLY_VIEW;
+    button.title = creationActive ? "Character creation uses the full sheet. This preference applies after finalization." : "";
   });
   renderTabbedStatus();
+  renderVersionUpdate();
   showSheetSection(activeSheetSection);
 }
-
 async function loadPlayerAtb({ reload = false } = {}) {
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   if (!campaignCode || !ownId || !dom.playerAtbFrame || playerAtbLoading) return;
@@ -1094,7 +1139,9 @@ async function loadPlayerAtb({ reload = false } = {}) {
 
 function showCharacterPanel(tab = "sheet") {
   const available = [...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
+  const previousTab = activeCharacterTab;
   activeCharacterTab = available ? tab : "sheet";
+  if (activeCharacterTab === "roster" && previousTab !== "roster") campaignViewerCharacterId = "";
   document.querySelectorAll("[data-character-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.characterPanel !== activeCharacterTab;
   });
@@ -1103,9 +1150,9 @@ function showCharacterPanel(tab = "sheet") {
   if (activeCharacterTab === "roster") renderCampaignRoster();
   if (activeCharacterTab === "atb") void loadPlayerAtb();
   renderTabbedStatus();
+  updateLibraryVisibility();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-
 function renderCharacterNavigation() {
   const linked = Boolean(campaignCode && campaignCharacterId && campaignState);
   const pending = character.campaignLink?.status === "pending";
@@ -1149,30 +1196,77 @@ function renderCharacterNavigation() {
   showCharacterPanel(activeCharacterTab);
 }
 
+function campaignViewerRecords() {
+  return campaignState?.characters || [];
+}
+
+function openCampaignSheetViewer(recordId) {
+  const records = campaignViewerRecords();
+  const index = records.findIndex((entry) => entry.id === recordId);
+  if (index < 0) return;
+  const record = records[index];
+  campaignViewerCharacterId = record.id;
+  dom.campaignLobby.hidden = true;
+  dom.campaignPrivateNotes.hidden = true;
+  dom.campaignSheetViewer.hidden = false;
+  dom.campaignSheetViewerName.textContent = campaignCharacterName(record).toUpperCase();
+  dom.campaignSheetViewerPosition.textContent = `${index + 1} / ${records.length}`;
+  dom.previousCampaignSheet.disabled = records.length < 2;
+  dom.nextCampaignSheet.disabled = records.length < 2;
+  const src = `character.html?campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(record.id)}&embedded=1&campaignView=1`;
+  if (dom.campaignSheetFrame.dataset.characterId !== record.id) {
+    dom.campaignSheetFrame.dataset.characterId = record.id;
+    dom.campaignSheetFrame.style.height = "900px";
+    dom.campaignSheetFrame.src = src;
+  }
+}
+
+function closeCampaignSheetViewer() {
+  campaignViewerCharacterId = "";
+  dom.campaignSheetViewer.hidden = true;
+  dom.campaignSheetFrame.removeAttribute("src");
+  dom.campaignSheetFrame.dataset.characterId = "";
+  dom.campaignLobby.hidden = false;
+  dom.campaignPrivateNotes.hidden = campaignState?.role === "gm";
+}
+
+function stepCampaignSheet(direction) {
+  const records = campaignViewerRecords();
+  if (records.length < 2) return;
+  const current = Math.max(0, records.findIndex((entry) => entry.id === campaignViewerCharacterId));
+  openCampaignSheetViewer(records[(current + direction + records.length) % records.length].id);
+}
+
 function renderCampaignRoster() {
   if (!campaignState) {
     dom.campaignPrivateNotes.hidden = true;
+    dom.campaignSheetViewer.hidden = true;
     return;
   }
   dom.campaignEntryPrompt.hidden = true;
   dom.lobbyCampaignCode.textContent = campaignState.code;
   dom.lobbyCampaignName.textContent = campaignState.name;
-  const records = campaignState.characters || [];
+  const records = campaignViewerRecords();
   dom.campaignRosterCards.innerHTML = records.length ? records.map((record) => {
     const name = campaignCharacterName(record);
     const player = campaignPlayerName(record);
     return `<article class="campaign-character-card" style="--character-color:${escapeAttribute(record.character?.presentation?.atbColor || "#39e58f")}">
       <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong></div>
       <div class="campaign-character-card-actions">
-        <button type="button" data-campaign-view="${record.id}">View Characters</button>
+        <button type="button" data-campaign-view="${record.id}">View Sheet</button>
       </div>
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
-  dom.campaignLobby.hidden = false;
-  dom.campaignPrivateNotes.hidden = campaignState.role === "gm";
+  if (campaignViewerCharacterId && records.some((record) => record.id === campaignViewerCharacterId)) {
+    openCampaignSheetViewer(campaignViewerCharacterId);
+  } else {
+    campaignViewerCharacterId = "";
+    dom.campaignSheetViewer.hidden = true;
+    dom.campaignLobby.hidden = false;
+    dom.campaignPrivateNotes.hidden = campaignState.role === "gm";
+  }
   refreshPrivateNotes();
 }
-
 function applyCampaignPermissions() {
   if (!campaignCode) return;
   const editable = campaignEditable;
@@ -1191,23 +1285,30 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   suppressCampaignSave = true;
   const opened = normalizeCharacter(deepCopy(record.character || {}));
   opened.id = record.id;
-  library = [opened];
-  activeId = opened.id;
-  character = opened;
+  if (CAMPAIGN_READ_ONLY_VIEW) {
+    character = opened;
+  } else {
+    library = [opened];
+    activeId = opened.id;
+    character = opened;
+  }
   campaignBaselineCredits = Number(opened.resources?.creditsBase) || 0;
   campaignCharacterId = record.id;
   campaignToken = token || "";
   campaignPin = pin || record.pcCode || opened.access?.pcCode || "";
   campaignEditable = editable;
   campaignDirty = false;
-  localStorage.setItem(ACTIVE_KEY, activeId);
-  if (campaignToken) localStorage.setItem(campaignTokenKey(campaignCode, campaignCharacterId), campaignToken);
+  if (!CAMPAIGN_READ_ONLY_VIEW) {
+    localStorage.setItem(ACTIVE_KEY, activeId);
+    if (campaignToken) localStorage.setItem(campaignTokenKey(campaignCode, campaignCharacterId), campaignToken);
+  }
   opened.campaignLink = { roomCode: campaignCode, campaignName: campaignState.name, status: "linked", requestId: "", message: "" };
   opened.access = { ...(opened.access || {}), pcCode: campaignPin };
   dom.campaignAccessBar.hidden = false;
   dom.activeCampaignLabel.textContent = `${campaignState.name} / ${campaignCode}`;
   dom.characterPicker.closest(".library-bar").hidden = true;
   renderAll();
+
   updateCampaignCharacterNavigation();
   applyCampaignPermissions();
   refreshPrivateNotes();
@@ -1819,7 +1920,7 @@ function derivedValues() {
   const mastermind = finalizedModifiersActive() && character.identity.classId === "mastermind";
   return {
     speed: boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1),
-    command: boxesFilled("perception") * 10 + awareness * (mastermind ? 45 : 20),
+    command: boxesFilled("perception") * 8 + awareness * (mastermind ? 45 : 12),
   };
 }
 
@@ -2215,7 +2316,7 @@ function dieSvg(column, cost, purchased) {
     `<path class="die-shape" d="m24 3 20 19-20 23L4 22Z" /><path class="die-detail" d="m24 3 8 17-8 25-8-25ZM4 22l12-2h16l12 2" />`,
     `<path class="die-shape" d="m24 3 17 10 2 20-19 12L5 33l2-20Z" /><path class="die-inner" d="m24 7 11 7-4 13H17l-4-13Z" />`,
   ];
-  return `<svg viewBox="-4 -4 56 56" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${shapes[column]}${purchased ? "" : `<text class="die-cost" x="24" y="25">${cost}</text><text class="die-xp" x="24" y="33">XP</text>`}</svg>`;
+  return `<svg viewBox="-4 -4 56 56" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${shapes[column]}${purchased ? "" : `<text class="die-cost" x="24" y="16">${cost}</text><text class="die-xp" x="24" y="24">XP</text>`}</svg>`;
 }
 
 function diceSummary(attributeKey) {
@@ -3060,10 +3161,10 @@ function renderDerived() {
   dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
-  const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 20;
+  const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 12;
   const perceptionBoxes = boxesFilled("perception");
   const awarenessRating = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
-  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x10 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x8 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
   dom.maximumHp.textContent = hp.value;
   dom.maximumHpFormula.textContent = hp.formula;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -3551,6 +3652,7 @@ async function beginFinalization() {
   character.access.pcCode = pcCode;
   saveLibrary();
   snapshotRecovery("Before Finalization");
+  finalizationPresentationActive = true;
   if (fubsMissing) character.fubs.status = "not-activated";
   character.phase = "finalizing";
   character.advancementOpen = false;
@@ -3600,6 +3702,7 @@ function applyResourceGrant(effects) {
 }
 
 async function finishFinalization() {
+  finalizationPresentationActive = true;
   if (!character.creation.classGrantsApplied) {
     applyResourceGrant(rawClassEffects());
     character.creation.classGrantsApplied = true;
@@ -3627,6 +3730,8 @@ async function finishFinalization() {
   renderAll();
   notice("Character finalized. Advancement rules are now active.", "success");
   await playFinalizedIdentityReveal();
+  finalizationPresentationActive = false;
+  renderCharacterLayout();
   renderCharacterNavigation();
 }
 
@@ -4085,6 +4190,8 @@ document.addEventListener("click", (event) => {
 
   const skillButton = event.target.closest("[data-skill-action]");
   if (skillButton) {
+    event.preventDefault();
+    skillButton.blur();
     const key = skillButton.dataset.skillKey;
     if (skillButton.dataset.skillAction === "decrease") changeDraftSkill(key, -1);
     else if (character.phase === "draft") changeDraftSkill(key, 1);
@@ -4446,13 +4553,12 @@ dom.campaignCode?.addEventListener("input", () => {
 dom.campaignRosterCards?.addEventListener("click", (event) => {
   const view = event.target.closest("[data-campaign-view]");
   const recordId = view?.dataset.campaignView;
-  if (!recordId) return;
-  const record = campaignState.characters.find((entry) => entry.id === recordId);
-  if (!record) return;
-  const owned = campaignState.role === "character" && campaignState.ownCharacterId === recordId;
-  showCampaignCharacter(record, { editable: owned, token: owned ? campaignToken : "", pin: owned ? record.pcCode : "" });
-  showCharacterPanel("sheet");
+  if (recordId) openCampaignSheetViewer(recordId);
 });
+
+dom.closeCampaignSheetViewer?.addEventListener("click", closeCampaignSheetViewer);
+dom.previousCampaignSheet?.addEventListener("click", () => stepCampaignSheet(-1));
+dom.nextCampaignSheet?.addEventListener("click", () => stepCampaignSheet(1));
 
 dom.createCampaignCharacter?.addEventListener("click", async () => {
   if (!campaignCode) return;
@@ -4575,7 +4681,7 @@ dom.sheetSectionTabs?.addEventListener("click", (event) => {
 
 dom.characterLayoutToggle?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-layout-mode]");
-  if (!button) return;
+  if (!button || creationLayoutForced()) return;
   const mode = button.dataset.layoutMode === "tabs" ? "tabs" : "sheet";
   if (mode === characterLayoutMode) return;
   characterLayoutMode = mode;
@@ -4686,6 +4792,57 @@ async function replaceCurrentCharacter(nextCharacter) {
   showCharacterPanel("sheet");
 }
 
+async function updateCurrentCharacterVersion() {
+  if ((Number(character.version) || 1) >= FORMAT_VERSION || CAMPAIGN_READ_ONLY_VIEW) return;
+  const accepted = await askConfirmation({
+    title: "Update this character?",
+    message: "The sheet will use the newest formulas and data format. If this character is in Combat, their ATB resets to 0% and an active Command Window closes. Delay Timers, Delayed Resolutions, and Queued Effects remain in place.",
+    acceptLabel: "Update Character",
+    cancelLabel: "Not Yet",
+  });
+  if (!accepted) return;
+
+  const previousMaximum = maximumHp();
+  const upgraded = normalizeCharacter({ ...deepCopy(character), version: FORMAT_VERSION, legacyDraft: false });
+  upgraded.id = character.id;
+  upgraded.phase = character.phase;
+  const libraryIndex = library.findIndex((entry) => entry.id === character.id);
+  if (libraryIndex >= 0) library[libraryIndex] = upgraded;
+  character = upgraded;
+  syncDerivedResources(previousMaximum);
+  renderAll();
+  saveLibrary(`Updated to character version ${FORMAT_VERSION}`);
+
+  let combatReset = false;
+  if (campaignCode && campaignCharacterId && campaignEditable) {
+    await saveCampaignCharacter({ force: true });
+    const timing = derivedValues();
+    try {
+      await campaignRequest("/api/action", {
+        method: "POST",
+        body: JSON.stringify({
+          roomCode: campaignCode,
+          characterId: campaignCharacterId,
+          characterToken: campaignToken,
+          action: "refreshCharacterVersion",
+          characterName: character.identity.characterName,
+          playerName: character.identity.playerName,
+          color: character.presentation.atbColor,
+          speed: timing.speed,
+          commandWindow: timing.command,
+        }),
+      });
+      combatReset = true;
+      if (dom.playerAtbFrame?.getAttribute("src")) void loadPlayerAtb({ reload: true });
+    } catch (error) {
+      notice(`Character updated, but Combat could not refresh: ${error.message}`, "error");
+    }
+  }
+  renderCharacterNavigation();
+  notice(`Character updated to version ${FORMAT_VERSION}.${combatReset ? " Combat ATB reset to 0%." : ""}`, "success");
+}
+
+dom.updateCharacterVersion?.addEventListener("click", updateCurrentCharacterVersion);
 dom.settingsExportCharacter?.addEventListener("click", exportCurrentCharacter);
 
 dom.settingsLoadCharacter?.addEventListener("change", async () => {
@@ -4754,8 +4911,13 @@ dom.settingsLogout?.addEventListener("click", async () => {
 });
 
 window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin || event.source !== dom.playerAtbFrame?.contentWindow) return;
-  if (event.data?.type !== "sa-combat-layout") return;
+  if (event.origin !== window.location.origin) return;
+  if (event.source === dom.campaignSheetFrame?.contentWindow && event.data?.type === "sa-character-sheet-height") {
+    const height = Math.max(500, Math.min(12000, Number(event.data.height) || 900));
+    dom.campaignSheetFrame.style.height = `${height}px`;
+    return;
+  }
+  if (event.source !== dom.playerAtbFrame?.contentWindow || event.data?.type !== "sa-combat-layout") return;
   const preview = Boolean(event.data.preview);
   dom.playerAtbFrame.closest(".player-atb-live")?.classList.toggle("combat-preview", preview);
   dom.playerAtbStatus.textContent = preview
@@ -4965,6 +5127,7 @@ dom.skillSort?.addEventListener("change", () => {
   renderSkills();
 });
 window.addEventListener("beforeunload", () => {
+  if (CAMPAIGN_READ_ONLY_VIEW) return;
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
     const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, character });
@@ -4972,16 +5135,8 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-if (migrationDetected) {
-  library = [blankCharacter()];
-  recoveries = [];
-  activeId = library[0].id;
-  character = library[0];
-  localStorage.removeItem(RECOVERY_KEY);
-}
-
 async function initializeCharacterApp() {
-  const params = new URLSearchParams(window.location.search);
+  const params = PAGE_PARAMS;
   document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
   const requestedCode = String(params.get("campaign") || localStorage.getItem("sa-character-campaign-code") || "").trim().toUpperCase();
   const requestedCharacter = String(params.get("character") || "");
@@ -5031,6 +5186,17 @@ async function initializeCharacterApp() {
   if (character.campaignLink?.status === "pending") scheduleJoinStatusCheck(800);
 }
 
+function publishEmbeddedCharacterHeight() {
+  if (!CAMPAIGN_READ_ONLY_VIEW || window.parent === window) return;
+  const height = Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+  window.parent.postMessage({ type: "sa-character-sheet-height", height }, window.location.origin);
+}
+
+if (CAMPAIGN_READ_ONLY_VIEW && "ResizeObserver" in window) {
+  const embeddedSizeObserver = new ResizeObserver(() => publishEmbeddedCharacterHeight());
+  embeddedSizeObserver.observe(document.documentElement);
+  window.addEventListener("load", publishEmbeddedCharacterHeight);
+}
 renderAll();
-saveLibrary(migrationDetected ? "Old prototype characters cleared" : "Saved locally");
+if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 initializeCharacterApp();

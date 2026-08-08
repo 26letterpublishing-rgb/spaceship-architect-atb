@@ -1323,3 +1323,133 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
 /* Compact inactive Combat preview */
 .player-atb-live.combat-preview > p { display:none; }
 .player-atb-live.combat-preview .player-atb-frame { height:168px; min-height:168px; }
+/* Authoritative character layout contract: creation, sticky layers, and Campaign viewing */
+html { -webkit-text-size-adjust:100%; }
+.workflow-bar,
+.creator-shell.tabbed-layout .workflow-bar,
+.creator-shell.character-finalized .workflow-bar {
+  position:relative;
+  top:auto;
+  z-index:3;
+}
+.character-creation-active .workflow-bar.draft-active {
+  position:sticky;
+  top:6px;
+  z-index:75;
+}
+.creator-shell.tabbed-layout .tabbed-character-toolbar {
+  position:sticky;
+  top:6px;
+  z-index:70;
+}
+.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:58px; }
+.character-creation-active .tabbed-character-toolbar { display:none!important; }
+.character-creation-active #characterSheet {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.character-creation-active #characterSheet > .sheet-panel {
+  width:100%;
+  grid-column:1 / -1;
+  grid-row:auto;
+}
+.character-creation-active #characterSheet > .identity-panel { order:1; }
+.character-creation-active #characterSheet > .attributes-panel { order:2; }
+.character-creation-active #characterSheet > .skills-panel { order:3; }
+.character-creation-active #characterSheet > .notes-panel { order:4; }
+.character-creation-active #characterSheet > .experience-panel { order:5; }
+.character-creation-active #characterSheet > .derived-panel { order:6; }
+.character-creation-active #characterSheet > .resources-panel { order:7; }
+.character-creation-active #characterSheet > .advantages-panel { order:8; }
+.character-creation-active #characterSheet > .crew-panel { order:9; }
+.character-creation-active .character-layout-toggle button:disabled { opacity:.56; cursor:not-allowed; }
+
+.skill-buy,
+.skill-refund,
+.attribute-die { touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none; }
+.skill-buy { font-size:16px!important; }
+.attribute-die .die-cost { dominant-baseline:auto; }
+
+.campaign-sheet-viewer {
+  margin-top:14px;
+  border:1px solid #31516b;
+  background:#050d16;
+  box-shadow:0 16px 34px rgba(0,0,0,.46);
+}
+.campaign-sheet-viewer-heading {
+  position:sticky;
+  top:0;
+  z-index:8;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:8px 10px;
+  border-bottom:1px solid #31516b;
+  background:linear-gradient(180deg,rgba(17,32,47,.99),rgba(6,15,25,.99));
+  box-shadow:0 8px 20px rgba(0,0,0,.42);
+}
+.resource-hud-visible .campaign-sheet-viewer-heading { top:58px; }
+.campaign-sheet-viewer-heading > div { min-width:0; display:grid; justify-items:center; gap:2px; }
+.campaign-sheet-viewer-heading > div span { color:var(--cyan); font-size:.54rem; font-weight:900; }
+.campaign-sheet-viewer-heading > div strong { max-width:100%; overflow:hidden; color:#fff; font-size:1rem; text-overflow:ellipsis; white-space:nowrap; }
+.campaign-sheet-viewer-heading nav { display:grid; grid-template-columns:38px auto 38px; align-items:center; gap:6px; }
+.campaign-sheet-viewer-heading nav button { width:38px; min-width:38px; min-height:36px; padding:0; }
+.campaign-sheet-viewer-heading nav span { color:#b9cad8; font-size:.67rem; font-weight:900; white-space:nowrap; }
+.campaign-sheet-frame { display:block; width:100%; min-height:700px; border:0; background:#07111b; }
+.version-update-card { border-color:#a97924!important; box-shadow:inset 3px 0 #ffd266,0 0 16px rgba(255,197,70,.12); }
+.version-update-card h2 { color:#ffd266; }
+
+.embedded-sheet.campaign-sheet-embed {
+  min-width:0;
+  background:#07111b;
+}
+.embedded-sheet.campaign-sheet-embed .creator-header,
+.embedded-sheet.campaign-sheet-embed .character-tabs,
+.embedded-sheet.campaign-sheet-embed .global-character-hud,
+.embedded-sheet.campaign-sheet-embed .library-bar,
+.embedded-sheet.campaign-sheet-embed .campaign-access-bar,
+.embedded-sheet.campaign-sheet-embed .workflow-bar,
+.embedded-sheet.campaign-sheet-embed .tabbed-character-toolbar,
+.embedded-sheet.campaign-sheet-embed .character-page-panel:not(#characterWorkspace) { display:none!important; }
+.embedded-sheet.campaign-sheet-embed #characterWorkspace {
+  display:block!important;
+  width:100%;
+  margin:0;
+  padding:0;
+}
+.embedded-sheet.campaign-sheet-embed #characterSheet { margin:0; }
+.embedded-sheet.campaign-sheet-embed #characterSheet::before,
+.embedded-sheet.campaign-sheet-embed #characterSheet::after { display:none; }
+.embedded-sheet.campaign-sheet-embed .sheet-panel { box-shadow:none; }
+
+@media(max-width:760px) {
+  .character-creation-active .workflow-bar.draft-active {
+    top:4px;
+    max-height:44dvh;
+    overflow:auto;
+    overscroll-behavior:contain;
+  }
+  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:46px; }
+  .resource-hud-visible .campaign-sheet-viewer-heading { top:46px; }
+  .campaign-sheet-viewer { margin-inline:-10px; }
+  .campaign-sheet-viewer-heading {
+    grid-template-columns:1fr auto;
+    grid-template-areas:"identity browse" "back back";
+    gap:7px;
+  }
+  .campaign-sheet-viewer-heading > div { grid-area:identity; justify-items:start; }
+  .campaign-sheet-viewer-heading nav { grid-area:browse; }
+  .campaign-sheet-viewer-heading > button { grid-area:back; width:100%; min-height:36px; }
+  .campaign-sheet-frame { min-height:900px; }
+  .skill-buy { -webkit-user-select:none; }
+}
+
+@media(max-width:430px) {
+  .character-creation-active .workflow-bar.draft-active { max-height:48dvh; }
+  .campaign-sheet-viewer-heading > div strong { font-size:.86rem; }
+  .campaign-sheet-viewer-heading nav { grid-template-columns:34px auto 34px; gap:4px; }
+  .campaign-sheet-viewer-heading nav button { width:34px; min-width:34px; }
+}

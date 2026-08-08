@@ -233,9 +233,9 @@ function characterSpeed(record) {
 }
 
 function commandWindow(record) {
-  const awarenessMultiplier = record?.character?.identity?.classId === "mastermind" ? 45 : 20;
+  const awarenessMultiplier = record?.character?.identity?.classId === "mastermind" ? 45 : 12;
   return record?.character?.computed?.commandWindow
-    ?? Math.max(1, boxesFilled(record, "perception") * 10 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
+    ?? Math.max(1, boxesFilled(record, "perception") * 8 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
 }
 
 function encounterRuleFields(record) {

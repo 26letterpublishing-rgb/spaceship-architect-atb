@@ -902,9 +902,11 @@ async function handleAction(req, res) {
   const playerUnit = body.id
     ? room.units.find((entry) => entry.id === body.id)
     : body.characterId ? room.units.find((entry) => entry.characterId === String(body.characterId)) : null;
+  const characterAuthorized = Boolean(body.characterId)
+    && await campaignApi?.verifyCharacterAccess(room.roomCode, String(body.characterId), body.characterToken);
   const playerAuthorized = playerUnit?.characterId
     && playerUnit.characterId === String(body.characterId || "")
-    && await campaignApi?.verifyCharacterAccess(room.roomCode, playerUnit.characterId, body.characterToken);
+    && characterAuthorized;
   const joiningPlayer = action === "join" && body.controlledBy === "player";
   if (joiningPlayer) {
     const allowed = body.characterId && await campaignApi?.verifyCharacterAccess(room.roomCode, String(body.characterId), body.characterToken);
@@ -914,6 +916,11 @@ async function handleAction(req, res) {
     }
   } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
+      sendJson(res, 403, { error: "Character or GM authorization is required." });
+      return;
+    }
+  } else if (action === "refreshCharacterVersion") {
+    if (!characterAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
     }
@@ -1004,6 +1011,26 @@ async function handleAction(req, res) {
       unit.color = nextColor;
     }
     if (changed) pushLog(room, `${changed} campaign character${changed === 1 ? "" : "s"} synchronized from updated sheets.`);
+  }
+
+  if (action === "refreshCharacterVersion") {
+    const unit = room.units.find((entry) => entry.characterId === String(body.characterId || ""));
+    if (unit) {
+      const wasActive = room.activeId === unit.id;
+      const previousSource = room.activeSource;
+      unit.atb = 0;
+      unit.speed = normalizeSpeed(body.speed);
+      unit.commandWindow = normalizeCommandWindow(body.commandWindow);
+      unit.characterName = String(body.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
+      unit.playerName = String(body.playerName || unit.playerName).trim().slice(0, 40) || unit.playerName;
+      unit.color = normalizeColor(body.color || unit.color);
+      if (wasActive) {
+        room.activeId = null;
+        room.pausedForTurn = false;
+        clearActiveCommand(room);
+        moveToNextTurnOrClock(room, previousSource);
+      }
+    }
   }
 
   if (action === "removeUnit") {
