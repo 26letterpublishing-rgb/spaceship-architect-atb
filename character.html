@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260807-rules-3" />
+  <link rel="stylesheet" href="character.css?v=20260807-tabs-1" />
   </head>
   <body>
     <header class="creator-header">
@@ -21,7 +21,7 @@
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
       <button type="button" data-character-tab="roster" hidden>Campaign Roster</button>
       <button type="button" data-character-tab="inbox" hidden>Inbox <strong id="playerInboxCount">0</strong></button>
-      <button type="button" data-character-tab="join" hidden>Join Campaign</button>
+
       <button type="button" data-character-tab="atb" hidden>ATB</button>
       <button type="button" data-character-tab="settings">Settings</button>
     </nav>
@@ -80,6 +80,23 @@
         <button id="returnToCampaignRoster" type="button" hidden>Campaign Roster</button>
       </section>
 
+      <section id="tabbedCharacterToolbar" class="tabbed-character-toolbar" hidden>
+        <nav id="sheetSectionTabs" class="sheet-section-tabs" aria-label="Character sheet sections">
+          <button type="button" data-sheet-section-tab="identity" class="active" aria-selected="true">Identity</button>
+          <button type="button" data-sheet-section-tab="attributes" aria-selected="false">Attributes</button>
+          <button type="button" data-sheet-section-tab="skills" aria-selected="false">Skills</button>
+          <button type="button" data-sheet-section-tab="substats" aria-selected="false">Substats</button>
+          <button type="button" data-sheet-section-tab="resources" aria-selected="false">Resources</button>
+          <button type="button" data-sheet-section-tab="supplies" aria-selected="false">Supplies</button>
+        </nav>
+        <div id="tabbedStatusStrip" class="tabbed-status-strip" aria-label="Current character status">
+          <div><span>Experience</span><strong id="tabStatusExperience">0 / 0</strong></div>
+          <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
+          <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
+          <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
+          <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
+        </div>
+      </section>
       <section class="workflow-bar" aria-label="Character creation progress">
         <div class="workflow-copy">
           <span id="phaseBadge" class="phase-badge">Draft</span>
@@ -99,7 +116,7 @@
       </section>
 
       <section class="sheet-grid" id="characterSheet">
-        <section class="sheet-panel identity-panel">
+        <section class="sheet-panel identity-panel" data-sheet-section="identity">
           <div class="panel-heading"><span>Identity</span><strong id="identityCallsign">New Character</strong></div>
           <div class="identity-grid">
             <label>Player Name<input data-field="identity.playerName" autocomplete="name" /></label>
@@ -127,7 +144,7 @@
           </div>
         </section>
 
-        <aside class="sheet-panel experience-panel">
+        <aside class="sheet-panel experience-panel" data-sheet-section="resources">
           <div class="panel-heading"><span>Advancement</span></div>
           <div id="creationBudgets" class="creation-budgets">
             <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong><small id="attributeBudgetFormula">Standard allocation: 195</small></div>
@@ -143,7 +160,7 @@
           <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
         </aside>
 
-        <aside class="sheet-panel derived-panel">
+        <aside class="sheet-panel derived-panel" data-sheet-section="substats">
           <div class="panel-heading"><span>Timing &amp; Health</span></div>
           <div class="derived-grid">
             <div class="speed-stat">
@@ -171,7 +188,7 @@
           </div>
         </aside>
 
-        <section class="sheet-panel resources-panel">
+        <section class="sheet-panel resources-panel" data-sheet-section="resources">
           <div class="panel-heading"><span>Resources</span></div>
           <div class="resource-grid">
             <div class="resource-card exertion-card">
@@ -190,6 +207,14 @@
               <span>Credits</span><strong id="creditsValue">0</strong>
               <small id="creditsFormula" class="resource-formula">Awarded by the GM; finalized bonuses apply automatically</small>
             </div>
+            <div class="resource-card drama-cards-card">
+              <span>Drama Cards</span><strong id="dramaCardsValue">0</strong>
+              <small class="resource-formula">Current cards held by this character</small>
+            </div>
+            <div id="specialAbilitiesCard" class="resource-card special-abilities-card" hidden>
+              <span>Special Actions</span>
+              <div id="specialAbilityActions" class="special-ability-actions"></div>
+            </div>
             <div class="resource-card reverence-card">
               <div class="reverence-heading"><span>Reverence</span><strong id="reverenceCurrent" aria-label="Current Reverence">0</strong></div>
               <div id="reverenceMeter" class="reverence-meter" aria-label="10 Reverence slots"></div>
@@ -205,12 +230,12 @@
           </div>
         </section>
 
-        <section class="sheet-panel attributes-panel">
+        <section class="sheet-panel attributes-panel" data-sheet-section="attributes">
           <div class="panel-heading"><span>Attributes</span><small>Purchase continuously from left to right</small></div>
           <div id="attributeGrid" class="attribute-grid"></div>
         </section>
 
-        <section class="sheet-panel skills-panel">
+        <section class="sheet-panel skills-panel" data-sheet-section="skills">
           <div class="panel-heading skills-heading">
             <span>Skills</span>
             <label class="skill-search">Find Skill<input id="skillSearch" type="search" placeholder="Search skills" /></label>
@@ -227,7 +252,7 @@
           </div>
         </section>
 
-        <section class="sheet-panel advantages-panel">
+        <section class="sheet-panel advantages-panel" data-sheet-section="identity">
           <div class="panel-heading"><span>Advantages / Disadvantages</span></div>
           <div id="automaticModifiers" class="automatic-modifiers"></div>
           <div class="advantages-divider" aria-hidden="true"></div>
@@ -236,12 +261,12 @@
           </label>
         </section>
 
-        <section class="sheet-panel crew-panel">
+        <section class="sheet-panel crew-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Crew Roster</span><button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button></div>
           <div id="crewRoster" class="crew-roster"></div>
         </section>
 
-        <section class="sheet-panel notes-panel">
+        <section class="sheet-panel notes-panel" data-sheet-section="identity">
           <div class="panel-heading background-heading">
             <span>Character Background</span>
             <button id="fubsButton" class="fubs-button" type="button">Roll on FUBS Chart</button>
@@ -255,17 +280,6 @@
       </section>
     </main>
 
-    <section id="joinCampaignPanel" class="character-page-panel character-tool-page" data-character-panel="join" hidden>
-      <div class="character-tool-heading"><span>CAMPAIGN CONNECTION</span><h1>Join Campaign</h1></div>
-      <div class="join-campaign-card">
-        <p>Enter the permanent Campaign Code supplied by the GM. Your character will remain unattached until the GM approves the request.</p>
-        <form id="joinCampaignForm">
-          <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" autocomplete="off" placeholder="K7M4" required /></label>
-          <button class="primary-action" type="submit">Request to Join</button>
-        </form>
-        <div id="joinCampaignStatus" class="join-campaign-status"></div>
-      </div>
-    </section>
 
     <section id="playerInboxPanel" class="character-page-panel character-tool-page" data-character-panel="inbox" hidden>
       <div class="character-tool-heading"><span>PRIVATE COMMUNICATIONS</span><h1>Inbox</h1></div>
@@ -279,6 +293,22 @@
     <section id="playerSettingsPanel" class="character-page-panel character-tool-page" data-character-panel="settings" hidden>
       <div class="character-tool-heading"><span>CHARACTER ACCESS</span><h1>Settings</h1></div>
       <div class="player-settings-grid">
+        <section class="layout-settings-card">
+          <h2>Character Layout</h2>
+          <div id="characterLayoutToggle" class="character-layout-toggle" role="radiogroup" aria-label="Character sheet layout">
+            <button type="button" data-layout-mode="sheet" role="radio" aria-checked="true" class="active">Full Sheet</button>
+            <button type="button" data-layout-mode="tabs" role="radio" aria-checked="false">Tabbed</button>
+          </div>
+        </section>
+        <section id="joinCampaignPanel" class="join-campaign-settings" hidden>
+          <h2>Join Campaign</h2>
+          <p>Enter the permanent Campaign Code supplied by the GM. Your character remains unattached until the GM approves the request.</p>
+          <form id="joinCampaignForm">
+            <label>Room Code<input id="joinCampaignRoomCode" type="text" maxlength="4" autocomplete="off" placeholder="K7M4" required /></label>
+            <button class="primary-action" type="submit">Request to Join</button>
+          </form>
+          <div id="joinCampaignStatus" class="join-campaign-status"></div>
+        </section>
         <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" accept=".sa2character,.json,application/json" /></label></section>
         <section><h2>Export Character Data</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Export Character Data</button></section>
         <section><h2>Make New Character</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
@@ -454,6 +484,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260807-rules-3"></script>
+  <script type="module" src="character.js?v=20260807-tabs-1"></script>
   </body>
 </html>

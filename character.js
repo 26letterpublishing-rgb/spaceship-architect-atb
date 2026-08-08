@@ -15,16 +15,18 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260807-rules-3";
-import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-rules-3";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-rules-3";
-import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-rules-3";
+} from "./character-data.js?v=20260807-tabs-1";
+import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-1";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-tabs-1";
+import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-1";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
+const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
+const SHEET_SECTIONS = new Set(["identity", "attributes", "skills", "substats", "resources", "supplies"]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
 const FORMAT_VERSION = 4;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
@@ -40,6 +42,15 @@ const dom = {
   deleteCharacter: $("#deleteCharacter"),
   localShowPcCode: $("#localShowPcCode"),
   localPrintCharacter: $("#localPrintCharacter"),
+  characterSheet: $("#characterSheet"),
+  tabbedToolbar: $("#tabbedCharacterToolbar"),
+  sheetSectionTabs: $("#sheetSectionTabs"),
+  tabbedStatusStrip: $("#tabbedStatusStrip"),
+  tabStatusExperience: $("#tabStatusExperience"),
+  tabStatusHp: $("#tabStatusHp"),
+  tabStatusReverence: $("#tabStatusReverence"),
+  tabStatusExertion: $("#tabStatusExertion"),
+  tabStatusCredits: $("#tabStatusCredits"),
   saveStatus: $("#saveStatus"),
   identityPanel: $(".identity-panel"),
   identityCallsign: $("#identityCallsign"),
@@ -103,6 +114,9 @@ const dom = {
   moveSpeedFormula: $("#moveSpeedFormula"),
   creditsValue: $("#creditsValue"),
   creditsFormula: $("#creditsFormula"),
+  dramaCardsValue: $("#dramaCardsValue"),
+  specialAbilitiesCard: $("#specialAbilitiesCard"),
+  specialAbilityActions: $("#specialAbilityActions"),
   reverenceCurrent: $("#reverenceCurrent"),
   reverenceMeter: $("#reverenceMeter"),
   maxHpBonus: $("#maxHpBonus"),
@@ -230,6 +244,7 @@ const dom = {
   messageGmForm: $("#messageGmForm"),
   messageGmText: $("#messageGmText"),
   playerSettingsPanel: $("#playerSettingsPanel"),
+  characterLayoutToggle: $("#characterLayoutToggle"),
   settingsLoadCharacter: $("#settingsLoadCharacter"),
   settingsExportCharacter: $("#settingsExportCharacter"),
   settingsNewCharacter: $("#settingsNewCharacter"),
@@ -915,8 +930,55 @@ async function saveCampaignCharacter({ force = false } = {}) {
 }
 
 let activeCharacterTab = "sheet";
+let activeSheetSection = "identity";
+let characterLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY) === "tabs" ? "tabs" : "sheet";
 let joinStatusTimer = null;
 let playerAtbLoading = false;
+
+function renderTabbedStatus() {
+  const maximum = maximumHp();
+  const current = character.health.current === null || character.health.current === undefined
+    ? maximum
+    : Math.min(maximum, Math.max(-9999, Math.round(Number(character.health.current) || 0)));
+  dom.tabStatusExperience.textContent = Math.max(0, Number(character.experience.available) || 0) + " / " + Math.max(0, Number(character.experience.totalGained) || 0);
+  dom.tabStatusHp.textContent = current + " / " + maximum;
+  dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
+  dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
+  dom.tabStatusCredits.textContent = Math.max(0, Number(character.resources.creditsBase) || 0).toLocaleString();
+}
+
+function showSheetSection(section = "identity", { scroll = false } = {}) {
+  activeSheetSection = SHEET_SECTIONS.has(section) ? section : "identity";
+  const tabbed = characterLayoutMode === "tabs";
+  dom.characterSheet.dataset.activeSection = activeSheetSection;
+  dom.characterSheet.querySelectorAll("[data-sheet-section]").forEach((panel) => {
+    panel.hidden = tabbed && panel.dataset.sheetSection !== activeSheetSection;
+  });
+  dom.sheetSectionTabs.querySelectorAll("[data-sheet-section-tab]").forEach((button) => {
+    const selected = button.dataset.sheetSectionTab === activeSheetSection;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
+  dom.tabbedToolbar.classList.toggle("resources-active", activeSheetSection === "resources");
+  dom.tabbedStatusStrip.hidden = !tabbed || activeSheetSection === "resources";
+  if (scroll && activeCharacterTab === "sheet") {
+    dom.characterSheet.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function renderCharacterLayout() {
+  const tabbed = characterLayoutMode === "tabs";
+  dom.characterWorkspace.classList.toggle("tabbed-layout", tabbed);
+  dom.characterWorkspace.classList.toggle("character-finalized", character.phase === "finalized");
+  dom.tabbedToolbar.hidden = !tabbed;
+  dom.characterLayoutToggle.querySelectorAll("[data-layout-mode]").forEach((button) => {
+    const selected = button.dataset.layoutMode === characterLayoutMode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+  renderTabbedStatus();
+  showSheetSection(activeSheetSection);
+}
 
 async function loadPlayerAtb({ reload = false } = {}) {
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
@@ -945,6 +1007,7 @@ function showCharacterPanel(tab = "sheet") {
     panel.hidden = panel.dataset.characterPanel !== activeCharacterTab;
   });
   dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
+  if (activeCharacterTab === "sheet") renderCharacterLayout();
   if (activeCharacterTab === "roster") renderCampaignRoster();
   if (activeCharacterTab === "inbox") refreshPrivateNotes();
   if (activeCharacterTab === "atb") void loadPlayerAtb();
@@ -963,8 +1026,9 @@ function renderCharacterNavigation() {
     if (tab === "sheet" || tab === "settings") button.hidden = false;
     if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
     if (tab === "inbox") button.hidden = (!linked && !hasLocalInbox) || gmView;
-    if (tab === "join") button.hidden = !mayJoin || gmView;
   }
+  dom.joinCampaignPanel.hidden = gmView || (!mayJoin && !pending);
+  dom.joinCampaignForm.hidden = pending;
   const roomCode = linked ? campaignCode : character.campaignLink?.roomCode || "";
   dom.roomCode.hidden = !roomCode;
   dom.roomCodeValue.textContent = roomCode || "----";
@@ -2213,6 +2277,15 @@ function renderResources() {
   dom.manualAttributeReroll.disabled = character.phase !== "finalized" || character.resources.reverence < 2 || Boolean(character.pendingRoll) || diceRoller.isActive();
   dom.characterAtbColor.value = character.presentation.atbColor;
   dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
+  dom.dramaCardsValue.textContent = Math.max(0, Number(character.resources.dramaCards) || 0);
+  const specialActions = [];
+  if (character.identity.classId === "marine-soldier") {
+    const marineUsed = Boolean(character.session.marineHealingUsed);
+    specialActions.push("<button type=\"button\" data-special-action=\"marine-recovery\" " + (marineUsed || diceRoller.isActive() ? "disabled" : "") + ">" + (marineUsed ? "Marine Recovery Used" : "Marine Recovery") + "</button>");
+  }
+  dom.specialAbilityActions.innerHTML = specialActions.join("");
+  dom.specialAbilitiesCard.hidden = specialActions.length === 0;
+  renderTabbedStatus();
 }
 
 function attributeDiceSides(attributeKey) {
@@ -2826,6 +2899,7 @@ function renderDerived() {
   dom.marineHeal.hidden = character.phase !== "finalized" || character.identity.classId !== "marine-soldier";
   dom.marineHeal.disabled = Boolean(character.session.marineHealingUsed) || diceRoller.isActive();
   dom.marineHeal.textContent = character.session.marineHealingUsed ? "Marine Recovery Used" : "Marine Recovery";
+  renderTabbedStatus();
 }
 
 function renderCrew() {
@@ -2969,6 +3043,7 @@ function renderAll() {
   renderResources();
   renderDerived();
   renderCrew();
+  renderCharacterLayout();
 }
 
 function applySkillSearch() {
@@ -3278,6 +3353,10 @@ async function beginFinalization() {
   });
   if (!accepted) {
     if (fubsMissing) {
+      if (characterLayoutMode === "tabs") {
+        showCharacterPanel("sheet");
+        showSheetSection("identity");
+      }
       $(".notes-panel").scrollIntoView({ behavior: "smooth", block: "center" });
       dom.fubsButton.classList.remove("fubs-attention");
       requestAnimationFrame(() => dom.fubsButton.classList.add("fubs-attention"));
@@ -3304,6 +3383,10 @@ let identityRevealToken = 0;
 
 async function playFinalizedIdentityReveal() {
   const token = ++identityRevealToken;
+  if (characterLayoutMode === "tabs") {
+    showCharacterPanel("sheet");
+    showSheetSection("identity");
+  }
   const name = (character.identity.characterName || "Unnamed Character").toUpperCase();
   const color = character.presentation?.atbColor || "#39e58f";
   dom.identityPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -4300,6 +4383,29 @@ dom.changeCampaign?.addEventListener("click", () => {
   dom.campaignCode.value = "";
   localStorage.removeItem("sa-character-campaign-code");
   dom.campaignCode.focus();
+});
+
+dom.sheetSectionTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sheet-section-tab]");
+  if (!button) return;
+  showSheetSection(button.dataset.sheetSectionTab, { scroll: true });
+});
+
+dom.characterLayoutToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-layout-mode]");
+  if (!button) return;
+  const mode = button.dataset.layoutMode === "tabs" ? "tabs" : "sheet";
+  if (mode === characterLayoutMode) return;
+  characterLayoutMode = mode;
+  localStorage.setItem(LAYOUT_MODE_KEY, characterLayoutMode);
+  renderCharacterLayout();
+  notice(characterLayoutMode === "tabs" ? "Tabbed character layout enabled." : "Full character sheet layout enabled.", "success");
+});
+
+dom.specialAbilityActions?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-special-action]");
+  if (!button || button.disabled) return;
+  if (button.dataset.specialAction === "marine-recovery") dom.marineHeal.click();
 });
 
 dom.tabs?.addEventListener("click", (event) => {
