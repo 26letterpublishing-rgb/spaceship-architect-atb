@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260809-combat-4" />
+  <link rel="stylesheet" href="gm.css?v=20260809-combat-5" />
   </head>
   <body>
     <main class="gm-shell">
@@ -191,6 +191,15 @@
               <button id="adjustCharacterButton" type="button">Adjust Character</button>
             </section>
             <section class="settings-card">
+              <h3>Command Window</h3>
+              <p>Add the same number of seconds to every PC Command Window in this campaign.</p>
+              <form id="commandWindowSettingsForm">
+                <label>Universal Bonus (seconds)<input id="universalCommandWindowBonus" type="number" min="0" max="3600" step="1" value="0" /></label>
+                <button class="primary" type="submit">Save Command Window Bonus</button>
+                <p id="commandWindowSettingsMessage" class="tool-message" role="status"></p>
+              </form>
+            </section>
+            <section class="settings-card">
               <h3>Campaign Backup</h3>
               <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
               <div class="campaign-backup-actions">
@@ -209,6 +218,6 @@
       </section>
     </main>
 
-  <script type="module" src="gm.js?v=20260809-combat-4"></script>
+  <script type="module" src="gm.js?v=20260809-combat-5"></script>
   </body>
 </html>

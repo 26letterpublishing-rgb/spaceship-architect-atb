@@ -355,10 +355,11 @@ function purchasedBoxes(rows) {
 function calculatedPcStats() {
   const selected = campaignState?.characters?.find((entry) => entry.id === campaignCharacterPicker?.value);
   const computed = selected?.character?.computed;
+  const campaignBonus = Math.max(0, Number(campaignState?.settings?.commandWindowBonus) || 0);
   if (computed && Number.isFinite(Number(computed.speed)) && Number.isFinite(Number(computed.commandWindow))) {
     return {
       speed: Math.max(0.1, Number(computed.speed)),
-      commandWindow: Math.max(1, Number(computed.commandWindow)),
+      commandWindow: Math.max(1, Number(computed.commandWindow) + campaignBonus),
     };
   }
   const perceptionBoxes = purchasedBoxes(pcBuild.perception);
@@ -367,8 +368,8 @@ function calculatedPcStats() {
   const initiative = clampSkill(initiativeSkill.value);
   return {
     speed: Math.max(1, intellectBoxes + initiative),
-    commandWindow: Math.max(1, perceptionBoxes * 10 + awareness * 20),
-  }
+    commandWindow: Math.max(1, perceptionBoxes * 8 + awareness * 12 + campaignBonus),
+  };
 }
 if (embeddedPlayer && /^[A-Z0-9]{4}$/.test(requestedCampaignCode) && requestedCampaignCharacter) {
   mode = "player";
@@ -1517,6 +1518,8 @@ function openGmDamageDialog(unitId) {
   gmDamageSource.value = activeUnit()?.team === "npc" ? `${activeUnit().characterName} attack` : "NPC attack";
   gmDamageNote.textContent = `Enter damage after critical multipliers. ${targetUnit.characterName}'s Damage Reduction ${Number(targetUnit.damageReduction) || 0} will be applied automatically.`;
   gmDamageDialog.classList.remove("hidden");
+  const panel = gmDamageDialog.querySelector(".combat-action-panel");
+  if (panel) panel.scrollTop = 0;
   setTimeout(() => gmDamageAmount.focus(), 40);
 }
 

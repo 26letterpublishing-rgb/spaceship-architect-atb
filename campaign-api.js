@@ -65,6 +65,7 @@ function defaultCampaign({ code, name, gmCode }) {
     awardHistory: [],
     privateNotes: [],
     rollRequests: [],
+    settings: { commandWindowBonus: 0 },
     encounter: null,
     sessionNumber: 1,
   };
@@ -78,6 +79,8 @@ function normalizeCampaign(raw) {
   campaign.gmCode = campaign.gmCode || campaign.password || null;
   delete campaign.password;
   campaign.script = String(campaign.script || "").slice(0, MAX_SCRIPT_LENGTH);
+  campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
+  campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
   campaign.characters = campaign.characters.map((record) => ({
     id: String(record?.id || record?.character?.id || uid("character")),
@@ -136,6 +139,7 @@ function campaignBackup(campaign) {
       script: campaign.script,
       characters: campaign.characters,
       joinRequests: campaign.joinRequests,
+      settings: campaign.settings,
       shipCredits: campaign.shipCredits,
       bankerCharacterId: campaign.bankerCharacterId,
       awardHistory: campaign.awardHistory,
@@ -293,6 +297,7 @@ class CampaignApi {
       shipCredits: campaign.shipCredits,
       sessionNumber: campaign.sessionNumber,
       bankerCharacterId: campaign.bankerCharacterId,
+      settings: clone(campaign.settings),
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
       inbox: gm ? clone(campaign.privateNotes.slice(-GM_INBOX_LIMIT)) : undefined,
@@ -921,6 +926,18 @@ class CampaignApi {
       record.approved = true;
       await this.save(campaign);
       sendJson(res, 200, { approved: true });
+      return true;
+    }
+
+    if (path === "/api/campaign/settings" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      campaign.settings ||= { commandWindowBonus: 0 };
+      campaign.settings.commandWindowBonus = Math.round(boundedNumber(body.commandWindowBonus, 0, 3600));
+      await this.save(campaign);
+      sendJson(res, 200, { campaign: this.state(campaign, token) });
       return true;
     }
 

@@ -581,7 +581,7 @@ function blankSkills() {
   return Object.fromEntries(ALL_SKILLS.map((name) => [name, blankSkill()]));
 }
 
-function blankCharacter(name = "New Character") {
+function blankCharacter(name = "") {
   return {
     id: uid(),
     version: FORMAT_VERSION,
@@ -873,7 +873,7 @@ function rawLibrary() {
 }
 
 function loadLibrary() {
-  return rawLibrary().map(normalizeCharacter);
+  return rawLibrary().map(normalizeCharacter).filter((entry) => entry.phase === "finalized");
 }
 
 function loadRecoveries() {
@@ -889,6 +889,62 @@ function loadRecoveries() {
   } catch {
     return [];
   }
+}
+
+function draftRecoveryId(characterObject) {
+  return `autosave-${characterObject.id}`;
+}
+
+function draftHasProgress(characterObject) {
+  const identity = characterObject.identity || {};
+  const identityFields = [
+    "playerName", "characterName", "race", "raceId", "raceType", "classId",
+    "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description",
+  ];
+  const identityStarted = identityFields.some((field) => String(identity[field] || "").trim());
+  const attributesChanged = Object.values(characterObject.attributes || {}).some((rows) => (
+    JSON.stringify(rows) !== JSON.stringify([0, 0, -1, -1])
+  ));
+  const skillsStarted = Object.values(characterObject.skills || {}).some((skill) => Number(skill?.tenths) > 0);
+  const customStarted = (characterObject.customSkills || []).some((skill) => String(skill?.name || "").trim() || Number(skill?.tenths) > 0);
+  const crewStarted = (characterObject.crew || []).some((member) => String(member?.name || "").trim() || String(member?.title || "").trim());
+  const weaponsStarted = (characterObject.weapons || []).some((entry) => entry?.weaponId);
+  return identityStarted
+    || attributesChanged
+    || skillsStarted
+    || customStarted
+    || crewStarted
+    || weaponsStarted
+    || String(characterObject.notes || "").trim()
+    || String(characterObject.advantagesNotes || "").trim()
+    || characterObject.fubs?.status !== "unrolled";
+}
+
+function persistRecoveries() {
+  localStorage.setItem(RECOVERY_KEY, JSON.stringify(recoveries));
+}
+
+function saveDraftRecovery() {
+  const id = draftRecoveryId(character);
+  recoveries = recoveries.filter((entry) => entry.id !== id);
+  if (draftHasProgress(character)) {
+    recoveries.unshift({
+      id,
+      label: `Autosaved Draft: ${character.identity.characterName || "Unnamed Character"}`,
+      createdAt: new Date().toISOString(),
+      character: deepCopy(character),
+    });
+  }
+  recoveries = recoveries.slice(0, 2);
+  persistRecoveries();
+}
+
+function clearDraftRecovery(characterId) {
+  const id = `autosave-${characterId}`;
+  const next = recoveries.filter((entry) => entry.id !== id);
+  if (next.length === recoveries.length) return;
+  recoveries = next;
+  persistRecoveries();
 }
 
 let library = loadLibrary();
@@ -909,8 +965,17 @@ function saveLibrary(message = "Saved locally") {
     damageReduction: damageReductionDetails().value,
   };
   if (!CAMPAIGN_READ_ONLY_VIEW) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
-    localStorage.setItem(ACTIVE_KEY, activeId);
+    if (character.phase === "finalized") clearDraftRecovery(character.id);
+    else saveDraftRecovery();
+    const savedCharacters = library.filter((entry) => entry.phase === "finalized");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCharacters));
+    if (character.phase === "finalized") {
+      localStorage.setItem(ACTIVE_KEY, activeId);
+    } else {
+      const fallback = savedCharacters.find((entry) => entry.id === localStorage.getItem(ACTIVE_KEY)) || savedCharacters[0];
+      if (fallback) localStorage.setItem(ACTIVE_KEY, fallback.id);
+      else localStorage.removeItem(ACTIVE_KEY);
+    }
     if (campaignCode && campaignCharacterId) cacheCampaignCharacter();
   }
   dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
@@ -1197,7 +1262,8 @@ function renderCharacterNavigation() {
   dom.roomCode.hidden = !roomCode;
   dom.roomCodeValue.textContent = roomCode || "----";
   dom.backToMain.hidden = linked;
-  dom.settingsLeaveCampaign.disabled = (!linked && !pending) || gmView;
+  dom.settingsLeaveCampaign.disabled = false;
+  dom.settingsLeaveCampaign.closest("section").hidden = gmView;
   dom.messageGmForm.hidden = !linked || gmView;
   dom.launchPlayerAtb.disabled = !linked || gmView;
   dom.angilurosSpeedBoost.hidden = !linked || gmView || character.identity.raceId !== "angiluros";
@@ -2057,7 +2123,7 @@ function renderWorkflowRequirements(items) {
 }
 
 function renderCharacterPicker() {
-  const saved = library.map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.legacyDraft ? " [Legacy Draft]" : ""}</option>`).join("");
+  const saved = library.filter((entry) => entry.phase === "finalized").map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.legacyDraft ? " [Legacy Draft]" : ""}</option>`).join("");
   const recovery = recoveries.map((entry) => {
     const time = new Date(entry.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     return `<option value="recovery:${entry.id}">${escapeHtml(entry.label)} - ${escapeHtml(time)}</option>`;
@@ -3609,7 +3675,7 @@ async function beginNewCharacter() {
   saveLibrary();
   snapshotRecovery("Before New Character");
   await playWipe(() => {
-    const next = blankCharacter(`New Character ${library.length + 1}`);
+    const next = blankCharacter();
     library.push(next);
     activeId = next.id;
     character = next;
@@ -5009,7 +5075,7 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
     danger: true,
   });
   if (!accepted) return;
-  await replaceCurrentCharacter(blankCharacter("New Character"));
+  await replaceCurrentCharacter(blankCharacter());
   notice("Fresh character created. The previous campaign link was removed.", "success");
 });
 
@@ -5273,7 +5339,7 @@ async function initializeCharacterApp() {
   const requestedCharacter = String(params.get("character") || "");
   const gmAccess = params.get("gm") === "1";
   if (params.get("new") === "1" && !requestedCode && !requestedCharacter) {
-    const next = blankCharacter(`New Character ${library.length + 1}`);
+    const next = blankCharacter();
     library.push(next);
     activeId = next.id;
     character = next;

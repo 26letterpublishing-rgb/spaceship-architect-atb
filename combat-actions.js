@@ -197,6 +197,8 @@
     note.textContent = config.note || "";
     error.textContent = "";
     dialog.classList.remove("hidden");
+    const panel = dialog.querySelector(".combat-action-panel");
+    if (panel) panel.scrollTop = 0;
   }
 
   async function send(kind, details = {}) {

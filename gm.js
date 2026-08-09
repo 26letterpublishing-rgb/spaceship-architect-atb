@@ -94,6 +94,9 @@ const dom = {
   kickCharacterButton: $("#kickCharacterButton"),
   adjustCharacter: $("#adjustCharacter"),
   adjustCharacterButton: $("#adjustCharacterButton"),
+  commandWindowSettingsForm: $("#commandWindowSettingsForm"),
+  universalCommandWindowBonus: $("#universalCommandWindowBonus"),
+  commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
 };
 
 const allSkills = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
@@ -241,8 +244,10 @@ function characterSpeed(record) {
 
 function commandWindow(record) {
   const awarenessMultiplier = record?.character?.identity?.classId === "mastermind" ? 45 : 12;
-  return record?.character?.computed?.commandWindow
+  const base = record?.character?.computed?.commandWindow
     ?? Math.max(1, boxesFilled(record, "perception") * 8 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
+  const campaignBonus = Math.max(0, Number(campaign?.settings?.commandWindowBonus) || 0);
+  return Math.max(1, Number(base) + campaignBonus);
 }
 
 function combatWeaponInventory(record) {
@@ -651,6 +656,9 @@ function renderCampaign() {
   dom.undoAward.disabled = !campaign.lastAward;
   dom.storageMode.textContent = campaign.storageMode === "postgres" ? "Persistent Database" : "Local Test Storage";
   dom.storageMode.style.color = campaign.storageMode === "postgres" ? "var(--green)" : "var(--yellow)";
+  if (document.activeElement !== dom.universalCommandWindowBonus) {
+    dom.universalCommandWindowBonus.value = String(Math.max(0, Number(campaign.settings?.commandWindowBonus) || 0));
+  }
   dom.scriptTarget.innerHTML = campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("");
   dom.bankerCharacter.innerHTML = `<option value="">No Banker - Any PC May Use Pool</option>${campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("")}`;
   dom.bankerCharacter.value = campaign.bankerCharacterId || "";
@@ -1000,6 +1008,38 @@ dom.endSession.addEventListener("click", async () => {
     showMessage(dom.message, error.message, "error");
   } finally {
     dom.endSession.disabled = false;
+  }
+});
+
+dom.commandWindowSettingsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const bonus = Math.max(0, Math.min(3600, Math.round(Number(dom.universalCommandWindowBonus.value) || 0)));
+  dom.universalCommandWindowBonus.value = String(bonus);
+  dom.commandWindowSettingsMessage.textContent = "Saving...";
+  try {
+    const payload = await api("/api/campaign/settings", { code, token, commandWindowBonus: bonus });
+    receiveCampaign(payload.campaign);
+    await refreshEncounterState();
+    const updates = (encounterState?.units || []).flatMap((unit) => {
+      if (!unit.characterId) return [];
+      const record = campaign.characters.find((entry) => entry.id === unit.characterId);
+      if (!record) return [];
+      return [{
+        characterId: record.id,
+        playerName: playerName(record),
+        characterName: characterName(record),
+        speed: characterSpeed(record),
+        commandWindow: commandWindow(record),
+        color: record.character?.presentation?.atbColor || "#39e58f",
+        ...encounterRuleFields(record),
+      }];
+    });
+    if (updates.length) encounterState = await encounterAction("syncCampaignUnits", { units: updates });
+    dom.commandWindowSettingsMessage.textContent = `Every PC receives +${bonus} seconds. Active encounter values were synchronized.`;
+    dom.commandWindowSettingsMessage.className = "tool-message success";
+  } catch (error) {
+    dom.commandWindowSettingsMessage.textContent = error.message;
+    dom.commandWindowSettingsMessage.className = "tool-message error";
   }
 });
 
