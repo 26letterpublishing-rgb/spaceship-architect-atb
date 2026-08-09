@@ -13,6 +13,9 @@ let lastNotifiedActiveId = "";
 let lastCommandWarningKey = "";
 let lastInterruptedNotice = "";
 let lastHandledDelayRequest = "";
+let lastDamageAlertId = "";
+let gmDamageTargetId = "";
+let damageAlertTimer = null;
 let audioContext = null;
 let events = null;
 let lastGmClockClickAt = 0;
@@ -228,6 +231,14 @@ const turnDialogKicker = document.querySelector("#turnDialogKicker");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
+const gmDamageDialog = document.querySelector("#gmDamageDialog");
+const gmDamageForm = document.querySelector("#gmDamageForm");
+const gmDamageTarget = document.querySelector("#gmDamageTarget");
+const gmDamageAmount = document.querySelector("#gmDamageAmount");
+const gmDamageSource = document.querySelector("#gmDamageSource");
+const gmDamageNote = document.querySelector("#gmDamageNote");
+const cancelGmDamage = document.querySelector("#cancelGmDamage");
+const playerDamageAlert = document.querySelector("#playerDamageAlert");
 const gmDelay = document.querySelector("#gmDelay");
 const delayDialog = document.querySelector("#delayDialog");
 const delayDialogTitle = document.querySelector("#delayDialogTitle");
@@ -1178,6 +1189,7 @@ function ringActionButtons(unit, midAngle) {
     <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
       <button class="ring-action-btn delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">DL</span><span class="delay-label-blocked">DL</span></button>
       <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
+      <button class="ring-action-btn damage" data-action="damage" data-id="${id}" title="Apply Damage">-HP</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
   `;
@@ -1495,6 +1507,44 @@ async function keepRoomAwake() {
   }
 }
 
+
+function openGmDamageDialog(unitId) {
+  const targetUnit = state?.units.find((entry) => entry.id === unitId);
+  if (!targetUnit || mode !== "gm") return;
+  gmDamageTargetId = unitId;
+  gmDamageTarget.textContent = `${targetUnit.characterName}${targetUnit.currentHp === null || targetUnit.currentHp === undefined ? "" : ` - HP ${targetUnit.currentHp}/${targetUnit.maximumHp}`}`;
+  gmDamageAmount.value = "";
+  gmDamageSource.value = activeUnit()?.team === "npc" ? `${activeUnit().characterName} attack` : "NPC attack";
+  gmDamageNote.textContent = `Enter damage after critical multipliers. ${targetUnit.characterName}'s Damage Reduction ${Number(targetUnit.damageReduction) || 0} will be applied automatically.`;
+  gmDamageDialog.classList.remove("hidden");
+  setTimeout(() => gmDamageAmount.focus(), 40);
+}
+
+function closeGmDamageDialog() {
+  gmDamageTargetId = "";
+  gmDamageDialog.classList.add("hidden");
+}
+
+function notifyDamageIfNeeded() {
+  if (mode !== "player" || !state || !myUnitId) return;
+  const mine = state.units.find((entry) => entry.id === myUnitId);
+  const report = mine?.damageEvent;
+  if (!report?.id || report.id === lastDamageAlertId) return;
+  if (Date.now() - Number(report.createdAt || 0) > 30000) {
+    lastDamageAlertId = report.id;
+    return;
+  }
+  lastDamageAlertId = report.id;
+  playerDamageAlert.querySelector("strong").textContent = `${Number(report.applied) || 0} HP DAMAGE`;
+  playerDamageAlert.querySelector("small").textContent = report.currentHp === null || report.currentHp === undefined
+    ? `${report.source || "Combat damage"} - tap to dismiss`
+    : `${report.source || "Combat damage"} - HP ${report.currentHp}/${report.maximumHp}`;
+  playerDamageAlert.classList.remove("hidden");
+  if (alertsEnabled) playInterruptedBuzz();
+  clearTimeout(damageAlertTimer);
+  damageAlertTimer = setTimeout(() => playerDamageAlert.classList.add("hidden"), 6500);
+}
+
 function unitCard(unit, { gm = false, player = false } = {}) {
   const delayed = hasAnyDelay(unit);
   const ready = unit.atb >= state.threshold && !delayed;
@@ -1559,6 +1609,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                 </label>
                 <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
+                <button class="mini damage" data-action="damage" data-id="${unit.id}">Damage</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
             : ""
@@ -2276,7 +2327,7 @@ function render() {
     renderPlayerCombatPreview(playerPreviewRecord);
   } else {
     stopPlayerPreviewAnimation();
-    if (visualMode === "ring") unitList.innerHTML = tacticalRingMarkup(state.units);
+    if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) unitList.innerHTML = tacticalRingMarkup(state.units);
     else renderUnitList(sorted);
   }
   syncGmCommandWindowVisibility();
@@ -2302,6 +2353,7 @@ function render() {
   if (!state.pausedForTurn && turnPanelOpen()) closeTurnPanel();
   notifyTurnIfNeeded();
   notifyInterruptionIfNeeded();
+  notifyDamageIfNeeded();
   queueGmDelayRequestPrompt();
 }
 
@@ -2676,9 +2728,20 @@ clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
 });
 exitCombat.addEventListener("click", () => {
-  if (confirm("Exit this combat room and return to the main screen?")) returnToWelcome("Exited combat. Create or join a room when ready.");
+  if (confirm("End this combat and return to the campaign controls?")) returnToWelcome("Combat ended. Create or join a room when ready.");
 });
 completeTurn.addEventListener("click", () => action({ action: "completeTurn" }, "resolve"));
+cancelGmDamage?.addEventListener("click", closeGmDamageDialog);
+playerDamageAlert?.addEventListener("click", () => playerDamageAlert.classList.add("hidden"));
+gmDamageForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const amount = Number(gmDamageAmount.value);
+  if (!gmDamageTargetId || !Number.isFinite(amount) || amount < 0) return;
+  const targetId = gmDamageTargetId;
+  const sourceLabel = gmDamageSource.value.trim() || "GM-resolved NPC attack";
+  closeGmDamageDialog();
+  await action({ action: "applyDamage", id: targetId, amount, source: sourceLabel }, "danger");
+});
 gmDelay.addEventListener("click", () => {
   const active = activeUnit();
   if (active) openDelayForUnit(active.id, "timer");
@@ -2808,6 +2871,7 @@ function handleUnitActionButton(button, event = null) {
   if (button.dataset.action === "remove") action({ action: "removeUnit", id }, "danger");
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
   if (button.dataset.action === "delay") openDelayForUnit(id, "timer");
+  if (button.dataset.action === "damage") openGmDamageDialog(id);
   if (button.dataset.action === "impairQueuedEffect") action({ action: "impairQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
   if (button.dataset.action === "removeQueuedEffect") action({ action: "removeQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
 }

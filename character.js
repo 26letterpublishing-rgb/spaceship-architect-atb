@@ -515,6 +515,7 @@ let campaignEditable = false;
 let campaignDirty = false;
 let campaignSaving = false;
 let campaignBaselineCredits = 0;
+let campaignBaselineHp = null;
 let campaignSaveTimer = null;
 let suppressCampaignSave = false;
 let pinModalMode = "display";
@@ -905,6 +906,7 @@ function saveLibrary(message = "Saved locally") {
     commandWindow: computed.command,
     maximumHp: maximumHp(),
     moveSpeed: calculatedMoveSpeed(),
+    damageReduction: damageReductionDetails().value,
   };
   if (!CAMPAIGN_READ_ONLY_VIEW) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
@@ -1018,6 +1020,7 @@ async function saveCampaignCharacter({ force = false } = {}) {
         token: campaignToken,
         characterId: campaignCharacterId,
         baseCredits: campaignBaselineCredits,
+        baseCurrentHp: campaignBaselineHp,
         character,
       }),
     });
@@ -1026,6 +1029,13 @@ async function saveCampaignCharacter({ force = false } = {}) {
       campaignBaselineCredits = Number(payload.creditsBase);
       renderResources();
     }
+    if (Number.isFinite(Number(payload.currentHp))) {
+      character.health.current = Number(payload.currentHp);
+      campaignBaselineHp = Number(payload.currentHp);
+      renderDerived();
+      renderTabbedStatus();
+    }
+    if (payload.updatedAt) character.updatedAt = payload.updatedAt;
     dom.saveStatus.textContent = "Saved to campaign";
     dom.saveStatus.classList.remove("saving");
     cacheCampaignCharacter();
@@ -1310,6 +1320,7 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
     character = opened;
   }
   campaignBaselineCredits = Number(opened.resources?.creditsBase) || 0;
+  campaignBaselineHp = Number.isFinite(Number(opened.health?.current)) ? Number(opened.health.current) : Number(opened.computed?.maximumHp) || 0;
   campaignCharacterId = record.id;
   campaignToken = token || "";
   campaignPin = pin || record.pcCode || opened.access?.pcCode || "";
@@ -1377,6 +1388,8 @@ function refreshPrivateNotes() {
   dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => {
     const label = note.kind === "roll-request"
       ? "ROLL REQUEST"
+      : note.kind === "damage"
+        ? "COMBAT DAMAGE"
       : note.kind === "award"
         ? "GM AWARD"
         : note.kind === "system"
@@ -1474,10 +1487,20 @@ function receiveCampaignState(nextState) {
     notice(`This character is no longer linked to ${removedName}.`, "error");
     return;
   }
+  const remoteHp = Number(remote.character?.health?.current);
+  if (campaignEditable && (campaignDirty || campaignSaving) && Number.isFinite(remoteHp)) {
+    const localHp = Number(character.health?.current);
+    const localDelta = Number.isFinite(localHp) && Number.isFinite(campaignBaselineHp) ? localHp - campaignBaselineHp : 0;
+    character.health.current = Math.min(maximumHp(), Math.max(-9999, remoteHp + localDelta));
+    campaignBaselineHp = remoteHp;
+    renderDerived();
+    renderTabbedStatus();
+  }
   if (!campaignEditable && !campaignDirty) {
     suppressCampaignSave = true;
     character = normalizeCharacter(deepCopy(remote.character));
     campaignBaselineCredits = Number(character.resources?.creditsBase) || 0;
+    campaignBaselineHp = Number.isFinite(Number(character.health?.current)) ? Number(character.health.current) : Number(character.computed?.maximumHp) || 0;
     character.id = remote.id;
     library = [character];
     activeId = character.id;
@@ -5238,7 +5261,7 @@ window.addEventListener("beforeunload", () => {
   if (CAMPAIGN_READ_ONLY_VIEW) return;
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
-    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, character });
+    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, baseCurrentHp: campaignBaselineHp, character });
     navigator.sendBeacon?.("/api/campaign/character/save", new Blob([body], { type: "application/json" }));
   }
 });

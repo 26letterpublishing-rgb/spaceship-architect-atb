@@ -1,4 +1,5 @@
 const weaponCatalog = require("./data/weapons.json");
+const combatRules = require("./combat-rules");
 
 const weaponsById = new Map(weaponCatalog.map((weapon) => [weapon.id, weapon]));
 const ACTION_KINDS = new Set([
@@ -57,6 +58,12 @@ function syncUnitCombat(unit, source = {}) {
   unit.highestPerceptionDie = Math.max(0, Math.round(Number(source.highestPerceptionDie) || 0));
   unit.moveSpeed = Math.max(1, Number(source.moveSpeed) || 1);
   unit.weaponMechanics = Math.max(0, Number(source.weaponMechanics) || 0);
+  unit.dexterityDice = Array.isArray(source.dexterityDice) ? source.dexterityDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
+  unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
+  unit.damageReduction = Math.max(0, Number(source.damageReduction) || 0);
+  unit.maximumHp = source.maximumHp === null || source.maximumHp === undefined ? null : Math.max(0, Number(source.maximumHp) || 0);
+  unit.currentHp = source.currentHp === null || source.currentHp === undefined ? unit.currentHp ?? null : Number(source.currentHp);
+  unit.damageEvent = unit.damageEvent && typeof unit.damageEvent === "object" ? unit.damageEvent : null;
   unit.aim = unit.aim && typeof unit.aim === "object" ? unit.aim : null;
   unit.weaponCharge = unit.weaponCharge && typeof unit.weaponCharge === "object" ? unit.weaponCharge : null;
   unit.timedAction = unit.timedAction && typeof unit.timedAction === "object" ? unit.timedAction : null;
@@ -83,6 +90,12 @@ function migrateUnitCombat(unit) {
     highestPerceptionDie: unit.highestPerceptionDie,
     moveSpeed: unit.moveSpeed,
     weaponMechanics: unit.weaponMechanics,
+    dexterityDice: unit.dexterityDice,
+    projectileSkill: unit.projectileSkill,
+    damageReduction: unit.damageReduction,
+    maximumHp: unit.maximumHp,
+    currentHp: unit.currentHp,
+    damageEvent: unit.damageEvent,
   });
 }
 
@@ -364,7 +377,11 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     return { ok: true };
   }
 
-  const chargeCount = completedCharges(unit);
+  const rangedChargeCount = completedCharges(unit);
+  const movementChargeCount = weapon?.category === "melee"
+    ? Math.min(Math.max(0, Number(unit.moveSpeed) || 0), Math.max(0, Number(unit.movementChargeUnits) || 0))
+    : 0;
+  const chargeCount = weapon?.category === "melee" ? movementChargeCount : rangedChargeCount;
   const chargeText = chargeCount ? ` with ${chargeCount} Charge${chargeCount === 1 ? "" : "s"} (${weapon?.chargeBonus || "card bonus"} each)` : "";
   if (kind === "fire" || kind === "calledShot") {
     if (!weapon) return { ok: false, error: "Choose a held weapon in Supplies first." };
@@ -373,22 +390,53 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     }
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
     if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: `${weapon.name} requires at least one completed Charge before firing.` };
-    const aimDetails = unit.aim
-      ? [unit.aim.aimDie ? `Aim adds 1D${unit.aim.aimDie} to Dexterity and Damage` : "Aim adds the highest Perception die to Dexterity and Damage"]
-      : [];
+    const calledShot = kind === "calledShot" || Boolean(body.calledShot);
+    const distance = Math.max(0, Number(body.distance) || 0);
+    const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
+    const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie });
+    if (!plan.allowed) return { ok: false, error: `${weapon.name} cannot reach a target ${distance} units away. ${plan.rangeExplanation}` };
+    const baseAttackScore = Number(body.baseAttackScore);
+    const targetDefenseScore = Number(body.targetDefenseScore);
+    if (!Number.isFinite(baseAttackScore) || !Number.isFinite(targetDefenseScore)) {
+      return { ok: false, error: "Enter the rolled base To-Hit score and the target's Defense score." };
+    }
+    const attack = combatRules.resolveAttack({ baseAttackScore, targetDefense: targetDefenseScore, calledShot, plan });
+    const damageRoll = Number(body.damageRoll);
+    if (attack.hit && (!Number.isFinite(damageRoll) || damageRoll < 0)) {
+      return { ok: false, error: `The attack hit. Roll ${plan.damageFormula} and enter the Damage result.` };
+    }
+    const doubleDamage = attack.critical && !calledShot && !plan.criticalDamageDisabled;
+    const damage = combatRules.resolveDamage({
+      rolledDamage: attack.hit ? damageRoll : 0,
+      damageReduction: requestedTarget.damageReduction,
+      critical: attack.critical,
+      calledShot: calledShot || plan.criticalDamageDisabled,
+    });
+    const shotLocation = safeText(body.calledShotDetail, "", 80);
     unit.weaponCharge = null;
     unit.aim = null;
     unit.movementChargeUnits = 0;
-    const called = kind === "calledShot" ? "made a Called Shot" : weapon.category === "melee" ? "made a melee attack" : "fired";
-    const calledDetails = kind === "calledShot" ? ["Target Defense +5 for To-Hit; on hit apply -5 Defense instead"] : [];
-    setCombatBrief(unit, kind, `${kind === "calledShot" ? "Called Shot" : "Fire"}: ${weapon.name} -> ${target}`, [
-      `To-Hit: ${weapon.toHit}`,
-      `Damage: ${weapon.damage}${chargeText}`,
-      ...aimDetails,
-      ...calledDetails,
-    ]);
-    const logText = `${called} with ${weapon.name} at ${target}${chargeText}; resolve attack and damage dice manually`;
+    unit.combatBrief = null;
+    const called = calledShot ? "made a Called Shot" : weapon.category === "melee" ? "made a melee attack" : "fired";
+    const hitText = attack.hit
+      ? `${attack.critical ? calledShot ? "CRITICAL EFFECT" : "CRITICAL HIT" : "HIT"}; rolled ${damage.rolled} Damage${doubleDamage ? `, doubled to ${damage.beforeReduction}` : plan.criticalDamageDisabled && attack.critical ? ", card prevents critical doubling" : ""}, DR ${damage.reduction}, ${damage.applied} HP applied`
+      : `MISS (${attack.attackScore} To-Hit vs ${attack.hitDefense} Defense)`;
+    const logText = `${called} with ${weapon.name} at ${target}${shotLocation ? ` (${shotLocation})` : ""} from ${distance} unit${distance === 1 ? "" : "s"}${chargeText}: ${attack.attackScore} To-Hit vs ${attack.hitDefense} Defense - ${hitText}. Range: ${plan.rangeExplanation}`;
     const recovery = Math.max(0, Number(weapon.recoverySeconds) || 0);
+    const damageEvent = attack.hit ? {
+      targetId: requestedTarget.id,
+      targetCharacterId: requestedTarget.characterId || "",
+      targetName: requestedTarget.characterName,
+      source: `${unit.characterName}'s ${weapon.name}${calledShot ? " Called Shot" : ""}`,
+      rawDamage: damage.beforeReduction,
+      expectedReduction: damage.reduction,
+      expectedApplied: damage.applied,
+      critical: attack.critical,
+      calledShot,
+      attackScore: attack.attackScore,
+      defenseScore: attack.hitDefense,
+      distance,
+    } : null;
     if (recovery > 0) {
       beginTimedAction(room, unit, {
         id: helpers.id(),
@@ -397,10 +445,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
         total: recovery,
         remaining: recovery,
       }, `${unit.characterName} ${logText}; automatic Reload/Recovery started (${recovery} sec).`, helpers, { resetAtb: true });
-      return { ok: true };
+      return { ok: true, damageEvent };
     }
     finishTurn(room, unit, logText, helpers);
-    return { ok: true };
+    return { ok: true, damageEvent };
   }
 
   if (kind === "melee") {

@@ -165,6 +165,29 @@ function pushLog(room, text) {
   room.log = room.log.slice(-80);
 }
 
+async function applyDamageToUnit(room, target, rawDamage, source) {
+  if (!target) return null;
+  const incoming = Math.max(0, Number(rawDamage) || 0);
+  let result = null;
+  if (target.characterId && campaignApi) {
+    result = await campaignApi.damageCharacter(room.roomCode, target.characterId, incoming, source);
+  }
+  if (!result) {
+    const reduction = Math.max(0, Number(target.damageReduction) || 0);
+    const applied = Math.max(0, incoming - reduction);
+    const beforeHp = target.currentHp === null || target.currentHp === undefined ? null : Number(target.currentHp);
+    const currentHp = beforeHp === null ? null : Math.max(-9999, beforeHp - applied);
+    result = { id: id(), rawDamage: incoming, reduction, applied, beforeHp, currentHp, maximumHp: target.maximumHp ?? null, source, createdAt: Date.now() };
+  }
+  if (result.currentHp !== null && result.currentHp !== undefined) target.currentHp = result.currentHp;
+  if (result.maximumHp !== null && result.maximumHp !== undefined) target.maximumHp = result.maximumHp;
+  target.damageReduction = result.reduction;
+  target.damageEvent = { ...result, id: result.id || id(), source: String(source || "Combat damage"), createdAt: result.createdAt || Date.now() };
+  pushLog(room, `${target.characterName} took ${result.applied} HP damage from ${source}${result.reduction ? ` (${result.rawDamage} incoming, ${result.reduction} Damage Reduction)` : ""}${result.currentHp === null ? "; GM records HP manually" : `; HP ${result.currentHp}/${result.maximumHp}`}.`);
+  return target.damageEvent;
+}
+
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -249,6 +272,7 @@ const undoableActions = new Set([
   "completeTurn",
   "nudge",
   "playerCombatAction",
+  "applyDamage",
 ]);
 
 function sendEvent(res, event, data) {
@@ -1128,6 +1152,24 @@ async function handleAction(req, res) {
       sendJson(res, 409, { error: result.error });
       return;
     }
+    if (result.damageEvent) {
+      const target = room.units.find((entry) => entry.id === result.damageEvent.targetId);
+      await applyDamageToUnit(room, target, result.damageEvent.rawDamage, result.damageEvent.source);
+    }
+  }
+
+  if (action === "applyDamage") {
+    const target = room.units.find((entry) => entry.id === String(body.id || ""));
+    if (!target) {
+      sendJson(res, 404, { error: "Choose a combatant to receive damage." });
+      return;
+    }
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      sendJson(res, 400, { error: "Enter a valid incoming Damage amount." });
+      return;
+    }
+    await applyDamageToUnit(room, target, amount, String(body.source || "GM-resolved NPC attack").trim().slice(0, 160) || "GM-resolved NPC attack");
   }
 
   if (action === "removeUnit") {

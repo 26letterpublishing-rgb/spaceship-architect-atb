@@ -108,7 +108,7 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "roll-request", "session-end", "science-choice"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -339,6 +339,37 @@ class CampaignApi {
     await this.save(campaign);
     return true;
   }
+
+  async damageCharacter(code, characterId, rawDamage = 0, source = "Combat damage") {
+    const campaign = await this.campaign(code);
+    const record = campaign?.characters.find((entry) => entry.id === characterId);
+    if (!record) return null;
+    record.character.health ||= { current: 0, permanentBonus: 0 };
+    const maximumHp = Math.max(0, Number(record.character.computed?.maximumHp) || Number(record.character.health.current) || 0);
+    const beforeHp = record.character.health.current === null || record.character.health.current === undefined
+      ? maximumHp
+      : Number(record.character.health.current) || 0;
+    const incoming = Math.max(0, Number(rawDamage) || 0);
+    const reduction = Math.max(0, Number(record.character.computed?.damageReduction) || 0);
+    const applied = Math.max(0, incoming - reduction);
+    const currentHp = Math.max(-9999, beforeHp - applied);
+    record.character.health.current = currentHp;
+    record.updatedAt = new Date().toISOString();
+    const note = {
+      id: uid("damage"),
+      characterId: record.id,
+      characterName: safeCharacterName(record),
+      direction: "to-character",
+      kind: "damage",
+      message: `${String(source || "Combat damage").slice(0, 160)} dealt ${applied} HP damage${reduction ? ` after ${reduction} Damage Reduction` : ""}. HP: ${currentHp}/${maximumHp}.`,
+      createdAt: record.updatedAt,
+      readAt: null,
+    };
+    campaign.privateNotes.push(note);
+    await this.save(campaign);
+    return { id: note.id, rawDamage: incoming, reduction, applied, beforeHp, currentHp, maximumHp, source: String(source || "Combat damage").slice(0, 160), createdAt: Date.now() };
+  }
+
 
   async verifyCharacterAccess(code, characterId, token) {
     return Boolean(this.characterSession(token, code, characterId));
@@ -763,16 +794,28 @@ class CampaignApi {
       const next = clone(body.character);
       next.id = record.id;
       next.resources ||= {};
+      next.health ||= { current: null, permanentBonus: 0 };
       const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
       const submittedCredits = Number(next.resources.creditsBase) || 0;
       const baseCredits = Number(body.baseCredits);
       next.resources.creditsBase = Number.isFinite(baseCredits)
         ? Math.round(boundedNumber(serverCredits + (submittedCredits - baseCredits), 0, 999999999))
         : Math.round(boundedNumber(submittedCredits, 0, 999999999));
+      const serverHp = record.character?.health?.current === null || record.character?.health?.current === undefined
+        ? Number(record.character?.computed?.maximumHp) || Number(next.computed?.maximumHp) || 0
+        : Number(record.character.health.current) || 0;
+      const submittedHp = Number(next.health.current);
+      const baseCurrentHp = body.baseCurrentHp === null || body.baseCurrentHp === undefined
+        ? Number.NaN
+        : Number(body.baseCurrentHp);
+      const nextMaximumHp = Math.max(0, Number(next.computed?.maximumHp) || 0);
+      next.health.current = Number.isFinite(baseCurrentHp) && Number.isFinite(submittedHp)
+        ? Math.round(boundedNumber(serverHp + (submittedHp - baseCurrentHp), -9999, nextMaximumHp))
+        : Math.round(boundedNumber(submittedHp, -9999, nextMaximumHp));
       record.character = next;
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
-      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase });
+      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase, currentHp: next.health.current });
       return true;
     }
 

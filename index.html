@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260809-combat-2" />
-  <link rel="stylesheet" href="combat-actions.css?v=20260809-combat-2" />
+  <link rel="stylesheet" href="styles.css?v=20260809-combat-4" />
+  <link rel="stylesheet" href="combat-actions.css?v=20260809-combat-4" />
   </head>
   <body>
     <main class="shell">
@@ -45,7 +45,7 @@
           <div id="gmTopControls" class="gm-top-controls hidden">
             <button id="resetAll" class="top-control-btn warning">Reset</button>
             <button id="clearEncounter" class="top-control-btn danger">Clear</button>
-            <button id="exitCombat" class="top-control-btn danger exit-combat">Exit Combat</button>
+            <button id="exitCombat" class="top-control-btn danger exit-combat">End Combat</button>
           </div>
           <button id="gmMuteSound" class="sound-toggle hidden" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
         </div>
@@ -365,6 +365,28 @@
             <span id="combatTextLabel">Details</span>
             <input id="combatText" maxlength="80" autocomplete="off" />
           </label>
+          <section id="combatAttackWrap" class="combat-attack-resolver" hidden>
+            <div class="combat-attack-grid">
+              <label>Distance (Units Between)
+                <input id="combatDistance" type="number" min="0" max="9999" step="1" inputmode="decimal" value="1" />
+              </label>
+              <label>Rolled Base To-Hit
+                <input id="combatAttackScore" type="number" step="0.1" inputmode="decimal" placeholder="Before card and Range modifiers" />
+              </label>
+              <label>Target Defense Score
+                <input id="combatDefenseScore" type="number" step="0.1" inputmode="decimal" placeholder="Before Range / Called Shot" />
+              </label>
+              <label>Rolled Damage Total
+                <input id="combatDamageRoll" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Use the displayed Damage dice" />
+              </label>
+            </div>
+            <label class="combat-called-shot-toggle"><input id="combatCalledShot" type="checkbox" /> Called Shot</label>
+            <label id="combatCalledShotDetailWrap" hidden>Called Location / Intended Effect
+              <input id="combatCalledShotDetail" maxlength="80" placeholder="Weapon hand, engine controls, exposed cable..." />
+            </label>
+            <div id="combatAttackPreview" class="combat-attack-preview"></div>
+          </section>
+
           <div id="combatActionNote" class="combat-action-note"></div>
           <div id="combatActionError" class="combat-action-error" role="alert"></div>
           <div class="combat-action-dialog-buttons">
@@ -384,7 +406,34 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-  <script src="app.js?v=20260809-combat-2"></script>
-  <script src="combat-actions.js?v=20260809-combat-2"></script>
+    <section id="gmDamageDialog" class="combat-action-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="gmDamageTitle">
+      <div class="combat-action-panel gm-damage-panel">
+        <p class="eyebrow">GM Combat Resolution</p>
+        <h2 id="gmDamageTitle">Apply Damage</h2>
+        <p id="gmDamageTarget">Character</p>
+        <form id="gmDamageForm" class="combat-action-form">
+          <label>Incoming Damage
+            <input id="gmDamageAmount" type="number" min="0" step="0.1" inputmode="decimal" required />
+          </label>
+          <label>Source / Attack
+            <input id="gmDamageSource" maxlength="160" value="NPC attack" />
+          </label>
+          <p id="gmDamageNote" class="combat-action-note">Enter damage after critical multipliers. The target's saved Damage Reduction is applied automatically.</p>
+          <div class="combat-action-dialog-buttons">
+            <button id="cancelGmDamage" type="button" class="secondary">Cancel</button>
+            <button type="submit" class="complete">Apply Damage</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <button id="playerDamageAlert" class="player-damage-alert hidden" type="button" aria-live="assertive">
+      <span>Damage Report</span><strong>0 HP Damage</strong><small>Tap to dismiss</small>
+    </button>
+
+
+  <script src="combat-rules.js?v=20260809-combat-4"></script>
+  <script src="app.js?v=20260809-combat-4"></script>
+  <script src="combat-actions.js?v=20260809-combat-4"></script>
   </body>
 </html>

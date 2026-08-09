@@ -1362,7 +1362,8 @@ html { -webkit-text-size-adjust:100%; }
 .character-creation-active #characterSheet > .derived-panel { order:6; }
 .character-creation-active #characterSheet > .resources-panel { order:7; }
 .character-creation-active #characterSheet > .advantages-panel { order:8; }
-.character-creation-active #characterSheet > .crew-panel { order:9; }
+.character-creation-active #characterSheet > .weapons-panel { order:9; }
+.character-creation-active #characterSheet > .crew-panel { order:10; }
 .character-creation-active .character-layout-toggle button:disabled { opacity:.56; cursor:not-allowed; }
 
 .skill-buy,

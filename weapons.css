@@ -54,10 +54,10 @@
   padding:7px 6px;
   overflow-wrap:anywhere;
   color:#d6e7f1;
-  font-size:.61rem;
-  line-height:1.35;
+  font-size:.72rem;
+  line-height:1.32;
 }
-.weapon-stat.special { color:#a9bfce; font-size:.56rem; }
+.weapon-stat.special { color:#b9cfdb; font-size:.66rem; }
 .weapon-stat.charge-time { color:var(--yellow); font-weight:900; text-align:center; }
 .weapon-held-button {
   min-height:58px;

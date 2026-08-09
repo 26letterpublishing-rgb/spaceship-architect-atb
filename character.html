@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260808-layout-2" />
-  <link rel="stylesheet" href="weapons.css?v=20260809-weapons-1" />
+  <link rel="stylesheet" href="character.css?v=20260809-combat-4" />
+  <link rel="stylesheet" href="weapons.css?v=20260809-combat-4" />
   </head>
   <body>
     <header class="creator-header">
@@ -27,10 +27,10 @@
 
     <section id="globalCharacterHud" class="global-character-hud" aria-label="Current character resources" hidden>
       <div><span>Experience</span><strong id="tabStatusExperience">0 / 0</strong></div>
-      <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
+      <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
       <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
       <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
-      <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
+      <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
     </section>
 
     <section id="characterCampaignGate" class="character-campaign-gate character-page-panel" data-character-panel="roster" hidden>
@@ -530,6 +530,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260809-weapons-1"></script>
+  <script type="module" src="character.js?v=20260809-combat-4"></script>
   </body>
 </html>
