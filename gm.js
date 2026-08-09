@@ -1,4 +1,5 @@
-import { ATTRIBUTE_DEFS, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260807-rules-3";
+import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260807-rules-3";
+import { weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -225,6 +226,12 @@ function boxesFilled(record, attribute) {
   return (record?.character?.attributes?.[attribute] || []).reduce((total, die) => total + Math.max(0, Number(die) + 1), 0);
 }
 
+function highestAttributeDie(record, attribute) {
+  return Math.max(0, ...(record?.character?.attributes?.[attribute] || [])
+    .filter((value) => Number(value) >= 0)
+    .map((value) => DICE_FACES[Number(value)] || 0));
+}
+
 function characterSpeed(record) {
   const initiative = (Number(record?.character?.skills?.Initiative?.tenths) || 0) / 10;
   const multiplier = record?.character?.identity?.classId === "mastermind" ? 1.5 : 1;
@@ -238,11 +245,26 @@ function commandWindow(record) {
     ?? Math.max(1, boxesFilled(record, "perception") * 8 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
 }
 
+function combatWeaponInventory(record) {
+  return (record?.character?.weapons || []).flatMap((entry) => {
+    const weapon = weaponById(entry?.weaponId);
+    if (!weapon) return [];
+    return [{ inventoryId: String(entry.id || weapon.id), weaponId: weapon.id }];
+  });
+}
+
 function encounterRuleFields(record) {
   const identity = record?.character?.identity || {};
+  const heldEntry = (record?.character?.weapons || []).find((entry) => entry?.held && weaponById(entry.weaponId));
   return {
     initialAtb: identity.classId === "rogue-drifter" ? 99 : 0,
     regenerationRate: identity.raceId === "antropic" && identity.raceType === "fins" ? boxesFilled(record, "health") : 0,
+    dexterityBoxes: boxesFilled(record, "dexterity"),
+    highestPerceptionDie: highestAttributeDie(record, "perception"),
+    moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
+    weaponMechanics: Number(skillRating(record, "Weapon Mechanics")) || 0,
+    weapons: combatWeaponInventory(record),
+    heldWeaponId: heldEntry ? String(heldEntry.id || heldEntry.weaponId) : "",
   };
 }
 
@@ -509,7 +531,7 @@ async function resumeEncounterWithFreshCharacters() {
         speed: characterSpeed(record),
         commandWindow: commandWindow(record),
         color: record.character?.presentation?.atbColor || "#39e58f",
-        regenerationRate: encounterRuleFields(record).regenerationRate,
+        ...encounterRuleFields(record),
       }];
     });
     if (updates.length) encounterState = await encounterAction("syncCampaignUnits", { units: updates });

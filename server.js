@@ -4,6 +4,17 @@ const path = require("path");
 const os = require("os");
 const { CampaignStore } = require("./campaign-store");
 const { CampaignApi } = require("./campaign-api");
+const {
+  combatEventTimes,
+  effectiveSpeed,
+  hasCombatCountdown,
+  hasTimedAction,
+  migrateUnitCombat,
+  cancelTimedActionForForcedDelay,
+  resolvePlayerCombatAction,
+  syncUnitCombat,
+  tickCombatTimers,
+} = require("./combat-engine");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -237,6 +248,7 @@ const undoableActions = new Set([
   "clearEncounter",
   "completeTurn",
   "nudge",
+  "playerCombatAction",
 ]);
 
 function sendEvent(res, event, data) {
@@ -332,8 +344,10 @@ function canStartClock(room) {
 }
 
 function tieCompare(a, b) {
+  const aSpeed = effectiveSpeed(a);
+  const bSpeed = effectiveSpeed(b);
   if (a.team !== b.team) return a.team === "pc" ? -1 : 1;
-  if ((a.speed || 0) !== (b.speed || 0)) return (b.speed || 0) - (a.speed || 0);
+  if (aSpeed !== bSpeed) return bSpeed - aSpeed;
   return a.tieSeed - b.tieSeed;
 }
 
@@ -421,6 +435,7 @@ function copyDelay(delay) {
 
 function migrateRoomDelays(room) {
   for (const unit of room.units) {
+    migrateUnitCombat(unit);
     if (!Array.isArray(unit.queuedEffects)) unit.queuedEffects = [];
     if (!unit.delay) continue;
     if (unit.delay.kind === "action") {
@@ -435,7 +450,7 @@ function migrateRoomDelays(room) {
 }
 
 function hasDelay(unit) {
-  return Boolean(unit?.delayTimer || unit?.delayedAction || unit?.delay);
+  return Boolean(unit?.delayTimer || unit?.delayedAction || unit?.delay || hasTimedAction(unit));
 }
 
 function activeDelay(unit) {
@@ -447,7 +462,8 @@ function hasActiveDelayCountdown(room) {
     (unit.delayTimer && !unit.delayTimer.resolving) ||
     (unit.delayedAction && !unit.delayedAction.resolving) ||
     (unit.delay && !unit.delay.resolving) ||
-    (Array.isArray(unit.queuedEffects) && unit.queuedEffects.some((effect) => !effect.resolving)),
+    (Array.isArray(unit.queuedEffects) && unit.queuedEffects.some((effect) => !effect.resolving)) ||
+    hasCombatCountdown(unit),
   );
 }
 
@@ -457,6 +473,7 @@ function usesCommandWindow(unit, source) {
 
 function pauseForReadyUnit(room, unit, source = "clock") {
   if (!unit || room.pausedForTurn) return;
+  const carriedCommand = unit.commandCarrySeconds;
   room.pausedForTurn = true;
   room.running = false;
   room.activeId = unit.id;
@@ -465,9 +482,10 @@ function pauseForReadyUnit(room, unit, source = "clock") {
   room.holdPaused = false;
   room.holdStartedAt = null;
   room.commandHeldRemaining = null;
+  unit.commandCarrySeconds = null;
   if (usesCommandWindow(unit, source)) {
     room.commandTotal = unit.commandWindow;
-    room.commandDeadline = Date.now() + unit.commandWindow * 1000;
+    room.commandDeadline = Date.now() + Math.max(0, carriedCommand ?? unit.commandWindow) * 1000;
   } else {
     room.commandTotal = 0;
     room.commandDeadline = null;
@@ -567,6 +585,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", sett
   const previousSource = room.activeSource;
   const wasActive = room.activeId === unit.id;
   const normalizedKind = normalizeDelayKind(kind);
+  const cancelledTimedAction = cancelTimedActionForForcedDelay(unit);
   const nextDelay = {
     id: id(),
     kind: normalizedKind,
@@ -577,6 +596,7 @@ function startUnitDelay(room, unit, { kind = "timer", rate = 1, label = "", sett
     total: 100,
     consumeTurn: wasActive,
     resolving: false,
+    forceResetAfter: cancelledTimedAction,
   };
   if (normalizedKind === "queued") {
     nextDelay.queuedEffect = normalizeQueuedEffect(queuedEffect);
@@ -640,6 +660,22 @@ function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
 }
 
 function moveToNextTurnOrClock(room, previousSource = null) {
+  for (const unit of room.units) {
+    const thrown = (unit.thrownEffects || []).find((effect) => effect.resolving);
+    if (thrown) {
+      resolveCompletedEvent(room, { type: "thrown", unit, effect: thrown }, nextTurnSource(room, previousSource));
+      return;
+    }
+    const queued = (unit.queuedEffects || []).find((effect) => effect.resolving);
+    if (queued) {
+      resolveCompletedEvent(room, { type: "queued", unit, effect: queued }, nextTurnSource(room, previousSource));
+      return;
+    }
+    if (unit.delayedAction?.resolving) {
+      resolveCompletedEvent(room, { type: "delayed", unit, delay: unit.delayedAction }, nextTurnSource(room, previousSource));
+      return;
+    }
+  }
   const ready = findReadyUnit(room);
   if (ready) {
     pauseForReadyUnit(room, ready, nextTurnSource(room, previousSource));
@@ -657,6 +693,18 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const completedEvents = [];
   for (const unit of room.units) {
     if (unit.id === skipId || !unit.speed) continue;
+    const wasTimed = hasTimedAction(unit);
+    for (const event of tickCombatTimers(unit, seconds, multiplier)) {
+      if (event.type === "timed") {
+        if (event.timedAction.kind === "defense") {
+          pushLog(room, `${unit.characterName}'s Defense ended.`);
+        } else {
+          pushLog(room, `${unit.characterName} completed ${event.timedAction.label}.`);
+        }
+      } else {
+        completedEvents.push(event);
+      }
+    }
     if (unit.characterId && unit.regenerationRate > 0) {
       unit.regenerationProgress = (Number(unit.regenerationProgress) || 0) + unit.regenerationRate * seconds * multiplier;
       const healing = Math.floor(unit.regenerationProgress / 100);
@@ -683,7 +731,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
         unit.delayTimer.remaining = Math.max(0, unit.delayTimer.remaining - unit.delayTimer.rate * seconds * multiplier);
         if (unit.delayTimer.remaining <= 0) {
           const shouldConsumeTurn = unit.delayTimer.consumeTurn && !unit.delayedAction;
-          if (shouldConsumeTurn) unit.atb = Math.max(0, unit.atb - room.threshold);
+          if (shouldConsumeTurn || unit.delayTimer.forceResetAfter) unit.atb = Math.max(0, unit.atb - room.threshold);
           unit.delayTimer = null;
           pushLog(room, `${unit.characterName}'s Reload/Recovery ended.`);
         }
@@ -701,7 +749,8 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
       }
       continue;
     }
-    if (unit.atb < room.threshold) unit.atb += unit.speed * seconds * multiplier;
+    if (wasTimed || hasTimedAction(unit)) continue;
+    if (unit.atb < room.threshold) unit.atb += effectiveSpeed(unit) * seconds * multiplier;
   }
   return completedEvents;
 }
@@ -712,6 +761,25 @@ function resolveCompletedEvent(room, event, source) {
     pauseForQueuedEffect(room, event.unit, event.effect, source);
     return true;
   }
+  if (event.type === "thrown") {
+    clearActiveCommand(room);
+    room.pausedForTurn = true;
+    room.running = false;
+    room.activeId = null;
+    room.activeAction = {
+      id: event.effect.id,
+      unitId: event.unit.id,
+      effectId: event.effect.id,
+      characterName: event.unit.characterName,
+      playerName: event.unit.playerName,
+      label: event.effect.label,
+      kind: "thrownEffect",
+    };
+    room.activeSource = source;
+    pushLog(room, `Resolve Detonation: ${event.effect.label}.`);
+    return true;
+  }
+  if (event.type === "timed") return false;
   pauseForDelayedAction(room, event.unit, source);
   return true;
 }
@@ -756,10 +824,13 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
             return speed > 0 ? Math.max(0, (100 - (Number(effect.progress) || 0)) / speed) : Infinity;
           })
         : [];
+      const timerTimes = combatEventTimes(unit, multiplier);
       const delay = activeDelay(unit);
-      if (delay && !delay.resolving) return [...effectTimes, Math.max(0, delay.remaining / (delay.rate * multiplier))];
-      if (delay) return [...effectTimes, Infinity];
-      return [...effectTimes, Math.max(0, (room.threshold - unit.atb) / (unit.speed * multiplier))];
+      if (delay && !delay.resolving) return [...effectTimes, ...timerTimes, Math.max(0, delay.remaining / (delay.rate * multiplier))];
+      if (delay) return [...effectTimes, ...timerTimes, Infinity];
+      if (hasTimedAction(unit)) return [...effectTimes, ...timerTimes];
+      const speed = effectiveSpeed(unit) * multiplier;
+      return [...effectTimes, ...timerTimes, speed > 0 ? Math.max(0, (room.threshold - unit.atb) / speed) : Infinity];
     })
     .filter((time) => Number.isFinite(time));
   if (!times.length) return;
@@ -772,7 +843,8 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
       resolveCompletedEvent(room, completedEvents[0], source);
       return;
     }
-    pauseForReadyUnit(room, findReadyUnit(room), source);
+    const ready = findReadyUnit(room);
+    if (ready) pauseForReadyUnit(room, ready, source);
   } else {
     addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
   }
@@ -914,7 +986,7 @@ async function handleAction(req, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost"].includes(action) && playerUnit) {
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -958,6 +1030,7 @@ async function handleAction(req, res) {
       existingCampaignUnit.controlledBy = "player";
       existingCampaignUnit.team = "pc";
       existingCampaignUnit.playerConnected = true;
+      syncUnitCombat(existingCampaignUnit, body);
       pushLog(room, `${characterName} rejoined the encounter.`);
       sendJson(res, 200, publicState(room));
       broadcast(room);
@@ -987,6 +1060,7 @@ async function handleAction(req, res) {
       characterId: String(body.characterId || ""),
       playerConnected: action === "join" && body.controlledBy === "player",
     };
+    syncUnitCombat(unit, body);
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
     pushLog(room, `${characterName} joined (${setupText}).`);
@@ -1009,6 +1083,7 @@ async function handleAction(req, res) {
       unit.characterName = nextName;
       unit.playerName = nextPlayer;
       unit.color = nextColor;
+      syncUnitCombat(unit, update);
     }
     if (changed) pushLog(room, `${changed} campaign character${changed === 1 ? "" : "s"} synchronized from updated sheets.`);
   }
@@ -1024,12 +1099,34 @@ async function handleAction(req, res) {
       unit.characterName = String(body.characterName || unit.characterName).trim().slice(0, 40) || unit.characterName;
       unit.playerName = String(body.playerName || unit.playerName).trim().slice(0, 40) || unit.playerName;
       unit.color = normalizeColor(body.color || unit.color);
+      syncUnitCombat(unit, body);
       if (wasActive) {
         room.activeId = null;
         room.pausedForTurn = false;
         clearActiveCommand(room);
         moveToNextTurnOrClock(room, previousSource);
       }
+    }
+  }
+
+  if (action === "syncCharacterLoadout") {
+    const unit = playerUnit;
+    if (unit) {
+      syncUnitCombat(unit, body);
+      pushLog(room, `${unit.characterName}'s combat loadout synchronized.`);
+    }
+  }
+
+  if (action === "playerCombatAction") {
+    const result = resolvePlayerCombatAction(room, playerUnit, body, {
+      id,
+      clearActiveCommand,
+      moveToNextTurnOrClock,
+      pushLog,
+    });
+    if (!result.ok) {
+      sendJson(res, 409, { error: result.error });
+      return;
     }
   }
 
@@ -1227,6 +1324,12 @@ async function handleAction(req, res) {
       unit.delayTimer = null;
       unit.delayedAction = null;
       unit.queuedEffects = [];
+      unit.weaponCharge = null;
+      unit.timedAction = null;
+      unit.commandCarrySeconds = null;
+      unit.movementChargeUnits = 0;
+      unit.aim = null;
+      unit.thrownEffects = [];
     }
     room.running = false;
     room.pausedForTurn = false;
@@ -1296,7 +1399,10 @@ async function handleAction(req, res) {
       const actionToResolve = room.activeAction;
       const unit = room.units.find((entry) => entry.id === actionToResolve.unitId);
       if (unit) {
-        if (actionToResolve.kind === "queuedEffect") {
+        if (actionToResolve.kind === "thrownEffect") {
+          unit.thrownEffects = (unit.thrownEffects || []).filter((effect) => effect.id !== actionToResolve.effectId);
+          pushLog(room, `Detonated ${actionToResolve.label}; resolve its effect now.`);
+        } else if (actionToResolve.kind === "queuedEffect") {
           const before = Array.isArray(unit.queuedEffects) ? unit.queuedEffects.length : 0;
           unit.queuedEffects = (unit.queuedEffects || []).filter((effect) => effect.id !== actionToResolve.effectId);
           pushLog(room, before === unit.queuedEffects.length

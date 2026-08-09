@@ -6,6 +6,7 @@
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
   <link rel="stylesheet" href="character.css?v=20260808-layout-2" />
+  <link rel="stylesheet" href="weapons.css?v=20260809-weapons-1" />
   </head>
   <body>
     <header class="creator-header">
@@ -289,6 +290,19 @@
           </label>
         </section>
 
+        <section class="sheet-panel weapons-panel" data-sheet-section="supplies">
+          <div class="panel-heading"><span>Weapons</span><button id="addWeaponRow" class="compact-add" type="button" aria-label="Add weapon">+</button></div>
+          <div class="weapon-table-shell">
+            <div class="weapon-table" role="table" aria-label="Character weapons">
+              <div class="weapon-table-head" role="row">
+                <span>Weapon</span><span>Held</span><span>To-Hit</span><span>Damage</span><span>Charge Bonus</span><span>Max</span><span>Charge Time</span><span>Element</span><span>Range</span><span>Size</span><span>Special</span><span></span>
+              </div>
+              <div id="weaponInventory" class="weapon-inventory"></div>
+            </div>
+          </div>
+          <p class="weapon-table-note">Weapon costs, ammunition quantities, and inventory size limits are disabled during this timing playtest.</p>
+        </section>
+
         <section class="sheet-panel crew-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Crew Roster</span><button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button></div>
           <div id="crewRoster" class="crew-roster"></div>
@@ -516,6 +530,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260808-layout-2"></script>
+  <script type="module" src="character.js?v=20260809-weapons-1"></script>
   </body>
 </html>

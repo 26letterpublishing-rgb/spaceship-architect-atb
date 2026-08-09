@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
-  <link rel="stylesheet" href="styles.css?v=20260808-combat-1" />
+    <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="styles.css?v=20260809-combat-2" />
+  <link rel="stylesheet" href="combat-actions.css?v=20260809-combat-2" />
   </head>
   <body>
     <main class="shell">
@@ -195,11 +197,28 @@
           </div>
           <strong id="playerTurnTitle">YOUR TURN</strong>
           <span id="playerCommandStatus">Resolve your action, then end your turn.</span>
-          <div id="playerTurnActions" class="player-turn-actions">
-            <button id="playerEndTurn" class="complete player-complete">Turn Complete/Pass Turn</button>
-            <button id="playerDelay" class="secondary">Delay</button>
-          </div>
+        <div id="heldWeaponReadout" class="held-weapon-readout">
+          <span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies.</small>
         </div>
+        <div id="playerTurnActions" class="player-turn-actions combat-action-grid">
+          <button type="button" data-combat-action="wait3">Wait 3</button>
+          <button type="button" data-combat-action="defense">Defense</button>
+          <button type="button" data-combat-action="melee">Melee Attack</button>
+          <button type="button" data-combat-action="move">Move</button>
+          <button type="button" data-combat-action="wrestle">Wrestle / Disarm</button>
+          <button type="button" data-combat-action="aim">Aim</button>
+          <button type="button" data-combat-action="charge">Charge</button>
+          <button type="button" data-combat-action="fire">Fire Gun</button>
+          <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
+          <button type="button" data-combat-action="calledShot">Called Shot</button>
+          <button type="button" data-combat-action="throwItem">Throw Item</button>
+          <button type="button" data-combat-action="firstAid">First Aid</button>
+          <button type="button" data-combat-action="station">Station</button>
+          <button id="playerDelay" type="button" class="secondary">Delay</button>
+          <button id="playerEndTurn" type="button" class="complete player-complete">Action Resolved</button>
+        </div>
+      </div>
+
         <div id="myUnitCard"></div>
       </section>
 
@@ -324,7 +343,40 @@
     <button id="gmPanicPause" class="gm-panic-pause hidden">Pause Everything</button>
     <button id="visualModeToggle" class="visual-mode-toggle hidden" type="button">Tactical Ring</button>
 
+    <section id="combatActionDialog" class="combat-action-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="combatActionTitle">
+      <div class="combat-action-panel">
+        <p class="eyebrow">Combat Action</p>
+        <h2 id="combatActionTitle">Resolve Action</h2>
+        <p id="combatActionSummary">Held weapon</p>
+        <form id="combatActionForm" class="combat-action-form">
+          <label id="combatTargetWrap" hidden>
+            Target
+            <select id="combatTarget"></select>
+          </label>
+          <label id="combatAmountWrap" hidden>
+            <span id="combatAmountLabel">Amount</span>
+            <input id="combatAmount" type="number" step="0.1" inputmode="decimal" />
+          </label>
+          <label id="combatWeaponWrap" hidden>
+            Item / Weapon
+            <select id="combatWeapon"></select>
+          </label>
+          <label id="combatTextWrap" hidden>
+            <span id="combatTextLabel">Details</span>
+            <input id="combatText" maxlength="80" autocomplete="off" />
+          </label>
+          <div id="combatActionNote" class="combat-action-note"></div>
+          <div id="combatActionError" class="combat-action-error" role="alert"></div>
+          <div class="combat-action-dialog-buttons">
+            <button id="cancelCombatAction" type="button" class="secondary">Cancel</button>
+            <button type="submit" class="complete">Confirm Action</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
     <div id="playerActionSheet" class="player-action-sheet hidden">
+
       <div class="action-sheet-head">
         <strong>What did you do?</strong>
         <button id="dismissActionSheet" class="mini">Later</button>
@@ -332,6 +384,7 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-  <script src="app.js?v=20260808-combat-1"></script>
+  <script src="app.js?v=20260809-combat-2"></script>
+  <script src="combat-actions.js?v=20260809-combat-2"></script>
   </body>
 </html>

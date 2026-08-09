@@ -19,6 +19,7 @@ import {
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-tabs-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
+import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -105,7 +106,7 @@ const PHYSICAL_SKILLS = new Set([
   "Wrestle/Disarm",
 ]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
-const FORMAT_VERSION = 5;
+const FORMAT_VERSION = 6;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const DEBUG_CONTROLS_ENABLED = false;
 const PAGE_PARAMS = new URLSearchParams(window.location.search);
@@ -205,6 +206,8 @@ const dom = {
   debugReverence: $("#debugReverence"),
   crewRoster: $("#crewRoster"),
   addCrewRow: $("#addCrewRow"),
+  weaponInventory: $("#weaponInventory"),
+  addWeaponRow: $("#addWeaponRow"),
   confirmModal: $("#confirmModal"),
   confirmTitle: $("#confirmTitle"),
   confirmMessage: $("#confirmMessage"),
@@ -646,6 +649,7 @@ function blankCharacter(name = "New Character") {
       peacekeeperDramaCardsEarned: 0,
     },
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
+    weapons: [{ id: uid(), weaponId: "", held: false }],
     advantagesNotes: "",
     notes: "",
     updatedAt: new Date().toISOString(),
@@ -775,6 +779,7 @@ function normalizeCharacter(raw) {
       freeRerollsUsed: { ...base.session.freeRerollsUsed, ...(source.session?.freeRerollsUsed || {}) },
     },
     crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
+    weapons: Array.isArray(source.weapons) ? source.weapons.slice(0, 24) : base.weapons,
   };
 
   for (const definition of ATTRIBUTE_DEFS) {
@@ -825,6 +830,18 @@ function normalizeCharacter(raw) {
 
   while (normalized.crew.length < 3) normalized.crew.push({ name: "", title: "" });
   normalized.crew = normalized.crew.map((member) => ({ name: String(member?.name || ""), title: String(member?.title || "") }));
+  if (!normalized.weapons.length) normalized.weapons.push({ id: uid(), weaponId: "", held: false });
+  let heldWeaponClaimed = false;
+  normalized.weapons = normalized.weapons.map((entry) => {
+    const weaponId = weaponById(entry?.weaponId) ? String(entry.weaponId) : "";
+    const held = Boolean(weaponId && entry?.held && !heldWeaponClaimed);
+    if (held) heldWeaponClaimed = true;
+    return {
+      id: String(entry?.id || uid()),
+      weaponId,
+      held,
+    };
+  });
   normalized.experience.available = Math.round(clamp(normalized.experience.available, 0, 9999999));
   normalized.experience.spent = Math.round(clamp(normalized.experience.spent, 0, 9999999));
   normalized.experience.totalGained = Math.max(
@@ -3182,6 +3199,51 @@ function renderDerived() {
   renderTabbedStatus();
 }
 
+function weaponOptions(selectedId) {
+  return [
+    `<option value="">Choose a weapon</option>`,
+    ...WEAPONS.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}</option>`),
+  ].join("");
+}
+
+function weaponStat(value) {
+  const text = String(value || "").trim();
+  return text && !["N/A", "None"].includes(text) ? text : text || "-";
+}
+
+function renderWeapons() {
+  const onlyRow = character.weapons.length <= 1;
+  dom.weaponInventory.innerHTML = character.weapons.map((entry) => {
+    const weapon = weaponById(entry.weaponId);
+    const emptyClass = weapon ? "" : " weapon-empty-stat";
+    const chargeTime = weapon?.chargeMode === "movement" ? "Movement" : weapon?.chargeTime || "-";
+    return `<div class="weapon-table-row" role="row" data-weapon-row="${escapeAttribute(entry.id)}">
+      <select data-weapon-select="${escapeAttribute(entry.id)}" aria-label="Choose weapon">${weaponOptions(entry.weaponId)}</select>
+      <button type="button" class="weapon-held-button ${entry.held ? "active" : ""}" data-hold-weapon="${escapeAttribute(entry.id)}" ${weapon ? "" : "disabled"} aria-pressed="${entry.held ? "true" : "false"}"><span>${entry.held ? "Held" : "Hold"}</span></button>
+      <span class="weapon-stat${emptyClass}" data-label="To-Hit">${escapeHtml(weaponStat(weapon?.toHit))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Damage">${escapeHtml(weaponStat(weapon?.damage))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Charge Bonus">${escapeHtml(weaponStat(weapon?.chargeBonus))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Max Charge">${escapeHtml(weaponStat(weapon?.maxCharge))}</span>
+      <span class="weapon-stat charge-time${emptyClass}" data-label="Charge Time">${escapeHtml(String(chargeTime))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Element">${escapeHtml(weaponStat(weapon?.element))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Range">${escapeHtml(weaponStat(weapon?.range))}</span>
+      <span class="weapon-stat${emptyClass}" data-label="Size">${escapeHtml(weaponStat(weapon?.sizeClass))}</span>
+      <span class="weapon-stat special${emptyClass}" data-label="Special">${escapeHtml(weaponStat(weapon?.special))}</span>
+      <button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow ? "disabled" : ""} aria-label="Remove weapon">-</button>
+    </div>`;
+  }).join("");
+}
+
+function heldWeaponSnapshot() {
+  const entry = character.weapons.find((weapon) => weapon.held && weapon.weaponId);
+  const weapon = weaponById(entry?.weaponId);
+  if (!entry || !weapon) return null;
+  return {
+    inventoryId: entry.id,
+    ...weapon,
+  };
+}
+
 function renderCrew() {
   const atMinimum = character.crew.length <= 3;
   dom.crewRoster.innerHTML = character.crew.map((member, index) => `<div class="crew-row"><input data-crew-index="${index}" data-crew-field="name" value="${escapeAttribute(member.name)}" placeholder="Crewmember" aria-label="Crewmember ${index + 1} name" /><input data-crew-index="${index}" data-crew-field="title" value="${escapeAttribute(member.title)}" placeholder="Title / Station" aria-label="Crewmember ${index + 1} title" /><button class="row-remove" type="button" data-remove-crew="${index}" ${atMinimum ? "disabled" : ""} aria-label="Remove crew row ${index + 1}">-</button></div>`).join("");
@@ -3322,6 +3384,7 @@ function renderAll() {
   renderSkills();
   renderResources();
   renderDerived();
+  renderWeapons();
   renderCrew();
   renderCharacterLayout();
 }
@@ -4227,6 +4290,31 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const holdWeapon = event.target.closest("[data-hold-weapon]");
+  if (holdWeapon && (!campaignCode || campaignEditable)) {
+    const entry = character.weapons.find((weapon) => weapon.id === holdWeapon.dataset.holdWeapon);
+    if (!entry?.weaponId) return;
+    const nextHeld = !entry.held;
+    character.weapons.forEach((weapon) => { weapon.held = false; });
+    entry.held = nextHeld;
+    queueSave();
+    renderWeapons();
+    notice(nextHeld ? `${weaponById(entry.weaponId).name} is now held.` : "Held weapon stowed.", "success");
+    return;
+  }
+
+  const removeWeapon = event.target.closest("[data-remove-weapon]");
+  if (removeWeapon && (!campaignCode || campaignEditable)) {
+    if (character.weapons.length <= 1) return;
+    const entry = character.weapons.find((weapon) => weapon.id === removeWeapon.dataset.removeWeapon);
+    const name = weaponById(entry?.weaponId)?.name || "Weapon";
+    character.weapons = character.weapons.filter((weapon) => weapon.id !== removeWeapon.dataset.removeWeapon);
+    queueSave();
+    renderWeapons();
+    notice(`${name} removed from Supplies.`, "success");
+    return;
+  }
+
   const removeCrew = event.target.closest("[data-remove-crew]");
   if (removeCrew) {
     if (character.crew.length <= 3) return;
@@ -4256,6 +4344,18 @@ document.addEventListener("keydown", (event) => {
   if (!row || event.target.closest("button, input")) return;
   event.preventDefault();
   openSkillCheck(row.dataset.rollSkill);
+});
+
+document.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-weapon-select]");
+  if (!select || (campaignCode && !campaignEditable)) return;
+  const entry = character.weapons.find((weapon) => weapon.id === select.dataset.weaponSelect);
+  if (!entry) return;
+  entry.weaponId = weaponById(select.value) ? select.value : "";
+  if (!entry.weaponId) entry.held = false;
+  queueSave();
+  renderWeapons();
+  notice(entry.weaponId ? `${weaponById(entry.weaponId).name} added to Supplies.` : "Weapon row cleared.", "success");
 });
 
 dom.racePicker.addEventListener("change", () => {
@@ -4431,6 +4531,14 @@ dom.addCustomSkill.addEventListener("click", () => {
   queueSave();
   renderSkills();
   dom.customSkills.querySelector(`input[data-custom-name="${custom.id}"]`)?.focus();
+});
+
+dom.addWeaponRow.addEventListener("click", () => {
+  if ((campaignCode && !campaignEditable) || character.weapons.length >= 24) return;
+  character.weapons.push({ id: uid(), weaponId: "", held: false });
+  queueSave();
+  renderWeapons();
+  dom.weaponInventory.querySelector(".weapon-table-row:last-child select")?.focus();
 });
 
 dom.addCrewRow.addEventListener("click", () => {

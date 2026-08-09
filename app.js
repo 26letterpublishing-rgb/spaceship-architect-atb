@@ -294,7 +294,7 @@ function delayedActionFor(unit) {
 }
 
 function hasAnyDelay(unit) {
-  return Boolean(delayTimerFor(unit) || delayedActionFor(unit));
+  return Boolean(delayTimerFor(unit) || delayedActionFor(unit) || unit?.timedAction);
 }
 
 function activeDelayFor(unit) {
@@ -1580,6 +1580,9 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       ${
         queuedEffectsMarkup(unit, { gm })
       }
+      ${
+        window.SACombatActions?.statusMarkup(unit, { gm }) || ""
+      }
       <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
     </article>
   `;
@@ -1603,6 +1606,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
     delayedActionFor(unit) ? `action:${delayedActionFor(unit).label}:${delayedActionFor(unit).remaining}:${delayedActionFor(unit).rate}:${delayedActionFor(unit).resolving ? "resolving" : "waiting"}` : "noaction",
     queuedEffectsFor(unit).map((effect) => `queue:${effect.id}:${effect.label}:${effect.rate}:${effect.impairments}:${effect.resolving ? "resolving" : "filling"}`).join(",") || "noqueue",
+    window.SACombatActions?.structureSignature(unit) || "no-combat-status",
     myIconForUnit(unit) ? "icon" : "noicon",
     command ? `command:${command.expired ? "expired" : "active"}` : "nocommand",
     setupMissing ? "setup" : "ready-setup",
@@ -1682,6 +1686,7 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
       pips.forEach((pip, pipIndex) => pip.classList.toggle("active", pipIndex < impairments));
     });
   }
+  window.SACombatActions?.updateCard(card, unit, { gm, player });
 }
 
 function renderUnitList(sorted) {
@@ -2302,14 +2307,33 @@ function render() {
 
 function renderPlayerCommand(mine) {
   const command = commandFor(mine);
-  const isMyTurn = mine && state.activeId === mine.id;
+  const isMyTurn = Boolean(mine && state.activeId === mine.id);
   const delay = activeDelayFor(mine);
+  const timed = mine?.timedAction || null;
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
-  playerTurnTitle.textContent = delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
-  playerTurnActions.classList.toggle("hidden", Boolean(delay) && !isMyTurn);
+  window.SACombatActions?.syncCampaignLoadout(playerPreviewRecord, mine);
+  window.SACombatActions?.render({ mine, state, isMyTurn, hasPendingDelayRequest });
+
+  playerTurnTitle.textContent = timed && !isMyTurn
+    ? timed.kind === "defense" ? "DEFENSE" : timed.kind === "move" ? "MOVING" : "WAIT 3"
+    : delay && !isMyTurn ? "DELAY TIME" : "YOUR TURN";
+  playerTurnActions.classList.toggle("hidden", !isMyTurn || Boolean(delay) || Boolean(timed));
   playerDelay.disabled = hasPendingDelayRequest;
   playerDelay.title = "Request Delay";
   playerEndTurn.disabled = hasPendingDelayRequest;
+
+  if (timed && !isMyTurn) {
+    const percent = Math.max(0, Math.min(100, (Number(timed.remaining) / Math.max(0.1, Number(timed.total))) * 100));
+    playerCommandDial.classList.remove("hidden");
+    playerCommandDial.style.setProperty("--command-percent", `${percent}%`);
+    playerCommandTime.textContent = formatSeconds(timed.remaining);
+    playerCommandStatus.textContent = timed.kind === "defense"
+      ? "Dodge is doubled while Defense remains active."
+      : timed.kind === "move"
+        ? "Your immediate action begins when movement ends."
+        : "Your Command Window will resume with its remaining time.";
+    return;
+  }
 
   if (delay && !isMyTurn) {
     playerCommandDial.classList.remove("hidden");
@@ -2321,7 +2345,7 @@ function renderPlayerCommand(mine) {
 
   playerCommandDial.classList.toggle("hidden", !isMyTurn || !command);
   if (!isMyTurn) {
-    playerCommandStatus.textContent = "Resolve your action, then end your turn.";
+    playerCommandStatus.textContent = "Watch the ATB monitor for your next action.";
     return;
   }
   if (hasPendingDelayRequest) {
@@ -2331,7 +2355,7 @@ function renderPlayerCommand(mine) {
   if (!command) {
     playerCommandStatus.textContent = state.activeSource === "step"
       ? "Manual step turn. No Command Window limit."
-      : "Resolve your action, then end your turn.";
+      : "Choose the action your character takes.";
     return;
   }
   const percent = command.expired ? 0 : commandPercent(command);
@@ -2341,7 +2365,7 @@ function renderPlayerCommand(mine) {
     ? "Your action is about to be interrupted!"
     : command.remaining <= 10
       ? "Time is almost up!"
-      : "Resolve your action before your Command Window closes.";
+      : "Choose your action before your Command Window closes.";
 }
 
 function syncGmCommandWindowVisibility() {
@@ -2660,10 +2684,7 @@ gmDelay.addEventListener("click", () => {
   if (active) openDelayForUnit(active.id, "timer");
 });
 playerEndTurn.addEventListener("click", () => {
-  if (state && state.activeId === myUnitId) {
-    const unit = state.units.find((entry) => entry.id === myUnitId);
-    action({ action: "completeTurn", id: myUnitId }).then(() => queuePlayerActionLog(unit));
-  }
+  if (state && state.activeId === myUnitId) action({ action: "playerCombatAction", id: myUnitId, kind: "actionResolved" }, "resolve");
 });
 playerDelay.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
