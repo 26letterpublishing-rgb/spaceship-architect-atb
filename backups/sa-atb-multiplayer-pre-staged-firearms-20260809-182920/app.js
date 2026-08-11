@@ -15,8 +15,6 @@ let lastInterruptedNotice = "";
 let lastHandledDelayRequest = "";
 let lastDamageAlertId = "";
 let gmDamageTargetId = "";
-let lastCombatPromptKey = "";
-let gmForcedDefenseEntry = false;
 let damageAlertTimer = null;
 let audioContext = null;
 let events = null;
@@ -93,16 +91,16 @@ const c4NegativeSteps = [
   { flat: 0, percent: -0.33, label: "-33%" },
 ];
 const npcDefaults = [
-  { characterName: "Security Guard", speed: 5, color: "#39e58f", hp: 36 },
-  { characterName: "Space Slug", speed: 3, color: "#7ad66d", hp: 24 },
-  { characterName: "Civilian", speed: 4, color: "#f2d16b", hp: 20 },
-  { characterName: "Chief Security Guard", speed: 7, color: "#35b7ff", hp: 45 },
-  { characterName: "Thug", speed: 6, color: "#f07a4a", hp: 30 },
-  { characterName: "Purple Alien", speed: 8, color: "#a65cff", hp: 40 },
-  { characterName: "Mini Boss", speed: 9, color: "#ff5fa2", hp: 60 },
-  { characterName: "Robot Sentry", speed: 10, color: "#8bd7ff", hp: 54 },
-  { characterName: "Cyber Ninja", speed: 11, color: "#20f5d0", hp: 48 },
-  { characterName: "Final Boss", speed: 12, color: "#ff3d55", hp: 80 },
+  { characterName: "Security Guard", speed: 5, color: "#39e58f" },
+  { characterName: "Space Slug", speed: 3, color: "#7ad66d" },
+  { characterName: "Civilian", speed: 4, color: "#f2d16b" },
+  { characterName: "Chief Security Guard", speed: 7, color: "#35b7ff" },
+  { characterName: "Thug", speed: 6, color: "#f07a4a" },
+  { characterName: "Purple Alien", speed: 8, color: "#a65cff" },
+  { characterName: "Mini Boss", speed: 9, color: "#ff5fa2" },
+  { characterName: "Robot Sentry", speed: 10, color: "#8bd7ff" },
+  { characterName: "Cyber Ninja", speed: 11, color: "#20f5d0" },
+  { characterName: "Final Boss", speed: 12, color: "#ff3d55" },
 ];
 
 function safeLocalStorageSet(key, value) {
@@ -241,31 +239,7 @@ const gmDamageSource = document.querySelector("#gmDamageSource");
 const gmDamageNote = document.querySelector("#gmDamageNote");
 const cancelGmDamage = document.querySelector("#cancelGmDamage");
 const playerDamageAlert = document.querySelector("#playerDamageAlert");
-const attackResolutionPanel = document.querySelector("#attackResolutionPanel");
-const attackResolutionTitle = document.querySelector("#attackResolutionTitle");
-const attackResolutionMeta = document.querySelector("#attackResolutionMeta");
-const attackCriticalNotice = document.querySelector("#attackCriticalNotice");
-const attackRollStatus = document.querySelector("#attackRollStatus");
-const defenseRollStatus = document.querySelector("#defenseRollStatus");
-const gmAttackRollForm = document.querySelector("#gmAttackRollForm");
-const gmAttackRollLabel = document.querySelector("#gmAttackRollLabel");
-const gmAttackRollScore = document.querySelector("#gmAttackRollScore");
-const gmResolveDefender = document.querySelector("#gmResolveDefender");
-const gmNpcDamageForm = document.querySelector("#gmNpcDamageForm");
-const gmNpcDamageBreakdown = document.querySelector("#gmNpcDamageBreakdown");
-const gmNpcFinalDamage = document.querySelector("#gmNpcFinalDamage");
 const gmDelay = document.querySelector("#gmDelay");
-const gmNpcAttack = document.querySelector("#gmNpcAttack");
-const gmNpcAttackDialog = document.querySelector("#gmNpcAttackDialog");
-const gmNpcAttackActor = document.querySelector("#gmNpcAttackActor");
-const gmNpcAttackForm = document.querySelector("#gmNpcAttackForm");
-const gmNpcAttackTarget = document.querySelector("#gmNpcAttackTarget");
-const gmNpcAttackName = document.querySelector("#gmNpcAttackName");
-const gmNpcAttackDistance = document.querySelector("#gmNpcAttackDistance");
-const gmNpcAttackDamage = document.querySelector("#gmNpcAttackDamage");
-const gmNpcAttackModifier = document.querySelector("#gmNpcAttackModifier");
-const gmNpcCalledShot = document.querySelector("#gmNpcCalledShot");
-const cancelGmNpcAttack = document.querySelector("#cancelGmNpcAttack");
 const delayDialog = document.querySelector("#delayDialog");
 const delayDialogTitle = document.querySelector("#delayDialogTitle");
 const delayDialogTarget = document.querySelector("#delayDialogTarget");
@@ -1535,25 +1509,6 @@ async function keepRoomAwake() {
 }
 
 
-function openGmNpcAttackDialog() {
-  const attacker = activeUnit();
-  if (mode !== "gm" || !attacker || attacker.team !== "npc" || state?.attackResolution) return;
-  const targets = state.units.filter((entry) => entry.id !== attacker.id);
-  if (!targets.length) { alert("Add a target to the encounter first."); return; }
-  gmNpcAttackActor.textContent = attacker.characterName;
-  gmNpcAttackTarget.innerHTML = targets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team.toUpperCase()})</option>`).join("");
-  gmNpcAttackName.value = "NPC attack";
-  gmNpcAttackDistance.value = "1";
-  gmNpcAttackDamage.value = "2D6";
-  gmNpcAttackModifier.value = "0";
-  gmNpcCalledShot.checked = false;
-  gmNpcAttackDialog.classList.remove("hidden");
-}
-
-function closeGmNpcAttackDialog() {
-  gmNpcAttackDialog.classList.add("hidden");
-}
-
 function openGmDamageDialog(unitId) {
   const targetUnit = state?.units.find((entry) => entry.id === unitId);
   if (!targetUnit || mode !== "gm") return;
@@ -1593,26 +1548,6 @@ function notifyDamageIfNeeded() {
   damageAlertTimer = setTimeout(() => playerDamageAlert.classList.add("hidden"), 6500);
 }
 
-function npcHeartStates(unit) {
-  const maximum = Math.max(1, Number(unit?.maximumHp) || 1);
-  const current = Math.max(0, Math.min(maximum, Number(unit?.currentHp) || 0));
-  const segments = current <= 0 ? 0 : Math.min(6, Math.ceil((current / maximum) * 6));
-  return [0, 1, 2].map((heart) => {
-    const filled = Math.max(0, Math.min(2, segments - heart * 2));
-    return filled === 2 ? "full" : filled === 1 ? "half" : "empty";
-  });
-}
-
-function npcHealthMarkup(unit, { gm = false } = {}) {
-  if (unit?.team !== "npc") return "";
-  const hearts = npcHeartStates(unit)
-    .map((stateName) => '<span class="npc-heart ' + stateName + '" aria-hidden="true">&#9829;</span>')
-    .join("");
-  const exact = gm
-    ? '<button class="npc-hp-exact" type="button" data-action="npcHp" data-id="' + escapeHtml(unit.id) + '" title="Edit Current and Maximum HP">' + Math.max(0, Number(unit.currentHp) || 0) + '/' + Math.max(1, Number(unit.maximumHp) || 1) + ' HP</button>'
-    : "";
-  return '<span class="npc-health" aria-label="NPC health">' + hearts + exact + '</span>';
-}
 function unitCard(unit, { gm = false, player = false } = {}) {
   const delayed = hasAnyDelay(unit);
   const ready = unit.atb >= state.threshold && !delayed;
@@ -1637,7 +1572,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       <div class="unit-top">
         ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
-          <div class="unit-name-line"><div class="unit-name">${escapeHtml(unit.characterName)}</div>${npcHealthMarkup(unit, { gm })}</div>
+          <div class="unit-name">${escapeHtml(unit.characterName)}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
         </div>
         ${
@@ -1720,8 +1655,6 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.commandWindow || "",
     unit.color || "",
     unit.team,
-    unit.currentHp ?? "",
-    unit.maximumHp ?? "",
     state?.hardPaused ? "hardpaused" : "not-hardpaused",
     gm ? (delayConsoleAllowed() ? "delay-open" : "delay-closed") : "delay-na",
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
@@ -2011,7 +1944,6 @@ function notifyTurnIfNeeded() {
       activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
       completeTurn.textContent = "Action Resolved";
       gmDelay.classList.add("hidden");
-      gmNpcAttack.hidden = true;
       if (!turnPanelOpen()) showTurnPanel();
     } else if (turnPanelOpen()) {
       closeTurnPanel();
@@ -2039,7 +1971,6 @@ function notifyTurnIfNeeded() {
     gmDelay.classList.toggle("delay-blocked", !delayConsoleAllowed());
     gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
     gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span>`;
-    gmNpcAttack.hidden = active.team !== "npc";
     if (!turnPanelOpen()) showTurnPanel();
   }
 
@@ -2281,124 +2212,6 @@ function animatePlayerCombatPreview(now) {
   playerPreviewFrame = requestAnimationFrame(animatePlayerCombatPreview);
 }
 
-function postCombatMessage(message) {
-  if (!embeddedPlayer || window.parent === window) return;
-  window.parent.postMessage(message, window.location.origin);
-}
-
-function renderAttackResolution(mine) {
-  const attack = state?.attackResolution;
-  if (!attack) {
-    lastCombatPromptKey = "";
-    gmForcedDefenseEntry = false;
-    attackResolutionPanel?.classList.add("hidden");
-    return;
-  }
-
-  if (mode === "player" && mine) {
-    let request = null;
-    if (attack.phase === "checks" && mine.id === attack.attackerId && !attack.attackerRoll) {
-      request = {
-        type: "sa-combat-roll-request",
-        attackId: attack.id,
-        rollRole: "attacker",
-        skill: "Projectile",
-        bonusDice: attack.aimDie ? [attack.aimDie] : [],
-        subtitle: "Roll Dexterity + Projectile. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.",
-      };
-    } else if (attack.phase === "checks" && mine.id === attack.defenderId && !attack.defenseRoll) {
-      request = {
-        type: "sa-combat-roll-request",
-        attackId: attack.id,
-        rollRole: "defender",
-        skill: "Dodge/Block",
-        bonusDice: [],
-        subtitle: "Roll Dexterity + Dodge/Block. Range and Defense modifiers are applied automatically.",
-      };
-      if (attack.defenderCommand) {
-        postCombatMessage({
-          type: "sa-combat-roll-timer",
-          attackId: attack.id,
-          remaining: attack.defenderCommand.remaining,
-          expired: attack.defenderCommand.expired,
-        });
-      }
-    } else if (attack.phase === "damage" && mine.id === attack.attackerId && !attack.damageRoll) {
-      request = {
-        type: "sa-combat-damage-request",
-        attackId: attack.id,
-        weaponName: attack.weaponName,
-        targetName: attack.defenderName,
-        damageFormula: attack.plan.damageFormula,
-        critical: Boolean(attack.attackResult?.critical),
-        calledShot: Boolean(attack.calledShot),
-        criticalDamageDisabled: Boolean(attack.plan.criticalDamageDisabled),
-      };
-    }
-    if (request) {
-      const key = request.attackId + ":" + request.type + ":" + (request.rollRole || "damage");
-      if (key !== lastCombatPromptKey) {
-        lastCombatPromptKey = key;
-        postCombatMessage(request);
-      }
-    }
-  }
-
-  if (mode !== "gm") {
-    attackResolutionPanel?.classList.add("hidden");
-    return;
-  }
-
-  attackResolutionPanel.classList.remove("hidden");
-  attackResolutionTitle.textContent = attack.attackerName + " vs " + attack.defenderName;
-  attackResolutionMeta.textContent = attack.weaponName + " at " + attack.distance + " unit" + (attack.distance === 1 ? "" : "s") + " | " + attack.plan.rangeExplanation;
-  attackRollStatus.textContent = attack.attackerRoll ? "Score " + attack.attackerRoll.score : "Waiting";
-  defenseRollStatus.textContent = attack.defenseRoll
-    ? "Score " + attack.defenseRoll.score + (attack.defenseBonus ? " + " + attack.defenseBonus + " Defense" : "")
-    : attack.defenderCommand?.expired
-      ? "WINDOW EXPIRED"
-      : "Waiting";
-  const critical = Boolean(attack.attackResult?.critical);
-  attackCriticalNotice.hidden = !critical;
-  attackCriticalNotice.textContent = attack.calledShot
-    ? "CRITICAL EFFECT - NO DOUBLE DAMAGE"
-    : attack.plan.criticalDamageDisabled
-      ? "CRITICAL HIT - CARD PREVENTS DOUBLING"
-      : "CRITICAL HIT - DAMAGE DOUBLED";
-
-  const attacker = state.units.find((unit) => unit.id === attack.attackerId);
-  const defender = state.units.find((unit) => unit.id === attack.defenderId);
-  let gmRollRole = "";
-  if (attack.phase === "checks" && !attack.attackerRoll && attacker?.team === "npc") gmRollRole = "attacker";
-  if (attack.phase === "damage" && !attack.damageRoll && attacker?.team === "npc") gmRollRole = "damage";
-  if (attack.phase === "checks" && !attack.defenseRoll && (defender?.team === "npc" || gmForcedDefenseEntry)) gmRollRole = "defender";
-  gmAttackRollForm.hidden = !gmRollRole;
-  gmAttackRollForm.dataset.rollRole = gmRollRole;
-  gmAttackRollForm.dataset.unitId = gmRollRole === "defender" ? attack.defenderId : attack.attackerId;
-  if (gmRollRole) {
-    gmAttackRollLabel.firstChild.textContent = (gmRollRole === "attacker"
-      ? attack.attackerName + " To-Hit Score"
-      : gmRollRole === "damage"
-        ? attack.attackerName + " Damage Total"
-        : attack.defenderName + " Defense Score") + " ";
-  }
-  gmResolveDefender.hidden = !(attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && !gmForcedDefenseEntry);
-
-  const confirmNpcDamage = attack.phase === "gmDamage" && defender?.team === "npc" && attack.damageSummary;
-  gmNpcDamageForm.hidden = !confirmNpcDamage;
-  if (confirmNpcDamage) {
-    const summary = attack.damageSummary;
-    const beforeHp = Math.max(0, Number(defender.currentHp) || 0);
-    const remaining = Math.max(0, beforeHp - summary.applied);
-    gmNpcDamageBreakdown.innerHTML =
-      '<div><span>Rolled Damage</span><strong>' + summary.rolled + '</strong></div>' +
-      '<div><span>Critical Multiplier</span><strong>' + (summary.beforeReduction !== summary.rolled ? "x2 = " + summary.beforeReduction : "None") + '</strong></div>' +
-      '<div><span>Damage Reduction</span><strong>' + summary.reduction + '</strong></div>' +
-      '<div><span>Final Damage</span><strong>' + summary.applied + '</strong></div>' +
-      '<div><span>HP</span><strong>' + beforeHp + ' → ' + remaining + ' / ' + Math.max(1, Number(defender.maximumHp) || 1) + '</strong></div>';
-    if (document.activeElement !== gmNpcFinalDamage) gmNpcFinalDamage.value = String(summary.applied);
-  }
-}
 function renderPlayerCombatPreview(record) {
   const stats = playerPreviewStats(record);
   const signature = `${record?.id || "preview"}|${stats.name}|${stats.playerName}|${stats.speed}|${stats.color}`;
@@ -2463,8 +2276,6 @@ function render() {
     gmTopControls.classList.add("hidden");
     playerTopControls.classList.add("hidden");
     visualModeToggle.classList.add("hidden");
-    attackResolutionPanel?.classList.add("hidden");
-    gmNpcAttackDialog?.classList.add("hidden");
     return;
   }
 
@@ -2495,7 +2306,7 @@ function render() {
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
-  const showMineOverlay = mode === "player" && Boolean(mine) && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  const showMineOverlay = mode === "player" && Boolean(mine) && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
@@ -2505,8 +2316,6 @@ function render() {
   }
   if (playerPreviewMode) {
     visualModeToggle.classList.add("hidden");
-    attackResolutionPanel?.classList.add("hidden");
-    gmNpcAttackDialog?.classList.add("hidden");
     hideActionSheet();
   }
 
@@ -2538,8 +2347,6 @@ function render() {
     renderPlayerCommand(null);
   }
 
-  renderAttackResolution(mine || null);
-
   logList.innerHTML = state.log
     .slice()
     .reverse()
@@ -2555,7 +2362,7 @@ function render() {
 
 function renderPlayerCommand(mine) {
   const command = commandFor(mine);
-  const isMyTurn = Boolean(mine && state.activeId === mine.id && !state.attackResolution);
+  const isMyTurn = Boolean(mine && state.activeId === mine.id);
   const delay = activeDelayFor(mine);
   const timed = mine?.timedAction || null;
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
@@ -2938,59 +2745,6 @@ gmDamageForm?.addEventListener("submit", async (event) => {
   closeGmDamageDialog();
   await action({ action: "applyDamage", id: targetId, amount, source: sourceLabel }, "danger");
 });
-gmAttackRollForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const attack = state?.attackResolution;
-  const score = Number(gmAttackRollScore.value);
-  const rollRole = gmAttackRollForm.dataset.rollRole;
-  const id = gmAttackRollForm.dataset.unitId;
-  if (!attack || !id || !["attacker", "defender"].includes(rollRole) || !Number.isFinite(score)) return;
-  gmAttackRollScore.value = "";
-  if (rollRole === "damage") {
-    await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: score, mode: "gm-manual" }, "resolve");
-  } else {
-    await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score, mode: "gm-manual" }, "resolve");
-  }
-  gmForcedDefenseEntry = false;
-});
-gmResolveDefender?.addEventListener("click", () => {
-  const attack = state?.attackResolution;
-  if (!attack || attack.phase !== "checks" || attack.defenseRoll) return;
-  if (!confirm(`Resolve ${attack.defenderName}'s Defense roll for them? Their first submitted result will be final.`)) return;
-  gmForcedDefenseEntry = true;
-  render();
-  gmAttackRollScore.focus();
-});
-gmNpcDamageForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const attack = state?.attackResolution;
-  const finalDamage = Number(gmNpcFinalDamage.value);
-  if (!attack || attack.phase !== "gmDamage" || !Number.isFinite(finalDamage) || finalDamage < 0) return;
-  await action({ action: "confirmNpcDamage", attackId: attack.id, finalDamage }, "danger");
-});
-gmNpcAttack?.addEventListener("click", openGmNpcAttackDialog);
-cancelGmNpcAttack?.addEventListener("click", closeGmNpcAttackDialog);
-gmNpcAttackForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const attacker = activeUnit();
-  if (!attacker || attacker.team !== "npc") return;
-  const targetId = gmNpcAttackTarget.value;
-  const distance = Number(gmNpcAttackDistance.value);
-  const attackModifier = Number(gmNpcAttackModifier.value || 0);
-  if (!targetId || !Number.isFinite(distance) || distance < 0 || !Number.isFinite(attackModifier)) return;
-  closeGmNpcAttackDialog();
-  await action({
-    action: "gmBeginNpcAttack",
-    attackerId: attacker.id,
-    defenderId: targetId,
-    weaponName: gmNpcAttackName.value.trim() || "NPC attack",
-    distance,
-    damageFormula: gmNpcAttackDamage.value.trim() || "2D6",
-    attackModifier,
-    calledShot: gmNpcCalledShot.checked,
-  }, "resolve");
-});
-
 gmDelay.addEventListener("click", () => {
   const active = activeUnit();
   if (active) openDelayForUnit(active.id, "timer");
@@ -3087,9 +2841,6 @@ initiativeSkill.addEventListener("input", renderPcBuilder);
 gmAddUnit.addEventListener("click", () => {
   const usingNpcDefault = gmTeam.value === "npc";
   if (usingNpcDefault) applyNpcDefaultPreview();
-  const npcTemplate = usingNpcDefault
-    ? npcDefaults.find((entry) => entry.characterName === gmCharacterName.value && Number(entry.speed) === Number(gmSpeedRating.value))
-    : null;
   action({
     action: "addUnit",
     playerName: gmPlayerName.value || "GM",
@@ -3100,8 +2851,6 @@ gmAddUnit.addEventListener("click", () => {
     controlledBy: "gm",
     team: gmTeam.value,
     actorType: "character",
-    maximumHp: npcTemplate?.hp,
-    currentHp: npcTemplate?.hp,
   });
   if (usingNpcDefault) {
     nextNpcDefault();
@@ -3116,22 +2865,6 @@ gmTeam.addEventListener("change", () => {
   applyNpcDefaultPreview();
 });
 
-async function editNpcHp(id) {
-  const unit = state?.units?.find((entry) => entry.id === id && entry.team === "npc");
-  if (!unit) return;
-  const currentInput = prompt(`Current HP for ${unit.characterName}:`, String(Math.max(0, Number(unit.currentHp) || 0)));
-  if (currentInput === null) return;
-  const maximumInput = prompt(`Maximum HP for ${unit.characterName}:`, String(Math.max(1, Number(unit.maximumHp) || 1)));
-  if (maximumInput === null) return;
-  const currentHp = Number(currentInput);
-  const maximumHp = Number(maximumInput);
-  if (!Number.isFinite(currentHp) || currentHp < 0 || !Number.isFinite(maximumHp) || maximumHp < 1) {
-    alert("Enter valid Current and Maximum HP values.");
-    return;
-  }
-  await action({ action: "setNpcHp", id, currentHp, maximumHp }, "tap");
-}
-
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
   if (button.disabled) return;
@@ -3142,7 +2875,6 @@ function handleUnitActionButton(button, event = null) {
   if (button.dataset.action === "nudge") action({ action: "nudge", id, amount: 5 }, "tap");
   if (button.dataset.action === "delay") openDelayForUnit(id, "timer");
   if (button.dataset.action === "damage") openGmDamageDialog(id);
-  if (button.dataset.action === "npcHp") editNpcHp(id);
   if (button.dataset.action === "impairQueuedEffect") action({ action: "impairQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
   if (button.dataset.action === "removeQueuedEffect") action({ action: "removeQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
 }
@@ -3209,35 +2941,6 @@ renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
-
-window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin || event.source !== window.parent) return;
-  const message = event.data || {};
-  const attack = state?.attackResolution;
-  if (!attack || message.attackId !== attack.id) return;
-  if (message.type === "sa-combat-roll-result") {
-    const id = message.rollRole === "attacker" ? attack.attackerId : attack.defenderId;
-    void action({
-      action: "submitAttackRoll",
-      id,
-      attackId: attack.id,
-      rollRole: message.rollRole,
-      score: message.score,
-      mode: message.mode,
-      diceResults: message.diceResults,
-    }, "resolve");
-  }
-  if (message.type === "sa-combat-damage-result") {
-    void action({
-      action: "submitAttackDamage",
-      id: attack.attackerId,
-      attackId: attack.id,
-      rolledDamage: message.rolledDamage,
-      mode: message.mode,
-      diceResults: message.diceResults,
-    }, "resolve");
-  }
-});
 
 async function initializeEmbeddedPlayer() {
   document.body.classList.add("embedded-player");

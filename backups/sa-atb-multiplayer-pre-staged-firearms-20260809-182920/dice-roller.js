@@ -49,22 +49,6 @@ function numberTexture(value, accent, stroke = "rgba(1, 5, 10, .98)") {
   context.shadowColor = accent;
   context.shadowBlur = 28;
   context.fillText(String(value), 256, 270);
-  if (Number(value) === 6 || Number(value) === 9) {
-    context.shadowBlur = 12;
-    context.lineCap = "round";
-    context.lineWidth = 24;
-    context.strokeStyle = stroke;
-    context.beginPath();
-    context.moveTo(144, 458);
-    context.lineTo(368, 458);
-    context.stroke();
-    context.lineWidth = 11;
-    context.strokeStyle = accent;
-    context.beginPath();
-    context.moveTo(152, 458);
-    context.lineTo(360, 458);
-    context.stroke();
-  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -588,17 +572,6 @@ export class PhysicalDiceRoller {
       const winningNormal = item.winningFace.normal.clone().applyQuaternion(item.settleQuaternion).normalize();
       const correction = new THREE.Quaternion().setFromUnitVectors(winningNormal, UP);
       item.targetQuaternion = correction.multiply(item.settleQuaternion.clone()).normalize();
-      const labelUp = new THREE.Vector3(0, 1, 0)
-        .applyQuaternion(item.winningFace.label.quaternion)
-        .applyQuaternion(item.targetQuaternion);
-      labelUp.y = 0;
-      if (labelUp.lengthSq() > 0.0001) {
-        labelUp.normalize();
-        const screenUp = new THREE.Vector3(0, 0, -1);
-        const angle = Math.atan2(UP.dot(labelUp.clone().cross(screenUp)), labelUp.dot(screenUp));
-        const yaw = new THREE.Quaternion().setFromAxisAngle(UP, angle);
-        item.targetQuaternion = yaw.multiply(item.targetQuaternion).normalize();
-      }
       item.settlePosition = item.visual.group.position.clone();
       item.targetPosition = item.settlePosition.clone();
       item.targetPosition.y = Math.max(item.targetPosition.y, 0.82);

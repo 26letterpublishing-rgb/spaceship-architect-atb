@@ -345,21 +345,19 @@ class CampaignApi {
     return true;
   }
 
-  async damageCharacter(code, characterId, rawDamage = 0, source = "Combat damage", fallback = {}) {
+  async damageCharacter(code, characterId, rawDamage = 0, source = "Combat damage") {
     const campaign = await this.campaign(code);
     const record = campaign?.characters.find((entry) => entry.id === characterId);
     if (!record) return null;
-    const savedCurrent = record.character.health?.current;
-    record.character.health ||= { current: fallback.currentHp ?? 0, permanentBonus: 0 };
-    const maximumHp = Math.max(0, Number(record.character.computed?.maximumHp) || Number(fallback.maximumHp) || Number(savedCurrent) || 0);
-    const beforeHp = savedCurrent === null || savedCurrent === undefined
-      ? Math.max(0, Number(fallback.currentHp) || maximumHp)
-      : Math.max(0, Number(savedCurrent) || 0);
+    record.character.health ||= { current: 0, permanentBonus: 0 };
+    const maximumHp = Math.max(0, Number(record.character.computed?.maximumHp) || Number(record.character.health.current) || 0);
+    const beforeHp = record.character.health.current === null || record.character.health.current === undefined
+      ? maximumHp
+      : Number(record.character.health.current) || 0;
     const incoming = Math.max(0, Number(rawDamage) || 0);
-    const savedReduction = record.character.computed?.damageReduction;
-    const reduction = Math.max(0, savedReduction === null || savedReduction === undefined ? Number(fallback.damageReduction) || 0 : Number(savedReduction) || 0);
+    const reduction = Math.max(0, Number(record.character.computed?.damageReduction) || 0);
     const applied = Math.max(0, incoming - reduction);
-    const currentHp = Math.max(0, beforeHp - applied);
+    const currentHp = Math.max(-9999, beforeHp - applied);
     record.character.health.current = currentHp;
     record.updatedAt = new Date().toISOString();
     const note = {

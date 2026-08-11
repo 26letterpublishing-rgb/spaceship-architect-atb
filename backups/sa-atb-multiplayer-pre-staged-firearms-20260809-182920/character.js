@@ -255,18 +255,6 @@ const dom = {
   rerollSkillCheck: $("#rerollSkillCheck"),
   freeRuleReroll: $("#freeRuleReroll"),
   exitSkillResult: $("#exitSkillResult"),
-  combatDamageModal: $("#combatDamageModal"),
-  combatDamageTitle: $("#combatDamageTitle"),
-  combatDamageSubtitle: $("#combatDamageSubtitle"),
-  combatDamageCritical: $("#combatDamageCritical"),
-  combatDamageWeapon: $("#combatDamageWeapon"),
-  combatDamageFormula: $("#combatDamageFormula"),
-  combatDamageTarget: $("#combatDamageTarget"),
-  combatDamageManual: $("#combatDamageManual"),
-  combatDamageResult: $("#combatDamageResult"),
-  combatDamageError: $("#combatDamageError"),
-  submitManualCombatDamage: $("#submitManualCombatDamage"),
-  rollCombatDamage: $("#rollCombatDamage"),
   rollResultToast: $("#rollResultToast"),
   campaignGate: $("#characterCampaignGate"),
   campaignEntryPrompt: $("#campaignEntryPrompt"),
@@ -513,9 +501,6 @@ let campaignViewerCharacterId = "";
 let fubsRollInProgress = false;
 let rollToastTimer = null;
 let skillCheck = null;
-let pendingCombatRequest = null;
-let activeCombatDamageRequest = null;
-let combatDamageSubmitted = false;
 let speedPreviewFrame = null;
 let speedPreviewStartedAt = performance.now();
 let speedPreviewValue = null;
@@ -2971,15 +2956,11 @@ function openAttributeCheck(attributeKey) {
 
 function closeSkillCheck() {
   if (diceRoller.isActive()) return;
-  const abandonedCombatRequest = skillCheck?.combatRequest && !skillCheck.combatSubmitted
-    ? { type: "roll", ...skillCheck.combatRequest }
-    : null;
   skillCheck = null;
   dom.skillCheckModal.hidden = true;
   document.body.classList.remove("skill-check-open", "skill-roll-active");
-  if (abandonedCombatRequest) pendingCombatRequest = abandonedCombatRequest;
-  setTimeout(processPendingCombatRequest, 0);
 }
+
 function selectSkillAttribute(attributeKey) {
   if (!skillCheck || !character.attributes[attributeKey]) return;
   skillCheck.attributeKey = attributeKey;
@@ -3051,7 +3032,6 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.freeRuleReroll.hidden = !freeRule;
   dom.freeRuleReroll.textContent = freeRule?.label || "Use Free Reroll";
   submitCampaignRollResult({ score, outcome, manual, diceResults });
-  submitCombatRollResult({ score, manual, diceResults });
 }
 
 async function submitCampaignRollResult({ score, outcome, manual, diceResults }) {
@@ -3079,152 +3059,6 @@ async function submitCampaignRollResult({ score, outcome, manual, diceResults })
   }
  }
 
-function submitCombatRollResult({ score, manual, diceResults }) {
-  const request = skillCheck?.combatRequest;
-  if (!request || skillCheck.combatSubmitted || !dom.playerAtbFrame?.contentWindow) return;
-  skillCheck.combatSubmitted = true;
-  dom.playerAtbFrame.contentWindow.postMessage({
-    type: "sa-combat-roll-result",
-    attackId: request.attackId,
-    rollRole: request.rollRole,
-    score,
-    mode: manual ? "manual" : "automatic",
-    diceResults,
-  }, window.location.origin);
-}
-
-function damageFormulaPool(formula) {
-  const source = String(formula || "").replace(/\s+/g, "");
-  const dice = [];
-  const counts = new Map();
-  const pattern = /([+-]?)(\d+)D(4|6|8|10|12|20)/gi;
-  let match;
-  while ((match = pattern.exec(source))) {
-    const sides = Number(match[3]);
-    const signedCount = (match[1] === "-" ? -1 : 1) * Number(match[2]);
-    counts.set(sides, (counts.get(sides) || 0) + signedCount);
-  }
-  for (const [sides, count] of counts) {
-    for (let index = 0; index < Math.max(0, count); index += 1) dice.push(sides);
-  }
-  const withoutDice = source.replace(pattern, "");
-  const flat = (withoutDice.match(/[+-]?\d+(?:\.\d+)?/g) || []).reduce((sum, value) => sum + Number(value), 0);
-  const supported = /^(?:[+-]?(?:\d+D(?:4|6|8|10|12|20)|\d+(?:\.\d+)?))+$/.test(source);
-  return { dice, flat, supported };
-}
-
-function openCombatSkillRequest(request) {
-  const skillKey = campaignSkillKey(request.skill);
-  if (!skillKey) return;
-  openSkillCheck(skillKey);
-  if (!skillCheck) return;
-  skillCheck.combatRequest = request;
-  skillCheck.combatSubmitted = false;
-  skillCheck.difficulty = "";
-  selectSkillAttribute("dexterity");
-  for (const sides of request.bonusDice || []) {
-    const value = Number(sides);
-    if ([4, 6, 8, 10, 12, 20].includes(value)) skillCheck.activeSides.push(value);
-  }
-  renderSkillSetup();
-  dom.skillCheckKicker.textContent = request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
-  dom.skillCheckTitle.textContent = request.rollRole === "attacker"
-    ? "Dexterity + Projectile"
-    : "Dexterity + Dodge/Block";
-  dom.skillCheckSubtitle.textContent = request.subtitle || "Submit the completed Score. The app applies weapon and Range modifiers afterward.";
-  dom.changeSkillAttribute.hidden = true;
-}
-
-function openCombatDamageRequest(request) {
-  activeCombatDamageRequest = request;
-  combatDamageSubmitted = false;
-  const parsed = damageFormulaPool(request.damageFormula);
-  request.parsedDamage = parsed;
-  dom.combatDamageTitle.textContent = "Roll " + request.weaponName + " Damage";
-  dom.combatDamageSubtitle.textContent = "Add every Damage die. Damage dice do not fuse.";
-  dom.combatDamageWeapon.textContent = request.weaponName;
-  dom.combatDamageFormula.textContent = request.damageFormula;
-  dom.combatDamageTarget.textContent = request.targetName;
-  dom.combatDamageManual.value = "";
-  dom.combatDamageResult.hidden = true;
-  dom.combatDamageResult.textContent = "";
-  dom.combatDamageError.textContent = parsed.supported ? "" : "This card uses an unusual formula. Enter the completed Damage total manually.";
-  dom.rollCombatDamage.disabled = !parsed.supported;
-  dom.combatDamageCritical.hidden = !request.critical;
-  dom.combatDamageCritical.textContent = request.calledShot
-    ? "CRITICAL EFFECT - DAMAGE IS NOT DOUBLED"
-    : request.criticalDamageDisabled
-      ? "CRITICAL HIT - THIS CARD PREVENTS DOUBLING"
-      : "CRITICAL HIT - DAMAGE DOUBLED";
-  dom.combatDamageModal.hidden = false;
-  document.body.classList.add("skill-check-open");
-}
-
-function processPendingCombatRequest() {
-  if (!pendingCombatRequest || skillCheck || diceRoller.isActive() || !dom.combatDamageModal.hidden) return;
-  const request = pendingCombatRequest;
-  pendingCombatRequest = null;
-  if (request.type === "damage") openCombatDamageRequest(request);
-  else openCombatSkillRequest(request);
-}
-
-function finishCombatDamage(rolledDamage, mode, diceResults = []) {
-  if (!activeCombatDamageRequest || combatDamageSubmitted) return;
-  combatDamageSubmitted = true;
-  dom.combatDamageResult.hidden = false;
-  dom.combatDamageResult.textContent = diceResults.length
-    ? "DICE: " + diceResults.join(" + ") + (activeCombatDamageRequest.parsedDamage.flat ? " | FLAT " + activeCombatDamageRequest.parsedDamage.flat : "") + " = " + formatNumber(rolledDamage)
-    : "MANUAL DAMAGE: " + formatNumber(rolledDamage);
-  dom.playerAtbFrame?.contentWindow?.postMessage({
-    type: "sa-combat-damage-result",
-    attackId: activeCombatDamageRequest.attackId,
-    rolledDamage,
-    mode,
-    diceResults,
-  }, window.location.origin);
-  setTimeout(() => {
-    dom.combatDamageModal.hidden = true;
-    document.body.classList.remove("skill-check-open", "skill-roll-active");
-    activeCombatDamageRequest = null;
-    processPendingCombatRequest();
-  }, 1100);
-}
-
-function submitManualCombatDamage() {
-  if (!activeCombatDamageRequest || combatDamageSubmitted) return;
-  const value = Number(dom.combatDamageManual.value);
-  if (dom.combatDamageManual.value.trim() === "" || !Number.isFinite(value) || value < 0) {
-    dom.combatDamageError.textContent = "Enter the completed Damage total.";
-    dom.combatDamageManual.focus();
-    return;
-  }
-  finishCombatDamage(value, "manual", []);
-}
-
-function rollCombatDamage() {
-  if (!activeCombatDamageRequest || combatDamageSubmitted || diceRoller.isActive()) return;
-  const parsed = activeCombatDamageRequest.parsedDamage;
-  if (!parsed?.supported) return;
-  if (!parsed.dice.length) {
-    finishCombatDamage(Math.max(0, parsed.flat), "automatic", []);
-    return;
-  }
-  dom.combatDamageModal.hidden = true;
-  document.body.classList.add("skill-roll-active");
-  diceRoller.rollPool({
-    sides: parsed.dice,
-    title: activeCombatDamageRequest.weaponName + " Damage",
-    subtitle: "Add every die. No fusion.",
-    fusion: false,
-    onResolved: () => {},
-    onSettled: (results) => {
-      document.body.classList.remove("skill-roll-active");
-      diceRoller.stop();
-      dom.combatDamageModal.hidden = false;
-      finishCombatDamage(Math.max(0, results.reduce((sum, value) => sum + value, 0) + parsed.flat), "automatic", results);
-    },
-  });
-}
 function renderFusionSelectionState() {
   if (!skillCheck) return;
   dom.skillFusionChoices.querySelectorAll("[data-fusion-id]").forEach((button) => {
@@ -5277,33 +5111,17 @@ window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return;
   if (event.source === dom.campaignSheetFrame?.contentWindow && event.data?.type === "sa-character-sheet-height") {
     const height = Math.max(500, Math.min(12000, Number(event.data.height) || 900));
-    dom.campaignSheetFrame.style.height = height + "px";
+    dom.campaignSheetFrame.style.height = `${height}px`;
     return;
   }
-  if (event.source !== dom.playerAtbFrame?.contentWindow) return;
-  if (event.data?.type === "sa-combat-layout") {
-    const preview = Boolean(event.data.preview);
-    dom.playerAtbFrame.closest(".player-atb-live")?.classList.toggle("combat-preview", preview);
-    dom.playerAtbStatus.textContent = preview
-      ? "No active encounter. Showing your live Speed preview."
-      : "Live Combat connected. Use the tabs above at any time.";
-    return;
-  }
-  if (event.data?.type === "sa-combat-roll-request" || event.data?.type === "sa-combat-damage-request") {
-    pendingCombatRequest = {
-      ...event.data,
-      type: event.data.type === "sa-combat-damage-request" ? "damage" : "roll",
-    };
-    processPendingCombatRequest();
-    return;
-  }
-  if (event.data?.type === "sa-combat-roll-timer" && skillCheck?.combatRequest?.attackId === event.data.attackId && skillCheck.combatRequest.rollRole === "defender") {
-    const remaining = Math.max(0, Number(event.data.remaining) || 0);
-    dom.skillCheckSubtitle.textContent = event.data.expired
-      ? "DEFENSE WINDOW EXPIRED - respond now before the GM resolves it."
-      : "Defense Command Window: " + Math.ceil(remaining) + " seconds remaining.";
-  }
+  if (event.source !== dom.playerAtbFrame?.contentWindow || event.data?.type !== "sa-combat-layout") return;
+  const preview = Boolean(event.data.preview);
+  dom.playerAtbFrame.closest(".player-atb-live")?.classList.toggle("combat-preview", preview);
+  dom.playerAtbStatus.textContent = preview
+    ? "No active encounter. Showing your live Speed preview."
+    : "Live Combat connected. Use the tabs above at any time.";
 });
+
 dom.playerAtbFrame?.addEventListener("load", () => {
   dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
 });
@@ -5394,8 +5212,6 @@ dom.openCampaignRoll?.addEventListener("click", openRequestedCampaignRoll);
 
 dom.calculateManualSkill.addEventListener("click", calculateManualSkillResult);
 dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
-dom.submitManualCombatDamage?.addEventListener("click", submitManualCombatDamage);
-dom.rollCombatDamage?.addEventListener("click", rollCombatDamage);
 dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
 dom.freeRuleReroll.addEventListener("click", useFreeRuleReroll);
 dom.skillCheckClose.addEventListener("click", closeSkillCheck);

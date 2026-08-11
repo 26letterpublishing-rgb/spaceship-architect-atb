@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260810-firearms-2" />
-  <link rel="stylesheet" href="weapons.css?v=20260810-firearms-2" />
+  <link rel="stylesheet" href="character.css?v=20260809-combat-4" />
+  <link rel="stylesheet" href="weapons.css?v=20260809-combat-4" />
   </head>
   <body>
     <header class="creator-header">
@@ -529,35 +529,7 @@
         </section>
       </section>
     </div>
-    <div id="combatDamageModal" class="modal-shell skill-check-modal combat-damage-modal" hidden>
-      <section class="skill-check-dialog combat-damage-dialog" role="dialog" aria-modal="true" aria-labelledby="combatDamageTitle">
-        <header class="skill-check-header">
-          <div>
-            <span class="dialog-kicker">Weapon Damage</span>
-            <h2 id="combatDamageTitle">Roll Damage</h2>
-            <p id="combatDamageSubtitle">Add every Damage die. Damage dice do not fuse.</p>
-          </div>
-        </header>
-        <section class="skill-check-stage">
-          <div id="combatDamageCritical" class="combat-critical-banner" hidden>CRITICAL HIT - DAMAGE DOUBLED</div>
-          <div class="skill-roll-summary combat-damage-summary">
-            <div><span>Weapon</span><strong id="combatDamageWeapon">Weapon</strong></div>
-            <div><span>Damage Dice</span><strong id="combatDamageFormula">0</strong></div>
-            <div><span>Target</span><strong id="combatDamageTarget">Target</strong></div>
-          </div>
-          <label>Manual Damage Total
-            <input id="combatDamageManual" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Add every Damage die" />
-          </label>
-          <div id="combatDamageResult" class="skill-dice-results" hidden></div>
-          <p id="combatDamageError" class="combat-action-error" role="alert"></p>
-          <div class="skill-setup-actions">
-            <button id="submitManualCombatDamage" type="button">Submit Manual Damage</button>
-            <button id="rollCombatDamage" class="primary-action" type="button">Roll for Me</button>
-          </div>
-        </section>
-      </section>
-    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260810-firearms-2"></script>
+  <script type="module" src="character.js?v=20260809-combat-5"></script>
   </body>
 </html>

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260810-firearms-2" />
-  <link rel="stylesheet" href="combat-actions.css?v=20260810-firearms-2" />
+  <link rel="stylesheet" href="styles.css?v=20260809-combat-4" />
+  <link rel="stylesheet" href="combat-actions.css?v=20260809-combat-5" />
   </head>
   <body>
     <main class="shell">
@@ -271,7 +271,6 @@
       <div class="dialog-actions">
         <button id="completeTurn" class="complete">Action Resolved</button>
         <button id="gmDelay" class="secondary">Delay</button>
-        <button id="gmNpcAttack" class="secondary" type="button" hidden>NPC Attack</button>
       </div>
     </section>
 
@@ -371,13 +370,13 @@
               <label>Distance (Units Between)
                 <input id="combatDistance" type="number" min="0" max="9999" step="1" inputmode="decimal" value="1" />
               </label>
-              <label hidden>Rolled Base To-Hit
+              <label>Rolled Base To-Hit
                 <input id="combatAttackScore" type="number" step="0.1" inputmode="decimal" placeholder="Before card and Range modifiers" />
               </label>
-              <label hidden>Target Defense Score
+              <label>Target Defense Score
                 <input id="combatDefenseScore" type="number" step="0.1" inputmode="decimal" placeholder="Before Range / Called Shot" />
               </label>
-              <label hidden>Rolled Damage Total
+              <label>Rolled Damage Total
                 <input id="combatDamageRoll" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Use the displayed Damage dice" />
               </label>
             </div>
@@ -407,52 +406,6 @@
       <div id="playerActionChoices" class="action-choice-grid"></div>
     </div>
 
-    <section id="gmNpcAttackDialog" class="combat-action-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="gmNpcAttackTitle">
-      <div class="combat-action-panel gm-npc-attack-panel">
-        <p class="eyebrow">GM Combat Resolution</p>
-        <h2 id="gmNpcAttackTitle">NPC Attack</h2>
-        <p id="gmNpcAttackActor">NPC</p>
-        <form id="gmNpcAttackForm" class="combat-action-form">
-          <label>Target<select id="gmNpcAttackTarget" required></select></label>
-          <label>Attack / Weapon Name<input id="gmNpcAttackName" maxlength="80" value="NPC attack" required /></label>
-          <label>Distance (units)<input id="gmNpcAttackDistance" type="number" min="0" step="0.1" inputmode="decimal" value="1" required /></label>
-          <label>Damage Dice or Formula<input id="gmNpcAttackDamage" maxlength="40" value="2D6" required /></label>
-          <label>To-Hit Modifier<input id="gmNpcAttackModifier" type="number" step="0.1" inputmode="decimal" value="0" /></label>
-          <label class="combat-called-shot-toggle"><input id="gmNpcCalledShot" type="checkbox" /> Called Shot</label>
-          <div class="combat-action-dialog-buttons">
-            <button id="cancelGmNpcAttack" type="button" class="secondary">Cancel</button>
-            <button type="submit" class="complete">Request Rolls</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <section id="attackResolutionPanel" class="combat-action-dialog attack-resolution-dialog hidden" role="dialog" aria-live="polite">
-      <div class="combat-action-panel attack-resolution-panel">
-        <p class="eyebrow">Live Attack Resolution</p>
-        <h2 id="attackResolutionTitle">Attack vs Defense</h2>
-        <p id="attackResolutionMeta">Waiting for rolls</p>
-        <div id="attackCriticalNotice" class="combat-critical-banner" hidden>CRITICAL HIT</div>
-        <div class="attack-check-status">
-          <div><span>Attacker</span><strong id="attackRollStatus">Waiting</strong></div>
-          <div><span>Defender</span><strong id="defenseRollStatus">Waiting</strong></div>
-        </div>
-        <form id="gmAttackRollForm" class="combat-action-form" hidden>
-          <label id="gmAttackRollLabel">NPC Defense Score
-            <input id="gmAttackRollScore" type="number" step="0.1" inputmode="decimal" required />
-          </label>
-          <button type="submit" class="complete">Submit Score</button>
-        </form>
-        <button id="gmResolveDefender" class="mini gm-resolve-defender" type="button" hidden>Resolve for Defender</button>
-        <form id="gmNpcDamageForm" class="combat-action-form gm-npc-damage-confirm" hidden>
-          <div id="gmNpcDamageBreakdown" class="attack-damage-breakdown"></div>
-          <label>Final Damage
-            <input id="gmNpcFinalDamage" type="number" min="0" step="0.1" inputmode="decimal" required />
-          </label>
-          <button type="submit" class="complete">Confirm NPC Damage</button>
-        </form>
-      </div>
-    </section>
     <section id="gmDamageDialog" class="combat-action-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="gmDamageTitle">
       <div class="combat-action-panel gm-damage-panel">
         <p class="eyebrow">GM Combat Resolution</p>
@@ -479,8 +432,8 @@
     </button>
 
 
-  <script src="combat-rules.js?v=20260810-firearms-2"></script>
-  <script src="app.js?v=20260810-firearms-2"></script>
-  <script src="combat-actions.js?v=20260810-firearms-2"></script>
+  <script src="combat-rules.js?v=20260809-combat-4"></script>
+  <script src="app.js?v=20260809-combat-5"></script>
+  <script src="combat-actions.js?v=20260809-combat-5"></script>
   </body>
 </html>

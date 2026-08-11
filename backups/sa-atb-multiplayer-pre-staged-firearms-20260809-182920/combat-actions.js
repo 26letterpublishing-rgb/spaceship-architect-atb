@@ -85,7 +85,7 @@
     move: { title: "Move", amount: "Units Moved", min: 1, max: () => Math.max(1, Number(currentUnit?.moveSpeed) || 1), value: 1, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
     melee: { title: "Melee Attack", target: true, note: "Resolve dice at the table. Movement from the immediately previous action adds one Charge per unit." },
     wrestle: { title: "Wrestle / Disarm", target: true, note: "The GM and player resolve this nearby contest manually." },
-    fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
+    fire: { title: "Fire Gun", target: true, attack: true, note: "Enter the physical dice results. The app applies card, range, Charge, critical, and Damage Reduction rules." },
     calledShot: { title: "Called Shot", target: true, attack: true, calledShot: true, note: "Called Shot adds +5 Defense to hit. A critical creates the intended special effect instead of doubling Damage." },
     drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItem: true, text: "Item Name (optional)", note: "Changing weapons snuffs out stored Charge and Aim." },
     throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, note: "Explosives begin a 25-second reverse countdown. Thrown melee weapons deal half damage." },
@@ -118,25 +118,39 @@
     if (!attackWrap || attackWrap.hidden) return;
     const current = held();
     const plan = currentAttackPlan();
+    const defender = selectedTargetUnit();
     const called = calledShot.checked;
     calledShotDetailWrap.hidden = !called;
     if (!current || !plan) {
       attackPreview.textContent = "Choose and hold a firearm before resolving this attack.";
       return;
     }
+    damageRoll.placeholder = `Roll ${plan.damageFormula}`;
+    const baseAttack = Number(attackScore.value);
+    const baseDefense = Number(defenseScore.value);
+    const hasScores = attackScore.value !== "" && defenseScore.value !== "" && Number.isFinite(baseAttack) && Number.isFinite(baseDefense);
+    const resolution = hasScores
+      ? window.SACombatRules.resolveAttack({ baseAttackScore: baseAttack, targetDefense: baseDefense, calledShot: called, plan })
+      : null;
+    const damage = resolution?.hit && damageRoll.value !== ""
+      ? window.SACombatRules.resolveDamage({ rolledDamage: Number(damageRoll.value), damageReduction: defender?.damageReduction, critical: resolution.critical, calledShot: called || plan.criticalDamageDisabled })
+      : null;
     const manualWarnings = [
-      plan.damageFormulaSupported ? "" : "This card has an unusual Damage formula; the GM may need to finish it manually.",
-      plan.manualToHit ? "The printed To-Hit formula is unusual. Confirm any X, Ammo, or post-roll instructions with the GM." : "",
+      plan.damageFormulaSupported ? "" : "Card has a choice or unusual Damage formula; confirm its special rule with the GM.",
+      plan.manualToHit ? `Use the printed To-Hit formula: ${current.toHit}. Apply any X, Ammo, or post-roll card instructions manually.` : "",
       plan.criticalDamageDisabled ? "This card prevents Critical Hits from doubling Damage." : "",
     ].filter(Boolean);
-    const formulaWarning = manualWarnings.map((warning) => '<strong class="attack-manual-warning">' + esc(warning) + '</strong>').join("");
-    attackPreview.innerHTML =
-      '<div><span>Printed Range</span><strong>' + esc(current.range || "Special") + '</strong></div>' +
-      '<div><span>Range Result</span><strong class="' + (plan.allowed ? "" : "attack-invalid") + '">' + esc(plan.rangeExplanation) + '</strong></div>' +
-      '<div><span>Automatic Modifier</span><strong>To-Hit ' + signed(plan.attackModifier) + ' | Defense ' + signed(plan.defenseRangeModifier) + '</strong></div>' +
-      '<div><span>Damage Dice</span><strong>' + esc(plan.damageFormula) + '</strong></div>' +
-      formulaWarning;
+    const formulaWarning = manualWarnings.map((warning) => `<strong class="attack-manual-warning">${esc(warning)}</strong>`).join("");
+    attackPreview.innerHTML = `
+      <div><span>Printed Range</span><strong>${esc(current.range || "Special")}</strong></div>
+      <div><span>Range Result</span><strong class="${plan.allowed ? "" : "attack-invalid"}">${esc(plan.rangeExplanation)}</strong></div>
+      <div><span>App Modifier</span><strong>To-Hit ${signed(plan.attackModifier)} | Defense ${signed(plan.defenseRangeModifier)}</strong></div>
+      <div><span>Damage Dice</span><strong>${esc(plan.damageFormula)}</strong></div>
+      ${formulaWarning}
+      ${resolution ? `<div class="attack-resolution ${resolution.hit ? "hit" : "miss"}"><span>${resolution.hit ? resolution.critical ? called ? "CRITICAL EFFECT" : "CRITICAL HIT" : "HIT" : "MISS"}</span><strong>${resolution.attackScore} To-Hit vs ${resolution.hitDefense} Defense${damage ? ` | ${damage.applied} HP after DR ${damage.reduction}` : ""}</strong></div>` : ""}
+    `;
   }
+
   function closeDialog() {
     pendingKind = "";
     dialog?.classList.add("hidden");
@@ -173,6 +187,9 @@
     attackWrap.hidden = !config.attack;
     if (config.attack) {
       distance.value = "1";
+      attackScore.value = "";
+      defenseScore.value = "";
+      damageRoll.value = "";
       calledShot.checked = Boolean(config.calledShot);
       calledShotDetail.value = "";
       updateAttackPreview();
@@ -231,19 +248,29 @@
     }
     if (!attackWrap.hidden) {
       const plan = currentAttackPlan();
-      if (!plan?.allowed) {
-        error.textContent = plan?.rangeExplanation || "That target is out of range.";
-        return;
+      const baseAttack = Number(attackScore.value);
+      const targetDefense = Number(defenseScore.value);
+      if (!plan?.allowed) { error.textContent = plan?.rangeExplanation || "That target is out of range."; return; }
+      if (attackScore.value === "" || defenseScore.value === "" || !Number.isFinite(baseAttack) || !Number.isFinite(targetDefense)) {
+        error.textContent = "Enter your rolled base To-Hit score and the target's Defense score."; return;
+      }
+      const resolution = window.SACombatRules.resolveAttack({ baseAttackScore: baseAttack, targetDefense, calledShot: calledShot.checked, plan });
+      if (resolution.hit && (damageRoll.value === "" || !Number.isFinite(Number(damageRoll.value)) || Number(damageRoll.value) < 0)) {
+        error.textContent = `Hit confirmed. Roll ${plan.damageFormula} and enter the Damage total.`; return;
       }
       details.distance = Number(distance.value) || 0;
+      details.baseAttackScore = baseAttack;
+      details.targetDefenseScore = targetDefense;
+      details.damageRoll = resolution.hit ? Number(damageRoll.value) : 0;
       details.calledShot = calledShot.checked;
       details.calledShotDetail = calledShotDetail.value.trim();
-    }    closeDialog();
+    }
+    closeDialog();
     await send(actualKind, details);
   });
 
   cancel?.addEventListener("click", closeDialog);
-  [target, distance, calledShot].forEach((control) => {
+  [target, distance, attackScore, defenseScore, damageRoll, calledShot].forEach((control) => {
     control?.addEventListener("input", updateAttackPreview);
     control?.addEventListener("change", updateAttackPreview);
   });
@@ -265,7 +292,7 @@
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
-      if (kind === "charge" && mine?.weaponCharge && current && mine.weaponCharge.inventoryId === current.inventoryId && Number(mine.weaponCharge.progress) >= 100) { unavailable = true; reason = "The held weapon is fully Charged."; }
+      if (kind === "charge" && mine?.weaponCharge?.inventoryId === current?.inventoryId && Number(mine.weaponCharge.progress) >= 100) { unavailable = true; reason = "The held weapon is fully Charged."; }
       if (kind === "fire" && current?.category !== "ranged") { unavailable = true; reason = "Hold a ranged weapon to Fire Gun."; }
       if (kind === "melee" && current?.category !== "melee") { unavailable = true; reason = "Hold a melee weapon to make a Melee Attack."; }
       if (kind === "calledShot" && !["ranged", "melee"].includes(current?.category)) { unavailable = true; reason = "Hold a ranged or melee weapon to make a Called Shot."; }
@@ -303,7 +330,6 @@
       weaponMechanics: Math.max(0, Number(record.character.skills?.["Weapon Mechanics"]?.tenths) || 0) / 10,
       dexterityDice: (record.character.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       projectileSkill: Math.max(0, Number(record.character.skills?.Projectile?.tenths) || 0) / 10,
-      dodgeSkill: Math.max(0, Number(record.character.skills?.["Dodge/Block"]?.tenths) || 0) / 10,
       damageReduction: Math.max(0, Number(record.character.computed?.damageReduction) || 0),
       maximumHp: Math.max(0, Number(record.character.computed?.maximumHp) || 0),
       currentHp: Number.isFinite(Number(record.character.health?.current)) ? Number(record.character.health.current) : Number(record.character.computed?.maximumHp) || 0,

@@ -269,7 +269,6 @@ function encounterRuleFields(record) {
     moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
     dexterityDice: (record?.character?.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
-    dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
     maximumHp: Math.max(0, Number(record?.character?.computed?.maximumHp) || 0),
     currentHp: Math.max(0, Number(record?.character?.health?.current ?? record?.character?.computed?.maximumHp) || 0),

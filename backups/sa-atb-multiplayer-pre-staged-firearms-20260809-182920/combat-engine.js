@@ -60,7 +60,6 @@ function syncUnitCombat(unit, source = {}) {
   unit.weaponMechanics = Math.max(0, Number(source.weaponMechanics) || 0);
   unit.dexterityDice = Array.isArray(source.dexterityDice) ? source.dexterityDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
   unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
-  unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
   unit.damageReduction = Math.max(0, Number(source.damageReduction) || 0);
   unit.maximumHp = source.maximumHp === null || source.maximumHp === undefined ? null : Math.max(0, Number(source.maximumHp) || 0);
   unit.currentHp = source.currentHp === null || source.currentHp === undefined ? unit.currentHp ?? null : Number(source.currentHp);
@@ -93,7 +92,6 @@ function migrateUnitCombat(unit) {
     weaponMechanics: unit.weaponMechanics,
     dexterityDice: unit.dexterityDice,
     projectileSkill: unit.projectileSkill,
-    dodgeSkill: unit.dodgeSkill,
     damageReduction: unit.damageReduction,
     maximumHp: unit.maximumHp,
     currentHp: unit.currentHp,
@@ -391,44 +389,68 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       return { ok: false, error: kind === "fire" ? "Fire Gun requires a held ranged weapon." : "Called Shot requires a held ranged or melee weapon." };
     }
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
-    if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: weapon.name + " requires at least one completed Charge before firing." };
+    if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: `${weapon.name} requires at least one completed Charge before firing.` };
     const calledShot = kind === "calledShot" || Boolean(body.calledShot);
-    if (weapon.category === "melee") {
-      const shotLocation = safeText(body.calledShotDetail, "", 80);
-      unit.movementChargeUnits = 0;
-      setCombatBrief(unit, kind, "Called Shot: " + weapon.name + " -> " + target, [
-        shotLocation ? "Target: " + shotLocation : "Resolve the targeted location with the GM",
-        "To-Hit: " + weapon.toHit,
-        "Damage: " + weapon.damage,
-        "A critical creates a special effect instead of doubling Damage",
-      ]);
-      finishTurn(room, unit, "made a melee Called Shot against " + target + "; resolve dice manually", helpers);
-      return { ok: true };
-    }
     const distance = Math.max(0, Number(body.distance) || 0);
     const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
     const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie });
-    if (!plan.allowed) return { ok: false, error: weapon.name + " cannot reach a target " + distance + " units away. " + plan.rangeExplanation };
-    return {
-      ok: true,
-      beginAttack: {
-        attackerId: unit.id,
-        defenderId: requestedTarget.id,
-        weaponId: weapon.weaponId,
-        inventoryId: weapon.inventoryId,
-        weaponName: weapon.name,
-        targetName: requestedTarget.characterName,
-        distance,
-        calledShot,
-        calledShotDetail: safeText(body.calledShotDetail, "", 80),
-        chargeCount,
-        chargeText,
-        aimDie,
-        plan,
-        recoverySeconds: Math.max(0, Number(weapon.recoverySeconds) || 0),
-      },
-    };
+    if (!plan.allowed) return { ok: false, error: `${weapon.name} cannot reach a target ${distance} units away. ${plan.rangeExplanation}` };
+    const baseAttackScore = Number(body.baseAttackScore);
+    const targetDefenseScore = Number(body.targetDefenseScore);
+    if (!Number.isFinite(baseAttackScore) || !Number.isFinite(targetDefenseScore)) {
+      return { ok: false, error: "Enter the rolled base To-Hit score and the target's Defense score." };
+    }
+    const attack = combatRules.resolveAttack({ baseAttackScore, targetDefense: targetDefenseScore, calledShot, plan });
+    const damageRoll = Number(body.damageRoll);
+    if (attack.hit && (!Number.isFinite(damageRoll) || damageRoll < 0)) {
+      return { ok: false, error: `The attack hit. Roll ${plan.damageFormula} and enter the Damage result.` };
+    }
+    const doubleDamage = attack.critical && !calledShot && !plan.criticalDamageDisabled;
+    const damage = combatRules.resolveDamage({
+      rolledDamage: attack.hit ? damageRoll : 0,
+      damageReduction: requestedTarget.damageReduction,
+      critical: attack.critical,
+      calledShot: calledShot || plan.criticalDamageDisabled,
+    });
+    const shotLocation = safeText(body.calledShotDetail, "", 80);
+    unit.weaponCharge = null;
+    unit.aim = null;
+    unit.movementChargeUnits = 0;
+    unit.combatBrief = null;
+    const called = calledShot ? "made a Called Shot" : weapon.category === "melee" ? "made a melee attack" : "fired";
+    const hitText = attack.hit
+      ? `${attack.critical ? calledShot ? "CRITICAL EFFECT" : "CRITICAL HIT" : "HIT"}; rolled ${damage.rolled} Damage${doubleDamage ? `, doubled to ${damage.beforeReduction}` : plan.criticalDamageDisabled && attack.critical ? ", card prevents critical doubling" : ""}, DR ${damage.reduction}, ${damage.applied} HP applied`
+      : `MISS (${attack.attackScore} To-Hit vs ${attack.hitDefense} Defense)`;
+    const logText = `${called} with ${weapon.name} at ${target}${shotLocation ? ` (${shotLocation})` : ""} from ${distance} unit${distance === 1 ? "" : "s"}${chargeText}: ${attack.attackScore} To-Hit vs ${attack.hitDefense} Defense - ${hitText}. Range: ${plan.rangeExplanation}`;
+    const recovery = Math.max(0, Number(weapon.recoverySeconds) || 0);
+    const damageEvent = attack.hit ? {
+      targetId: requestedTarget.id,
+      targetCharacterId: requestedTarget.characterId || "",
+      targetName: requestedTarget.characterName,
+      source: `${unit.characterName}'s ${weapon.name}${calledShot ? " Called Shot" : ""}`,
+      rawDamage: damage.beforeReduction,
+      expectedReduction: damage.reduction,
+      expectedApplied: damage.applied,
+      critical: attack.critical,
+      calledShot,
+      attackScore: attack.attackScore,
+      defenseScore: attack.hitDefense,
+      distance,
+    } : null;
+    if (recovery > 0) {
+      beginTimedAction(room, unit, {
+        id: helpers.id(),
+        kind: "recovery",
+        label: `Reload ${weapon.name}`,
+        total: recovery,
+        remaining: recovery,
+      }, `${unit.characterName} ${logText}; automatic Reload/Recovery started (${recovery} sec).`, helpers, { resetAtb: true });
+      return { ok: true, damageEvent };
+    }
+    finishTurn(room, unit, logText, helpers);
+    return { ok: true, damageEvent };
   }
+
   if (kind === "melee") {
     if (!weapon || weapon.category !== "melee") return { ok: false, error: "Melee Attack requires a held melee weapon." };
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
@@ -466,29 +488,9 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   return { ok: true };
 }
 
-function completeStagedAttack(room, unit, attackState, logText, helpers) {
-  if (!unit) return;
-  unit.weaponCharge = null;
-  unit.aim = null;
-  unit.movementChargeUnits = 0;
-  unit.combatBrief = null;
-  const recovery = Math.max(0, Number(attackState?.recoverySeconds) || 0);
-  if (recovery > 0) {
-    beginTimedAction(room, unit, {
-      id: helpers.id(),
-      kind: "recovery",
-      label: "Reload " + attackState.weaponName,
-      total: recovery,
-      remaining: recovery,
-    }, unit.characterName + " " + logText + "; automatic Reload/Recovery started (" + recovery + " sec).", helpers, { resetAtb: true });
-    return;
-  }
-  finishTurn(room, unit, logText, helpers);
-}
 module.exports = {
   combatEventTimes,
   completedCharges,
-  completeStagedAttack,
   effectiveSpeed,
   hasCombatCountdown,
   hasTimedAction,

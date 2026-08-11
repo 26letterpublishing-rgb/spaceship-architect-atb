@@ -6,7 +6,6 @@ const { CampaignStore } = require("./campaign-store");
 const { CampaignApi } = require("./campaign-api");
 const {
   combatEventTimes,
-  completeStagedAttack,
   effectiveSpeed,
   hasCombatCountdown,
   hasTimedAction,
@@ -16,7 +15,6 @@ const {
   syncUnitCombat,
   tickCombatTimers,
 } = require("./combat-engine");
-const combatRules = require("./combat-rules");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -29,19 +27,6 @@ const campaignStore = new CampaignStore();
 let campaignApi = null;
 let stateSequence = 0;
 const HEARTBEAT_MS = 25000;
-const NPC_HP_DEFAULTS = new Map([
-  ["Security Guard", 36], ["Space Slug", 24], ["Civilian", 20],
-  ["Chief Security Guard", 45], ["Thug", 30], ["Purple Alien", 40],
-  ["Mini Boss", 60], ["Robot Sentry", 54], ["Cyber Ninja", 48], ["Final Boss", 80],
-]);
-
-function ensureNpcHp(unit) {
-  if (!unit || unit.team !== "npc") return;
-  const fallback = NPC_HP_DEFAULTS.get(unit.characterName) || 30;
-  if (!Number.isFinite(Number(unit.maximumHp)) || Number(unit.maximumHp) < 1) unit.maximumHp = fallback;
-  if (unit.currentHp === null || unit.currentHp === undefined || !Number.isFinite(Number(unit.currentHp))) unit.currentHp = unit.maximumHp;
-  unit.currentHp = Math.max(0, Math.min(unit.maximumHp, Number(unit.currentHp)));
-}
 
 function id() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -64,7 +49,6 @@ function createRoom(requestedCode = "", snapshot = null) {
     resumeAfterTurn: false,
     activeId: null,
     activeAction: null,
-    attackResolution: null,
     activeSource: null,
     commandDeadline: null,
     commandTotal: 0,
@@ -92,7 +76,6 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.resumeAfterTurn = Boolean(snapshot.resumeAfterTurn);
     room.activeId = snapshot.activeId || null;
     room.activeAction = clone(snapshot.activeAction);
-    room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
     room.activeSource = snapshot.activeSource || null;
     room.commandDeadline = snapshot.commandRemaining === null || snapshot.commandRemaining === undefined
       ? null
@@ -160,7 +143,6 @@ function publicState(room) {
     pausedForTurn: room.pausedForTurn,
     activeId: room.activeId,
     activeAction: room.activeAction,
-    attackResolution: publicAttackResolution(room),
     activeSource: room.activeSource,
     command,
     hardPaused: room.hardPaused,
@@ -188,13 +170,13 @@ async function applyDamageToUnit(room, target, rawDamage, source) {
   const incoming = Math.max(0, Number(rawDamage) || 0);
   let result = null;
   if (target.characterId && campaignApi) {
-    result = await campaignApi.damageCharacter(room.roomCode, target.characterId, incoming, source, { currentHp: target.currentHp, maximumHp: target.maximumHp, damageReduction: target.damageReduction });
+    result = await campaignApi.damageCharacter(room.roomCode, target.characterId, incoming, source);
   }
   if (!result) {
     const reduction = Math.max(0, Number(target.damageReduction) || 0);
     const applied = Math.max(0, incoming - reduction);
     const beforeHp = target.currentHp === null || target.currentHp === undefined ? null : Number(target.currentHp);
-    const currentHp = beforeHp === null ? null : Math.max(0, beforeHp - applied);
+    const currentHp = beforeHp === null ? null : Math.max(-9999, beforeHp - applied);
     result = { id: id(), rawDamage: incoming, reduction, applied, beforeHp, currentHp, maximumHp: target.maximumHp ?? null, source, createdAt: Date.now() };
   }
   if (result.currentHp !== null && result.currentHp !== undefined) target.currentHp = result.currentHp;
@@ -206,200 +188,10 @@ async function applyDamageToUnit(room, target, rawDamage, source) {
 }
 
 
-function beginAttackResolution(room, details) {
-  const attacker = room.units.find((entry) => entry.id === details.attackerId);
-  const defender = room.units.find((entry) => entry.id === details.defenderId);
-  if (!attacker || !defender) return null;
-  const source = room.activeSource || "manual";
-  clearActiveCommand(room);
-  room.activeSource = source;
-  room.running = false;
-  room.pausedForTurn = true;
-  room.activeId = attacker.id;
-  const defenderCommandTotal = defender.team === "pc" ? Math.max(0, Number(defender.commandWindow) || 0) : 0;
-  room.attackResolution = {
-    id: id(),
-    phase: "checks",
-    source,
-    ...clone(details),
-    attackerName: attacker.characterName,
-    defenderName: defender.characterName,
-    attackerRoll: null,
-    defenseRoll: null,
-    attackResult: null,
-    damageRoll: null,
-    damageSummary: null,
-    defenderCommandTotal,
-    defenderCommandDeadline: defenderCommandTotal > 0 && !room.hardPaused ? Date.now() + defenderCommandTotal * 1000 : null,
-    defenderCommandHeldRemaining: defenderCommandTotal > 0 && room.hardPaused ? defenderCommandTotal : null,
-    defenderCommandExpired: false,
-    createdAt: Date.now(),
-  };
-  pushLog(room, attacker.characterName + " targeted " + defender.characterName + " with " + details.weaponName + " at " + details.distance + " unit" + (details.distance === 1 ? "" : "s") + "; attack and Defense rolls requested.");
-  return room.attackResolution;
-}
-
-function finishAttackResolution(room, logText) {
-  const attack = room.attackResolution;
-  if (!attack) return;
-  const attacker = room.units.find((entry) => entry.id === attack.attackerId);
-  room.attackResolution = null;
-  room.activeSource = attack.source || room.activeSource;
-  clearAttackCommand(room);
-  if (attacker) {
-    completeStagedAttack(room, attacker, attack, logText, {
-      id,
-      clearActiveCommand,
-      moveToNextTurnOrClock,
-      pushLog,
-    });
-  } else {
-    room.activeId = null;
-    room.pausedForTurn = false;
-    clearActiveCommand(room);
-    moveToNextTurnOrClock(room, attack.source);
-  }
-}
-
-function resolveAttackChecks(room) {
-  const state = room.attackResolution;
-  if (!state || state.phase !== "checks" || !state.attackerRoll || !state.defenseRoll) return null;
-  const defender = room.units.find((entry) => entry.id === state.defenderId);
-  const defenseTimed = defender?.timedAction?.kind === "defense";
-  const defenseBonus = defenseTimed ? Math.max(0, Number(defender.dodgeSkill) || 0) : 0;
-  const targetDefense = Number(state.defenseRoll.score) + defenseBonus;
-  state.defenseBonus = defenseBonus;
-  state.attackResult = combatRules.resolveAttack({
-    baseAttackScore: state.attackerRoll.score,
-    targetDefense,
-    calledShot: state.calledShot,
-    plan: state.plan,
-  });
-  clearAttackCommand(room);
-  if (!state.attackResult.hit) {
-    const logText = "fired " + state.weaponName + " at " + state.defenderName + " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s") + " and missed (" + state.attackResult.attackScore + " To-Hit vs " + state.attackResult.hitDefense + " Defense). Range: " + state.plan.rangeExplanation;
-    finishAttackResolution(room, logText);
-    return { hit: false };
-  }
-  state.phase = "damage";
-  pushLog(room, state.attackerName + " hit " + state.defenderName + " with " + state.weaponName + (state.attackResult.critical ? state.calledShot ? " - CRITICAL EFFECT." : " - CRITICAL HIT." : ".") + " Roll " + state.plan.damageFormula + " Damage.");
-  return { hit: true };
-}
-
-function directNpcDamage(room, target, finalDamage, state) {
-  const applied = Math.max(0, Number(finalDamage) || 0);
-  const beforeHp = target.currentHp === null || target.currentHp === undefined ? 0 : Number(target.currentHp);
-  const maximumHp = Math.max(1, Number(target.maximumHp) || beforeHp || 1);
-  const currentHp = Math.max(0, beforeHp - applied);
-  target.currentHp = currentHp;
-  target.maximumHp = maximumHp;
-  target.damageEvent = {
-    id: id(),
-    source: state.attackerName + "'s " + state.weaponName,
-    rawDamage: state.damageSummary.beforeReduction,
-    reduction: state.damageSummary.reduction,
-    applied,
-    beforeHp,
-    currentHp,
-    maximumHp,
-    critical: Boolean(state.attackResult?.critical),
-    calledShot: Boolean(state.calledShot),
-    createdAt: Date.now(),
-  };
-  pushLog(room, target.characterName + " took " + applied + " HP damage; HP " + currentHp + "/" + maximumHp + ".");
-  return target.damageEvent;
-}
-
-function attackResolutionLog(state, appliedDamage) {
-  const result = state.attackResult;
-  const label = result.critical ? state.calledShot ? "CRITICAL EFFECT" : "CRITICAL HIT" : "HIT";
-  const doubling = result.critical && !state.calledShot && !state.plan.criticalDamageDisabled
-    ? ", doubled to " + state.damageSummary.beforeReduction
-    : result.critical && state.plan.criticalDamageDisabled
-      ? ", card prevents critical doubling"
-      : "";
-  return "fired " + state.weaponName + " at " + state.defenderName + " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s") + ": " + label + " (" + result.attackScore + " To-Hit vs " + result.hitDefense + " Defense); rolled " + state.damageSummary.rolled + " Damage" + doubling + ", DR " + state.damageSummary.reduction + ", " + appliedDamage + " HP applied. Range: " + state.plan.rangeExplanation;
-}
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function attackCommandState(room) {
-  const attack = room.attackResolution;
-  if (!attack || attack.phase !== "checks" || !attack.defenderCommandTotal || attack.defenseRoll) return null;
-  const remaining = attack.defenderCommandExpired
-    ? 0
-    : attack.defenderCommandHeldRemaining !== null && attack.defenderCommandHeldRemaining !== undefined
-      ? Math.max(0, Number(attack.defenderCommandHeldRemaining) || 0)
-      : attack.defenderCommandDeadline
-        ? Math.max(0, (attack.defenderCommandDeadline - Date.now()) / 1000)
-        : 0;
-  return {
-    unitId: attack.defenderId,
-    total: attack.defenderCommandTotal,
-    remaining,
-    expired: Boolean(attack.defenderCommandExpired),
-  };
-}
-
-function snapshotAttackResolution(room) {
-  if (!room.attackResolution) return null;
-  const attack = clone(room.attackResolution);
-  attack.defenderCommandRemaining = attack.defenderCommandExpired
-    ? 0
-    : attack.defenderCommandHeldRemaining !== null && attack.defenderCommandHeldRemaining !== undefined
-      ? Math.max(0, Number(attack.defenderCommandHeldRemaining) || 0)
-      : attack.defenderCommandDeadline
-        ? Math.max(0, (attack.defenderCommandDeadline - Date.now()) / 1000)
-        : null;
-  delete attack.defenderCommandDeadline;
-  delete attack.defenderCommandHeldRemaining;
-  return attack;
-}
-
-function restoreAttackResolution(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const attack = clone(snapshot);
-  const remaining = attack.defenderCommandRemaining;
-  attack.defenderCommandDeadline = remaining === null || remaining === undefined || attack.defenderCommandExpired
-    ? null
-    : Date.now() + Math.max(0, Number(remaining) || 0) * 1000;
-  attack.defenderCommandHeldRemaining = null;
-  delete attack.defenderCommandRemaining;
-  return attack;
-}
-
-function publicAttackResolution(room) {
-  if (!room.attackResolution) return null;
-  const attack = clone(room.attackResolution);
-  attack.defenderCommand = attackCommandState(room);
-  delete attack.defenderCommandDeadline;
-  delete attack.defenderCommandHeldRemaining;
-  return attack;
-}
-
-function pauseAttackCommand(room) {
-  const attack = room.attackResolution;
-  if (!attack?.defenderCommandDeadline || attack.defenderCommandExpired || attack.defenseRoll) return;
-  attack.defenderCommandHeldRemaining = Math.max(0, (attack.defenderCommandDeadline - Date.now()) / 1000);
-  attack.defenderCommandDeadline = null;
-}
-
-function resumeAttackCommand(room) {
-  const attack = room.attackResolution;
-  if (!attack || attack.defenderCommandExpired || attack.defenseRoll) return;
-  if (attack.defenderCommandHeldRemaining !== null && attack.defenderCommandHeldRemaining !== undefined) {
-    attack.defenderCommandDeadline = Date.now() + Math.max(0, Number(attack.defenderCommandHeldRemaining) || 0) * 1000;
-    attack.defenderCommandHeldRemaining = null;
-  }
-}
-
-function clearAttackCommand(room) {
-  const attack = room.attackResolution;
-  if (!attack) return;
-  attack.defenderCommandDeadline = null;
-  attack.defenderCommandHeldRemaining = null;
-}
 function snapshotRoom(room) {
   return {
     running: room.running,
@@ -407,7 +199,6 @@ function snapshotRoom(room) {
     resumeAfterTurn: room.resumeAfterTurn,
     activeId: room.activeId,
     activeAction: clone(room.activeAction),
-    attackResolution: snapshotAttackResolution(room),
     activeSource: room.activeSource,
     commandRemaining: room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : null,
     commandTotal: room.commandTotal,
@@ -439,7 +230,6 @@ function restoreUndoSnapshot(room) {
   room.resumeAfterTurn = snapshot.resumeAfterTurn;
   room.activeId = snapshot.activeId;
   room.activeAction = clone(snapshot.activeAction);
-  room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
   room.activeSource = snapshot.activeSource;
   room.commandDeadline = snapshot.commandRemaining === null ? null : Date.now() + snapshot.commandRemaining * 1000;
   room.commandTotal = snapshot.commandTotal;
@@ -638,7 +428,6 @@ function holdCommandWindow(room) {
 
 function hardPauseRoom(room) {
   if (room.hardPaused) return;
-  pauseAttackCommand(room);
   if (!room.holdPaused && room.commandDeadline && !room.commandExpired) {
     room.commandHeldRemaining = Math.max(0, (room.commandDeadline - Date.now()) / 1000);
   }
@@ -650,7 +439,6 @@ function hardPauseRoom(room) {
 
 function hardResumeRoom(room) {
   if (!room.hardPaused) return;
-  resumeAttackCommand(room);
   if (room.commandHeldRemaining !== null && room.commandDeadline) {
     room.commandDeadline = Date.now() + Math.max(0, room.commandHeldRemaining || 0) * 1000;
   }
@@ -672,7 +460,6 @@ function copyDelay(delay) {
 function migrateRoomDelays(room) {
   for (const unit of room.units) {
     migrateUnitCombat(unit);
-    ensureNpcHp(unit);
     if (!Array.isArray(unit.queuedEffects)) unit.queuedEffects = [];
     if (!unit.delay) continue;
     if (unit.delay.kind === "action") {
@@ -1091,23 +878,6 @@ setInterval(() => {
   for (const room of rooms.values()) {
     migrateRoomDelays(room);
     if (room.hardPaused) continue;
-    const defenseCommand = attackCommandState(room);
-    if (defenseCommand && room.attackResolution?.defenderCommandDeadline) {
-      if (Date.now() >= room.attackResolution.defenderCommandDeadline) {
-        room.attackResolution.defenderCommandExpired = true;
-        room.attackResolution.defenderCommandDeadline = null;
-        room.attackResolution.defenderCommandHeldRemaining = null;
-        const defender = room.units.find((entry) => entry.id === room.attackResolution.defenderId);
-        if (defender) pushLog(room, defender.characterName + "'s Defense Command Window expired; the GM may resolve it.");
-      }
-      broadcast(room);
-      if (Date.now() - room.lastPersistRequestAt >= 2000) {
-        room.lastPersistRequestAt = Date.now();
-        scheduleRoomPersist(room, 0);
-      }
-      continue;
-    }
-    if (room.attackResolution) continue;
     if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
       if (Date.now() >= room.commandDeadline) {
         const unit = room.units.find((entry) => entry.id === room.activeId);
@@ -1240,7 +1010,7 @@ async function handleAction(req, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage"].includes(action) && playerUnit) {
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1315,7 +1085,6 @@ async function handleAction(req, res) {
       playerConnected: action === "join" && body.controlledBy === "player",
     };
     syncUnitCombat(unit, body);
-    ensureNpcHp(unit);
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
     pushLog(room, `${characterName} joined (${setupText}).`);
@@ -1383,165 +1152,10 @@ async function handleAction(req, res) {
       sendJson(res, 409, { error: result.error });
       return;
     }
-    if (result.beginAttack && !beginAttackResolution(room, result.beginAttack)) {
-      sendJson(res, 409, { error: "The attacker or defender is no longer in this encounter." });
-      return;
+    if (result.damageEvent) {
+      const target = room.units.find((entry) => entry.id === result.damageEvent.targetId);
+      await applyDamageToUnit(room, target, result.damageEvent.rawDamage, result.damageEvent.source);
     }
-  }
-
-  if (action === "gmBeginNpcAttack") {
-    const attacker = room.units.find((entry) => entry.id === String(body.attackerId || "") && entry.team === "npc");
-    const defender = room.units.find((entry) => entry.id === String(body.defenderId || "") && entry.id !== attacker?.id);
-    if (!attacker || !defender || room.activeId !== attacker.id || room.attackResolution) {
-      sendJson(res, 409, { error: "Choose the active NPC and a valid target." });
-      return;
-    }
-    const distance = Number(body.distance);
-    const attackModifier = Number(body.attackModifier || 0);
-    if (!Number.isFinite(distance) || distance < 0 || !Number.isFinite(attackModifier)) {
-      sendJson(res, 400, { error: "Enter a valid distance and To-Hit modifier." });
-      return;
-    }
-    const weaponName = String(body.weaponName || "NPC attack").trim().slice(0, 80) || "NPC attack";
-    const damageFormula = String(body.damageFormula || "2D6").trim().slice(0, 40) || "2D6";
-    beginAttackResolution(room, {
-      attackerId: attacker.id,
-      defenderId: defender.id,
-      weaponId: "gm-npc-attack",
-      inventoryId: "gm-npc-attack",
-      weaponName,
-      distance,
-      calledShot: Boolean(body.calledShot),
-      calledShotDetail: "",
-      chargeCount: 0,
-      chargeText: "",
-      aimDie: null,
-      recoverySeconds: 0,
-      plan: {
-        allowed: true,
-        distance,
-        effectiveRange: null,
-        attackModifier,
-        defenseRangeModifier: 0,
-        damageFormula,
-        damageFormulaSupported: true,
-        rangeExplanation: "GM-entered NPC attack",
-        criticalDamageDisabled: false,
-      },
-    });
-  }
-
-  if (action === "submitAttackRoll") {
-    const state = room.attackResolution;
-    const rollRole = String(body.rollRole || "");
-    const expectedId = rollRole === "attacker" ? state?.attackerId : rollRole === "defender" ? state?.defenderId : "";
-    const score = Number(body.score);
-    if (!state || state.id !== String(body.attackId || "") || state.phase !== "checks" || !expectedId) {
-      sendJson(res, 409, { error: "That attack roll is no longer waiting." });
-      return;
-    }
-    if (!gmAuthorized && (!playerAuthorized || playerUnit?.id !== expectedId)) {
-      sendJson(res, 403, { error: "That roll belongs to another combatant." });
-      return;
-    }
-    if (!Number.isFinite(score)) {
-      sendJson(res, 400, { error: "Enter a valid final Score." });
-      return;
-    }
-    const field = rollRole === "attacker" ? "attackerRoll" : "defenseRoll";
-    if (!state[field]) {
-      state[field] = {
-        score,
-        mode: String(body.mode || "manual").slice(0, 20),
-        diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 30) : [],
-        submittedBy: gmAuthorized ? "gm" : "player",
-        submittedAt: Date.now(),
-      };
-      if (rollRole === "defender") clearAttackCommand(room);
-      pushLog(room, (rollRole === "attacker" ? state.attackerName : state.defenderName) + " submitted " + (rollRole === "attacker" ? "To-Hit" : "Defense") + " Score " + score + ".");
-      resolveAttackChecks(room);
-    }
-  }
-
-  if (action === "submitAttackDamage") {
-    const state = room.attackResolution;
-    const rolledDamage = Number(body.rolledDamage);
-    if (!state || state.id !== String(body.attackId || "") || state.phase !== "damage") {
-      sendJson(res, 409, { error: "That Damage roll is no longer waiting." });
-      return;
-    }
-    if (!gmAuthorized && (!playerAuthorized || playerUnit?.id !== state.attackerId)) {
-      sendJson(res, 403, { error: "Only the attacker or GM may submit this Damage roll." });
-      return;
-    }
-    if (!Number.isFinite(rolledDamage) || rolledDamage < 0) {
-      sendJson(res, 400, { error: "Enter a valid Damage total." });
-      return;
-    }
-    const target = room.units.find((entry) => entry.id === state.defenderId);
-    if (!target) {
-      sendJson(res, 409, { error: "The defender is no longer in this encounter." });
-      return;
-    }
-    state.damageRoll = {
-      rolledDamage,
-      mode: String(body.mode || "manual").slice(0, 20),
-      diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 60) : [],
-      submittedAt: Date.now(),
-    };
-    state.damageSummary = combatRules.resolveDamage({
-      rolledDamage,
-      damageReduction: target.damageReduction,
-      critical: state.attackResult.critical,
-      calledShot: state.calledShot || state.plan.criticalDamageDisabled,
-    });
-    if (target.team === "npc") {
-      state.phase = "gmDamage";
-      pushLog(room, "GM confirmation requested for " + target.characterName + ": " + state.damageSummary.applied + " final Damage after DR " + state.damageSummary.reduction + ".");
-    } else {
-      const damageEvent = await applyDamageToUnit(room, target, state.damageSummary.beforeReduction, state.attackerName + "'s " + state.weaponName);
-      const applied = Number(damageEvent?.applied) || 0;
-      const logText = attackResolutionLog(state, applied);
-      finishAttackResolution(room, logText);
-    }
-  }
-
-  if (action === "confirmNpcDamage") {
-    const state = room.attackResolution;
-    const finalDamage = Number(body.finalDamage);
-    if (!state || state.id !== String(body.attackId || "") || state.phase !== "gmDamage") {
-      sendJson(res, 409, { error: "That NPC Damage confirmation is no longer waiting." });
-      return;
-    }
-    if (!Number.isFinite(finalDamage) || finalDamage < 0) {
-      sendJson(res, 400, { error: "Enter a valid final Damage amount." });
-      return;
-    }
-    const target = room.units.find((entry) => entry.id === state.defenderId && entry.team === "npc");
-    if (!target) {
-      sendJson(res, 409, { error: "The NPC defender is no longer in this encounter." });
-      return;
-    }
-    directNpcDamage(room, target, finalDamage, state);
-    const logText = attackResolutionLog(state, finalDamage);
-    finishAttackResolution(room, logText);
-  }
-
-  if (action === "setNpcHp") {
-    const target = room.units.find((entry) => entry.id === String(body.id || "") && entry.team === "npc");
-    if (!target) {
-      sendJson(res, 404, { error: "Choose an NPC in this encounter." });
-      return;
-    }
-    const maximumHp = Number(body.maximumHp);
-    const currentHp = Number(body.currentHp);
-    if (!Number.isFinite(maximumHp) || maximumHp < 1 || !Number.isFinite(currentHp)) {
-      sendJson(res, 400, { error: "Enter valid Current and Maximum HP values." });
-      return;
-    }
-    target.maximumHp = Math.round(maximumHp);
-    target.currentHp = Math.max(0, Math.min(target.maximumHp, Math.round(currentHp)));
-    pushLog(room, "GM set " + target.characterName + " to " + target.currentHp + "/" + target.maximumHp + " HP.");
   }
 
   if (action === "applyDamage") {
@@ -1560,19 +1174,7 @@ async function handleAction(req, res) {
 
   if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    if (room.attackResolution && [room.attackResolution.attackerId, room.attackResolution.defenderId].includes(body.id)) {
-      const interruptedAttack = room.attackResolution;
-      room.attackResolution = null;
-      clearAttackCommand(room);
-      pushLog(room, "Attack resolution cancelled because a participant left combat.");
-      if (interruptedAttack.attackerId !== body.id) {
-        const attacker = room.units.find((entry) => entry.id === interruptedAttack.attackerId);
-        if (attacker) {
-          room.activeSource = interruptedAttack.source;
-          completeStagedAttack(room, attacker, interruptedAttack, "had an attack interrupted when its target left combat", { id, clearActiveCommand, moveToNextTurnOrClock, pushLog });
-        }
-      }
-    }    const wasActive = room.activeId === body.id;
+    const wasActive = room.activeId === body.id;
     const previousSource = room.activeSource;
     room.units = room.units.filter((entry) => entry.id !== body.id);
     if (wasActive) {
@@ -1758,7 +1360,6 @@ async function handleAction(req, res) {
   }
 
   if (action === "reset") {
-    room.attackResolution = null;
     for (const unit of room.units) {
       unit.atb = 0;
       unit.delay = null;
@@ -1788,7 +1389,6 @@ async function handleAction(req, res) {
   }
 
   if (action === "clearEncounter") {
-    room.attackResolution = null;
     room.units = [];
     room.running = false;
     room.pausedForTurn = false;
@@ -1818,7 +1418,6 @@ async function handleAction(req, res) {
   }
 
   if (action === "exitEncounter") {
-    room.attackResolution = null;
     room.units = [];
     room.running = false;
     room.pausedForTurn = false;
@@ -1837,10 +1436,6 @@ async function handleAction(req, res) {
   }
 
   if (action === "completeTurn") {
-    if (room.attackResolution) {
-      sendJson(res, 409, { error: "Finish the active attack resolution first." });
-      return;
-    }
     if (room.activeAction) {
       const previousSource = room.activeSource;
       const actionToResolve = room.activeAction;

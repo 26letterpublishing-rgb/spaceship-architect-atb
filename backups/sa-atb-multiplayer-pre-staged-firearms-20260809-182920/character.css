@@ -1454,33 +1454,3 @@ html { -webkit-text-size-adjust:100%; }
   .campaign-sheet-viewer-heading nav { grid-template-columns:34px auto 34px; gap:4px; }
   .campaign-sheet-viewer-heading nav button { width:34px; min-width:34px; }
 }
-
-/* Staged firearm roll and Damage presentation. */
-.combat-damage-modal { z-index: 2600; }
-.combat-damage-dialog { width: min(680px, 100%); }
-.combat-damage-summary {
-  grid-template-columns: repeat(3, minmax(0,1fr));
-}
-.combat-damage-summary strong { overflow-wrap: anywhere; }
-.combat-damage-modal .combat-critical-banner {
-  margin-bottom: 12px;
-  padding: 10px;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  color: #fff;
-  font-weight: 950;
-  text-align: center;
-  background: linear-gradient(#08121e,#08121e) padding-box,
-    linear-gradient(90deg,#ff355e,#ffcf42,#44f4a2,#48c8ff,#c15dff,#ff355e) border-box;
-  background-size: 100% 100%, 240% 100%;
-  text-shadow: 0 0 8px #fff;
-  animation: character-critical-rainbow 1.2s linear infinite;
-}
-.combat-damage-modal .combat-critical-banner[hidden] { display: none; }
-@keyframes character-critical-rainbow {
-  to { background-position: 0 0, 240% 0; filter: hue-rotate(360deg); }
-}
-@media (max-width: 560px) {
-  .combat-damage-summary { grid-template-columns: 1fr; }
-  .combat-damage-dialog { max-height: calc(100dvh - 12px); }
-}
