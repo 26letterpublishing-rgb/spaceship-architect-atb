@@ -1,5 +1,5 @@
 import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260807-rules-3";
-import { weaponById } from "./weapon-data.js?v=20260809-weapons-1";
+import { WEAPONS, weaponById } from "./weapon-data.js?v=20260810-npc-melee-1";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -80,7 +80,10 @@ const dom = {
   encounterBuilder: $("#encounterBuilder"),
   encounterCharacterList: $("#encounterCharacterList"),
   encounterNpcList: $("#encounterNpcList"),
+  encounterNpcTemplate: $("#encounterNpcTemplate"),
   addEncounterNpc: $("#addEncounterNpc"),
+  randomEncounterNpc: $("#randomEncounterNpc"),
+  createEncounterNpc: $("#createEncounterNpc"),
   beginEncounter: $("#beginEncounter"),
   resumeEncounter: $("#resumeEncounter"),
   prepareNewEncounter: $("#prepareNewEncounter"),
@@ -115,20 +118,10 @@ let pendingRestoreBackup = null;
 let encounterState = null;
 let npcSequence = 0;
 let stagedNpcs = [];
+let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
-const npcDefaults = [
-  ["Security Guard", 5, "#39e58f"],
-  ["Space Slug", 3, "#7ad66d"],
-  ["Civilian", 4, "#f2d16b"],
-  ["Chief Security Guard", 7, "#35b7ff"],
-  ["Thug", 6, "#f07a4a"],
-  ["Purple Alien", 8, "#a65cff"],
-  ["Mini Boss", 9, "#ff5fa2"],
-  ["Robot Sentry", 10, "#8bd7ff"],
-  ["Cyber Ninja", 11, "#20f5d0"],
-  ["Final Boss", 12, "#ff3d55"],
-];
+const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f" };
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -268,7 +261,9 @@ function encounterRuleFields(record) {
     highestPerceptionDie: highestAttributeDie(record, "perception"),
     moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
     dexterityDice: (record?.character?.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
+    strengthDice: (record?.character?.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
+    meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
     maximumHp: Math.max(0, Number(record?.character?.computed?.maximumHp) || 0),
@@ -446,10 +441,79 @@ function scriptCommandList(source = scriptSource()) {
   return commands;
 }
 
-function stagedNpc() {
-  const [name, speed, color] = npcDefaults[npcSequence % npcDefaults.length];
+function npcTemplateById(templateId) {
+  return [...builtinNpcTemplates, ...(campaign?.npcTemplates || [])].find((template) => template.id === templateId) || null;
+}
+
+function stagedNpc(source = null) {
+  const template = source || builtinNpcTemplates[npcSequence % Math.max(1, builtinNpcTemplates.length)] || NPC_BLANK;
   npcSequence += 1;
-  return { id: `staged-npc-${Date.now()}-${npcSequence}`, name, speed, color };
+  return {
+    ...NPC_BLANK,
+    ...structuredClone(template),
+    id: `staged-npc-${Date.now()}-${npcSequence}`,
+    templateId: template.id || "",
+    customTemplate: Boolean((campaign?.npcTemplates || []).some((entry) => entry.id === template.id)),
+  };
+}
+
+function randomNpc() {
+  const base = structuredClone(builtinNpcTemplates[Math.floor(Math.random() * Math.max(1, builtinNpcTemplates.length))] || NPC_BLANK);
+  const colors = ["#39e58f", "#35b7ff", "#f07a4a", "#a65cff", "#ff5fa2", "#20f5d0", "#f2d16b"];
+  const weapons = WEAPONS.filter((weapon) => ["ranged", "melee"].includes(weapon.category));
+  return stagedNpc({
+    ...base,
+    id: "",
+    name: `Random ${base.name}`,
+    speed: Math.max(0.1, Math.min(20, base.speed + Math.floor(Math.random() * 5) - 2)),
+    moveSpeed: Math.max(1, Math.min(12, base.moveSpeed + Math.floor(Math.random() * 3) - 1)),
+    maximumHp: Math.max(1, base.maximumHp + (Math.floor(Math.random() * 7) - 3) * 4),
+    physicalAttribute: Math.max(2, Math.min(20, base.physicalAttribute + Math.floor(Math.random() * 5) - 2)),
+    mentalAttribute: Math.max(2, Math.min(20, base.mentalAttribute + Math.floor(Math.random() * 5) - 2)),
+    physicalSkill: Math.max(0, Math.min(4, base.physicalSkill + Math.floor(Math.random() * 3) - 1)),
+    mentalSkill: Math.max(0, Math.min(4, base.mentalSkill + Math.floor(Math.random() * 3) - 1)),
+    heldWeaponId: weapons[Math.floor(Math.random() * weapons.length)]?.id || "unarmed",
+    color: colors[Math.floor(Math.random() * colors.length)],
+  });
+}
+
+function npcTemplateOptions() {
+  const builtins = builtinNpcTemplates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`).join("");
+  const custom = (campaign?.npcTemplates || []).map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (Saved)</option>`).join("");
+  return `<optgroup label="Built-in NPCs">${builtins}</optgroup>${custom ? `<optgroup label="Campaign NPCs">${custom}</optgroup>` : ""}`;
+}
+
+function npcWeaponOptions(selectedId) {
+  return WEAPONS.filter((weapon) => ["ranged", "melee"].includes(weapon.category)).map((weapon) => `<option value="${escapeHtml(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}</option>`).join("");
+}
+
+function npcTemplatePayload(npc) {
+  return {
+    id: npc.customTemplate && npc.templateId ? npc.templateId : `npc-template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: String(npc.name || "Custom NPC").trim() || "Custom NPC",
+    speed: Number(npc.speed) || 5,
+    moveSpeed: Number(npc.moveSpeed) || 3,
+    maximumHp: Number(npc.maximumHp) || 30,
+    physicalAttribute: Number(npc.physicalAttribute) || 6,
+    mentalAttribute: Number(npc.mentalAttribute) || 6,
+    physicalSkill: Number(npc.physicalSkill) || 0,
+    mentalSkill: Number(npc.mentalSkill) || 0,
+    heldWeaponId: npc.heldWeaponId || "unarmed",
+    color: npc.color || "#39e58f",
+  };
+}
+
+async function saveNpcTemplate(npc) {
+  const next = npcTemplatePayload(npc);
+  const templates = [...(campaign?.npcTemplates || [])];
+  const existing = templates.findIndex((template) => template.id === next.id);
+  if (existing >= 0) templates[existing] = next;
+  else templates.push(next);
+  const payload = await api("/api/campaign/npc-templates", { code, token, templates });
+  receiveCampaign(payload.campaign);
+  npc.templateId = next.id;
+  npc.customTemplate = true;
+  showMessage(dom.message, `${next.name} saved to this campaign's NPC templates.`, "success");
 }
 
 function ensureEncounterDefaults() {
@@ -471,12 +535,27 @@ function renderEncounterBuilder() {
       <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
     </label>`;
   }).join("") : '<p>No approved campaign characters are available yet.</p>';
-  dom.encounterNpcList.innerHTML = stagedNpcs.map((npc) => `<div class="encounter-npc-row" data-staged-npc="${npc.id}">
-    <label>Name<input data-npc-field="name" value="${escapeHtml(npc.name)}" maxlength="40" /></label>
-    <label>Speed<input data-npc-field="speed" type="number" min="0.1" max="100" step="0.1" value="${npc.speed}" /></label>
-    <label>Color<input data-npc-field="color" type="color" value="${escapeHtml(npc.color)}" /></label>
-    <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">X</button>
-  </div>`).join("");
+  dom.encounterNpcTemplate.innerHTML = npcTemplateOptions();
+  dom.encounterNpcList.innerHTML = stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="encounter-npc-card" data-staged-npc="${npc.id}">
+    <div class="npc-card-head">
+      <label>Name<input data-npc-field="name" value="${escapeHtml(npc.name)}" maxlength="40" /></label>
+      <label>ATB Speed<input data-npc-field="speed" type="number" min="0.1" max="100" step="0.1" value="${npc.speed}" /></label>
+      <label>Move<input data-npc-field="moveSpeed" type="number" min="1" max="30" step="0.1" value="${npc.moveSpeed}" /></label>
+      <label>HP<input data-npc-field="maximumHp" type="number" min="1" max="999999" step="1" value="${npc.maximumHp}" /></label>
+      <label>Color<input data-npc-field="color" type="color" value="${escapeHtml(npc.color)}" /></label>
+    </div>
+    <div class="npc-card-stats">
+      <label>Physical Attribute <span>2-20</span><input data-npc-field="physicalAttribute" type="number" min="2" max="20" step="1" value="${npc.physicalAttribute}" /></label>
+      <label>Physical Skill <span>0-4</span><input data-npc-field="physicalSkill" type="number" min="0" max="4" step="0.1" value="${npc.physicalSkill}" /></label>
+      <label>Mental Attribute <span>2-20</span><input data-npc-field="mentalAttribute" type="number" min="2" max="20" step="1" value="${npc.mentalAttribute}" /></label>
+      <label>Mental Skill <span>0-4</span><input data-npc-field="mentalSkill" type="number" min="0" max="4" step="0.1" value="${npc.mentalSkill}" /></label>
+      <label class="npc-weapon-field">Held Weapon<select data-npc-field="heldWeaponId">${npcWeaponOptions(npc.heldWeaponId)}</select></label>
+    </div>
+    <div class="npc-card-actions">
+      <button type="button" data-save-staged-npc="${npc.id}">${npc.customTemplate ? "Update Template" : "Save as Template"}</button>
+      <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
+    </div>
+  </article>`).join("") : '<p class="empty-npc-stage">No NPCs staged. Choose a template, create one, or begin a PC-only encounter.</p>';
   dom.beginEncounter.disabled = !selectedEncounterCharacters.size && !stagedNpcs.length;
 }
 
@@ -591,6 +670,7 @@ async function beginEncounter() {
       });
     }
     for (const npc of stagedNpcs) {
+      const weapon = weaponById(npc.heldWeaponId) || weaponById("unarmed");
       await encounterAction("addUnit", {
         playerName: "GM",
         characterName: npc.name || "NPC",
@@ -600,6 +680,16 @@ async function beginEncounter() {
         controlledBy: "gm",
         team: "npc",
         actorType: "character",
+        moveSpeed: npc.moveSpeed,
+        maximumHp: npc.maximumHp,
+        currentHp: npc.maximumHp,
+        physicalAttribute: npc.physicalAttribute,
+        mentalAttribute: npc.mentalAttribute,
+        physicalSkill: npc.physicalSkill,
+        mentalSkill: npc.mentalSkill,
+        weaponMechanics: npc.mentalSkill,
+        weapons: weapon ? [{ inventoryId: `npc-${npc.id}-weapon`, weaponId: weapon.id }] : [],
+        heldWeaponId: weapon ? `npc-${npc.id}-weapon` : "",
       });
     }
     encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
@@ -1173,10 +1263,23 @@ dom.encounterNpcList.addEventListener("input", (event) => {
   const field = event.target.dataset.npcField;
   const npc = stagedNpcs.find((entry) => entry.id === row?.dataset.stagedNpc);
   if (!npc || !field) return;
-  npc[field] = field === "speed" ? Math.max(0.1, Math.min(100, Number(event.target.value) || 0.1)) : event.target.value;
+  const ranges = {
+    speed: [0.1, 100], moveSpeed: [1, 30], maximumHp: [1, 999999],
+    physicalAttribute: [2, 20], mentalAttribute: [2, 20], physicalSkill: [0, 4], mentalSkill: [0, 4],
+  };
+  if (ranges[field]) {
+    const [min, max] = ranges[field];
+    npc[field] = Math.max(min, Math.min(max, Number(event.target.value) || min));
+  } else npc[field] = event.target.value;
 });
 
 dom.encounterNpcList.addEventListener("click", (event) => {
+  const saveButton = event.target.closest("[data-save-staged-npc]");
+  if (saveButton) {
+    const npc = stagedNpcs.find((entry) => entry.id === saveButton.dataset.saveStagedNpc);
+    if (npc) saveNpcTemplate(npc).catch((error) => showMessage(dom.message, error.message, "error"));
+    return;
+  }
   const button = event.target.closest("[data-remove-staged-npc]");
   if (!button) return;
   stagedNpcs = stagedNpcs.filter((entry) => entry.id !== button.dataset.removeStagedNpc);
@@ -1184,7 +1287,15 @@ dom.encounterNpcList.addEventListener("click", (event) => {
 });
 
 dom.addEncounterNpc.addEventListener("click", () => {
-  stagedNpcs.push(stagedNpc());
+  stagedNpcs.push(stagedNpc(npcTemplateById(dom.encounterNpcTemplate.value)));
+  renderEncounterBuilder();
+});
+dom.randomEncounterNpc.addEventListener("click", () => {
+  stagedNpcs.push(randomNpc());
+  renderEncounterBuilder();
+});
+dom.createEncounterNpc.addEventListener("click", () => {
+  stagedNpcs.push(stagedNpc(NPC_BLANK));
   renderEncounterBuilder();
 });
 dom.beginEncounter.addEventListener("click", beginEncounter);
@@ -1241,6 +1352,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
   }
 });
 
+builtinNpcTemplates = await fetch("data/npc-templates.json", { cache: "no-store" }).then((response) => response.json()).catch(() => [NPC_BLANK]);
 populateRulesControls();
 renderScriptEditor("");
 const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || localStorage.getItem("sa-current-campaign-code") || "";

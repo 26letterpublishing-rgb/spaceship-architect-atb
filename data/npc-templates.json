@@ -1,0 +1,12 @@
+[
+  {"id":"security-guard","name":"Security Guard","speed":5,"moveSpeed":3,"maximumHp":36,"physicalAttribute":8,"mentalAttribute":6,"physicalSkill":2,"mentalSkill":1,"heldWeaponId":"standard-sidearm","color":"#39e58f"},
+  {"id":"space-slug","name":"Space Slug","speed":3,"moveSpeed":2,"maximumHp":28,"physicalAttribute":6,"mentalAttribute":2,"physicalSkill":1,"mentalSkill":0,"heldWeaponId":"unarmed","color":"#7ad66d"},
+  {"id":"civilian","name":"Civilian","speed":4,"moveSpeed":2,"maximumHp":20,"physicalAttribute":4,"mentalAttribute":5,"physicalSkill":0,"mentalSkill":1,"heldWeaponId":"unarmed","color":"#f2d16b"},
+  {"id":"chief-security-guard","name":"Chief Security Guard","speed":7,"moveSpeed":4,"maximumHp":48,"physicalAttribute":10,"mentalAttribute":8,"physicalSkill":3,"mentalSkill":2,"heldWeaponId":"t16-autoblaster-5000","color":"#35b7ff"},
+  {"id":"thug","name":"Thug","speed":6,"moveSpeed":3,"maximumHp":40,"physicalAttribute":8,"mentalAttribute":4,"physicalSkill":2,"mentalSkill":0,"heldWeaponId":"rusty-sawed-off","color":"#f07a4a"},
+  {"id":"purple-alien","name":"Purple Alien","speed":8,"moveSpeed":4,"maximumHp":52,"physicalAttribute":10,"mentalAttribute":10,"physicalSkill":3,"mentalSkill":3,"heldWeaponId":"phazor","color":"#a65cff"},
+  {"id":"mini-boss","name":"Mini Boss","speed":9,"moveSpeed":5,"maximumHp":60,"physicalAttribute":13,"mentalAttribute":10,"physicalSkill":3,"mentalSkill":3,"heldWeaponId":"thunder-rifle","color":"#ff5fa2"},
+  {"id":"robot-sentry","name":"Robot Sentry","speed":10,"moveSpeed":4,"maximumHp":56,"physicalAttribute":12,"mentalAttribute":8,"physicalSkill":3,"mentalSkill":2,"heldWeaponId":"multi-lock-bizi-21","color":"#8bd7ff"},
+  {"id":"cyber-ninja","name":"Cyber Ninja","speed":11,"moveSpeed":6,"maximumHp":64,"physicalAttribute":14,"mentalAttribute":11,"physicalSkill":4,"mentalSkill":3,"heldWeaponId":"murasama-blade","color":"#20f5d0"},
+  {"id":"final-boss","name":"Final Boss","speed":12,"moveSpeed":6,"maximumHp":80,"physicalAttribute":18,"mentalAttribute":16,"physicalSkill":4,"mentalSkill":4,"heldWeaponId":"viltrexian-devastator","color":"#ff3d55"}
+]

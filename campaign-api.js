@@ -65,6 +65,7 @@ function defaultCampaign({ code, name, gmCode }) {
     awardHistory: [],
     privateNotes: [],
     rollRequests: [],
+    npcTemplates: [],
     settings: { commandWindowBonus: 0 },
     encounter: null,
     sessionNumber: 1,
@@ -120,6 +121,19 @@ function normalizeCampaign(raw) {
     readAt: note?.readAt || null,
   }));
   campaign.rollRequests = Array.isArray(campaign.rollRequests) ? campaign.rollRequests.slice(-250) : [];
+  campaign.npcTemplates = (Array.isArray(campaign.npcTemplates) ? campaign.npcTemplates : []).slice(0, 100).map((template) => ({
+    id: String(template?.id || uid("npc-template")).slice(0, 100),
+    name: String(template?.name || "Custom NPC").trim().slice(0, 80) || "Custom NPC",
+    speed: boundedNumber(template?.speed, 0.1, 100),
+    moveSpeed: boundedNumber(template?.moveSpeed, 1, 30),
+    maximumHp: Math.round(boundedNumber(template?.maximumHp, 1, 999999)),
+    physicalAttribute: Math.round(boundedNumber(template?.physicalAttribute, 2, 20)),
+    mentalAttribute: Math.round(boundedNumber(template?.mentalAttribute, 2, 20)),
+    physicalSkill: boundedNumber(template?.physicalSkill, 0, 4),
+    mentalSkill: boundedNumber(template?.mentalSkill, 0, 4),
+    heldWeaponId: String(template?.heldWeaponId || "unarmed").slice(0, 100),
+    color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
+  }));
   campaign.sessionNumber = Math.max(1, Math.round(Number(campaign.sessionNumber) || 1));
   trimPrivateNotes(campaign);
   return campaign;
@@ -145,6 +159,7 @@ function campaignBackup(campaign) {
       awardHistory: campaign.awardHistory,
       privateNotes: campaign.privateNotes,
       rollRequests: campaign.rollRequests,
+      npcTemplates: campaign.npcTemplates,
       encounter: campaign.encounter,
       sessionNumber: campaign.sessionNumber,
     }),
@@ -298,6 +313,7 @@ class CampaignApi {
       sessionNumber: campaign.sessionNumber,
       bankerCharacterId: campaign.bankerCharacterId,
       settings: clone(campaign.settings),
+      npcTemplates: gm ? clone(campaign.npcTemplates) : undefined,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
       inbox: gm ? clone(campaign.privateNotes.slice(-GM_INBOX_LIMIT)) : undefined,
@@ -938,6 +954,17 @@ class CampaignApi {
       }
       campaign.settings ||= { commandWindowBonus: 0 };
       campaign.settings.commandWindowBonus = Math.round(boundedNumber(body.commandWindowBonus, 0, 3600));
+      await this.save(campaign);
+      sendJson(res, 200, { campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/npc-templates" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      campaign.npcTemplates = normalizeCampaign({ npcTemplates: body.templates }).npcTemplates;
       await this.save(campaign);
       sendJson(res, 200, { campaign: this.state(campaign, token) });
       return true;

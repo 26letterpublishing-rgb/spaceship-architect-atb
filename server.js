@@ -5,12 +5,14 @@ const os = require("os");
 const { CampaignStore } = require("./campaign-store");
 const { CampaignApi } = require("./campaign-api");
 const {
+  applyNpcSimplifiedStats,
   combatEventTimes,
   completeStagedAttack,
   effectiveSpeed,
   hasCombatCountdown,
   hasTimedAction,
   migrateUnitCombat,
+  normalizeWeaponRows,
   cancelTimedActionForForcedDelay,
   resolvePlayerCombatAction,
   syncUnitCombat,
@@ -275,9 +277,22 @@ function resolveAttackChecks(room) {
     calledShot: state.calledShot,
     plan: state.plan,
   });
+  const attacker = room.units.find((entry) => entry.id === state.attackerId);
+  if (!state.attackResult.hit && state.attackType === "melee" && defenseTimed) {
+    const defenderCritical = targetDefense >= Number(state.attackResult.attackScore) * 2;
+    if (defenderCritical) {
+      const elapsedDefense = Math.max(0, Number(defender.timedAction.total) - Number(defender.timedAction.remaining));
+      state.counterDelaySeconds = Math.ceil(elapsedDefense * 20) / 10;
+      if (state.counterDelaySeconds > 0) {
+        pushLog(room, defender.characterName + " scored a Critical Defense against " + (attacker?.characterName || state.attackerName) + "; Counter Delay " + state.counterDelaySeconds.toFixed(1) + " seconds.");
+      }
+    }
+  }
   clearAttackCommand(room);
   if (!state.attackResult.hit) {
-    const logText = "fired " + state.weaponName + " at " + state.defenderName + " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s") + " and missed (" + state.attackResult.attackScore + " To-Hit vs " + state.attackResult.hitDefense + " Defense). Range: " + state.plan.rangeExplanation;
+    const verb = state.attackType === "melee" ? "attacked " : "fired ";
+    const rangeText = state.attackType === "melee" ? "" : " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s");
+    const logText = verb + state.defenderName + " with " + state.weaponName + rangeText + " and missed (" + state.attackResult.attackScore + " To-Hit vs " + state.attackResult.hitDefense + " Defense). Range: " + state.plan.rangeExplanation;
     finishAttackResolution(room, logText);
     return { hit: false };
   }
@@ -318,7 +333,10 @@ function attackResolutionLog(state, appliedDamage) {
     : result.critical && state.plan.criticalDamageDisabled
       ? ", card prevents critical doubling"
       : "";
-  return "fired " + state.weaponName + " at " + state.defenderName + " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s") + ": " + label + " (" + result.attackScore + " To-Hit vs " + result.hitDefense + " Defense); rolled " + state.damageSummary.rolled + " Damage" + doubling + ", DR " + state.damageSummary.reduction + ", " + appliedDamage + " HP applied. Range: " + state.plan.rangeExplanation;
+  const opening = state.attackType === "melee"
+    ? "attacked " + state.defenderName + " with " + state.weaponName
+    : "fired " + state.weaponName + " at " + state.defenderName + " from " + state.distance + " unit" + (state.distance === 1 ? "" : "s");
+  return opening + ": " + label + " (" + result.attackScore + " To-Hit vs " + result.hitDefense + " Defense); rolled " + state.damageSummary.rolled + " Damage" + doubling + ", DR " + state.damageSummary.reduction + ", " + appliedDamage + " HP applied. Range: " + state.plan.rangeExplanation;
 }
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -1370,6 +1388,34 @@ async function handleAction(req, res) {
       syncUnitCombat(unit, body);
       pushLog(room, `${unit.characterName}'s combat loadout synchronized.`);
     }
+  }
+
+  if (action === "setNpcCombatStat") {
+    const unit = room.units.find((entry) => entry.id === String(body.id || "") && entry.team === "npc");
+    const field = String(body.field || "");
+    if (!unit || !["physicalAttribute", "mentalAttribute", "physicalSkill", "mentalSkill", "moveSpeed"].includes(field)) {
+      sendJson(res, 400, { error: "Choose a valid NPC combat statistic." });
+      return;
+    }
+    if (field === "moveSpeed") unit.moveSpeed = Math.max(1, Math.min(30, Number(body.value) || 1));
+    else applyNpcSimplifiedStats(unit, { [field]: body.value });
+    pushLog(room, `${unit.characterName}'s ${field.replace(/([A-Z])/g, " $1").toLowerCase()} was adjusted.`);
+  }
+
+  if (action === "setNpcWeapon") {
+    const unit = room.units.find((entry) => entry.id === String(body.id || "") && entry.team === "npc");
+    const weaponId = String(body.weaponId || "");
+    const weapons = normalizeWeaponRows([{ inventoryId: `npc-${unit?.id || "unit"}-weapon`, weaponId }]);
+    if (!unit || !weapons.length) {
+      sendJson(res, 400, { error: "Choose a valid NPC weapon." });
+      return;
+    }
+    unit.weapons = weapons;
+    unit.heldWeaponId = weapons[0].inventoryId;
+    unit.weaponCharge = null;
+    unit.aim = null;
+    unit.movementChargeUnits = 0;
+    pushLog(room, `${unit.characterName} readied ${weapons[0].name}.`);
   }
 
   if (action === "playerCombatAction") {

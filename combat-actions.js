@@ -25,7 +25,7 @@
   const note = document.querySelector("#combatActionNote");
   const error = document.querySelector("#combatActionError");
   const cancel = document.querySelector("#cancelCombatAction");
-  const heldReadout = document.querySelector("#heldWeaponReadout");
+  const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
 
   let currentState = null;
@@ -49,7 +49,9 @@
     const current = held(unit);
     if (!current) return 0;
     if (current.category === "melee") {
-      return Math.min(Math.max(0, Number(unit?.moveSpeed) || 0), Math.max(0, Number(unit?.movementChargeUnits) || 0));
+      const printed = Number(current.maxCharge);
+      const limit = Number.isFinite(printed) && printed > 0 ? Math.min(Number(unit?.moveSpeed) || 0, printed) : Number(unit?.moveSpeed) || 0;
+      return Math.min(Math.max(0, limit), Math.max(0, Number(unit?.movementChargeUnits) || 0));
     }
     if (!unit?.weaponCharge || unit.weaponCharge.inventoryId !== current.inventoryId) return 0;
     const segments = Math.max(1, Number(current.chargeSegments) || 1);
@@ -83,7 +85,7 @@
   const configurations = {
     defense: { title: "Defense", amount: "Defense Duration", min: 1, max: 15, value: 5, note: "Dodge is doubled. A Critical Success against a melee attack delays the attacker by twice the elapsed Defense time." },
     move: { title: "Move", amount: "Units Moved", min: 1, max: () => Math.max(1, Number(currentUnit?.moveSpeed) || 1), value: 1, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
-    melee: { title: "Melee Attack", target: true, note: "Resolve dice at the table. Movement from the immediately previous action adds one Charge per unit." },
+    melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Movement from the immediately previous action adds one Charge per unit, limited by Move Speed and the card's Max Charge." },
     wrestle: { title: "Wrestle / Disarm", target: true, note: "The GM and player resolve this nearby contest manually." },
     fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
     calledShot: { title: "Called Shot", target: true, attack: true, calledShot: true, note: "Called Shot adds +5 Defense to hit. A critical creates the intended special effect instead of doubling Damage." },
@@ -103,9 +105,11 @@
     const current = held();
     if (!current || !window.SACombatRules) return null;
     return window.SACombatRules.attackPlan(current, {
-      distance: Number(distance.value) || 0,
+      distance: current?.category === "melee" ? 1 : Number(distance.value) || 0,
       charges: chargeCount(),
-      aimDie: Number(currentUnit?.aim?.aimDie) || 0,
+      aimDie: current?.category === "ranged" ? Number(currentUnit?.aim?.aimDie) || 0 : 0,
+      attackType: current?.category === "melee" ? "melee" : "ranged",
+      strengthDice: currentUnit?.strengthDice || [],
     });
   }
 
@@ -173,6 +177,7 @@
     attackWrap.hidden = !config.attack;
     if (config.attack) {
       distance.value = "1";
+      distance.closest("label").hidden = Boolean(config.melee);
       calledShot.checked = Boolean(config.calledShot);
       calledShotDetail.value = "";
       updateAttackPreview();
@@ -253,11 +258,14 @@
     currentUnit = mine;
     const current = held(mine);
     const charges = chargeCount(mine);
-    if (heldReadout) {
+    heldReadouts.forEach((heldReadout) => {
+      const chargeReadout = current?.category === "melee"
+        ? `${charges}/${Math.max(0, Math.min(Number(mine?.moveSpeed) || 0, Number.isFinite(Number(current.maxCharge)) ? Number(current.maxCharge) : Number(mine?.moveSpeed) || 0))} Move Charges`
+        : `${charges}/${Math.max(0, Number(current?.chargeSegments) || 0)} Charges`;
       heldReadout.innerHTML = current
-        ? `<span>Held Weapon</span><strong>${esc(current.name)}</strong><small>${charges}/${Math.max(0, Number(current.chargeSegments) || 0)} Charges${mine?.aim ? ` | Aim: +highest PER die to Dexterity and Damage; +${Number(mine.aim.speedBonus) || 0} Speed` : ""}</small>`
+        ? `<span>Held Weapon</span><strong>${esc(current.name)}</strong><small>${chargeReadout}${mine?.aim ? ` | Aim: +highest PER die to Dexterity and Damage; +${Number(mine.aim.speedBonus) || 0} Speed` : ""}</small>`
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
-    }
+    });
     const disabled = !isMyTurn || hasPendingDelayRequest;
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
@@ -303,7 +311,9 @@
       weaponMechanics: Math.max(0, Number(record.character.skills?.["Weapon Mechanics"]?.tenths) || 0) / 10,
       dexterityDice: (record.character.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       projectileSkill: Math.max(0, Number(record.character.skills?.Projectile?.tenths) || 0) / 10,
+      meleeSkill: Math.max(0, Number(record.character.skills?.Melee?.tenths) || 0) / 10,
       dodgeSkill: Math.max(0, Number(record.character.skills?.["Dodge/Block"]?.tenths) || 0) / 10,
+      strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       damageReduction: Math.max(0, Number(record.character.computed?.damageReduction) || 0),
       maximumHp: Math.max(0, Number(record.character.computed?.maximumHp) || 0),
       currentHp: Number.isFinite(Number(record.character.health?.current)) ? Number(record.character.health.current) : Number(record.character.computed?.maximumHp) || 0,

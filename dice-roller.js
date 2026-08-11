@@ -1,5 +1,5 @@
-import * as THREE from "./node_modules/three/build/three.module.min.js";
-import * as CANNON from "./node_modules/cannon-es/dist/cannon-es.js";
+import * as THREE from "./vendor/three.module.min.js";
+import * as CANNON from "./vendor/cannon-es.js";
 
 const UP = new THREE.Vector3(0, 1, 0);
 

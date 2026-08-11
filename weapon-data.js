@@ -2,6 +2,31 @@
 // Launcher-only ammunition is intentionally omitted until the ammunition system is built.
 export const WEAPONS = Object.freeze([
   {
+    "id": "unarmed",
+    "page": 0,
+    "name": "Unarmed",
+    "category": "melee",
+    "toHit": "Dexterity + Melee",
+    "damage": "2D4",
+    "chargeBonus": "+1D4 Damage",
+    "maxCharge": "Move",
+    "chargeMode": "movement",
+    "chargeSegments": 0,
+    "chargeTime": 0,
+    "element": "Physical",
+    "range": "1 Max",
+    "sizeClass": "N/A",
+    "special": "Basic unarmed or natural attack. Add the Charge Bonus for each Unit traveled immediately before the attack.",
+    "cost": "0",
+    "throwable": false,
+    "placeable": false,
+    "ammo": false,
+    "requiredCharge": false,
+    "aimRequired": false,
+    "countdownSeconds": 0,
+    "recoverySeconds": 0
+  },
+  {
     "id": "ballistic-sidearm",
     "page": 1,
     "name": "Ballistic Sidearm",

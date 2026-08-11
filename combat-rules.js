@@ -17,7 +17,7 @@
   }
 
   function printedToHitModifier(text) {
-    const remainder = String(text || "").replace(/Dexterity/gi, "").replace(/Projectile/gi, "").replace(/[A-Za-z]/g, "");
+    const remainder = String(text || "").replace(/Dexterity/gi, "").replace(/Projectile|Melee|Wrestle|Disarm/gi, "").replace(/[A-Za-z]/g, "");
     return (remainder.match(/[+-]\s*\d+(?:\.\d+)?/g) || []).reduce((sum, value) => sum + number(value.replace(/\s/g, "")), 0);
   }
 
@@ -62,7 +62,7 @@
     return terms.join(" ").replace(/^\+\s*/, "") || "0";
   }
 
-  function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0 } = {}) {
+  function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0, attackType = "ranged", strengthDice = [] } = {}) {
     const rangeText = String(weapon?.range || "");
     const baseRange = number(rangeText.match(/\d+(?:\.\d+)?/)?.[0]);
     const chargeRange = signedBonuses(weapon?.chargeBonus, "Range") * Math.max(0, number(charges));
@@ -76,7 +76,10 @@
     let rangeExplanation = "";
     let manualRange = false;
 
-    if (weapon?.id === "ionic-shotgun") {
+    if (attackType === "melee") {
+      allowed = units <= Math.max(1, effectiveRange || 1);
+      rangeExplanation = allowed ? "Nearby melee target; no Range modifiers." : "Target is not within melee reach.";
+    } else if (weapon?.id === "ionic-shotgun") {
       const bands = Math.floor(units / 2);
       attackRangeModifier = bands;
       damageDieReduction = { sides: 10, count: bands };
@@ -103,13 +106,19 @@
     const printedModifier = printedToHitModifier(weapon?.toHit);
     const chargeToHitModifier = signedBonuses(weapon?.chargeBonus, "To-Hit") * Math.max(0, number(charges));
     const attackModifier = printedModifier + chargeToHitModifier + attackRangeModifier;
-    const damage = parseDiceFormula(weapon?.damage);
+    const strengthFormula = Array.isArray(strengthDice) && strengthDice.length
+      ? strengthDice.map((sides) => `1D${number(sides)}`).join(" + ")
+      : "2D4";
+    const printedDamage = /All Strength Dice/i.test(String(weapon?.damage || "")) ? strengthFormula : weapon?.damage;
+    const damage = parseDiceFormula(printedDamage);
     mergeDamageBonus(damage, weapon?.chargeBonus, Math.max(0, number(charges)));
     if (aimDie > 0) damage.dice.set(number(aimDie), (damage.dice.get(number(aimDie)) || 0) + 1);
     if (damageDieReduction) damage.dice.set(damageDieReduction.sides, Math.max(0, (damage.dice.get(damageDieReduction.sides) || 0) - damageDieReduction.count));
     const specialText = String(weapon?.special || "");
     const choiceRequired = /choose one/i.test(specialText);
-    const manualToHit = !/^Dexterity\s*\+\s*Projectile(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim());
+    const manualToHit = attackType === "melee"
+      ? !/^Dexterity\s*\+\s*(?:Melee|Wrestle\/Disarm)(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim())
+      : !/^Dexterity\s*\+\s*Projectile(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim());
     const criticalDamageDisabled = /critical hits do not deal double damage/i.test(specialText);
 
     return {
@@ -123,11 +132,13 @@
       defenseRangeModifier,
       attackModifier,
       damageFormula: damage.supported ? formatDiceFormula(damage) : String(weapon?.damage || "Resolve manually"),
-      damageFormulaSupported: damage.supported && !choiceRequired && isSimpleDamageFormula(weapon?.damage) && !(number(charges) > 0 && /\b(?:X|See Ammo|Increase|Choose)\b/i.test(String(weapon?.chargeBonus || ""))),
+      damageFormulaSupported: damage.supported && !choiceRequired && isSimpleDamageFormula(printedDamage) && !(number(charges) > 0 && /\b(?:X|See Ammo|Increase|Choose)\b/i.test(String(weapon?.chargeBonus || ""))),
       rangeExplanation,
       choiceRequired,
       manualToHit,
       criticalDamageDisabled,
+      attackType,
+      attackSkill: attackType === "melee" && /Wrestle\/Disarm/i.test(String(weapon?.toHit || "")) ? "Wrestle/Disarm" : attackType === "melee" ? "Melee" : "Projectile",
     };
   }
 

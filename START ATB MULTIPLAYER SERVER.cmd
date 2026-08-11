@@ -3,6 +3,9 @@ setlocal
 title Spaceship Architect ATB Multiplayer Server
 cd /d "%~dp0"
 
+set "NODE_PATH=%~dp0..\SA-ATB Local Development Files\node_modules"
+set "SA_LOCAL_DATA_DIR=%~dp0..\SA-ATB Local Development Files\campaign-data"
+
 set "NODE_EXE=C:\Users\zombi\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
 if not exist "%NODE_EXE%" set "NODE_EXE=node"
 

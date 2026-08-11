@@ -3129,7 +3129,7 @@ function openCombatSkillRequest(request) {
   renderSkillSetup();
   dom.skillCheckKicker.textContent = request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
   dom.skillCheckTitle.textContent = request.rollRole === "attacker"
-    ? "Dexterity + Projectile"
+    ? "Dexterity + " + (request.skill || "Projectile")
     : "Dexterity + Dodge/Block";
   dom.skillCheckSubtitle.textContent = request.subtitle || "Submit the completed Score. The app applies weapon and Range modifiers afterward.";
   dom.changeSkillAttribute.hidden = true;

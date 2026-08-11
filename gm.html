@@ -163,7 +163,15 @@
                 <div id="encounterCharacterList" class="encounter-character-list"></div>
               </section>
               <section class="encounter-npcs">
-                <div class="section-title"><h3>NPC Staging</h3><button id="addEncounterNpc" type="button">Add NPC</button></div>
+                <div class="section-title npc-staging-title">
+                  <div><h3>NPC Deployment Console</h3><small>Choose a built-in template, a saved campaign NPC, or generate one.</small></div>
+                  <div class="npc-staging-actions">
+                    <select id="encounterNpcTemplate" aria-label="NPC template"></select>
+                    <button id="addEncounterNpc" type="button">Stage NPC</button>
+                    <button id="randomEncounterNpc" type="button">Random NPC</button>
+                    <button id="createEncounterNpc" type="button">Create NPC</button>
+                  </div>
+                </div>
                 <div id="encounterNpcList" class="encounter-npc-list"></div>
               </section>
               <button id="beginEncounter" class="primary begin-encounter" type="button">Begin Combat</button>
@@ -218,6 +226,6 @@
       </section>
     </main>
 
-  <script type="module" src="gm.js?v=20260810-firearms-2"></script>
+  <script type="module" src="gm.js?v=20260810-npc-melee-1"></script>
   </body>
 </html>

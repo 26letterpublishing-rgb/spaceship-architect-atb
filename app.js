@@ -250,11 +250,15 @@ const defenseRollStatus = document.querySelector("#defenseRollStatus");
 const gmAttackRollForm = document.querySelector("#gmAttackRollForm");
 const gmAttackRollLabel = document.querySelector("#gmAttackRollLabel");
 const gmAttackRollScore = document.querySelector("#gmAttackRollScore");
+const gmNpcRollPool = document.querySelector("#gmNpcRollPool");
+const gmAttackAutoRoll = document.querySelector("#gmAttackAutoRoll");
 const gmResolveDefender = document.querySelector("#gmResolveDefender");
 const gmNpcDamageForm = document.querySelector("#gmNpcDamageForm");
 const gmNpcDamageBreakdown = document.querySelector("#gmNpcDamageBreakdown");
 const gmNpcFinalDamage = document.querySelector("#gmNpcFinalDamage");
 const gmDelay = document.querySelector("#gmDelay");
+const gmNpcHeldWeaponReadout = document.querySelector("#gmNpcHeldWeaponReadout");
+const gmNpcTurnActions = document.querySelector("#gmNpcTurnActions");
 const gmNpcAttack = document.querySelector("#gmNpcAttack");
 const gmNpcAttackDialog = document.querySelector("#gmNpcAttackDialog");
 const gmNpcAttackActor = document.querySelector("#gmNpcAttackActor");
@@ -294,6 +298,7 @@ const campaignCharacterStatus = document.querySelector("#campaignCharacterStatus
 const gmAlarmAudio = new Audio("alarm-noise.mp4");
 gmAlarmAudio.preload = "auto";
 gmAlarmAudio.volume = 0.72;
+let npcWeaponCatalog = [];
 
 function savedCharacterAtbColor() {
   try {
@@ -1613,6 +1618,23 @@ function npcHealthMarkup(unit, { gm = false } = {}) {
     : "";
   return '<span class="npc-health" aria-label="NPC health">' + hearts + exact + '</span>';
 }
+
+function npcCombatStatsMarkup(unit, { gm = false } = {}) {
+  if (!gm || unit?.team !== "npc") return "";
+  const weapon = (unit.weapons || []).find((entry) => entry.inventoryId === unit.heldWeaponId);
+  const weaponOptions = npcWeaponCatalog.filter((entry) => ["ranged", "melee"].includes(entry.category)).map((entry) =>
+    `<option value="${escapeHtml(entry.id)}" ${entry.id === weapon?.weaponId ? "selected" : ""}>${escapeHtml(entry.name)}</option>`
+  ).join("");
+  const statButton = (field, label, value, range) => `<button type="button" class="npc-combat-stat" data-action="npcStat" data-id="${escapeHtml(unit.id)}" data-field="${field}" data-range="${range}" title="Edit ${label}"><span>${label}</span><strong>${Number(value).toFixed(Number(value) % 1 ? 1 : 0)}</strong></button>`;
+  return `<div class="npc-combat-stats">
+    ${statButton("physicalAttribute", "PHY ATTR", unit.physicalAttribute, "2,20")}
+    ${statButton("physicalSkill", "PHY SKILL", unit.physicalSkill, "0,4")}
+    ${statButton("mentalAttribute", "MEN ATTR", unit.mentalAttribute, "2,20")}
+    ${statButton("mentalSkill", "MEN SKILL", unit.mentalSkill, "0,4")}
+    ${statButton("moveSpeed", "MOVE", unit.moveSpeed, "1,30")}
+    <label class="npc-held-weapon"><span>HELD</span><select data-action="npcWeapon" data-id="${escapeHtml(unit.id)}">${weaponOptions}</select></label>
+  </div>`;
+}
 function unitCard(unit, { gm = false, player = false } = {}) {
   const delayed = hasAnyDelay(unit);
   const ready = unit.atb >= state.threshold && !delayed;
@@ -1639,6 +1661,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
         <div>
           <div class="unit-name-line"><div class="unit-name">${escapeHtml(unit.characterName)}</div>${npcHealthMarkup(unit, { gm })}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
+          ${npcCombatStatsMarkup(unit, { gm })}
         </div>
         ${
           player && own
@@ -1722,6 +1745,12 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.team,
     unit.currentHp ?? "",
     unit.maximumHp ?? "",
+    unit.physicalAttribute ?? "",
+    unit.physicalSkill ?? "",
+    unit.mentalAttribute ?? "",
+    unit.mentalSkill ?? "",
+    unit.moveSpeed ?? "",
+    unit.heldWeaponId || "",
     state?.hardPaused ? "hardpaused" : "not-hardpaused",
     gm ? (delayConsoleAllowed() ? "delay-open" : "delay-closed") : "delay-na",
     delayTimerFor(unit) ? `timer:${delayTimerFor(unit).remaining}:${delayTimerFor(unit).rate}:${delayTimerFor(unit).resolving ? "resolving" : "waiting"}` : "notimer",
@@ -2011,7 +2040,8 @@ function notifyTurnIfNeeded() {
       activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
       completeTurn.textContent = "Action Resolved";
       gmDelay.classList.add("hidden");
-      gmNpcAttack.hidden = true;
+      gmNpcTurnActions.hidden = true;
+      gmNpcHeldWeaponReadout.hidden = true;
       if (!turnPanelOpen()) showTurnPanel();
     } else if (turnPanelOpen()) {
       closeTurnPanel();
@@ -2039,7 +2069,9 @@ function notifyTurnIfNeeded() {
     gmDelay.classList.toggle("delay-blocked", !delayConsoleAllowed());
     gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
     gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span>`;
-    gmNpcAttack.hidden = active.team !== "npc";
+    const npcTurn = active.team === "npc" && !state.attackResolution;
+    gmNpcTurnActions.hidden = !npcTurn;
+    gmNpcHeldWeaponReadout.hidden = !npcTurn;
     if (!turnPanelOpen()) showTurnPanel();
   }
 
@@ -2298,13 +2330,14 @@ function renderAttackResolution(mine) {
   if (mode === "player" && mine) {
     let request = null;
     if (attack.phase === "checks" && mine.id === attack.attackerId && !attack.attackerRoll) {
+      const attackSkill = attack.plan?.attackSkill || (attack.attackType === "melee" ? "Melee" : "Projectile");
       request = {
         type: "sa-combat-roll-request",
         attackId: attack.id,
         rollRole: "attacker",
-        skill: "Projectile",
-        bonusDice: attack.aimDie ? [attack.aimDie] : [],
-        subtitle: "Roll Dexterity + Projectile. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.",
+        skill: attackSkill,
+        bonusDice: attack.attackType === "melee" ? [] : attack.aimDie ? [attack.aimDie] : [],
+        subtitle: `Roll Dexterity + ${attackSkill}. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.`,
       };
     } else if (attack.phase === "checks" && mine.id === attack.defenderId && !attack.defenseRoll) {
       request = {
@@ -2381,6 +2414,25 @@ function renderAttackResolution(mine) {
       : gmRollRole === "damage"
         ? attack.attackerName + " Damage Total"
         : attack.defenderName + " Defense Score") + " ";
+    const rollingUnit = gmRollRole === "defender" ? defender : attacker;
+    if (gmRollRole === "damage") {
+      const parsed = window.SACombatRules?.parseDiceFormula(attack.plan?.damageFormula || "");
+      const dice = parsed ? [...parsed.dice.entries()].flatMap(([sides, count]) => Array.from({ length: Math.max(0, Number(count) || 0) }, () => Number(sides))) : [];
+      gmNpcRollPool.textContent = dice.length
+        ? `Damage Pool: ${dice.map((sides) => `D${sides}`).join(" + ")}${parsed.flat ? ` ${parsed.flat >= 0 ? "+" : "-"} ${Math.abs(parsed.flat)}` : ""} | add every die; no fusion`
+        : `Damage Formula: ${attack.plan?.damageFormula || "Resolve manually"}`;
+      gmAttackAutoRoll.disabled = !dice.length || !window.SANpcDice;
+    } else {
+      const dice = Array.isArray(rollingUnit?.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
+      if (gmRollRole === "attacker" && attack.attackType !== "melee" && Number(attack.aimDie) > 0) dice.push(Number(attack.aimDie));
+      const skill = gmRollRole === "attacker"
+        ? Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Wrestle/Disarm" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0
+        : Number(rollingUnit?.dodgeSkill) || 0;
+      const skillLabel = gmRollRole === "attacker" ? attack.plan?.attackSkill || "Projectile" : "Dodge/Block";
+      gmNpcRollPool.textContent = `${rollingUnit?.characterName || "NPC"}: ${dice.map((sides) => `D${sides}`).join(" + ") || "No Attribute dice"} | ${skillLabel} +${skill.toFixed(1)} | fuse matches, keep top two`;
+      gmAttackAutoRoll.disabled = !dice.length || !window.SANpcDice;
+    }
+    gmAttackAutoRoll.textContent = window.SANpcDice ? "Roll for NPC" : "Dice Loading...";
   }
   gmResolveDefender.hidden = !(attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && !gmForcedDefenseEntry);
 
@@ -2395,7 +2447,7 @@ function renderAttackResolution(mine) {
       '<div><span>Critical Multiplier</span><strong>' + (summary.beforeReduction !== summary.rolled ? "x2 = " + summary.beforeReduction : "None") + '</strong></div>' +
       '<div><span>Damage Reduction</span><strong>' + summary.reduction + '</strong></div>' +
       '<div><span>Final Damage</span><strong>' + summary.applied + '</strong></div>' +
-      '<div><span>HP</span><strong>' + beforeHp + ' → ' + remaining + ' / ' + Math.max(1, Number(defender.maximumHp) || 1) + '</strong></div>';
+      '<div><span>HP</span><strong>' + beforeHp + ' -> ' + remaining + ' / ' + Math.max(1, Number(defender.maximumHp) || 1) + '</strong></div>';
     if (document.activeElement !== gmNpcFinalDamage) gmNpcFinalDamage.value = String(summary.applied);
   }
 }
@@ -2494,6 +2546,9 @@ function render() {
   renderRejoinOptions();
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
+  if (mode === "gm" && active?.team === "npc" && !state.attackResolution) {
+    window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
+  }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
   const showMineOverlay = mode === "player" && Boolean(mine) && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
@@ -2926,7 +2981,14 @@ clearEncounter.addEventListener("click", () => {
 exitCombat.addEventListener("click", () => {
   if (confirm("End this combat and return to the campaign controls?")) returnToWelcome("Combat ended. Create or join a room when ready.");
 });
-completeTurn.addEventListener("click", () => action({ action: "completeTurn" }, "resolve"));
+completeTurn.addEventListener("click", () => {
+  const active = activeUnit();
+  if (active?.team === "npc" && !state?.activeAction && !state?.attackResolution) {
+    action({ action: "playerCombatAction", id: active.id, kind: "actionResolved" }, "resolve");
+    return;
+  }
+  action({ action: "completeTurn" }, "resolve");
+});
 cancelGmDamage?.addEventListener("click", closeGmDamageDialog);
 playerDamageAlert?.addEventListener("click", () => playerDamageAlert.classList.add("hidden"));
 gmDamageForm?.addEventListener("submit", async (event) => {
@@ -2944,7 +3006,7 @@ gmAttackRollForm?.addEventListener("submit", async (event) => {
   const score = Number(gmAttackRollScore.value);
   const rollRole = gmAttackRollForm.dataset.rollRole;
   const id = gmAttackRollForm.dataset.unitId;
-  if (!attack || !id || !["attacker", "defender"].includes(rollRole) || !Number.isFinite(score)) return;
+  if (!attack || !id || !["attacker", "defender", "damage"].includes(rollRole) || !Number.isFinite(score)) return;
   gmAttackRollScore.value = "";
   if (rollRole === "damage") {
     await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: score, mode: "gm-manual" }, "resolve");
@@ -2952,6 +3014,35 @@ gmAttackRollForm?.addEventListener("submit", async (event) => {
     await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score, mode: "gm-manual" }, "resolve");
   }
   gmForcedDefenseEntry = false;
+});
+gmAttackAutoRoll?.addEventListener("click", async () => {
+  const attack = state?.attackResolution;
+  const rollRole = gmAttackRollForm?.dataset.rollRole;
+  const id = gmAttackRollForm?.dataset.unitId;
+  const rollingUnit = state?.units?.find((entry) => entry.id === id);
+  if (!attack || !id || !rollingUnit || !window.SANpcDice || !["attacker", "defender", "damage"].includes(rollRole)) return;
+  gmAttackAutoRoll.disabled = true;
+  try {
+    if (rollRole === "damage") {
+      const parsed = window.SACombatRules?.parseDiceFormula(attack.plan?.damageFormula || "");
+      const sides = parsed ? [...parsed.dice.entries()].flatMap(([die, count]) => Array.from({ length: Math.max(0, Number(count) || 0) }, () => Number(die))) : [];
+      if (!sides.length) return;
+      const result = await window.SANpcDice.rollDamage({ sides, flat: Number(parsed.flat) || 0, title: `${attack.attackerName}: ${attack.weaponName} Damage` });
+      await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: result.score, mode: "gm-automatic", diceResults: result.results }, "resolve");
+      return;
+    }
+    const sides = Array.isArray(rollingUnit.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
+    if (rollRole === "attacker" && attack.attackType !== "melee" && Number(attack.aimDie) > 0) sides.push(Number(attack.aimDie));
+    if (!sides.length) return;
+    const skill = rollRole === "defender"
+      ? Number(rollingUnit.dodgeSkill) || 0
+      : Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Wrestle/Disarm" ? rollingUnit.meleeSkill : rollingUnit.projectileSkill) || 0;
+    const result = await window.SANpcDice.rollCheck({ sides, skill, title: `${rollingUnit.characterName}: ${rollRole === "defender" ? "Defense" : "To-Hit"}` });
+    await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score: result.score, mode: "gm-automatic", diceResults: result.results }, "resolve");
+    gmForcedDefenseEntry = false;
+  } finally {
+    if (gmAttackAutoRoll) gmAttackAutoRoll.disabled = false;
+  }
 });
 gmResolveDefender?.addEventListener("click", () => {
   const attack = state?.attackResolution;
@@ -3132,6 +3223,22 @@ async function editNpcHp(id) {
   await action({ action: "setNpcHp", id, currentHp, maximumHp }, "tap");
 }
 
+async function editNpcCombatStat(button) {
+  const unit = state?.units?.find((entry) => entry.id === button.dataset.id && entry.team === "npc");
+  if (!unit) return;
+  const field = button.dataset.field;
+  const [minimum, maximum] = String(button.dataset.range || "0,100").split(",").map(Number);
+  const label = button.querySelector("span")?.textContent || field;
+  const entered = prompt(`${label} for ${unit.characterName} (${minimum}-${maximum}):`, String(unit[field] ?? minimum));
+  if (entered === null) return;
+  const value = Number(entered);
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    alert(`Enter a value from ${minimum} to ${maximum}.`);
+    return;
+  }
+  await action({ action: "setNpcCombatStat", id: unit.id, field, value }, "tap");
+}
+
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
   if (button.disabled) return;
@@ -3143,6 +3250,7 @@ function handleUnitActionButton(button, event = null) {
   if (button.dataset.action === "delay") openDelayForUnit(id, "timer");
   if (button.dataset.action === "damage") openGmDamageDialog(id);
   if (button.dataset.action === "npcHp") editNpcHp(id);
+  if (button.dataset.action === "npcStat") editNpcCombatStat(button);
   if (button.dataset.action === "impairQueuedEffect") action({ action: "impairQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
   if (button.dataset.action === "removeQueuedEffect") action({ action: "removeQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
 }
@@ -3155,7 +3263,7 @@ unitList.addEventListener("click", (event) => {
 });
 
 unitList.addEventListener("change", (event) => {
-  const input = event.target.closest("input[data-action]");
+  const input = event.target.closest("input[data-action], select[data-action]");
   if (!input) return;
   if (mode === "player" && input.dataset.action === "playerColor" && input.dataset.id === myUnitId) {
     action({ action: "setColor", id: myUnitId, color: input.value }, "tap");
@@ -3166,6 +3274,7 @@ unitList.addEventListener("change", (event) => {
   if (input.dataset.action === "commandWindow") action({ action: "setCommandWindow", id: input.dataset.id, commandWindow: input.value }, "tap");
   if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");
   if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
+  if (input.dataset.action === "npcWeapon") action({ action: "setNpcWeapon", id: input.dataset.id, weaponId: input.value }, "tap");
 });
 
 unitList.addEventListener("pointerdown", (event) => {
@@ -3204,6 +3313,10 @@ document.addEventListener("pointermove", (event) => {
 document.addEventListener("pointerup", clearRingDrag);
 document.addEventListener("pointercancel", clearRingDrag);
 
+fetch("data/weapons.json", { cache: "no-store" }).then((response) => response.json()).then((catalog) => {
+  npcWeaponCatalog = Array.isArray(catalog) ? catalog : [];
+  if (state) render();
+}).catch(() => {});
 applyNpcDefaultPreview({ force: true });
 renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);
@@ -3237,6 +3350,9 @@ window.addEventListener("message", (event) => {
       diceResults: message.diceResults,
     }, "resolve");
   }
+});
+window.addEventListener("sa-npc-dice-ready", () => {
+  if (state?.attackResolution) render();
 });
 
 async function initializeEmbeddedPlayer() {

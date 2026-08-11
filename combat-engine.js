@@ -33,6 +33,33 @@ function ceilTenth(value) {
   return Math.ceil((Number(value) || 0) * 10) / 10;
 }
 
+function npcAttributeDice(value) {
+  const rating = Math.max(2, Math.min(20, Math.round(Number(value) || 2)));
+  if (rating <= 4) return Array.from({ length: rating }, () => 4);
+  const dice = [4, 4, 4, 4];
+  const faces = [4, 6, 8, 10, 12];
+  for (let upgrade = 0; upgrade < rating - 4; upgrade += 1) {
+    const index = upgrade % 4;
+    dice[index] = faces[Math.min(faces.length - 1, faces.indexOf(dice[index]) + 1)];
+  }
+  return dice.sort((a, b) => b - a);
+}
+
+function applyNpcSimplifiedStats(unit, source = {}) {
+  if (!unit || unit.team !== "npc") return unit;
+  unit.physicalAttribute = Math.max(2, Math.min(20, Math.round(Number(source.physicalAttribute ?? unit.physicalAttribute) || 4)));
+  unit.mentalAttribute = Math.max(2, Math.min(20, Math.round(Number(source.mentalAttribute ?? unit.mentalAttribute) || 4)));
+  unit.physicalSkill = Math.max(0, Math.min(4, Number(source.physicalSkill ?? unit.physicalSkill) || 0));
+  unit.mentalSkill = Math.max(0, Math.min(4, Number(source.mentalSkill ?? unit.mentalSkill) || 0));
+  unit.dexterityDice = npcAttributeDice(unit.physicalAttribute);
+  unit.strengthDice = npcAttributeDice(unit.physicalAttribute);
+  unit.projectileSkill = unit.physicalSkill;
+  unit.meleeSkill = unit.physicalSkill;
+  unit.dodgeSkill = unit.physicalSkill;
+  unit.weaponMechanics = unit.mentalSkill;
+  return unit;
+}
+
 function normalizeWeaponRows(value) {
   if (!Array.isArray(value)) return [];
   const seen = new Set();
@@ -60,7 +87,14 @@ function syncUnitCombat(unit, source = {}) {
   unit.weaponMechanics = Math.max(0, Number(source.weaponMechanics) || 0);
   unit.dexterityDice = Array.isArray(source.dexterityDice) ? source.dexterityDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
   unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
+  unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
+  unit.strengthDice = Array.isArray(source.strengthDice) ? source.strengthDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
+  unit.physicalAttribute = unit.team === "npc" ? Math.max(2, Math.min(20, Math.round(Number(source.physicalAttribute) || 4))) : null;
+  unit.mentalAttribute = unit.team === "npc" ? Math.max(2, Math.min(20, Math.round(Number(source.mentalAttribute) || 4))) : null;
+  unit.physicalSkill = unit.team === "npc" ? Math.max(0, Math.min(4, Number(source.physicalSkill) || 0)) : null;
+  unit.mentalSkill = unit.team === "npc" ? Math.max(0, Math.min(4, Number(source.mentalSkill) || 0)) : null;
+  applyNpcSimplifiedStats(unit, source);
   unit.damageReduction = Math.max(0, Number(source.damageReduction) || 0);
   unit.maximumHp = source.maximumHp === null || source.maximumHp === undefined ? null : Math.max(0, Number(source.maximumHp) || 0);
   unit.currentHp = source.currentHp === null || source.currentHp === undefined ? unit.currentHp ?? null : Number(source.currentHp);
@@ -93,7 +127,13 @@ function migrateUnitCombat(unit) {
     weaponMechanics: unit.weaponMechanics,
     dexterityDice: unit.dexterityDice,
     projectileSkill: unit.projectileSkill,
+    meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
+    strengthDice: unit.strengthDice,
+    physicalAttribute: unit.physicalAttribute,
+    mentalAttribute: unit.mentalAttribute,
+    physicalSkill: unit.physicalSkill,
+    mentalSkill: unit.mentalSkill,
     damageReduction: unit.damageReduction,
     maximumHp: unit.maximumHp,
     currentHp: unit.currentHp,
@@ -228,7 +268,7 @@ function beginTimedAction(room, unit, timedAction, logText, helpers, { resetAtb 
 
 function resolvePlayerCombatAction(room, unit, body, helpers) {
   const kind = safeText(body?.kind, "", 30);
-  if (!unit || room.activeId !== unit.id || unit.team !== "pc" || !ACTION_KINDS.has(kind)) {
+  if (!unit || room.activeId !== unit.id || !ACTION_KINDS.has(kind)) {
     return { ok: false, error: "That combat action is not currently available." };
   }
 
@@ -380,8 +420,12 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   }
 
   const rangedChargeCount = completedCharges(unit);
+  const printedMovementLimit = Number(weapon?.maxCharge);
+  const movementChargeLimit = Number.isFinite(printedMovementLimit) && printedMovementLimit > 0
+    ? Math.min(Math.max(0, Number(unit.moveSpeed) || 0), printedMovementLimit)
+    : Math.max(0, Number(unit.moveSpeed) || 0);
   const movementChargeCount = weapon?.category === "melee"
-    ? Math.min(Math.max(0, Number(unit.moveSpeed) || 0), Math.max(0, Number(unit.movementChargeUnits) || 0))
+    ? Math.min(movementChargeLimit, Math.max(0, Number(unit.movementChargeUnits) || 0))
     : 0;
   const chargeCount = weapon?.category === "melee" ? movementChargeCount : rangedChargeCount;
   const chargeText = chargeCount ? ` with ${chargeCount} Charge${chargeCount === 1 ? "" : "s"} (${weapon?.chargeBonus || "card bonus"} each)` : "";
@@ -393,21 +437,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
     if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: weapon.name + " requires at least one completed Charge before firing." };
     const calledShot = kind === "calledShot" || Boolean(body.calledShot);
-    if (weapon.category === "melee") {
-      const shotLocation = safeText(body.calledShotDetail, "", 80);
-      unit.movementChargeUnits = 0;
-      setCombatBrief(unit, kind, "Called Shot: " + weapon.name + " -> " + target, [
-        shotLocation ? "Target: " + shotLocation : "Resolve the targeted location with the GM",
-        "To-Hit: " + weapon.toHit,
-        "Damage: " + weapon.damage,
-        "A critical creates a special effect instead of doubling Damage",
-      ]);
-      finishTurn(room, unit, "made a melee Called Shot against " + target + "; resolve dice manually", helpers);
-      return { ok: true };
-    }
-    const distance = Math.max(0, Number(body.distance) || 0);
+    const attackType = weapon.category === "melee" ? "melee" : "ranged";
+    const distance = attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0);
     const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
-    const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie });
+    const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie: attackType === "ranged" ? aimDie : 0, attackType, strengthDice: unit.strengthDice });
     if (!plan.allowed) return { ok: false, error: weapon.name + " cannot reach a target " + distance + " units away. " + plan.rangeExplanation };
     return {
       ok: true,
@@ -426,21 +459,31 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
         aimDie,
         plan,
         recoverySeconds: Math.max(0, Number(weapon.recoverySeconds) || 0),
+        attackType,
       },
     };
   }
   if (kind === "melee") {
     if (!weapon || weapon.category !== "melee") return { ok: false, error: "Melee Attack requires a held melee weapon." };
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
-    const movementCharges = Math.min(Math.max(0, Number(unit.moveSpeed) || 0), Math.max(0, Number(unit.movementChargeUnits) || 0));
-    unit.movementChargeUnits = 0;
-    setCombatBrief(unit, kind, `Melee: ${weapon.name} -> ${target}`, [
-      `To-Hit: ${weapon.toHit}`,
-      `Damage: ${weapon.damage}`,
-      movementCharges ? `${movementCharges} movement Charge${movementCharges === 1 ? "" : "s"}: ${weapon.chargeBonus} each` : "No movement Charges",
-    ]);
-    finishTurn(room, unit, `made a melee attack against ${target}${movementCharges ? ` with ${movementCharges} movement Charge${movementCharges === 1 ? "" : "s"}` : ""}; resolve dice manually`, helpers);
-    return { ok: true };
+    const plan = combatRules.attackPlan(weapon, { distance: 1, charges: movementChargeCount, attackType: "melee", strengthDice: unit.strengthDice });
+    return { ok: true, beginAttack: {
+      attackerId: unit.id,
+      defenderId: requestedTarget.id,
+      weaponId: weapon.weaponId,
+      inventoryId: weapon.inventoryId,
+      weaponName: weapon.name,
+      targetName: requestedTarget.characterName,
+      distance: 1,
+      calledShot: false,
+      calledShotDetail: "",
+      chargeCount: movementChargeCount,
+      chargeText,
+      aimDie: 0,
+      plan,
+      recoverySeconds: Math.max(0, Number(weapon.recoverySeconds) || 0),
+      attackType: "melee",
+    } };
   }
 
   unit.movementChargeUnits = 0;
@@ -472,6 +515,17 @@ function completeStagedAttack(room, unit, attackState, logText, helpers) {
   unit.aim = null;
   unit.movementChargeUnits = 0;
   unit.combatBrief = null;
+  const counterDelay = Math.max(0, Number(attackState?.counterDelaySeconds) || 0);
+  if (counterDelay > 0) {
+    beginTimedAction(room, unit, {
+      id: helpers.id(),
+      kind: "recovery",
+      label: "Critical Defense Counter",
+      total: counterDelay,
+      remaining: counterDelay,
+    }, unit.characterName + " " + logText + "; a Critical Defense imposed a " + counterDelay.toFixed(1) + " second Delay.", helpers, { resetAtb: true });
+    return;
+  }
   const recovery = Math.max(0, Number(attackState?.recoverySeconds) || 0);
   if (recovery > 0) {
     beginTimedAction(room, unit, {
@@ -486,6 +540,7 @@ function completeStagedAttack(room, unit, attackState, logText, helpers) {
   finishTurn(room, unit, logText, helpers);
 }
 module.exports = {
+  applyNpcSimplifiedStats,
   combatEventTimes,
   completedCharges,
   completeStagedAttack,
@@ -494,6 +549,7 @@ module.exports = {
   hasTimedAction,
   heldWeapon,
   migrateUnitCombat,
+  npcAttributeDice,
   normalizeWeaponRows,
   cancelTimedActionForForcedDelay,
   resolvePlayerCombatAction,

@@ -2,7 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
 
-const LOCAL_DATA_DIR = path.join(__dirname, "data");
+const LOCAL_DATA_DIR = process.env.SA_LOCAL_DATA_DIR
+  ? path.resolve(process.env.SA_LOCAL_DATA_DIR)
+  : path.join(__dirname, "data");
 const LOCAL_DATA_FILE = path.join(LOCAL_DATA_DIR, "campaigns.json");
 
 function clone(value) {
