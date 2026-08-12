@@ -25,6 +25,7 @@ const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
+const ACTIVE_DRAFT_KEY = "sa2e-active-draft-v1";
 const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
 const HUD_VISIBILITY_KEY = "sa2e-character-hud-visible-v1";
 const SKILL_SORT_KEY = "sa2e-character-skill-sort-v1";
@@ -507,7 +508,7 @@ let physicalDiceLoading = null;
 function loadPhysicalDiceRoller() {
   if (physicalDiceRoller) return Promise.resolve(physicalDiceRoller);
   if (!physicalDiceLoading) {
-    physicalDiceLoading = import("./dice-roller.js?v=20260811-fresh-start-1")
+    physicalDiceLoading = import("./dice-roller.js?v=20260811-fubs-recovery-1")
       .then(({ PhysicalDiceRoller }) => {
         physicalDiceRoller = new PhysicalDiceRoller(diceRollerElements);
         physicalDiceLoading = null;
@@ -515,19 +516,30 @@ function loadPhysicalDiceRoller() {
       })
       .catch((error) => {
         physicalDiceLoading = null;
-        notice("The 3D dice could not load. Refresh the page and try again.", "error");
+        notice("The 3D dice could not load. A fallback roll will be used where available.", "error");
         throw error;
       });
   }
   return physicalDiceLoading;
 }
+
+function saveBeforeDiceLaunch() {
+  if (CAMPAIGN_READ_ONLY_VIEW || typeof character === "undefined") return;
+  saveLibrary("Draft protected before dice roll");
+}
+
+function launchPhysicalDice(method, options) {
+  saveBeforeDiceLaunch();
+  return loadPhysicalDiceRoller().then((roller) => roller[method](options));
+}
+
 const diceRoller = {
   isActive: () => Boolean(physicalDiceLoading || physicalDiceRoller?.isActive()),
   stop: () => physicalDiceRoller?.stop(),
-  roll: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.roll(options)); },
-  rollPool: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.rollPool(options)); },
-  rollPercentile: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.rollPercentile(options)); },
-  reroll: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.reroll(options)); },
+  roll: (options) => launchPhysicalDice("roll", options),
+  rollPool: (options) => launchPhysicalDice("rollPool", options),
+  rollPercentile: (options) => launchPhysicalDice("rollPercentile", options),
+  reroll: (options) => launchPhysicalDice("reroll", options),
   celebrate: (...args) => loadPhysicalDiceRoller().then((roller) => roller.celebrate(...args)),
   showChoices: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showChoices(...args)); },
   showPersistedResult: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showPersistedResult(...args)); },
@@ -993,8 +1005,21 @@ function clearDraftRecovery(characterId) {
 
 let library = loadLibrary();
 let recoveries = loadRecoveries();
+const storedActiveDraftId = localStorage.getItem(ACTIVE_DRAFT_KEY);
+const activeRecovery = storedActiveDraftId === "none"
+  ? null
+  : recoveries.find((entry) => entry.character?.id === storedActiveDraftId)
+    || (storedActiveDraftId === null
+      ? recoveries.find((entry) => String(entry.id || "").startsWith("autosave-"))
+      : null);
+if (activeRecovery?.character && activeRecovery.character.phase !== "finalized") {
+  const resumedDraft = normalizeCharacter(deepCopy(activeRecovery.character));
+  library = library.filter((entry) => entry.id !== resumedDraft.id);
+  library.push(resumedDraft);
+  localStorage.setItem(ACTIVE_DRAFT_KEY, resumedDraft.id);
+}
 if (!library.length) library.push(blankCharacter());
-let activeId = localStorage.getItem(ACTIVE_KEY) || library[0].id;
+let activeId = activeRecovery?.character?.id || localStorage.getItem(ACTIVE_KEY) || library[0].id;
 if (!library.some((entry) => entry.id === activeId)) activeId = library[0].id;
 let character = library.find((entry) => entry.id === activeId) || library[0];
 
@@ -1015,7 +1040,9 @@ function saveLibrary(message = "Saved locally") {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCharacters));
     if (character.phase === "finalized") {
       localStorage.setItem(ACTIVE_KEY, activeId);
+      localStorage.setItem(ACTIVE_DRAFT_KEY, "none");
     } else {
+      localStorage.setItem(ACTIVE_DRAFT_KEY, character.id);
       const fallback = savedCharacters.find((entry) => entry.id === localStorage.getItem(ACTIVE_KEY)) || savedCharacters[0];
       if (fallback) localStorage.setItem(ACTIVE_KEY, fallback.id);
       else localStorage.removeItem(ACTIVE_KEY);
@@ -2167,13 +2194,16 @@ function renderWorkflowRequirements(items) {
 }
 
 function renderCharacterPicker() {
+  const currentDraft = character.phase === "finalized"
+    ? ""
+    : `<optgroup label="Current Draft"><option value="current:${character.id}">${escapeHtml(character.identity.characterName || "Unnamed Character")} (autosaved)</option></optgroup>`;
   const saved = library.filter((entry) => entry.phase === "finalized").map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.legacyDraft ? " [Legacy Draft]" : ""}</option>`).join("");
   const recovery = recoveries.map((entry) => {
     const time = new Date(entry.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     return `<option value="recovery:${entry.id}">${escapeHtml(entry.label)} - ${escapeHtml(time)}</option>`;
   }).join("");
-  dom.characterPicker.innerHTML = `<optgroup label="Saved Characters">${saved}</optgroup>${recovery ? `<optgroup label="Recovery Drafts">${recovery}</optgroup>` : ""}`;
-  dom.characterPicker.value = `saved:${activeId}`;
+  dom.characterPicker.innerHTML = `${currentDraft}<optgroup label="Saved Characters">${saved}</optgroup>${recovery ? `<optgroup label="Recovery Drafts">${recovery}</optgroup>` : ""}`;
+  dom.characterPicker.value = character.phase === "finalized" ? `saved:${activeId}` : `current:${activeId}`;
 }
 
 function renderIdentityTheme() {
@@ -4342,18 +4372,83 @@ function randomTerminalFubsResult() {
   return values[0];
 }
 
-function rollFubsPercentile() {
-  return new Promise((resolve, reject) => {
-    diceRoller.rollPercentile({
-      title: "FUBS Percentile",
-      subtitle: "Red die: tens | Blue die: ones",
-      anchor: dom.fubsButton,
-      onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
-      onSettled: (result) => {
-        diceRoller.celebrate(360).then(() => resolve(result.total));
-      },
-    }).catch(reject);
-  });
+function secureDieFace(sides) {
+  const values = new Uint32Array(1);
+  const limit = Math.floor(4294967296 / sides) * sides;
+  do {
+    crypto.getRandomValues(values);
+  } while (values[0] >= limit);
+  return values[0] % sides + 1;
+}
+
+function waitFor(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function fallbackFubsPercentileRoll() {
+  const tensFace = secureDieFace(10);
+  const onesFace = secureDieFace(10);
+  const tens = tensFace === 10 ? 0 : tensFace;
+  const ones = onesFace === 10 ? 0 : onesFace;
+  const total = tens === 0 && ones === 0 ? 100 : tens * 10 + ones;
+
+  diceRoller.stop();
+  diceRollerElements.shell.hidden = false;
+  diceRollerElements.shell.classList.remove("celebrating", "choices-ready", "pool-roll");
+  diceRollerElements.shell.classList.add("fallback-percentile");
+  diceRollerElements.title.textContent = "FUBS Percentile";
+  diceRollerElements.subtitle.textContent = "Red die: tens | Blue die: ones";
+  diceRollerElements.actions.replaceChildren();
+  diceRollerElements.canvasHost.innerHTML = `
+    <div class="fallback-percentile-dice" aria-label="FUBS result ${total}">
+      <div class="fallback-percentile-die tens"><small>TENS</small><strong>${tens}</strong></div>
+      <div class="fallback-percentile-die ones"><small>ONES</small><strong>${ones}</strong></div>
+    </div>`;
+  playDiceRollSound();
+  await waitFor(80);
+  diceRollerElements.shell.classList.add("fallback-resolved");
+  showRollResultToast(`FUBS Result: ${total}`);
+  await waitFor(1250);
+  diceRollerElements.shell.classList.remove("fallback-resolved", "fallback-percentile");
+  diceRollerElements.canvasHost.replaceChildren();
+  diceRollerElements.shell.hidden = true;
+  notice("FUBS used the protected percentile fallback. Your result was saved normally.", "success");
+  return total;
+}
+
+async function rollFubsPercentile() {
+  try {
+    return await new Promise((resolve, reject) => {
+      let completed = false;
+      const watchdog = window.setTimeout(() => {
+        if (completed) return;
+        completed = true;
+        diceRoller.stop();
+        reject(new Error("FUBS dice timed out"));
+      }, 12000);
+      const fail = (error) => {
+        if (completed) return;
+        completed = true;
+        window.clearTimeout(watchdog);
+        reject(error);
+      };
+      diceRoller.rollPercentile({
+        title: "FUBS Percentile",
+        subtitle: "Red die: tens | Blue die: ones",
+        anchor: dom.fubsButton,
+        onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
+        onSettled: (result) => {
+          if (completed) return;
+          completed = true;
+          window.clearTimeout(watchdog);
+          diceRoller.celebrate(360).then(() => resolve(result.total)).catch(fail);
+        },
+      }).catch(fail);
+    });
+  } catch (error) {
+    console.warn("FUBS physical dice unavailable; using protected fallback.", error);
+    return fallbackFubsPercentileRoll();
+  }
 }
 
 async function buildFubsRollChain(forcedFirst = null) {
@@ -4720,7 +4815,9 @@ dom.homePlanetCustom.addEventListener("input", () => {
 dom.characterPicker.addEventListener("change", () => {
   saveLibrary();
   const [kind, id] = dom.characterPicker.value.split(":");
-  if (kind === "recovery") {
+  if (kind === "current") {
+    return;
+  } else if (kind === "recovery") {
     const recovery = recoveries.find((entry) => entry.id === id);
     if (!recovery) return;
     const restored = normalizeCharacter(deepCopy(recovery.character));
@@ -4738,6 +4835,7 @@ dom.characterPicker.addEventListener("change", () => {
     activeId = id;
     character = library.find((entry) => entry.id === activeId) || library[0];
     localStorage.setItem(ACTIVE_KEY, activeId);
+    localStorage.setItem(ACTIVE_DRAFT_KEY, "none");
   }
   dom.skillSearch.value = "";
   renderAll();
