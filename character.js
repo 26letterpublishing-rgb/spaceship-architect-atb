@@ -17,6 +17,7 @@ import {
   classById,
 } from "./character-data.js?v=20260807-tabs-2";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260812-physical-dice-restore-1";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
@@ -493,7 +494,7 @@ function playDiceRollSound() {
   }
 }
 
-const diceRollerElements = {
+const diceRoller = new PhysicalDiceRoller({
   shell: $("#diceRoller"),
   stage: $(".dice-stage"),
   title: $("#diceTitle"),
@@ -502,48 +503,7 @@ const diceRollerElements = {
   actions: $("#diceActions"),
   canvasHost: $("#diceCanvas"),
   onRollStart: playDiceRollSound,
-};
-let physicalDiceRoller = null;
-let physicalDiceLoading = null;
-function loadPhysicalDiceRoller() {
-  if (physicalDiceRoller) return Promise.resolve(physicalDiceRoller);
-  if (!physicalDiceLoading) {
-    physicalDiceLoading = import("./dice-roller.js?v=20260811-fubs-recovery-1")
-      .then(({ PhysicalDiceRoller }) => {
-        physicalDiceRoller = new PhysicalDiceRoller(diceRollerElements);
-        physicalDiceLoading = null;
-        return physicalDiceRoller;
-      })
-      .catch((error) => {
-        physicalDiceLoading = null;
-        notice("The 3D dice could not load. A fallback roll will be used where available.", "error");
-        throw error;
-      });
-  }
-  return physicalDiceLoading;
-}
-
-function saveBeforeDiceLaunch() {
-  if (CAMPAIGN_READ_ONLY_VIEW || typeof character === "undefined") return;
-  saveLibrary("Draft protected before dice roll");
-}
-
-function launchPhysicalDice(method, options) {
-  saveBeforeDiceLaunch();
-  return loadPhysicalDiceRoller().then((roller) => roller[method](options));
-}
-
-const diceRoller = {
-  isActive: () => Boolean(physicalDiceLoading || physicalDiceRoller?.isActive()),
-  stop: () => physicalDiceRoller?.stop(),
-  roll: (options) => launchPhysicalDice("roll", options),
-  rollPool: (options) => launchPhysicalDice("rollPool", options),
-  rollPercentile: (options) => launchPhysicalDice("rollPercentile", options),
-  reroll: (options) => launchPhysicalDice("reroll", options),
-  celebrate: (...args) => loadPhysicalDiceRoller().then((roller) => roller.celebrate(...args)),
-  showChoices: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showChoices(...args)); },
-  showPersistedResult: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showPersistedResult(...args)); },
-};
+});
 
 let saveTimer = null;
 let noticeTimer = null;
@@ -4372,85 +4332,19 @@ function randomTerminalFubsResult() {
   return values[0];
 }
 
-function secureDieFace(sides) {
-  const values = new Uint32Array(1);
-  const limit = Math.floor(4294967296 / sides) * sides;
-  do {
-    crypto.getRandomValues(values);
-  } while (values[0] >= limit);
-  return values[0] % sides + 1;
+function rollFubsPercentile() {
+  return new Promise((resolve, reject) => {
+    diceRoller.rollPercentile({
+      title: "FUBS Percentile",
+      subtitle: "Red die: tens | Blue die: ones",
+      anchor: dom.fubsButton,
+      onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
+      onSettled: (result) => {
+        diceRoller.celebrate(360).then(() => resolve(result.total));
+      },
+    }).catch(reject);
+  });
 }
-
-function waitFor(milliseconds) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-async function fallbackFubsPercentileRoll() {
-  const tensFace = secureDieFace(10);
-  const onesFace = secureDieFace(10);
-  const tens = tensFace === 10 ? 0 : tensFace;
-  const ones = onesFace === 10 ? 0 : onesFace;
-  const total = tens === 0 && ones === 0 ? 100 : tens * 10 + ones;
-
-  diceRoller.stop();
-  diceRollerElements.shell.hidden = false;
-  diceRollerElements.shell.classList.remove("celebrating", "choices-ready", "pool-roll");
-  diceRollerElements.shell.classList.add("fallback-percentile");
-  diceRollerElements.title.textContent = "FUBS Percentile";
-  diceRollerElements.subtitle.textContent = "Red die: tens | Blue die: ones";
-  diceRollerElements.actions.replaceChildren();
-  diceRollerElements.canvasHost.innerHTML = `
-    <div class="fallback-percentile-dice" aria-label="FUBS result ${total}">
-      <div class="fallback-percentile-die tens"><small>TENS</small><strong>${tens}</strong></div>
-      <div class="fallback-percentile-die ones"><small>ONES</small><strong>${ones}</strong></div>
-    </div>`;
-  playDiceRollSound();
-  await waitFor(80);
-  diceRollerElements.shell.classList.add("fallback-resolved");
-  showRollResultToast(`FUBS Result: ${total}`);
-  await waitFor(1250);
-  diceRollerElements.shell.classList.remove("fallback-resolved", "fallback-percentile");
-  diceRollerElements.canvasHost.replaceChildren();
-  diceRollerElements.shell.hidden = true;
-  notice("FUBS used the protected percentile fallback. Your result was saved normally.", "success");
-  return total;
-}
-
-async function rollFubsPercentile() {
-  try {
-    return await new Promise((resolve, reject) => {
-      let completed = false;
-      const watchdog = window.setTimeout(() => {
-        if (completed) return;
-        completed = true;
-        diceRoller.stop();
-        reject(new Error("FUBS dice timed out"));
-      }, 12000);
-      const fail = (error) => {
-        if (completed) return;
-        completed = true;
-        window.clearTimeout(watchdog);
-        reject(error);
-      };
-      diceRoller.rollPercentile({
-        title: "FUBS Percentile",
-        subtitle: "Red die: tens | Blue die: ones",
-        anchor: dom.fubsButton,
-        onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
-        onSettled: (result) => {
-          if (completed) return;
-          completed = true;
-          window.clearTimeout(watchdog);
-          diceRoller.celebrate(360).then(() => resolve(result.total)).catch(fail);
-        },
-      }).catch(fail);
-    });
-  } catch (error) {
-    console.warn("FUBS physical dice unavailable; using protected fallback.", error);
-    return fallbackFubsPercentileRoll();
-  }
-}
-
 async function buildFubsRollChain(forcedFirst = null) {
   const rolls = [];
   let forced = forcedFirst;
