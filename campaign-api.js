@@ -68,7 +68,7 @@ function defaultCampaign({ code, name, gmCode }) {
     npcTemplates: [],
     settings: { commandWindowBonus: 0 },
     encounter: null,
-    sessionNumber: 1,
+    sessionNumber: 0,
   };
 }
 
@@ -134,7 +134,7 @@ function normalizeCampaign(raw) {
     heldWeaponId: String(template?.heldWeaponId || "unarmed").slice(0, 100),
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
   }));
-  campaign.sessionNumber = Math.max(1, Math.round(Number(campaign.sessionNumber) || 1));
+  campaign.sessionNumber = Math.max(0, Math.round(Number(campaign.sessionNumber) || 0));
   trimPrivateNotes(campaign);
   return campaign;
 }

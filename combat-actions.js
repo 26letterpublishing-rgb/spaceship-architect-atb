@@ -342,7 +342,9 @@
     }
     if (charge && current) {
       const progress = Math.max(0, Math.min(100, Number(charge.progress) || 0));
-      pieces.push(`<div class="combat-submeter weapon-charge-meter ${chargeCount(unit) ? "has-charge" : ""} ${progress >= 100 ? "fully-charged" : ""}" data-combat-meter="charge" style="--segments:${Math.max(1, Number(current.chargeSegments) || 1)}"><div style="width:${progress}%"></div><span>${esc(current.name)} Charge - ${chargeCount(unit)}/${Math.max(1, Number(current.chargeSegments) || 1)} | ${esc(current.chargeBonus || "Card bonus")}</span></div>`);
+      const segments = Math.max(1, Number(current.chargeSegments) || 1);
+      const earned = Math.min(100, Math.floor((progress + .0001) / (100 / segments)) * (100 / segments));
+      pieces.push(`<div class="combat-submeter weapon-charge-meter ${earned ? "has-charge" : ""} ${progress >= 100 ? "fully-charged" : ""}" data-combat-meter="charge" style="--segments:${segments}"><div class="charge-progress" style="width:${progress}%"></div><div class="charge-earned" style="width:${earned}%"></div><span>${esc(current.name)} Charge - ${chargeCount(unit)}/${segments} | ${esc(current.chargeBonus || "Card bonus")}</span></div>`);
     }
     for (const effect of thrown) {
       const percent = Math.max(0, Math.min(100, (Number(effect.remaining) / Math.max(0.1, Number(effect.total))) * 100));
@@ -374,10 +376,14 @@
     }
     const charge = card.querySelector('[data-combat-meter="charge"]');
     if (charge && unit.weaponCharge) {
-      charge.querySelector("div").style.width = `${Math.max(0, Math.min(100, Number(unit.weaponCharge.progress) || 0))}%`;
       const current = held(unit);
+      const progress = Math.max(0, Math.min(100, Number(unit.weaponCharge.progress) || 0));
+      const segments = Math.max(1, Number(current?.chargeSegments) || 1);
+      const earned = Math.min(100, Math.floor((progress + .0001) / (100 / segments)) * (100 / segments));
+      charge.querySelector(".charge-progress").style.width = `${progress}%`;
+      charge.querySelector(".charge-earned").style.width = `${earned}%`;
       charge.querySelector("span").textContent = `${current?.name || "Weapon"} Charge - ${chargeCount(unit)}/${Math.max(1, Number(current?.chargeSegments) || 1)}`;
-      charge.classList.toggle("has-charge", chargeCount(unit) > 0);
+      charge.classList.toggle("has-charge", earned > 0);
       charge.classList.toggle("fully-charged", Number(unit.weaponCharge.progress) >= 100);
     }
     for (const effect of unit.thrownEffects || []) {

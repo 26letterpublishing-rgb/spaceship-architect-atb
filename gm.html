@@ -4,17 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260810-firearms-2" />
+  <link rel="stylesheet" href="gm.css?v=20260811-fresh-start-1" />
+  <script src="data-reset.js?v=20260811-fresh-start-1"></script>
   </head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
-        <a href="index.html" class="gm-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></a>
+        <button id="gmBrand" type="button" class="gm-brand" aria-label="Return to the main menu"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></button>
         <div id="campaignHeading" class="campaign-heading" hidden>
           <span>ROOM <b id="campaignCodeHeading">----</b></span>
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
-        <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
+        <div class="gm-header-actions">
+          <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><span></span></button>
+          <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
+        </div>
       </header>
 
       <section id="campaignGateway" class="gateway-panel">
@@ -51,7 +55,7 @@
       <section id="gmWorkspace" class="gm-workspace" hidden>
         <nav class="gm-tabs" aria-label="GM Control Panel sections">
           <button type="button" data-tab="script" class="active">Script</button>
-          <button type="button" data-tab="characters">View Characters</button>
+          <button type="button" data-tab="characters">Characters</button>
           <button type="button" data-tab="prompt">Prompt / Give</button>
           <button type="button" data-tab="inbox">Inbox <strong id="gmInboxCount">0</strong></button>
           <button type="button" data-tab="atb">Combat</button>
@@ -75,7 +79,7 @@
               <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
-            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 1</strong></div><button id="endSession" type="button">End Session</button></section>
+            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
           </section>
         </section>
 
@@ -93,6 +97,18 @@
             <strong id="characterCount">0 Characters</strong>
           </div>
           <div id="gmCharacterList" class="gm-character-list"></div>
+          <section class="premade-npc-console">
+            <div class="section-title">
+              <div><h3>Premade NPCs</h3><small>Create campaign-specific enemies for manual selection during Combat.</small></div>
+              <div class="premade-npc-toolbar">
+                <select id="premadeNpcSelect" aria-label="Premade NPC"></select>
+                <button id="newPremadeNpc" type="button">New NPC</button>
+                <button id="deletePremadeNpc" class="danger" type="button">Delete</button>
+              </div>
+            </div>
+            <div id="premadeNpcEditor" class="npc-single-editor"></div>
+            <button id="savePremadeNpc" class="primary" type="button">Save Premade NPC</button>
+          </section>
           <section id="gmSheetViewer" class="gm-sheet-viewer" hidden>
             <div class="gm-sheet-viewer-toolbar"><strong id="gmSheetViewerTitle">Character Sheet</strong><button id="closeGmSheetViewer" type="button">Close Sheet</button></div>
             <iframe id="gmSheetFrame" title="Campaign character sheet"></iframe>
@@ -164,15 +180,13 @@
               </section>
               <section class="encounter-npcs">
                 <div class="section-title npc-staging-title">
-                  <div><h3>NPC Deployment Console</h3><small>Choose a built-in template, a saved campaign NPC, or generate one.</small></div>
-                  <div class="npc-staging-actions">
-                    <select id="encounterNpcTemplate" aria-label="NPC template"></select>
-                    <button id="addEncounterNpc" type="button">Stage NPC</button>
-                    <button id="randomEncounterNpc" type="button">Random NPC</button>
-                    <button id="createEncounterNpc" type="button">Create NPC</button>
-                  </div>
+                  <div><h3>Add NPC</h3><small>A built-in NPC is selected at random. Choose another template or adjust this deployed copy before adding it.</small></div>
+                  <select id="encounterNpcTemplate" aria-label="NPC template"></select>
                 </div>
-                <div id="encounterNpcList" class="encounter-npc-list"></div>
+                <div id="encounterNpcEditor" class="npc-single-editor"></div>
+                <button id="addEncounterNpc" class="primary add-encounter-npc" type="button">Add</button>
+                <div class="section-title staged-npc-heading"><h4>Added to Combat</h4><small>These copies may be removed before Combat begins.</small></div>
+                <div id="encounterNpcList" class="encounter-npc-list staged-npc-list"></div>
               </section>
               <button id="beginEncounter" class="primary begin-encounter" type="button">Begin Combat</button>
             </div>
@@ -208,6 +222,11 @@
               </form>
             </section>
             <section class="settings-card">
+              <h3>Banner Navigation</h3>
+              <p>When enabled, pressing the Spaceship Architect banner offers to exit the campaign.</p>
+              <label class="check-field"><input id="bannerExitEnabled" type="checkbox" checked /> Press banner to exit campaign</label>
+            </section>
+            <section class="settings-card">
               <h3>Campaign Backup</h3>
               <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
               <div class="campaign-backup-actions">
@@ -226,6 +245,6 @@
       </section>
     </main>
 
-  <script type="module" src="gm.js?v=20260810-npc-melee-1"></script>
+  <script type="module" src="gm.js?v=20260811-fresh-start-1"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260810-npc-melee-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260811-fresh-start-1";
 
 const roller = new PhysicalDiceRoller({
   shell: document.querySelector("#npcDiceRoller"),

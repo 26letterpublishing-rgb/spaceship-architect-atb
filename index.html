@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260810-npc-melee-2" />
-  <link rel="stylesheet" href="combat-actions.css?v=20260810-npc-melee-2" />
+    <link rel="stylesheet" href="styles.css?v=20260811-fresh-start-1" />
+    <link rel="stylesheet" href="combat-actions.css?v=20260810-npc-melee-2" />
+    <script src="data-reset.js?v=20260811-fresh-start-1"></script>
   </head>
   <body>
     <main class="shell">
@@ -28,7 +29,7 @@
           </div>
           <div class="campaign-menu-divider"></div>
           <div class="campaign-create-actions">
-            <a id="createCharacterMain" class="character-creator-link" href="character.html?new=1">Create/View Character</a>
+            <a id="createCharacterMain" class="character-creator-link" href="character.html">Create/View Character</a>
             <button id="createRoom" class="primary" type="button">Create New Campaign</button>
           </div>
           <p id="mainMenuMessage" class="main-menu-message" role="status"></p>
@@ -282,7 +283,6 @@
         <button type="button" data-combat-action="fire">Fire Gun</button>
         <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
         <button type="button" data-combat-action="calledShot">Called Shot</button>
-        <button type="button" data-combat-action="throwItem">Throw Item</button>
         <button type="button" data-combat-action="firstAid">First Aid</button>
         <button type="button" data-combat-action="station">Station</button>
       </div>
@@ -454,13 +454,7 @@
           <div><span>Attacker</span><strong id="attackRollStatus">Waiting</strong></div>
           <div><span>Defender</span><strong id="defenseRollStatus">Waiting</strong></div>
         </div>
-        <form id="gmAttackRollForm" class="combat-action-form" hidden>
-          <p id="gmNpcRollPool" class="gm-npc-roll-pool">NPC roll</p>
-          <label id="gmAttackRollLabel">NPC Defense Score
-            <input id="gmAttackRollScore" type="number" step="0.1" inputmode="decimal" required />
-          </label>
-          <div class="gm-npc-roll-actions"><button type="submit" class="complete">Submit Manual Score</button><button id="gmAttackAutoRoll" type="button">Roll for NPC</button></div>
-        </form>
+        <div id="gmNpcRollPrompts" class="gm-npc-roll-prompts"></div>
         <button id="gmResolveDefender" class="mini gm-resolve-defender" type="button" hidden>Resolve for Defender</button>
         <form id="gmNpcDamageForm" class="combat-action-form gm-npc-damage-confirm" hidden>
           <div id="gmNpcDamageBreakdown" class="attack-damage-breakdown"></div>
@@ -505,9 +499,9 @@
     </div>
 
 
-  <script src="combat-rules.js?v=20260810-npc-melee-2"></script>
-  <script src="app.js?v=20260810-npc-melee-2"></script>
-  <script src="combat-actions.js?v=20260810-npc-melee-2"></script>
-  <script type="module" src="npc-combat-dice.js?v=20260810-npc-melee-2"></script>
+  <script src="combat-rules.js?v=20260811-fresh-start-1"></script>
+  <script src="app.js?v=20260811-fresh-start-1"></script>
+  <script src="combat-actions.js?v=20260811-fresh-start-1"></script>
+  <script type="module" src="npc-combat-dice.js?v=20260811-fresh-start-1"></script>
   </body>
 </html>

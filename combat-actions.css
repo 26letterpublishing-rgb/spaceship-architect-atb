@@ -149,17 +149,33 @@
 
 .timed-action-meter > div { background: linear-gradient(90deg, #313940, #68737b); }
 .weapon-charge-meter {
-  background-image: repeating-linear-gradient(90deg, transparent 0 calc((100% / var(--segments)) - 2px), rgba(255,255,255,.45) calc((100% / var(--segments)) - 2px) calc(100% / var(--segments)));
+  isolation: isolate;
 }
-.weapon-charge-meter > div {
+.weapon-charge-meter::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc((100% / var(--segments)) - 2px), rgba(255,255,255,.45) calc((100% / var(--segments)) - 2px) calc(100% / var(--segments)));
+}
+.weapon-charge-meter .charge-progress,
+.weapon-charge-meter .charge-earned {
+  position: absolute;
+  inset: 0 auto 0 0;
+}
+.weapon-charge-meter .charge-progress {
+  z-index: 1;
   background: linear-gradient(90deg, #745700, #ffe256 52%, #fff0a1);
   box-shadow: 0 0 10px #ffe156;
 }
-.weapon-charge-meter.has-charge > div {
+.weapon-charge-meter .charge-earned {
+  z-index: 2;
   background: linear-gradient(90deg, #ff416c, #ffde59, #62ff9b, #55c8ff, #b56cff, #ff416c);
   background-size: 240% 100%;
   animation: earned-charge-flow 1.15s linear infinite;
 }
+.weapon-charge-meter > span { z-index: 4; }
 .weapon-charge-meter.fully-charged { border-color: #fff3a3; box-shadow: 0 0 12px rgba(255, 222, 89, .72), inset 0 0 7px rgba(255,255,255,.3); }
 .timed-action-meter.defense-active { border-color: #ffb15d; }
 @keyframes earned-charge-flow { to { background-position: -240% 0; } }
@@ -547,7 +563,7 @@
   display: grid;
   place-items: center;
   padding: 12px;
-  overflow: auto;
+  overflow: hidden;
   background: rgba(1,5,10,.82);
   backdrop-filter: blur(5px);
 }
@@ -555,7 +571,8 @@
 .attack-resolution-panel {
   width: min(620px, 100%);
   max-height: calc(100dvh - 24px);
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-color: #54dfff;
   box-shadow: 0 20px 70px #000, 0 0 28px rgba(45,212,255,.24);
 }
@@ -709,6 +726,6 @@
   .player-mode.own-turn-active #myTurnBanner > .held-weapon-readout { min-height: 38px; padding: 5px 8px; }
   .player-mode.own-turn-active .combat-action-grid button { min-height: 35px; font-size: .56rem; }
 }
-.npc-combat-stats{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.npc-combat-stat{min-height:28px;padding:3px 7px;border:1px solid #35637d;border-radius:4px;background:#071725;box-shadow:none}.npc-combat-stat span,.npc-held-weapon span{display:block;color:#7f9bb1;font-size:.47rem}.npc-combat-stat strong{color:#7feaff;font-size:.72rem}.npc-held-weapon{display:flex;align-items:center;gap:6px;min-width:185px;padding:3px 6px;border:1px solid #30495e;background:#06111c}.npc-held-weapon select{min-height:27px;padding:2px 22px 2px 6px;font-size:.58rem}.gm-npc-turn-actions{display:grid;grid-template-columns:repeat(4,minmax(105px,1fr));gap:7px;max-height:42vh;overflow:auto;margin:10px 0}.gm-npc-held-readout{margin-top:8px}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])){width:min(920px,calc(100% - 24px));max-height:92vh;overflow:auto}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .dialog-actions{position:sticky;bottom:0;padding-top:8px;background:linear-gradient(0deg,#07121d 78%,transparent)}
-.gm-npc-roll-pool{margin:0;padding:7px 9px;border:1px solid #294a61;color:#9edff5;background:#06111c}.gm-npc-roll-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dice-roller{position:fixed;z-index:1600;inset:0;pointer-events:none}.dice-stage{position:absolute;left:var(--dice-left,50%);top:var(--dice-top,50%);width:min(620px,calc(100vw - 20px));height:min(430px,calc(100vh - 90px));transform:translate(-50%,-50%);overflow:visible;pointer-events:none}.dice-copy{position:absolute;z-index:4;left:50%;bottom:4px;width:max-content;max-width:90%;transform:translateX(-50%);padding:4px 10px;border:1px solid rgba(43,216,255,.38);border-radius:999px;text-align:center;background:rgba(3,8,14,.86)}.dice-copy h2{margin:0;color:#eaf8ff;font-size:.68rem}.dice-copy p{margin:1px 0 0;color:#91a9bd;font-size:.52rem}.dice-canvas{position:absolute;inset:0 0 34px;filter:drop-shadow(0 9px 6px rgba(0,0,0,.42))}.dice-canvas canvas{display:block;width:100%;height:100%}.dice-result{display:none!important}.dice-actions{position:absolute;left:50%;top:100%;transform:translateX(-50%)}
-@media(max-width:650px){.gm-npc-turn-actions{grid-template-columns:repeat(2,minmax(0,1fr));max-height:48vh}.npc-combat-stats{display:grid;grid-template-columns:repeat(3,1fr)}.npc-held-weapon{grid-column:1/-1;min-width:0}.gm-panic-pause.npc-action{min-width:108px;min-height:40px;padding:5px 8px;font-size:.68rem}.gm-panic-pause.npc-action small{display:none}}
+.npc-combat-stats{display:flex;align-items:center;flex-wrap:wrap;gap:1px;margin-top:3px;color:#77899a;font:500 .5rem/1.1 Arial,sans-serif}.npc-combat-stat{min-height:0;padding:0;border:0;border-radius:0;color:#8b9dac;background:none;box-shadow:none;font:inherit}.npc-combat-stat:hover{color:#7feaff;filter:none;text-decoration:underline}.npc-held-weapon{display:inline-flex;align-items:center;gap:2px;min-width:0;margin-left:5px;color:#77899a;font:inherit;text-transform:none}.npc-held-weapon span{display:inline;font:inherit}.npc-held-weapon select{width:auto;max-width:145px;min-height:18px;padding:0 16px 0 2px;border:0;color:#8b9dac;background:#07111a;font:inherit}.gm-npc-turn-actions{display:grid;grid-template-columns:repeat(4,minmax(105px,1fr));gap:7px;margin:10px 0}.gm-npc-held-readout{margin-top:8px}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])){width:min(920px,calc(100% - 24px));max-height:92vh;overflow-y:auto;overscroll-behavior:contain}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .dialog-actions{position:sticky;bottom:0;padding-top:8px;background:linear-gradient(0deg,#07121d 78%,transparent)}
+.gm-npc-roll-prompts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.gm-npc-roll-prompt{min-width:0}.gm-npc-roll-pool{margin:0;padding:7px 9px;border:1px solid #294a61;color:#9edff5;background:#06111c}.gm-npc-roll-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dice-roller{position:fixed;z-index:3200;inset:0;pointer-events:none}.dice-stage{position:absolute;left:var(--dice-left,50%);top:var(--dice-top,50%);width:min(620px,calc(100vw - 20px));height:min(430px,calc(100vh - 90px));transform:translate(-50%,-50%);overflow:visible;pointer-events:none}.dice-copy{position:absolute;z-index:4;left:50%;bottom:4px;width:max-content;max-width:90%;transform:translateX(-50%);padding:4px 10px;border:1px solid rgba(43,216,255,.38);border-radius:999px;text-align:center;background:rgba(3,8,14,.86)}.dice-copy h2{margin:0;color:#eaf8ff;font-size:.68rem}.dice-copy p{margin:1px 0 0;color:#91a9bd;font-size:.52rem}.dice-canvas{position:absolute;inset:0 0 34px;filter:drop-shadow(0 9px 6px rgba(0,0,0,.42))}.dice-canvas canvas{display:block;width:100%;height:100%}.dice-result{display:none!important}.dice-actions{position:absolute;left:50%;top:100%;transform:translateX(-50%)}
+@media(max-width:650px){.gm-npc-turn-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.npc-held-weapon{flex-basis:100%;margin:2px 0 0}.gm-npc-roll-prompts{grid-template-columns:1fr}.gm-panic-pause.npc-action{min-width:108px;min-height:40px;padding:5px 8px;font-size:.68rem}.gm-panic-pause.npc-action small{display:none}}

@@ -17,7 +17,6 @@ import {
   classById,
 } from "./character-data.js?v=20260807-tabs-2";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260807-tabs-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
@@ -493,7 +492,7 @@ function playDiceRollSound() {
   }
 }
 
-const diceRoller = new PhysicalDiceRoller({
+const diceRollerElements = {
   shell: $("#diceRoller"),
   stage: $(".dice-stage"),
   title: $("#diceTitle"),
@@ -502,7 +501,37 @@ const diceRoller = new PhysicalDiceRoller({
   actions: $("#diceActions"),
   canvasHost: $("#diceCanvas"),
   onRollStart: playDiceRollSound,
-});
+};
+let physicalDiceRoller = null;
+let physicalDiceLoading = null;
+function loadPhysicalDiceRoller() {
+  if (physicalDiceRoller) return Promise.resolve(physicalDiceRoller);
+  if (!physicalDiceLoading) {
+    physicalDiceLoading = import("./dice-roller.js?v=20260811-fresh-start-1")
+      .then(({ PhysicalDiceRoller }) => {
+        physicalDiceRoller = new PhysicalDiceRoller(diceRollerElements);
+        physicalDiceLoading = null;
+        return physicalDiceRoller;
+      })
+      .catch((error) => {
+        physicalDiceLoading = null;
+        notice("The 3D dice could not load. Refresh the page and try again.", "error");
+        throw error;
+      });
+  }
+  return physicalDiceLoading;
+}
+const diceRoller = {
+  isActive: () => Boolean(physicalDiceLoading || physicalDiceRoller?.isActive()),
+  stop: () => physicalDiceRoller?.stop(),
+  roll: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.roll(options)); },
+  rollPool: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.rollPool(options)); },
+  rollPercentile: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.rollPercentile(options)); },
+  reroll: (options) => { void loadPhysicalDiceRoller().then((roller) => roller.reroll(options)); },
+  celebrate: (...args) => loadPhysicalDiceRoller().then((roller) => roller.celebrate(...args)),
+  showChoices: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showChoices(...args)); },
+  showPersistedResult: (...args) => { void loadPhysicalDiceRoller().then((roller) => roller.showPersistedResult(...args)); },
+};
 
 let saveTimer = null;
 let noticeTimer = null;
@@ -5518,11 +5547,12 @@ window.addEventListener("beforeunload", () => {
 
 async function initializeCharacterApp() {
   const params = PAGE_PARAMS;
+  const explicitNewCharacter = params.get("new") === "1";
   document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
-  const requestedCode = String(params.get("campaign") || localStorage.getItem("sa-character-campaign-code") || "").trim().toUpperCase();
+  const requestedCode = String(params.get("campaign") || (explicitNewCharacter ? "" : localStorage.getItem("sa-character-campaign-code")) || "").trim().toUpperCase();
   const requestedCharacter = String(params.get("character") || "");
   const gmAccess = params.get("gm") === "1";
-  if (params.get("new") === "1" && !requestedCode && !requestedCharacter) {
+  if (explicitNewCharacter && !requestedCode && !requestedCharacter) {
     const next = blankCharacter();
     library.push(next);
     activeId = next.id;

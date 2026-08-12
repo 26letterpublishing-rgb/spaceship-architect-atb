@@ -6,6 +6,8 @@ const LOCAL_DATA_DIR = process.env.SA_LOCAL_DATA_DIR
   ? path.resolve(process.env.SA_LOCAL_DATA_DIR)
   : path.join(__dirname, "data");
 const LOCAL_DATA_FILE = path.join(LOCAL_DATA_DIR, "campaigns.json");
+const LOCAL_EPOCH_FILE = path.join(LOCAL_DATA_DIR, "campaign-epoch.txt");
+const DATA_EPOCH = "2026-08-11-fresh-start-1";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -35,10 +37,42 @@ class CampaignStore {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS sa_campaign_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      `);
+      const epoch = await this.pool.query("SELECT value FROM sa_campaign_meta WHERE key = 'data_epoch'");
+      if (epoch.rows[0]?.value !== DATA_EPOCH) {
+        await this.pool.query("BEGIN");
+        try {
+          await this.pool.query("DELETE FROM sa_campaigns");
+          await this.pool.query(
+            "INSERT INTO sa_campaign_meta (key, value) VALUES ('data_epoch', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+            [DATA_EPOCH],
+          );
+          await this.pool.query("COMMIT");
+        } catch (error) {
+          await this.pool.query("ROLLBACK");
+          throw error;
+        }
+      }
       return;
     }
 
     fs.mkdirSync(LOCAL_DATA_DIR, { recursive: true });
+    let localEpoch = "";
+    try {
+      localEpoch = fs.readFileSync(LOCAL_EPOCH_FILE, "utf8").trim();
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    if (localEpoch !== DATA_EPOCH) {
+      fs.writeFileSync(LOCAL_DATA_FILE, "[]", "utf8");
+      fs.writeFileSync(LOCAL_EPOCH_FILE, DATA_EPOCH, "utf8");
+      return;
+    }
     try {
       const parsed = JSON.parse(fs.readFileSync(LOCAL_DATA_FILE, "utf8"));
       for (const campaign of Array.isArray(parsed) ? parsed : []) {
