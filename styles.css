@@ -1134,6 +1134,8 @@ h2 {
 }
 
 .unit-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--line);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 38%),
@@ -1147,6 +1149,36 @@ h2 {
   will-change: transform;
 }
 
+
+.unit-card.npc-defeated {
+  pointer-events: none;
+  animation: npc-defeat-card 3.5s linear forwards;
+}
+.unit-card.npc-defeated::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(62deg, transparent 46%, rgba(4,4,4,.9) 47% 49%, transparent 50%) 18% 20% / 42% 62% no-repeat,
+    linear-gradient(118deg, transparent 47%, rgba(7,7,7,.86) 48% 50%, transparent 51%) 70% 4% / 36% 74% no-repeat,
+    linear-gradient(42deg, transparent 47%, rgba(255,40,55,.75) 48% 49%, transparent 50%) center / 58% 100% no-repeat;
+  animation: npc-defeat-cracks 3.5s linear forwards;
+}
+@keyframes npc-defeat-card {
+  0% { filter: saturate(1) grayscale(0); opacity: 1; }
+  57% { filter: saturate(.15) grayscale(.92); opacity: 1; }
+  58% { filter: saturate(1.7) grayscale(0); background-color: #5b0009; }
+  100% { filter: saturate(2) grayscale(0); background-color: #9d0010; opacity: 0; transform: scale(.97); }
+}
+@keyframes npc-defeat-cracks {
+  0%, 18% { opacity: 0; }
+  35% { opacity: .35; }
+  57% { opacity: .9; }
+  58%, 100% { opacity: .45; background-color: rgba(145,0,15,.58); }
+}
 .unit-card.is-moving {
   z-index: 2;
 }
@@ -3456,13 +3488,17 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
 
 .collapse-npc-turn {
   position: absolute;
-  left: -18px;
-  top: 18px;
+  right: 12px;
+  bottom: 12px;
   width: 34px;
   min-height: 66px;
   padding: 0;
   z-index: 2;
-  border-radius: 999px;
+  border: 1px solid #7f91a2;
+  border-radius: 15px;
+  color: #f4fbff;
+  background: linear-gradient(90deg, #313944, #626d78);
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.55), inset 0 1px rgba(255,255,255,.2);
   font-size: 1.5rem;
 }
 
@@ -3493,7 +3529,8 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
     visibility: visible !important;
   }
   .collapse-npc-turn {
-    left: 3px;
+    right: 7px;
+    bottom: 7px;
   }
 }
 

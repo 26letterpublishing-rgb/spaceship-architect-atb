@@ -73,7 +73,7 @@ function applyConditionalDelivery(campaign, record, action) {
   const award = { id: uid("award"), resource, amount, targetIds: [record.id], before, at: now };
   campaign.awardHistory.push(award);
   campaign.awardHistory = campaign.awardHistory.slice(-20);
-  const label = { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Ship Credit Pool Credits" }[resource] || resource;
+  const label = { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Group Credits" }[resource] || resource;
   campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", awardId: award.id, message: `Successful ${action.attribute} + ${action.skill} check: awarded ${amount.toLocaleString()} ${label}.`, createdAt: now, readAt: null });
   return { kind: "award", resource, amount, awardId: award.id };
 }
@@ -1604,7 +1604,7 @@ class CampaignApi {
       }
       const usesPool = ["deposit", "withdraw", "giftShip"].includes(operation);
       if (usesPool && !gm && campaign.bankerCharacterId && campaign.bankerCharacterId !== actor.id) {
-        sendJson(res, 403, { error: "Only the campaign banker may transfer credits to or from the Ship Credit Pool." });
+        sendJson(res, 403, { error: "Only the campaign banker may transfer credits to or from Group Credits." });
         return true;
       }
       if (["giftPersonal", "giftShip", "mechanicalExperience", "giftReverence", "roboticsGrant"].includes(operation) && (!target || target.id === actor.id)) {
@@ -1622,7 +1622,7 @@ class CampaignApi {
         return true;
       }
       if (["withdraw", "giftShip"].includes(operation) && campaign.shipCredits < amount) {
-        sendJson(res, 400, { error: "The Ship Credit Pool does not contain enough credits." });
+        sendJson(res, 400, { error: "Group Credits do not contain enough funds." });
         return true;
       }
       if (operation === "deposit") {

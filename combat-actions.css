@@ -171,14 +171,20 @@
 }
 .weapon-charge-meter .charge-earned {
   z-index: 2;
-  background: linear-gradient(90deg, #ff416c, #ffde59, #62ff9b, #55c8ff, #b56cff, #ff416c);
-  background-size: 240% 100%;
-  animation: earned-charge-flow 1.15s linear infinite;
+  background: #ff416c;
+  animation: earned-charge-cycle 2.4s steps(1, end) infinite;
 }
 .weapon-charge-meter > span { z-index: 4; }
 .weapon-charge-meter.fully-charged { border-color: #fff3a3; box-shadow: 0 0 12px rgba(255, 222, 89, .72), inset 0 0 7px rgba(255,255,255,.3); }
 .timed-action-meter.defense-active { border-color: #ffb15d; }
-@keyframes earned-charge-flow { to { background-position: -240% 0; } }
+@keyframes earned-charge-cycle {
+  0% { background: #ff416c; box-shadow: 0 0 10px #ff416c; }
+  16% { background: #ff9f43; box-shadow: 0 0 10px #ff9f43; }
+  32% { background: #ffe156; box-shadow: 0 0 10px #ffe156; }
+  48% { background: #4dff9a; box-shadow: 0 0 10px #4dff9a; }
+  64% { background: #55c8ff; box-shadow: 0 0 10px #55c8ff; }
+  80% { background: #b56cff; box-shadow: 0 0 10px #b56cff; }
+}
 .thrown-effect-meter > div { background: linear-gradient(90deg, #3c3f43, #8b9298); }
 .thrown-effect-meter.resolving { border-color: #ff3b55; animation: detonation-pulse .34s steps(2) infinite; }
 

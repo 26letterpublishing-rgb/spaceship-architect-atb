@@ -27,6 +27,7 @@ const PUBLIC_DIR = __dirname;
 const rooms = new Map();
 const clients = new Map();
 const roomPersistTimers = new Map();
+const npcDefeatTimers = new Map();
 const campaignStore = new CampaignStore();
 let campaignApi = null;
 let stateSequence = 0;
@@ -122,6 +123,7 @@ function createRoom(requestedCode = "", snapshot = null) {
   }
   rooms.set(code, room);
   clients.set(code, new Set());
+  for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   pushLog(room, snapshot ? `Campaign encounter ${code} restored in a paused state.` : `Room ${code} created.`);
   return room;
 }
@@ -205,10 +207,74 @@ async function applyDamageToUnit(room, target, rawDamage, source) {
   target.damageReduction = result.reduction;
   target.damageEvent = { ...result, id: result.id || id(), source: String(source || "Combat damage"), createdAt: result.createdAt || Date.now() };
   pushLog(room, `${target.characterName} took ${result.applied} HP damage from ${source}${result.reduction ? ` (${result.rawDamage} incoming, ${result.reduction} Damage Reduction)` : ""}${result.currentHp === null ? "; GM records HP manually" : `; HP ${result.currentHp}/${result.maximumHp}`}.`);
+  syncNpcDefeat(room, target);
   return target.damageEvent;
 }
 
 
+
+function npcDefeatKey(roomCodeValue, unitId) {
+  return `${roomCodeValue}:${unitId}`;
+}
+
+function cancelNpcDefeat(roomCodeValue, unitId) {
+  const key = npcDefeatKey(roomCodeValue, unitId);
+  clearTimeout(npcDefeatTimers.get(key));
+  npcDefeatTimers.delete(key);
+}
+
+function cancelRoomNpcDefeats(roomCodeValue) {
+  const prefix = `${roomCodeValue}:`;
+  for (const [key, timer] of npcDefeatTimers) {
+    if (!key.startsWith(prefix)) continue;
+    clearTimeout(timer);
+    npcDefeatTimers.delete(key);
+  }
+}
+
+function syncNpcDefeat(room, unit) {
+  if (!room || !unit || unit.team !== "npc") return;
+  const hp = Number(unit.currentHp);
+  if (!Number.isFinite(hp) || hp > 0) {
+    cancelNpcDefeat(room.roomCode, unit.id);
+    delete unit.defeatedAt;
+    delete unit.defeatRemovesAt;
+    return;
+  }
+  const newlyDefeated = !unit.defeatedAt;
+  unit.defeatedAt = Number(unit.defeatedAt) || Date.now();
+  unit.defeatRemovesAt = Number(unit.defeatRemovesAt) || unit.defeatedAt + 3500;
+  unit.atb = Math.min(unit.atb, Math.max(0, room.threshold - 0.001));
+  if (newlyDefeated) pushLog(room, `${unit.characterName} was defeated.`);
+  cancelNpcDefeat(room.roomCode, unit.id);
+  const remaining = Math.max(0, unit.defeatRemovesAt - Date.now());
+  const key = npcDefeatKey(room.roomCode, unit.id);
+  npcDefeatTimers.set(key, setTimeout(() => {
+    npcDefeatTimers.delete(key);
+    const liveRoom = getRoom(room.roomCode);
+    const defeated = liveRoom?.units.find((entry) => entry.id === unit.id);
+    if (!liveRoom || !defeated || defeated.team !== "npc" || Number(defeated.currentHp) > 0) return;
+    const previousSource = liveRoom.activeSource;
+    const wasActive = liveRoom.activeId === defeated.id;
+    const affectedAttack = liveRoom.attackResolution && [liveRoom.attackResolution.attackerId, liveRoom.attackResolution.defenderId].includes(defeated.id);
+    liveRoom.units = liveRoom.units.filter((entry) => entry.id !== defeated.id);
+    if (affectedAttack) {
+      liveRoom.attackResolution = null;
+      clearAttackCommand(liveRoom);
+    }
+    if (liveRoom.activeAction?.unitId === defeated.id) liveRoom.activeAction = null;
+    if (wasActive || affectedAttack) {
+      liveRoom.activeId = null;
+      liveRoom.pausedForTurn = false;
+      clearActiveCommand(liveRoom);
+      moveToNextTurnOrClock(liveRoom, previousSource);
+    }
+    pushLog(liveRoom, `${defeated.characterName} was removed from combat.`);
+    broadcast(liveRoom);
+    scheduleRoomPersist(liveRoom, 0);
+    campaignApi?.broadcast(liveRoom.roomCode).catch(() => {});
+  }, remaining));
+}
 function beginAttackResolution(room, details) {
   const attacker = room.units.find((entry) => entry.id === details.attackerId);
   const defender = room.units.find((entry) => entry.id === details.defenderId);
@@ -323,6 +389,7 @@ function directNpcDamage(room, target, finalDamage, state) {
     createdAt: Date.now(),
   };
   pushLog(room, target.characterName + " took " + applied + " HP damage; HP " + currentHp + "/" + maximumHp + ".");
+  syncNpcDefeat(room, target);
   return target.damageEvent;
 }
 
@@ -453,6 +520,7 @@ function saveUndoSnapshot(room, label = "combat change") {
 
 function restoreUndoSnapshot(room) {
   if (!room.undoSnapshot) return false;
+  cancelRoomNpcDefeats(room.roomCode);
   const snapshot = room.undoSnapshot;
   room.running = snapshot.running;
   room.pausedForTurn = snapshot.pausedForTurn;
@@ -475,6 +543,7 @@ function restoreUndoSnapshot(room) {
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.threshold = snapshot.threshold;
   room.units = clone(snapshot.units);
+  for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   room.log = clone(snapshot.log);
   room.undoSnapshot = null;
   room.undoLabel = "";
@@ -620,7 +689,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -963,7 +1032,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
   const completedEvents = [];
   for (const unit of room.units) {
-    if (unit.id === skipId || !unit.speed) continue;
+    if (unit.id === skipId || unit.defeatedAt || !unit.speed) continue;
     const wasTimed = hasTimedAction(unit);
     for (const event of tickCombatTimers(unit, seconds, multiplier)) {
       if (event.type === "timed") {
@@ -1083,7 +1152,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
   }
 
   const times = room.units
-    .filter((unit) => unit.speed > 0 && unit.id !== interruptedId)
+    .filter((unit) => unit.speed > 0 && !unit.defeatedAt && unit.id !== interruptedId)
     .flatMap((unit) => {
       const multiplier = interruptedId ? 0.2 : 1;
       const effectTimes = Array.isArray(unit.queuedEffects)
@@ -1628,6 +1697,7 @@ async function handleAction(req, res) {
     }
     target.maximumHp = Math.round(maximumHp);
     target.currentHp = Math.max(0, Math.min(target.maximumHp, Math.round(currentHp)));
+    syncNpcDefeat(room, target);
     pushLog(room, "GM set " + target.characterName + " to " + target.currentHp + "/" + target.maximumHp + " HP.");
   }
 
@@ -1661,6 +1731,7 @@ async function handleAction(req, res) {
       }
     }    const wasActive = room.activeId === body.id;
     const previousSource = room.activeSource;
+    cancelNpcDefeat(room.roomCode, body.id);
     room.units = room.units.filter((entry) => entry.id !== body.id);
     if (wasActive) {
       room.activeId = null;

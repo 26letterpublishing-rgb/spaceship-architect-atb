@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260813-undo-chapters-1" />
-  <script src="data-reset.js?v=20260811-fresh-start-1"></script>
+  <link rel="stylesheet" href="gm.css?v=20260813-feedback-2" />
+  <script src="data-reset.js?v=20260813-feedback-2"></script>
   </head>
   <body>
     <main class="gm-shell">
@@ -136,9 +136,9 @@
           <div class="tool-grid">
             <form id="awardForm" class="tool-card">
               <h3>Give Resources</h3>
-              <label>Resource<select id="awardResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Ship Credit Pool</option></select></label>
+              <label>Resource<select id="awardResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Group Credits</option></select></label>
               <label>Amount<input id="awardAmount" type="number" step="1" min="1" value="1" required /></label>
-              <div class="ship-credit-readout">Ship Credit Pool <strong id="shipCredits">0</strong></div>
+              <div class="ship-credit-readout">Group Credits <strong id="shipCredits">0</strong></div>
               <button class="primary" type="submit">Give Award</button>
               <p id="awardMessage" class="tool-message" role="status"></p>
               <button id="undoAward" type="button" disabled>Undo Most Recent Award</button>
@@ -148,12 +148,6 @@
               <label>Message<textarea id="privateNoteMessage" rows="7" maxlength="4000" placeholder="Only the selected player and GM can read this note."></textarea></label>
               <button class="primary" type="submit">Send Private Note</button>
             </form>
-            <section class="tool-card banker-card">
-              <h3>Ship Credit Authority</h3>
-              <p>With no banker, every unlocked character may use the shared pool. Assigning a banker reserves pool transfers for that character.</p>
-              <label>Campaign Banker<select id="bankerCharacter"><option value="">No Banker - Any PC May Use Pool</option></select></label>
-              <button id="setBanker" type="button">Save Banker Rule</button>
-            </section>
             <form id="rollPromptForm" class="tool-card roll-tool-card">
               <h3>Request Dice Roll</h3>
               <div class="roll-grid">
@@ -171,7 +165,7 @@
               <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
               <label id="conditionalMessageWrap">Private Message<textarea id="conditionalMessage" rows="4" maxlength="4000" placeholder="What successful characters learn..."></textarea></label>
               <div id="conditionalAwardWrap" class="conditional-award-fields" hidden>
-                <label>Resource<select id="conditionalResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Ship Credit Pool</option></select></label>
+                <label>Resource<select id="conditionalResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Group Credits</option></select></label>
                 <label>Amount<input id="conditionalAmount" type="number" min="1" step="1" value="1" /></label>
               </div>
               <div class="roll-grid">
@@ -253,6 +247,12 @@
                 <p id="commandWindowSettingsMessage" class="tool-message" role="status"></p>
               </form>
             </section>
+            <section class="settings-card banker-card">
+              <h3>Ship Credit Authority</h3>
+              <p>With no banker, every unlocked character may use Group Credits. Assigning a banker reserves Group Credit transfers for that character.</p>
+              <label>Campaign Banker<select id="bankerCharacter"><option value="">No Banker - Any PC May Use Group Credits</option></select></label>
+              <button id="setBanker" type="button">Save Banker Rule</button>
+            </section>
             <section class="settings-card">
               <h3>Banner Navigation</h3>
               <p>When enabled, pressing the Spaceship Architect banner offers to exit the campaign.</p>
@@ -277,6 +277,16 @@
       </section>
     </main>
 
-  <script type="module" src="gm.js?v=20260813-undo-chapters-1"></script>
+    <div id="gmConfirmModal" class="gm-modal-shell" hidden>
+      <section class="gm-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="gmConfirmTitle">
+        <span>Confirm Command</span>
+        <h2 id="gmConfirmTitle">Are you sure?</h2>
+        <p id="gmConfirmMessage"></p>
+        <label id="gmConfirmInputWrap" hidden><span id="gmConfirmInputLabel">Response</span><input id="gmConfirmInput" type="text" autocomplete="off" /></label>
+        <p id="gmConfirmError" class="tool-message error" role="alert"></p>
+        <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
+      </section>
+    </div>
+  <script type="module" src="gm.js?v=20260813-feedback-2"></script>
   </body>
 </html>

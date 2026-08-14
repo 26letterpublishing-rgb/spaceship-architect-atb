@@ -1,5 +1,5 @@
-import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260811-fresh-start-1";
-import { WEAPONS, weaponById } from "./weapon-data.js?v=20260811-fresh-start-1";
+import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260813-feedback-2";
+import { WEAPONS, weaponById } from "./weapon-data.js?v=20260813-feedback-2";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -128,6 +128,16 @@ const dom = {
   universalCommandWindowBonus: $("#universalCommandWindowBonus"),
   commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
   bannerExitEnabled: $("#bannerExitEnabled"),
+  confirmModal: $("#gmConfirmModal"),
+  confirmDialog: $("#gmConfirmModal .gm-confirm-dialog"),
+  confirmTitle: $("#gmConfirmTitle"),
+  confirmMessage: $("#gmConfirmMessage"),
+  confirmInputWrap: $("#gmConfirmInputWrap"),
+  confirmInputLabel: $("#gmConfirmInputLabel"),
+  confirmInput: $("#gmConfirmInput"),
+  confirmError: $("#gmConfirmError"),
+  confirmCancel: $("#gmConfirmCancel"),
+  confirmAccept: $("#gmConfirmAccept"),
 };
 
 const allSkills = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
@@ -156,6 +166,7 @@ const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
 const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f" };
 let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "off";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
+let gmDialogState = null;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -172,6 +183,70 @@ function showMessage(element, message, tone = "") {
   element.className = `${baseClass} ${tone}`.trim();
 }
 
+function finishGmDialog(accepted) {
+  if (!gmDialogState) return;
+  if (accepted && gmDialogState.requiredValue !== null && dom.confirmInput.value !== gmDialogState.requiredValue) {
+    dom.confirmError.textContent = "The entered text does not match.";
+    dom.confirmInput.focus();
+    return;
+  }
+  const value = gmDialogState.usesInput ? dom.confirmInput.value : accepted;
+  const resolve = gmDialogState.resolve;
+  gmDialogState = null;
+  dom.confirmModal.hidden = true;
+  dom.confirmDialog.classList.remove("danger");
+  dom.confirmError.textContent = "";
+  resolve(accepted ? value : null);
+}
+
+function openGmDialog({
+  title = "Are you sure?",
+  message = "",
+  acceptLabel = "Confirm",
+  cancelLabel = "Cancel",
+  danger = false,
+  inputLabel = "",
+  inputValue = "",
+  requiredValue = null,
+} = {}) {
+  if (gmDialogState) finishGmDialog(false);
+  dom.confirmTitle.textContent = title;
+  dom.confirmMessage.textContent = message;
+  dom.confirmAccept.textContent = acceptLabel;
+  dom.confirmCancel.textContent = cancelLabel;
+  dom.confirmAccept.classList.toggle("danger", danger);
+  dom.confirmDialog.classList.toggle("danger", danger);
+  dom.confirmInputWrap.hidden = !inputLabel;
+  dom.confirmInputLabel.textContent = inputLabel || "Response";
+  dom.confirmInput.value = inputValue;
+  dom.confirmError.textContent = "";
+  dom.confirmModal.hidden = false;
+  return new Promise((resolve) => {
+    gmDialogState = { resolve, usesInput: Boolean(inputLabel), requiredValue };
+    requestAnimationFrame(() => (inputLabel ? dom.confirmInput : dom.confirmAccept).focus());
+  });
+}
+
+async function confirmGm(options) {
+  return (await openGmDialog(options)) === true;
+}
+
+async function promptGm(options) {
+  return openGmDialog(options);
+}
+
+dom.confirmCancel.addEventListener("click", () => finishGmDialog(false));
+dom.confirmAccept.addEventListener("click", () => finishGmDialog(true));
+dom.confirmModal.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    finishGmDialog(false);
+  }
+  if (event.key === "Enter" && event.target !== dom.confirmCancel) {
+    event.preventDefault();
+    finishGmDialog(true);
+  }
+});
 function tokenKey(campaignCode) {
   return `sa-gm-token-${campaignCode}`;
 }
@@ -522,6 +597,7 @@ function scriptSource() {
     .map(serialize)
     .join("")
     .replaceAll("\u00a0", " ")
+    .replaceAll("\u200b", "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\n$/, "");
 }
@@ -659,7 +735,7 @@ async function saveNpcTemplate(npc) {
 async function deleteNpcTemplate(templateId) {
   const template = (campaign?.npcTemplates || []).find((entry) => entry.id === templateId);
   if (!template) return;
-  if (!confirm(`Delete the premade NPC "${template.name}"? Deployed copies already in Combat will not change.`)) return;
+  if (!await confirmGm({ title: "Delete Premade NPC?", message: `Delete "${template.name}"? Deployed copies already in Combat will not change.`, acceptLabel: "Delete NPC", danger: true })) return;
   const templates = (campaign?.npcTemplates || []).filter((entry) => entry.id !== templateId);
   const payload = await api("/api/campaign/npc-templates", { code, token, templates });
   receiveCampaign(payload.campaign);
@@ -793,7 +869,7 @@ async function resumeEncounterWithFreshCharacters() {
 }
 
 async function exitCampaignEncounter() {
-  if (!confirm("End this encounter for every player and return everyone to the campaign roster?")) return;
+  if (!await confirmGm({ title: "End Combat?", message: "End this encounter for every player and return everyone to the campaign roster?", acceptLabel: "End Combat", danger: true })) return;
   try {
     encounterState = await encounterAction("exitEncounter");
     dom.atbFrame.removeAttribute("src");
@@ -880,11 +956,10 @@ function renderScriptEditor(source = scriptSource()) {
     const selectedTargetId = scriptTargetSelections.get(selectionKey) || "";
     const options = (campaign?.characters || []).map((record) => `<option value="${record.id}" ${record.id === selectedTargetId ? "selected" : ""}>${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
     const needsSelection = command?.scope === "choose" || (command?.scope === "target" && !command.targetName);
-    const recipientLabel = command?.scope === "all" ? "ALL PLAYERS" : command?.scope === "choose" ? "CHOOSE PC" : command?.targetName.toUpperCase();
     const label = command?.valid
-      ? `${recipientLabel} / ${command.keyword ? `KEYWORD: ${command.keyword} / ` : ""}${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
+      ? command.keyword || `${command.skill || command.attribute} Check`
       : `INVALID ROLL PROMPT / ${match[1].trim()}`;
-    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>${needsSelection ? `<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>` : ""}</span>`);
+    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>${needsSelection ? `<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>` : ""}</span>&#8203;`);
     cursor = expression.lastIndex;
     index += 1;
   }
@@ -893,6 +968,21 @@ function renderScriptEditor(source = scriptSource()) {
   lastScriptRange = null;
 }
 
+function placeScriptCaretAtEnd() {
+  dom.script.focus();
+  let target = dom.script.lastChild;
+  if (!target || target.nodeType !== Node.TEXT_NODE) {
+    target = document.createTextNode("\u200b");
+    dom.script.append(target);
+  }
+  const range = document.createRange();
+  range.setStart(target, target.nodeValue.length);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  lastScriptRange = range.cloneRange();
+}
 function rememberScriptSelection() {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return;
@@ -1133,7 +1223,7 @@ dom.addScriptChapter.addEventListener("click", async () => {
 dom.renameScriptChapter.addEventListener("click", async () => {
   const chapter = activeScriptChapter();
   if (!chapter) return;
-  const name = prompt("Rename this script chapter:", chapter.name);
+  const name = await promptGm({ title: "Rename Chapter", message: "Enter a new name for this script chapter.", inputLabel: "Chapter Name", inputValue: chapter.name, acceptLabel: "Rename" });
   if (name === null || !name.trim()) return;
   try {
     await changeScriptChapter("rename", { chapterId: chapter.id, name: name.trim() });
@@ -1144,7 +1234,8 @@ dom.renameScriptChapter.addEventListener("click", async () => {
 
 dom.deleteScriptChapter.addEventListener("click", async () => {
   const chapter = activeScriptChapter();
-  if (!chapter || scriptChapters().length <= 1 || !confirm(`Delete "${chapter.name}" and all text inside it?`)) return;
+  if (!chapter || scriptChapters().length <= 1) return;
+  if (!await confirmGm({ title: "Delete Chapter?", message: `Delete "${chapter.name}" and all text inside it?`, acceptLabel: "Delete Chapter", danger: true })) return;
   try {
     await changeScriptChapter("delete", { chapterId: chapter.id });
     activeScriptChapterId = scriptChapters()[0]?.id || "";
@@ -1222,17 +1313,20 @@ dom.insertCommand.addEventListener("click", () => {
   }
   dom.script.dispatchEvent(new Event("input", { bubbles: true }));
   renderScriptEditor(scriptSource());
-  dom.script.focus();
+  placeScriptCaretAtEnd();
 });
 
 dom.script.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-send-command]");
-  if (!button) return;
+  if (!button) {
+    if (event.target === dom.script) placeScriptCaretAtEnd();
+    return;
+  }
   event.preventDefault();
   const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
-  if (executedCommands.has(command.id) && !confirm("Send this roll request again?")) return;
+  if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this roll request again?", acceptLabel: "Send Again" })) return;
   let targets = [];
   if (command.scope === "all") targets = campaign.characters.filter((record) => record.connected).map((record) => record.id);
   if (["choose", "target"].includes(command.scope)) {
@@ -1286,7 +1380,7 @@ dom.inboxList.addEventListener("click", async (event) => {
   const requestCard = decisionButton?.closest("[data-join-request]");
   if (decisionButton && requestCard) {
     const decision = decisionButton.dataset.joinDecision;
-    if (decision === "reject" && !confirm("Reject this character's campaign request?")) return;
+    if (decision === "reject" && !await confirmGm({ title: "Reject Character?", message: "Reject this character's campaign request?", acceptLabel: "Reject", danger: true })) return;
     try {
       const payload = await api("/api/campaign/join/respond", {
         code,
@@ -1347,8 +1441,6 @@ dom.closeSheetViewer.addEventListener("click", () => {
 });
 
 dom.endSession.addEventListener("click", async () => {
-  const sessionNumber = Math.max(0, Number(campaign.sessionNumber) || 0);
-  if (!confirm(`End Session ${sessionNumber}, reset session abilities, and notify every player?`)) return;
   dom.endSession.disabled = true;
   try {
     const payload = await api("/api/campaign/session/end", { code, token });
@@ -1396,7 +1488,7 @@ dom.commandWindowSettingsForm.addEventListener("submit", async (event) => {
 dom.kickCharacterButton.addEventListener("click", async () => {
   const characterId = dom.kickCharacter.value;
   const record = campaign.characters.find((entry) => entry.id === characterId);
-  if (!record || !confirm(`Kick ${characterName(record)} from this campaign?`)) return;
+  if (!record || !await confirmGm({ title: "Kick Player?", message: `Remove ${characterName(record)} from this campaign?`, acceptLabel: "Kick Player", danger: true })) return;
   try {
     const payload = await api("/api/campaign/character/kick", { code, token, characterId });
     receiveCampaign(payload.campaign);
@@ -1415,7 +1507,7 @@ dom.adjustCharacterButton.addEventListener("click", () => {
 dom.setBanker.addEventListener("click", async () => {
   try {
     await api("/api/campaign/banker", { code, token, characterId: dom.bankerCharacter.value || null });
-    showMessage(dom.message, dom.bankerCharacter.value ? "Campaign banker assigned." : "Ship Credit Pool is open to every unlocked character.", "success");
+    showMessage(dom.message, dom.bankerCharacter.value ? "Campaign banker assigned." : "Group Credits are open to every unlocked character.", "success");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   }
@@ -1439,7 +1531,7 @@ dom.awardForm.addEventListener("submit", async (event) => {
       ? selectedRecords().filter((record) => record.character?.identity?.raceId === "android")
       : [];
     const convertAndroid = androidTargets.length
-      ? confirm(`Convert this Credit award into Experience for ${androidTargets.map(characterName).join(", ")} at 75 Credits per XP?`)
+      ? await confirmGm({ title: "Convert Android Award?", message: `Convert this Credit award into Experience for ${androidTargets.map(characterName).join(", ")} at 75 Credits per XP?`, acceptLabel: "Convert Award" })
       : false;
     const payload = await api("/api/campaign/award", {
       code,
@@ -1451,14 +1543,14 @@ dom.awardForm.addEventListener("submit", async (event) => {
     });
     receiveCampaign(payload.campaign);
     const amount = Number(dom.awardAmount.value).toLocaleString();
-    const recipients = resource === "shipCredits" ? "Ship Credit Pool" : selectedRecords().map(characterName).join(", ");
+    const recipients = resource === "shipCredits" ? "Group Credits" : selectedRecords().map(characterName).join(", ");
     showMessage(dom.awardMessage, `${amount} ${dom.awardResource.selectedOptions[0].text} delivered to ${recipients}.`, "success");
   } catch (error) {
     showMessage(dom.awardMessage, error.message, "error");
   }
 });
 dom.undoAward.addEventListener("click", async () => {
-  if (!confirm("Undo the most recent campaign award?")) return;
+  if (!await confirmGm({ title: "Undo Award?", message: "Undo the most recent campaign award?", acceptLabel: "Undo Award" })) return;
   try {
     const payload = await api("/api/campaign/award/undo", { code, token });
     receiveCampaign(payload.campaign);
@@ -1522,7 +1614,7 @@ dom.sendConditionalAction.addEventListener("click", async () => {
 
 dom.deleteConditionalAction.addEventListener("click", async () => {
   const action = (campaign?.conditionalActions || []).find((entry) => entry.id === editingConditionalActionId);
-  if (!action || !confirm(`Delete the saved action "${action.keyword}"?`)) return;
+  if (!action || !await confirmGm({ title: "Delete Saved Action?", message: `Delete "${action.keyword}"?`, acceptLabel: "Delete Action", danger: true })) return;
   try {
     const payload = await api("/api/campaign/conditional-action", { code, token, operation: "delete", id: action.id });
     editingConditionalActionId = "";
@@ -1618,8 +1710,8 @@ dom.deletePremadeNpc.addEventListener("click", () => deleteNpcTemplate(premadeNp
 dom.beginEncounter.addEventListener("click", beginEncounter);
 dom.resumeEncounter.addEventListener("click", resumeEncounterWithFreshCharacters);
 dom.exitEncounter.addEventListener("click", exitCampaignEncounter);
-dom.prepareNewEncounter.addEventListener("click", () => {
-  if (!confirm("Replace the saved encounter when Begin Combat is pressed? The current encounter remains safe until then.")) return;
+dom.prepareNewEncounter.addEventListener("click", async () => {
+  if (!await confirmGm({ title: "Prepare New Encounter?", message: "Replace the saved encounter when Begin Combat is pressed? The current encounter remains safe until then.", acceptLabel: "Prepare Encounter" })) return;
   showEncounterSetup({ forceBuilder: true });
 });
 dom.returnToEncounterSetup.addEventListener("click", () => showEncounterSetup());
@@ -1629,12 +1721,12 @@ dom.bannerExitEnabled.addEventListener("change", () => {
   bannerExitEnabled = dom.bannerExitEnabled.checked;
   localStorage.setItem("sa-gm-banner-exit-enabled", bannerExitEnabled ? "on" : "off");
 });
-dom.brand.addEventListener("click", () => {
+dom.brand.addEventListener("click", async () => {
   if (!campaign) {
     location.href = "index.html";
     return;
   }
-  if (!bannerExitEnabled || !confirm("Exit campaign?")) return;
+  if (!bannerExitEnabled || !await confirmGm({ title: "Exit Campaign?", message: "Return to the main menu?", acceptLabel: "Exit Campaign", danger: true })) return;
   events?.close();
   clearAtbBrowserIdentity();
   location.href = "index.html";
@@ -1671,7 +1763,7 @@ dom.restoreOpenCampaignFile.addEventListener("change", async () => {
   try {
     const backup = await readCampaignBackup(dom.restoreOpenCampaignFile.files?.[0]);
     if (backup.campaign.code !== code) throw new Error(`That backup belongs to campaign ${backup.campaign.code}, not ${code}.`);
-    if (!confirm(`Restore ${campaign.name} from the backup made ${new Date(backup.exportedAt).toLocaleString()}? Current campaign data will be replaced.`)) return;
+    if (!await confirmGm({ title: "Restore Campaign?", message: `Restore ${campaign.name} from the backup made ${new Date(backup.exportedAt).toLocaleString()}? Current campaign data will be replaced.`, acceptLabel: "Restore Backup", danger: true })) return;
     const payload = await api("/api/campaign/restore", { code, token, backup });
     receiveCampaign(payload.campaign);
     await refreshEncounterState();
@@ -1684,11 +1776,24 @@ dom.restoreOpenCampaignFile.addEventListener("change", async () => {
 });
 
 dom.deleteCampaign.addEventListener("click", async () => {
-  const typedName = prompt(`Type the campaign name exactly to delete it:\n${campaign.name}`);
+  const typedName = await promptGm({
+    title: "Delete Campaign",
+    message: `Type the campaign name exactly to continue:\n${campaign.name}`,
+    inputLabel: "Campaign Name",
+    requiredValue: campaign.name,
+    acceptLabel: "Continue",
+    danger: true,
+  });
   if (typedName === null) return;
-  const gmCode = prompt("Enter the GM Code to permanently delete this campaign:");
+  const gmCode = await promptGm({
+    title: "Confirm GM Code",
+    message: "Enter the GM Code to permanently delete this campaign.",
+    inputLabel: "GM Code",
+    acceptLabel: "Continue",
+    danger: true,
+  });
   if (gmCode === null) return;
-  if (!confirm("Permanently delete this campaign, its script, notes, and encounter? Player characters will be unlinked and preserved on their devices.")) return;
+  if (!await confirmGm({ title: "Permanently Delete Campaign?", message: "This removes its script, notes, and encounter. Player characters will be unlinked and preserved on their devices.", acceptLabel: "Delete Campaign", danger: true })) return;
   try {
     await api("/api/campaign/delete", { code, token, campaignName: typedName, gmCode });
     localStorage.removeItem(tokenKey(code));

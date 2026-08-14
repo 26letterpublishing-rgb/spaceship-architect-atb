@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260813-undo-chapters-1" />
-  <link rel="stylesheet" href="weapons.css?v=20260810-firearms-2" />
-  <script src="data-reset.js?v=20260811-fresh-start-1"></script>
+  <link rel="stylesheet" href="character.css?v=20260813-feedback-2" />
+  <link rel="stylesheet" href="weapons.css?v=20260813-feedback-2" />
+  <script src="data-reset.js?v=20260813-feedback-2"></script>
   </head>
   <body>
     <header class="creator-header">
@@ -224,7 +224,7 @@
               <small id="creditsFormula" class="resource-formula">Awarded by the GM; finalized bonuses apply automatically</small>
             </div>
             <div id="campaignBankCard" class="resource-card campaign-bank-card" hidden>
-              <span>Ship Credit Pool</span><strong id="campaignBankSummary">0</strong>
+              <span>Group Credits</span><strong id="campaignBankSummary">0</strong>
               <small class="resource-formula">Shared campaign credits</small>
               <button id="openCampaignBank" type="button">Open Ship Bank</button>
             </div>
@@ -410,8 +410,8 @@
     <div id="campaignBankModal" class="modal-shell" hidden>
       <section class="confirm-dialog campaign-bank-dialog" role="dialog" aria-modal="true" aria-labelledby="campaignBankTitle">
         <span class="dialog-kicker">Campaign Resources</span>
-        <h2 id="campaignBankTitle">Ship Credit Pool</h2>
-        <div class="campaign-bank-balances"><div><span>Personal Credits</span><strong id="bankPersonalCredits">0</strong></div><div><span>Ship Credit Pool</span><strong id="bankShipCredits">0</strong></div></div>
+        <h2 id="campaignBankTitle">Group Credits</h2>
+        <div class="campaign-bank-balances"><div><span>Personal Credits</span><strong id="bankPersonalCredits">0</strong></div><div><span>Group Credits</span><strong id="bankShipCredits">0</strong></div></div>
         <p id="bankAuthority" class="campaign-bank-authority"></p>
         <label>Transfer Type<select id="bankOperation"></select></label>
         <label id="bankTargetWrap" hidden>Recipient<select id="bankTarget"></select></label>
@@ -554,11 +554,12 @@
           <div class="skill-setup-actions">
             <button id="submitManualCombatDamage" type="button">Submit Manual Damage</button>
             <button id="rollCombatDamage" class="primary-action" type="button">Roll for Me</button>
+            <button id="exitCombatDamageResult" class="primary-action" type="button" hidden>Exit</button>
           </div>
         </section>
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260813-undo-chapters-1"></script>
+  <script type="module" src="character.js?v=20260813-feedback-2"></script>
   </body>
 </html>

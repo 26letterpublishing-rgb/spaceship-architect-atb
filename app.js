@@ -1656,7 +1656,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const type = "Character";
   const signature = unitSignature(unit, { gm, player });
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""} ${icon ? "has-avatar" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "npc-defeated" : ""} ${own ? "own-unit" : ""} ${icon ? "has-avatar" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
       <div class="unit-top">
         ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
@@ -1746,6 +1746,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.team,
     unit.currentHp ?? "",
     unit.maximumHp ?? "",
+    unit.defeatedAt ?? "",
     unit.physicalAttribute ?? "",
     unit.physicalSkill ?? "",
     unit.mentalAttribute ?? "",
@@ -1771,7 +1772,7 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
   const close = atbPercent >= 75 && !ready && !delayed;
   const hotClass = atbPercent >= 95 && !ready && !delayed ? "charge-critical" : atbPercent >= 90 && !ready && !delayed ? "charge-hot" : close ? "charge-warm" : "";
   const own = player && unit.id === myUnitId;
-  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${own ? "own-unit" : ""} ${myIconForUnit(unit) ? "has-avatar" : ""}`.trim();
+  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "npc-defeated" : ""} ${own ? "own-unit" : ""} ${myIconForUnit(unit) ? "has-avatar" : ""}`.trim();
   card.setAttribute("style", barStyle(unit));
 
   const readout = card.querySelector(".unit-readout strong");
@@ -2364,6 +2365,15 @@ function postCombatMessage(message) {
   window.parent.postMessage(message, window.location.origin);
 }
 
+function clearPostedCombatPrompt(attackId = "") {
+  if (!lastCombatPromptKey) return;
+  postCombatMessage({
+    type: "sa-combat-request-cleared",
+    attackId: attackId || lastCombatPromptKey.split(":")[0],
+  });
+  lastCombatPromptKey = "";
+}
+
 function gmNpcRollDefinition(attack, rollRole, rollingUnit) {
   if (rollRole === "damage") {
     const parsed = window.SACombatRules?.parseDiceFormula(attack.plan?.damageFormula || "");
@@ -2420,7 +2430,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
 function renderAttackResolution(mine) {
   const attack = state?.attackResolution;
   if (!attack) {
-    lastCombatPromptKey = "";
+    clearPostedCombatPrompt();
     gmForcedDefenseEntry = false;
     gmNpcPromptSignature = "";
     if (gmNpcRollPrompts) gmNpcRollPrompts.innerHTML = "";
@@ -2475,6 +2485,8 @@ function renderAttackResolution(mine) {
         lastCombatPromptKey = key;
         postCombatMessage(request);
       }
+    } else {
+      clearPostedCombatPrompt(attack.id);
     }
   }
 
@@ -2507,6 +2519,10 @@ function renderAttackResolution(mine) {
 
   const confirmNpcDamage = attack.phase === "gmDamage" && defender?.team === "npc" && attack.damageSummary;
   gmNpcDamageForm.hidden = !confirmNpcDamage;
+  if (!confirmNpcDamage) {
+    gmNpcDamageBreakdown.innerHTML = "";
+    if (document.activeElement !== gmNpcFinalDamage) gmNpcFinalDamage.value = "";
+  }
   if (confirmNpcDamage) {
     const summary = attack.damageSummary;
     const beforeHp = Math.max(0, Number(defender.currentHp) || 0);
@@ -2619,7 +2635,8 @@ function render() {
     window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
   }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
-  const showMineOverlay = mode === "player" && Boolean(mine) && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  const waitingThree = mine?.timedAction?.kind === "wait";
+  const showMineOverlay = mode === "player" && Boolean(mine) && !waitingThree && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));

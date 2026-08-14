@@ -32,6 +32,7 @@
   let currentUnit = null;
   let pendingKind = "";
   let lastLoadoutSync = "";
+  let actionSubmitting = false;
 
   function esc(value) {
     return String(value ?? "")
@@ -67,7 +68,7 @@
     const options = [];
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
-      .filter((entry) => entry.id !== currentUnit?.id)
+      .filter((entry) => entry.id !== currentUnit?.id && !entry.defeatedAt)
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : "NPC"})</option>`));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
@@ -190,8 +191,22 @@
   }
 
   async function send(kind, details = {}) {
-    if (!currentUnit || currentState?.activeId !== currentUnit.id) return;
-    await action({ action: "playerCombatAction", id: currentUnit.id, kind, ...details }, "resolve");
+    if (actionSubmitting || !currentUnit || currentState?.activeId !== currentUnit.id) return;
+    actionSubmitting = true;
+    actionButtons.forEach((button) => { button.disabled = true; });
+    form?.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = true; });
+    try {
+      await action({ action: "playerCombatAction", id: currentUnit.id, kind, ...details }, "resolve");
+    } finally {
+      actionSubmitting = false;
+      form?.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = false; });
+      renderControls({
+        mine: currentUnit,
+        state: currentState,
+        isMyTurn: currentState?.activeId === currentUnit?.id,
+        hasPendingDelayRequest: Boolean(currentState?.delayRequest),
+      });
+    }
   }
 
   actionButtons.forEach((button) => {
@@ -243,7 +258,8 @@
       details.distance = Number(distance.value) || 0;
       details.calledShot = calledShot.checked;
       details.calledShotDetail = calledShotDetail.value.trim();
-    }    closeDialog();
+    }
+    closeDialog();
     await send(actualKind, details);
   });
 
@@ -266,7 +282,7 @@
         ? `<span>Held Weapon</span><strong>${esc(current.name)}</strong><small>${chargeReadout}${mine?.aim ? ` | Aim: +highest PER die to Dexterity and Damage; +${Number(mine.aim.speedBonus) || 0} Speed` : ""}</small>`
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
     });
-    const disabled = !isMyTurn || hasPendingDelayRequest;
+    const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest;
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;

@@ -17,7 +17,7 @@ import {
   classById,
 } from "./character-data.js?v=20260807-tabs-2";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-undo-chapters-1";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
@@ -268,6 +268,7 @@ const dom = {
   combatDamageError: $("#combatDamageError"),
   submitManualCombatDamage: $("#submitManualCombatDamage"),
   rollCombatDamage: $("#rollCombatDamage"),
+  exitCombatDamageResult: $("#exitCombatDamageResult"),
   rollResultToast: $("#rollResultToast"),
   campaignGate: $("#characterCampaignGate"),
   campaignEntryPrompt: $("#campaignEntryPrompt"),
@@ -515,6 +516,7 @@ let fubsRollInProgress = false;
 let rollToastTimer = null;
 let skillCheck = null;
 let pendingCombatRequest = null;
+let lastReceivedCombatRequestKey = "";
 let activeCombatDamageRequest = null;
 let combatDamageSubmitted = false;
 let speedPreviewFrame = null;
@@ -1277,7 +1279,7 @@ function showCharacterPanel(tab = "sheet") {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 function renderCharacterNavigation() {
-  const linked = Boolean(campaignCode && campaignCharacterId && campaignState);
+  const linked = Boolean(campaignCode && campaignCharacterId && (campaignState || character.campaignLink?.status === "linked"));
   const pending = character.campaignLink?.status === "pending";
   const mayJoin = character.phase === "finalized" && !linked;
   const gmView = campaignState?.role === "gm";
@@ -1513,7 +1515,7 @@ function renderCampaignBank() {
   dom.bankShipCredits.textContent = pool.toLocaleString();
   dom.bankAuthority.textContent = banker
     ? `${campaignCharacterName(banker)} is the campaign banker.${mayUsePool ? " You may transfer Ship Pool credits." : " You may still give personal credits directly."}`
-    : "No banker is assigned. Any unlocked character may transfer Ship Credit Pool funds.";
+    : "No banker is assigned. Any unlocked character may transfer Group Credits funds.";
   if ((Number(record?.character?.resources?.mechanicalExperience) || 0) > 0) {
     dom.bankAuthority.textContent += ` ${Number(record.character.resources.mechanicalExperience)} mechanical XP remains available.`;
   }
@@ -1565,6 +1567,7 @@ function receiveCampaignState(nextState) {
   const remote = nextState.characters.find((entry) => entry.id === campaignCharacterId);
   if (!remote) {
     const removedName = campaignState?.name || character.campaignLink?.campaignName || "the campaign";
+    resetCombatInterfaceState({ clearFrame: true });
     character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
     campaignEvents?.close();
     campaignEvents = null;
@@ -1635,6 +1638,7 @@ function connectCampaignState() {
   campaignEvents.addEventListener("campaign-deleted", (event) => {
     const payload = JSON.parse(event.data);
     if (payload.character) character = normalizeCharacter(payload.character);
+    resetCombatInterfaceState({ clearFrame: true });
     const existing = library.findIndex((entry) => entry.id === character.id);
     if (existing >= 0) library[existing] = character;
     else library.push(character);
@@ -1785,6 +1789,7 @@ async function requestCampaignJoin(roomCode) {
 
 async function detachCurrentCharacter({ notify = true } = {}) {
   clearTimeout(joinStatusTimer);
+  resetCombatInterfaceState({ clearFrame: true });
   const previousCode = campaignCode || character.campaignLink?.roomCode || "";
   if (campaignCode && campaignCharacterId && campaignToken) {
     await saveCampaignCharacter({ force: true });
@@ -2994,9 +2999,10 @@ function openAttributeCheck(attributeKey) {
   renderSkillSetup();
 }
 
-function closeSkillCheck() {
+function closeSkillCheck(options = {}) {
   if (diceRoller.isActive()) return;
-  const abandonedCombatRequest = skillCheck?.combatRequest && !skillCheck.combatSubmitted
+  const discardCombat = options?.discardCombat === true;
+  const abandonedCombatRequest = !discardCombat && skillCheck?.combatRequest && !skillCheck.combatSubmitted
     ? { type: "roll", ...skillCheck.combatRequest }
     : null;
   skillCheck = null;
@@ -3171,6 +3177,10 @@ function openCombatDamageRequest(request) {
   dom.combatDamageFormula.textContent = request.damageFormula;
   dom.combatDamageTarget.textContent = request.targetName;
   dom.combatDamageManual.value = "";
+  dom.combatDamageManual.disabled = false;
+  dom.submitManualCombatDamage.hidden = false;
+  dom.rollCombatDamage.hidden = false;
+  dom.exitCombatDamageResult.hidden = true;
   dom.combatDamageResult.hidden = true;
   dom.combatDamageResult.textContent = "";
   dom.combatDamageError.textContent = parsed.supported ? "" : "This card uses an unusual formula. Enter the completed Damage total manually.";
@@ -3200,6 +3210,10 @@ function finishCombatDamage(rolledDamage, mode, diceResults = []) {
   dom.combatDamageResult.textContent = diceResults.length
     ? "DICE: " + diceResults.join(" + ") + (activeCombatDamageRequest.parsedDamage.flat ? " | FLAT " + activeCombatDamageRequest.parsedDamage.flat : "") + " = " + formatNumber(rolledDamage)
     : "MANUAL DAMAGE: " + formatNumber(rolledDamage);
+  dom.combatDamageManual.disabled = true;
+  dom.submitManualCombatDamage.hidden = true;
+  dom.rollCombatDamage.hidden = true;
+  dom.exitCombatDamageResult.hidden = false;
   dom.playerAtbFrame?.contentWindow?.postMessage({
     type: "sa-combat-damage-result",
     attackId: activeCombatDamageRequest.attackId,
@@ -3207,12 +3221,27 @@ function finishCombatDamage(rolledDamage, mode, diceResults = []) {
     mode,
     diceResults,
   }, window.location.origin);
-  setTimeout(() => {
-    dom.combatDamageModal.hidden = true;
-    document.body.classList.remove("skill-check-open", "skill-roll-active");
-    activeCombatDamageRequest = null;
-    processPendingCombatRequest();
-  }, 1100);
+}
+
+function closeCombatDamageResult(options = {}) {
+  const processNext = options?.processNext !== false;
+  dom.combatDamageModal.hidden = true;
+  document.body.classList.remove("skill-check-open", "skill-roll-active");
+  activeCombatDamageRequest = null;
+  combatDamageSubmitted = false;
+  dom.exitCombatDamageResult.hidden = true;
+  if (processNext) processPendingCombatRequest();
+}
+
+function resetCombatInterfaceState({ clearFrame = false } = {}) {
+  pendingCombatRequest = null;
+  lastReceivedCombatRequestKey = "";
+  if (skillCheck?.combatRequest) closeSkillCheck({ discardCombat: true });
+  closeCombatDamageResult({ processNext: false });
+  if (clearFrame && dom.playerAtbFrame) {
+    dom.playerAtbFrame.removeAttribute("src");
+    delete dom.playerAtbFrame.dataset.campaignCode;
+  }
 }
 
 function submitManualCombatDamage() {
@@ -5302,6 +5331,7 @@ dom.settingsLeaveCampaign?.addEventListener("click", async () => {
 });
 
 dom.settingsLogout?.addEventListener("click", async () => {
+  resetCombatInterfaceState({ clearFrame: true });
   await saveCampaignCharacter({ force: true });
   campaignEvents?.close();
   if (campaignCode && campaignCharacterId) localStorage.removeItem(campaignTokenKey(campaignCode, campaignCharacterId));
@@ -5325,11 +5355,29 @@ window.addEventListener("message", (event) => {
       : "Live Combat connected. Use the tabs above at any time.";
     return;
   }
+  if (event.data?.type === "sa-combat-request-cleared") {
+    const attackId = String(event.data.attackId || "");
+    if (!attackId || pendingCombatRequest?.attackId === attackId) pendingCombatRequest = null;
+    if ((!attackId || skillCheck?.combatRequest?.attackId === attackId) && !skillCheck?.combatSubmitted) {
+      closeSkillCheck({ discardCombat: true });
+    }
+    if ((!attackId || activeCombatDamageRequest?.attackId === attackId) && !combatDamageSubmitted) {
+      closeCombatDamageResult({ processNext: false });
+    }
+    if (!attackId || lastReceivedCombatRequestKey.startsWith(attackId + ":")) lastReceivedCombatRequestKey = "";
+    return;
+  }
   if (event.data?.type === "sa-combat-roll-request" || event.data?.type === "sa-combat-damage-request") {
-    pendingCombatRequest = {
+    const request = {
       ...event.data,
       type: event.data.type === "sa-combat-damage-request" ? "damage" : "roll",
     };
+    const requestKey = request.attackId + ":" + request.type + ":" + (request.rollRole || "damage");
+    const sameRollOpen = request.type === "roll" && skillCheck?.combatRequest?.attackId === request.attackId && skillCheck?.combatRequest?.rollRole === request.rollRole;
+    const sameDamageOpen = request.type === "damage" && activeCombatDamageRequest?.attackId === request.attackId;
+    if (requestKey === lastReceivedCombatRequestKey && (sameRollOpen || sameDamageOpen || pendingCombatRequest?.attackId === request.attackId)) return;
+    lastReceivedCombatRequestKey = requestKey;
+    pendingCombatRequest = request;
     processPendingCombatRequest();
     return;
   }
@@ -5432,6 +5480,7 @@ dom.calculateManualSkill.addEventListener("click", calculateManualSkillResult);
 dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
 dom.submitManualCombatDamage?.addEventListener("click", submitManualCombatDamage);
 dom.rollCombatDamage?.addEventListener("click", rollCombatDamage);
+dom.exitCombatDamageResult?.addEventListener("click", closeCombatDamageResult);
 dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
 dom.freeRuleReroll.addEventListener("click", useFreeRuleReroll);
 dom.skillCheckClose.addEventListener("click", closeSkillCheck);
