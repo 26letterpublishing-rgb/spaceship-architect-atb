@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="styles.css?v=20260811-fresh-start-1" />
+    <link rel="stylesheet" href="styles.css?v=20260813-undo-chapters-1" />
     <link rel="stylesheet" href="combat-actions.css?v=20260810-npc-melee-2" />
     <script src="data-reset.js?v=20260811-fresh-start-1"></script>
   </head>
@@ -48,7 +48,7 @@
             <button id="clearEncounter" class="top-control-btn danger">Clear</button>
             <button id="exitCombat" class="top-control-btn danger exit-combat">End Combat</button>
           </div>
-          <button id="gmMuteSound" class="sound-toggle hidden" aria-label="Mute sounds" title="Mute sounds"><span></span></button>
+          <button id="gmMuteSound" class="sound-toggle hidden" aria-label="Mute sounds" title="Mute sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
         </div>
         <div class="room">
           <span>Room</span>
@@ -184,7 +184,7 @@
           <button id="gmAddUnit">Add</button>
         </div>
         <div class="controls gm-timing-controls">
-          <button id="undoLastTiming" class="control-square undo">Undo<br />Timing</button>
+          <button id="undoLastTiming" class="control-square undo">Undo</button>
           <button id="stepTick" class="control-square">Step<br />1 Sec</button>
         </div>
       </section>
@@ -266,6 +266,7 @@
     </main>
 
     <section id="turnDialog" class="turn-dialog hidden" role="dialog" aria-live="polite">
+      <button id="collapseNpcTurn" class="collapse-npc-turn hidden" type="button" aria-label="Slide NPC action panel away">&lt;</button>
       <p id="turnDialogKicker" class="eyebrow">Turn Ready</p>
       <h2 id="activeName">Character</h2>
       <p id="activeOwner">Player</p>
@@ -292,6 +293,7 @@
       </div>
     </section>
 
+    <button id="restoreNpcTurn" class="restore-npc-turn hidden" type="button" aria-label="Restore NPC action panel">&gt;</button>
     <section id="delayDialog" class="delay-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="delayDialogTitle">
       <div class="delay-dialog-panel">
         <div class="delay-dialog-head">
@@ -500,8 +502,8 @@
 
 
   <script src="combat-rules.js?v=20260811-fresh-start-1"></script>
-  <script src="app.js?v=20260811-fresh-start-1"></script>
+  <script src="app.js?v=20260813-undo-chapters-1"></script>
   <script src="combat-actions.js?v=20260811-fresh-start-1"></script>
-  <script type="module" src="npc-combat-dice.js?v=20260811-fresh-start-1"></script>
+  <script type="module" src="npc-combat-dice.js?v=20260813-undo-chapters-1"></script>
   </body>
 </html>

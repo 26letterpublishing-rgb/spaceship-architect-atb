@@ -71,7 +71,7 @@ function numberTexture(value, accent, stroke = "rgba(1, 5, 10, .98)") {
   return texture;
 }
 
-function faceLabel(value, normal, position, accent, size, stroke) {
+function faceLabel(value, normal, position, accent, size, stroke, upHint = null) {
   const material = new THREE.MeshBasicMaterial({
     map: numberTexture(value, accent, stroke),
     transparent: true,
@@ -82,7 +82,17 @@ function faceLabel(value, normal, position, accent, size, stroke) {
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
   mesh.position.copy(position).addScaledVector(normal, 0.025);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  const zAxis = normal.clone().normalize();
+  let yAxis = upHint?.clone() || new THREE.Vector3(0, 1, 0);
+  yAxis.addScaledVector(zAxis, -yAxis.dot(zAxis));
+  if (yAxis.lengthSq() < 0.0001) {
+    yAxis = Math.abs(zAxis.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, -1);
+    yAxis.addScaledVector(zAxis, -yAxis.dot(zAxis));
+  }
+  yAxis.normalize();
+  const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
+  const orientation = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+  mesh.quaternion.setFromRotationMatrix(orientation);
   mesh.renderOrder = 4;
   mesh.userData.baseScale = size;
   return mesh;
@@ -178,7 +188,8 @@ function d10Visual({ color = 0x17354e, alternate = 0x10283d, accent = "#b9f4ff" 
     ).normalize();
     const center = points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(0.25);
     const value = index + 1;
-    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.78);
+    const tip = points.reduce((best, point) => Math.abs(point.y) > Math.abs(best.y) ? point : best, points[0]);
+    const label = faceLabel(value === 10 ? 0 : value, normal, center, accent, 0.78, undefined, tip.clone().sub(center));
     group.add(label);
     normals.push({ value, normal, label });
   });
@@ -238,6 +249,7 @@ function groupedFaceData(faceData) {
   return groups.map((group) => ({
     normal: group.normal,
     center: group.points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / group.points.length),
+    points: group.points,
   }));
 }
 
@@ -259,7 +271,8 @@ function polyVisual(sides, { color = 0x17354e, accent = "#b9f4ff" } = {}) {
   const labelSize = { 4: 0.86, 8: 0.72, 12: 0.58, 20: 0.46 }[sides];
   const normals = groupedFaceData(definition.faceData).map((face, index) => {
     const value = index + 1;
-    const label = faceLabel(value, face.normal, face.center, accent, labelSize);
+    const tip = face.points.reduce((best, point) => point.y > best.y || (point.y === best.y && point.x < best.x) ? point : best, face.points[0]);
+    const label = faceLabel(value, face.normal, face.center, accent, labelSize, undefined, tip.clone().sub(face.center));
     group.add(label);
     return { value, normal: face.normal, label };
   });

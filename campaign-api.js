@@ -48,6 +48,36 @@ function trimPrivateNotes(campaign) {
   }
   campaign.privateNotes = notes.filter((note) => keep.has(note.id));
 }
+function applyConditionalDelivery(campaign, record, action) {
+  const now = new Date().toISOString();
+  if (action.kind === "message") {
+    campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "message", message: action.message, createdAt: now, readAt: null });
+    return { kind: "message" };
+  }
+  const character = record.character;
+  character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+  character.resources ||= {};
+  const before = { shipCredits: campaign.shipCredits, characters: [{ id: record.id, experience: clone(character.experience), creditsBase: Number(character.resources.creditsBase) || 0, reverence: Number(character.resources.reverence) || 0 }] };
+  const resource = action.resource;
+  const amount = Math.max(0, Math.round(Number(action.amount) || 0));
+  if (resource === "experience") {
+    const raceId = character.identity?.raceId;
+    const received = raceId === "android" ? 0 : raceId === "spiddix" ? Math.floor(amount / 2) : amount;
+    character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + received));
+    character.experience.totalGained = Math.max(Number(character.experience.spent) + character.experience.available, Math.round((Number(character.experience.totalGained) || 0) + amount));
+  }
+  if (resource === "credits") character.resources.creditsBase = Math.round(boundedNumber((Number(character.resources.creditsBase) || 0) + amount, 0, 999999999));
+  if (resource === "reverence") character.resources.reverence = Math.round(boundedNumber((Number(character.resources.reverence) || 0) + amount, 0, 10));
+  if (resource === "shipCredits") campaign.shipCredits = Math.round(boundedNumber((Number(campaign.shipCredits) || 0) + amount, 0, 999999999));
+  record.updatedAt = now;
+  const award = { id: uid("award"), resource, amount, targetIds: [record.id], before, at: now };
+  campaign.awardHistory.push(award);
+  campaign.awardHistory = campaign.awardHistory.slice(-20);
+  const label = { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Ship Credit Pool Credits" }[resource] || resource;
+  campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", awardId: award.id, message: `Successful ${action.attribute} + ${action.skill} check: awarded ${amount.toLocaleString()} ${label}.`, createdAt: now, readAt: null });
+  return { kind: "award", resource, amount, awardId: award.id };
+}
+
 function defaultCampaign({ code, name, gmCode }) {
   const now = new Date().toISOString();
   return {
@@ -58,6 +88,8 @@ function defaultCampaign({ code, name, gmCode }) {
     createdAt: now,
     updatedAt: now,
     script: "",
+    scriptChapters: [{ id: uid("chapter"), name: "Chapter 1", script: "" }],
+    conditionalActions: [],
     characters: [],
     joinRequests: [],
     shipCredits: 0,
@@ -80,6 +112,28 @@ function normalizeCampaign(raw) {
   campaign.gmCode = campaign.gmCode || campaign.password || null;
   delete campaign.password;
   campaign.script = String(campaign.script || "").slice(0, MAX_SCRIPT_LENGTH);
+  const legacyScript = campaign.script;
+  const chapterSource = Array.isArray(campaign.scriptChapters) && campaign.scriptChapters.length
+    ? campaign.scriptChapters
+    : [{ id: uid("chapter"), name: "Chapter 1", script: legacyScript }];
+  campaign.scriptChapters = chapterSource.slice(0, 100).map((chapter, index) => ({
+    id: String(chapter?.id || uid("chapter")).slice(0, 100),
+    name: String(chapter?.name || `Chapter ${index + 1}`).trim().slice(0, 80) || `Chapter ${index + 1}`,
+    script: String(chapter?.script || "").slice(0, MAX_SCRIPT_LENGTH),
+  }));
+  campaign.script = campaign.scriptChapters[0].script;
+  campaign.conditionalActions = (Array.isArray(campaign.conditionalActions) ? campaign.conditionalActions : []).slice(0, 250).map((action) => ({
+    id: String(action?.id || uid("conditional")).slice(0, 100),
+    keyword: String(action?.keyword || "").trim().slice(0, 60),
+    kind: action?.kind === "award" ? "award" : "message",
+    message: String(action?.message || "").trim().slice(0, 4000),
+    resource: ["experience", "credits", "reverence"].includes(action?.resource) ? action.resource : "experience",
+    amount: Math.round(boundedNumber(action?.amount, 0, 999999999)),
+    attribute: String(action?.attribute || "").slice(0, 40),
+    skill: String(action?.skill || "").slice(0, 80),
+    difficulty: Number.isFinite(Number(action?.difficulty)) ? Number(action.difficulty) : 0,
+    hideDifficulty: Boolean(action?.hideDifficulty),
+  })).filter((action) => action.keyword && action.attribute && action.skill && action.difficulty >= 0);
   campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
   campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
@@ -151,6 +205,8 @@ function campaignBackup(campaign) {
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
       script: campaign.script,
+      scriptChapters: campaign.scriptChapters,
+      conditionalActions: campaign.conditionalActions,
       characters: campaign.characters,
       joinRequests: campaign.joinRequests,
       settings: campaign.settings,
@@ -309,6 +365,8 @@ class CampaignApi {
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
       script: gm ? campaign.script : undefined,
+      scriptChapters: gm ? clone(campaign.scriptChapters) : undefined,
+      conditionalActions: gm ? clone(campaign.conditionalActions) : undefined,
       shipCredits: campaign.shipCredits,
       sessionNumber: campaign.sessionNumber,
       bankerCharacterId: campaign.bankerCharacterId,
@@ -391,6 +449,18 @@ class CampaignApi {
     campaign.privateNotes.push(note);
     await this.save(campaign);
     return { id: note.id, rawDamage: incoming, reduction, applied, beforeHp, currentHp, maximumHp, source: String(source || "Combat damage").slice(0, 160), createdAt: Date.now() };
+  }
+
+  async setCharacterCombatHp(code, characterId, currentHp = 0) {
+    const campaign = await this.campaign(code);
+    const record = campaign?.characters.find((entry) => entry.id === characterId);
+    if (!record) return false;
+    record.character.health ||= { current: 0, permanentBonus: 0 };
+    const maximum = Math.max(0, Number(record.character.computed?.maximumHp) || Number(currentHp) || 0);
+    record.character.health.current = Math.max(0, Math.min(maximum, Number(currentHp) || 0));
+    record.updatedAt = new Date().toISOString();
+    await this.save(campaign);
+    return true;
   }
 
 
@@ -975,9 +1045,92 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization is required." });
         return true;
       }
-      campaign.script = String(body.script || "").slice(0, MAX_SCRIPT_LENGTH);
+      const chapter = campaign.scriptChapters.find((entry) => entry.id === String(body.chapterId || ""))
+        || campaign.scriptChapters[0];
+      if (!chapter) {
+        sendJson(res, 404, { error: "Script chapter not found." });
+        return true;
+      }
+      chapter.script = String(body.script || "").slice(0, MAX_SCRIPT_LENGTH);
       await this.save(campaign);
       sendJson(res, 200, { saved: true, updatedAt: campaign.updatedAt });
+      return true;
+    }
+
+    if (path === "/api/campaign/script/chapter" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const action = String(body.action || "");
+      if (action === "add") {
+        const nextNumber = campaign.scriptChapters.length + 1;
+        campaign.scriptChapters.push({ id: uid("chapter"), name: `Chapter ${nextNumber}`, script: "" });
+      } else {
+        const chapter = campaign.scriptChapters.find((entry) => entry.id === String(body.chapterId || ""));
+        if (!chapter) {
+          sendJson(res, 404, { error: "Script chapter not found." });
+          return true;
+        }
+        if (action === "rename") {
+          chapter.name = String(body.name || chapter.name).trim().slice(0, 80) || chapter.name;
+        } else if (action === "delete") {
+          if (campaign.scriptChapters.length <= 1) {
+            sendJson(res, 409, { error: "Every campaign must retain at least one script chapter." });
+            return true;
+          }
+          campaign.scriptChapters = campaign.scriptChapters.filter((entry) => entry.id !== chapter.id);
+        } else {
+          sendJson(res, 400, { error: "Choose add, rename, or delete." });
+          return true;
+        }
+      }
+      campaign.script = campaign.scriptChapters[0].script;
+      await this.save(campaign);
+      sendJson(res, 200, { campaign: this.state(campaign, token) });
+      return true;
+    }
+    if (path === "/api/campaign/conditional-action" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const operation = String(body.operation || "save");
+      const actionId = String(body.id || "");
+      if (operation === "delete") {
+        const before = campaign.conditionalActions.length;
+        campaign.conditionalActions = campaign.conditionalActions.filter((entry) => entry.id !== actionId);
+        if (campaign.conditionalActions.length === before) {
+          sendJson(res, 404, { error: "Conditional action not found." });
+          return true;
+        }
+        await this.save(campaign);
+        sendJson(res, 200, { campaign: this.state(campaign, token) });
+        return true;
+      }
+      const keyword = String(body.keyword || "").trim().slice(0, 60);
+      const kind = body.kind === "award" ? "award" : "message";
+      const message = String(body.message || "").trim().slice(0, 4000);
+      const resource = ["experience", "credits", "reverence", "shipCredits"].includes(body.resource) ? body.resource : "experience";
+      const amount = Math.round(boundedNumber(body.amount, 0, 999999999));
+      const attribute = String(body.attribute || "").trim().slice(0, 40);
+      const skill = String(body.skill || "").trim().slice(0, 80);
+      const difficulty = Number(body.difficulty);
+      if (!keyword || !attribute || !skill || !Number.isFinite(difficulty) || difficulty < 0 || (kind === "message" ? !message : amount < 1)) {
+        sendJson(res, 400, { error: "Keyword, Attribute, Skill, Difficulty, and the selected delivery are required." });
+        return true;
+      }
+      const duplicate = campaign.conditionalActions.find((entry) => entry.id !== actionId && entry.keyword.toLowerCase() === keyword.toLowerCase());
+      if (duplicate) {
+        sendJson(res, 409, { error: "That keyword is already assigned to another conditional action." });
+        return true;
+      }
+      const next = { id: actionId || uid("conditional"), keyword, kind, message, resource, amount, attribute, skill, difficulty, hideDifficulty: Boolean(body.hideDifficulty) };
+      const index = campaign.conditionalActions.findIndex((entry) => entry.id === actionId);
+      if (index >= 0) campaign.conditionalActions[index] = next;
+      else campaign.conditionalActions.push(next);
+      await this.save(campaign);
+      sendJson(res, 200, { action: clone(next), campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -1334,6 +1487,7 @@ class CampaignApi {
       const difficulty = body.difficulty === "" || body.difficulty === null || body.difficulty === undefined
         ? null
         : Number(body.difficulty);
+      const completionAction = campaign.conditionalActions.find((entry) => entry.id === String(body.completionActionId || "")) || null;
       const request = {
         id: uid("roll"),
         source: String(body.source || "GM Prompt").slice(0, 160),
@@ -1342,6 +1496,7 @@ class CampaignApi {
         difficulty: Number.isFinite(difficulty) ? difficulty : null,
         hideDifficulty: Boolean(body.hideDifficulty),
         targetIds,
+        completionActionId: completionAction?.id || "",
         results: {},
         createdAt: new Date().toISOString(),
         closedAt: null,
@@ -1377,16 +1532,28 @@ class CampaignApi {
         sendJson(res, 403, { error: "This roll request is not available to that character." });
         return true;
       }
+      if (request.results[characterId]) {
+        sendJson(res, 409, { error: "This character has already answered that roll request." });
+        return true;
+      }
+      const submittedScore = Number(body.score) || 0;
       request.results[characterId] = {
-        score: Number(body.score) || 0,
+        score: submittedScore,
         mode: body.mode === "manual" ? "manual" : "automatic",
         diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number) : [],
         outcome: String(body.outcome || "").slice(0, 40),
         respondedAt: new Date().toISOString(),
       };
       campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.rollRequestId === request.id && note.characterId === characterId));
+      const completionAction = campaign.conditionalActions.find((entry) => entry.id === request.completionActionId);
+      const succeeded = request.difficulty !== null && submittedScore >= Number(request.difficulty);
+      const delivery = completionAction && succeeded
+        ? applyConditionalDelivery(campaign, campaign.characters.find((entry) => entry.id === characterId), completionAction)
+        : null;
+      request.results[characterId].conditionalDelivery = delivery;
+      trimPrivateNotes(campaign);
       await this.save(campaign);
-      sendJson(res, 200, { recorded: true });
+      sendJson(res, 200, { recorded: true, succeeded, delivery });
       return true;
     }
 

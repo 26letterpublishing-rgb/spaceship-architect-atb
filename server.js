@@ -86,6 +86,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     units: [],
     log: [],
     undoSnapshot: null,
+    undoLabel: "",
     lastPersistRequestAt: 0,
   };
   if (snapshot && typeof snapshot === "object") {
@@ -445,8 +446,9 @@ function snapshotRoom(room) {
   };
 }
 
-function saveUndoSnapshot(room) {
+function saveUndoSnapshot(room, label = "combat change") {
   room.undoSnapshot = snapshotRoom(room);
+  room.undoLabel = String(label || "combat change").slice(0, 80);
 }
 
 function restoreUndoSnapshot(room) {
@@ -468,25 +470,38 @@ function restoreUndoSnapshot(room) {
   room.commandHeldRemaining = snapshot.commandHeldRemaining;
   room.lastInterruptedId = snapshot.lastInterruptedId;
   room.lastInterruptedAt = snapshot.lastInterruptedAt;
+  room.encounterEndedAt = snapshot.encounterEndedAt;
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.threshold = snapshot.threshold;
   room.units = clone(snapshot.units);
   room.log = clone(snapshot.log);
   room.undoSnapshot = null;
+  room.undoLabel = "";
   room.lastTick = Date.now();
-  pushLog(room, "GM undid the last timing change.");
+  pushLog(room, "GM undid the last combat change.");
   return true;
 }
 
-const undoableActions = new Set([
+const gmUndoableActions = new Set([
   "addUnit",
   "removeUnit",
+  "syncCampaignUnits",
+  "refreshCharacterVersion",
+  "setNpcCombatStat",
+  "setNpcWeapon",
+  "gmBeginNpcAttack",
+  "submitAttackRoll",
+  "submitAttackDamage",
+  "confirmNpcDamage",
+  "setNpcHp",
   "setRunning",
   "setHardPaused",
   "toggleClock",
   "setSpeed",
   "setCommandWindow",
+  "setName",
+  "setColor",
   "requestDelay",
   "cancelDelayRequest",
   "startDelay",
@@ -499,9 +514,10 @@ const undoableActions = new Set([
   "clearEncounter",
   "completeTurn",
   "nudge",
-  "playerCombatAction",
   "applyDamage",
 ]);
+
+const gmClockOnlyActions = new Set(["setRunning", "setHardPaused", "toggleClock", "step"]);
 
 function sendEvent(res, event, data) {
   res.write(`event: ${event}\n`);
@@ -1272,16 +1288,41 @@ async function handleAction(req, res) {
     sendJson(res, 403, { error: "GM authorization is required for that encounter control." });
     return;
   }
-  if (action === "undoLastTiming") {
-    restoreUndoSnapshot(room);
+  if (action === "undoLastAction" || action === "undoLastTiming") {
+    const restored = restoreUndoSnapshot(room);
+    if (restored) {
+      await Promise.all(room.units.flatMap((unit) => (
+        unit.characterId && Number.isFinite(Number(unit.currentHp))
+          ? [campaignApi?.setCharacterCombatHp(room.roomCode, unit.characterId, unit.currentHp)]
+          : []
+      )));
+    }
     sendJson(res, 200, publicState(room));
     broadcast(room);
     scheduleRoomPersist(room, 0);
     return;
   }
 
-  if (undoableActions.has(action) && !(action === "join" && body.controlledBy === "player")) {
-    saveUndoSnapshot(room);
+  if (action === "submitAttackRoll") {
+    const attack = room.attackResolution;
+    const rollRole = String(body.rollRole || "");
+    const field = rollRole === "attacker" ? "attackerRoll" : rollRole === "defender" ? "defenseRoll" : "";
+    if (!attack || attack.id !== String(body.attackId || "") || attack.phase !== "checks" || !field || attack[field]) {
+      sendJson(res, 409, { error: "That attack roll is no longer waiting." });
+      return;
+    }
+  }
+  if (action === "submitAttackDamage") {
+    const attack = room.attackResolution;
+    if (!attack || attack.id !== String(body.attackId || "") || attack.phase !== "damage" || attack.damageRoll) {
+      sendJson(res, 409, { error: "That Damage roll is no longer waiting." });
+      return;
+    }
+  }
+
+  if (gmAuthorized && gmUndoableActions.has(action)) {
+    // Clock movement must not erase the checkpoint for a substantive GM edit.
+    if (!gmClockOnlyActions.has(action) || !room.undoSnapshot) saveUndoSnapshot(room, action);
   }
 
   if (action === "join" || action === "addUnit") {

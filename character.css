@@ -1483,3 +1483,12 @@ html { -webkit-text-size-adjust:100%; }
   .combat-damage-summary { grid-template-columns: 1fr; }
   .combat-damage-dialog { max-height: calc(100dvh - 12px); }
 }
+button,
+.attribute-die,
+.skill-buy,
+.skill-refund {
+  touch-action: manipulation;
+}
+@media (max-width: 760px) {
+  input, select, textarea { font-size: 16px; }
+}

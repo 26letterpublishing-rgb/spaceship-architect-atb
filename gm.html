@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260811-fresh-start-1" />
+  <link rel="stylesheet" href="gm.css?v=20260813-undo-chapters-1" />
   <script src="data-reset.js?v=20260811-fresh-start-1"></script>
   </head>
   <body>
@@ -16,7 +16,7 @@
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
         <div class="gm-header-actions">
-          <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><span></span></button>
+          <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
         </div>
       </header>
@@ -67,10 +67,19 @@
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
             <div class="script-heading-actions"><strong id="scriptSaveState">Saved</strong></div>
           </div>
+          <div class="script-chapter-console">
+            <div id="scriptChapterTabs" class="script-chapter-tabs" aria-label="Script chapters"></div>
+            <div class="script-chapter-actions">
+              <button id="addScriptChapter" type="button">+ Chapter</button>
+              <button id="renameScriptChapter" type="button">Rename</button>
+              <button id="deleteScriptChapter" class="danger" type="button">Delete</button>
+            </div>
+          </div>
           <div id="campaignScript" class="script-live-editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" data-placeholder="Type story notes here. Insert clickable roll commands with the controls below."></div>
           <section id="scriptCommandBuilder" class="command-builder">
             <h3>Insert Roll Command</h3>
             <div class="builder-grid">
+              <label>Command<select id="scriptCommandType"><option value="">Direct Roll</option></select></label>
               <label>Recipients<select id="scriptScope"><option>All Players</option><option>Choose PC</option><option>Target Character</option></select></label>
               <label id="scriptTargetWrap" hidden>Target Character<select id="scriptTarget"></select></label>
               <label>Attribute<select id="scriptAttribute"></select></label>
@@ -154,6 +163,29 @@
                 <label class="check-field"><input id="promptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
               </div>
               <button class="primary" type="submit">Send Roll Request</button>
+            </form>
+            <form id="conditionalActionForm" class="tool-card conditional-action-card">
+              <h3>Conditional Prompt / Reward</h3>
+              <label>Saved Keyword<select id="conditionalActionSelect"><option value="">New Action...</option></select></label>
+              <label>Keyword<input id="conditionalKeyword" maxlength="60" placeholder="SPOT CROWN" required /></label>
+              <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
+              <label id="conditionalMessageWrap">Private Message<textarea id="conditionalMessage" rows="4" maxlength="4000" placeholder="What successful characters learn..."></textarea></label>
+              <div id="conditionalAwardWrap" class="conditional-award-fields" hidden>
+                <label>Resource<select id="conditionalResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Ship Credit Pool</option></select></label>
+                <label>Amount<input id="conditionalAmount" type="number" min="1" step="1" value="1" /></label>
+              </div>
+              <div class="roll-grid">
+                <label>Attribute<select id="conditionalAttribute"></select></label>
+                <label>Skill<select id="conditionalSkill"></select></label>
+                <label>Difficulty<input id="conditionalDifficulty" type="number" min="0" step="0.1" required /></label>
+                <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" /> Hide Difficulty</label>
+              </div>
+              <div class="conditional-action-buttons">
+                <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
+                <button id="sendConditionalAction" type="button">Send to Selected</button>
+                <button id="deleteConditionalAction" class="danger" type="button" disabled>Delete</button>
+              </div>
+              <p id="conditionalActionMessage" class="tool-message" role="status"></p>
             </form>
           </div>
           <section class="roll-results-panel">
@@ -245,6 +277,6 @@
       </section>
     </main>
 
-  <script type="module" src="gm.js?v=20260811-fresh-start-1"></script>
+  <script type="module" src="gm.js?v=20260813-undo-chapters-1"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260811-fresh-start-1";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-undo-chapters-1";
 
 const roller = new PhysicalDiceRoller({
   shell: document.querySelector("#npcDiceRoller"),

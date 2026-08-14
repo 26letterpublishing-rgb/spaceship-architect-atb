@@ -3401,3 +3401,99 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
     font-size: 3.25rem;
   }
 }
+
+/* Reliable mobile sound and NPC turn controls */
+.sound-toggle::before,
+.sound-toggle::after,
+.sound-toggle span {
+  display: none;
+}
+
+.sound-toggle svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 7px rgba(255, 147, 198, 0.42));
+}
+
+.sound-toggle svg > path:first-child {
+  fill: #ff93c6;
+}
+
+.sound-toggle .sound-wave,
+.sound-toggle .mute-slash {
+  fill: none;
+  stroke: #ff93c6;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sound-toggle .mute-slash {
+  display: none;
+}
+
+.sound-toggle.muted .sound-wave {
+  display: none;
+}
+
+.sound-toggle.muted .mute-slash {
+  display: block;
+  stroke: #ff7a89;
+}
+
+.turn-dialog {
+  transition: transform 260ms ease, opacity 180ms ease;
+}
+
+.turn-dialog.npc-collapsed {
+  transform: translateX(calc(-100vw - 560px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapse-npc-turn {
+  position: absolute;
+  left: -18px;
+  top: 18px;
+  width: 34px;
+  min-height: 66px;
+  padding: 0;
+  z-index: 2;
+  border-radius: 999px;
+  font-size: 1.5rem;
+}
+
+.restore-npc-turn {
+  position: fixed;
+  left: 0;
+  top: 42%;
+  z-index: 10020;
+  width: 42px;
+  min-height: 94px;
+  padding: 0;
+  border: 1px solid #7f91a2;
+  border-left: 0;
+  border-radius: 0 15px 15px 0;
+  color: #f4fbff;
+  background: linear-gradient(90deg, #313944, #626d78);
+  box-shadow: 5px 0 18px rgba(0, 0, 0, 0.55), inset 0 1px rgba(255,255,255,.2);
+  font-size: 1.8rem;
+}
+
+@media (max-width: 700px) {
+  .gm-timing-controls {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  #undoLastTiming {
+    display: block !important;
+    visibility: visible !important;
+  }
+  .collapse-npc-turn {
+    left: 3px;
+  }
+}
+

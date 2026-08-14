@@ -33,6 +33,11 @@ const dom = {
   script: $("#campaignScript"),
   scriptSaveState: $("#scriptSaveState"),
   scriptCommandBuilder: $("#scriptCommandBuilder"),
+  scriptChapterTabs: $("#scriptChapterTabs"),
+  addScriptChapter: $("#addScriptChapter"),
+  renameScriptChapter: $("#renameScriptChapter"),
+  deleteScriptChapter: $("#deleteScriptChapter"),
+  scriptCommandType: $("#scriptCommandType"),
   scriptScope: $("#scriptScope"),
   scriptTargetWrap: $("#scriptTargetWrap"),
   scriptTarget: $("#scriptTarget"),
@@ -75,6 +80,22 @@ const dom = {
   promptDifficulty: $("#promptDifficulty"),
   promptHideDifficulty: $("#promptHideDifficulty"),
   rollResults: $("#gmRollResults"),
+  conditionalForm: $("#conditionalActionForm"),
+  conditionalSelect: $("#conditionalActionSelect"),
+  conditionalKeyword: $("#conditionalKeyword"),
+  conditionalKind: $("#conditionalKind"),
+  conditionalMessageWrap: $("#conditionalMessageWrap"),
+  conditionalMessage: $("#conditionalMessage"),
+  conditionalAwardWrap: $("#conditionalAwardWrap"),
+  conditionalResource: $("#conditionalResource"),
+  conditionalAmount: $("#conditionalAmount"),
+  conditionalAttribute: $("#conditionalAttribute"),
+  conditionalSkill: $("#conditionalSkill"),
+  conditionalDifficulty: $("#conditionalDifficulty"),
+  conditionalHideDifficulty: $("#conditionalHideDifficulty"),
+  sendConditionalAction: $("#sendConditionalAction"),
+  deleteConditionalAction: $("#deleteConditionalAction"),
+  conditionalActionMessage: $("#conditionalActionMessage"),
   inboxCount: $("#gmInboxCount"),
   pendingJoinCount: $("#pendingJoinCount"),
   inboxList: $("#gmInboxList"),
@@ -117,6 +138,8 @@ let events = null;
 let scriptSaveTimer = null;
 let scriptDirty = false;
 let lastScriptRange = null;
+let activeScriptChapterId = "";
+let editingConditionalActionId = "";
 let selectedTargets = new Set();
 let targetSelectionTouched = false;
 const executedCommands = new Set();
@@ -290,12 +313,87 @@ function populateRulesControls() {
   const skillOptions = allSkills.map((skill) => `<option value="${escapeHtml(skill)}">${escapeHtml(skill)}</option>`).join("");
   dom.scriptAttribute.innerHTML = attributeOptions;
   dom.promptAttribute.innerHTML = attributeOptions;
+  dom.conditionalAttribute.innerHTML = attributeOptions;
   dom.scriptSkill.innerHTML = skillOptions;
   dom.promptSkill.innerHTML = skillOptions;
+  dom.conditionalSkill.innerHTML = skillOptions;
 }
 
 function selectedRecords() {
   return campaign?.characters?.filter((record) => selectedTargets.has(record.id)) || [];
+}
+
+function scriptChapters() {
+  if (campaign?.scriptChapters?.length) return campaign.scriptChapters;
+  return [{ id: "legacy-chapter", name: "Chapter 1", script: campaign?.script || "" }];
+}
+
+function activeScriptChapter() {
+  const chapters = scriptChapters();
+  return chapters.find((entry) => entry.id === activeScriptChapterId) || chapters[0];
+}
+
+function renderScriptChapterControls() {
+  const chapters = scriptChapters();
+  if (!chapters.some((entry) => entry.id === activeScriptChapterId)) activeScriptChapterId = chapters[0]?.id || "";
+  dom.scriptChapterTabs.innerHTML = chapters.map((entry) =>
+    `<button type="button" data-script-chapter="${entry.id}" class="${entry.id === activeScriptChapterId ? "active" : ""}">${escapeHtml(entry.name)}</button>`
+  ).join("");
+  dom.deleteScriptChapter.disabled = chapters.length <= 1;
+}
+
+function syncConditionalKind() {
+  const award = dom.conditionalKind.value === "award";
+  dom.conditionalMessageWrap.hidden = award;
+  dom.conditionalAwardWrap.hidden = !award;
+}
+
+function clearConditionalForm() {
+  editingConditionalActionId = "";
+  dom.conditionalSelect.value = "";
+  dom.conditionalKeyword.value = "";
+  dom.conditionalKind.value = "message";
+  dom.conditionalMessage.value = "";
+  dom.conditionalResource.value = "experience";
+  dom.conditionalAmount.value = "1";
+  dom.conditionalDifficulty.value = "";
+  dom.conditionalHideDifficulty.checked = false;
+  dom.deleteConditionalAction.disabled = true;
+  syncConditionalKind();
+}
+
+function loadConditionalForm(actionId) {
+  const action = (campaign?.conditionalActions || []).find((entry) => entry.id === actionId);
+  if (!action) {
+    clearConditionalForm();
+    return;
+  }
+  editingConditionalActionId = action.id;
+  dom.conditionalSelect.value = action.id;
+  dom.conditionalKeyword.value = action.keyword;
+  dom.conditionalKind.value = action.kind;
+  dom.conditionalMessage.value = action.message || "";
+  dom.conditionalResource.value = action.resource || "experience";
+  dom.conditionalAmount.value = String(action.amount || 1);
+  dom.conditionalAttribute.value = action.attribute;
+  dom.conditionalSkill.value = action.skill;
+  dom.conditionalDifficulty.value = String(action.difficulty);
+  dom.conditionalHideDifficulty.checked = Boolean(action.hideDifficulty);
+  dom.deleteConditionalAction.disabled = false;
+  syncConditionalKind();
+}
+
+function renderConditionalControls() {
+  const actions = campaign?.conditionalActions || [];
+  const selected = editingConditionalActionId;
+  const selectedScriptAction = dom.scriptCommandType.value;
+  const options = actions.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.keyword)}</option>`).join("");
+  dom.conditionalSelect.innerHTML = `<option value="">New Action...</option>${options}`;
+  dom.scriptCommandType.innerHTML = `<option value="">Direct Roll</option>${actions.map((entry) => `<option value="${entry.id}">Keyword: ${escapeHtml(entry.keyword)}</option>`).join("")}`;
+  if (actions.some((entry) => entry.id === selectedScriptAction)) dom.scriptCommandType.value = selectedScriptAction;
+  syncScriptCommandType();
+  if (actions.some((entry) => entry.id === selected)) dom.conditionalSelect.value = selected;
+  else if (selected) clearConditionalForm();
 }
 
 function syncSelectedTargets() {
@@ -371,10 +469,20 @@ function parseCommand(raw, index) {
   const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
   const scopePart = parts.shift() || "";
   const rollPart = parts.shift() || "";
-  const [attribute, skill] = rollPart.split("+").map((part) => part?.trim());
+  let [attribute, skill] = rollPart.split("+").map((part) => part?.trim());
   const difficultyPart = parts.find((part) => /^difficulty\s+/i.test(part));
-  const difficulty = difficultyPart ? Number(difficultyPart.replace(/^difficulty\s+/i, "")) : null;
-  const hideDifficulty = parts.some((part) => /^hidden$/i.test(part));
+  let difficulty = difficultyPart ? Number(difficultyPart.replace(/^difficulty\s+/i, "")) : null;
+  let hideDifficulty = parts.some((part) => /^hidden$/i.test(part));
+  const keyword = rollPart.match(/^keyword\s*:\s*(.+)$/i)?.[1]?.trim() || "";
+  const conditionalAction = keyword
+    ? (campaign?.conditionalActions || []).find((entry) => entry.keyword.toLowerCase() === keyword.toLowerCase())
+    : null;
+  if (conditionalAction) {
+    attribute = conditionalAction.attribute;
+    skill = conditionalAction.skill;
+    difficulty = Number(conditionalAction.difficulty);
+    hideDifficulty = Boolean(conditionalAction.hideDifficulty);
+  }
   let scope = "";
   let targetName = "";
   if (/^all players$/i.test(scopePart)) scope = "all";
@@ -392,9 +500,12 @@ function parseCommand(raw, index) {
     targetName,
     attribute,
     skill,
+    keyword,
+    conditionalActionId: conditionalAction?.id || "",
+    conditionalAction,
     difficulty: Number.isFinite(difficulty) ? difficulty : null,
     hideDifficulty,
-    valid: Boolean(scope && validAttribute && validSkill),
+    valid: Boolean(scope && validAttribute && validSkill && (!keyword || conditionalAction)),
   };
 }
 
@@ -769,8 +880,9 @@ function renderScriptEditor(source = scriptSource()) {
     const selectedTargetId = scriptTargetSelections.get(selectionKey) || "";
     const options = (campaign?.characters || []).map((record) => `<option value="${record.id}" ${record.id === selectedTargetId ? "selected" : ""}>${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
     const needsSelection = command?.scope === "choose" || (command?.scope === "target" && !command.targetName);
+    const recipientLabel = command?.scope === "all" ? "ALL PLAYERS" : command?.scope === "choose" ? "CHOOSE PC" : command?.targetName.toUpperCase();
     const label = command?.valid
-      ? `${command.scope === "all" ? "ALL PLAYERS" : command.scope === "choose" ? "CHOOSE PC" : command.targetName.toUpperCase()} / ${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
+      ? `${recipientLabel} / ${command.keyword ? `KEYWORD: ${command.keyword} / ` : ""}${command.attribute} + ${command.skill}${command.difficulty === null ? "" : ` / ${command.hideDifficulty ? "HIDDEN " : ""}DIFFICULTY ${command.difficulty}`}`
       : `INVALID ROLL PROMPT / ${match[1].trim()}`;
     pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>${needsSelection ? `<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>` : ""}</span>`);
     cursor = expression.lastIndex;
@@ -805,8 +917,11 @@ function renderCampaign() {
   dom.scriptTarget.innerHTML = campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("");
   dom.bankerCharacter.innerHTML = `<option value="">No Banker - Any PC May Use Pool</option>${campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("")}`;
   dom.bankerCharacter.value = campaign.bankerCharacterId || "";
-  if (!scriptDirty && document.activeElement !== dom.script && scriptSource() !== (campaign.script || "")) {
-    renderScriptEditor(campaign.script || "");
+  renderScriptChapterControls();
+  renderConditionalControls();
+  const chapter = activeScriptChapter();
+  if (!scriptDirty && document.activeElement !== dom.script && scriptSource() !== (chapter?.script || "")) {
+    renderScriptEditor(chapter?.script || "");
   }
   renderCharacters();
   renderPremadeNpcConsole();
@@ -866,7 +981,10 @@ async function saveScript() {
   if (!campaign) return;
   dom.scriptSaveState.textContent = "Saving...";
   try {
-    await api("/api/campaign/script/save", { code, token, script: scriptSource() });
+    const source = scriptSource();
+    await api("/api/campaign/script/save", { code, token, chapterId: activeScriptChapter()?.id, script: source });
+    const chapter = activeScriptChapter();
+    if (chapter) chapter.script = source;
     scriptDirty = false;
     dom.scriptSaveState.textContent = "Saved";
   } catch (error) {
@@ -875,9 +993,42 @@ async function saveScript() {
   }
 }
 
-async function sendRollRequest({ targetIds, attribute, skill, difficulty = null, hideDifficulty = false, source = "GM Prompt", connectedOnly = false }) {
-  const payload = await api("/api/campaign/roll/request", { code, token, targetIds, attribute, skill, difficulty, hideDifficulty, source, connectedOnly });
+async function sendRollRequest({ targetIds, attribute, skill, difficulty = null, hideDifficulty = false, source = "GM Prompt", connectedOnly = false, completionActionId = "" }) {
+  const payload = await api("/api/campaign/roll/request", { code, token, targetIds, attribute, skill, difficulty, hideDifficulty, source, connectedOnly, completionActionId });
   showMessage(dom.message, `Roll request sent to ${payload.request.targetIds.length} character${payload.request.targetIds.length === 1 ? "" : "s"}.`, "success");
+}
+
+function conditionalFormPayload() {
+  return {
+    code,
+    token,
+    operation: "save",
+    id: editingConditionalActionId,
+    keyword: dom.conditionalKeyword.value,
+    kind: dom.conditionalKind.value,
+    message: dom.conditionalMessage.value,
+    resource: dom.conditionalResource.value,
+    amount: dom.conditionalAmount.value,
+    attribute: dom.conditionalAttribute.value,
+    skill: dom.conditionalSkill.value,
+    difficulty: dom.conditionalDifficulty.value,
+    hideDifficulty: dom.conditionalHideDifficulty.checked,
+  };
+}
+
+async function saveConditionalAction() {
+  const payload = await api("/api/campaign/conditional-action", conditionalFormPayload());
+  editingConditionalActionId = payload.action.id;
+  receiveCampaign(payload.campaign);
+  loadConditionalForm(payload.action.id);
+  return payload.action;
+}
+
+async function changeScriptChapter(action, payload = {}) {
+  if (scriptDirty) await saveScript();
+  const response = await api("/api/campaign/script/chapter", { code, token, action, ...payload });
+  receiveCampaign(response.campaign);
+  return response.campaign;
 }
 
 dom.openForm.addEventListener("submit", async (event) => {
@@ -954,6 +1105,56 @@ dom.tabs.addEventListener("click", (event) => {
   selectGmTab(button.dataset.tab);
 });
 
+dom.scriptChapterTabs.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-script-chapter]");
+  if (!button || button.dataset.scriptChapter === activeScriptChapterId) return;
+  try {
+    if (scriptDirty) await saveScript();
+    activeScriptChapterId = button.dataset.scriptChapter;
+    renderScriptChapterControls();
+    renderScriptEditor(activeScriptChapter()?.script || "");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+dom.addScriptChapter.addEventListener("click", async () => {
+  try {
+    const before = new Set(scriptChapters().map((entry) => entry.id));
+    const nextCampaign = await changeScriptChapter("add");
+    activeScriptChapterId = nextCampaign.scriptChapters.find((entry) => !before.has(entry.id))?.id || nextCampaign.scriptChapters.at(-1)?.id || "";
+    renderCampaign();
+    renderScriptEditor(activeScriptChapter()?.script || "");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+dom.renameScriptChapter.addEventListener("click", async () => {
+  const chapter = activeScriptChapter();
+  if (!chapter) return;
+  const name = prompt("Rename this script chapter:", chapter.name);
+  if (name === null || !name.trim()) return;
+  try {
+    await changeScriptChapter("rename", { chapterId: chapter.id, name: name.trim() });
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+dom.deleteScriptChapter.addEventListener("click", async () => {
+  const chapter = activeScriptChapter();
+  if (!chapter || scriptChapters().length <= 1 || !confirm(`Delete "${chapter.name}" and all text inside it?`)) return;
+  try {
+    await changeScriptChapter("delete", { chapterId: chapter.id });
+    activeScriptChapterId = scriptChapters()[0]?.id || "";
+    renderCampaign();
+    renderScriptEditor(activeScriptChapter()?.script || "");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
 dom.script.addEventListener("change", (event) => {
   const select = event.target.closest("[data-command-target]");
   if (!select) return;
@@ -995,14 +1196,22 @@ dom.script.addEventListener("blur", (event) => {
   if (event.relatedTarget?.closest?.("#scriptCommandBuilder")) return;
   renderScriptEditor(scriptSource());
 });
+function syncScriptCommandType() {
+  const savedAction = Boolean(dom.scriptCommandType.value);
+  [dom.scriptAttribute, dom.scriptSkill, dom.scriptDifficulty, dom.scriptHideDifficulty].forEach((control) => { control.disabled = savedAction; });
+}
+dom.scriptCommandType.addEventListener("change", syncScriptCommandType);
 dom.scriptScope.addEventListener("change", () => { dom.scriptTargetWrap.hidden = dom.scriptScope.value !== "Target Character"; });
 dom.insertCommand.addEventListener("click", () => {
   const scope = dom.scriptScope.value === "Target Character"
     ? `Target Character:${characterName(campaign.characters.find((record) => record.id === dom.scriptTarget.value))}`
     : dom.scriptScope.value;
-  const parts = [`${scope}/${dom.scriptAttribute.value}+${dom.scriptSkill.value}`];
-  if (dom.scriptDifficulty.value !== "") parts.push(`Difficulty ${dom.scriptDifficulty.value}`);
-  if (dom.scriptHideDifficulty.checked) parts.push("Hidden");
+  const savedAction = (campaign?.conditionalActions || []).find((entry) => entry.id === dom.scriptCommandType.value);
+  const parts = [savedAction
+    ? `${scope}/Keyword:${savedAction.keyword}`
+    : `${scope}/${dom.scriptAttribute.value}+${dom.scriptSkill.value}`];
+  if (!savedAction && dom.scriptDifficulty.value !== "") parts.push(`Difficulty ${dom.scriptDifficulty.value}`);
+  if (!savedAction && dom.scriptHideDifficulty.checked) parts.push("Hidden");
   const command = `::${parts.join("/")}::`;
   const range = lastScriptRange?.cloneRange();
   if (range && dom.script.contains(range.commonAncestorContainer)) {
@@ -1051,6 +1260,7 @@ dom.script.addEventListener("click", async (event) => {
       hideDifficulty: command.hideDifficulty,
       source: `Script: ${command.raw}`,
       connectedOnly: command.scope === "all",
+      completionActionId: command.conditionalActionId,
     });
     executedCommands.add(command.id);
     renderScriptEditor(scriptSource());
@@ -1271,6 +1481,59 @@ dom.noteForm.addEventListener("submit", async (event) => {
     showMessage(dom.message, error.message, "error");
   }
 });
+dom.conditionalSelect.addEventListener("change", () => loadConditionalForm(dom.conditionalSelect.value));
+dom.conditionalKind.addEventListener("change", syncConditionalKind);
+
+dom.conditionalForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const action = await saveConditionalAction();
+    showMessage(dom.conditionalActionMessage, `Saved keyword "${action.keyword}".`, "success");
+  } catch (error) {
+    showMessage(dom.conditionalActionMessage, error.message, "error");
+  }
+});
+
+dom.sendConditionalAction.addEventListener("click", async () => {
+  if (!selectedTargets.size) {
+    showMessage(dom.conditionalActionMessage, "Choose at least one recipient above.", "error");
+    return;
+  }
+  if (!dom.conditionalForm.reportValidity()) return;
+  dom.sendConditionalAction.disabled = true;
+  try {
+    const action = await saveConditionalAction();
+    await sendRollRequest({
+      targetIds: [...selectedTargets],
+      attribute: action.attribute,
+      skill: action.skill,
+      difficulty: action.difficulty,
+      hideDifficulty: action.hideDifficulty,
+      source: `Conditional Action: ${action.keyword}`,
+      completionActionId: action.id,
+    });
+    showMessage(dom.conditionalActionMessage, `Sent "${action.keyword}" to ${selectedTargets.size} character${selectedTargets.size === 1 ? "" : "s"}.`, "success");
+  } catch (error) {
+    showMessage(dom.conditionalActionMessage, error.message, "error");
+  } finally {
+    dom.sendConditionalAction.disabled = false;
+  }
+});
+
+dom.deleteConditionalAction.addEventListener("click", async () => {
+  const action = (campaign?.conditionalActions || []).find((entry) => entry.id === editingConditionalActionId);
+  if (!action || !confirm(`Delete the saved action "${action.keyword}"?`)) return;
+  try {
+    const payload = await api("/api/campaign/conditional-action", { code, token, operation: "delete", id: action.id });
+    editingConditionalActionId = "";
+    receiveCampaign(payload.campaign);
+    clearConditionalForm();
+    showMessage(dom.conditionalActionMessage, "Conditional action deleted.", "success");
+  } catch (error) {
+    showMessage(dom.conditionalActionMessage, error.message, "error");
+  }
+});
+
 dom.rollForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedTargets.size) {

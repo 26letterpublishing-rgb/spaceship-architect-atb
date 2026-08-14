@@ -18,6 +18,9 @@ let gmDamageTargetId = "";
 let lastCombatPromptKey = "";
 let gmForcedDefenseEntry = false;
 let gmNpcPromptSignature = "";
+let npcAutoRollBusy = false;
+let collapsedNpcTurnId = "";
+const activeGmAudioNodes = new Set();
 let damageAlertTimer = null;
 let audioContext = null;
 let events = null;
@@ -231,6 +234,8 @@ const activeMeta = document.querySelector("#activeMeta");
 const logList = document.querySelector("#logList");
 const turnDialog = document.querySelector("#turnDialog");
 const turnDialogKicker = document.querySelector("#turnDialogKicker");
+const collapseNpcTurn = document.querySelector("#collapseNpcTurn");
+const restoreNpcTurn = document.querySelector("#restoreNpcTurn");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
@@ -1935,8 +1940,33 @@ function showTurnPanel() {
   turnDialog.classList.remove("hidden");
 }
 
+function syncNpcTurnPanelControls() {
+  const active = activeUnit();
+  const npcTurn = mode === "gm" && active?.team === "npc" && !state?.activeAction && !state?.attackResolution;
+  if (!npcTurn || (collapsedNpcTurnId && collapsedNpcTurnId !== active.id)) {
+    collapsedNpcTurnId = "";
+  }
+  const collapsed = npcTurn && collapsedNpcTurnId === active.id;
+  collapseNpcTurn?.classList.toggle("hidden", !npcTurn || collapsed);
+  restoreNpcTurn?.classList.toggle("hidden", !collapsed);
+  turnDialog.classList.toggle("npc-collapsed", collapsed);
+}
+
+function setNpcTurnPanelCollapsed(collapsed) {
+  const active = activeUnit();
+  if (mode !== "gm" || active?.team !== "npc" || state?.activeAction || state?.attackResolution) {
+    collapsedNpcTurnId = "";
+    syncNpcTurnPanelControls();
+    return;
+  }
+  collapsedNpcTurnId = collapsed ? active.id : "";
+  syncNpcTurnPanelControls();
+}
+
 function closeTurnPanel() {
   turnDialog.classList.add("hidden");
+  collapsedNpcTurnId = "";
+  syncNpcTurnPanelControls();
 }
 
 function unitRoleText(unit) {
@@ -2029,6 +2059,7 @@ function renderRejoinOptions() {
 
 function notifyTurnIfNeeded() {
   if (!state) return;
+  syncNpcTurnPanelControls();
   if (state.activeAction) {
     if (mode === "gm") {
       turnDialogKicker.textContent = state.activeAction.kind === "queuedEffect" ? "Queued Effect" : state.activeAction.kind === "queued" ? "Queued Setup" : "Delayed Resolution";
@@ -2112,10 +2143,25 @@ function ensureAudio() {
   return audioContext;
 }
 
+function stopGmAudio() {
+  gmAlarmAudio.pause();
+  gmAlarmAudio.currentTime = 0;
+  for (const node of activeGmAudioNodes) {
+    try {
+      node.gain.gain.cancelScheduledValues(audioContext?.currentTime || 0);
+      node.gain.gain.setValueAtTime(0, audioContext?.currentTime || 0);
+      node.osc.stop();
+    } catch {}
+  }
+  activeGmAudioNodes.clear();
+}
+
 function tone(frequency, start, duration, gainValue = 0.04, type = "square") {
   const audio = ensureAudio();
   const osc = audio.createOscillator();
   const gain = audio.createGain();
+  const node = { osc, gain };
+  activeGmAudioNodes.add(node);
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, audio.currentTime + start);
   gain.gain.setValueAtTime(0, audio.currentTime + start);
@@ -2123,6 +2169,10 @@ function tone(frequency, start, duration, gainValue = 0.04, type = "square") {
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + start + duration);
   osc.connect(gain);
   gain.connect(audio.destination);
+  osc.onended = () => {
+    activeGmAudioNodes.delete(node);
+    try { osc.disconnect(); gain.disconnect(); } catch {}
+  };
   osc.start(audio.currentTime + start);
   osc.stop(audio.currentTime + start + duration + 0.02);
 }
@@ -2342,21 +2392,27 @@ function gmNpcRollDefinition(attack, rollRole, rollingUnit) {
   };
 }
 
+function setNpcRollControlsDisabled(disabled) {
+  gmNpcRollPrompts?.querySelectorAll("button, input").forEach((control) => {
+    control.disabled = Boolean(disabled);
+  });
+}
+
 function renderGmNpcRollPrompts(attack, attacker, defender) {
   const prompts = [];
   if (attack.phase === "checks" && !attack.attackerRoll && attacker?.team === "npc") prompts.push({ role: "attacker", unit: attacker });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "npc") prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && gmForcedDefenseEntry) prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "damage" && !attack.damageRoll && attacker?.team === "npc") prompts.push({ role: "damage", unit: attacker });
-  const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}`;
+  const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
   if (signature === gmNpcPromptSignature) return;
   gmNpcPromptSignature = signature;
   gmNpcRollPrompts.innerHTML = prompts.map(({ role, unit }) => {
     const definition = gmNpcRollDefinition(attack, role, unit);
     return `<form class="combat-action-form gm-npc-roll-prompt" data-gm-roll-form data-roll-role="${role}" data-unit-id="${escapeHtml(unit.id)}">
       <p class="gm-npc-roll-pool">${escapeHtml(definition.pool)}</p>
-      <label>${escapeHtml(definition.label)}<input data-gm-roll-score type="number" step="0.1" inputmode="decimal" required /></label>
-      <div class="gm-npc-roll-actions"><button type="submit" class="complete">Submit Manual Score</button><button data-gm-auto-roll type="button" ${definition.dice.length && window.SANpcDice ? "" : "disabled"}>${window.SANpcDice ? "Roll for NPC" : "Dice Loading..."}</button></div>
+      <label>${escapeHtml(definition.label)}<input data-gm-roll-score type="number" step="0.1" inputmode="decimal" required ${npcAutoRollBusy ? "disabled" : ""} /></label>
+      <div class="gm-npc-roll-actions"><button type="submit" class="complete" ${npcAutoRollBusy ? "disabled" : ""}>Submit Manual Score</button><button data-gm-auto-roll type="button" ${definition.dice.length && window.SANpcDice && !npcAutoRollBusy ? "" : "disabled"}>${npcAutoRollBusy ? "Roll In Progress..." : window.SANpcDice ? "Roll for NPC" : "Dice Loading..."}</button></div>
     </form>`;
   }).join("");
 }
@@ -2550,7 +2606,7 @@ function render() {
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   undoLastTiming.disabled = !state.undoAvailable;
-  undoLastTiming.title = state.undoAvailable ? "Undo the last timing/control change" : "No timing change to undo";
+  undoLastTiming.title = state.undoAvailable ? "Undo the GM's last combat change" : "No combat change to undo";
   playerActionLogToggle.checked = playerActionLogEnabled;
   playerActionLogToggle.closest(".combat-log-toggle")?.classList.toggle("hidden", mode !== "player");
   renderDelayDialog();
@@ -2981,13 +3037,16 @@ resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
 gmMuteSound.addEventListener("click", () => {
   gmSoundsMuted = !gmSoundsMuted;
   safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  if (gmSoundsMuted) stopGmAudio();
   playGmSound("tap");
   render();
 });
 undoLastTiming.addEventListener("click", () => {
   if (!state?.undoAvailable) return;
-  action({ action: "undoLastTiming" }, "resolve");
+  action({ action: "undoLastAction" }, "resolve");
 });
+collapseNpcTurn?.addEventListener("click", () => setNpcTurnPanelCollapsed(true));
+restoreNpcTurn?.addEventListener("click", () => setNpcTurnPanelCollapsed(false));
 clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
 });
@@ -3017,27 +3076,43 @@ gmNpcRollPrompts?.addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-gm-roll-form]");
   if (!form) return;
   event.preventDefault();
+  if (npcAutoRollBusy) return;
   const attack = state?.attackResolution;
   const score = Number(form.querySelector("[data-gm-roll-score]")?.value);
   const rollRole = form.dataset.rollRole;
   const id = form.dataset.unitId;
   if (!attack || !id || !["attacker", "defender", "damage"].includes(rollRole) || !Number.isFinite(score)) return;
+  npcAutoRollBusy = true;
+  gmNpcPromptSignature = "";
+  setNpcRollControlsDisabled(true);
+  try {
   if (rollRole === "damage") {
     await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: score, mode: "gm-manual" }, "resolve");
   } else {
     await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score, mode: "gm-manual" }, "resolve");
   }
   if (rollRole === "defender") gmForcedDefenseEntry = false;
+  } finally {
+    npcAutoRollBusy = false;
+    gmNpcPromptSignature = "";
+    render();
+  }
+
 });
 gmNpcRollPrompts?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-gm-auto-roll]");
   if (!button) return;
+  event.preventDefault();
+  if (npcAutoRollBusy) return;
   const form = button.closest("[data-gm-roll-form]");
   const attack = state?.attackResolution;
   const rollRole = form?.dataset.rollRole;
   const id = form?.dataset.unitId;
   const rollingUnit = state?.units?.find((entry) => entry.id === id);
   if (!attack || !id || !rollingUnit || !window.SANpcDice || !["attacker", "defender", "damage"].includes(rollRole)) return;
+  npcAutoRollBusy = true;
+  gmNpcPromptSignature = "";
+  setNpcRollControlsDisabled(true);
   button.disabled = true;
   try {
     const definition = gmNpcRollDefinition(attack, rollRole, rollingUnit);
@@ -3051,6 +3126,9 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
       if (rollRole === "defender") gmForcedDefenseEntry = false;
     }
   } finally {
+    npcAutoRollBusy = false;
+    gmNpcPromptSignature = "";
+    render();
     if (button.isConnected) button.disabled = false;
   }
 });
@@ -3339,6 +3417,7 @@ window.addEventListener("message", (event) => {
   const message = event.data || {};
   if (message.type === "sa-gm-sound-muted") {
     gmSoundsMuted = Boolean(message.muted);
+    if (gmSoundsMuted) stopGmAudio();
     safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
     gmMuteSound.classList.toggle("muted", gmSoundsMuted);
     gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";

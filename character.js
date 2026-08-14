@@ -17,7 +17,7 @@ import {
   classById,
 } from "./character-data.js?v=20260807-tabs-2";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260812-physical-dice-restore-1";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-undo-chapters-1";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
 
@@ -985,7 +985,7 @@ let character = library.find((entry) => entry.id === activeId) || library[0];
 
 function saveLibrary(message = "Saved locally") {
   character.updatedAt = new Date().toISOString();
-  const computed = derivedValues();
+  const computed = derivedValues({ includeCampaignBonus: false });
   character.computed = {
     speed: computed.speed,
     commandWindow: computed.command,
@@ -1619,6 +1619,7 @@ function receiveCampaignState(nextState) {
       suppressCampaignSave = false;
     }
   }
+  renderDerived();
   refreshPrivateNotes();
   renderCampaignBank();
   refreshCampaignRollPrompt();
@@ -2051,13 +2052,18 @@ function syncDerivedResources(previousMaxHp = null) {
   character.health.current = Math.round(clamp(character.health.current, -9999, nextMaxHp));
 }
 
-function derivedValues() {
+function campaignCommandWindowBonus() {
+  return Math.max(0, Number(campaignState?.settings?.commandWindowBonus) || 0);
+}
+
+function derivedValues({ includeCampaignBonus = true } = {}) {
   const initiative = displayedSkillTenths("Initiative", character.skills.Initiative) / 10;
   const awareness = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
   const mastermind = finalizedModifiersActive() && character.identity.classId === "mastermind";
+  const commandBase = boxesFilled("perception") * 8 + awareness * (mastermind ? 45 : 12);
   return {
     speed: boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1),
-    command: boxesFilled("perception") * 8 + awareness * (mastermind ? 45 : 12),
+    command: commandBase + (includeCampaignBonus ? campaignCommandWindowBonus() : 0),
   };
 }
 
@@ -3455,7 +3461,8 @@ function renderDerived() {
   const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 12;
   const perceptionBoxes = boxesFilled("perception");
   const awarenessRating = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
-  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x8 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  const gmCommandBonus = campaignCommandWindowBonus();
+  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x8 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmCommandBonus ? ` + GM bonus ${gmCommandBonus} sec` : ""}`;
   dom.maximumHp.textContent = hp.value;
   dom.maximumHpFormula.textContent = hp.formula;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -3682,6 +3689,14 @@ function spendXp(cost, description) {
   return true;
 }
 
+function renderWithoutViewportJump() {
+  const left = window.scrollX;
+  const top = window.scrollY;
+  document.activeElement?.blur?.();
+  renderAll();
+  requestAnimationFrame(() => window.scrollTo({ left, top, behavior: "auto" }));
+}
+
 function purchaseAttribute(attributeKey, row, column) {
   if (!canPurchaseAttributes() || character.pendingRoll) return;
   const current = character.attributes[attributeKey][row];
@@ -3727,7 +3742,7 @@ function purchaseAttribute(attributeKey, row, column) {
   }
   syncDerivedResources(previousMaxHp);
   queueSave();
-  renderAll();
+  renderWithoutViewportJump();
 }
 
 function removeLastPurchaseEntry(key) {
@@ -3771,7 +3786,7 @@ function changeDraftSkill(key, direction) {
     notice(`${currentLevel} Skill Point${currentLevel === 1 ? "" : "s"} refunded.`, "success");
   }
   queueSave();
-  renderAll();
+  renderWithoutViewportJump();
 }
 
 function skillKeysForFinalization() {
@@ -4145,7 +4160,7 @@ function startSkillAdvancement(key) {
     currency,
   };
   saveLibrary("Skill advancement roll prepared");
-  renderAll();
+  renderWithoutViewportJump();
   rollPending();
 }
 
@@ -4185,7 +4200,7 @@ function rollPending() {
   }
   const creation = pending.kind === "creation-d10";
   const remaining = character.creation.finalizationQueue.length;
-  const anchor = skillRowFor(pending.skillKey);
+  const anchor = null;
   anchor?.scrollIntoView({ behavior: "auto", block: "center" });
   diceRoller.roll({
     sides: creation ? 10 : (pending.sides || 6),
