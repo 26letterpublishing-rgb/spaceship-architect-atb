@@ -40,6 +40,48 @@ function safeCharacterName(record) {
   return String(record?.character?.identity?.characterName || "Unnamed Character").trim().slice(0, 80) || "Unnamed Character";
 }
 
+function normalizeInventoryItem(raw) {
+  const chargesMax = raw?.chargesMax === null || raw?.chargesMax === undefined ? null : Math.max(0, Number(raw.chargesMax) || 0);
+  return {
+    id: String(raw?.id || uid("item")).slice(0, 100),
+    catalogId: String(raw?.catalogId || "").slice(0, 100),
+    name: String(raw?.name || "Custom Item").trim().slice(0, 120) || "Custom Item",
+    description: String(raw?.description || "").slice(0, 4000),
+    quantity: Math.max(1, Math.min(9999, Math.round(Number(raw?.quantity) || 1))),
+    unitCost: Math.max(0, Math.min(999999999, Math.round(Number(raw?.unitCost) || 0))),
+    chargesMax,
+    charges: chargesMax === null ? null : Math.max(0, Math.min(chargesMax, Number(raw?.charges ?? chargesMax))),
+    chargeState: String(raw?.chargeState || "").slice(0, 40),
+    special: String(raw?.special || "").slice(0, 80),
+  };
+}
+
+function matchingInventoryItem(list, item) {
+  return list.find((entry) => entry.catalogId === item.catalogId && entry.name === item.name
+    && entry.description === item.description && Number(entry.unitCost) === Number(item.unitCost)
+    && entry.charges === item.charges && entry.chargesMax === item.chargesMax && entry.chargeState === item.chargeState);
+}
+
+function addInventoryItem(character, source, quantity = 1) {
+  character.items = Array.isArray(character.items) ? character.items : [];
+  const item = normalizeInventoryItem(source);
+  const matching = matchingInventoryItem(character.items, item);
+  if (matching) matching.quantity = Math.min(9999, Number(matching.quantity || 0) + quantity);
+  else character.items.push({ ...item, id: uid("item"), quantity });
+  return matching || character.items.at(-1);
+}
+
+function removeInventoryItem(character, itemId, fallbackItem = null, quantity = 1) {
+  character.items = Array.isArray(character.items) ? character.items : [];
+  const target = character.items.find((entry) => entry.id === itemId)
+    || (fallbackItem ? matchingInventoryItem(character.items, fallbackItem) : null);
+  if (!target) return false;
+  target.quantity = Math.max(0, Number(target.quantity || 0) - quantity);
+  if (target.quantity <= 0) character.items = character.items.filter((entry) => entry !== target);
+  return true;
+}
+
+
 function trimPrivateNotes(campaign) {
   const notes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes : [];
   const keep = new Set(notes.slice(-GM_INBOX_LIMIT).map((note) => note.id));
@@ -95,6 +137,7 @@ function defaultCampaign({ code, name, gmCode }) {
     shipCredits: 0,
     bankerCharacterId: null,
     awardHistory: [],
+    itemTransactions: [],
     privateNotes: [],
     rollRequests: [],
     npcTemplates: [],
@@ -161,15 +204,19 @@ function normalizeCampaign(raw) {
     ? campaign.bankerCharacterId
     : null;
   campaign.awardHistory = Array.isArray(campaign.awardHistory) ? campaign.awardHistory.slice(-20) : [];
+  campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
   campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
     id: String(note?.id || uid("note")),
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
+    transactionId: String(note?.transactionId || ""),
+    deficit: Math.max(0, Number(note?.deficit) || 0),
+    reversible: Boolean(note?.reversible),
     message: String(note?.message || "").slice(0, 4000),
     createdAt: note?.createdAt || new Date().toISOString(),
     readAt: note?.readAt || null,
@@ -213,6 +260,7 @@ function campaignBackup(campaign) {
       shipCredits: campaign.shipCredits,
       bankerCharacterId: campaign.bankerCharacterId,
       awardHistory: campaign.awardHistory,
+      itemTransactions: campaign.itemTransactions,
       privateNotes: campaign.privateNotes,
       rollRequests: campaign.rollRequests,
       npcTemplates: campaign.npcTemplates,
@@ -407,13 +455,32 @@ class CampaignApi {
     return (await this.campaign(code))?.encounter || null;
   }
 
-  async healCharacter(code, characterId, amount = 1) {
+  async healCharacter(code, characterId, amount = 1, source = "Healing") {
+    const campaign = await this.campaign(code);
+    const record = campaign?.characters.find((entry) => entry.id === characterId);
+    if (!record) return null;
+    record.character.health ||= { current: 0, permanentBonus: 0 };
+    const maximumHp = Math.max(0, Number(record.character.computed?.maximumHp) || Number(record.character.health.current) || 0);
+    const beforeHp = Math.max(0, Number(record.character.health.current) || 0);
+    const requested = Math.max(0, Number(amount) || 0);
+    const currentHp = Math.min(maximumHp, beforeHp + requested);
+    const applied = Math.max(0, currentHp - beforeHp);
+    record.character.health.current = currentHp;
+    record.updatedAt = new Date().toISOString();
+    campaign.privateNotes.push({
+      id: uid("heal"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system",
+      message: `${String(source || "Healing").slice(0, 160)} restored ${applied} HP. HP: ${currentHp}/${maximumHp}.`, createdAt: record.updatedAt, readAt: null,
+    });
+    await this.save(campaign);
+    return { requested, applied, beforeHp, currentHp, maximumHp, source: String(source || "Healing").slice(0, 160), createdAt: Date.now() };
+  }
+
+  async syncCharacterCombatInventory(code, characterId, items = [], statuses = null) {
     const campaign = await this.campaign(code);
     const record = campaign?.characters.find((entry) => entry.id === characterId);
     if (!record) return false;
-    record.character.health ||= { current: 0, permanentBonus: 0 };
-    const maximum = Math.max(0, Number(record.character.computed?.maximumHp) || Number(record.character.health.current) || 0);
-    record.character.health.current = Math.min(maximum, (Number(record.character.health.current) || 0) + Math.max(0, Number(amount) || 0));
+    record.character.items = Array.isArray(items) ? items.map(normalizeInventoryItem) : [];
+    if (statuses && typeof statuses === "object") record.character.statuses = { ...(record.character.statuses || {}), ...statuses };
     record.updatedAt = new Date().toISOString();
     await this.save(campaign);
     return true;
@@ -874,6 +941,123 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/item/transaction" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const mode = body.mode === "receive" ? "receive" : "purchase";
+      const item = normalizeInventoryItem(body.item);
+      const paid = mode === "purchase" ? item.unitCost : 0;
+      record.character.resources ||= {};
+      record.character.resources.creditsBase = Math.round(boundedNumber(record.character.resources.creditsBase, -999999999, 999999999));
+      if (mode === "purchase") record.character.resources.creditsBase -= paid;
+      const added = addInventoryItem(record.character, item, 1);
+      const transaction = {
+        id: uid("itemtx"), characterId: record.id, mode, paid, item: { ...item, id: added.id, quantity: 1 },
+        createdAt: new Date().toISOString(), deniedAt: null,
+      };
+      campaign.itemTransactions.push(transaction);
+      campaign.itemTransactions = campaign.itemTransactions.slice(-250);
+      record.updatedAt = transaction.createdAt;
+      const deficit = Math.max(0, -(Number(record.character.resources.creditsBase) || 0));
+      campaign.privateNotes.push({
+        id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm", kind: "item-transaction",
+        transactionId: transaction.id, deficit, reversible: true,
+        message: `${safeCharacterName(record)} ${mode === "purchase" ? `purchased ${item.name} for ${paid} Credits` : `received ${item.name}`}.${deficit ? ` Their Credit balance is -${deficit}.` : ""}`,
+        createdAt: transaction.createdAt, readAt: null,
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { transaction: clone(transaction), campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/item/activity" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      campaign.privateNotes.push({
+        id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm", kind: "item-activity",
+        message: String(body.message || `${safeCharacterName(record)} adjusted their inventory.`).slice(0, 1000), createdAt: new Date().toISOString(), readAt: new Date().toISOString(),
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { recorded: true });
+      return true;
+    }
+
+    if (path === "/api/campaign/item/deny" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const transaction = campaign.itemTransactions.find((entry) => entry.id === body.transactionId);
+      const record = campaign.characters.find((entry) => entry.id === transaction?.characterId);
+      if (!transaction || !record || transaction.deniedAt) {
+        sendJson(res, 409, { error: "That item transaction is no longer available to deny." });
+        return true;
+      }
+      if (!removeInventoryItem(record.character, transaction.item.id, transaction.item, 1)) {
+        sendJson(res, 409, { error: "The item is no longer in the character's carried inventory." });
+        return true;
+      }
+      record.character.resources ||= {};
+      record.character.resources.creditsBase = Math.round(boundedNumber(record.character.resources.creditsBase, -999999999, 999999999)) + Number(transaction.paid || 0);
+      transaction.deniedAt = new Date().toISOString();
+      const note = campaign.privateNotes.find((entry) => entry.transactionId === transaction.id);
+      if (note) { note.reversible = false; note.message += " DENIED BY GM."; note.readAt ||= transaction.deniedAt; }
+      campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "item-transaction", message: `The GM denied ${transaction.item.name}. It was removed${transaction.paid ? ` and ${transaction.paid} Credits were refunded` : ""}.`, createdAt: transaction.deniedAt, readAt: null });
+      record.updatedAt = transaction.deniedAt;
+      await this.save(campaign);
+      sendJson(res, 200, { denied: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/item/cover-deficit" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record) { sendJson(res, 404, { error: "Character not found." }); return true; }
+      record.character.resources ||= {};
+      const current = Number(record.character.resources.creditsBase) || 0;
+      const amount = Math.max(0, -current);
+      record.character.resources.creditsBase = current + amount;
+      campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", message: `The GM awarded ${amount} Credits to cover your negative balance.`, createdAt: new Date().toISOString(), readAt: null });
+      record.updatedAt = new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { amount, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/item/recharge" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const targetIds = Array.isArray(body.targetIds) ? body.targetIds.map(String) : [];
+      let recharged = 0;
+      for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
+        const names = [];
+        for (const item of Array.isArray(record.character.items) ? record.character.items : []) {
+          if (!["jet-pack", "power-shields", "mobile-zero-point-energy"].includes(item.catalogId)) continue;
+          if (item.chargesMax !== null && item.chargesMax !== undefined) item.charges = item.chargesMax;
+          if (item.catalogId === "mobile-zero-point-energy") item.chargeState = "Full";
+          names.push(item.name);
+          recharged += 1;
+        }
+        if (names.length) campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM recharge restored: ${names.join(", ")}.`, createdAt: new Date().toISOString(), readAt: null });
+        record.updatedAt = new Date().toISOString();
+      }
+      await this.save(campaign);
+      sendJson(res, 200, { recharged, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+
     if (path === "/api/campaign/character/save" && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
       if (!record || !this.characterSession(token, code, record.id)) {
@@ -892,8 +1076,8 @@ class CampaignApi {
       const submittedCredits = Number(next.resources.creditsBase) || 0;
       const baseCredits = Number(body.baseCredits);
       next.resources.creditsBase = Number.isFinite(baseCredits)
-        ? Math.round(boundedNumber(serverCredits + (submittedCredits - baseCredits), 0, 999999999))
-        : Math.round(boundedNumber(submittedCredits, 0, 999999999));
+        ? Math.round(boundedNumber(serverCredits + (submittedCredits - baseCredits), -999999999, 999999999))
+        : Math.round(boundedNumber(submittedCredits, -999999999, 999999999));
       const serverHp = record.character?.health?.current === null || record.character?.health?.current === undefined
         ? Number(record.character?.computed?.maximumHp) || Number(next.computed?.maximumHp) || 0
         : Number(record.character.health.current) || 0;
@@ -1142,6 +1326,8 @@ class CampaignApi {
       const endedSession = campaign.sessionNumber;
       campaign.privateNotes = campaign.privateNotes.filter((note) => !["session-end", "science-choice"].includes(note.kind));
       for (const record of campaign.characters) {
+        record.character.statuses ||= {};
+        record.character.statuses.intoxicated = false;
         record.character.session = {
           number: endedSession + 1,
           freeRerollsUsed: {},

@@ -735,3 +735,56 @@
 .npc-combat-stats{display:flex;align-items:center;flex-wrap:wrap;gap:1px;margin-top:3px;color:#77899a;font:500 .5rem/1.1 Arial,sans-serif}.npc-combat-stat{min-height:0;padding:0;border:0;border-radius:0;color:#8b9dac;background:none;box-shadow:none;font:inherit}.npc-combat-stat:hover{color:#7feaff;filter:none;text-decoration:underline}.npc-held-weapon{display:inline-flex;align-items:center;gap:2px;min-width:0;margin-left:5px;color:#77899a;font:inherit;text-transform:none}.npc-held-weapon span{display:inline;font:inherit}.npc-held-weapon select{width:auto;max-width:145px;min-height:18px;padding:0 16px 0 2px;border:0;color:#8b9dac;background:#07111a;font:inherit}.gm-npc-turn-actions{display:grid;grid-template-columns:repeat(4,minmax(105px,1fr));gap:7px;margin:10px 0}.gm-npc-held-readout{margin-top:8px}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])){width:min(920px,calc(100% - 24px));max-height:92vh;overflow-y:auto;overscroll-behavior:contain}.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .dialog-actions{position:sticky;bottom:0;padding-top:8px;background:linear-gradient(0deg,#07121d 78%,transparent)}
 .gm-npc-roll-prompts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.gm-npc-roll-prompt{min-width:0}.gm-npc-roll-pool{margin:0;padding:7px 9px;border:1px solid #294a61;color:#9edff5;background:#06111c}.gm-npc-roll-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dice-roller{position:fixed;z-index:3200;inset:0;pointer-events:none}.dice-stage{position:absolute;left:var(--dice-left,50%);top:var(--dice-top,50%);width:min(620px,calc(100vw - 20px));height:min(430px,calc(100vh - 90px));transform:translate(-50%,-50%);overflow:visible;pointer-events:none}.dice-copy{position:absolute;z-index:4;left:50%;bottom:4px;width:max-content;max-width:90%;transform:translateX(-50%);padding:4px 10px;border:1px solid rgba(43,216,255,.38);border-radius:999px;text-align:center;background:rgba(3,8,14,.86)}.dice-copy h2{margin:0;color:#eaf8ff;font-size:.68rem}.dice-copy p{margin:1px 0 0;color:#91a9bd;font-size:.52rem}.dice-canvas{position:absolute;inset:0 0 34px;filter:drop-shadow(0 9px 6px rgba(0,0,0,.42))}.dice-canvas canvas{display:block;width:100%;height:100%}.dice-result{display:none!important}.dice-actions{position:absolute;left:50%;top:100%;transform:translateX(-50%)}
 @media(max-width:650px){.gm-npc-turn-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.npc-held-weapon{flex-basis:100%;margin:2px 0 0}.gm-npc-roll-prompts{grid-template-columns:1fr}.gm-panic-pause.npc-action{min-width:108px;min-height:40px;padding:5px 8px;font-size:.68rem}.gm-panic-pause.npc-action small{display:none}}
+
+.combat-option-toggle {
+  display: flex !important;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px !important;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 1px solid #31566b;
+  background: rgba(6, 18, 28, .86);
+}
+.combat-option-toggle input { width: 20px !important; height: 20px; margin: 0; }
+.combat-option-toggle small { color: #70dff7; }
+.combat-shield-targets {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #278cc5;
+  box-shadow: inset 0 0 18px rgba(31, 160, 233, .1);
+}
+.combat-shield-targets legend { padding: 0 6px; color: #83dcff; font-size: .72rem; text-transform: uppercase; }
+.combat-shield-targets > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; }
+.combat-shield-targets label { display: flex !important; grid-template-columns: none; align-items: center; gap: 6px; min-width: 0; text-transform: none; }
+.combat-shield-targets input { width: 18px !important; height: 18px; flex: 0 0 auto; }
+.power-shield-meter { border-color: #39baf4; background: #020d17; }
+.power-shield-meter > div { background: linear-gradient(180deg,#b9f4ff 0,#1db8f6 30%,#0872d5 76%,#063a77 100%); box-shadow: 0 0 11px #22c8ff; }
+.power-shield-meter.inactive { opacity: .58; filter: grayscale(.65); }
+.combat-vehicle-state { padding: 4px 7px; border-left: 3px solid #f0a64d; color: #ffc987; background: rgba(67,34,7,.33); font-size: .63rem; }
+.combat-status-drunk { color: #ff77dc !important; text-shadow: 0 0 7px rgba(255,73,209,.65); }
+@media (max-width: 520px) { .combat-shield-targets > div { grid-template-columns: 1fr; } }
+
+
+.first-aid-resolution-dialog { z-index: 2450; }
+.first-aid-resolution-panel { width: min(620px, calc(100vw - 24px)); border-color: #45d898; box-shadow: 0 0 28px rgba(69,216,152,.24), inset 0 0 20px rgba(69,216,152,.06); }
+.first-aid-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 10px 0; }
+.first-aid-summary > div { min-width: 0; padding: 8px; border: 1px solid #28594a; background: rgba(5,31,25,.72); }
+.first-aid-summary span { display: block; color: #87ae9f; font-size: .57rem; text-transform: uppercase; }
+.first-aid-summary strong { display: block; margin-top: 3px; color: #baffdf; font-size: .78rem; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .first-aid-summary { grid-template-columns: 1fr; } }
+
+
+
+/* Item-system combat effects */
+.smoke-attack-toggle { border-color: #7c8991; background: linear-gradient(90deg, rgba(80,91,98,.42), rgba(17,26,33,.88)); }
+.smoke-attack-toggle small { display: block; color: #b7c3c9; font-size: .58rem; line-height: 1.25; }
+.combat-area-effects { display: grid; gap: 6px; margin: 0 0 9px; }
+.combat-area-effects[hidden] { display: none !important; }
+.combat-area-effect { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; min-height: 34px; padding: 6px 10px; border: 1px solid #596973; color: #dbe3e7; background: linear-gradient(90deg, rgba(110,124,132,.34), rgba(10,17,23,.92)); box-shadow: inset 0 1px rgba(255,255,255,.09); }
+.combat-area-effect strong { color: #f0f4f5; font-size: .7rem; }
+.combat-area-effect span { min-width: 0; color: #c3cdd1; font-size: .64rem; }
+.combat-area-effect small { color: #8f9da5; font-size: .56rem; white-space: nowrap; }
+.power-shield-meter.collapsed { animation: power-shield-collapse 3.5s both; }
+@keyframes power-shield-collapse { 0% { filter: none; opacity: 1; } 55% { filter: saturate(.15) contrast(1.3); opacity: .9; transform: translateX(0); } 62%,72%,82% { transform: translateX(-2px); } 67%,77%,87% { transform: translateX(2px); } 100% { filter: grayscale(1); opacity: .46; transform: translateX(0); } }
+@media (max-width: 520px) { .combat-area-effect { grid-template-columns: 1fr auto; } .combat-area-effect span { grid-column: 1 / -1; grid-row: 2; } }

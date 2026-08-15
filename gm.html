@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260813-feedback-2" />
-  <script src="data-reset.js?v=20260813-feedback-2"></script>
+  <link rel="stylesheet" href="gm.css?v=20260814-items-final" />
+  <script src="data-reset.js?v=20260814-items-final"></script>
   </head>
   <body>
     <main class="gm-shell">
@@ -143,6 +143,11 @@
               <p id="awardMessage" class="tool-message" role="status"></p>
               <button id="undoAward" type="button" disabled>Undo Most Recent Award</button>
             </form>
+            <section class="tool-card recharge-tool-card">
+              <h3>Recharge Items</h3>
+              <p>Restore carried Jet-Packs, Power Shields, and Mobile Zero-Point Energy for the selected characters.</p>
+              <button id="rechargeItems" class="primary" type="button">Send Recharge</button>
+            </section>
             <form id="privateNoteForm" class="tool-card">
               <h3>Private Note</h3>
               <label>Message<textarea id="privateNoteMessage" rows="7" maxlength="4000" placeholder="Only the selected player and GM can read this note."></textarea></label>
@@ -287,6 +292,6 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
-  <script type="module" src="gm.js?v=20260813-feedback-2"></script>
+  <script type="module" src="gm.js?v=20260814-items-final"></script>
   </body>
 </html>

@@ -244,6 +244,7 @@ const gmDamageForm = document.querySelector("#gmDamageForm");
 const gmDamageTarget = document.querySelector("#gmDamageTarget");
 const gmDamageAmount = document.querySelector("#gmDamageAmount");
 const gmDamageSource = document.querySelector("#gmDamageSource");
+const gmDamageRanged = document.querySelector("#gmDamageRanged");
 const gmDamageNote = document.querySelector("#gmDamageNote");
 const cancelGmDamage = document.querySelector("#cancelGmDamage");
 const playerDamageAlert = document.querySelector("#playerDamageAlert");
@@ -258,6 +259,14 @@ const gmResolveDefender = document.querySelector("#gmResolveDefender");
 const gmNpcDamageForm = document.querySelector("#gmNpcDamageForm");
 const gmNpcDamageBreakdown = document.querySelector("#gmNpcDamageBreakdown");
 const gmNpcFinalDamage = document.querySelector("#gmNpcFinalDamage");
+const firstAidResolutionPanel = document.querySelector("#firstAidResolutionPanel");
+const firstAidResolutionTitle = document.querySelector("#firstAidResolutionTitle");
+const firstAidResolutionMeta = document.querySelector("#firstAidResolutionMeta");
+const firstAidResolutionSummary = document.querySelector("#firstAidResolutionSummary");
+const firstAidResolutionForm = document.querySelector("#firstAidResolutionForm");
+const firstAidResolutionLabel = document.querySelector("#firstAidResolutionLabel");
+const firstAidResolutionValue = document.querySelector("#firstAidResolutionValue");
+const firstAidResolutionSubmit = document.querySelector("#firstAidResolutionSubmit");
 const gmDelay = document.querySelector("#gmDelay");
 const gmNpcHeldWeaponReadout = document.querySelector("#gmNpcHeldWeaponReadout");
 const gmNpcTurnActions = document.querySelector("#gmNpcTurnActions");
@@ -271,6 +280,10 @@ const gmNpcAttackDistance = document.querySelector("#gmNpcAttackDistance");
 const gmNpcAttackDamage = document.querySelector("#gmNpcAttackDamage");
 const gmNpcAttackModifier = document.querySelector("#gmNpcAttackModifier");
 const gmNpcCalledShot = document.querySelector("#gmNpcCalledShot");
+const gmNpcSmokeWrap = document.querySelector("#gmNpcSmokeWrap");
+const gmNpcSmokeAffected = document.querySelector("#gmNpcSmokeAffected");
+const gmNpcSmokePenaltyText = document.querySelector("#gmNpcSmokePenaltyText");
+const combatAreaEffects = document.querySelector("#combatAreaEffects");
 const cancelGmNpcAttack = document.querySelector("#cancelGmNpcAttack");
 const delayDialog = document.querySelector("#delayDialog");
 const delayDialogTitle = document.querySelector("#delayDialogTitle");
@@ -1490,7 +1503,7 @@ function setRoom(nextState) {
 function connectEvents() {
   if (events) events.close();
   if (!currentRoomCode) return;
-  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}`);
+  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}`);
   events.addEventListener("state", (event) => {
     setConnected(true);
     receiveState(JSON.parse(event.data));
@@ -1554,6 +1567,10 @@ function openGmNpcAttackDialog() {
   gmNpcAttackDamage.value = "2D6";
   gmNpcAttackModifier.value = "0";
   gmNpcCalledShot.checked = false;
+  const smoke = state?.areaEffects?.find((entry) => entry.kind === "smoke" && Number(entry.penalty) > 0);
+  gmNpcSmokeWrap.hidden = !smoke;
+  gmNpcSmokeAffected.checked = Boolean(smoke);
+  gmNpcSmokePenaltyText.textContent = smoke ? `Apply -${smoke.penalty} if this attack crosses its 6-unit smoke zone.` : "";
   gmNpcAttackDialog.classList.remove("hidden");
 }
 
@@ -1568,6 +1585,7 @@ function openGmDamageDialog(unitId) {
   gmDamageTarget.textContent = `${targetUnit.characterName}${targetUnit.currentHp === null || targetUnit.currentHp === undefined ? "" : ` - HP ${targetUnit.currentHp}/${targetUnit.maximumHp}`}`;
   gmDamageAmount.value = "";
   gmDamageSource.value = activeUnit()?.team === "npc" ? `${activeUnit().characterName} attack` : "NPC attack";
+  if (gmDamageRanged) gmDamageRanged.checked = false;
   gmDamageNote.textContent = `Enter damage after critical multipliers. ${targetUnit.characterName}'s Damage Reduction ${Number(targetUnit.damageReduction) || 0} will be applied automatically.`;
   gmDamageDialog.classList.remove("hidden");
   const panel = gmDamageDialog.querySelector(".combat-action-panel");
@@ -1611,14 +1629,14 @@ function npcHeartStates(unit) {
 }
 
 function npcHealthMarkup(unit, { gm = false } = {}) {
-  if (unit?.team !== "npc") return "";
+  if (!unit || unit.currentHp === null || unit.currentHp === undefined || unit.maximumHp === null || unit.maximumHp === undefined) return "";
   const hearts = npcHeartStates(unit)
     .map((stateName) => '<span class="npc-heart ' + stateName + '" aria-hidden="true">&#9829;</span>')
     .join("");
-  const exact = gm
+  const exact = gm && unit.team === "npc"
     ? '<button class="npc-hp-exact" type="button" data-action="npcHp" data-id="' + escapeHtml(unit.id) + '" title="Edit Current and Maximum HP">' + Math.max(0, Number(unit.currentHp) || 0) + '/' + Math.max(1, Number(unit.maximumHp) || 1) + ' HP</button>'
     : "";
-  return '<span class="npc-health" aria-label="NPC health">' + hearts + exact + '</span>';
+  return '<span class="npc-health" aria-label="Combatant health">' + hearts + exact + '</span>';
 }
 
 function npcCombatStatsMarkup(unit, { gm = false } = {}) {
@@ -1979,6 +1997,15 @@ function unitRoleText(unit) {
 function renderActivePanel() {
   const active = activeUnit();
   const activeAction = state.activeAction;
+  const itemResolution = state.itemResolution;
+  if (itemResolution) {
+    activePanel.classList.add("turn-live", "other-turn");
+    activePanel.classList.remove("own-turn", "clock-running");
+    activeKicker.textContent = "First Aid Resolution";
+    activeTitle.textContent = `${itemResolution.healerName} -> ${itemResolution.targetName}`;
+    activeMeta.textContent = itemResolution.phase === "gmDifficulty" ? "GM is setting Difficulty" : itemResolution.phase === "roll" ? "Waiting for First Aid Skill Check" : "Waiting for healing dice";
+    return;
+  }
   activePanel.classList.toggle("turn-live", Boolean(active || activeAction));
   activePanel.classList.toggle("own-turn", Boolean(active) && active.id === myUnitId);
   activePanel.classList.toggle("other-turn", Boolean(activeAction) || (Boolean(active) && active.id !== myUnitId));
@@ -2430,7 +2457,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
 function renderAttackResolution(mine) {
   const attack = state?.attackResolution;
   if (!attack) {
-    clearPostedCombatPrompt();
+    if (!state?.itemResolution) clearPostedCombatPrompt();
     gmForcedDefenseEntry = false;
     gmNpcPromptSignature = "";
     if (gmNpcRollPrompts) gmNpcRollPrompts.innerHTML = "";
@@ -2561,6 +2588,65 @@ function renderPlayerCombatPreview(record) {
   if (playerPreviewFrame === null) playerPreviewFrame = requestAnimationFrame(animatePlayerCombatPreview);
 }
 
+function renderItemResolution(mine) {
+  const resolution = state?.itemResolution;
+  if (!resolution) {
+    firstAidResolutionPanel?.classList.add("hidden");
+    return;
+  }
+  if (mode === "player" && mine?.id === resolution.healerId) {
+    let request = null;
+    if (resolution.phase === "roll" && !resolution.roll) request = {
+      type: "sa-combat-roll-request", attackId: resolution.id, resolutionId: resolution.id, rollRole: "firstAid",
+      skill: "Anatomy/First Aid", attribute: "intellect", difficulty: resolution.difficulty,
+      subtitle: `Treating ${resolution.targetName}. Roll Intellect + Anatomy/First Aid against Difficulty ${resolution.difficulty}.`,
+    };
+    if (resolution.phase === "healing" && !resolution.healingRoll) request = {
+      type: "sa-combat-healing-request", attackId: resolution.id, resolutionId: resolution.id, healing: true,
+      weaponName: "First Aid", targetName: resolution.targetName, damageFormula: resolution.healingFormula,
+      addScore: resolution.useKit ? Number(resolution.roll?.score) || 0 : 0,
+    };
+    if (request) {
+      const key = `${resolution.id}:${request.type}`;
+      if (key !== lastCombatPromptKey) { lastCombatPromptKey = key; postCombatMessage(request); }
+    }
+  }
+  if (mode !== "gm") { firstAidResolutionPanel?.classList.add("hidden"); return; }
+  firstAidResolutionPanel.classList.remove("hidden");
+  firstAidResolutionTitle.textContent = `${resolution.healerName} -> ${resolution.targetName}`;
+  firstAidResolutionMeta.textContent = resolution.useKit ? "First Aid Kit committed" : "No First Aid Kit used";
+  firstAidResolutionSummary.innerHTML = `<div><span>Treatment Speed</span><strong>${Number(resolution.treatmentRating).toFixed(1)}</strong></div><div><span>Base Difficulty</span><strong>${resolution.baseDifficulty}</strong></div><div><span>Status</span><strong>${resolution.phase === "gmDifficulty" ? "GM SETS DIFFICULTY" : resolution.phase === "roll" ? "WAITING FOR SKILL CHECK" : "WAITING FOR HEALING ROLL"}</strong></div>`;
+  firstAidResolutionForm.hidden = false;
+  if (resolution.phase === "gmDifficulty") {
+    firstAidResolutionLabel.textContent = "Final Difficulty";
+    if (document.activeElement !== firstAidResolutionValue) firstAidResolutionValue.value = String(resolution.difficulty);
+    firstAidResolutionValue.min = "1";
+    firstAidResolutionSubmit.textContent = "Send Roll Prompt";
+  } else if (resolution.phase === "roll") {
+    firstAidResolutionLabel.textContent = "GM Manual Skill Score";
+    if (document.activeElement !== firstAidResolutionValue) firstAidResolutionValue.value = "";
+    firstAidResolutionValue.min = "0";
+    firstAidResolutionSubmit.textContent = "Resolve Skill Roll for Player";
+  } else {
+    firstAidResolutionLabel.textContent = `GM Manual ${resolution.healingFormula} Total`;
+    if (document.activeElement !== firstAidResolutionValue) firstAidResolutionValue.value = "";
+    firstAidResolutionValue.min = "0";
+    firstAidResolutionSubmit.textContent = "Resolve Healing Roll for Player";
+  }
+}
+
+function renderAreaEffects() {
+  if (!combatAreaEffects || !state?.areaEffects?.length) {
+    if (combatAreaEffects) { combatAreaEffects.hidden = true; combatAreaEffects.innerHTML = ""; }
+    return;
+  }
+  combatAreaEffects.hidden = false;
+  combatAreaEffects.innerHTML = state.areaEffects.map((effect) => {
+    if (effect.kind === "smoke") return `<div class="combat-area-effect smoke"><strong>SMOKE CLOUD</strong><span>6-unit radius | -${Number(effect.penalty) || 0} Perception and Projectile</span><small>Weakens in ${Math.max(0, Number(effect.weakenRemaining) || 0).toFixed(1)} sec</small></div>`;
+    return `<div class="combat-area-effect"><strong>${escapeHtml(effect.label || "AREA EFFECT")}</strong></div>`;
+  }).join("");
+}
+
 function render() {
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
     mode = "welcome";
@@ -2594,6 +2680,7 @@ function render() {
     playerRoomCode.textContent = currentRoomCode || "----";
     activePanel.classList.add("hidden");
     unitList.innerHTML = "";
+    if (combatAreaEffects) { combatAreaEffects.hidden = true; combatAreaEffects.innerHTML = ""; }
     logList.innerHTML = "";
     gmPanicPause.classList.add("hidden");
     gmMuteSound.classList.add("hidden");
@@ -2601,6 +2688,7 @@ function render() {
     playerTopControls.classList.add("hidden");
     visualModeToggle.classList.add("hidden");
     attackResolutionPanel?.classList.add("hidden");
+    firstAidResolutionPanel?.classList.add("hidden");
     gmNpcAttackDialog?.classList.add("hidden");
     return;
   }
@@ -2651,6 +2739,7 @@ function render() {
     hideActionSheet();
   }
 
+  renderAreaEffects();
   const sorted = [...state.units].sort((a, b) => {
     if (mode === "player") {
       if (a.id === myUnitId && b.id !== myUnitId) return -1;
@@ -2680,6 +2769,7 @@ function render() {
   }
 
   renderAttackResolution(mine || null);
+  renderItemResolution(mine || null);
 
   logList.innerHTML = state.log
     .slice()
@@ -3087,7 +3177,7 @@ gmDamageForm?.addEventListener("submit", async (event) => {
   const targetId = gmDamageTargetId;
   const sourceLabel = gmDamageSource.value.trim() || "GM-resolved NPC attack";
   closeGmDamageDialog();
-  await action({ action: "applyDamage", id: targetId, amount, source: sourceLabel }, "danger");
+  await action({ action: "applyDamage", id: targetId, amount, source: sourceLabel, attackType: gmDamageRanged?.checked ? "ranged" : "" }, "danger");
 });
 gmNpcRollPrompts?.addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-gm-roll-form]");
@@ -3158,6 +3248,16 @@ gmResolveDefender?.addEventListener("click", () => {
   render();
   gmNpcRollPrompts.querySelector('[data-roll-role="defender"] [data-gm-roll-score]')?.focus();
 });
+firstAidResolutionForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const resolution = state?.itemResolution;
+  const value = Number(firstAidResolutionValue.value);
+  if (!resolution || !Number.isFinite(value) || value < Number(firstAidResolutionValue.min || 0)) return;
+  if (resolution.phase === "gmDifficulty") await action({ action: "setFirstAidDifficulty", resolutionId: resolution.id, difficulty: value }, "resolve");
+  else if (resolution.phase === "roll") await action({ action: "submitFirstAidRoll", id: resolution.healerId, resolutionId: resolution.id, score: value, mode: "gm-manual" }, "resolve");
+  else await action({ action: "submitFirstAidHealing", id: resolution.healerId, resolutionId: resolution.id, rolledHealing: value, mode: "gm-manual" }, "resolve");
+});
+
 gmNpcDamageForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const attack = state?.attackResolution;
@@ -3183,7 +3283,7 @@ gmNpcAttackForm?.addEventListener("submit", async (event) => {
     weaponName: gmNpcAttackName.value.trim() || "NPC attack",
     distance,
     damageFormula: gmNpcAttackDamage.value.trim() || "2D6",
-    attackModifier,
+    attackModifier: attackModifier - (gmNpcSmokeAffected?.checked ? Number(state?.areaEffects?.find((entry) => entry.kind === "smoke")?.penalty) || 0 : 0),
     calledShot: gmNpcCalledShot.checked,
   }, "resolve");
 });
@@ -3438,6 +3538,16 @@ window.addEventListener("message", (event) => {
     safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
     gmMuteSound.classList.toggle("muted", gmSoundsMuted);
     gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
+    return;
+  }
+  const resolution = state?.itemResolution;
+  if (resolution && (message.resolutionId === resolution.id || message.attackId === resolution.id)) {
+    if (message.type === "sa-combat-roll-result" && message.rollRole === "firstAid") {
+      void action({ action: "submitFirstAidRoll", id: resolution.healerId, resolutionId: resolution.id, score: message.score, mode: message.mode, diceResults: message.diceResults }, "resolve");
+    }
+    if (message.type === "sa-combat-healing-result") {
+      void action({ action: "submitFirstAidHealing", id: resolution.healerId, resolutionId: resolution.id, rolledHealing: message.rolledHealing, mode: message.mode, diceResults: message.diceResults }, "resolve");
+    }
     return;
   }
   const attack = state?.attackResolution;

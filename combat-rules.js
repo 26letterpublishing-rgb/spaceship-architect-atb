@@ -62,7 +62,7 @@
     return terms.join(" ").replace(/^\+\s*/, "") || "0";
   }
 
-  function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0, attackType = "ranged", strengthDice = [] } = {}) {
+  function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0, attackType = "ranged", strengthDice = [], situationalAttackModifier = 0 } = {}) {
     const rangeText = String(weapon?.range || "");
     const baseRange = number(rangeText.match(/\d+(?:\.\d+)?/)?.[0]);
     const chargeRange = signedBonuses(weapon?.chargeBonus, "Range") * Math.max(0, number(charges));
@@ -105,7 +105,7 @@
 
     const printedModifier = printedToHitModifier(weapon?.toHit);
     const chargeToHitModifier = signedBonuses(weapon?.chargeBonus, "To-Hit") * Math.max(0, number(charges));
-    const attackModifier = printedModifier + chargeToHitModifier + attackRangeModifier;
+    const attackModifier = printedModifier + chargeToHitModifier + attackRangeModifier + number(situationalAttackModifier);
     const strengthFormula = Array.isArray(strengthDice) && strengthDice.length
       ? strengthDice.map((sides) => `1D${number(sides)}`).join(" + ")
       : "2D4";
@@ -129,6 +129,7 @@
       printedModifier,
       chargeToHitModifier,
       attackRangeModifier,
+      situationalAttackModifier: number(situationalAttackModifier),
       defenseRangeModifier,
       attackModifier,
       damageFormula: damage.supported ? formatDiceFormula(damage) : String(weapon?.damage || "Resolve manually"),

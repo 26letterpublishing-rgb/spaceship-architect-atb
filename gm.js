@@ -73,6 +73,7 @@ const dom = {
   bankerCharacter: $("#bankerCharacter"),
   setBanker: $("#setBanker"),
   noteForm: $("#privateNoteForm"),
+  rechargeItems: $("#rechargeItems"),
   noteMessage: $("#privateNoteMessage"),
   rollForm: $("#rollPromptForm"),
   promptAttribute: $("#promptAttribute"),
@@ -602,6 +603,14 @@ function scriptSource() {
     .replace(/\n$/, "");
 }
 
+function inboxItemActions(note) {
+  if (note.kind !== "item-transaction") return "";
+  const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
+  const cover = Number(note.deficit) > 0 ? `<button type="button" data-cover-deficit="${escapeHtml(note.characterId)}">Cover Deficit (+${Number(note.deficit).toLocaleString()} Credits)</button>` : "";
+  return deny || cover ? `<div class="inbox-actions">${deny}${cover}</div>` : "";
+}
+
+
 function renderInbox() {
   const requests = campaign.joinRequests || [];
   const inbox = [...(campaign.inbox || [])].reverse();
@@ -619,6 +628,7 @@ function renderInbox() {
   const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
     <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
+    ${inboxItemActions(note)}
   </article>`).join("");
   dom.inboxList.innerHTML = requestMarkup + messageMarkup || '<p class="empty-inbox">No campaign messages or pending characters.</p>';
 }
@@ -1376,6 +1386,29 @@ dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouc
 dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
 dom.inboxList.addEventListener("click", async (event) => {
+  const denyItem = event.target.closest("[data-deny-item]");
+  if (denyItem) {
+    event.stopPropagation();
+    if (!await confirmGm({ title: "Deny This Item?", message: "The item will be removed and any Credits paid will be refunded.", acceptLabel: "Deny Item", danger: true })) return;
+    try {
+      const payload = await api("/api/campaign/item/deny", { code, token, transactionId: denyItem.dataset.denyItem });
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, "Item denied and the transaction was reversed.", "success");
+    } catch (error) { showMessage(dom.message, error.message, "error"); }
+    return;
+  }
+  const coverDeficit = event.target.closest("[data-cover-deficit]");
+  if (coverDeficit) {
+    event.stopPropagation();
+    try {
+      const payload = await api("/api/campaign/item/cover-deficit", { code, token, characterId: coverDeficit.dataset.coverDeficit });
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, `${payload.amount} Credits awarded to cover the negative balance.`, "success");
+    } catch (error) { showMessage(dom.message, error.message, "error"); }
+    return;
+  }
+
+
   const decisionButton = event.target.closest("[data-join-decision]");
   const requestCard = decisionButton?.closest("[data-join-request]");
   if (decisionButton && requestCard) {
@@ -1512,6 +1545,24 @@ dom.setBanker.addEventListener("click", async () => {
     showMessage(dom.message, error.message, "error");
   }
 });
+
+dom.rechargeItems?.addEventListener("click", async () => {
+  if (!selectedTargets.size) {
+    showMessage(dom.message, "Select at least one character to recharge.", "error");
+    return;
+  }
+  dom.rechargeItems.disabled = true;
+  try {
+    const payload = await api("/api/campaign/item/recharge", { code, token, targetIds: [...selectedTargets] });
+    receiveCampaign(payload.campaign);
+    showMessage(dom.message, payload.recharged ? `${payload.recharged} carried rechargeable item${payload.recharged === 1 ? " was" : "s were"} restored.` : "None of the selected characters carried a rechargeable item.", payload.recharged ? "success" : "");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+  } finally {
+    dom.rechargeItems.disabled = false;
+  }
+});
+
 
 dom.awardResource.addEventListener("change", () => {
   const pool = dom.awardResource.value === "shipCredits";

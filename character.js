@@ -20,6 +20,7 @@ import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2"
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
+import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
@@ -209,6 +210,13 @@ const dom = {
   addCrewRow: $("#addCrewRow"),
   weaponInventory: $("#weaponInventory"),
   addWeaponRow: $("#addWeaponRow"),
+  gearCatalogOptions: $("#gearCatalogOptions"),
+  gearInventory: $("#gearInventory"),
+  gearInventoryEmpty: $("#gearInventoryEmpty"),
+  addGearRow: $("#addGearRow"),
+  storedGearInventory: $("#storedGearInventory"),
+  storedGearEmpty: $("#storedGearEmpty"),
+  storeGearButton: $("#storeGearButton"),
   confirmModal: $("#confirmModal"),
   confirmTitle: $("#confirmTitle"),
   confirmMessage: $("#confirmMessage"),
@@ -669,6 +677,9 @@ function blankCharacter(name = "") {
     },
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
     weapons: [{ id: uid(), weaponId: "", held: false }],
+    items: [],
+    storedItems: [],
+    statuses: { intoxicated: false },
     advantagesNotes: "",
     notes: "",
     updatedAt: new Date().toISOString(),
@@ -799,6 +810,9 @@ function normalizeCharacter(raw) {
     },
     crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
     weapons: Array.isArray(source.weapons) ? source.weapons.slice(0, 24) : base.weapons,
+    items: Array.isArray(source.items) ? source.items.slice(0, 200) : base.items,
+    storedItems: Array.isArray(source.storedItems) ? source.storedItems.slice(0, 200) : base.storedItems,
+    statuses: { ...base.statuses, ...(source.statuses || {}) },
   };
 
   for (const definition of ATTRIBUTE_DEFS) {
@@ -861,6 +875,26 @@ function normalizeCharacter(raw) {
       held,
     };
   });
+  const normalizeItem = (entry) => {
+    const catalog = gearById(entry?.catalogId);
+    const chargesMax = Number.isFinite(Number(entry?.chargesMax)) ? Math.max(0, Number(entry.chargesMax)) : Number(catalog?.chargesMax) || null;
+    return {
+      id: String(entry?.id || uid()),
+      catalogId: catalog?.id || "",
+      name: String(entry?.name || catalog?.name || "Custom Item").slice(0, 120),
+      description: String(entry?.description || catalog?.description || "").slice(0, 4000),
+      quantity: Math.max(1, Math.min(9999, Math.round(Number(entry?.quantity) || 1))),
+      unitCost: Math.round(clamp(entry?.unitCost ?? catalog?.cost ?? 0, 0, 999999999)),
+      chargesMax,
+      charges: chargesMax === null ? null : Math.max(0, Math.min(chargesMax, Number(entry?.charges ?? chargesMax))),
+      chargeState: String(entry?.chargeState || catalog?.chargeStateMax || "").slice(0, 40),
+      special: String(entry?.special || catalog?.special || "").slice(0, 80),
+    };
+  };
+  normalized.items = normalized.items.map(normalizeItem);
+  normalized.storedItems = normalized.storedItems.map(normalizeItem);
+  normalized.statuses.intoxicated = Boolean(normalized.statuses.intoxicated);
+
   normalized.experience.available = Math.round(clamp(normalized.experience.available, 0, 9999999));
   normalized.experience.spent = Math.round(clamp(normalized.experience.spent, 0, 9999999));
   normalized.experience.totalGained = Math.max(
@@ -984,6 +1018,8 @@ if (!library.length) library.push(blankCharacter());
 let activeId = activeRecovery?.character?.id || localStorage.getItem(ACTIVE_KEY) || library[0].id;
 if (!library.some((entry) => entry.id === activeId)) activeId = library[0].id;
 let character = library.find((entry) => entry.id === activeId) || library[0];
+let gearDraft = null;
+const pendingGearAdds = new Set();
 
 function saveLibrary(message = "Saved locally") {
   character.updatedAt = new Date().toISOString();
@@ -1097,7 +1133,7 @@ async function browseCampaignCharacter(offset) {
   const currentIndex = Math.max(0, records.findIndex((entry) => entry.id === campaignCharacterId));
   const nextIndex = (currentIndex + offset + records.length) % records.length;
   showCampaignCharacter(records[nextIndex], { editable: false });
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  void 0;
 }
 
 function queueCampaignCharacterSave(delay = 280) {
@@ -1219,7 +1255,7 @@ function showSheetSection(section = "identity", { scroll = false } = {}) {
   updateLibraryVisibility();
 
   if (scroll && activeCharacterTab === "sheet") {
-    dom.characterSheet.scrollIntoView({ behavior: "smooth", block: "start" });
+    void 0;
   }
 }
 
@@ -1276,7 +1312,7 @@ function showCharacterPanel(tab = "sheet") {
   if (activeCharacterTab === "atb") void loadPlayerAtb();
   renderTabbedStatus();
   updateLibraryVisibility();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  void 0;
 }
 function renderCharacterNavigation() {
   const linked = Boolean(campaignCode && campaignCharacterId && (campaignState || character.campaignLink?.status === "linked"));
@@ -3151,17 +3187,19 @@ function openCombatSkillRequest(request) {
   if (!skillCheck) return;
   skillCheck.combatRequest = request;
   skillCheck.combatSubmitted = false;
-  skillCheck.difficulty = "";
-  selectSkillAttribute("dexterity");
+  skillCheck.difficulty = request.difficulty === null || request.difficulty === undefined ? "" : String(request.difficulty);
+  selectSkillAttribute(request.attribute || "dexterity");
   for (const sides of request.bonusDice || []) {
     const value = Number(sides);
     if ([4, 6, 8, 10, 12, 20].includes(value)) skillCheck.activeSides.push(value);
   }
   renderSkillSetup();
-  dom.skillCheckKicker.textContent = request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
-  dom.skillCheckTitle.textContent = request.rollRole === "attacker"
-    ? "Dexterity + " + (request.skill || "Projectile")
-    : "Dexterity + Dodge/Block";
+  const firstAid = request.rollRole === "firstAid";
+  dom.skillCheckKicker.textContent = firstAid ? "First Aid Resolution" : request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
+  dom.skillCheckTitle.textContent = firstAid
+    ? "Intellect + Anatomy/First Aid"
+    : request.rollRole === "attacker" ? "Dexterity + " + (request.skill || "Projectile") : "Dexterity + Dodge/Block";
+  dom.skillDifficulty.value = skillCheck.difficulty;
   dom.skillCheckSubtitle.textContent = request.subtitle || "Submit the completed Score. The app applies weapon and Range modifiers afterward.";
   dom.changeSkillAttribute.hidden = true;
 }
@@ -3171,9 +3209,12 @@ function openCombatDamageRequest(request) {
   combatDamageSubmitted = false;
   const parsed = damageFormulaPool(request.damageFormula);
   request.parsedDamage = parsed;
-  dom.combatDamageTitle.textContent = "Roll " + request.weaponName + " Damage";
-  dom.combatDamageSubtitle.textContent = "Add every Damage die. Damage dice do not fuse.";
-  dom.combatDamageWeapon.textContent = request.weaponName;
+  const healing = Boolean(request.healing);
+  dom.combatDamageTitle.textContent = healing ? "Roll First Aid Healing" : "Roll " + request.weaponName + " Damage";
+  dom.combatDamageSubtitle.textContent = healing
+    ? `Add every healing die.${request.addScore ? ` The First Aid Score (${request.addScore}) is added automatically.` : ""}`
+    : "Add every Damage die. Damage dice do not fuse.";
+  dom.combatDamageWeapon.textContent = healing ? "First Aid" : request.weaponName;
   dom.combatDamageFormula.textContent = request.damageFormula;
   dom.combatDamageTarget.textContent = request.targetName;
   dom.combatDamageManual.value = "";
@@ -3185,7 +3226,7 @@ function openCombatDamageRequest(request) {
   dom.combatDamageResult.textContent = "";
   dom.combatDamageError.textContent = parsed.supported ? "" : "This card uses an unusual formula. Enter the completed Damage total manually.";
   dom.rollCombatDamage.disabled = !parsed.supported;
-  dom.combatDamageCritical.hidden = !request.critical;
+  dom.combatDamageCritical.hidden = healing || !request.critical;
   dom.combatDamageCritical.textContent = request.calledShot
     ? "CRITICAL EFFECT - DAMAGE IS NOT DOUBLED"
     : request.criticalDamageDisabled
@@ -3209,12 +3250,18 @@ function finishCombatDamage(rolledDamage, mode, diceResults = []) {
   dom.combatDamageResult.hidden = false;
   dom.combatDamageResult.textContent = diceResults.length
     ? "DICE: " + diceResults.join(" + ") + (activeCombatDamageRequest.parsedDamage.flat ? " | FLAT " + activeCombatDamageRequest.parsedDamage.flat : "") + " = " + formatNumber(rolledDamage)
-    : "MANUAL DAMAGE: " + formatNumber(rolledDamage);
+    : `${activeCombatDamageRequest.healing ? "MANUAL HEALING" : "MANUAL DAMAGE"}: ${formatNumber(rolledDamage)}`;
   dom.combatDamageManual.disabled = true;
   dom.submitManualCombatDamage.hidden = true;
   dom.rollCombatDamage.hidden = true;
   dom.exitCombatDamageResult.hidden = false;
-  dom.playerAtbFrame?.contentWindow?.postMessage({
+  dom.playerAtbFrame?.contentWindow?.postMessage(activeCombatDamageRequest.healing ? {
+    type: "sa-combat-healing-result",
+    resolutionId: activeCombatDamageRequest.resolutionId || activeCombatDamageRequest.attackId,
+    rolledHealing: rolledDamage,
+    mode,
+    diceResults,
+  } : {
     type: "sa-combat-damage-result",
     attackId: activeCombatDamageRequest.attackId,
     rolledDamage,
@@ -3298,7 +3345,7 @@ function renderFusionSelectionState() {
   }
 }
 
-function resolvePhysicalSkillRoll(results) {
+async function resolvePhysicalSkillRoll(results) {
   if (!skillCheck) return;
   skillCheck.lastResults = [...results];
   const profile = rollRuleProfile();
@@ -3315,16 +3362,36 @@ function resolvePhysicalSkillRoll(results) {
     adjustedResults.splice(highestIndex, 1);
   }
   const analyzed = fusionResults(adjustedResults, profile);
+  const garmocBonusCount = profile.raceId === "garmoc" && ["strength", "health", "willpower"].includes(profile.attributeKey)
+    ? analyzed.fusions.filter((fusion) => fusion.sourceIndices.some((index) => [10, 12].includes(Number(skillCheck.currentRollSides[index])))).length
+    : 0;
+  let garmocBonusResults = [];
+  if (garmocBonusCount) {
+    dom.skillCheckModal.hidden = true;
+    document.body.classList.add("skill-roll-active");
+    garmocBonusResults = await new Promise((resolve) => diceRoller.rollPool({
+      sides: Array.from({ length: garmocBonusCount }, () => 20), title: "Garmoc Fusion Bonus",
+      subtitle: `${garmocBonusCount} independent D20${garmocBonusCount === 1 ? "" : "s"}; these dice cannot fuse.`, fusion: false,
+      onResolved: () => {}, onSettled: (bonusResults) => {
+        document.body.classList.remove("skill-roll-active"); diceRoller.stop(); dom.skillCheckModal.hidden = false; resolve(bonusResults);
+      },
+    }));
+  }
   const values = [
     ...skillCheck.preservedFusions.map((fusion) => fusion.value),
     ...analyzed.fusions.map((fusion) => fusion.value),
     ...analyzed.leftovers,
+    ...garmocBonusResults,
   ].sort((a, b) => b - a);
   const top = values.slice(0, 2);
   const diceTotal = top.reduce((sum, value) => sum + value, 0);
   const resolved = skillCheckResolvedSkill();
   const skillBonus = skillCheck.attributeOnly ? 0 : combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
   let flatBonus = skillCheck.committedExertion;
+  const intoxicationBonus = character.statuses?.intoxicated
+    ? (["charisma", "willpower"].includes(profile.attributeKey) ? 2 : ["dexterity", "intellect"].includes(profile.attributeKey) ? -3 : 0)
+    : 0;
+  flatBonus += intoxicationBonus;
   if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide") flatBonus += skillCheck.committedExertion * 4;
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy") {
     if (profile.attributeKey === "strength") flatBonus -= 2;
@@ -3350,12 +3417,14 @@ function resolvePhysicalSkillRoll(results) {
   if (profile.raceId === "skeder" && profile.skillName === "Jump") equationParts.push("Sked'er Jump +3");
   if (profile.raceId === "android" && profile.skillName === "Initiative") equationParts.push("Android Initiative +5");
   if (unusedDiceBonus) equationParts.push(`Unused dice +${formatNumber(unusedDiceBonus)}`);
+  if (garmocBonusResults.length) equationParts.push(`Garmoc fusion bonus: ${garmocBonusResults.map((value) => `D20=${value}`).join(", ")}`);
+  if (intoxicationBonus) equationParts.push(`STILL DRUNK ${intoxicationBonus > 0 ? "+" : ""}${intoxicationBonus}`);
   showSkillResult({
     score,
     equation: equationParts.join(" | "),
     outcome,
     newFusions: analyzed.fusions,
-    diceResults: adjustedResults,
+    diceResults: [...adjustedResults, ...garmocBonusResults],
   });
 }
 
@@ -3373,7 +3442,7 @@ function calculateManualSkillResult() {
   const committed = skillCheck.committedExertion ? ` | ${skillCheck.committedExertion} Exertion committed` : "";
   showSkillResult({
     score,
-    equation: `Manual Final Score${committed}`,
+    equation: `Manual Final Score${committed}${character.statuses?.intoxicated ? " | STILL DRUNK (include the printed Attribute modifier)" : ""}`,
     outcome,
     manual: true,
     diceResults: [],
@@ -3544,6 +3613,112 @@ function renderWeapons() {
   }).join("");
 }
 
+function itemChargeLabel(entry) {
+  if (entry.chargesMax !== null && entry.chargesMax !== undefined) return `${formatNumber(entry.charges)}/${formatNumber(entry.chargesMax)} charges`;
+  if (entry.chargeState) return entry.chargeState;
+  return "";
+}
+
+function renderGear() {
+  if (!dom.gearInventory) return;
+  const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
+  document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
+  dom.addGearRow.disabled = !editable || Boolean(gearDraft);
+  dom.storeGearButton.disabled = !editable || !character.items.length;
+  dom.gearCatalogOptions.innerHTML = GEAR.map((entry) => `<option value="${escapeAttribute(entry.name)}">${entry.cost} Credits</option>`).join("");
+  const rows = character.items.map((entry) => {
+    const pending = pendingGearAdds.has(entry.id);
+    const charge = itemChargeLabel(entry);
+    return `<div class="gear-row" data-gear-row="${escapeAttribute(entry.id)}">
+      <input class="gear-name" data-gear-field="name" list="gearCatalogOptions" value="${escapeAttribute(entry.name)}" aria-label="Item name" ${editable ? "" : "disabled"} />
+      <textarea class="gear-description" data-gear-field="description" aria-label="Item description" ${editable ? "" : "disabled"}>${escapeHtml(entry.description)}</textarea>
+      <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
+      <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
+      <div class="gear-actions">${pending
+        ? `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button><button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button><button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
+        : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
+    </div>`;
+  });
+  if (gearDraft) rows.push(`<div class="gear-row gear-draft" data-gear-draft>
+    <input class="gear-name" data-gear-draft-field="name" list="gearCatalogOptions" value="${escapeAttribute(gearDraft.name)}" placeholder="Begin typing an item name" aria-label="New item name" />
+    <textarea class="gear-description" data-gear-draft-field="description" placeholder="Item description">${escapeHtml(gearDraft.description)}</textarea>
+    <div class="gear-quantity"><span></span><strong>1</strong><span></span></div>
+    <label class="gear-cost"><input data-gear-draft-field="unitCost" type="number" min="0" step="1" value="${gearDraft.unitCost}" aria-label="Item cost" /></label>
+    <div class="gear-actions"><button class="purchase" type="button" data-gear-draft-mode="purchase">Purchase</button><button class="receive" type="button" data-gear-draft-mode="receive">Receive</button><button type="button" data-cancel-gear-draft>Cancel</button></div>
+  </div>`);
+  dom.gearInventory.innerHTML = rows.join("");
+  dom.gearInventoryEmpty.hidden = Boolean(rows.length);
+  dom.storedGearInventory.innerHTML = character.storedItems.map((entry) => `<div class="stored-gear-row" data-stored-gear="${escapeAttribute(entry.id)}">
+    <strong>${escapeHtml(entry.name)}</strong><p>${escapeHtml(entry.description)}</p><span class="storage-qty">x${entry.quantity}</span>
+    <div class="storage-actions"><button type="button" data-return-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Return 1</button></div>
+  </div>`).join("");
+  dom.storedGearEmpty.hidden = Boolean(character.storedItems.length);
+}
+
+function gearPayload(entry) {
+  return {
+    id: entry.id, catalogId: entry.catalogId || "", name: entry.name, description: entry.description,
+    quantity: entry.quantity || 1, unitCost: Number(entry.unitCost) || 0,
+    charges: entry.charges, chargesMax: entry.chargesMax, chargeState: entry.chargeState || "", special: entry.special || "",
+  };
+}
+
+function mergeItemInto(list, item, quantity = 1) {
+  const matching = list.find((entry) => entry.catalogId === item.catalogId
+    && entry.name === item.name && entry.description === item.description && entry.unitCost === item.unitCost
+    && entry.charges === item.charges && entry.chargesMax === item.chargesMax && entry.chargeState === item.chargeState);
+  if (matching) matching.quantity += quantity;
+  else list.push({ ...gearPayload(item), id: uid(), quantity });
+}
+
+async function addGearItem(item, mode) {
+  const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
+  if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
+  if (cost > Number(character.resources.creditsBase || 0)) {
+    const accepted = await askConfirmation({
+      title: "Not Enough Credits",
+      message: `This purchase costs ${cost} Credits, but the character has ${character.resources.creditsBase}. Continue with a negative balance?`,
+      acceptLabel: "Continue", cancelLabel: "Cancel", danger: true,
+    });
+    if (!accepted) return false;
+  }
+  if (campaignCode && campaignCharacterId && campaignEditable) {
+    const payload = await campaignRequest("/api/campaign/item/transaction", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, item: gearPayload(item) }),
+    });
+    if (payload.campaign) receiveCampaignState(payload.campaign);
+  } else {
+    mergeItemInto(character.items, item, 1);
+    if (mode === "purchase") character.resources.creditsBase -= cost;
+    queueSave();
+  }
+  return true;
+}
+
+async function removeCarriedItem(entry, { reason = "removed" } = {}) {
+  if (!entry) return;
+  if (entry.catalogId === "intoxicating-liquid") {
+    const drinking = await askConfirmation({
+      title: "Are You Drinking This Item?",
+      message: "Drinking applies +2 to Charisma and Willpower rolls and -3 to Dexterity and Intellect rolls until the GM ends the session.",
+      acceptLabel: "Drink It", cancelLabel: "Remove Without Drinking",
+    });
+    if (drinking) character.statuses.intoxicated = true;
+  }
+  entry.quantity -= 1;
+  if (entry.quantity <= 0) character.items = character.items.filter((item) => item.id !== entry.id);
+  queueSave();
+  await saveCampaignCharacter({ force: true });
+  if (campaignCode && campaignEditable) {
+    campaignRequest("/api/campaign/item/activity", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, message: `${character.identity.characterName || "Character"} ${reason} 1 ${entry.name}.` }),
+    }).catch(() => {});
+  }
+}
+
+
 function heldWeaponSnapshot() {
   const entry = character.weapons.find((weapon) => weapon.held && weapon.weaponId);
   const weapon = weaponById(entry?.weaponId);
@@ -3695,6 +3870,7 @@ function renderAll() {
   renderResources();
   renderDerived();
   renderWeapons();
+  renderGear();
   renderCrew();
   renderCharacterLayout();
 }
@@ -3723,7 +3899,9 @@ function renderWithoutViewportJump() {
   const top = window.scrollY;
   document.activeElement?.blur?.();
   renderAll();
-  requestAnimationFrame(() => window.scrollTo({ left, top, behavior: "auto" }));
+  const restore = () => window.scrollTo({ left, top, behavior: "auto" });
+  requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+  setTimeout(restore, 80);
 }
 
 function purchaseAttribute(attributeKey, row, column) {
@@ -4021,7 +4199,7 @@ async function beginFinalization() {
         showCharacterPanel("sheet");
         showSheetSection("identity");
       }
-      $(".notes-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+      void 0;
       dom.fubsButton.classList.remove("fubs-attention");
       requestAnimationFrame(() => dom.fubsButton.classList.add("fubs-attention"));
     }
@@ -4054,7 +4232,7 @@ async function playFinalizedIdentityReveal() {
   }
   const name = (character.identity.characterName || "Unnamed Character").toUpperCase();
   const color = character.presentation?.atbColor || "#39e58f";
-  dom.identityPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
+  void 0;
   await new Promise((resolve) => setTimeout(resolve, 620));
   if (token !== identityRevealToken) return;
   dom.identityPanel.style.setProperty("--identity-atb-color", color);
@@ -4229,7 +4407,7 @@ function rollPending() {
   }
   const creation = pending.kind === "creation-d10";
   const remaining = character.creation.finalizationQueue.length;
-  const anchor = null;
+  const anchor = creation ? skillRowFor(pending.skillKey) : null;
   anchor?.scrollIntoView({ behavior: "auto", block: "center" });
   diceRoller.roll({
     sides: creation ? 10 : (pending.sides || 6),
@@ -4414,7 +4592,7 @@ async function performFubsRoll({ forcedFirst = null, reroll = false, debug = fal
   if (debug) character.fubs.rerollUsed = false;
   saveLibrary("FUBS roll started");
   renderAll();
-  $(".notes-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+  void 0;
   try {
     const rolls = await buildFubsRollChain(forcedFirst);
     character.fubs.status = "complete";
@@ -4440,7 +4618,7 @@ async function showBackstoryRequired() {
     singleAction: true,
   });
   const background = document.querySelector('[data-field="notes"]');
-  background?.scrollIntoView({ behavior: "smooth", block: "center" });
+  void 0;
   background?.focus();
 }
 
@@ -4616,6 +4794,7 @@ document.addEventListener("click", (event) => {
     entry.held = nextHeld;
     queueSave();
     renderWeapons();
+  renderGear();
     notice(nextHeld ? `${weaponById(entry.weaponId).name} is now held.` : "Held weapon stowed.", "success");
     return;
   }
@@ -4628,6 +4807,7 @@ document.addEventListener("click", (event) => {
     character.weapons = character.weapons.filter((weapon) => weapon.id !== removeWeapon.dataset.removeWeapon);
     queueSave();
     renderWeapons();
+  renderGear();
     notice(`${name} removed from Supplies.`, "success");
     return;
   }
@@ -4672,6 +4852,7 @@ document.addEventListener("change", (event) => {
   if (!entry.weaponId) entry.held = false;
   queueSave();
   renderWeapons();
+  renderGear();
   notice(entry.weaponId ? `${weaponById(entry.weaponId).name} added to Supplies.` : "Weapon row cleared.", "success");
 });
 
@@ -4853,11 +5034,130 @@ dom.addCustomSkill.addEventListener("click", () => {
   dom.customSkills.querySelector(`input[data-custom-name="${custom.id}"]`)?.focus();
 });
 
+dom.addGearRow?.addEventListener("click", () => {
+  if (character.phase !== "finalized" || (campaignCode && !campaignEditable) || gearDraft) return;
+  gearDraft = { id: uid(), catalogId: "", name: "", description: "", quantity: 1, unitCost: 0, charges: null, chargesMax: null, chargeState: "", special: "" };
+  renderGear();
+  dom.gearInventory.querySelector("[data-gear-draft-field='name']")?.focus({ preventScroll: true });
+});
+
+dom.storeGearButton?.addEventListener("click", () => {
+  if (!character.items.length) return;
+  notice("Choose Store 1 beside the item you want to move into storage.", "success");
+  dom.gearInventory.classList.add("storage-selecting");
+  setTimeout(() => dom.gearInventory.classList.remove("storage-selecting"), 2600);
+});
+
+dom.gearInventory?.addEventListener("input", (event) => {
+  const draftField = event.target.closest("[data-gear-draft-field]");
+  if (draftField && gearDraft) {
+    const field = draftField.dataset.gearDraftField;
+    gearDraft[field] = field === "unitCost" ? Math.max(0, Math.round(Number(draftField.value) || 0)) : draftField.value;
+    if (field === "name") {
+      const catalog = GEAR.find((entry) => entry.name.toLowerCase() === draftField.value.trim().toLowerCase());
+      if (catalog) {
+        gearDraft = { ...gearDraft, ...catalog, catalogId: catalog.id, quantity: 1, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" };
+        renderGear();
+      }
+    }
+    return;
+  }
+  const field = event.target.closest("[data-gear-field]");
+  const row = field?.closest("[data-gear-row]");
+  const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
+  if (!field || !entry) return;
+  if (field.dataset.gearField === "unitCost") entry.unitCost = Math.max(0, Math.round((Number(field.value) || 0) / Math.max(1, entry.quantity)));
+  else entry[field.dataset.gearField] = field.value;
+  queueSave();
+});
+
+dom.gearInventory?.addEventListener("change", (event) => {
+  const field = event.target.closest("[data-gear-field='name']");
+  const row = field?.closest("[data-gear-row]");
+  const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
+  if (!field || !entry) return;
+  const catalog = GEAR.find((option) => option.name.toLowerCase() === field.value.trim().toLowerCase());
+  if (catalog) {
+    const quantity = entry.quantity;
+    Object.assign(entry, catalog, { catalogId: catalog.id, quantity, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: entry.catalogId === catalog.id ? entry.charges : catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" });
+    queueSave();
+    renderGear();
+  }
+});
+
+dom.gearInventory?.addEventListener("click", async (event) => {
+  const cancelDraft = event.target.closest("[data-cancel-gear-draft]");
+  if (cancelDraft) { gearDraft = null; renderGear(); return; }
+  const draftMode = event.target.closest("[data-gear-draft-mode]");
+  if (draftMode && gearDraft) {
+    draftMode.disabled = true;
+    try {
+      if (await addGearItem(gearDraft, draftMode.dataset.gearDraftMode)) {
+        gearDraft = null;
+        renderAll();
+        notice("Item added to carried supplies.", "success");
+      }
+    } catch (error) { notice(error.message, "error"); draftMode.disabled = false; }
+    return;
+  }
+  const plus = event.target.closest("[data-gear-plus]");
+  if (plus) { pendingGearAdds.add(plus.dataset.gearPlus); renderGear(); return; }
+  const cancelAdd = event.target.closest("[data-gear-cancel-add]");
+  if (cancelAdd) { pendingGearAdds.delete(cancelAdd.dataset.gearCancelAdd); renderGear(); return; }
+  const addMode = event.target.closest("[data-gear-add-mode]");
+  if (addMode) {
+    const entry = character.items.find((item) => item.id === addMode.dataset.gearId);
+    if (!entry) return;
+    addMode.disabled = true;
+    try {
+      if (await addGearItem({ ...entry, quantity: 1 }, addMode.dataset.gearAddMode)) {
+        pendingGearAdds.delete(entry.id);
+        renderAll();
+      }
+    } catch (error) { notice(error.message, "error"); addMode.disabled = false; }
+    return;
+  }
+  const minus = event.target.closest("[data-gear-minus]");
+  if (minus) {
+    const entry = character.items.find((item) => item.id === minus.dataset.gearMinus);
+    await removeCarriedItem(entry, { reason: "removed" });
+    renderAll();
+    return;
+  }
+  const store = event.target.closest("[data-store-gear]");
+  if (store) {
+    const entry = character.items.find((item) => item.id === store.dataset.storeGear);
+    if (!entry) return;
+    mergeItemInto(character.storedItems, entry, 1);
+    entry.quantity -= 1;
+    if (entry.quantity <= 0) character.items = character.items.filter((item) => item.id !== entry.id);
+    queueSave();
+    await saveCampaignCharacter({ force: true });
+    renderAll();
+    notice(`${entry.name} moved to storage.`, "success");
+  }
+});
+
+dom.storedGearInventory?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-return-gear]");
+  const entry = character.storedItems.find((item) => item.id === button?.dataset.returnGear);
+  if (!button || !entry) return;
+  mergeItemInto(character.items, entry, 1);
+  entry.quantity -= 1;
+  if (entry.quantity <= 0) character.storedItems = character.storedItems.filter((item) => item.id !== entry.id);
+  queueSave();
+  await saveCampaignCharacter({ force: true });
+  renderAll();
+  notice(`${entry.name} returned to carried supplies.`, "success");
+});
+
+
 dom.addWeaponRow.addEventListener("click", () => {
   if ((campaignCode && !campaignEditable) || character.weapons.length >= 24) return;
   character.weapons.push({ id: uid(), weaponId: "", held: false });
   queueSave();
   renderWeapons();
+  renderGear();
   dom.weaponInventory.querySelector(".weapon-table-row:last-child select")?.focus();
 });
 
@@ -5082,7 +5382,7 @@ dom.returnToCampaignRoster?.addEventListener("click", async () => {
   dom.campaignGate.hidden = false;
   dom.campaignEntryPrompt.hidden = true;
   renderCampaignRoster();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  void 0;
 });
 
 dom.changeCampaign?.addEventListener("click", () => {
@@ -5367,10 +5667,12 @@ window.addEventListener("message", (event) => {
     if (!attackId || lastReceivedCombatRequestKey.startsWith(attackId + ":")) lastReceivedCombatRequestKey = "";
     return;
   }
-  if (event.data?.type === "sa-combat-roll-request" || event.data?.type === "sa-combat-damage-request") {
+  if (["sa-combat-roll-request", "sa-combat-damage-request", "sa-combat-healing-request"].includes(event.data?.type)) {
     const request = {
       ...event.data,
-      type: event.data.type === "sa-combat-damage-request" ? "damage" : "roll",
+      attackId: event.data.attackId || event.data.resolutionId,
+      type: event.data.type === "sa-combat-roll-request" ? "roll" : "damage",
+      healing: event.data.type === "sa-combat-healing-request",
     };
     const requestKey = request.attackId + ":" + request.type + ":" + (request.rollRole || "damage");
     const sameRollOpen = request.type === "roll" && skillCheck?.combatRequest?.attackId === request.attackId && skillCheck?.combatRequest?.rollRole === request.rollRole;

@@ -68,6 +68,9 @@ function createRoom(requestedCode = "", snapshot = null) {
     activeId: null,
     activeAction: null,
     attackResolution: null,
+    itemResolution: null,
+    vehicles: [],
+    areaEffects: [],
     activeSource: null,
     commandDeadline: null,
     commandTotal: 0,
@@ -97,6 +100,9 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.activeId = snapshot.activeId || null;
     room.activeAction = clone(snapshot.activeAction);
     room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
+    room.itemResolution = snapshot.itemResolution ? clone(snapshot.itemResolution) : null;
+    room.vehicles = Array.isArray(snapshot.vehicles) ? clone(snapshot.vehicles) : [];
+    room.areaEffects = Array.isArray(snapshot.areaEffects) ? clone(snapshot.areaEffects) : [];
     room.activeSource = snapshot.activeSource || null;
     room.commandDeadline = snapshot.commandRemaining === null || snapshot.commandRemaining === undefined
       ? null
@@ -166,6 +172,9 @@ function publicState(room) {
     activeId: room.activeId,
     activeAction: room.activeAction,
     attackResolution: publicAttackResolution(room),
+    itemResolution: clone(room.itemResolution),
+    vehicles: clone(room.vehicles || []),
+    areaEffects: clone(room.areaEffects || []),
     activeSource: room.activeSource,
     command,
     hardPaused: room.hardPaused,
@@ -188,15 +197,87 @@ function pushLog(room, text) {
   room.log = room.log.slice(-80);
 }
 
-async function applyDamageToUnit(room, target, rawDamage, source) {
+function removeUnitFromCombatObjects(room, unitId) {
+  for (const owner of room.units || []) {
+    if (owner.powerShield?.protectedIds) owner.powerShield.protectedIds = owner.powerShield.protectedIds.filter((entry) => entry !== unitId);
+  }
+  for (const vehicle of room.vehicles || []) {
+    vehicle.occupantIds = (vehicle.occupantIds || []).filter((entry) => entry !== unitId);
+    if (vehicle.driverId === unitId) { vehicle.driverId = ""; vehicle.currentMoveSpeed = vehicle.moveSpeed; }
+  }
+  room.vehicles = (room.vehicles || []).filter((vehicle) => vehicle.occupantIds.length);
+  if (room.itemResolution && [room.itemResolution.healerId, room.itemResolution.targetId].includes(unitId)) {
+    pushLog(room, "First Aid resolution cancelled because a participant left combat.");
+    room.itemResolution = null;
+  }
+}
+
+function activateSmokeEffect(room, unit, effect) {
+  unit.thrownEffects = (unit.thrownEffects || []).filter((entry) => entry.id !== effect.id);
+  room.areaEffects ||= [];
+  room.areaEffects.push({ id: id(), kind: "smoke", label: "Smoke Cloud", sourceUnitId: unit.id, sourceName: unit.characterName, radius: 6, penalty: 8, weakenEvery: 6, weakenRemaining: 6, createdAt: Date.now() });
+  pushLog(room, `${unit.characterName}'s Smoke Grenade detonated: 6-unit smoke cloud, -8 Perception and Projectile; penalty weakens by 1 every 6 seconds.`);
+}
+
+function tickAreaEffects(room, seconds, multiplier = 1) {
+  const elapsed = Math.max(0, Number(seconds) || 0) * Math.max(0, Number(multiplier) || 0);
+  if (!elapsed) return;
+  for (const effect of room.areaEffects || []) {
+    if (effect.kind !== "smoke") continue;
+    effect.weakenRemaining = Math.max(0, Number(effect.weakenRemaining) || Number(effect.weakenEvery) || 6) - elapsed;
+    while (effect.weakenRemaining <= 0 && effect.penalty > 0) {
+      effect.penalty -= 1;
+      effect.weakenRemaining += Math.max(0.1, Number(effect.weakenEvery) || 6);
+      if (effect.penalty > 0) pushLog(room, `${effect.label} weakened to -${effect.penalty}.`);
+    }
+  }
+  const expired = (room.areaEffects || []).filter((effect) => effect.kind === "smoke" && effect.penalty <= 0);
+  if (expired.length) pushLog(room, `${expired.length === 1 ? expired[0].label : "Smoke clouds"} dispersed.`);
+  room.areaEffects = (room.areaEffects || []).filter((effect) => effect.kind !== "smoke" || effect.penalty > 0);
+}
+
+async function syncUnitItemsToCampaign(room, unit) {
+  if (!unit?.characterId || !campaignApi) return;
+  await campaignApi.syncCharacterCombatInventory(room.roomCode, unit.characterId, unit.items || [], unit.statuses || {});
+}
+
+function shieldProtectingTarget(room, target, { attackerId = "", attackType = "" } = {}) {
+  if (attackType !== "ranged") return null;
+  return room.units.find((owner) => {
+    const shield = owner.powerShield;
+    if (!shield?.active || !(Number(shield.hp) > 0) || !shield.protectedIds?.includes(target.id)) return false;
+    return !attackerId || !shield.protectedIds.includes(attackerId);
+  }) || null;
+}
+
+async function applyDamageToUnit(room, target, rawDamage, source, options = {}) {
   if (!target) return null;
   const incoming = Math.max(0, Number(rawDamage) || 0);
+  const shieldOwner = shieldProtectingTarget(room, target, options);
+  if (shieldOwner) {
+    const shield = shieldOwner.powerShield;
+    const beforeShield = Math.max(0, Number(shield.hp) || 0);
+    const absorbed = Math.min(beforeShield, incoming);
+    shield.hp = Math.max(0, beforeShield - incoming);
+    const shieldItem = (shieldOwner.items || []).find((entry) => entry.id === shield.itemId);
+    if (shieldItem) shieldItem.charges = shield.hp;
+    const collapsed = shield.hp <= 0;
+    if (collapsed) { shield.active = false; shield.collapsedAt = Date.now(); }
+    await syncUnitItemsToCampaign(room, shieldOwner);
+    target.damageEvent = {
+      id: id(), source: `${source} - Power Shields`, rawDamage: incoming, reduction: 0, applied: 0,
+      beforeHp: target.currentHp, currentHp: target.currentHp, maximumHp: target.maximumHp, shieldAbsorbed: absorbed,
+      shieldOwnerId: shieldOwner.id, shieldBefore: beforeShield, shieldCurrent: shield.hp, shieldCollapsed: collapsed, createdAt: Date.now(),
+    };
+    pushLog(room, `${shieldOwner.characterName}'s Power Shields intercepted ${source} against ${target.characterName}; ${absorbed} Shield HP lost, overflow discarded${collapsed ? "; SHIELDS COLLAPSED" : `; ${shield.hp}/30 remains`}.`);
+    return target.damageEvent;
+  }
   let result = null;
-  if (target.characterId && campaignApi) {
+  if (target.characterId && campaignApi && !options.finalDamage) {
     result = await campaignApi.damageCharacter(room.roomCode, target.characterId, incoming, source, { currentHp: target.currentHp, maximumHp: target.maximumHp, damageReduction: target.damageReduction });
   }
   if (!result) {
-    const reduction = Math.max(0, Number(target.damageReduction) || 0);
+    const reduction = options.finalDamage ? 0 : Math.max(0, Number(target.damageReduction) || 0);
     const applied = Math.max(0, incoming - reduction);
     const beforeHp = target.currentHp === null || target.currentHp === undefined ? null : Number(target.currentHp);
     const currentHp = beforeHp === null ? null : Math.max(0, beforeHp - applied);
@@ -211,7 +292,58 @@ async function applyDamageToUnit(room, target, rawDamage, source) {
   return target.damageEvent;
 }
 
+async function applyHealingToUnit(room, target, amount, source) {
+  if (!target) return null;
+  const requested = Math.max(0, Number(amount) || 0);
+  let result = null;
+  if (target.characterId && campaignApi) result = await campaignApi.healCharacter(room.roomCode, target.characterId, requested, source);
+  if (!result) {
+    const maximumHp = Math.max(0, Number(target.maximumHp) || Number(target.currentHp) || 0);
+    const beforeHp = Math.max(0, Number(target.currentHp) || 0);
+    const currentHp = Math.min(maximumHp, beforeHp + requested);
+    result = { requested, applied: currentHp - beforeHp, beforeHp, currentHp, maximumHp, source, createdAt: Date.now() };
+  }
+  target.currentHp = result.currentHp;
+  target.maximumHp = result.maximumHp;
+  target.healingEvent = { ...result, id: id() };
+  pushLog(room, `${source} restored ${result.applied} HP to ${target.characterName}; HP ${result.currentHp}/${result.maximumHp}.`);
+  syncNpcDefeat(room, target);
+  return target.healingEvent;
+}
 
+function beginFirstAidResolution(room, healer, timedAction, source) {
+  const target = room.units.find((entry) => entry.id === timedAction.targetId);
+  if (!target) {
+    pushLog(room, `${healer.characterName}'s First Aid ended because the patient left combat.`);
+    moveToNextTurnOrClock(room, source);
+    return false;
+  }
+  room.running = false;
+  room.pausedForTurn = true;
+  room.activeId = null;
+  clearActiveCommand(room);
+  room.activeSource = source;
+  room.itemResolution = {
+    id: id(), kind: "firstAid", phase: "gmDifficulty", healerId: healer.id, targetId: target.id,
+    healerName: healer.characterName, targetName: target.characterName, useKit: Boolean(timedAction.useKit),
+    baseDifficulty: healer.id === target.id ? 15 : 12, difficulty: healer.id === target.id ? 15 : 12,
+    treatmentRating: Number(timedAction.treatmentRating) || 0, roll: null, healingRoll: null,
+    healingFormula: "", createdAt: Date.now(), source,
+  };
+  pushLog(room, `${healer.characterName}'s treatment of ${target.characterName} is ready; GM must confirm First Aid Difficulty.`);
+  return true;
+}
+
+function finishItemResolution(room, text) {
+  const resolution = room.itemResolution;
+  if (!resolution) return;
+  room.itemResolution = null;
+  room.pausedForTurn = false;
+  room.activeId = null;
+  clearActiveCommand(room);
+  if (text) pushLog(room, text);
+  moveToNextTurnOrClock(room, resolution.source || room.activeSource);
+}
 
 function npcDefeatKey(roomCodeValue, unitId) {
   return `${roomCodeValue}:${unitId}`;
@@ -257,6 +389,7 @@ function syncNpcDefeat(room, unit) {
     const previousSource = liveRoom.activeSource;
     const wasActive = liveRoom.activeId === defeated.id;
     const affectedAttack = liveRoom.attackResolution && [liveRoom.attackResolution.attackerId, liveRoom.attackResolution.defenderId].includes(defeated.id);
+    removeUnitFromCombatObjects(liveRoom, defeated.id);
     liveRoom.units = liveRoom.units.filter((entry) => entry.id !== defeated.id);
     if (affectedAttack) {
       liveRoom.attackResolution = null;
@@ -494,6 +627,9 @@ function snapshotRoom(room) {
     activeId: room.activeId,
     activeAction: clone(room.activeAction),
     attackResolution: snapshotAttackResolution(room),
+    itemResolution: clone(room.itemResolution),
+    vehicles: clone(room.vehicles || []),
+    areaEffects: clone(room.areaEffects || []),
     activeSource: room.activeSource,
     commandRemaining: room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : null,
     commandTotal: room.commandTotal,
@@ -528,6 +664,9 @@ function restoreUndoSnapshot(room) {
   room.activeId = snapshot.activeId;
   room.activeAction = clone(snapshot.activeAction);
   room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
+  room.itemResolution = clone(snapshot.itemResolution);
+  room.vehicles = clone(snapshot.vehicles || []);
+  room.areaEffects = clone(snapshot.areaEffects || []);
   room.activeSource = snapshot.activeSource;
   room.commandDeadline = snapshot.commandRemaining === null ? null : Date.now() + snapshot.commandRemaining * 1000;
   room.commandTotal = snapshot.commandTotal;
@@ -584,6 +723,9 @@ const gmUndoableActions = new Set([
   "completeTurn",
   "nudge",
   "applyDamage",
+  "setFirstAidDifficulty",
+  "submitFirstAidRoll",
+  "submitFirstAidHealing",
 ]);
 
 const gmClockOnlyActions = new Set(["setRunning", "setHardPaused", "toggleClock", "step"]);
@@ -689,7 +831,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !(unit.team === "pc" && !unit.playerConnected) && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -1003,8 +1145,7 @@ function moveToNextTurnOrClock(room, previousSource = null) {
   for (const unit of room.units) {
     const thrown = (unit.thrownEffects || []).find((effect) => effect.resolving);
     if (thrown) {
-      resolveCompletedEvent(room, { type: "thrown", unit, effect: thrown }, nextTurnSource(room, previousSource));
-      return;
+      if (resolveCompletedEvent(room, { type: "thrown", unit, effect: thrown }, nextTurnSource(room, previousSource))) return;
     }
     const queued = (unit.queuedEffects || []).find((effect) => effect.resolving);
     if (queued) {
@@ -1031,12 +1172,15 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
   const completedEvents = [];
+  tickAreaEffects(room, seconds, multiplier);
   for (const unit of room.units) {
     if (unit.id === skipId || unit.defeatedAt || !unit.speed) continue;
     const wasTimed = hasTimedAction(unit);
     for (const event of tickCombatTimers(unit, seconds, multiplier)) {
       if (event.type === "timed") {
-        if (event.timedAction.kind === "defense") {
+        if (event.timedAction.kind === "firstAid") {
+          completedEvents.push(event);
+        } else if (event.timedAction.kind === "defense") {
           pushLog(room, `${unit.characterName}'s Defense ended.`);
         } else {
           pushLog(room, `${unit.characterName} completed ${event.timedAction.label}.`);
@@ -1102,6 +1246,10 @@ function resolveCompletedEvent(room, event, source) {
     return true;
   }
   if (event.type === "thrown") {
+    if (event.effect.specialType === "smoke") {
+      activateSmokeEffect(room, event.unit, event.effect);
+      return false;
+    }
     clearActiveCommand(room);
     room.pausedForTurn = true;
     room.running = false;
@@ -1119,7 +1267,10 @@ function resolveCompletedEvent(room, event, source) {
     pushLog(room, `Resolve Detonation: ${event.effect.label}.`);
     return true;
   }
-  if (event.type === "timed") return false;
+  if (event.type === "timed") {
+    if (event.timedAction?.kind === "firstAid") return beginFirstAidResolution(room, event.unit, event.timedAction, source);
+    return false;
+  }
   pauseForDelayedAction(room, event.unit, source);
   return true;
 }
@@ -1131,10 +1282,11 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
   if (!exact) {
     const completedEvents = addProgress(room, seconds, { slow: Boolean(interruptedId), skipId: interruptedId });
-    if (completedEvents.length) {
-      if (interruptedId) interruptActiveTurn(room);
-      resolveCompletedEvent(room, completedEvents[0], source);
-      return;
+    for (const event of completedEvents) {
+      if (resolveCompletedEvent(room, event, source)) {
+        if (interruptedId) interruptActiveTurn(room);
+        return;
+      }
     }
     const ready = findReadyUnit(room, interruptedId);
     if (ready) {
@@ -1179,9 +1331,8 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
   if (nextReadyIn <= seconds) {
     const completedEvents = addProgress(room, nextReadyIn, { slow: Boolean(interruptedId), skipId: interruptedId });
     if (interruptedId) interruptActiveTurn(room);
-    if (completedEvents.length) {
-      resolveCompletedEvent(room, completedEvents[0], source);
-      return;
+    for (const event of completedEvents) {
+      if (resolveCompletedEvent(room, event, source)) return;
     }
     const ready = findReadyUnit(room);
     if (ready) pauseForReadyUnit(room, ready, source);
@@ -1210,7 +1361,7 @@ setInterval(() => {
       }
       continue;
     }
-    if (room.attackResolution) continue;
+    if (room.attackResolution || room.itemResolution) continue;
     if (room.pausedForTurn && room.commandDeadline && !room.holdPaused) {
       if (Date.now() >= room.commandDeadline) {
         const unit = room.units.find((entry) => entry.id === room.activeId);
@@ -1343,7 +1494,7 @@ async function handleAction(req, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage"].includes(action) && playerUnit) {
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1379,6 +1530,18 @@ async function handleAction(req, res) {
     if (!attack || attack.id !== String(body.attackId || "") || attack.phase !== "checks" || !field || attack[field]) {
       sendJson(res, 409, { error: "That attack roll is no longer waiting." });
       return;
+    }
+  }
+  if (action === "submitFirstAidRoll") {
+    const resolution = room.itemResolution;
+    if (!resolution || resolution.id !== String(body.resolutionId || "") || resolution.phase !== "roll" || resolution.roll) {
+      sendJson(res, 409, { error: "That First Aid roll is no longer waiting." }); return;
+    }
+  }
+  if (action === "submitFirstAidHealing") {
+    const resolution = room.itemResolution;
+    if (!resolution || resolution.id !== String(body.resolutionId || "") || resolution.phase !== "healing" || resolution.healingRoll) {
+      sendJson(res, 409, { error: "That healing roll is no longer waiting." }); return;
     }
   }
   if (action === "submitAttackDamage") {
@@ -1543,6 +1706,46 @@ async function handleAction(req, res) {
       sendJson(res, 409, { error: "The attacker or defender is no longer in this encounter." });
       return;
     }
+    if (playerUnit?.characterId && (result.itemConsumed || result.itemUpdate || result.statusUpdate || body.jetPack)) await syncUnitItemsToCampaign(room, playerUnit);
+  }
+
+  if (action === "setFirstAidDifficulty") {
+    const resolution = room.itemResolution;
+    if (!resolution || resolution.kind !== "firstAid" || resolution.phase !== "gmDifficulty") { sendJson(res, 409, { error: "No First Aid Difficulty is waiting." }); return; }
+    const difficulty = Number(body.difficulty);
+    if (!Number.isFinite(difficulty) || difficulty < 1 || difficulty > 999) { sendJson(res, 400, { error: "Enter a valid First Aid Difficulty." }); return; }
+    resolution.difficulty = difficulty;
+    resolution.phase = "roll";
+    pushLog(room, `First Aid Difficulty set to ${difficulty}; ${resolution.healerName} must roll Intellect + Anatomy/First Aid.`);
+  }
+
+  if (action === "submitFirstAidRoll") {
+    const resolution = room.itemResolution;
+    const score = Number(body.score);
+    if (!resolution || resolution.id !== String(body.resolutionId || "") || resolution.phase !== "roll" || !Number.isFinite(score)) { sendJson(res, 409, { error: "That First Aid roll is unavailable." }); return; }
+    if (!gmAuthorized && (!playerAuthorized || playerUnit?.id !== resolution.healerId)) { sendJson(res, 403, { error: "That First Aid roll belongs to another character." }); return; }
+    resolution.roll = { score, mode: String(body.mode || "manual").slice(0, 20), diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 30) : [], submittedAt: Date.now() };
+    resolution.success = score >= resolution.difficulty;
+    resolution.critical = score >= resolution.difficulty * 2;
+    if (!resolution.success) {
+      finishItemResolution(room, `${resolution.healerName} failed First Aid on ${resolution.targetName} (Score ${score} vs Difficulty ${resolution.difficulty}).`);
+    } else {
+      resolution.healingFormula = resolution.useKit ? (resolution.healerId === resolution.targetId ? "1D6" : "2D8") : "1D4";
+      resolution.phase = "healing";
+      pushLog(room, `${resolution.healerName} succeeded at First Aid (Score ${score}); roll ${resolution.healingFormula}${resolution.useKit ? " plus the Skill Check Score" : ""} healing.`);
+    }
+  }
+
+  if (action === "submitFirstAidHealing") {
+    const resolution = room.itemResolution;
+    const rolledHealing = Number(body.rolledHealing);
+    if (!resolution || resolution.id !== String(body.resolutionId || "") || resolution.phase !== "healing" || !Number.isFinite(rolledHealing) || rolledHealing < 0) { sendJson(res, 409, { error: "That healing roll is unavailable." }); return; }
+    if (!gmAuthorized && (!playerAuthorized || playerUnit?.id !== resolution.healerId)) { sendJson(res, 403, { error: "That healing roll belongs to another character." }); return; }
+    resolution.healingRoll = { rolledHealing, mode: String(body.mode || "manual").slice(0, 20), diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 30) : [] };
+    const totalHealing = rolledHealing + (resolution.useKit ? Number(resolution.roll?.score) || 0 : 0);
+    const target = room.units.find((entry) => entry.id === resolution.targetId);
+    if (target) await applyHealingToUnit(room, target, totalHealing, `${resolution.healerName}'s First Aid`);
+    finishItemResolution(room, `First Aid resolved: ${resolution.healerName} restored up to ${totalHealing} HP to ${resolution.targetName}.`);
   }
 
   if (action === "gmBeginNpcAttack") {
@@ -1655,7 +1858,7 @@ async function handleAction(req, res) {
       state.phase = "gmDamage";
       pushLog(room, "GM confirmation requested for " + target.characterName + ": " + state.damageSummary.applied + " final Damage after DR " + state.damageSummary.reduction + ".");
     } else {
-      const damageEvent = await applyDamageToUnit(room, target, state.damageSummary.beforeReduction, state.attackerName + "'s " + state.weaponName);
+      const damageEvent = await applyDamageToUnit(room, target, state.damageSummary.beforeReduction, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType });
       const applied = Number(damageEvent?.applied) || 0;
       const logText = attackResolutionLog(state, applied);
       finishAttackResolution(room, logText);
@@ -1678,8 +1881,9 @@ async function handleAction(req, res) {
       sendJson(res, 409, { error: "The NPC defender is no longer in this encounter." });
       return;
     }
-    directNpcDamage(room, target, finalDamage, state);
-    const logText = attackResolutionLog(state, finalDamage);
+    const damageEvent = await applyDamageToUnit(room, target, finalDamage, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType, finalDamage: true });
+    const appliedDamage = Number(damageEvent?.applied) || 0;
+    const logText = attackResolutionLog(state, appliedDamage);
     finishAttackResolution(room, logText);
   }
 
@@ -1712,7 +1916,7 @@ async function handleAction(req, res) {
       sendJson(res, 400, { error: "Enter a valid incoming Damage amount." });
       return;
     }
-    await applyDamageToUnit(room, target, amount, String(body.source || "GM-resolved NPC attack").trim().slice(0, 160) || "GM-resolved NPC attack");
+    await applyDamageToUnit(room, target, amount, String(body.source || "GM-resolved NPC attack").trim().slice(0, 160) || "GM-resolved NPC attack", { attackType: body.attackType === "ranged" ? "ranged" : "" });
   }
 
   if (action === "removeUnit") {
@@ -1732,6 +1936,7 @@ async function handleAction(req, res) {
     }    const wasActive = room.activeId === body.id;
     const previousSource = room.activeSource;
     cancelNpcDefeat(room.roomCode, body.id);
+    removeUnitFromCombatObjects(room, body.id);
     room.units = room.units.filter((entry) => entry.id !== body.id);
     if (wasActive) {
       room.activeId = null;
@@ -1917,6 +2122,9 @@ async function handleAction(req, res) {
 
   if (action === "reset") {
     room.attackResolution = null;
+    room.itemResolution = null;
+    room.vehicles = [];
+    room.areaEffects = [];
     for (const unit of room.units) {
       unit.atb = 0;
       unit.delay = null;
@@ -1947,6 +2155,9 @@ async function handleAction(req, res) {
 
   if (action === "clearEncounter") {
     room.attackResolution = null;
+    room.itemResolution = null;
+    room.vehicles = [];
+    room.areaEffects = [];
     room.units = [];
     room.running = false;
     room.pausedForTurn = false;
@@ -1977,6 +2188,9 @@ async function handleAction(req, res) {
 
   if (action === "exitEncounter") {
     room.attackResolution = null;
+    room.itemResolution = null;
+    room.vehicles = [];
+    room.areaEffects = [];
     room.units = [];
     room.running = false;
     room.pausedForTurn = false;
@@ -2145,6 +2359,11 @@ const server = http.createServer(async (req, res) => {
     const roomClients = clients.get(room.roomCode) || new Set();
     clients.set(room.roomCode, roomClients);
     roomClients.add(res);
+    const liveUnit = room.units.find((unit) => unit.id === String(url.searchParams.get("unit") || "") && unit.team === "pc");
+    if (liveUnit) {
+      liveUnit.liveConnections = Math.max(0, Number(liveUnit.liveConnections) || 0) + 1;
+      liveUnit.playerConnected = true;
+    }
     const heartbeat = setInterval(() => {
       res.write(`: keep-alive ${Date.now()}\n\n`);
     }, HEARTBEAT_MS);
@@ -2152,6 +2371,22 @@ const server = http.createServer(async (req, res) => {
     req.on("close", () => {
       clearInterval(heartbeat);
       roomClients.delete(res);
+      if (liveUnit) setTimeout(() => {
+        liveUnit.liveConnections = Math.max(0, Number(liveUnit.liveConnections) || 0) - 1;
+        if (liveUnit.liveConnections > 0) return;
+        liveUnit.playerConnected = false;
+        if (room.activeId === liveUnit.id) {
+          liveUnit.commandCarrySeconds = room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : Math.max(0, Number(room.commandHeldRemaining) || Number(liveUnit.commandWindow) || 0);
+          const previousSource = room.activeSource;
+          room.activeId = null;
+          room.pausedForTurn = false;
+          clearActiveCommand(room);
+          pushLog(room, `${liveUnit.characterName} disconnected; their ready turn is preserved.`);
+          moveToNextTurnOrClock(room, previousSource);
+        }
+        broadcast(room);
+        scheduleRoomPersist(room);
+      }, 3000);
     });
     return;
   }

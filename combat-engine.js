@@ -74,6 +74,27 @@ function normalizeWeaponRows(value) {
   });
 }
 
+function normalizeItemRows(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 200).flatMap((entry, index) => {
+    const quantity = Math.max(0, Math.min(9999, Math.round(Number(entry?.quantity) || 0)));
+    if (!quantity) return [];
+    const chargesMax = entry?.chargesMax === null || entry?.chargesMax === undefined ? null : Math.max(0, Number(entry.chargesMax) || 0);
+    return [{
+      id: safeText(entry?.id, `item-${index + 1}`, 100),
+      catalogId: safeText(entry?.catalogId, "", 100),
+      name: safeText(entry?.name, "Custom Item", 120),
+      description: String(entry?.description || "").slice(0, 4000),
+      quantity,
+      unitCost: Math.max(0, Number(entry?.unitCost) || 0),
+      chargesMax,
+      charges: chargesMax === null ? null : clamp(entry?.charges, 0, chargesMax, chargesMax),
+      chargeState: safeText(entry?.chargeState, "", 40),
+      special: safeText(entry?.special, "", 80),
+    }];
+  });
+}
+
 function syncUnitCombat(unit, source = {}) {
   const weapons = normalizeWeaponRows(source.weapons);
   const requestedHeld = safeText(source.heldWeaponId, "", 100);
@@ -98,6 +119,18 @@ function syncUnitCombat(unit, source = {}) {
   unit.damageReduction = Math.max(0, Number(source.damageReduction) || 0);
   unit.maximumHp = source.maximumHp === null || source.maximumHp === undefined ? null : Math.max(0, Number(source.maximumHp) || 0);
   unit.currentHp = source.currentHp === null || source.currentHp === undefined ? unit.currentHp ?? null : Number(source.currentHp);
+  unit.items = normalizeItemRows(source.items);
+  unit.intellectBoxes = Math.max(0, Math.round(Number(source.intellectBoxes) || 0));
+  unit.intellectDice = Array.isArray(source.intellectDice) ? source.intellectDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
+  unit.anatomySkill = Math.max(0, Number(source.anatomySkill) || 0);
+  unit.statuses = { ...(unit.statuses || {}), ...(source.statuses || {}) };
+  unit.powerShield = unit.powerShield && typeof unit.powerShield === "object" ? unit.powerShield : null;
+  if (unit.powerShield) {
+    const shieldItem = unit.items.find((entry) => entry.id === unit.powerShield.itemId || entry.catalogId === "power-shields");
+    if (shieldItem && Number(shieldItem.charges) > Number(unit.powerShield.hp)) unit.powerShield.hp = Number(shieldItem.charges);
+    unit.powerShield.maximumHp = 30;
+  }
+  unit.mountedVehicleId = safeText(unit.mountedVehicleId, "", 100);
   unit.damageEvent = unit.damageEvent && typeof unit.damageEvent === "object" ? unit.damageEvent : null;
   unit.aim = unit.aim && typeof unit.aim === "object" ? unit.aim : null;
   unit.weaponCharge = unit.weaponCharge && typeof unit.weaponCharge === "object" ? unit.weaponCharge : null;
@@ -137,12 +170,51 @@ function migrateUnitCombat(unit) {
     damageReduction: unit.damageReduction,
     maximumHp: unit.maximumHp,
     currentHp: unit.currentHp,
+    items: unit.items,
+    intellectBoxes: unit.intellectBoxes,
+    intellectDice: unit.intellectDice,
+    anatomySkill: unit.anatomySkill,
+    statuses: unit.statuses,
+    powerShield: unit.powerShield,
+    mountedVehicleId: unit.mountedVehicleId,
     damageEvent: unit.damageEvent,
   });
 }
 
 function heldWeapon(unit) {
   return (unit?.weapons || []).find((weapon) => weapon.inventoryId === unit.heldWeaponId) || null;
+}
+
+function carriedItem(unit, itemIdOrCatalogId) {
+  const key = safeText(itemIdOrCatalogId, "", 100);
+  return (unit?.items || []).find((entry) => entry.id === key || entry.catalogId === key) || null;
+}
+
+function consumeCarriedItem(unit, itemIdOrCatalogId, quantity = 1) {
+  const item = carriedItem(unit, itemIdOrCatalogId);
+  if (!item) return null;
+  item.quantity = Math.max(0, Number(item.quantity || 0) - Math.max(1, Math.round(Number(quantity) || 1)));
+  if (!item.quantity) unit.items = unit.items.filter((entry) => entry !== item);
+  return item;
+}
+
+function spendItemCharge(unit, itemIdOrCatalogId, quantity = 1) {
+  const item = carriedItem(unit, itemIdOrCatalogId);
+  if (!item || item.charges === null || Number(item.charges) < quantity) return null;
+  item.charges = Math.max(0, Number(item.charges) - Math.max(1, Number(quantity) || 1));
+  return item;
+}
+
+function effectiveMoveSpeed(room, unit, { jetPack = false } = {}) {
+  if (jetPack && carriedItem(unit, "jet-pack")?.charges > 0) return 4;
+  const vehicle = (room?.vehicles || []).find((entry) => entry.id === unit?.mountedVehicleId);
+  if (vehicle && vehicle.driverId === unit.id) return Math.max(1, Number(vehicle.currentMoveSpeed) || Number(vehicle.moveSpeed) || 1);
+  return Math.max(1, Number(unit?.moveSpeed) || 1);
+}
+
+function resetVehicleAcceleration(room, unit) {
+  const vehicle = (room?.vehicles || []).find((entry) => entry.id === unit?.mountedVehicleId && entry.driverId === unit.id);
+  if (vehicle) vehicle.currentMoveSpeed = vehicle.moveSpeed;
 }
 
 function effectiveSpeed(unit) {
@@ -273,6 +345,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   }
 
   const weapon = heldWeapon(unit);
+  room.vehicles = Array.isArray(room.vehicles) ? room.vehicles : [];
   const requestedTarget = targetUnit(room, unit, safeText(body.targetId, "", 100));
   const target = requestedTarget?.characterName || "the chosen target";
   if (kind === "wait3") {
@@ -293,15 +366,24 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   }
 
   if (kind === "move") {
-    const maxUnits = Math.max(1, Number(unit.moveSpeed) || 1);
+    if (unit.powerShield?.active) return { ok: false, error: "Deactivate Power Shields before moving." };
+    const mounted = room.vehicles.find((entry) => entry.id === unit.mountedVehicleId);
+    if (mounted && mounted.driverId !== unit.id) return { ok: false, error: "Only the vehicle's driver may choose Move." };
+    const useJetPack = Boolean(body.jetPack);
+    if (useJetPack && !(carriedItem(unit, "jet-pack")?.charges > 0)) return { ok: false, error: "A charged Jet-Pack must be carried to fly." };
+    const maxUnits = effectiveMoveSpeed(room, unit, { jetPack: useJetPack });
     const units = clamp(body.units, 1, maxUnits, 1);
     const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits));
     clearAim(unit);
     unit.movementChargeUnits = Math.min(maxUnits, units);
+    if (useJetPack) spendItemCharge(unit, "jet-pack", 1);
+    if (mounted?.driverId === unit.id) {
+      mounted.currentMoveSpeed = Math.min(mounted.maximumMoveSpeed, mounted.currentMoveSpeed + mounted.acceleration);
+    }
     beginTimedAction(room, unit, {
       id: helpers.id(),
       kind: "move",
-      label: `Move ${units} unit${units === 1 ? "" : "s"}`,
+      label: `${useJetPack ? "Flight" : "Move"} ${units} unit${units === 1 ? "" : "s"}`,
       total: duration,
       remaining: duration,
       units,
@@ -309,6 +391,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     setCombatBrief(unit, kind, `Moved ${units} unit${units === 1 ? "" : "s"}`, [`Immediate action in ${duration.toFixed(1)} sec`, `${units} melee movement Charge${units === 1 ? "" : "s"}`]);
     return { ok: true };
   }
+
+  if (kind !== "move") resetVehicleAcceleration(room, unit);
 
   if (kind === "defense") {
     const duration = clamp(body.seconds, 1, 15, 1);
@@ -378,18 +462,21 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
   if (kind === "throwItem") {
     const inventoryId = safeText(body.inventoryId, "", 100);
-    const thrown = (unit.weapons || []).find((entry) => entry.inventoryId === inventoryId && (entry.throwable || entry.placeable || entry.category === "melee"));
+    const gearItem = carriedItem(unit, safeText(body.itemId, "", 100));
+    const thrown = gearItem?.catalogId === "smoke-grenade"
+      ? { inventoryId: gearItem.id, weaponId: "smoke-grenade", name: gearItem.name, throwable: true, placeable: false, countdownSeconds: 5, itemId: gearItem.id, specialType: "smoke" }
+      : (unit.weapons || []).find((entry) => entry.inventoryId === inventoryId && (entry.throwable || entry.placeable || entry.category === "melee"));
     if (!thrown) return { ok: false, error: "Choose a throwable explosive or melee weapon." };
     const isExplosive = Boolean(thrown.throwable || thrown.placeable);
     if (!isExplosive && !requestedTarget) return { ok: false, error: "Choose a valid target for the thrown melee weapon." };
     if (isExplosive && (unit.thrownEffects || []).length >= 5) return { ok: false, error: "This character already has five active queued effects." };
-    if (unit.heldWeaponId !== thrown.inventoryId) {
+    if (!gearItem && unit.heldWeaponId !== thrown.inventoryId) {
       unit.heldWeaponId = thrown.inventoryId;
       unit.weaponCharge = null;
       unit.aim = null;
     }
     unit.movementChargeUnits = 0;
-    unit.heldWeaponId = "";
+    if (!gearItem) unit.heldWeaponId = "";
     if (isExplosive) {
       const seconds = Math.max(0.1, Number(thrown.countdownSeconds) || 25);
       const destination = requestedTarget?.characterName || "a chosen map location";
@@ -401,14 +488,16 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
         remaining: seconds,
         total: seconds,
         resolving: false,
+        specialType: thrown.specialType || "",
       });
+      if (gearItem) consumeCarriedItem(unit, gearItem.id, 1);
       setCombatBrief(unit, kind, `${thrown.placeable ? "Placed" : "Threw"} ${thrown.name}`, [
         `Destination: ${destination}`,
         `Detonation in ${seconds} sec`,
         "Wait 3 may be used repeatedly while cooking an explosive",
       ]);
       finishTurn(room, unit, `${thrown.placeable ? "placed" : "threw"} ${thrown.name} toward ${destination}; detonation in ${seconds} seconds`, helpers);
-      return { ok: true };
+      return { ok: true, itemConsumed: gearItem?.id || "" };
     }
     setCombatBrief(unit, kind, `Threw ${thrown.name} -> ${target}`, [
       `To-Hit: ${thrown.toHit}`,
@@ -417,6 +506,108 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     ]);
     finishTurn(room, unit, `threw ${thrown.name} at ${target}; use half damage and resolve dice manually`, helpers);
     return { ok: true };
+  }
+
+  if (kind === "useItem") {
+    const item = carriedItem(unit, safeText(body.itemId, "", 100));
+    if (!item) return { ok: false, error: "Choose a carried item. Items in Storage are unavailable." };
+    unit.movementChargeUnits = 0;
+    if (item.catalogId === "power-shields") {
+      if (unit.powerShield?.active) {
+        unit.powerShield.active = false;
+        setCombatBrief(unit, kind, "Power Shields deactivated", [`${Math.max(0, Number(unit.powerShield.hp) || 0)}/30 Shield HP remains`]);
+        finishTurn(room, unit, "deactivated Power Shields", helpers);
+        return { ok: true, itemUpdate: { itemId: item.id, charges: unit.powerShield.hp } };
+      }
+      if (!(Number(item.charges) > 0)) return { ok: false, error: "Power Shields have no charge. Ask the GM to Recharge them." };
+      const validIds = new Set(room.units.filter((entry) => !entry.defeatedAt).map((entry) => entry.id));
+      const protectedIds = [unit.id, ...(Array.isArray(body.protectedIds) ? body.protectedIds : [])]
+        .filter((entry, index, list) => validIds.has(entry) && list.indexOf(entry) === index);
+      unit.powerShield = { active: true, itemId: item.id, hp: Math.min(30, Number(item.charges) || 30), maximumHp: 30, protectedIds, activatedAt: Date.now() };
+      setCombatBrief(unit, kind, "Power Shields activated", [`Protecting ${protectedIds.length} character${protectedIds.length === 1 ? "" : "s"}`, "Movement disabled; projectiles cannot overflow"]);
+      finishTurn(room, unit, `activated Power Shields around ${protectedIds.length} character${protectedIds.length === 1 ? "" : "s"}`, helpers);
+      return { ok: true };
+    }
+    if (item.catalogId === "intoxicating-liquid" && body.consume) {
+      consumeCarriedItem(unit, item.id, 1);
+      unit.statuses = { ...(unit.statuses || {}), intoxicated: true };
+      setCombatBrief(unit, kind, "Drank intoxicating liquid", ["+2 Charisma and Willpower", "-3 Dexterity and Intellect", "Lasts until End Session"]);
+      finishTurn(room, unit, "drank intoxicating liquid and is still drunk", helpers);
+      return { ok: true, itemConsumed: item.id, statusUpdate: { intoxicated: true } };
+    }
+    if (item.catalogId === "digital-binoculars") {
+      beginTimedAction(room, unit, { id: helpers.id(), kind: "recovery", label: "Focus Digital Binoculars", total: 16.7, remaining: 16.7 }, `${unit.characterName} began focusing Digital Binoculars (Slow Delayed Resolution).`, helpers, { resetAtb: true });
+      setCombatBrief(unit, kind, "Focusing Digital Binoculars", ["Slow Delayed Resolution: 16.7 sec", "+4 Common Knowledge and Research when focused"]);
+      return { ok: true };
+    }
+    if (body.consume) consumeCarriedItem(unit, item.id, 1);
+    setCombatBrief(unit, kind, `Used ${item.name}`, [body.consume ? "One unit consumed" : "Item retained", item.description]);
+    finishTurn(room, unit, `used ${item.name}${body.consume ? " and consumed one" : ""}`, helpers);
+    return { ok: true, itemConsumed: body.consume ? item.id : "" };
+  }
+
+  if (kind === "firstAid") {
+    const aidTarget = room.units.find((entry) => entry.id === safeText(body.targetId, "", 100) && !entry.defeatedAt);
+    if (!aidTarget) return { ok: false, error: "Choose the character receiving First Aid." };
+    const kit = carriedItem(unit, "first-aid-kit");
+    const useKit = Boolean(body.useKit);
+    if (useKit && !kit) return { ok: false, error: "This character is not carrying a First Aid Kit." };
+    if (useKit) consumeCarriedItem(unit, kit.id, 1);
+    const treatmentRating = Math.max(0.1, Number(unit.intellectBoxes) + Number(unit.anatomySkill));
+    const duration = Math.max(0.1, ceilTenth(100 / treatmentRating));
+    unit.movementChargeUnits = 0;
+    beginTimedAction(room, unit, {
+      id: helpers.id(), kind: "firstAid", label: `First Aid: ${aidTarget.characterName}`, total: duration, remaining: duration,
+      targetId: aidTarget.id, useKit, itemId: useKit ? kit.id : "", treatmentRating,
+    }, `${unit.characterName} began First Aid on ${aidTarget.characterName} (${duration.toFixed(1)} sec).`, helpers, { resetAtb: true });
+    setCombatBrief(unit, kind, `Treating ${aidTarget.characterName}`, [`Intellect boxes + Anatomy/First Aid = ${treatmentRating.toFixed(1)} Speed`, useKit ? "First Aid Kit committed" : "No kit"]);
+    return { ok: true, itemConsumed: useKit ? kit.id : "" };
+  }
+
+  if (kind === "station") {
+    const operation = safeText(body.stationMode, "manual", 30);
+    if (operation === "dismount") {
+      const vehicle = room.vehicles.find((entry) => entry.id === unit.mountedVehicleId);
+      if (vehicle) {
+        vehicle.occupantIds = vehicle.occupantIds.filter((entry) => entry !== unit.id);
+        if (vehicle.driverId === unit.id) { vehicle.driverId = ""; vehicle.currentMoveSpeed = vehicle.moveSpeed; }
+        if (!vehicle.occupantIds.length) room.vehicles = room.vehicles.filter((entry) => entry !== vehicle);
+      }
+      unit.mountedVehicleId = "";
+      setCombatBrief(unit, kind, "Dismounted vehicle", []);
+      finishTurn(room, unit, "dismounted a vehicle", helpers);
+      return { ok: true };
+    }
+    if (operation === "mountItem") {
+      const item = carriedItem(unit, safeText(body.itemId, "", 100));
+      const specs = item?.catalogId === "one-man-vehicle" ? { seats: 1, moveSpeed: 5, acceleration: 5, maximumMoveSpeed: 20 }
+        : item?.catalogId === "small-atv" ? { seats: 5, moveSpeed: 3, acceleration: 3, maximumMoveSpeed: 12 } : null;
+      if (!item || !specs) return { ok: false, error: "Choose a carried vehicle." };
+      const vehicle = { id: helpers.id(), ownerId: unit.id, itemId: item.id, itemCatalogId: item.catalogId, name: item.name, driverId: unit.id, occupantIds: [unit.id], currentMoveSpeed: specs.moveSpeed, ...specs };
+      room.vehicles.push(vehicle);
+      unit.mountedVehicleId = vehicle.id;
+      setCombatBrief(unit, kind, `Mounted ${item.name}`, ["Driver seat", `Move Speed ${specs.moveSpeed}; accelerates to ${specs.maximumMoveSpeed}`]);
+      finishTurn(room, unit, `mounted ${item.name} as driver`, helpers);
+      return { ok: true };
+    }
+    if (operation === "takeDriver") {
+      const vehicle = room.vehicles.find((entry) => entry.id === safeText(body.vehicleId, "", 100));
+      if (!vehicle || !vehicle.occupantIds.includes(unit.id) || vehicle.driverId) return { ok: false, error: "That driver seat is unavailable." };
+      vehicle.driverId = unit.id;
+      vehicle.currentMoveSpeed = vehicle.moveSpeed;
+      setCombatBrief(unit, kind, `Took the driver seat of ${vehicle.name}`, [`Move Speed ${vehicle.moveSpeed}; accelerates to ${vehicle.maximumMoveSpeed}`]);
+      finishTurn(room, unit, `took the driver seat of ${vehicle.name}`, helpers);
+      return { ok: true };
+    }
+    if (operation === "joinVehicle") {
+      const vehicle = room.vehicles.find((entry) => entry.id === safeText(body.vehicleId, "", 100));
+      if (!vehicle || vehicle.itemCatalogId !== "small-atv" || vehicle.occupantIds.length >= vehicle.seats) return { ok: false, error: "Choose an available Small ATV passenger seat." };
+      vehicle.occupantIds.push(unit.id);
+      unit.mountedVehicleId = vehicle.id;
+      setCombatBrief(unit, kind, `Mounted ${vehicle.name}`, ["Passenger seat; Move is controlled by the driver"]);
+      finishTurn(room, unit, `mounted ${vehicle.name} as a passenger`, helpers);
+      return { ok: true };
+    }
   }
 
   const rangedChargeCount = completedCharges(unit);
@@ -440,7 +631,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     const attackType = weapon.category === "melee" ? "melee" : "ranged";
     const distance = attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0);
     const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
-    const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie: attackType === "ranged" ? aimDie : 0, attackType, strengthDice: unit.strengthDice });
+    const smokePenalty = attackType === "ranged" ? Math.max(0, Number(body.smokePenalty) || 0) : 0;
+    const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie: attackType === "ranged" ? aimDie : 0, attackType, strengthDice: unit.strengthDice, situationalAttackModifier: -smokePenalty });
     if (!plan.allowed) return { ok: false, error: weapon.name + " cannot reach a target " + distance + " units away. " + plan.rangeExplanation };
     return {
       ok: true,
@@ -489,17 +681,14 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   unit.movementChargeUnits = 0;
   if (kind === "wrestle" && !requestedTarget) return { ok: false, error: "Choose a valid target." };
   const stationName = safeText(body.stationName, "an SIC", 80);
-  const itemName = safeText(body.itemName, "an item", 80);
   const labels = {
     wrestle: `attempted to Wrestle/Disarm ${target}; resolve dice manually`,
-    useItem: `used ${itemName}`,
     firstAid: "used First Aid (Intellect + Anatomy/First Aid + 2D8; healing cannot exceed Maximum HP)",
     station: `became stationed at ${stationName}`,
     actionResolved: "resolved an action",
   };
   const briefDetails = {
     wrestle: ["Resolve the contest manually", "Target must be nearby"],
-    useItem: ["Resolve the item's effect manually"],
     firstAid: ["Requires a First Aid Kit", "Roll Intellect + Anatomy/First Aid, then add 2D8 healing", "Healing cannot exceed Maximum HP"],
     station: [`Station: ${stationName}`],
     actionResolved: ["Freeform table action"],
@@ -551,6 +740,11 @@ module.exports = {
   migrateUnitCombat,
   npcAttributeDice,
   normalizeWeaponRows,
+  normalizeItemRows,
+  carriedItem,
+  consumeCarriedItem,
+  spendItemCharge,
+  effectiveMoveSpeed,
   cancelTimedActionForForcedDelay,
   resolvePlayerCombatAction,
   syncUnitCombat,

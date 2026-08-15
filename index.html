@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="styles.css?v=20260813-feedback-2" />
-    <link rel="stylesheet" href="combat-actions.css?v=20260813-feedback-2" />
-    <script src="data-reset.js?v=20260813-feedback-2"></script>
+    <link rel="stylesheet" href="styles.css?v=20260814-items-final" />
+    <link rel="stylesheet" href="combat-actions.css?v=20260814-items-final" />
+    <script src="data-reset.js?v=20260814-items-final"></script>
   </head>
   <body>
     <main class="shell">
@@ -247,6 +247,7 @@
           </div>
           <span id="readyCount" class="ready-count">0 Ready</span>
         </div>
+        <div id="combatAreaEffects" class="combat-area-effects" hidden></div>
         <div id="unitList" class="unit-list"></div>
       </section>
 
@@ -385,6 +386,13 @@
             <span id="combatTextLabel">Details</span>
             <input id="combatText" maxlength="80" autocomplete="off" />
           </label>
+          <label id="combatConsumeWrap" class="combat-option-toggle" hidden><input id="combatConsume" type="checkbox" /> Consume one unit</label>
+          <label id="combatUseKitWrap" class="combat-option-toggle" hidden><input id="combatUseKit" type="checkbox" /> Expend a First Aid Kit</label>
+          <label id="combatJetPackWrap" class="combat-option-toggle" hidden><input id="combatJetPack" type="checkbox" /> Use Jet-Pack <small id="combatJetPackCharges"></small></label>
+          <fieldset id="combatShieldWrap" class="combat-shield-targets" hidden>
+            <legend>Characters inside the Power Shields</legend>
+            <div id="combatShieldTargets"></div>
+          </fieldset>
           <section id="combatAttackWrap" class="combat-attack-resolver" hidden>
             <div class="combat-attack-grid">
               <label>Distance (Units Between)
@@ -404,6 +412,7 @@
             <label id="combatCalledShotDetailWrap" hidden>Called Location / Intended Effect
               <input id="combatCalledShotDetail" maxlength="80" placeholder="Weapon hand, engine controls, exposed cable..." />
             </label>
+            <label id="combatSmokeWrap" class="combat-option-toggle smoke-attack-toggle" hidden><input id="combatSmokeAffected" type="checkbox" /> Attack crosses active smoke <small id="combatSmokePenaltyText"></small></label>
             <div id="combatAttackPreview" class="combat-attack-preview"></div>
           </section>
 
@@ -438,6 +447,7 @@
           <label>Damage Dice or Formula<input id="gmNpcAttackDamage" maxlength="40" value="2D6" required /></label>
           <label>To-Hit Modifier<input id="gmNpcAttackModifier" type="number" step="0.1" inputmode="decimal" value="0" /></label>
           <label class="combat-called-shot-toggle"><input id="gmNpcCalledShot" type="checkbox" /> Called Shot</label>
+          <label id="gmNpcSmokeWrap" class="combat-option-toggle smoke-attack-toggle" hidden><input id="gmNpcSmokeAffected" type="checkbox" /> Attack crosses active smoke <small id="gmNpcSmokePenaltyText"></small></label>
           <div class="combat-action-dialog-buttons">
             <button id="cancelGmNpcAttack" type="button" class="secondary">Cancel</button>
             <button type="submit" class="complete">Request Rolls</button>
@@ -467,6 +477,21 @@
         </form>
       </div>
     </section>
+    <section id="firstAidResolutionPanel" class="combat-action-dialog first-aid-resolution-dialog hidden" role="dialog" aria-live="polite">
+      <div class="combat-action-panel first-aid-resolution-panel">
+        <p class="eyebrow">First Aid Resolution</p>
+        <h2 id="firstAidResolutionTitle">Treatment Ready</h2>
+        <p id="firstAidResolutionMeta">GM confirmation required</p>
+        <div id="firstAidResolutionSummary" class="first-aid-summary"></div>
+        <form id="firstAidResolutionForm" class="combat-action-form">
+          <label><span id="firstAidResolutionLabel">Difficulty</span>
+            <input id="firstAidResolutionValue" type="number" min="0" max="999" step="0.1" inputmode="decimal" required />
+          </label>
+          <button id="firstAidResolutionSubmit" type="submit" class="complete">Send Roll Prompt</button>
+        </form>
+      </div>
+    </section>
+
     <section id="gmDamageDialog" class="combat-action-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="gmDamageTitle">
       <div class="combat-action-panel gm-damage-panel">
         <p class="eyebrow">GM Combat Resolution</p>
@@ -479,6 +504,7 @@
           <label>Source / Attack
             <input id="gmDamageSource" maxlength="160" value="NPC attack" />
           </label>
+          <label class="combat-option-toggle"><input id="gmDamageRanged" type="checkbox" /> Projectile / ranged damage (Power Shields may intercept)</label>
           <p id="gmDamageNote" class="combat-action-note">Enter damage after critical multipliers. The target's saved Damage Reduction is applied automatically.</p>
           <div class="combat-action-dialog-buttons">
             <button id="cancelGmDamage" type="button" class="secondary">Cancel</button>
@@ -501,9 +527,10 @@
     </div>
 
 
-  <script src="combat-rules.js?v=20260813-feedback-2"></script>
-  <script src="app.js?v=20260813-feedback-2"></script>
-  <script src="combat-actions.js?v=20260813-feedback-2"></script>
-  <script type="module" src="npc-combat-dice.js?v=20260813-feedback-2"></script>
+  <script src="combat-rules.js?v=20260814-items-final"></script>
+  <script src="app.js?v=20260814-items-final"></script>
+  <script src="combat-actions.js?v=20260814-items-final"></script>
+  <script type="module" src="npc-combat-dice.js?v=20260814-items-final"></script>
   </body>
 </html>
+ 

@@ -13,6 +13,18 @@
   const textWrap = document.querySelector("#combatTextWrap");
   const textLabel = document.querySelector("#combatTextLabel");
   const textInput = document.querySelector("#combatText");
+  const consumeWrap = document.querySelector("#combatConsumeWrap");
+  const consume = document.querySelector("#combatConsume");
+  const useKitWrap = document.querySelector("#combatUseKitWrap");
+  const useKit = document.querySelector("#combatUseKit");
+  const jetPackWrap = document.querySelector("#combatJetPackWrap");
+  const jetPack = document.querySelector("#combatJetPack");
+  const jetPackCharges = document.querySelector("#combatJetPackCharges");
+  const shieldWrap = document.querySelector("#combatShieldWrap");
+  const shieldTargets = document.querySelector("#combatShieldTargets");
+  const smokeWrap = document.querySelector("#combatSmokeWrap");
+  const smokeAffected = document.querySelector("#combatSmokeAffected");
+  const smokePenaltyText = document.querySelector("#combatSmokePenaltyText");
   const attackWrap = document.querySelector("#combatAttackWrap");
   const distance = document.querySelector("#combatDistance");
   const attackScore = document.querySelector("#combatAttackScore");
@@ -73,28 +85,78 @@
     return options.join("") || '<option value="">No other combatants available</option>';
   }
 
-  function weaponOptions({ throwableOnly = false, includeItem = false } = {}) {
+  function weaponOptions({ throwableOnly = false, includeItems = false, station = false } = {}) {
     const options = [];
-    if (includeItem) options.push('<option value="__item__">Use an item manually</option>');
+    if (station) {
+      options.push('<option value="manual">SIC / Ship Station</option>');
+      if (currentUnit?.mountedVehicleId) options.push('<option value="dismount">Dismount current vehicle</option>');
+      const occupiedVehicle = (currentState?.vehicles || []).find((entry) => entry.id === currentUnit?.mountedVehicleId);
+      if (occupiedVehicle && !occupiedVehicle.driverId) options.push(`<option value="vehicle-drive:${esc(occupiedVehicle.id)}">Take driver seat of ${esc(occupiedVehicle.name)}</option>`);
+      for (const entry of currentUnit?.items || []) {
+        if (["one-man-vehicle", "small-atv"].includes(entry.catalogId)) options.push(`<option value="vehicle-item:${esc(entry.id)}">Mount ${esc(entry.name)} as driver</option>`);
+      }
+      for (const vehicle of currentState?.vehicles || []) {
+        if (vehicle.itemCatalogId === "small-atv" && !vehicle.occupantIds?.includes(currentUnit?.id) && Number(vehicle.occupantIds?.length || 0) < Number(vehicle.seats || 0)) {
+          options.push(`<option value="vehicle-join:${esc(vehicle.id)}">Ride in ${esc(vehicle.name)} (passenger)</option>`);
+        }
+      }
+      return options.join("");
+    }
     for (const entry of currentUnit?.weapons || []) {
       if (throwableOnly && !entry.throwable && !entry.placeable && entry.category !== "melee") continue;
-      options.push(`<option value="${esc(entry.inventoryId)}">${esc(entry.name)}</option>`);
+      options.push(`<option value="weapon:${esc(entry.inventoryId)}">Weapon: ${esc(entry.name)}</option>`);
+    }
+    if (includeItems) {
+      for (const entry of currentUnit?.items || []) {
+        if (throwableOnly && entry.catalogId !== "smoke-grenade") continue;
+        options.push(`<option value="item:${esc(entry.id)}">Item: ${esc(entry.name)} (x${Number(entry.quantity) || 0})</option>`);
+      }
     }
     return options.join("");
   }
 
+  function selectedCarriedItem() {
+    if (!weapon.value.startsWith("item:")) return null;
+    const itemId = weapon.value.slice(5);
+    return (currentUnit?.items || []).find((entry) => entry.id === itemId) || null;
+  }
+
+  function selectedVehicle() {
+    return (currentState?.vehicles || []).find((entry) => entry.id === currentUnit?.mountedVehicleId) || null;
+  }
+
+  function updateItemControls() {
+    const item = selectedCarriedItem();
+    const usingItem = pendingKind === "drawWeapon" && Boolean(item);
+    consumeWrap.hidden = !usingItem || item?.catalogId === "power-shields";
+    consume.checked = usingItem && ["intoxicating-liquid", "smoke-grenade"].includes(item?.catalogId);
+    shieldWrap.hidden = !(usingItem && item?.catalogId === "power-shields" && !currentUnit?.powerShield?.active);
+    if (!shieldWrap.hidden) {
+      shieldTargets.innerHTML = (currentState?.units || []).filter((entry) => !entry.defeatedAt).map((entry) =>
+        `<label><input type="checkbox" value="${esc(entry.id)}" ${entry.id === currentUnit.id ? "checked disabled" : ""} /> ${esc(entry.characterName)}</label>`).join("");
+    }
+    if (usingItem) {
+      note.textContent = item.catalogId === "power-shields"
+        ? currentUnit?.powerShield?.active ? "Deactivate the current shield. Remaining Shield HP is retained until recharged." : "Select every character currently inside the stationary shield."
+        : item.description || "Choose whether using this item consumes one unit.";
+    } else if (pendingKind === "drawWeapon") note.textContent = configurations.drawWeapon.note;
+  }
+
   const configurations = {
     defense: { title: "Defense", amount: "Defense Duration", min: 1, max: 15, value: 5, note: "Dodge is doubled. A Critical Success against a melee attack delays the attacker by twice the elapsed Defense time." },
-    move: { title: "Move", amount: "Units Moved", min: 1, max: () => Math.max(1, Number(currentUnit?.moveSpeed) || 1), value: 1, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
+    move: { title: "Move", amount: "Units Moved", min: 1, max: () => {
+      const vehicle = selectedVehicle();
+      return Math.max(1, jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1);
+    }, value: 1, jetPack: true, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
     melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Movement from the immediately previous action adds one Charge per unit, limited by Move Speed and the card's Max Charge." },
     wrestle: { title: "Wrestle / Disarm", target: true, note: "The GM and player resolve this nearby contest manually." },
     fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
     calledShot: { title: "Called Shot", target: true, attack: true, calledShot: true, note: "Called Shot adds +5 Defense to hit. A critical creates the intended special effect instead of doubling Damage." },
-    drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItem: true, text: "Item Name (optional)", note: "Changing weapons snuffs out stored Charge and Aim." },
-    throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, note: "Explosives begin a 25-second reverse countdown. Thrown melee weapons deal half damage." },
+    drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItems: true, note: "Choose a carried item or ready a weapon. Stored items do not appear here." },
+    throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, includeItems: true, note: "Smoke Grenades detonate after 5 seconds. Other explosives use their listed countdown. Thrown melee weapons deal half damage." },
     charge: { title: "Charge Weapon", note: "The Charge meter fills alongside normal ATB. Each completed segment provides one card Charge." },
-    firstAid: { title: "First Aid", note: "Requires a First Aid Kit. Roll Intellect + Anatomy/First Aid, then add 2D8 healing. Healing cannot exceed Maximum HP." },
-    station: { title: "Station", text: "SIC / Station Name", placeholder: "Helm, Engine Room, Sensor Console...", note: "Enter the SIC or station your character now operates." },
+    firstAid: { title: "First Aid", target: true, kit: true, note: "Choose the patient and whether to commit a carried First Aid Kit. Treatment time uses Intellect boxes + Anatomy/First Aid." },
+    station: { title: "Station / Mount", weapon: "station", text: "SIC / Station Name", placeholder: "Helm, Engine Room, Sensor Console...", note: "Mount a carried vehicle, join an available Small ATV, dismount, or enter a ship station." },
   };
 
 
@@ -169,13 +231,27 @@
     }
     weaponWrap.hidden = !config.weapon;
     weapon.innerHTML = config.weapon
-      ? weaponOptions({ throwableOnly: config.weapon === "throwable", includeItem: config.includeItem })
+      ? weaponOptions({ throwableOnly: config.weapon === "throwable", includeItems: config.includeItems, station: config.weapon === "station" })
       : "";
+    consumeWrap.hidden = true;
+    consume.checked = false;
+    useKitWrap.hidden = !config.kit;
+    useKit.checked = Boolean(config.kit && (currentUnit?.items || []).some((entry) => entry.catalogId === "first-aid-kit"));
+    useKit.disabled = Boolean(config.kit && !(currentUnit?.items || []).some((entry) => entry.catalogId === "first-aid-kit"));
+    jetPackWrap.hidden = !config.jetPack || !(currentUnit?.items || []).some((entry) => entry.catalogId === "jet-pack" && Number(entry.charges) > 0);
+    jetPack.checked = false;
+    const jetItem = (currentUnit?.items || []).find((entry) => entry.catalogId === "jet-pack");
+    jetPackCharges.textContent = jetItem ? `(${Number(jetItem.charges) || 0}/${Number(jetItem.chargesMax) || 30})` : "";
+    shieldWrap.hidden = true;
     textWrap.hidden = !config.text;
     textLabel.textContent = config.text || "Details";
     textInput.placeholder = config.placeholder || "";
     textInput.value = "";
     attackWrap.hidden = !config.attack;
+    const activeSmoke = (currentState?.areaEffects || []).find((entry) => entry.kind === "smoke" && Number(entry.penalty) > 0);
+    smokeWrap.hidden = !config.attack || Boolean(config.melee) || !activeSmoke;
+    smokeAffected.checked = Boolean(activeSmoke);
+    smokePenaltyText.textContent = activeSmoke ? `Apply -${Number(activeSmoke.penalty)} to this Projectile roll if the attack passes through its 6-unit smoke zone.` : "";
     if (config.attack) {
       distance.value = "1";
       distance.closest("label").hidden = Boolean(config.melee);
@@ -184,6 +260,7 @@
       updateAttackPreview();
     }
     note.textContent = config.note || "";
+    updateItemControls();
     error.textContent = "";
     dialog.classList.remove("hidden");
     const panel = dialog.querySelector(".combat-action-panel");
@@ -233,22 +310,26 @@
         error.textContent = `Enter a value from ${min} to ${max}.`;
         return;
       }
-      if (pendingKind === "move") details.units = entered;
+      if (pendingKind === "move") { details.units = entered; details.jetPack = Boolean(jetPack.checked); }
       if (pendingKind === "defense") details.seconds = entered;
     }
     let actualKind = pendingKind;
     if (!weaponWrap.hidden) {
-      if (!weapon.value) {
-        error.textContent = "Choose an item or weapon.";
-        return;
-      }
-      if (pendingKind === "drawWeapon" && weapon.value === "__item__") actualKind = "useItem";
-      else details.inventoryId = weapon.value;
+      if (!weapon.value) { error.textContent = "Choose an item, weapon, vehicle, or station."; return; }
+      if (pendingKind === "drawWeapon") {
+        if (weapon.value.startsWith("item:")) { actualKind = "useItem"; details.itemId = weapon.value.slice(5); details.consume = Boolean(consume.checked); details.protectedIds = [...shieldTargets.querySelectorAll("input:checked")].map((input) => input.value); }
+        else if (weapon.value.startsWith("weapon:")) details.inventoryId = weapon.value.slice(7);
+      } else if (pendingKind === "station") {
+        if (weapon.value === "dismount") details.stationMode = "dismount";
+        else if (weapon.value.startsWith("vehicle-item:")) { details.stationMode = "mountItem"; details.itemId = weapon.value.slice(13); }
+        else if (weapon.value.startsWith("vehicle-join:")) { details.stationMode = "joinVehicle"; details.vehicleId = weapon.value.slice(13); }
+        else if (weapon.value.startsWith("vehicle-drive:")) { details.stationMode = "takeDriver"; details.vehicleId = weapon.value.slice(14); }
+        else details.stationMode = "manual";
+      } else if (weapon.value.startsWith("weapon:")) details.inventoryId = weapon.value.slice(7);
+      else if (pendingKind === "throwItem" && weapon.value.startsWith("item:")) details.itemId = weapon.value.slice(5);
     }
-    if (!textWrap.hidden) {
-      if (pendingKind === "station") details.stationName = textInput.value.trim();
-      if (actualKind === "useItem") details.itemName = textInput.value.trim();
-    }
+    if (!textWrap.hidden && pendingKind === "station") details.stationName = textInput.value.trim();
+    if (pendingKind === "firstAid") details.useKit = Boolean(useKit.checked);
     if (!attackWrap.hidden) {
       const plan = currentAttackPlan();
       if (!plan?.allowed) {
@@ -258,12 +339,20 @@
       details.distance = Number(distance.value) || 0;
       details.calledShot = calledShot.checked;
       details.calledShotDetail = calledShotDetail.value.trim();
+      details.smokePenalty = !smokeWrap.hidden && smokeAffected.checked ? Number((currentState?.areaEffects || []).find((entry) => entry.kind === "smoke")?.penalty) || 0 : 0;
     }
     closeDialog();
     await send(actualKind, details);
   });
 
   cancel?.addEventListener("click", closeDialog);
+  weapon?.addEventListener("change", updateItemControls);
+  jetPack?.addEventListener("change", () => {
+    if (pendingKind !== "move") return;
+    amount.max = String(configurations.move.max());
+    amount.value = String(Math.min(Number(amount.value) || 1, Number(amount.max)));
+    note.textContent = jetPack.checked ? "FLIGHT: Move Speed 4. This spends one Jet-Pack charge." : configurations.move.note;
+  });
   [target, distance, calledShot].forEach((control) => {
     control?.addEventListener("input", updateAttackPreview);
     control?.addEventListener("change", updateAttackPreview);
@@ -295,12 +384,15 @@
       if (kind === "calledShot" && !["ranged", "melee"].includes(current?.category)) { unavailable = true; reason = "Hold a ranged or melee weapon to make a Called Shot."; }
       if (kind === "throwItem") {
         const canThrowMelee = (mine?.weapons || []).some((entry) => entry.category === "melee");
-        const canThrowExplosive = (mine?.weapons || []).some((entry) => entry.throwable || entry.placeable);
+        const canThrowExplosive = (mine?.weapons || []).some((entry) => entry.throwable || entry.placeable) || (mine?.items || []).some((entry) => entry.catalogId === "smoke-grenade");
         const explosiveCapacity = (mine?.thrownEffects || []).length < 5;
         unavailable ||= !canThrowMelee && (!canThrowExplosive || !explosiveCapacity);
         if (unavailable && !reason) reason = canThrowExplosive && !explosiveCapacity ? "Maximum five active explosive effects." : "No throwable weapon in Supplies.";
       }
-      if (kind === "drawWeapon") unavailable ||= !(mine?.weapons || []).length;
+      if (kind === "drawWeapon") unavailable ||= !(mine?.weapons || []).length && !(mine?.items || []).length;
+      const vehicle = (state?.vehicles || []).find((entry) => entry.id === mine?.mountedVehicleId);
+      if (kind === "move" && mine?.powerShield?.active) { unavailable = true; reason = "Deactivate Power Shields before moving."; }
+      if (kind === "move" && vehicle && vehicle.driverId !== mine.id) { unavailable = true; reason = "Passengers cannot choose Move; the driver controls the vehicle."; }
       button.disabled = Boolean(unavailable);
       button.title = unavailable ? reason : button.textContent.trim();
     });
@@ -333,6 +425,11 @@
       damageReduction: Math.max(0, Number(record.character.computed?.damageReduction) || 0),
       maximumHp: Math.max(0, Number(record.character.computed?.maximumHp) || 0),
       currentHp: Number.isFinite(Number(record.character.health?.current)) ? Number(record.character.health.current) : Number(record.character.computed?.maximumHp) || 0,
+      items: (record.character.items || []).map((entry) => ({ id: entry.id, catalogId: entry.catalogId, name: entry.name, description: entry.description, quantity: entry.quantity, unitCost: entry.unitCost, charges: entry.charges, chargesMax: entry.chargesMax, chargeState: entry.chargeState, special: entry.special })),
+      intellectBoxes: boxes("intellect"),
+      intellectDice: (record.character.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
+      anatomySkill: Math.max(0, Number(record.character.skills?.["Anatomy/First Aid"]?.tenths) || 0) / 10,
+      statuses: { ...(record.character.statuses || {}) },
     };
     const signature = JSON.stringify(payload);
     if (signature === lastLoadoutSync) return;
@@ -347,7 +444,13 @@
     const thrown = unit?.thrownEffects || [];
     const pieces = [];
     const aimText = unit?.aim ? `Aim +${Number(unit.aim.speedBonus) || 0} Speed${unit.aim.aimDie ? ` / 1D${unit.aim.aimDie}` : ""}` : "";
-    pieces.push(`<div class="combat-loadout-line"><span>Held</span><strong>${esc(current?.name || "None")}</strong>${aimText ? `<i>${esc(aimText)}</i>` : ""}${unit?.movementChargeUnits ? `<i>${Number(unit.movementChargeUnits)} Move Charge</i>` : ""}</div>`);
+    pieces.push(`<div class="combat-loadout-line"><span>Held</span><strong>${esc(current?.name || "None")}</strong>${aimText ? `<i>${esc(aimText)}</i>` : ""}${unit?.movementChargeUnits ? `<i>${Number(unit.movementChargeUnits)} Move Charge</i>` : ""}${unit?.statuses?.intoxicated ? '<i class="combat-status-drunk">STILL DRUNK</i>' : ""}</div>`);
+    if (unit?.powerShield) {
+      const shieldPercent = Math.max(0, Math.min(100, (Number(unit.powerShield.hp) / Math.max(1, Number(unit.powerShield.maximumHp) || 30)) * 100));
+      pieces.push(`<div class="combat-submeter power-shield-meter ${unit.powerShield.active ? "active" : "inactive"} ${unit.powerShield.collapsedAt ? "collapsed" : ""}" data-combat-meter="shield"><div style="width:${shieldPercent}%"></div><span>POWER SHIELDS - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP${unit.powerShield.active ? "" : " (OFFLINE)"}</span></div>`);
+    }
+    const vehicle = (currentState?.vehicles || []).find((entry) => entry.id === unit?.mountedVehicleId);
+    if (vehicle) pieces.push(`<div class="combat-vehicle-state">${esc(vehicle.name)} - ${vehicle.driverId === unit.id ? `DRIVER / MOVE ${vehicle.currentMoveSpeed}` : "PASSENGER"}</div>`);
     if (timed) {
       const percent = Math.max(0, Math.min(100, (Number(timed.remaining) / Math.max(0.1, Number(timed.total))) * 100));
       const elapsed = Math.max(0, (Number(timed.total) || 0) - (Number(timed.remaining) || 0));
@@ -375,6 +478,8 @@
       unit?.aim ? "aim" : "noaim",
       unit?.timedAction?.kind || "notimed",
       unit?.weaponCharge?.inventoryId || "nocharge",
+      unit?.powerShield ? `shield:${unit.powerShield.active}:${unit.powerShield.hp}:${unit.powerShield.collapsedAt || 0}` : "noshield",
+      unit?.mountedVehicleId || "novehicle",
       chargeCount(unit),
       ...(unit?.thrownEffects || []).map((entry) => entry.id),
     ].join("|");
@@ -389,6 +494,15 @@
       timed.querySelector("span").textContent = unit.timedAction.kind === "defense"
         ? `${unit.timedAction.label} - ${formatTime(unit.timedAction.remaining)} | Dodge x2 | Crit Counter Delay ${Math.ceil(elapsed * 20) / 10} sec`
         : `${unit.timedAction.label} - ${formatTime(unit.timedAction.remaining)}`;
+    }
+    const shield = card.querySelector('[data-combat-meter="shield"]');
+    if (shield && unit.powerShield) {
+      const percent = Math.max(0, Math.min(100, (Number(unit.powerShield.hp) / Math.max(1, Number(unit.powerShield.maximumHp) || 30)) * 100));
+      shield.querySelector("div").style.width = `${percent}%`;
+      shield.querySelector("span").textContent = `POWER SHIELDS - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP${unit.powerShield.active ? "" : " (OFFLINE)"}`;
+      shield.classList.toggle("active", Boolean(unit.powerShield.active));
+      shield.classList.toggle("inactive", !unit.powerShield.active);
+      shield.classList.toggle("collapsed", Boolean(unit.powerShield.collapsedAt));
     }
     const charge = card.querySelector('[data-combat-meter="charge"]');
     if (charge && unit.weaponCharge) {
