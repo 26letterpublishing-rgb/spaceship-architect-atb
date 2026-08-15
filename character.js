@@ -210,7 +210,7 @@ const dom = {
   addCrewRow: $("#addCrewRow"),
   weaponInventory: $("#weaponInventory"),
   addWeaponRow: $("#addWeaponRow"),
-  gearCatalogOptions: $("#gearCatalogOptions"),
+  gearAutocomplete: $("#gearAutocomplete"),
   gearInventory: $("#gearInventory"),
   gearInventoryEmpty: $("#gearInventoryEmpty"),
   addGearRow: $("#addGearRow"),
@@ -3592,13 +3592,14 @@ function weaponStat(value) {
 
 function renderWeapons() {
   const onlyRow = character.weapons.length <= 1;
+  const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
   dom.weaponInventory.innerHTML = character.weapons.map((entry) => {
     const weapon = weaponById(entry.weaponId);
     const emptyClass = weapon ? "" : " weapon-empty-stat";
     const chargeTime = weapon?.chargeMode === "movement" ? "Movement" : weapon?.chargeTime || "-";
     return `<div class="weapon-table-row" role="row" data-weapon-row="${escapeAttribute(entry.id)}">
-      <select data-weapon-select="${escapeAttribute(entry.id)}" aria-label="Choose weapon">${weaponOptions(entry.weaponId)}</select>
-      <button type="button" class="weapon-held-button ${entry.held ? "active" : ""}" data-hold-weapon="${escapeAttribute(entry.id)}" ${weapon ? "" : "disabled"} aria-pressed="${entry.held ? "true" : "false"}"><span>${entry.held ? "Held" : "Hold"}</span></button>
+      <select data-weapon-select="${escapeAttribute(entry.id)}" aria-label="Choose weapon" ${editable ? "" : "disabled"}>${weaponOptions(entry.weaponId)}</select>
+      <button type="button" class="weapon-held-button ${entry.held ? "active" : ""}" data-hold-weapon="${escapeAttribute(entry.id)}" ${weapon && editable ? "" : "disabled"} aria-pressed="${entry.held ? "true" : "false"}"><span>${entry.held ? "Held" : "Hold"}</span></button>
       <span class="weapon-stat${emptyClass}" data-label="To-Hit">${escapeHtml(weaponStat(weapon?.toHit))}</span>
       <span class="weapon-stat${emptyClass}" data-label="Damage">${escapeHtml(weaponStat(weapon?.damage))}</span>
       <span class="weapon-stat${emptyClass}" data-label="Charge Bonus">${escapeHtml(weaponStat(weapon?.chargeBonus))}</span>
@@ -3608,29 +3609,128 @@ function renderWeapons() {
       <span class="weapon-stat${emptyClass}" data-label="Range">${escapeHtml(weaponStat(weapon?.range))}</span>
       <span class="weapon-stat${emptyClass}" data-label="Size">${escapeHtml(weaponStat(weapon?.sizeClass))}</span>
       <span class="weapon-stat special${emptyClass}" data-label="Special">${escapeHtml(weaponStat(weapon?.special))}</span>
-      <button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow ? "disabled" : ""} aria-label="Remove weapon">-</button>
+      <button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow || !editable ? "disabled" : ""} aria-label="Remove weapon">-</button>
     </div>`;
   }).join("");
 }
 
+function weaponCreditCost(weapon) {
+  const value = Number(String(weapon?.cost || "0").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function requestWeaponMode(weapon) {
+  return new Promise((resolve) => {
+    const shell = document.createElement("div");
+    shell.className = "modal-shell weapon-acquire-modal";
+    const cost = weaponCreditCost(weapon);
+    shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true">
+      <span class="dialog-kicker">Add Weapon</span>
+      <h2>${escapeHtml(weapon.name)}</h2>
+      <p>Was this weapon purchased for ${cost.toLocaleString()} Credits, or received without spending Credits?</p>
+      <div class="weapon-acquire-actions"><button type="button" data-weapon-mode="cancel">Cancel</button><button type="button" class="receive" data-weapon-mode="receive">Receive</button><button type="button" class="purchase" data-weapon-mode="purchase">Purchase</button></div>
+    </section>`;
+    document.body.append(shell);
+    const close = (value) => { shell.remove(); resolve(value); };
+    shell.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-weapon-mode]");
+      if (button) close(button.dataset.weaponMode === "cancel" ? null : button.dataset.weaponMode);
+    });
+    shell.addEventListener("keydown", (event) => { if (event.key === "Escape") close(null); });
+    shell.querySelector('[data-weapon-mode="purchase"]')?.focus({ preventScroll: true });
+  });
+}
+
+async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
+  const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
+  if (cost > Number(character.resources.creditsBase || 0)) {
+    const accepted = await askConfirmation({
+      title: "Not Enough Credits",
+      message: `This weapon costs ${cost} Credits, but the character has ${character.resources.creditsBase}. Continue with a negative balance?`,
+      acceptLabel: "Continue", cancelLabel: "Cancel", danger: true,
+    });
+    if (!accepted) return false;
+  }
+  if (campaignCode && campaignCharacterId && campaignEditable) {
+    const payload = await campaignRequest("/api/campaign/item/transaction", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, inventoryType: "weapon", item: { id: entry.id, weaponId: weapon.id, previousWeaponId, name: weapon.name, unitCost: weaponCreditCost(weapon) } }),
+    });
+    if (payload.campaign) receiveCampaignState(payload.campaign);
+  } else {
+    entry.weaponId = weapon.id;
+    entry.held = false;
+    if (mode === "purchase") character.resources.creditsBase -= cost;
+    queueSave();
+  }
+  return true;
+}
 function itemChargeLabel(entry) {
   if (entry.chargesMax !== null && entry.chargesMax !== undefined) return `${formatNumber(entry.charges)}/${formatNumber(entry.chargesMax)} charges`;
   if (entry.chargeState) return entry.chargeState;
   return "";
 }
 
+let gearAutocompleteInput = null;
+
+function matchingGearCatalog(query) {
+  const text = String(query || "").trim().toLowerCase();
+  if (!text) return GEAR.slice(0, 8);
+  return GEAR.map((entry) => {
+    const name = entry.name.toLowerCase();
+    const words = name.split(/\s+/);
+    const rank = name === text ? 0 : name.startsWith(text) ? 1 : words.some((word) => word.startsWith(text)) ? 2 : name.includes(text) ? 3 : 99;
+    return { entry, rank };
+  }).filter((result) => result.rank < 99).sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name)).slice(0, 8).map((result) => result.entry);
+}
+
+function hideGearAutocomplete() {
+  gearAutocompleteInput = null;
+  if (!dom.gearAutocomplete) return;
+  dom.gearAutocomplete.hidden = true;
+  dom.gearAutocomplete.innerHTML = "";
+}
+
+function showGearAutocomplete(input) {
+  if (!dom.gearAutocomplete || !input || input.disabled) return;
+  const matches = matchingGearCatalog(input.value);
+  if (!matches.length) { hideGearAutocomplete(); return; }
+  gearAutocompleteInput = input;
+  dom.gearAutocomplete.innerHTML = matches.map((entry) => `<button type="button" role="option" data-gear-catalog-id="${escapeAttribute(entry.id)}"><strong>${escapeHtml(entry.name)}</strong><span>${Number(entry.cost || 0).toLocaleString()} Credits</span><small>${escapeHtml(entry.description)}</small></button>`).join("");
+  const rect = input.getBoundingClientRect();
+  const width = Math.min(Math.max(rect.width, 310), Math.max(310, window.innerWidth - 16));
+  dom.gearAutocomplete.style.width = `${width}px`;
+  dom.gearAutocomplete.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+  dom.gearAutocomplete.style.top = `${Math.min(rect.bottom + 4, window.innerHeight - Math.min(360, dom.gearAutocomplete.scrollHeight || 360) - 8)}px`;
+  dom.gearAutocomplete.hidden = false;
+}
+
+function applyGearCatalogChoice(input, catalog) {
+  if (!input || !catalog) return;
+  const standard = { ...catalog, catalogId: catalog.id, quantity: 1, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" };
+  if (input.matches("[data-gear-draft-field='name']") && gearDraft) gearDraft = { ...gearDraft, ...standard };
+  else {
+    const row = input.closest("[data-gear-row]");
+    const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
+    if (!entry) return;
+    const quantity = entry.quantity;
+    Object.assign(entry, standard, { quantity, charges: entry.catalogId === catalog.id ? entry.charges : standard.charges });
+    queueSave();
+  }
+  hideGearAutocomplete();
+  renderGear();
+}
 function renderGear() {
   if (!dom.gearInventory) return;
   const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
   document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
   dom.addGearRow.disabled = !editable || Boolean(gearDraft);
   dom.storeGearButton.disabled = !editable || !character.items.length;
-  dom.gearCatalogOptions.innerHTML = GEAR.map((entry) => `<option value="${escapeAttribute(entry.name)}">${entry.cost} Credits</option>`).join("");
   const rows = character.items.map((entry) => {
     const pending = pendingGearAdds.has(entry.id);
     const charge = itemChargeLabel(entry);
     return `<div class="gear-row" data-gear-row="${escapeAttribute(entry.id)}">
-      <input class="gear-name" data-gear-field="name" list="gearCatalogOptions" value="${escapeAttribute(entry.name)}" aria-label="Item name" ${editable ? "" : "disabled"} />
+      <input class="gear-name" data-gear-field="name" autocomplete="off" value="${escapeAttribute(entry.name)}" aria-label="Item name" ${editable ? "" : "disabled"} />
       <textarea class="gear-description" data-gear-field="description" aria-label="Item description" ${editable ? "" : "disabled"}>${escapeHtml(entry.description)}</textarea>
       <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
       <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
@@ -3640,7 +3740,7 @@ function renderGear() {
     </div>`;
   });
   if (gearDraft) rows.push(`<div class="gear-row gear-draft" data-gear-draft>
-    <input class="gear-name" data-gear-draft-field="name" list="gearCatalogOptions" value="${escapeAttribute(gearDraft.name)}" placeholder="Begin typing an item name" aria-label="New item name" />
+    <input class="gear-name" data-gear-draft-field="name" autocomplete="off" value="${escapeAttribute(gearDraft.name)}" placeholder="Begin typing an item name" aria-label="New item name" />
     <textarea class="gear-description" data-gear-draft-field="description" placeholder="Item description">${escapeHtml(gearDraft.description)}</textarea>
     <div class="gear-quantity"><span></span><strong>1</strong><span></span></div>
     <label class="gear-cost"><input data-gear-draft-field="unitCost" type="number" min="0" step="1" value="${gearDraft.unitCost}" aria-label="Item cost" /></label>
@@ -4232,8 +4332,8 @@ async function playFinalizedIdentityReveal() {
   }
   const name = (character.identity.characterName || "Unnamed Character").toUpperCase();
   const color = character.presentation?.atbColor || "#39e58f";
-  void 0;
-  await new Promise((resolve) => setTimeout(resolve, 620));
+  dom.identityPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
+  await new Promise((resolve) => setTimeout(resolve, 720));
   if (token !== identityRevealToken) return;
   dom.identityPanel.style.setProperty("--identity-atb-color", color);
   dom.identityCallsign.style.setProperty("--identity-atb-color", color);
@@ -4843,17 +4943,33 @@ document.addEventListener("keydown", (event) => {
   openSkillCheck(row.dataset.rollSkill);
 });
 
-document.addEventListener("change", (event) => {
+document.addEventListener("change", async (event) => {
   const select = event.target.closest("[data-weapon-select]");
-  if (!select || (campaignCode && !campaignEditable)) return;
+  if (!select || character.phase !== "finalized" || (campaignCode && !campaignEditable)) return;
   const entry = character.weapons.find((weapon) => weapon.id === select.dataset.weaponSelect);
   if (!entry) return;
-  entry.weaponId = weaponById(select.value) ? select.value : "";
-  if (!entry.weaponId) entry.held = false;
-  queueSave();
-  renderWeapons();
-  renderGear();
-  notice(entry.weaponId ? `${weaponById(entry.weaponId).name} added to Supplies.` : "Weapon row cleared.", "success");
+  const previousWeaponId = entry.weaponId || "";
+  const weapon = weaponById(select.value);
+  if (!weapon) {
+    entry.weaponId = "";
+    entry.held = false;
+    queueSave();
+    renderWeapons();
+    notice("Weapon row cleared.", "success");
+    return;
+  }
+  if (weapon.id === previousWeaponId) return;
+  const mode = await requestWeaponMode(weapon);
+  if (!mode) { renderWeapons(); return; }
+  try {
+    if (await acquireWeapon(entry, weapon, mode, previousWeaponId)) {
+      renderAll();
+      notice(`${weapon.name} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
+    } else renderWeapons();
+  } catch (error) {
+    renderWeapons();
+    notice(error.message, "error");
+  }
 });
 
 dom.racePicker.addEventListener("change", () => {
@@ -5053,19 +5169,14 @@ dom.gearInventory?.addEventListener("input", (event) => {
   if (draftField && gearDraft) {
     const field = draftField.dataset.gearDraftField;
     gearDraft[field] = field === "unitCost" ? Math.max(0, Math.round(Number(draftField.value) || 0)) : draftField.value;
-    if (field === "name") {
-      const catalog = GEAR.find((entry) => entry.name.toLowerCase() === draftField.value.trim().toLowerCase());
-      if (catalog) {
-        gearDraft = { ...gearDraft, ...catalog, catalogId: catalog.id, quantity: 1, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" };
-        renderGear();
-      }
-    }
+    if (field === "name") showGearAutocomplete(draftField);
     return;
   }
   const field = event.target.closest("[data-gear-field]");
   const row = field?.closest("[data-gear-row]");
   const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
   if (!field || !entry) return;
+  if (field.dataset.gearField === "name") showGearAutocomplete(field);
   if (field.dataset.gearField === "unitCost") entry.unitCost = Math.max(0, Math.round((Number(field.value) || 0) / Math.max(1, entry.quantity)));
   else entry[field.dataset.gearField] = field.value;
   queueSave();
@@ -5969,3 +6080,20 @@ if (CAMPAIGN_READ_ONLY_VIEW && "ResizeObserver" in window) {
 renderAll();
 if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 initializeCharacterApp();
+
+
+dom.gearInventory?.addEventListener("focusin", (event) => {
+  const input = event.target.closest(".gear-name");
+  if (input) showGearAutocomplete(input);
+});
+dom.gearAutocomplete?.addEventListener("pointerdown", (event) => event.preventDefault());
+dom.gearAutocomplete?.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-gear-catalog-id]");
+  if (!option || !gearAutocompleteInput) return;
+  applyGearCatalogChoice(gearAutocompleteInput, GEAR.find((entry) => entry.id === option.dataset.gearCatalogId));
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!event.target.closest(".gear-name, #gearAutocomplete")) hideGearAutocomplete();
+});
+window.addEventListener("resize", hideGearAutocomplete);
+window.addEventListener("scroll", hideGearAutocomplete, true);

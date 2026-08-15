@@ -788,3 +788,32 @@
 .power-shield-meter.collapsed { animation: power-shield-collapse 3.5s both; }
 @keyframes power-shield-collapse { 0% { filter: none; opacity: 1; } 55% { filter: saturate(.15) contrast(1.3); opacity: .9; transform: translateX(0); } 62%,72%,82% { transform: translateX(-2px); } 67%,77%,87% { transform: translateX(2px); } 100% { filter: grayscale(1); opacity: .46; transform: translateX(0); } }
 @media (max-width: 520px) { .combat-area-effect { grid-template-columns: 1fr auto; } .combat-area-effect span { grid-column: 1 / -1; grid-row: 2; } }
+
+
+/* Single-surface combat prompts: no nested vertical scrollers. */
+.player-turn-actions.combat-action-grid{max-height:none;overflow:visible}
+.combat-action-dialog{overflow:hidden;padding:clamp(6px,1.5vh,14px)}
+.combat-action-panel{width:min(660px,98vw);max-height:calc(100dvh - 12px);overflow:hidden;padding:clamp(10px,1.8vh,16px)}
+.combat-action-form{gap:clamp(5px,1.2vh,10px)}
+.combat-action-form label{gap:3px}.combat-action-form input,.combat-action-form select{min-height:36px}
+.combat-action-form textarea{min-height:48px;max-height:66px;resize:none}
+.combat-action-dialog-buttons{position:static;margin:3px 0 0;padding:8px 0 0;background:transparent;box-shadow:none}
+.player-mode.own-turn-active #myTurnBanner.turn-banner{justify-content:center;padding:clamp(8px,2vh,18px);overflow:hidden}
+.player-mode.own-turn-active #myTurnBanner>#playerTurnTitle{font-size:clamp(2.2rem,10vw,4.8rem);line-height:.9}
+.player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(920px,98vw);min-height:0;max-height:none;overflow:visible;flex:0 1 auto}
+.player-mode.own-turn-active #myTurnBanner>.held-weapon-readout{width:min(920px,98vw)}
+.combat-action-grid button{min-height:40px}
+@media(max-width:740px){
+ .player-mode.own-turn-active #myTurnBanner.turn-banner{padding:max(6px,env(safe-area-inset-top)) 7px 7px;gap:5px}
+ .player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:5px}
+ .combat-action-grid button{min-height:35px;padding:4px 3px;font-size:.61rem}
+ .held-weapon-readout{padding:6px 8px;margin-bottom:5px}.combat-status-stack{margin:2px 0}
+ .combat-action-panel{width:100%;padding:10px}.combat-action-panel h2{font-size:1.35rem}.combat-action-panel>p{margin-bottom:7px}
+ .combat-attack-resolver{gap:5px;padding:7px}.combat-action-note{min-height:25px;padding:5px}
+}
+@media(max-width:380px){.player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.combat-action-grid button{min-height:31px;font-size:.56rem}}
+@media(max-height:640px){
+ .combat-action-panel{font-size:.84em}.combat-action-panel h2{margin:0;font-size:1.2rem}.combat-action-panel>p{margin:0 0 4px}
+ .combat-action-form{gap:4px}.combat-action-form input,.combat-action-form select{min-height:31px;padding:4px}.combat-action-note{min-height:20px;padding:4px}
+ .player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.combat-action-grid button{min-height:30px}
+}

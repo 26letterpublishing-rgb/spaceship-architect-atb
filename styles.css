@@ -3534,3 +3534,21 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
   }
 }
 
+
+
+/* Combat viewport and prompt reliability */
+.topbar{border-bottom:5px solid #7c42d4;box-shadow:0 6px 16px rgba(106,55,195,.25)}
+.collapse-npc-turn{position:fixed!important;right:10px!important;bottom:10px!important;z-index:10080!important;background:linear-gradient(90deg,#353d47,#737d87)!important;isolation:isolate}
+.restore-npc-turn{z-index:10080!important}
+.turn-dialog:has(.gm-npc-turn-actions:not([hidden])){max-height:calc(100dvh - 18px)!important;overflow:hidden!important;padding:clamp(10px,1.8vh,18px)!important}
+.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .gm-npc-turn-actions{grid-template-columns:repeat(4,minmax(0,1fr));max-height:none;overflow:visible}
+.delay-dialog,.queued-effect-dialog{overflow:hidden!important;padding:8px!important}
+.delay-dialog-panel,.queued-effect-panel{max-height:calc(100dvh - 16px)!important;overflow:hidden!important;padding:clamp(10px,1.6vh,16px)!important}
+body.embedded-gm,body.embedded-player{min-height:100dvh;overflow-y:auto;overscroll-behavior-y:contain}
+body.embedded-gm .shell,body.embedded-player .shell{padding-bottom:6px}
+@media(max-width:700px){
+ .turn-dialog:has(.gm-npc-turn-actions:not([hidden])){width:calc(100% - 10px)!important;right:5px!important;bottom:5px!important}
+ .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .gm-npc-turn-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) h2{font-size:1.55rem;margin:2px 0}
+ .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) p{margin:0 0 5px}
+}

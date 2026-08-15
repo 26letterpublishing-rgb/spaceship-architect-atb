@@ -37,3 +37,33 @@
   .stored-gear-row { grid-template-columns:1fr 70px 94px; border:1px solid #29465d; border-radius:5px; }
   .stored-gear-row p { grid-column:1 / -1; grid-row:2; }
 }
+
+
+/* Compact inventory tables and app-owned autocomplete */
+.gear-panel,.storage-panel{grid-column:1/-1}
+.gear-panel{overflow:visible}
+.gear-inventory{overflow-x:auto;overflow-y:visible;scrollbar-width:thin}
+.gear-table-head,.gear-row{grid-template-columns:minmax(160px,.85fr) minmax(280px,1.75fr) 118px 94px minmax(205px,.9fr);min-width:860px}
+.gear-row{min-height:72px}
+.gear-row input,.gear-row textarea{min-height:66px}
+.gear-row textarea{height:66px;max-height:66px;resize:none;overflow:hidden;line-height:1.25}
+.gear-quantity,.gear-actions{min-height:66px}
+.gear-autocomplete{position:fixed;z-index:10050;max-height:min(360px,48dvh);overflow-y:auto;border:1px solid #45dfff;border-radius:6px;background:#07131e;box-shadow:0 18px 50px rgba(0,0,0,.72),0 0 24px rgba(52,218,255,.2)}
+.gear-autocomplete[hidden]{display:none}
+.gear-autocomplete button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;width:100%;min-height:52px;padding:8px 10px;border:0;border-bottom:1px solid #1e394d;border-radius:0;background:linear-gradient(180deg,#102637,#07131e);text-align:left}
+.gear-autocomplete button:hover,.gear-autocomplete button:focus{background:linear-gradient(180deg,#18506a,#0b2636);outline:1px solid #79edff}
+.gear-autocomplete strong{color:#fff;font-size:.75rem}.gear-autocomplete span{color:#ffe374;font-size:.66rem}
+.gear-autocomplete small{grid-column:1/-1;overflow:hidden;color:#9cb1bf;font-size:.58rem;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.weapon-acquire-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.weapon-acquire-actions .purchase{border-color:#f4cf54;color:#fff0a2}.weapon-acquire-actions .receive{border-color:#41dfbb;color:#a8ffeb}
+@media(max-width:760px){
+ .gear-table-head{display:grid;min-width:800px}.gear-inventory{display:block;padding:0}
+ .gear-row{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(250px,1.7fr) 112px 86px minmax(190px,.9fr);min-width:800px;min-height:68px;gap:0;padding:0;border:0;border-bottom:1px solid #29465d;border-radius:0}
+ .gear-name,.gear-description,.gear-actions{grid-column:auto}.gear-row>*,.gear-row input,.gear-row textarea{border-radius:0;font-size:16px}
+ .gear-row input,.gear-row textarea{min-height:64px;height:64px}.gear-actions{min-height:64px}
+ .stored-gear-inventory{padding:0}.stored-gear-row{grid-template-columns:minmax(140px,.8fr) minmax(240px,1.5fr) 70px 96px;min-width:650px;border-radius:0}.storage-panel{overflow-x:auto}
+}
+
+/* Keep single-row inventory tables inside the character sheet viewport. */
+.gear-panel,.storage-panel{max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.gear-panel>.panel-heading,.storage-panel>.panel-heading,.gear-panel>.weapon-table-note{position:sticky;left:0;z-index:2}

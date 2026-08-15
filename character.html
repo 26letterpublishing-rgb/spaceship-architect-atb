@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260814-items-final" />
-  <link rel="stylesheet" href="weapons.css?v=20260814-items-final" />
-  <link rel="stylesheet" href="gear.css?v=20260814-items-final" />
-  <script src="data-reset.js?v=20260814-items-final"></script>
+  <link rel="stylesheet" href="character.css?v=20260815-compact-combat" />
+  <link rel="stylesheet" href="weapons.css?v=20260815-compact-combat" />
+  <link rel="stylesheet" href="gear.css?v=20260815-compact-combat" />
+  <script src="data-reset.js?v=20260815-compact-combat"></script>
   </head>
   <body>
     <header class="creator-header">
@@ -292,34 +292,8 @@
           </label>
         </section>
 
-        <section class="sheet-panel weapons-panel" data-sheet-section="supplies">
-          <div class="panel-heading"><span>Weapons</span><button id="addWeaponRow" class="compact-add" type="button" aria-label="Add weapon">+</button></div>
-          <div class="weapon-table-shell">
-            <div class="weapon-table" role="table" aria-label="Character weapons">
-              <div class="weapon-table-head" role="row">
-                <span>Weapon</span><span>Held</span><span>To-Hit</span><span>Damage</span><span>Charge Bonus</span><span>Max</span><span>Charge Time</span><span>Element</span><span>Range</span><span>Size</span><span>Special</span><span></span>
-              </div>
-              <div id="weaponInventory" class="weapon-inventory"></div>
-            </div>
-          </div>
-          <p class="weapon-table-note">Weapon costs, ammunition quantities, and inventory size limits are disabled during this timing playtest.</p>
-        </section>
 
-        <section class="sheet-panel gear-panel" data-sheet-section="supplies">
-          <div class="panel-heading"><span>Carried Items</span><button id="addGearRow" class="compact-add" type="button" aria-label="Add item">+</button></div>
-          <datalist id="gearCatalogOptions"></datalist>
-          <div class="gear-table-head" aria-hidden="true"><span>Name</span><span>Description</span><span>Qty</span><span>Cost</span><span>Actions</span></div>
-          <div id="gearInventory" class="gear-inventory"></div>
-          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Add an item after finalizing this character.</p>
-        </section>
-
-        <section class="sheet-panel storage-panel" data-sheet-section="supplies">
-          <div class="panel-heading"><span>Items in Storage</span><button id="storeGearButton" class="compact-add" type="button" aria-label="Move an item to storage">+</button></div>
-          <div id="storedGearInventory" class="stored-gear-inventory"></div>
-          <p id="storedGearEmpty" class="gear-empty">Nothing is currently in storage.</p>
-        </section>
-
-        <section class="sheet-panel crew-panel" data-sheet-section="supplies">
+      <section class="sheet-panel crew-panel" data-sheet-section="identity">
           <div class="panel-heading"><span>Crew Roster</span><button id="addCrewRow" class="compact-add" type="button" aria-label="Add crew row">+</button></div>
           <div id="crewRoster" class="crew-roster"></div>
         </section>
@@ -335,6 +309,33 @@
             <button id="fubsDebugRoll" type="button">DEBUG: ROLL XX</button>
           </div>
         </section>
+
+        <section class="sheet-panel weapons-panel" data-sheet-section="supplies">
+          <div class="panel-heading"><span>Weapons</span><button id="addWeaponRow" class="compact-add" type="button" aria-label="Add weapon">+</button></div>
+          <div class="weapon-table-shell">
+            <div class="weapon-table" role="table" aria-label="Character weapons">
+              <div class="weapon-table-head" role="row">
+                <span>Weapon</span><span>Held</span><span>To-Hit</span><span>Damage</span><span>Charge Bonus</span><span>Max</span><span>Charge Time</span><span>Element</span><span>Range</span><span>Size</span><span>Special</span><span></span>
+              </div>
+              <div id="weaponInventory" class="weapon-inventory"></div>
+            </div>
+          </div>
+          <p class="weapon-table-note">Choose Purchase or Receive when adding a weapon. Only the held weapon is available during Combat.</p>
+        </section>
+
+        <section class="sheet-panel gear-panel" data-sheet-section="supplies">
+          <div class="panel-heading"><span>Carried Items</span><button id="addGearRow" class="compact-add" type="button" aria-label="Add item">+</button></div>
+          <div class="gear-table-head" aria-hidden="true"><span>Name</span><span>Description</span><span>Qty</span><span>Cost</span><span>Actions</span></div>
+          <div id="gearInventory" class="gear-inventory"></div>
+          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Add an item after finalizing this character.</p>
+        </section>
+
+        <section class="sheet-panel storage-panel" data-sheet-section="supplies">
+          <div class="panel-heading"><span>Items in Storage</span><button id="storeGearButton" class="compact-add" type="button" aria-label="Move an item to storage">+</button></div>
+          <div id="storedGearInventory" class="stored-gear-inventory"></div>
+          <p id="storedGearEmpty" class="gear-empty">Nothing is currently in storage.</p>
+        </section>
+
       </section>
     </main>
 
@@ -575,6 +576,7 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260814-items-final"></script>
+  <div id="gearAutocomplete" class="gear-autocomplete" role="listbox" aria-label="Matching items" hidden></div>
+  <script type="module" src="character.js?v=20260815-compact-combat"></script>
   </body>
 </html>

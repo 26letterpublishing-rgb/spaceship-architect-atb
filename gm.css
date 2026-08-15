@@ -96,3 +96,9 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
   .script-chapter-actions button{padding:0 7px}
   .conditional-award-fields{grid-template-columns:1fr}
 }
+
+
+/* One obvious GM scroll boundary */
+.gm-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(112,57,207,.28)}
+.gm-atb-live,.gm-atb-frame,.atb-tab{overscroll-behavior:contain}
+.atb-tab{overflow:hidden!important}

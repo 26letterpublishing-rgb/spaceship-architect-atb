@@ -82,6 +82,31 @@ function removeInventoryItem(character, itemId, fallbackItem = null, quantity = 
 }
 
 
+function normalizeWeaponTransaction(raw) {
+  return {
+    id: String(raw?.id || uid("weaponrow")).slice(0, 100),
+    weaponId: String(raw?.weaponId || "").slice(0, 100),
+    previousWeaponId: String(raw?.previousWeaponId || "").slice(0, 100),
+    name: String(raw?.name || "Weapon").trim().slice(0, 120) || "Weapon",
+    unitCost: Math.max(0, Math.min(999999999, Math.round(Number(raw?.unitCost) || 0))),
+  };
+}
+function applyWeaponTransaction(character, item) {
+  character.weapons = Array.isArray(character.weapons) && character.weapons.length ? character.weapons : [{ id: item.id, weaponId: "", held: false }];
+  let row = character.weapons.find((entry) => entry.id === item.id);
+  if (!row) { row = { id: item.id, weaponId: "", held: false }; character.weapons.push(row); }
+  row.weaponId = item.weaponId;
+  row.held = false;
+  return row;
+}
+function denyWeaponTransaction(character, item) {
+  character.weapons = Array.isArray(character.weapons) && character.weapons.length ? character.weapons : [{ id: item.id, weaponId: "", held: false }];
+  const row = character.weapons.find((entry) => entry.id === item.id);
+  if (!row || row.weaponId !== item.weaponId) return false;
+  row.weaponId = item.previousWeaponId || "";
+  row.held = false;
+  return true;
+}
 function trimPrivateNotes(campaign) {
   const notes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes : [];
   const keep = new Set(notes.slice(-GM_INBOX_LIMIT).map((note) => note.id));
@@ -948,14 +973,16 @@ class CampaignApi {
         return true;
       }
       const mode = body.mode === "receive" ? "receive" : "purchase";
-      const item = normalizeInventoryItem(body.item);
+      const inventoryType = body.inventoryType === "weapon" ? "weapon" : "item";
+      const item = inventoryType === "weapon" ? normalizeWeaponTransaction(body.item) : normalizeInventoryItem(body.item);
       const paid = mode === "purchase" ? item.unitCost : 0;
       record.character.resources ||= {};
       record.character.resources.creditsBase = Math.round(boundedNumber(record.character.resources.creditsBase, -999999999, 999999999));
       if (mode === "purchase") record.character.resources.creditsBase -= paid;
-      const added = addInventoryItem(record.character, item, 1);
+      const added = inventoryType === "weapon" ? applyWeaponTransaction(record.character, item) : addInventoryItem(record.character, item, 1);
       const transaction = {
-        id: uid("itemtx"), characterId: record.id, mode, paid, item: { ...item, id: added.id, quantity: 1 },
+        id: uid("itemtx"), characterId: record.id, mode, paid, inventoryType,
+        item: inventoryType === "weapon" ? { ...item, id: added.id } : { ...item, id: added.id, quantity: 1 },
         createdAt: new Date().toISOString(), deniedAt: null,
       };
       campaign.itemTransactions.push(transaction);
@@ -999,8 +1026,9 @@ class CampaignApi {
         sendJson(res, 409, { error: "That item transaction is no longer available to deny." });
         return true;
       }
-      if (!removeInventoryItem(record.character, transaction.item.id, transaction.item, 1)) {
-        sendJson(res, 409, { error: "The item is no longer in the character's carried inventory." });
+      const removed = transaction.inventoryType === "weapon" ? denyWeaponTransaction(record.character, transaction.item) : removeInventoryItem(record.character, transaction.item.id, transaction.item, 1);
+      if (!removed) {
+        sendJson(res, 409, { error: "That item or weapon is no longer in the character's inventory." });
         return true;
       }
       record.character.resources ||= {};

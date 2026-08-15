@@ -1357,12 +1357,14 @@ html { -webkit-text-size-adjust:100%; }
 .character-creation-active #characterSheet > .attributes-panel { order:2; }
 .character-creation-active #characterSheet > .skills-panel { order:3; }
 .character-creation-active #characterSheet > .notes-panel { order:4; }
-.character-creation-active #characterSheet > .experience-panel { order:5; }
-.character-creation-active #characterSheet > .derived-panel { order:6; }
-.character-creation-active #characterSheet > .resources-panel { order:7; }
-.character-creation-active #characterSheet > .advantages-panel { order:8; }
-.character-creation-active #characterSheet > .weapons-panel { order:9; }
-.character-creation-active #characterSheet > .crew-panel { order:10; }
+.character-creation-active #characterSheet > .crew-panel { order:5; }
+.character-creation-active #characterSheet > .experience-panel { order:6; }
+.character-creation-active #characterSheet > .derived-panel { order:7; }
+.character-creation-active #characterSheet > .resources-panel { order:8; }
+.character-creation-active #characterSheet > .advantages-panel { order:9; }
+.character-creation-active #characterSheet > .weapons-panel { order:10; }
+.character-creation-active #characterSheet > .gear-panel { order:11; }
+.character-creation-active #characterSheet > .storage-panel { order:12; }
 .character-creation-active .character-layout-toggle button:disabled { opacity:.56; cursor:not-allowed; }
 
 .skill-buy,
@@ -1492,3 +1494,9 @@ button,
 @media (max-width: 760px) {
   input, select, textarea { font-size: 16px; }
 }
+
+
+/* Final compact sheet polish */
+.credits-card>span{color:#ffe35c!important;text-shadow:0 0 8px rgba(255,220,68,.28)}
+.character-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(113,54,207,.28)}
+.sheet-grid{align-items:start}.sheet-panel{min-height:0}.crew-panel{grid-column:span 1}.notes-panel,.weapons-panel,.gear-panel,.storage-panel{grid-column:1/-1}

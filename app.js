@@ -1,7 +1,19 @@
+const startupParams = new URLSearchParams(window.location.search);
+const embeddedGm = startupParams.get("embedded") === "gm";
+const embeddedPlayer = startupParams.get("embedded") === "player";
+const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
+const requestedCampaignCharacter = String(startupParams.get("character") || "");
+const embeddedCombat = embeddedGm || embeddedPlayer;
+const COMBAT_SESSION_KEYS = new Set(["sa-atb-mode", "sa-atb-room-code", "sa-atb-unit-id", "sa-atb-campaign-character-id"]);
+const combatSessionStore = embeddedCombat ? window.sessionStorage : window.localStorage;
+const combatSessionGet = (key) => {
+  try { return combatSessionStore.getItem(key); } catch { return null; }
+};
+
 let state = null;
-let mode = localStorage.getItem("sa-atb-mode") || "welcome";
-let currentRoomCode = (localStorage.getItem("sa-atb-room-code") || "").trim().toUpperCase();
-let myUnitId = localStorage.getItem("sa-atb-unit-id") || "";
+let mode = combatSessionGet("sa-atb-mode") || "welcome";
+let currentRoomCode = (combatSessionGet("sa-atb-room-code") || "").trim().toUpperCase();
+let myUnitId = combatSessionGet("sa-atb-unit-id") || "";
 let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
@@ -35,14 +47,10 @@ let playerPreviewRecord = null;
 let playerPreviewFrame = null;
 let playerPreviewStartedAt = performance.now();
 let npcDefaultBag = [];
-const startupParams = new URLSearchParams(window.location.search);
-const embeddedGm = startupParams.get("embedded") === "gm";
-const embeddedPlayer = startupParams.get("embedded") === "player";
-const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
-const requestedCampaignCharacter = String(startupParams.get("character") || "");
+
 let campaignState = null;
 let campaignEvents = null;
-let campaignCharacterId = localStorage.getItem("sa-atb-campaign-character-id") || "";
+let campaignCharacterId = combatSessionGet("sa-atb-campaign-character-id") || "";
 let campaignCharacterToken = "";
 let gmCampaignToken = "";
 if (embeddedGm && /^[A-Z0-9]{4}$/.test(requestedCampaignCode)) {
@@ -110,17 +118,25 @@ const npcDefaults = [
 ];
 
 function safeLocalStorageSet(key, value) {
+  const target = embeddedCombat && COMBAT_SESSION_KEYS.has(key) ? combatSessionStore : localStorage;
   try {
-    localStorage.setItem(key, value);
+    target.setItem(key, value);
     return true;
   } catch {
     try {
-      if (key !== "sa-atb-character-icons") localStorage.removeItem("sa-atb-character-icons");
-      localStorage.setItem(key, value);
+      if (target === localStorage && key !== "sa-atb-character-icons") localStorage.removeItem("sa-atb-character-icons");
+      target.setItem(key, value);
       return true;
     } catch {
       return false;
     }
+  }
+}
+
+function removeCombatSessionKey(key) {
+  try { combatSessionStore.removeItem(key); } catch { /* Storage may be disabled. */ }
+  if (!embeddedCombat) {
+    try { localStorage.removeItem(key); } catch { /* Storage may be disabled. */ }
   }
 }
 
@@ -136,8 +152,8 @@ function forgetSavedRoom() {
     campaignEvents.close();
     campaignEvents = null;
   }
-  localStorage.removeItem("sa-atb-room-code");
-  localStorage.removeItem("sa-atb-unit-id");
+  removeCombatSessionKey("sa-atb-room-code");
+  removeCombatSessionKey("sa-atb-unit-id");
 }
 
 function returnToWelcome(message = "") {
@@ -1429,7 +1445,7 @@ function receiveState(nextState, { force = false } = {}) {
     const unit = nextState.units.find((entry) => entry.characterId === campaignCharacterId);
     myUnitId = unit?.id || "";
     if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
-    else localStorage.removeItem("sa-atb-unit-id");
+    else removeCombatSessionKey("sa-atb-unit-id");
   } else if (mode === "player" && nextState.encounterEndedAt && nextState.encounterEndedAt !== state?.encounterEndedAt) {
     const campaignCode = nextState.roomCode || currentRoomCode;
     forgetSavedRoom();
@@ -1943,6 +1959,7 @@ function escapeHtml(value) {
 function statusText() {
   if (!state) return "Connecting";
   if (state.hardPaused) return "Paused";
+  if (state.attackResolution || state.itemResolution) return "Resolution Paused";
   if (state.pausedForTurn) return "Turn Paused";
   return state.running ? "Clock Engaged" : "Waiting for GM";
 }
@@ -2667,7 +2684,7 @@ function render() {
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
   document.body.classList.toggle("ring-view-mode", visualMode === "ring");
-  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused);
+  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused && !state?.attackResolution && !state?.itemResolution);
   document.body.classList.toggle("hard-paused", Boolean(state?.hardPaused));
   renderPcBuilder();
 
@@ -2690,6 +2707,9 @@ function render() {
     attackResolutionPanel?.classList.add("hidden");
     firstAidResolutionPanel?.classList.add("hidden");
     gmNpcAttackDialog?.classList.add("hidden");
+    closeTurnPanel();
+    hideActionSheet();
+    clearPostedCombatPrompt();
     return;
   }
 
@@ -2768,6 +2788,10 @@ function render() {
     renderPlayerCommand(null);
   }
 
+  if (state.attackResolution || state.itemResolution) {
+    closeTurnPanel();
+    hideActionSheet();
+  }
   renderAttackResolution(mine || null);
   renderItemResolution(mine || null);
 
@@ -3578,7 +3602,25 @@ window.addEventListener("message", (event) => {
 window.addEventListener("sa-npc-dice-ready", () => {
   if (state?.attackResolution) render();
 });
-
+let visibleRecoveryTimer = null;
+async function recoverVisibleCombatState() {
+  if (document.hidden || !currentRoomCode || mode === "welcome" || mode === "roomJoin" || mode === "join") return;
+  try {
+    const response = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}&recover=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return;
+    lastCombatPromptKey = "";
+    gmNpcPromptSignature = "";
+    receiveState(await response.json(), { force: true });
+    connectEvents();
+  } catch { /* The normal connection banner reports unavailable service. */ }
+}
+function queueVisibleCombatRecovery() {
+  clearTimeout(visibleRecoveryTimer);
+  visibleRecoveryTimer = setTimeout(recoverVisibleCombatState, 80);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) queueVisibleCombatRecovery(); });
+window.addEventListener("pageshow", queueVisibleCombatRecovery);
+window.addEventListener("focus", queueVisibleCombatRecovery);
 async function initializeEmbeddedPlayer() {
   document.body.classList.add("embedded-player");
   if (!campaignCharacterToken) {
@@ -3599,7 +3641,7 @@ async function initializeEmbeddedPlayer() {
     const unit = state.units.find((entry) => entry.characterId === campaignCharacterId);
     myUnitId = unit?.id || "";
     if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
-    else localStorage.removeItem("sa-atb-unit-id");
+    else removeCombatSessionKey("sa-atb-unit-id");
 
     visualMode = "bars";
     setMode("player");
