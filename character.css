@@ -1353,15 +1353,15 @@ html { -webkit-text-size-adjust:100%; }
   grid-column:1 / -1;
   grid-row:auto;
 }
-.character-creation-active #characterSheet > .identity-panel { order:1; }
-.character-creation-active #characterSheet > .attributes-panel { order:2; }
-.character-creation-active #characterSheet > .skills-panel { order:3; }
-.character-creation-active #characterSheet > .notes-panel { order:4; }
-.character-creation-active #characterSheet > .crew-panel { order:5; }
-.character-creation-active #characterSheet > .experience-panel { order:6; }
-.character-creation-active #characterSheet > .derived-panel { order:7; }
-.character-creation-active #characterSheet > .resources-panel { order:8; }
-.character-creation-active #characterSheet > .advantages-panel { order:9; }
+.character-creation-active #characterSheet > .advantages-panel { order:1; scroll-margin-top:160px; }
+.character-creation-active #characterSheet > .identity-panel { order:2; }
+.character-creation-active #characterSheet > .attributes-panel { order:3; }
+.character-creation-active #characterSheet > .skills-panel { order:4; }
+.character-creation-active #characterSheet > .notes-panel { order:5; }
+.character-creation-active #characterSheet > .crew-panel { order:6; }
+.character-creation-active #characterSheet > .experience-panel { order:7; }
+.character-creation-active #characterSheet > .derived-panel { order:8; }
+.character-creation-active #characterSheet > .resources-panel { order:9; }
 .character-creation-active #characterSheet > .weapons-panel { order:10; }
 .character-creation-active #characterSheet > .gear-panel { order:11; }
 .character-creation-active #characterSheet > .storage-panel { order:12; }
@@ -1500,3 +1500,28 @@ button,
 .credits-card>span{color:#ffe35c!important;text-shadow:0 0 8px rgba(255,220,68,.28)}
 .character-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(113,54,207,.28)}
 .sheet-grid{align-items:start}.sheet-panel{min-height:0}.crew-panel{grid-column:span 1}.notes-panel,.weapons-panel,.gear-panel,.storage-panel{grid-column:1/-1}
+/* Per-device compact header preference. */
+.interface-banner-hidden .creator-header {
+  grid-template-columns:minmax(0,1fr) auto;
+  min-height:58px;
+}
+.interface-banner-hidden .creator-header .brand-link,
+.interface-banner-hidden .creator-header .character-room-code { display:none!important; }
+.interface-banner-hidden .creator-title { justify-self:start; }
+@media(max-width:760px) {
+  .interface-banner-hidden .creator-header { grid-template-columns:minmax(0,1fr) auto; }
+  .interface-banner-hidden .creator-title { grid-column:1; }
+  .interface-banner-hidden .back-link { grid-column:2; }
+  .character-creation-active #characterSheet > .advantages-panel { scroll-margin-top:190px; }
+}
+.advantages-panel.modifier-reveal {
+  animation: modifier-panel-reveal 1.65s ease-out;
+}
+@keyframes modifier-panel-reveal {
+  0% { border-color:#ffe364; box-shadow:0 0 0 rgba(255,220,73,0); }
+  24% { border-color:#ffe364; box-shadow:0 0 28px rgba(255,220,73,.48), inset 0 0 20px rgba(255,220,73,.08); }
+  100% { border-color:var(--line); box-shadow:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .advantages-panel.modifier-reveal { animation:none; }
+}

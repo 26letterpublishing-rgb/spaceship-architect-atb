@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260815-compact-combat" />
-  <link rel="stylesheet" href="weapons.css?v=20260815-compact-combat" />
-  <link rel="stylesheet" href="gear.css?v=20260815-compact-combat" />
-  <script src="data-reset.js?v=20260815-compact-combat"></script>
+  <link rel="stylesheet" href="character.css?v=20260815-creation-items" />
+  <link rel="stylesheet" href="weapons.css?v=20260815-creation-items" />
+  <link rel="stylesheet" href="gear.css?v=20260815-creation-items" />
+  <script src="data-reset.js?v=20260815-creation-items"></script>
   </head>
   <body>
     <header class="creator-header">
@@ -358,6 +358,14 @@
             <button type="button" data-hud-visible="false" role="radio" aria-checked="false">Hide HUD</button>
           </div>
         </section>
+        <section class="banner-settings-card">
+          <h2>Interface Banner</h2>
+          <p>Hide the Spaceship Architect banner and campaign room code on this device. The main welcome screen remains unchanged.</p>
+          <div id="bannerVisibilityToggle" class="character-layout-toggle" role="radiogroup" aria-label="Interface banner visibility">
+            <button type="button" data-banner-visible="true" role="radio" aria-checked="true" class="active">Show Banner</button>
+            <button type="button" data-banner-visible="false" role="radio" aria-checked="false">Hide Banner</button>
+          </div>
+        </section>
         <section class="character-control-settings">
           <h2>Character Controls</h2>
           <p>Save campaign changes, review the PC Code, or prepare a printable sheet.</p>
@@ -575,8 +583,30 @@
         </section>
       </section>
     </div>
+    <div id="gearPickerModal" class="modal-shell gear-picker-modal" hidden>
+      <section class="confirm-dialog gear-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="gearPickerTitle">
+        <span class="dialog-kicker">Carried Supplies</span>
+        <h2 id="gearPickerTitle">Add Item</h2>
+        <p>Search the item catalog, choose a listed item, or select Custom to enter something unique.</p>
+        <div class="gear-picker-catalog">
+          <label>Search Items<input id="gearCatalogSearch" type="search" autocomplete="off" placeholder="Type part of an item name" /></label>
+          <label>Catalog Item<select id="gearCatalogPicker" aria-label="Matching catalog items"></select></label>
+          <small id="gearCatalogStatus" class="gear-catalog-status"></small>
+        </div>
+        <div class="gear-picker-fields">
+          <label>Item Name<input id="gearPickerName" type="text" autocomplete="off" placeholder="Choose an item or enter text" /></label>
+          <label>Description<textarea id="gearPickerDescription" rows="3" placeholder="Enter text"></textarea></label>
+          <label>Cost<input id="gearPickerCost" type="number" min="0" step="1" inputmode="numeric" value="0" /></label>
+        </div>
+        <p id="gearPickerError" class="dialog-error" role="status"></p>
+        <div class="dialog-actions gear-picker-actions">
+          <button id="gearPickerCancel" type="button">Cancel</button>
+          <button id="gearPickerReceive" class="receive" type="button">Receive</button>
+          <button id="gearPickerPurchase" class="purchase" type="button">Purchase</button>
+        </div>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <div id="gearAutocomplete" class="gear-autocomplete" role="listbox" aria-label="Matching items" hidden></div>
-  <script type="module" src="character.js?v=20260815-compact-combat"></script>
+  <script type="module" src="character.js?v=20260815-creation-items"></script>
   </body>
 </html>

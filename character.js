@@ -30,6 +30,7 @@ const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const ACTIVE_DRAFT_KEY = "sa2e-active-draft-v1";
 const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
 const HUD_VISIBILITY_KEY = "sa2e-character-hud-visible-v1";
+const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
 const SKILL_SORT_KEY = "sa2e-character-skill-sort-v1";
 const SHEET_SECTIONS = new Set(["identity", "attributes", "skills", "substats", "resources", "supplies"]);
 const SKILL_SORT_MODES = new Set(["alphabetical", "attribute", "level", "importance", "basic"]);
@@ -210,7 +211,17 @@ const dom = {
   addCrewRow: $("#addCrewRow"),
   weaponInventory: $("#weaponInventory"),
   addWeaponRow: $("#addWeaponRow"),
-  gearAutocomplete: $("#gearAutocomplete"),
+  gearPickerModal: $("#gearPickerModal"),
+  gearCatalogSearch: $("#gearCatalogSearch"),
+  gearCatalogPicker: $("#gearCatalogPicker"),
+  gearCatalogStatus: $("#gearCatalogStatus"),
+  gearPickerName: $("#gearPickerName"),
+  gearPickerDescription: $("#gearPickerDescription"),
+  gearPickerCost: $("#gearPickerCost"),
+  gearPickerError: $("#gearPickerError"),
+  gearPickerCancel: $("#gearPickerCancel"),
+  gearPickerReceive: $("#gearPickerReceive"),
+  gearPickerPurchase: $("#gearPickerPurchase"),
   gearInventory: $("#gearInventory"),
   gearInventoryEmpty: $("#gearInventoryEmpty"),
   addGearRow: $("#addGearRow"),
@@ -359,6 +370,7 @@ const dom = {
   messageGmText: $("#messageGmText"),
   playerSettingsPanel: $("#playerSettingsPanel"),
   characterLayoutToggle: $("#characterLayoutToggle"),
+  bannerVisibilityToggle: $("#bannerVisibilityToggle"),
   resourceHudToggle: $("#resourceHudToggle"),
   versionUpdateCard: $("#versionUpdateCard"),
   versionUpdateMessage: $("#versionUpdateMessage"),
@@ -1189,6 +1201,7 @@ let activeCharacterTab = "sheet";
 let activeSheetSection = "identity";
 let characterLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY) === "tabs" ? "tabs" : "sheet";
 let resourceHudVisible = localStorage.getItem(HUD_VISIBILITY_KEY) !== "hidden";
+let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
 const storedSkillSort = localStorage.getItem(SKILL_SORT_KEY);
 let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
 let joinStatusTimer = null;
@@ -1240,6 +1253,15 @@ function renderTabbedStatus() {
   });
 }
 
+function renderBannerVisibility() {
+  document.body.classList.toggle("interface-banner-hidden", !interfaceBannerVisible);
+  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-visible]").forEach((button) => {
+    const selected = (button.dataset.bannerVisible === "true") === interfaceBannerVisible;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
 function showSheetSection(section = "identity", { scroll = false } = {}) {
   activeSheetSection = SHEET_SECTIONS.has(section) ? section : "identity";
   const tabbed = isTabbedCharacterLayout();
@@ -1276,6 +1298,7 @@ function renderCharacterLayout() {
   });
   renderTabbedStatus();
   renderVersionUpdate();
+  renderBannerVisibility();
   showSheetSection(activeSheetSection);
 }
 async function loadPlayerAtb({ reload = false } = {}) {
@@ -1908,6 +1931,10 @@ function rawRaceEffects(characterObject = character) {
       ...(baseEffects.skillBonuses || {}),
       ...(typeEffects.skillBonuses || {}),
     },
+    postFinalizeSkillBonuses: {
+      ...(baseEffects.postFinalizeSkillBonuses || {}),
+      ...(typeEffects.postFinalizeSkillBonuses || {}),
+    },
   };
 }
 
@@ -1916,7 +1943,14 @@ function classEffects(characterObject = character) {
 }
 
 function raceEffects(characterObject = character) {
-  return finalizedModifiersActive(characterObject) ? rawRaceEffects(characterObject) : {};
+  const effects = rawRaceEffects(characterObject);
+  return {
+    ...effects,
+    skillBonuses: {
+      ...(effects.skillBonuses || {}),
+      ...(finalizedModifiersActive(characterObject) ? effects.postFinalizeSkillBonuses || {} : {}),
+    },
+  };
 }
 
 function selectedRace(characterObject = character) {
@@ -2152,17 +2186,17 @@ function draftValidation() {
   const issues = [];
   const homePlanetComplete = Boolean(character.identity.homePlanet.trim());
   const raceComplete = raceSelectionComplete();
+  const raceStarted = character.identity.raceKind === "other"
+    || Boolean(character.identity.raceId || character.identity.race.trim());
+  const raceSelectionValid = !raceStarted || raceComplete;
   const fullIdentityComplete = identityComplete();
   const backstoryComplete = backgroundComplete();
   const raceClassCompatible = !(character.identity.classId === "robotics-worker" && ["android", "spiddix"].includes(character.identity.raceId));
-  if (!raceComplete) {
+  if (!raceSelectionValid) {
     const definition = selectedRace();
-    issues.push(definition?.types?.length ? `Choose a ${definition.name} type.` : "Choose a Race or enter a custom one.");
+    issues.push(definition?.types?.length ? `Choose a ${definition.name} type.` : "Finish entering the selected Race.");
   }
-  if (!homePlanetComplete) issues.push("Choose a Home Planet or enter a custom one.");
   if (!raceClassCompatible) issues.push("Robotics Worker / A.I. Psychologist cannot be combined with Android or Spiddix.");
-  if (!fullIdentityComplete) issues.push("Fill in every Identity field and choose a Class.");
-  if (!backstoryComplete) issues.push("Write a Character Background before finalizing.");
   if (attributeSpent !== attributeBudget) issues.push(`Attribute allocation is ${attributeSpent - attributeBudget > 0 ? `${attributeSpent - attributeBudget} over` : `${attributeBudget - attributeSpent} short`}.`);
   if (attributeSpent === attributeBudget && skillSpent !== skillBudget) issues.push(`Skill allocation is ${skillSpent - skillBudget > 0 ? `${skillSpent - skillBudget} over` : `${skillBudget - skillSpent} short`}.`);
   if (invalidSkills.size) issues.push(`${invalidSkills.size} skill entr${invalidSkills.size === 1 ? "y is" : "ies are"} invalid.`);
@@ -2175,9 +2209,12 @@ function draftValidation() {
     attributesComplete: attributeSpent === attributeBudget,
     skillsComplete: skillSpent === skillBudget,
     raceComplete,
+    raceSelectionValid,
     raceClassCompatible,
     homePlanetComplete,
-    ready: raceComplete && raceClassCompatible && homePlanetComplete && fullIdentityComplete && backstoryComplete && attributeSpent === attributeBudget && skillSpent === skillBudget && invalidSkills.size === 0,
+    fullIdentityComplete,
+    backstoryComplete,
+    ready: raceSelectionValid && raceClassCompatible && attributeSpent === attributeBudget && skillSpent === skillBudget && invalidSkills.size === 0,
     issues,
   };
 }
@@ -2372,15 +2409,28 @@ function renderClass() {
     <article class="modifier-summary race-modifier">
       <strong>${raceName ? escapeHtml(raceName) : "Racial Modifiers"}</strong>
       ${raceContent}
-      ${raceDefinition ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Supported racial effects activate after finalization."}</small>` : ""}
+      ${raceDefinition ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Creation effects are active now. Rules marked after character creation apply during finalization."}</small>` : ""}
     </article>
     <article class="modifier-summary class-modifier">
       <strong>${escapeHtml(classDefinition.name)}</strong>
       ${classContent}
       ${classDefinition.manual ? `<small>${escapeHtml(classDefinition.manual)}</small>` : ""}
-      ${character.identity.classId ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Class effects activate after finalization."}</small>` : ""}
+      ${character.identity.classId ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Class effects apply during finalization."}</small>` : ""}
     </article>`;
 }
+function scrollToCreationModifiers() {
+  if (character.phase !== "draft") return;
+  requestAnimationFrame(() => {
+    const panel = document.querySelector(".advantages-panel");
+    if (!panel) return;
+    panel.classList.remove("modifier-reveal");
+    void panel.offsetWidth;
+    panel.classList.add("modifier-reveal");
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => panel.classList.remove("modifier-reveal"), 1700);
+  });
+}
+
 
 function renderWorkflow() {
   const validation = draftValidation();
@@ -3671,60 +3721,94 @@ function itemChargeLabel(entry) {
   return "";
 }
 
-let gearAutocompleteInput = null;
-
 function matchingGearCatalog(query) {
   const text = String(query || "").trim().toLowerCase();
-  if (!text) return GEAR.slice(0, 8);
+  if (!text) return [...GEAR].sort((a, b) => a.name.localeCompare(b.name));
   return GEAR.map((entry) => {
     const name = entry.name.toLowerCase();
     const words = name.split(/\s+/);
     const rank = name === text ? 0 : name.startsWith(text) ? 1 : words.some((word) => word.startsWith(text)) ? 2 : name.includes(text) ? 3 : 99;
     return { entry, rank };
-  }).filter((result) => result.rank < 99).sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name)).slice(0, 8).map((result) => result.entry);
+  }).filter((result) => result.rank < 99).sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name)).map((result) => result.entry);
 }
 
-function hideGearAutocomplete() {
-  gearAutocompleteInput = null;
-  if (!dom.gearAutocomplete) return;
-  dom.gearAutocomplete.hidden = true;
-  dom.gearAutocomplete.innerHTML = "";
+function blankGearDraft() {
+  return { id: uid(), catalogId: "", name: "", description: "", quantity: 1, unitCost: 0, charges: null, chargesMax: null, chargeState: "", special: "" };
 }
 
-function showGearAutocomplete(input) {
-  if (!dom.gearAutocomplete || !input || input.disabled) return;
-  const matches = matchingGearCatalog(input.value);
-  if (!matches.length) { hideGearAutocomplete(); return; }
-  gearAutocompleteInput = input;
-  dom.gearAutocomplete.innerHTML = matches.map((entry) => `<button type="button" role="option" data-gear-catalog-id="${escapeAttribute(entry.id)}"><strong>${escapeHtml(entry.name)}</strong><span>${Number(entry.cost || 0).toLocaleString()} Credits</span><small>${escapeHtml(entry.description)}</small></button>`).join("");
-  const rect = input.getBoundingClientRect();
-  const width = Math.min(Math.max(rect.width, 310), Math.max(310, window.innerWidth - 16));
-  dom.gearAutocomplete.style.width = `${width}px`;
-  dom.gearAutocomplete.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
-  dom.gearAutocomplete.style.top = `${Math.min(rect.bottom + 4, window.innerHeight - Math.min(360, dom.gearAutocomplete.scrollHeight || 360) - 8)}px`;
-  dom.gearAutocomplete.hidden = false;
+function gearDraftFromCatalog(catalog) {
+  return {
+    ...catalog,
+    id: uid(),
+    catalogId: catalog.id,
+    quantity: 1,
+    unitCost: catalog.cost,
+    chargesMax: catalog.chargesMax ?? null,
+    charges: catalog.chargesMax ?? null,
+    chargeState: catalog.chargeStateMax || "",
+  };
 }
 
-function applyGearCatalogChoice(input, catalog) {
-  if (!input || !catalog) return;
-  const standard = { ...catalog, catalogId: catalog.id, quantity: 1, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" };
-  if (input.matches("[data-gear-draft-field='name']") && gearDraft) gearDraft = { ...gearDraft, ...standard };
-  else {
-    const row = input.closest("[data-gear-row]");
-    const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
-    if (!entry) return;
-    const quantity = entry.quantity;
-    Object.assign(entry, standard, { quantity, charges: entry.catalogId === catalog.id ? entry.charges : standard.charges });
-    queueSave();
+function updateGearPickerActions() {
+  const valid = Boolean(gearDraft?.name.trim());
+  dom.gearPickerPurchase.disabled = !valid;
+  dom.gearPickerReceive.disabled = !valid;
+  dom.gearPickerError.textContent = valid ? "" : "Choose an item or enter a custom name.";
+}
+
+function renderGearPickerFields() {
+  if (!gearDraft) return;
+  dom.gearPickerName.value = gearDraft.name || "";
+  dom.gearPickerDescription.value = gearDraft.description || "";
+  dom.gearPickerCost.value = Math.max(0, Number(gearDraft.unitCost) || 0);
+  updateGearPickerActions();
+}
+
+function populateGearCatalogPicker(query = "", selectedId = "") {
+  const matches = matchingGearCatalog(query);
+  dom.gearCatalogPicker.innerHTML = [
+    `<option value="">Choose from ${matches.length} matching item${matches.length === 1 ? "" : "s"}</option>`,
+    ...matches.map((entry) => `<option value="${escapeAttribute(entry.id)}">${escapeHtml(entry.name)} - ${Number(entry.cost || 0).toLocaleString()} Credits</option>`),
+    '<option value="__custom__">Custom Item</option>',
+  ].join("");
+  dom.gearCatalogPicker.value = matches.some((entry) => entry.id === selectedId) ? selectedId : "";
+  dom.gearCatalogStatus.textContent = matches.length
+    ? `${matches.length} catalog item${matches.length === 1 ? "" : "s"} match. Select one below or choose Custom Item.`
+    : "No catalog items match. Choose Custom Item to enter your own.";
+}
+
+function applyGearPickerChoice(catalogId) {
+  if (catalogId === "__custom__") {
+    gearDraft = blankGearDraft();
+    renderGearPickerFields();
+    dom.gearPickerName.focus({ preventScroll: true });
+    return;
   }
-  hideGearAutocomplete();
-  renderGear();
+  const catalog = GEAR.find((entry) => entry.id === catalogId);
+  if (!catalog) return;
+  gearDraft = gearDraftFromCatalog(catalog);
+  renderGearPickerFields();
+}
+
+function openGearPicker() {
+  gearDraft = blankGearDraft();
+  dom.gearCatalogSearch.value = "";
+  dom.gearPickerError.textContent = "";
+  populateGearCatalogPicker();
+  renderGearPickerFields();
+  dom.gearPickerModal.hidden = false;
+  setTimeout(() => dom.gearCatalogSearch.focus({ preventScroll: true }), 60);
+}
+
+function closeGearPicker() {
+  dom.gearPickerModal.hidden = true;
+  gearDraft = null;
 }
 function renderGear() {
   if (!dom.gearInventory) return;
   const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
   document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
-  dom.addGearRow.disabled = !editable || Boolean(gearDraft);
+  dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
   const rows = character.items.map((entry) => {
     const pending = pendingGearAdds.has(entry.id);
@@ -3739,13 +3823,6 @@ function renderGear() {
         : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
     </div>`;
   });
-  if (gearDraft) rows.push(`<div class="gear-row gear-draft" data-gear-draft>
-    <input class="gear-name" data-gear-draft-field="name" autocomplete="off" value="${escapeAttribute(gearDraft.name)}" placeholder="Begin typing an item name" aria-label="New item name" />
-    <textarea class="gear-description" data-gear-draft-field="description" placeholder="Item description">${escapeHtml(gearDraft.description)}</textarea>
-    <div class="gear-quantity"><span></span><strong>1</strong><span></span></div>
-    <label class="gear-cost"><input data-gear-draft-field="unitCost" type="number" min="0" step="1" value="${gearDraft.unitCost}" aria-label="Item cost" /></label>
-    <div class="gear-actions"><button class="purchase" type="button" data-gear-draft-mode="purchase">Purchase</button><button class="receive" type="button" data-gear-draft-mode="receive">Receive</button><button type="button" data-cancel-gear-draft>Cancel</button></div>
-  </div>`);
   dom.gearInventory.innerHTML = rows.join("");
   dom.gearInventoryEmpty.hidden = Boolean(rows.length);
   dom.storedGearInventory.innerHTML = character.storedItems.map((entry) => `<div class="stored-gear-row" data-stored-gear="${escapeAttribute(entry.id)}">
@@ -4289,7 +4366,7 @@ async function beginFinalization() {
     previewHtml: '<div class="fubs-reminder-preview"><span>Character Background</span><button type="button">Roll on FUBS Chart</button></div>',
   } : {
     title: "Finalize this character?",
-    message: "Race, Class, Home Planet, Attribute allocation, and starting Skill levels will become permanent. Skill decimals will now be rolled in sheet order.",
+    message: "Any selected Race, Class, and Home Planet become permanent alongside Attribute allocation and starting Skill levels. Skill decimals will now be rolled in sheet order.",
     acceptLabel: "Begin Finalization",
     cancelLabel: "Continue Editing",
   });
@@ -4969,6 +5046,7 @@ document.addEventListener("change", async (event) => {
   } catch (error) {
     renderWeapons();
     notice(error.message, "error");
+  const previousMaxHp = maximumHp();
   }
 });
 
@@ -4986,11 +5064,13 @@ dom.racePicker.addEventListener("change", () => {
     const definition = raceById(dom.racePicker.value);
     character.identity.raceKind = "preset";
     character.identity.raceId = definition?.id || "";
+  syncDerivedResources(previousMaxHp);
     character.identity.race = definition?.name || "";
   }
   queueSave();
   renderAll();
   if (character.identity.raceKind === "other") dom.raceCustom.focus();
+  else if (character.identity.race.trim()) scrollToCreationModifiers();
   else if (selectedRace()?.types?.length) dom.raceTypePicker.focus();
 });
 
@@ -5002,15 +5082,17 @@ dom.raceCustom.addEventListener("input", () => {
   renderWorkflow();
 });
 
+  const previousMaxHp = maximumHp();
 dom.raceTypePicker.addEventListener("change", () => {
   if (character.phase !== "draft") return;
   const definition = selectedRace();
   character.identity.raceType = definition?.types?.some((type) => type.id === dom.raceTypePicker.value)
     ? dom.raceTypePicker.value
     : "";
+  syncDerivedResources(previousMaxHp);
   queueSave();
-  renderClass();
-  renderWorkflow();
+  renderAll();
+  if (character.identity.raceType) scrollToCreationModifiers();
 });
 
 dom.classPicker.addEventListener("change", () => {
@@ -5022,7 +5104,8 @@ dom.classPicker.addEventListener("change", () => {
   syncDerivedResources(previousMaxHp);
   queueSave();
   renderAll();
-  notice(`${character.identity.className} selected. Class effects recalculated.`, "success");
+  if (character.identity.classId) scrollToCreationModifiers();
+  notice(`${character.identity.className} selected. Class effects will apply during finalization.`, "success");
 });
 
 dom.homePlanetPicker.addEventListener("change", () => {
@@ -5151,11 +5234,54 @@ dom.addCustomSkill.addEventListener("click", () => {
 });
 
 dom.addGearRow?.addEventListener("click", () => {
-  if (character.phase !== "finalized" || (campaignCode && !campaignEditable) || gearDraft) return;
-  gearDraft = { id: uid(), catalogId: "", name: "", description: "", quantity: 1, unitCost: 0, charges: null, chargesMax: null, chargeState: "", special: "" };
-  renderGear();
-  dom.gearInventory.querySelector("[data-gear-draft-field='name']")?.focus({ preventScroll: true });
+  if (character.phase !== "finalized" || (campaignCode && !campaignEditable)) return;
+  openGearPicker();
 });
+
+dom.gearCatalogSearch?.addEventListener("input", () => {
+  populateGearCatalogPicker(dom.gearCatalogSearch.value, dom.gearCatalogPicker.value);
+});
+
+dom.gearCatalogPicker?.addEventListener("change", () => {
+  applyGearPickerChoice(dom.gearCatalogPicker.value);
+});
+
+[dom.gearPickerName, dom.gearPickerDescription, dom.gearPickerCost].forEach((field) => {
+  field?.addEventListener("input", () => {
+    if (!gearDraft) return;
+    gearDraft.name = dom.gearPickerName.value;
+    gearDraft.description = dom.gearPickerDescription.value;
+    gearDraft.unitCost = Math.max(0, Math.round(Number(dom.gearPickerCost.value) || 0));
+    updateGearPickerActions();
+  });
+});
+
+dom.gearPickerCancel?.addEventListener("click", closeGearPicker);
+
+async function confirmGearPicker(mode) {
+  if (!gearDraft?.name.trim()) {
+    updateGearPickerActions();
+    dom.gearPickerName.focus({ preventScroll: true });
+    return;
+  }
+  dom.gearPickerPurchase.disabled = true;
+  dom.gearPickerReceive.disabled = true;
+  try {
+    if (await addGearItem(gearDraft, mode)) {
+      const itemName = gearDraft.name;
+      closeGearPicker();
+      renderAll();
+      notice(`${itemName} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
+    }
+  } catch (error) {
+    dom.gearPickerError.textContent = error.message;
+  } finally {
+    if (!dom.gearPickerModal.hidden) updateGearPickerActions();
+  }
+}
+
+dom.gearPickerReceive?.addEventListener("click", () => confirmGearPicker("receive"));
+dom.gearPickerPurchase?.addEventListener("click", () => confirmGearPicker("purchase"));
 
 dom.storeGearButton?.addEventListener("click", () => {
   if (!character.items.length) return;
@@ -5165,52 +5291,17 @@ dom.storeGearButton?.addEventListener("click", () => {
 });
 
 dom.gearInventory?.addEventListener("input", (event) => {
-  const draftField = event.target.closest("[data-gear-draft-field]");
-  if (draftField && gearDraft) {
-    const field = draftField.dataset.gearDraftField;
-    gearDraft[field] = field === "unitCost" ? Math.max(0, Math.round(Number(draftField.value) || 0)) : draftField.value;
-    if (field === "name") showGearAutocomplete(draftField);
-    return;
-  }
   const field = event.target.closest("[data-gear-field]");
   const row = field?.closest("[data-gear-row]");
   const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
   if (!field || !entry) return;
-  if (field.dataset.gearField === "name") showGearAutocomplete(field);
   if (field.dataset.gearField === "unitCost") entry.unitCost = Math.max(0, Math.round((Number(field.value) || 0) / Math.max(1, entry.quantity)));
   else entry[field.dataset.gearField] = field.value;
   queueSave();
 });
 
-dom.gearInventory?.addEventListener("change", (event) => {
-  const field = event.target.closest("[data-gear-field='name']");
-  const row = field?.closest("[data-gear-row]");
-  const entry = character.items.find((item) => item.id === row?.dataset.gearRow);
-  if (!field || !entry) return;
-  const catalog = GEAR.find((option) => option.name.toLowerCase() === field.value.trim().toLowerCase());
-  if (catalog) {
-    const quantity = entry.quantity;
-    Object.assign(entry, catalog, { catalogId: catalog.id, quantity, unitCost: catalog.cost, chargesMax: catalog.chargesMax ?? null, charges: entry.catalogId === catalog.id ? entry.charges : catalog.chargesMax ?? null, chargeState: catalog.chargeStateMax || "" });
-    queueSave();
-    renderGear();
-  }
-});
 
 dom.gearInventory?.addEventListener("click", async (event) => {
-  const cancelDraft = event.target.closest("[data-cancel-gear-draft]");
-  if (cancelDraft) { gearDraft = null; renderGear(); return; }
-  const draftMode = event.target.closest("[data-gear-draft-mode]");
-  if (draftMode && gearDraft) {
-    draftMode.disabled = true;
-    try {
-      if (await addGearItem(gearDraft, draftMode.dataset.gearDraftMode)) {
-        gearDraft = null;
-        renderAll();
-        notice("Item added to carried supplies.", "success");
-      }
-    } catch (error) { notice(error.message, "error"); draftMode.disabled = false; }
-    return;
-  }
   const plus = event.target.closest("[data-gear-plus]");
   if (plus) { pendingGearAdds.add(plus.dataset.gearPlus); renderGear(); return; }
   const cancelAdd = event.target.closest("[data-gear-cancel-add]");
@@ -5535,6 +5626,19 @@ dom.resourceHudToggle?.addEventListener("click", (event) => {
   localStorage.setItem(HUD_VISIBILITY_KEY, resourceHudVisible ? "visible" : "hidden");
   renderTabbedStatus();
   notice(resourceHudVisible ? "Resource HUD enabled." : "Resource HUD hidden.", "success");
+});
+dom.bannerVisibilityToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-banner-visible]");
+  if (!button) return;
+  interfaceBannerVisible = button.dataset.bannerVisible === "true";
+  localStorage.setItem(BANNER_VISIBILITY_KEY, interfaceBannerVisible ? "visible" : "hidden");
+  renderBannerVisibility();
+  notice(interfaceBannerVisible ? "Interface banner shown." : "Interface banner hidden on this device.", "success");
+});
+window.addEventListener("storage", (event) => {
+  if (event.key !== BANNER_VISIBILITY_KEY) return;
+  interfaceBannerVisible = event.newValue !== "hidden";
+  renderBannerVisibility();
 });
 
 dom.specialAbilityActions?.addEventListener("click", (event) => {
@@ -6082,18 +6186,3 @@ if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 initializeCharacterApp();
 
 
-dom.gearInventory?.addEventListener("focusin", (event) => {
-  const input = event.target.closest(".gear-name");
-  if (input) showGearAutocomplete(input);
-});
-dom.gearAutocomplete?.addEventListener("pointerdown", (event) => event.preventDefault());
-dom.gearAutocomplete?.addEventListener("click", (event) => {
-  const option = event.target.closest("[data-gear-catalog-id]");
-  if (!option || !gearAutocompleteInput) return;
-  applyGearCatalogChoice(gearAutocompleteInput, GEAR.find((entry) => entry.id === option.dataset.gearCatalogId));
-});
-document.addEventListener("pointerdown", (event) => {
-  if (!event.target.closest(".gear-name, #gearAutocomplete")) hideGearAutocomplete();
-});
-window.addEventListener("resize", hideGearAutocomplete);
-window.addEventListener("scroll", hideGearAutocomplete, true);

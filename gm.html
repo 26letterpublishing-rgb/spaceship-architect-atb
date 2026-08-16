@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260815-compact-combat" />
-  <script src="data-reset.js?v=20260815-compact-combat"></script>
+  <link rel="stylesheet" href="gm.css?v=20260815-creation-items" />
+  <script src="data-reset.js?v=20260815-creation-items"></script>
   </head>
   <body>
     <main class="gm-shell">
@@ -264,6 +264,14 @@
               <label class="check-field"><input id="bannerExitEnabled" type="checkbox" checked /> Press banner to exit campaign</label>
             </section>
             <section class="settings-card">
+              <h3>Interface Banner</h3>
+              <p>Hide the Spaceship Architect banner and room code on this device. The main welcome screen remains unchanged.</p>
+              <div id="gmBannerVisibilityToggle" class="gm-banner-visibility" role="radiogroup" aria-label="Interface banner visibility">
+                <button type="button" data-banner-visible="true" role="radio" aria-checked="true" class="active">Show Banner</button>
+                <button type="button" data-banner-visible="false" role="radio" aria-checked="false">Hide Banner</button>
+              </div>
+            </section>
+            <section class="settings-card">
               <h3>Campaign Backup</h3>
               <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
               <div class="campaign-backup-actions">
@@ -292,6 +300,6 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
-  <script type="module" src="gm.js?v=20260815-compact-combat"></script>
+  <script type="module" src="gm.js?v=20260815-creation-items"></script>
   </body>
 </html>

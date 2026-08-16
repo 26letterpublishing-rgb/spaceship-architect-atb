@@ -67,3 +67,24 @@
 /* Keep single-row inventory tables inside the character sheet viewport. */
 .gear-panel,.storage-panel{max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
 .gear-panel>.panel-heading,.storage-panel>.panel-heading,.gear-panel>.weapon-table-note{position:sticky;left:0;z-index:2}
+
+/* Catalog-backed item picker. It replaces the keyboard-obscured inline autocomplete. */
+.gear-picker-modal{z-index:10100}
+.gear-picker-dialog{width:min(720px,100%);max-height:calc(100dvh - 24px);overflow:auto;border-color:#35ccea}
+.gear-picker-dialog>p{margin:4px 0 12px;color:#9db2c1;line-height:1.4}
+.gear-picker-catalog,.gear-picker-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.gear-picker-catalog .gear-catalog-status{grid-column:1/-1;min-height:1.1em;color:#79dff4}
+.gear-picker-fields label:nth-child(2){grid-column:1/-1}
+.gear-picker-fields textarea{min-height:78px;resize:none}
+.gear-picker-actions .receive{border-color:#3ee5bf;color:#9dffe8;background:linear-gradient(180deg,#177d69,#0b3d35)}
+.gear-picker-actions .purchase{border-color:#e9c74a;color:#fff0a5;background:linear-gradient(180deg,#80651a,#392b08)}
+.gear-picker-actions button{min-width:120px}
+@media(max-width:600px){
+  .gear-picker-modal{align-items:start;padding:8px}
+  .gear-picker-dialog{max-height:calc(100dvh - 16px);padding:14px}
+  .gear-picker-catalog,.gear-picker-fields{grid-template-columns:1fr}
+  .gear-picker-catalog .gear-catalog-status,.gear-picker-fields label:nth-child(2){grid-column:auto}
+  .gear-picker-actions{display:grid;grid-template-columns:1fr 1fr}
+  .gear-picker-actions #gearPickerCancel{grid-column:1/-1;grid-row:2}
+  .gear-picker-actions button{min-width:0}
+}

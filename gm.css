@@ -102,3 +102,24 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(112,57,207,.28)}
 .gm-atb-live,.gm-atb-frame,.atb-tab{overscroll-behavior:contain}
 .atb-tab{overflow:hidden!important}
+/* Setup uses the page scroll; only the live encounter owns a fixed viewport. */
+.atb-tab{height:auto!important;min-height:0!important;overflow:visible!important}
+.atb-setup,.encounter-builder,.encounter-npcs,.npc-single-editor{max-height:none!important;overflow:visible!important}
+.atb-live:not([hidden]){height:calc(100dvh - 154px);min-height:620px;overflow:hidden}
+.atb-live:not([hidden]) iframe{height:calc(100% - 46px)}
+.add-encounter-npc{position:relative;z-index:3}
+
+/* Per-device GM banner preference. */
+.gm-banner-visibility{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.gm-banner-visibility button{min-height:38px;border-radius:4px}
+.gm-banner-visibility button.active{border-color:var(--cyan);color:#06131d;background:linear-gradient(180deg,#b7f7ff,#36d3ee)}
+.interface-banner-hidden .gm-header{grid-template-columns:minmax(0,1fr) auto}
+.interface-banner-hidden .gm-brand,
+.interface-banner-hidden .campaign-heading span{display:none!important}
+.interface-banner-hidden .campaign-heading{justify-content:flex-start}
+@media(max-width:650px){
+  .atb-live:not([hidden]){height:calc(100dvh - 128px);min-height:560px}
+  .interface-banner-hidden .gm-header{grid-template-columns:minmax(0,1fr) auto}
+  .interface-banner-hidden .campaign-heading{grid-column:1;order:1}
+  .interface-banner-hidden .gm-header-actions{grid-column:2;order:1}
+}

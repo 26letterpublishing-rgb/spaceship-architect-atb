@@ -173,7 +173,7 @@ export const RACE_DEFS = [
     effects: {
       hpFormula: { kind: "sum", attributes: ["health"], bonus: 40, label: "Health dice maximum +40" },
       maxHpReverenceCost: 3,
-      skillBonuses: { "Intimidate/Taunt": 30 },
+      postFinalizeSkillBonuses: { "Intimidate/Taunt": 30 },
     },
     disadvantages: [
       "You are completely blind to objects 10 meters or farther away and cannot use binoculars or scopes.",
@@ -204,7 +204,7 @@ export const RACE_DEFS = [
     id: "epoc",
     name: "Epoc",
     effects: {
-      skillBonuses: {
+      postFinalizeSkillBonuses: {
         "Fashion/Etiquette": 20,
         "Art/Music": 20,
         "Intuition/Empathy": 20,
@@ -240,7 +240,7 @@ export const RACE_DEFS = [
     id: "flavilin",
     name: "Flavilin",
     effects: {
-      skillBonuses: {
+      postFinalizeSkillBonuses: {
         Engineering: 20,
         Awareness: 20,
         Technology: 20,
@@ -336,7 +336,7 @@ export const RACE_DEFS = [
     effects: {
       moveSpeedModifier: 1,
       hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
-      skillBonuses: { "Intimidate/Taunt": 30, "Stealth/Hide": 20 },
+      postFinalizeSkillBonuses: { "Intimidate/Taunt": 30, "Stealth/Hide": 20 },
     },
     disadvantages: [
       "Maximum HP equals the highest result of any two Health dice +10.",
@@ -369,7 +369,7 @@ export const RACE_DEFS = [
     effects: {
       moveSpeedModifier: -1,
       hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
-      skillBonuses: {
+      postFinalizeSkillBonuses: {
         "Pilot/Helm": 10,
         Navigate: 10,
         "Computer Systems": 10,
@@ -416,7 +416,7 @@ export const RACE_DEFS = [
   {
     id: "slyn-tanni",
     name: "Slyn Tanni",
-    effects: { skillBonuses: { "Dodge/Block": 20 } },
+    effects: { postFinalizeSkillBonuses: { "Dodge/Block": 20 } },
     disadvantages: [
       "Take x2 damage from the Ice property.",
       "Take one fewer Combat Action in a cold environment.",

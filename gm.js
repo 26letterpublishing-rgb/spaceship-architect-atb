@@ -129,6 +129,7 @@ const dom = {
   universalCommandWindowBonus: $("#universalCommandWindowBonus"),
   commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
   bannerExitEnabled: $("#bannerExitEnabled"),
+  bannerVisibilityToggle: $("#gmBannerVisibilityToggle"),
   confirmModal: $("#gmConfirmModal"),
   confirmDialog: $("#gmConfirmModal .gm-confirm-dialog"),
   confirmTitle: $("#gmConfirmTitle"),
@@ -165,7 +166,9 @@ let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
 const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f" };
+const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
 let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "off";
+let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let gmDialogState = null;
 
@@ -1772,6 +1775,29 @@ dom.bannerExitEnabled.addEventListener("change", () => {
   bannerExitEnabled = dom.bannerExitEnabled.checked;
   localStorage.setItem("sa-gm-banner-exit-enabled", bannerExitEnabled ? "on" : "off");
 });
+
+function renderGmBannerVisibility() {
+  document.body.classList.toggle("interface-banner-hidden", !interfaceBannerVisible);
+  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-visible]").forEach((button) => {
+    const selected = (button.dataset.bannerVisible === "true") === interfaceBannerVisible;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+dom.bannerVisibilityToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-banner-visible]");
+  if (!button) return;
+  interfaceBannerVisible = button.dataset.bannerVisible === "true";
+  localStorage.setItem(BANNER_VISIBILITY_KEY, interfaceBannerVisible ? "visible" : "hidden");
+  renderGmBannerVisibility();
+  showMessage(dom.message, interfaceBannerVisible ? "Interface banner shown." : "Interface banner hidden on this device.", "success");
+});
+window.addEventListener("storage", (event) => {
+  if (event.key !== BANNER_VISIBILITY_KEY) return;
+  interfaceBannerVisible = event.newValue !== "hidden";
+  renderGmBannerVisibility();
+});
+renderGmBannerVisibility();
 dom.brand.addEventListener("click", async () => {
   if (!campaign) {
     location.href = "index.html";
