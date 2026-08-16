@@ -594,6 +594,9 @@ function scriptSource() {
 }
 
 function inboxItemActions(note) {
+  if (note.kind === "reverence-gift-request" && note.requestStatus === "pending") {
+    return `<div class="inbox-actions"><button class="danger" type="button" data-reverence-gift-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-reverence-gift-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve</button></div>`;
+  }
   if (note.kind !== "item-transaction") return "";
   const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
   const cover = Number(note.deficit) > 0 ? `<button type="button" data-cover-deficit="${escapeHtml(note.characterId)}">Cover Deficit (+${Number(note.deficit).toLocaleString()} Credits)</button>` : "";
@@ -616,7 +619,7 @@ function renderInbox() {
     </article>`;
   }).join("");
   const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
-    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
     ${inboxItemActions(note)}
   </article>`).join("");
@@ -1354,6 +1357,26 @@ dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouc
 dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
 dom.inboxList.addEventListener("click", async (event) => {
+  const giftDecision = event.target.closest("[data-reverence-gift-decision]");
+  if (giftDecision) {
+    event.stopPropagation();
+    giftDecision.disabled = true;
+    try {
+      const payload = await api("/api/campaign/reverence-gift", {
+        code,
+        token,
+        action: "respond",
+        noteId: giftDecision.dataset.noteId,
+        decision: giftDecision.dataset.reverenceGiftDecision,
+      });
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, payload.decision === "approved" ? "Reverence suggestion approved. The recipient can claim it from their inbox." : "Reverence suggestion denied.", "success");
+    } catch (error) {
+      giftDecision.disabled = false;
+      showMessage(dom.message, error.message, "error");
+    }
+    return;
+  }
   const denyItem = event.target.closest("[data-deny-item]");
   if (denyItem) {
     event.stopPropagation();

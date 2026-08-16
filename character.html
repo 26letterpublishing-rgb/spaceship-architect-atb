@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260816-reward-death" />
+  <link rel="stylesheet" href="character.css?v=20260816-reverence-polish" />
   <link rel="stylesheet" href="weapons.css?v=20260816-storage-give" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -251,10 +251,16 @@
               <div id="specialAbilityActions" class="special-ability-actions"></div>
             </div>
             <div class="resource-card reverence-card">
-              <div class="reverence-heading"><span>Reverence</span><strong id="reverenceCurrent" aria-label="Current Reverence">0</strong></div>
+              <div class="reverence-heading">
+                <span>Reverence</span>
+                <div class="reverence-heading-actions">
+                  <button id="giftReverence" type="button">Gift</button>
+                  <button id="spendOneReverence" type="button" aria-label="Spend one Reverence">-1</button>
+                  <strong id="reverenceCurrent" aria-label="Current Reverence">0</strong>
+                </div>
+              </div>
               <div id="reverenceMeter" class="reverence-meter" aria-label="10 Reverence slots"></div>
               <div class="reverence-actions">
-                <button id="manualAttributeReroll" type="button">Reroll an Attribute<small>Spend 2 Reverence</small></button>
                 <button type="button" disabled title="Drama Cards have not been added to the digital sheet yet">Draw a Drama Card</button>
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
@@ -571,6 +577,7 @@
             <span id="skillResultLabel">Final Score</span>
             <strong id="skillResultScore">0.0</strong>
             <p id="skillResultEquation"></p>
+            <div id="skillResultRules" class="skill-result-rules" hidden></div>
             <b id="skillResultOutcome"></b>
           </div>
           <div id="skillFusionResults" class="skill-fusion-results" hidden>
@@ -640,7 +647,23 @@
         </div>
       </section>
     </div>
+    <div id="reverenceGiftModal" class="modal-shell reverence-gift-modal" hidden>
+      <section class="confirm-dialog reverence-gift-dialog" role="dialog" aria-modal="true" aria-labelledby="reverenceGiftTitle">
+        <span class="dialog-kicker">Suggest a Reward</span>
+        <h2 id="reverenceGiftTitle">Gift Reverence</h2>
+        <p>This suggestion does not spend your Reverence. The GM must approve it before the selected character receives a reward.</p>
+        <div class="reverence-gift-fields">
+          <label>Character<select id="reverenceGiftTarget"></select></label>
+          <label>Amount<input id="reverenceGiftAmount" type="number" min="1" max="10" step="1" inputmode="numeric" value="1" /></label>
+        </div>
+        <p id="reverenceGiftError" class="dialog-error" role="status"></p>
+        <div class="dialog-actions">
+          <button id="reverenceGiftCancel" type="button">Cancel</button>
+          <button id="reverenceGiftSend" class="primary-action" type="button">Send Suggestion</button>
+        </div>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260816-reward-death"></script>
+  <script type="module" src="character.js?v=20260816-reverence-polish"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260816-reward-death" />
+  <link rel="stylesheet" href="gm.css?v=20260816-reverence-polish" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -91,6 +91,29 @@
             </div>
             <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
           </section>
+          <form id="conditionalActionForm" class="tool-card conditional-action-card script-conditional-card">
+            <h3>Conditional Prompt / Reward</h3>
+            <label>Saved Keyword<select id="conditionalActionSelect"><option value="">New Action...</option></select></label>
+            <label>Keyword<input id="conditionalKeyword" maxlength="60" placeholder="SPOT CROWN" required /></label>
+            <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
+            <label id="conditionalMessageWrap">Private Message<textarea id="conditionalMessage" rows="4" maxlength="4000" placeholder="What successful characters learn..."></textarea></label>
+            <div id="conditionalAwardWrap" class="conditional-award-fields" hidden>
+              <label>Resource<select id="conditionalResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Group Credits</option></select></label>
+              <label>Amount<input id="conditionalAmount" type="number" min="1" step="1" value="1" /></label>
+            </div>
+            <div class="roll-grid">
+              <label>Attribute<select id="conditionalAttribute"></select></label>
+              <label>Skill<select id="conditionalSkill"></select></label>
+              <label>Difficulty<input id="conditionalDifficulty" type="number" min="0" step="0.1" required /></label>
+              <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" /> Hide Difficulty</label>
+            </div>
+            <div class="conditional-action-buttons">
+              <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
+              <button id="sendConditionalAction" type="button">Send to Selected</button>
+              <button id="deleteConditionalAction" class="danger" type="button" disabled>Delete</button>
+            </div>
+            <p id="conditionalActionMessage" class="tool-message" role="status"></p>
+          </form>
         </section>
 
         <section id="inboxTab" class="gm-tab" data-tab-panel="inbox" hidden>
@@ -163,29 +186,6 @@
                 <label class="check-field"><input id="promptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
               </div>
               <button class="primary" type="submit">Send Roll Request</button>
-            </form>
-            <form id="conditionalActionForm" class="tool-card conditional-action-card">
-              <h3>Conditional Prompt / Reward</h3>
-              <label>Saved Keyword<select id="conditionalActionSelect"><option value="">New Action...</option></select></label>
-              <label>Keyword<input id="conditionalKeyword" maxlength="60" placeholder="SPOT CROWN" required /></label>
-              <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
-              <label id="conditionalMessageWrap">Private Message<textarea id="conditionalMessage" rows="4" maxlength="4000" placeholder="What successful characters learn..."></textarea></label>
-              <div id="conditionalAwardWrap" class="conditional-award-fields" hidden>
-                <label>Resource<select id="conditionalResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="shipCredits">Group Credits</option></select></label>
-                <label>Amount<input id="conditionalAmount" type="number" min="1" step="1" value="1" /></label>
-              </div>
-              <div class="roll-grid">
-                <label>Attribute<select id="conditionalAttribute"></select></label>
-                <label>Skill<select id="conditionalSkill"></select></label>
-                <label>Difficulty<input id="conditionalDifficulty" type="number" min="0" step="0.1" required /></label>
-                <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" /> Hide Difficulty</label>
-              </div>
-              <div class="conditional-action-buttons">
-                <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
-                <button id="sendConditionalAction" type="button">Send to Selected</button>
-                <button id="deleteConditionalAction" class="danger" type="button" disabled>Delete</button>
-              </div>
-              <p id="conditionalActionMessage" class="tool-message" role="status"></p>
             </form>
           </div>
           <section class="roll-results-panel">
@@ -301,6 +301,6 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
-  <script type="module" src="gm.js?v=20260816-reward-death"></script>
+  <script type="module" src="gm.js?v=20260816-reverence-polish"></script>
   </body>
 </html>

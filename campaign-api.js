@@ -221,6 +221,7 @@ function trimPrivateNotes(campaign) {
     notes.filter((note) => note.characterId === record.id).slice(-PLAYER_INBOX_LIMIT).forEach((note) => keep.add(note.id));
   }
   notes.filter((note) => note.kind === "award" && note.rewardStatus === "pending").forEach((note) => keep.add(note.id));
+  notes.filter((note) => note.kind === "reverence-gift-request" && note.requestStatus === "pending").forEach((note) => keep.add(note.id));
   campaign.privateNotes = notes.filter((note) => keep.has(note.id));
 }
 function applyConditionalDelivery(campaign, record, action) {
@@ -350,7 +351,7 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -359,6 +360,11 @@ function normalizeCampaign(raw) {
     rewardStatus: ["pending", "claimed", "cancelled"].includes(note?.rewardStatus) ? note.rewardStatus : "",
     rewardClaimedAt: note?.rewardClaimedAt || null,
     rewardAppliedAmount: Math.max(0, Math.round(Number(note?.rewardAppliedAmount) || 0)),
+    requestStatus: ["pending", "approved", "denied"].includes(note?.requestStatus) ? note.requestStatus : "",
+    requesterCharacterId: String(note?.requesterCharacterId || ""),
+    targetCharacterId: String(note?.targetCharacterId || ""),
+    requestedAmount: Math.max(0, Math.min(10, Math.round(Number(note?.requestedAmount) || 0))),
+    requestResolvedAt: note?.requestResolvedAt || null,
     transactionId: String(note?.transactionId || ""),
     deficit: Math.max(0, Number(note?.deficit) || 0),
     reversible: Boolean(note?.reversible),
@@ -1773,6 +1779,109 @@ class CampaignApi {
         appliedAmount: result.appliedAmount,
         campaign: this.state(campaign, token),
       });
+      return true;
+    }
+
+    if (path === "/api/campaign/reverence-gift" && req.method === "POST") {
+      const action = String(body.action || "request");
+      if (action === "request") {
+        const session = this.session(token, code);
+        const requester = session?.role === "character"
+          ? campaign.characters.find((entry) => entry.id === session.characterId)
+          : null;
+        const target = campaign.characters.find((entry) => entry.id === String(body.targetCharacterId || ""));
+        const amount = Math.max(1, Math.min(10, Math.round(Number(body.amount) || 0)));
+        if (!requester) {
+          sendJson(res, 403, { error: "Character authorization is required." });
+          return true;
+        }
+        if (!target || target.id === requester.id) {
+          sendJson(res, 400, { error: "Choose another character in this campaign." });
+          return true;
+        }
+        const note = {
+          id: uid("note"),
+          characterId: requester.id,
+          characterName: safeCharacterName(requester),
+          direction: "to-gm",
+          kind: "reverence-gift-request",
+          requestStatus: "pending",
+          requesterCharacterId: requester.id,
+          targetCharacterId: target.id,
+          requestedAmount: amount,
+          message: `${safeCharacterName(requester)} suggests awarding ${amount} Reverence to ${safeCharacterName(target)}.`,
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        };
+        campaign.privateNotes.push(note);
+        await this.save(campaign);
+        sendJson(res, 201, { sent: true, targetName: safeCharacterName(target), campaign: this.state(campaign, token) });
+        return true;
+      }
+
+      if (action === "respond") {
+        if (!this.gmSession(token, code)) {
+          sendJson(res, 403, { error: "GM authorization is required." });
+          return true;
+        }
+        const note = campaign.privateNotes.find((entry) => entry.id === String(body.noteId || "") && entry.kind === "reverence-gift-request");
+        const decision = body.decision === "approve" ? "approved" : body.decision === "deny" ? "denied" : "";
+        if (!note || !decision) {
+          sendJson(res, 400, { error: "Choose a pending Reverence suggestion." });
+          return true;
+        }
+        if (note.requestStatus !== "pending") {
+          sendJson(res, 200, { resolved: true, alreadyResolved: true, decision: note.requestStatus, campaign: this.state(campaign, token) });
+          return true;
+        }
+        const requester = campaign.characters.find((entry) => entry.id === note.requesterCharacterId);
+        const target = campaign.characters.find((entry) => entry.id === note.targetCharacterId);
+        if (!requester || !target) {
+          note.requestStatus = "denied";
+          note.requestResolvedAt = new Date().toISOString();
+          await this.save(campaign);
+          sendJson(res, 409, { error: "One of the characters is no longer in this campaign." });
+          return true;
+        }
+        const now = new Date().toISOString();
+        const amount = Math.max(1, Math.min(10, Math.round(Number(note.requestedAmount) || 1)));
+        note.requestStatus = decision;
+        note.requestResolvedAt = now;
+        note.readAt ||= now;
+        note.message = decision === "approved"
+          ? `Approved: ${safeCharacterName(requester)} suggested ${amount} Reverence for ${safeCharacterName(target)}.`
+          : `Denied: ${safeCharacterName(requester)} suggested ${amount} Reverence for ${safeCharacterName(target)}.`;
+
+        if (decision === "approved") {
+          const award = {
+            id: uid("award"), resource: "reverence", amount, targetIds: [target.id],
+            before: { shipCredits: campaign.shipCredits, characters: [] }, at: now,
+            claimRequired: true, claimedCharacterIds: [], androidExperienceIds: [],
+          };
+          campaign.awardHistory.push(award);
+          trimAwardHistory(campaign);
+          campaign.privateNotes.push({
+            id: uid("note"), characterId: target.id, characterName: safeCharacterName(target),
+            direction: "to-character", kind: "award", awardId: award.id,
+            rewardResource: "reverence", rewardAmount: amount, rewardStatus: "pending",
+            message: `${safeCharacterName(requester)} suggested a ${amount} Reverence reward and the GM approved it. Claim it when you are ready.`,
+            createdAt: now, readAt: null,
+          });
+        }
+        campaign.privateNotes.push({
+          id: uid("note"), characterId: requester.id, characterName: safeCharacterName(requester),
+          direction: "to-character", kind: "system",
+          message: decision === "approved"
+            ? `The GM approved your suggestion of ${amount} Reverence for ${safeCharacterName(target)}.`
+            : `The GM denied your suggestion of ${amount} Reverence for ${safeCharacterName(target)}.`,
+          createdAt: now, readAt: null,
+        });
+        await this.save(campaign);
+        sendJson(res, 200, { resolved: true, decision, campaign: this.state(campaign, token) });
+        return true;
+      }
+
+      sendJson(res, 400, { error: "Choose request, approve, or deny." });
       return true;
     }
 

@@ -207,8 +207,9 @@ const dom = {
   specialAbilityActions: $("#specialAbilityActions"),
   reverenceCurrent: $("#reverenceCurrent"),
   reverenceMeter: $("#reverenceMeter"),
+  giftReverence: $("#giftReverence"),
+  spendOneReverence: $("#spendOneReverence"),
   maxHpBonus: $("#maxHpBonus"),
-  manualAttributeReroll: $("#manualAttributeReroll"),
   characterAtbColor: $("#characterAtbColor"),
   debugReverence: $("#debugReverence"),
   crewRoster: $("#crewRoster"),
@@ -226,6 +227,12 @@ const dom = {
   gearPickerCancel: $("#gearPickerCancel"),
   gearPickerReceive: $("#gearPickerReceive"),
   gearPickerPurchase: $("#gearPickerPurchase"),
+  reverenceGiftModal: $("#reverenceGiftModal"),
+  reverenceGiftTarget: $("#reverenceGiftTarget"),
+  reverenceGiftAmount: $("#reverenceGiftAmount"),
+  reverenceGiftError: $("#reverenceGiftError"),
+  reverenceGiftCancel: $("#reverenceGiftCancel"),
+  reverenceGiftSend: $("#reverenceGiftSend"),
   gearInventory: $("#gearInventory"),
   gearInventoryEmpty: $("#gearInventoryEmpty"),
   addGearRow: $("#addGearRow"),
@@ -272,6 +279,7 @@ const dom = {
   skillResultLabel: $("#skillResultLabel"),
   skillResultScore: $("#skillResultScore"),
   skillResultEquation: $("#skillResultEquation"),
+  skillResultRules: $("#skillResultRules"),
   skillResultOutcome: $("#skillResultOutcome"),
   skillFusionResults: $("#skillFusionResults"),
   skillFusionChoices: $("#skillFusionChoices"),
@@ -491,6 +499,21 @@ function playPurchaseSound(attributeKey = "") {
       scheduleTone(audio, 1120, 0.1, 0.09, 0.018, "sine");
       break;
   }
+}
+
+function playRewardChime(resource = "experience") {
+  if (!playerSoundsEnabled) return;
+  const audio = ensureCharacterAudio();
+  if (!audio) return;
+  const patterns = {
+    experience: [[520, 0], [780, 0.09], [1040, 0.18], [1560, 0.29]],
+    credits: [[1250, 0], [1760, 0.08], [1320, 0.17], [1980, 0.26]],
+    reverence: [[392, 0], [588, 0.05], [784, 0.1], [1176, 0.2], [1568, 0.31]],
+    shipCredits: [[220, 0], [330, 0.07], [440, 0.14], [660, 0.24]],
+  };
+  (patterns[resource] || patterns.experience).forEach(([frequency, start], index) => {
+    scheduleTone(audio, frequency, start, 0.25 + index * 0.025, 0.026, index % 2 ? "triangle" : "sine");
+  });
 }
 
 function playDiceRollSound() {
@@ -1574,8 +1597,11 @@ function refreshPrivateNotes() {
   const localNotes = noteCharacterId === campaignCharacterId ? (character.localInbox || []) : (record?.character?.localInbox || []);
   const notes = [...(record?.privateNotes || []), ...localNotes];
   const unread = notes.filter((note) => note.direction !== "to-gm" && !note.readAt).length;
+  const unclaimedReward = notes.some((note) => note.kind === "award" && note.rewardStatus === "pending");
   dom.privateNoteCount.textContent = `${unread} UNREAD`;
   dom.playerInboxCount.textContent = String(unread);
+  dom.playerInboxCount.classList.toggle("reward-ready", unclaimedReward);
+  dom.playerInboxCount.closest("button")?.classList.toggle("reward-ready", unclaimedReward);
   dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => {
     const label = note.kind === "roll-request"
       ? "ROLL REQUEST"
@@ -2894,7 +2920,10 @@ function renderResources() {
   dom.maxHpBonus.disabled = character.phase !== "finalized" || maxHpForbidden || character.resources.reverence < maxHpCost || Boolean(character.pendingRoll);
   dom.maxHpBonus.title = maxHpForbidden ? `${selectedRace()?.name || "This race"} cannot purchase Maximum HP with Reverence.` : `Spend ${maxHpCost} Reverence for +2 Maximum HP`;
   dom.maxHpBonus.querySelector("small").textContent = maxHpForbidden ? "Unavailable to this race" : `Spend ${maxHpCost} for +2 HP`;
-  dom.manualAttributeReroll.disabled = character.phase !== "finalized" || character.resources.reverence < 2 || Boolean(character.pendingRoll) || diceRoller.isActive();
+  dom.spendOneReverence.disabled = character.phase !== "finalized" || character.resources.reverence < 1 || Boolean(character.pendingRoll) || (Boolean(campaignCode) && !campaignEditable);
+  const giftTargets = (campaignState?.characters || []).filter((record) => record.id !== campaignCharacterId);
+  dom.giftReverence.disabled = character.phase !== "finalized" || !campaignCode || !campaignEditable || giftTargets.length === 0;
+  dom.giftReverence.title = giftTargets.length ? "Suggest a Reverence reward for another character" : "No other campaign characters are available";
   dom.characterAtbColor.value = character.presentation.atbColor;
   dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
   dom.dramaCardsValue.textContent = Math.max(0, Number(character.resources.dramaCards) || 0);
@@ -2939,7 +2968,12 @@ function rollDicePool(attributeKey, skillName) {
   if (classId === "ambassador-spy" && attributeKey === "charisma") sides.push(highestAttributeDie("luck"));
   if (classId === "ambassador-spy" && attributeKey === "luck") sides.push(highestAttributeDie("charisma"));
   if (classId === "gunner" && skillName === "Weapon Systems") {
-    sides.push(Math.max(highestAttributeDie("dexterity"), highestAttributeDie("intellect")));
+    const borrowedDie = attributeKey === "dexterity"
+      ? highestAttributeDie("intellect")
+      : attributeKey === "intellect"
+        ? highestAttributeDie("dexterity")
+        : Math.max(highestAttributeDie("dexterity"), highestAttributeDie("intellect"));
+    sides.push(borrowedDie);
   }
   if (classId === "science-officer" && attributeKey === "perception") sides.push(...attributeDiceSides("intellect"));
   if (classId === "peacekeeper" && skillName === "Negotiation/Persuade") sides.push(12);
@@ -3069,6 +3103,46 @@ function skillCheckPoolLabel() {
   const labels = skillCheck.activeSides.map((sides) => `D${sides}`);
   for (let index = 0; index < skillCheck.stagedExertion; index += 1) labels.push("D12");
   return labels.length ? labels.join(" + ") : "No dice";
+}
+
+function rollRuleExplanations() {
+  if (!skillCheck) return [];
+  const profile = rollRuleProfile();
+  const lines = [];
+  const raceName = raceById(profile.raceId)?.name || "Race";
+  const className = classById(profile.classId)?.name || "Class";
+  const add = (source, text) => lines.push(`${source}: ${text}`);
+
+  if (profile.classId === "ambassador-spy" && ["charisma", "luck"].includes(profile.attributeKey)) add(className, `adds the highest ${profile.attributeKey === "charisma" ? "Luck" : "Charisma"} die.`);
+  if (profile.classId === "gunner" && profile.skillName === "Weapon Systems") add(className, `adds the highest ${profile.attributeKey === "dexterity" ? "Intellect" : "Dexterity"} die to this Weapon Systems pool.`);
+  if (profile.classId === "science-officer" && profile.attributeKey === "perception") add(className, "adds every Intellect die to Perception rolls.");
+  if (profile.classId === "peacekeeper" && profile.skillName === "Negotiation/Persuade") add(className, "adds 1D12 to Negotiation/Persuade.");
+  if (profile.classId === "smuggler" && ["charisma", "intellect"].includes(profile.attributeKey)) add(className, `adds the two highest ${profile.attributeKey === "charisma" ? "Intellect" : "Charisma"} dice.`);
+  if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide" && skillCheck.committedExertion) add(className, `each Exertion adds 1D12 and +5; ${skillCheck.committedExertion} spent.`);
+  if (profile.classId === "marine-soldier" && profile.skillName === "Projectile") add(className, "three matching Projectile dice may fuse together.");
+  if (profile.classId === "other" && character.creation.classAttributeChoice === profile.attributeKey) add(className, "unused Attribute dice add their results as decimals.");
+
+  if (profile.raceId === "flavilin" && profile.attributeKey === "perception") add(raceName, "adds 1D12 to Perception rolls.");
+  if (profile.raceId === "nordic-flaxen" && profile.attributeKey === "charisma") add(raceName, "adds every Luck die to Charisma rolls.");
+  if (profile.raceId === "tamalori" && profile.attributeKey === "dexterity") add(raceName, "doubles the Dexterity dice pool.");
+  if (profile.raceId === "krax-gny-vtek" && profile.attributeKey === "dexterity" && maximumHp() - character.health.current >= 5) add(raceName, "injury limits this Dexterity pool to three dice.");
+  if (profile.raceId === "butchers-of-hellmouth" && profile.attributeKey === "perception") add(raceName, "limits Perception rolls to two dice.");
+  if (profile.raceId === "garmoc" && ["charisma", "intellect"].includes(profile.attributeKey)) add(raceName, "these dice cannot fuse and die results cannot exceed 8.");
+  if (profile.raceId === "garmoc" && ["strength", "health", "willpower"].includes(profile.attributeKey)) add(raceName, "each qualifying D10/D12 fusion adds one independent D20 that cannot fuse.");
+  if (profile.raceId === "yetuak-zune" && profile.attributeKey === "charisma") add(raceName, "Charisma dice cannot fuse.");
+  if (profile.raceId === "draco-prime") add(raceName, "only one pair of dice may fuse.");
+  if (profile.raceId === "horus" && profile.attributeKey === "perception") add(raceName, "Perception fusions may chain.");
+  if (profile.raceId === "everliving-brethren" && profile.attributeKey === "perception") add(raceName, "removes the highest Perception die result before resolving.");
+  if (profile.raceId === "xithx" && profile.skillName === "Stealth/Hide") add(raceName, "removes the highest die result from Stealth/Hide.");
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") add("Fluffy Antropic", "applies -2 to Strength rolls.");
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") add("Fluffy Antropic", "applies +5 to Jump.");
+  if (profile.raceId === "skeder" && profile.skillName === "Jump") add(raceName, "applies +3 to Jump.");
+  if (profile.raceId === "skeder" && profile.attributeKey === "charisma") add(raceName, "Charisma succeeds only on a Critical Success.");
+  if (profile.raceId === "android" && profile.skillName === "Initiative") add(raceName, "applies +5 to Initiative checks.");
+  if (profile.raceId === "epoc" && ["strength", "health", "dexterity", "perception"].includes(profile.attributeKey)) add(raceName, "each die result of 1 applies -1 to the final Score.");
+  if (profile.raceId === "angiluros" && ["Jump", "Climb"].includes(profile.skillName)) add(raceName, "ordinary successes become Critical Successes; Critical Failures become Failures.");
+  if (profile.raceId === "kabuto" && profile.skillName === "Resist Distress") add(raceName, "every successful Resist Distress check becomes a Critical Success.");
+  return lines;
 }
 
 function renderSkillExertion() {
@@ -3242,6 +3316,9 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultLabel.textContent = outcome || "Final Score";
   dom.skillResultScore.textContent = formatNumber(score);
   dom.skillResultEquation.textContent = equation;
+  const ruleLines = rollRuleExplanations();
+  dom.skillResultRules.hidden = ruleLines.length === 0;
+  dom.skillResultRules.innerHTML = ruleLines.map((line) => `<small>${escapeHtml(line)}</small>`).join("");
   dom.skillResultOutcome.textContent = outcome;
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
@@ -4673,7 +4750,7 @@ async function finishFinalization() {
   character.legacyDraft = false;
   character.pendingRoll = null;
   character.creation.finalizationQueue = [];
-  if (character.health.current === null || character.health.current === undefined) character.health.current = maximumHp();
+  character.health.current = maximumHp();
   saveLibrary("Character finalized");
   renderAll();
   notice("Character finalized. Advancement rules are now active.", "success");
@@ -5657,19 +5734,51 @@ dom.characterAtbColor.addEventListener("input", () => {
   queueSave();
 });
 
-dom.manualAttributeReroll.addEventListener("click", async () => {
-  if (character.phase !== "finalized" || character.resources.reverence < 2 || character.pendingRoll || diceRoller.isActive()) return;
-  const accepted = await askConfirmation({
-    title: "Spend two Reverence?",
-    message: "Spend two Reverence to reroll your Skill Check? (manually rolled dice)",
-    acceptLabel: "Spend 2 Reverence",
-    cancelLabel: "Cancel",
-  });
-  if (!accepted || character.resources.reverence < 2) return;
-  character.resources.reverence -= 2;
+dom.spendOneReverence.addEventListener("click", () => {
+  if (character.phase !== "finalized" || character.resources.reverence < 1 || (campaignCode && !campaignEditable)) return;
+  character.resources.reverence -= 1;
   queueSave();
   renderResources();
-  notice("2 Reverence spent for a manually rolled Skill Check reroll.", "success");
+  notice("1 Reverence spent.", "success");
+});
+
+function closeReverenceGift() {
+  dom.reverenceGiftModal.hidden = true;
+  dom.reverenceGiftError.textContent = "";
+}
+
+dom.giftReverence.addEventListener("click", () => {
+  if (!campaignCode || !campaignEditable) return;
+  const targets = (campaignState?.characters || []).filter((record) => record.id !== campaignCharacterId);
+  dom.reverenceGiftTarget.innerHTML = targets.map((record) => `<option value="${escapeAttribute(record.id)}">${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</option>`).join("");
+  if (!targets.length) return;
+  dom.reverenceGiftAmount.value = "1";
+  dom.reverenceGiftError.textContent = "";
+  dom.reverenceGiftModal.hidden = false;
+});
+
+dom.reverenceGiftCancel.addEventListener("click", closeReverenceGift);
+dom.reverenceGiftSend.addEventListener("click", async () => {
+  const amount = Math.max(1, Math.min(10, Math.round(Number(dom.reverenceGiftAmount.value) || 0)));
+  const targetCharacterId = dom.reverenceGiftTarget.value;
+  if (!targetCharacterId) {
+    dom.reverenceGiftError.textContent = "Choose another campaign character.";
+    return;
+  }
+  dom.reverenceGiftSend.disabled = true;
+  try {
+    const payload = await campaignRequest("/api/campaign/reverence-gift", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, action: "request", targetCharacterId, amount }),
+    });
+    if (payload.campaign) receiveCampaignState(payload.campaign);
+    closeReverenceGift();
+    notice(`Suggested a ${amount} Reverence reward for ${payload.targetName || "the selected character"}.`, "success");
+  } catch (error) {
+    dom.reverenceGiftError.textContent = error.message;
+  } finally {
+    dom.reverenceGiftSend.disabled = false;
+  }
 });
 
 dom.debugReverence.addEventListener("click", () => {
@@ -6269,6 +6378,7 @@ dom.privateNotesList?.addEventListener("click", async (event) => {
           : payload.resource === "shipCredits"
             ? "Group Credits"
             : "Experience";
+      playRewardChime(payload.resource);
       notice(amount > 0 ? `${amount.toLocaleString()} ${rewardName} received.` : "Reward processed.", "success");
     } catch (error) {
       claimButton.disabled = false;
