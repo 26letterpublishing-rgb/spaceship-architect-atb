@@ -3649,8 +3649,161 @@ body.embedded-gm .shell,body.embedded-player .shell{padding-bottom:6px}
   }
 
   .gm-mode .unit-actions .command-edit,
-  body.embedded-gm .unit-actions .command-edit {
+body.embedded-gm .unit-actions .command-edit {
     grid-column: 1 / -1;
     width: 100%;
   }
+}
+
+/* Clickable ATB meters retain their original meter appearance. */
+button.meter {
+  appearance: none;
+  min-width: 0;
+  max-width: none;
+  min-height: 24px;
+  border: 1px solid #2d3c52;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 28%, rgba(0, 0, 0, 0.62) 100%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 8px, transparent 8px 16px),
+    #070b10;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  line-height: normal;
+  text-shadow: none;
+  text-transform: none;
+  transform: none;
+}
+button.meter::before { display: none; }
+button.meter:hover,
+button.meter:active {
+  border-color: #2d3c52;
+  filter: none;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Keep long GM consoles usable on short phone screens. */
+.delay-dialog-panel,
+.queued-effect-panel {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.delay-dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  padding: 10px 0 2px;
+  background: linear-gradient(180deg, rgba(8, 13, 22, 0.25), rgba(8, 13, 22, 0.99) 24%);
+}
+
+/* Compact GM cards: Speed owns the upper-right corner. */
+.gm-mode .unit-card,
+body.embedded-gm .unit-card { padding: 9px; }
+.gm-mode .unit-top,
+.gm-mode .unit-card.has-avatar .unit-top,
+body.embedded-gm .unit-top,
+body.embedded-gm .unit-card.has-avatar .unit-top {
+  grid-template-columns: minmax(0, 1fr) 68px !important;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  align-items: start;
+}
+.gm-mode .unit-top > div:first-child,
+body.embedded-gm .unit-top > div:first-child {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+.gm-mode .compact-speed,
+body.embedded-gm .compact-speed {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  justify-self: end;
+  align-self: start;
+  width: 58px;
+}
+.gm-mode .compact-speed input,
+body.embedded-gm .compact-speed input {
+  width: 58px;
+  min-height: 27px;
+  padding: 3px 5px;
+  font-size: .74rem;
+}
+.gm-mode .unit-readout,
+body.embedded-gm .unit-readout {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  align-self: start;
+  min-width: 58px;
+  margin-top: 31px;
+}
+.gm-mode .unit-readout strong,
+body.embedded-gm .unit-readout strong { font-size: .92rem; }
+.gm-mode .unit-readout span,
+body.embedded-gm .unit-readout span { font-size: .55rem; }
+.gm-mode .unit-actions,
+body.embedded-gm .unit-actions {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  gap: 5px;
+  margin-top: 2px;
+}
+.gm-mode .unit-owner,
+body.embedded-gm .unit-owner { font-size: .72rem; line-height: 1.15; }
+.gm-mode .npc-combat-stats,
+body.embedded-gm .npc-combat-stats { margin-top: 2px; }
+.gm-mode .meter,
+body.embedded-gm .meter { margin-top: 6px; }
+
+.top-control-btn.exit-combat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.05;
+}
+
+/* A GM turn prompt may be compact, but it may never trap its resolve controls. */
+.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(7, 18, 29, .15), rgba(7, 18, 29, .99) 28%);
+}
+
+/* Delay consoles use the full overlay as their only vertical scroll surface. */
+.delay-dialog,
+.queued-effect-dialog {
+  align-items: start !important;
+  justify-items: center !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.delay-dialog-panel,
+.queued-effect-panel {
+  max-height: none !important;
+  margin-block: auto;
+  overflow: visible !important;
 }

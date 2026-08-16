@@ -107,6 +107,25 @@ function denyWeaponTransaction(character, item) {
   row.held = false;
   return true;
 }
+
+function addStoredInventoryItem(character, source, quantity = 1) {
+  character.storedItems = Array.isArray(character.storedItems) ? character.storedItems : [];
+  const item = normalizeInventoryItem(source);
+  const matching = matchingInventoryItem(character.storedItems, item);
+  if (matching) matching.quantity = Math.min(9999, Number(matching.quantity || 0) + quantity);
+  else character.storedItems.push({ ...item, id: uid("stored-item"), quantity });
+  return matching || character.storedItems.at(-1);
+}
+
+function removeStoredInventoryItem(character, itemId, quantity = 1) {
+  character.storedItems = Array.isArray(character.storedItems) ? character.storedItems : [];
+  const target = character.storedItems.find((entry) => entry.id === itemId);
+  if (!target || Number(target.quantity || 0) < quantity) return null;
+  const removed = normalizeInventoryItem(target);
+  target.quantity = Math.max(0, Number(target.quantity || 0) - quantity);
+  if (target.quantity <= 0) character.storedItems = character.storedItems.filter((entry) => entry !== target);
+  return removed;
+}
 function trimPrivateNotes(campaign) {
   const notes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes : [];
   const keep = new Set(notes.slice(-GM_INBOX_LIMIT).map((note) => note.id));
@@ -997,6 +1016,41 @@ class CampaignApi {
       });
       await this.save(campaign);
       sendJson(res, 200, { transaction: clone(transaction), campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/item/give" && req.method === "POST") {
+      const sender = campaign.characters.find((entry) => entry.id === body.characterId);
+      const recipient = campaign.characters.find((entry) => entry.id === body.targetCharacterId);
+      if (!sender || !this.characterSession(token, code, sender.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      if (!recipient || recipient.id === sender.id) {
+        sendJson(res, 400, { error: "Choose another approved character in this campaign." });
+        return true;
+      }
+      const item = removeStoredInventoryItem(sender.character, String(body.itemId || ""), 1);
+      if (!item) {
+        sendJson(res, 409, { error: "That item is no longer available in storage." });
+        return true;
+      }
+      addStoredInventoryItem(recipient.character, item, 1);
+      const now = new Date().toISOString();
+      sender.updatedAt = now;
+      recipient.updatedAt = now;
+      campaign.privateNotes.push({
+        id: uid("note"),
+        characterId: recipient.id,
+        characterName: safeCharacterName(recipient),
+        direction: "to-character",
+        kind: "item-activity",
+        message: `${safeCharacterName(sender)} gave you 1 ${item.name}. It was placed in Items in Storage.`,
+        createdAt: now,
+        readAt: null,
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { transferred: true, campaign: this.state(campaign, token) });
       return true;
     }
 

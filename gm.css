@@ -24,6 +24,7 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-header{grid-template-columns:minmax(220px,460px) auto minmax(220px,1fr) auto}
 .close-control-panel{min-height:34px;padding-inline:12px;font-size:.62rem}
 .exit-encounter{min-height:38px;padding-inline:18px;box-shadow:0 0 16px rgba(255,73,94,.24)}
+.exit-encounter{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.05}
 .script-live-editor{min-height:360px;margin-top:10px;padding:18px;overflow-wrap:anywhere;border:1px solid #314a61;border-radius:5px;color:#e7f4fc;background:linear-gradient(180deg,#07121e,#050c15);font-family:Arial,sans-serif;font-size:1rem;line-height:1.85;white-space:pre-wrap;outline:none}
 .script-live-editor:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(43,216,255,.12)}
 .script-live-editor:empty::before{content:attr(data-placeholder);color:#6f879c;pointer-events:none}
@@ -88,6 +89,7 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .conditional-action-buttons{display:flex;flex-wrap:wrap;gap:7px}.conditional-action-buttons button{flex:1 1 150px}
 .script-live-editor{cursor:text}
 .gm-modal-shell{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:rgba(0,4,9,.82);backdrop-filter:blur(4px)}
+.gm-modal-shell{align-items:flex-start;justify-items:center;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.gm-modal-shell>.gm-confirm-dialog{margin-block:auto}.gm-confirm-actions{position:sticky;bottom:-20px;z-index:3;padding:10px 0 20px;background:linear-gradient(180deg,rgba(7,17,29,.15),rgba(7,17,29,.99) 26%)}
 .gm-confirm-dialog{width:min(520px,100%);padding:20px;border:1px solid #55718b;border-radius:8px;background:linear-gradient(180deg,#132538,#07111d);box-shadow:0 24px 70px rgba(0,0,0,.75),0 0 28px rgba(43,216,255,.12)}.gm-confirm-dialog>span{color:var(--cyan);font-size:.62rem;text-transform:uppercase}.gm-confirm-dialog h2{margin:5px 0 10px;text-transform:uppercase}.gm-confirm-dialog>p{color:#b7c9d8;line-height:1.5;white-space:pre-wrap}.gm-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.gm-confirm-actions button{min-width:120px}
 .gm-confirm-dialog.danger{border-color:#9f4656;box-shadow:0 24px 70px rgba(0,0,0,.75),0 0 28px rgba(255,92,112,.16)}
 @media(max-width:650px){

@@ -656,25 +656,37 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     };
   }
   if (kind === "melee") {
-    if (!weapon || weapon.category !== "melee") return { ok: false, error: "Melee Attack requires a held melee weapon." };
+    const unarmed = weaponsById.get("unarmed");
+    const meleeWeapon = weapon?.category === "melee"
+      ? weapon
+      : { ...unarmed, weaponId: unarmed.id, inventoryId: "" };
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
-    const plan = combatRules.attackPlan(weapon, { distance: 1, charges: movementChargeCount, attackType: "melee", strengthDice: unit.strengthDice });
+    const printedLimit = Number(meleeWeapon.maxCharge);
+    const movementLimit = Number.isFinite(printedLimit) && printedLimit > 0
+      ? Math.min(Math.max(0, Number(unit.moveSpeed) || 0), printedLimit)
+      : Math.max(0, Number(unit.moveSpeed) || 0);
+    const unarmedMovementCharges = Math.min(movementLimit, Math.max(0, Number(unit.movementChargeUnits) || 0));
+    const meleeChargeText = unarmedMovementCharges
+      ? ` with ${unarmedMovementCharges} Charge${unarmedMovementCharges === 1 ? "" : "s"} (${meleeWeapon.chargeBonus || "card bonus"} each)`
+      : "";
+    const plan = combatRules.attackPlan(meleeWeapon, { distance: 1, charges: unarmedMovementCharges, attackType: "melee", strengthDice: unit.strengthDice });
     return { ok: true, beginAttack: {
       attackerId: unit.id,
       defenderId: requestedTarget.id,
-      weaponId: weapon.weaponId,
-      inventoryId: weapon.inventoryId,
-      weaponName: weapon.name,
+      weaponId: meleeWeapon.weaponId,
+      inventoryId: meleeWeapon.inventoryId,
+      weaponName: meleeWeapon.name,
       targetName: requestedTarget.characterName,
       distance: 1,
       calledShot: false,
       calledShotDetail: "",
-      chargeCount: movementChargeCount,
-      chargeText,
+      chargeCount: unarmedMovementCharges,
+      chargeText: meleeChargeText,
       aimDie: 0,
       plan,
-      recoverySeconds: Math.max(0, Number(weapon.recoverySeconds) || 0),
+      recoverySeconds: Math.max(0, Number(meleeWeapon.recoverySeconds) || 0),
       attackType: "melee",
+      preserveWeaponState: weapon?.category !== "melee",
     } };
   }
 
@@ -700,8 +712,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
 function completeStagedAttack(room, unit, attackState, logText, helpers) {
   if (!unit) return;
-  unit.weaponCharge = null;
-  unit.aim = null;
+  if (!attackState?.preserveWeaponState) {
+    unit.weaponCharge = null;
+    unit.aim = null;
+  }
   unit.movementChargeUnits = 0;
   unit.combatBrief = null;
   const counterDelay = Math.max(0, Number(attackState?.counterDelaySeconds) || 0);

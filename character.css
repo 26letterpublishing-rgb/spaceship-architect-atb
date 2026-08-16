@@ -1495,6 +1495,25 @@ button,
   input, select, textarea { font-size: 16px; }
 }
 
+/* Confirmation safety: one outer scrolling surface, never a hidden action row. */
+.modal-shell {
+  align-items: flex-start;
+  justify-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-shell > [role="dialog"] { margin-block: auto; }
+.confirm-dialog .dialog-actions,
+.gear-picker-dialog .dialog-actions {
+  position: sticky;
+  bottom: -20px;
+  z-index: 8;
+  padding: 10px 0 20px;
+  background: linear-gradient(180deg, rgba(8,17,29,.18), rgba(8,17,29,.99) 24%);
+}
+
 
 /* Final compact sheet polish */
 .credits-card>span{color:#ffe35c!important;text-shadow:0 0 8px rgba(255,220,68,.28)}

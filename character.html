@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260815-manual-entry" />
-  <link rel="stylesheet" href="weapons.css?v=20260815-manual-entry" />
-  <link rel="stylesheet" href="gear.css?v=20260815-manual-entry" />
-  <script src="data-reset.js?v=20260815-manual-entry"></script>
+  <link rel="stylesheet" href="character.css?v=20260816-storage-give" />
+  <link rel="stylesheet" href="weapons.css?v=20260816-storage-give" />
+  <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
+  <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
     <header class="creator-header">
@@ -53,7 +53,7 @@
             <div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div>
             <div class="campaign-lobby-actions" hidden><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
           </div>
-          <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" accept=".sa2character,.json,application/json" /></label></div>
+          <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" /></label></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
         </section>
         <section id="campaignSheetViewer" class="campaign-sheet-viewer" hidden>
@@ -100,7 +100,7 @@
           <button id="duplicateCharacter" type="button">Duplicate</button>
           <button id="exportCharacter" type="button">Export</button>
           <button id="openImportMenu" class="import-button" type="button">Import</button>
-          <input id="importCharacter" type="file" accept=".sa2character,.json,application/json" hidden />
+          <input id="importCharacter" type="file" hidden />
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
@@ -411,7 +411,7 @@
           </form>
           <div id="joinCampaignStatus" class="join-campaign-status"></div>
         </section>
-        <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" accept=".sa2character,.json,application/json" /></label></section>
+        <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" /></label></section>
         <section><h2>Export Character Data</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Export Character Data</button></section>
         <section><h2>Make New Character</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
         <section><h2>Leave Campaign</h2><p>Break this character's campaign link so it may request entry into another campaign.</p><button id="settingsLeaveCampaign" class="danger" type="button">Leave Campaign</button></section>
@@ -641,6 +641,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260815-manual-entry"></script>
+  <script type="module" src="character.js?v=20260816-storage-give"></script>
   </body>
 </html>

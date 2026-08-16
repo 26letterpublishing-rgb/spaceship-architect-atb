@@ -18,12 +18,13 @@
 .gear-actions .store { border-color:#9a76ff; color:#d7c8ff; }
 .gear-charge { display:block; width:100%; color:#70eaff; font-size:.54rem; text-align:center; }
 .gear-empty { margin:0; padding:13px; color:#7790a3; font-size:.68rem; }
-.stored-gear-row { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(250px,1.6fr) 80px 105px; align-items:center; min-height:58px; border-bottom:1px solid #263b4d; background:linear-gradient(180deg,#101c27,#08121b); }
+.stored-gear-row { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(250px,1.6fr) 80px 180px; align-items:center; min-height:58px; border-bottom:1px solid #263b4d; background:linear-gradient(180deg,#101c27,#08121b); }
 .stored-gear-row > * { min-width:0; padding:8px; }
 .stored-gear-row strong { color:#dceaf3; }
 .stored-gear-row p { margin:0; color:#8da2b1; font-size:.65rem; line-height:1.3; }
 .storage-qty { color:#ffe58a; text-align:center; font-weight:900; }
-.storage-actions { display:flex; justify-content:center; }
+.storage-actions { display:grid; grid-template-columns:1fr 1fr; justify-content:center; gap:5px; }
+.storage-actions .give,.storage-give-actions .give { border-color:#ff72c8; color:#ffd5f0; background:linear-gradient(180deg,#8b2c68,#3d1430); }
 .gear-panel.locked .panel-heading::after { content:"Finalize this character to manage items"; margin-left:auto; color:#f8cb66; font-size:.54rem; }
 @media (max-width:760px) {
   .gear-table-head { display:none; }
@@ -34,7 +35,7 @@
   .gear-row input,.gear-row textarea { min-height:44px; font-size:16px; }
   .gear-quantity { min-height:50px; }
   .gear-actions { grid-column:1 / -1; min-height:48px; }
-  .stored-gear-row { grid-template-columns:1fr 70px 94px; border:1px solid #29465d; border-radius:5px; }
+  .stored-gear-row { grid-template-columns:1fr 70px 150px; border:1px solid #29465d; border-radius:5px; }
   .stored-gear-row p { grid-column:1 / -1; grid-row:2; }
 }
 
@@ -61,7 +62,7 @@
  .gear-row{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(250px,1.7fr) 112px 86px minmax(190px,.9fr);min-width:800px;min-height:68px;gap:0;padding:0;border:0;border-bottom:1px solid #29465d;border-radius:0}
  .gear-name,.gear-description,.gear-actions{grid-column:auto}.gear-row>*,.gear-row input,.gear-row textarea{border-radius:0;font-size:16px}
  .gear-row input,.gear-row textarea{min-height:64px;height:64px}.gear-actions{min-height:64px}
- .stored-gear-inventory{padding:0}.stored-gear-row{grid-template-columns:minmax(140px,.8fr) minmax(240px,1.5fr) 70px 96px;min-width:650px;border-radius:0}.storage-panel{overflow-x:auto}
+ .stored-gear-inventory{padding:0}.stored-gear-row{grid-template-columns:minmax(140px,.8fr) minmax(240px,1.5fr) 70px 150px;min-width:700px;border-radius:0}.storage-panel{overflow-x:auto}
 }
 
 /* Keep single-row inventory tables inside the character sheet viewport. */
@@ -79,6 +80,11 @@
 .gear-picker-actions .receive{border-color:#3ee5bf;color:#9dffe8;background:linear-gradient(180deg,#177d69,#0b3d35)}
 .gear-picker-actions .purchase{border-color:#e9c74a;color:#fff0a5;background:linear-gradient(180deg,#80651a,#392b08)}
 .gear-picker-actions button{min-width:120px}
+.storage-give-modal{z-index:10120}
+.storage-give-modal .confirm-dialog{width:min(560px,100%)}
+.storage-give-modal label{display:grid;gap:6px;color:#9db2c1;text-transform:uppercase}
+.storage-give-modal select{width:100%;font-size:16px}
+.storage-give-actions{grid-template-columns:1fr 1fr}
 @media(max-width:600px){
   .gear-picker-modal{align-items:start;padding:8px}
   .gear-picker-dialog{max-height:calc(100dvh - 16px);padding:14px}

@@ -817,3 +817,43 @@
  .combat-action-form{gap:4px}.combat-action-form input,.combat-action-form select{min-height:31px;padding:4px}.combat-action-note{min-height:20px;padding:4px}
  .player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.combat-action-grid button{min-height:30px}
 }
+
+/* Long action forms keep their confirmation controls reachable. */
+.combat-action-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.combat-action-dialog-buttons {
+  position: sticky;
+  bottom: -16px;
+  z-index: 8;
+  margin: 3px -16px -16px;
+  padding: 10px 16px 16px;
+  border-top: 1px solid rgba(82, 221, 255, .2);
+  background: linear-gradient(180deg, rgba(7, 20, 31, .25), rgba(4, 13, 23, .99) 26%);
+  box-shadow: 0 -8px 18px rgba(0, 0, 0, .32);
+}
+
+/* One scroll surface per prompt. The overlay scrolls; its card never traps the footer. */
+.combat-action-dialog,
+.attack-resolution-dialog,
+.first-aid-resolution-dialog {
+  align-items: start;
+  justify-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.combat-action-panel,
+.attack-resolution-panel,
+.first-aid-resolution-panel,
+.gm-damage-panel,
+.gm-npc-attack-panel {
+  max-height: none;
+  margin-block: auto;
+  overflow: visible;
+}

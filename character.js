@@ -3765,6 +3765,7 @@ function weaponCreditCost(weapon) {
 }
 
 function requestWeaponMode(weapon) {
+  if (manualInputMode() && character.phase === "draft") return Promise.resolve("receive");
   return new Promise((resolve) => {
     const shell = document.createElement("div");
     shell.className = "modal-shell weapon-acquire-modal";
@@ -3787,6 +3788,7 @@ function requestWeaponMode(weapon) {
 }
 
 async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
+  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
   if (cost > Number(character.resources.creditsBase || 0)) {
     const accepted = await askConfirmation({
@@ -3846,6 +3848,9 @@ function gearDraftFromCatalog(catalog) {
 
 function updateGearPickerActions() {
   const valid = Boolean(gearDraft?.name.trim());
+  const manualReceive = manualInputMode() && character.phase === "draft";
+  dom.gearPickerPurchase.hidden = manualReceive;
+  dom.gearPickerReceive.textContent = manualReceive ? "Add Received Item" : "Receive";
   dom.gearPickerPurchase.disabled = !valid;
   dom.gearPickerReceive.disabled = !valid;
   dom.gearPickerError.textContent = valid ? "" : "Choose an item or enter a custom name.";
@@ -3905,6 +3910,7 @@ function renderGear() {
   document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
   dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
+  const manualReceive = manualInputMode() && character.phase === "draft";
   const rows = character.items.map((entry) => {
     const pending = pendingGearAdds.has(entry.id);
     const charge = itemChargeLabel(entry);
@@ -3914,15 +3920,16 @@ function renderGear() {
       <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
       <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
       <div class="gear-actions">${pending
-        ? `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button><button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button><button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
+        ? `${manualReceive ? "" : `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button>`}<button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button><button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
         : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
     </div>`;
   });
   dom.gearInventory.innerHTML = rows.join("");
   dom.gearInventoryEmpty.hidden = Boolean(rows.length);
+  const canGive = Boolean(campaignCode && campaignCharacterId && campaignEditable && campaignState?.characters?.some((record) => record.id !== campaignCharacterId));
   dom.storedGearInventory.innerHTML = character.storedItems.map((entry) => `<div class="stored-gear-row" data-stored-gear="${escapeAttribute(entry.id)}">
     <strong>${escapeHtml(entry.name)}</strong><p>${escapeHtml(entry.description)}</p><span class="storage-qty">x${entry.quantity}</span>
-    <div class="storage-actions"><button type="button" data-return-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Return 1</button></div>
+    <div class="storage-actions"><button type="button" data-return-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Return 1</button>${canGive ? `<button type="button" class="give" data-give-gear="${escapeAttribute(entry.id)}">Give 1</button>` : ""}</div>
   </div>`).join("");
   dom.storedGearEmpty.hidden = Boolean(character.storedItems.length);
 }
@@ -3943,7 +3950,33 @@ function mergeItemInto(list, item, quantity = 1) {
   else list.push({ ...gearPayload(item), id: uid(), quantity });
 }
 
+function requestStorageRecipient(item) {
+  const recipients = (campaignState?.characters || []).filter((record) => record.id !== campaignCharacterId);
+  if (!recipients.length) {
+    notice("No other approved campaign characters are available.", "error");
+    return Promise.resolve("");
+  }
+  return new Promise((resolve) => {
+    const shell = document.createElement("div");
+    shell.className = "modal-shell storage-give-modal";
+    shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="storageGiveTitle">
+      <span class="dialog-kicker">Items in Storage</span>
+      <h2 id="storageGiveTitle">Give 1 ${escapeHtml(item.name)}</h2>
+      <p>The item will be placed directly into the other character's storage. Credits are not changed.</p>
+      <label>Give To<select data-storage-recipient>${recipients.map((record) => `<option value="${escapeAttribute(record.id)}">${escapeHtml(campaignCharacterName(record))}${record.connected ? " - Online" : " - Offline"}</option>`).join("")}</select></label>
+      <div class="dialog-actions storage-give-actions"><button type="button" data-storage-give-cancel>Cancel</button><button type="button" class="give" data-storage-give-confirm>Give Item</button></div>
+    </section>`;
+    document.body.append(shell);
+    const finish = (value) => { shell.remove(); resolve(value); };
+    shell.querySelector("[data-storage-give-cancel]")?.addEventListener("click", () => finish(""));
+    shell.querySelector("[data-storage-give-confirm]")?.addEventListener("click", () => finish(shell.querySelector("[data-storage-recipient]")?.value || ""));
+    shell.addEventListener("keydown", (event) => { if (event.key === "Escape") finish(""); });
+    shell.querySelector("[data-storage-recipient]")?.focus({ preventScroll: true });
+  });
+}
+
 async function addGearItem(item, mode) {
+  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
   const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
   if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
   if (cost > Number(character.resources.creditsBase || 0)) {
@@ -5405,6 +5438,7 @@ dom.gearCatalogPicker?.addEventListener("change", () => {
 dom.gearPickerCancel?.addEventListener("click", closeGearPicker);
 
 async function confirmGearPicker(mode) {
+  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
   if (!gearDraft?.name.trim()) {
     updateGearPickerActions();
     dom.gearPickerName.focus({ preventScroll: true });
@@ -5487,6 +5521,27 @@ dom.gearInventory?.addEventListener("click", async (event) => {
 });
 
 dom.storedGearInventory?.addEventListener("click", async (event) => {
+  const giveButton = event.target.closest("[data-give-gear]");
+  if (giveButton) {
+    const entry = character.storedItems.find((item) => item.id === giveButton.dataset.giveGear);
+    if (!entry || !campaignCode || !campaignCharacterId || !campaignEditable) return;
+    const targetCharacterId = await requestStorageRecipient(entry);
+    if (!targetCharacterId) return;
+    giveButton.disabled = true;
+    try {
+      const payload = await campaignRequest("/api/campaign/item/give", {
+        method: "POST",
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, targetCharacterId, itemId: entry.id }),
+      });
+      if (payload.campaign) receiveCampaignState(payload.campaign);
+      renderAll();
+      notice(`1 ${entry.name} moved to the other character's storage.`, "success");
+    } catch (error) {
+      giveButton.disabled = false;
+      notice(error.message, "error");
+    }
+    return;
+  }
   const button = event.target.closest("[data-return-gear]");
   const entry = character.storedItems.find((item) => item.id === button?.dataset.returnGear);
   if (!button || !entry) return;

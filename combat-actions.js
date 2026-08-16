@@ -46,6 +46,21 @@
   let lastLoadoutSync = "";
   let actionSubmitting = false;
 
+  const UNARMED_WEAPON = {
+    inventoryId: "",
+    weaponId: "unarmed",
+    name: "Unarmed",
+    category: "melee",
+    toHit: "Dexterity + Melee",
+    damage: "2D4",
+    chargeBonus: "+1D4 Damage",
+    maxCharge: "Move",
+    chargeMode: "movement",
+    chargeSegments: 0,
+    range: "1 Max",
+    recoverySeconds: 0,
+  };
+
   function esc(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -58,8 +73,12 @@
     return (unit?.weapons || []).find((entry) => entry.inventoryId === unit.heldWeaponId) || null;
   }
 
-  function chargeCount(unit = currentUnit) {
+  function actionWeapon(kind = pendingKind, unit = currentUnit) {
     const current = held(unit);
+    return kind === "melee" && current?.category !== "melee" ? UNARMED_WEAPON : current;
+  }
+
+  function chargeCount(unit = currentUnit, current = held(unit)) {
     if (!current) return 0;
     if (current.category === "melee") {
       const printed = Number(current.maxCharge);
@@ -165,11 +184,11 @@
   }
 
   function currentAttackPlan() {
-    const current = held();
+    const current = actionWeapon();
     if (!current || !window.SACombatRules) return null;
     return window.SACombatRules.attackPlan(current, {
       distance: current?.category === "melee" ? 1 : Number(distance.value) || 0,
-      charges: chargeCount(),
+      charges: chargeCount(currentUnit, current),
       aimDie: current?.category === "ranged" ? Number(currentUnit?.aim?.aimDie) || 0 : 0,
       attackType: current?.category === "melee" ? "melee" : "ranged",
       strengthDice: currentUnit?.strengthDice || [],
@@ -183,12 +202,12 @@
 
   function updateAttackPreview() {
     if (!attackWrap || attackWrap.hidden) return;
-    const current = held();
+    const current = actionWeapon();
     const plan = currentAttackPlan();
     const called = calledShot.checked;
     calledShotDetailWrap.hidden = !called;
     if (!current || !plan) {
-      attackPreview.textContent = "Choose and hold a firearm before resolving this attack.";
+      attackPreview.textContent = pendingKind === "melee" ? "Unarmed attacks are always available." : "Choose and hold a firearm before resolving this attack.";
       return;
     }
     const manualWarnings = [
@@ -215,10 +234,11 @@
     if (!config || !dialog || !currentUnit) return;
     pendingKind = kind;
     title.textContent = config.title;
-    const current = held();
-    const charges = chargeCount();
+    const heldCurrent = held();
+    const current = actionWeapon(kind);
+    const charges = chargeCount(currentUnit, current);
     summary.textContent = current
-      ? `Held: ${current.name} | To-Hit: ${current.toHit} | Damage: ${current.damage}${charges ? ` | ${charges} Charge${charges === 1 ? "" : "s"}` : ""}`
+      ? `${kind === "melee" && heldCurrent?.category !== "melee" ? `Attack: ${current.name} | Held: ${heldCurrent?.name || "None"}` : `Held: ${current.name}`} | To-Hit: ${current.toHit} | Damage: ${current.damage}${charges ? ` | ${charges} Charge${charges === 1 ? "" : "s"}` : ""}`
       : "No weapon is currently held.";
     targetWrap.hidden = !config.target;
     target.innerHTML = config.target ? targetOptions({ includeLocation: config.includeLocation, includeSelf: config.includeSelf }) : "";
@@ -380,7 +400,6 @@
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
       if (kind === "charge" && mine?.weaponCharge && current && mine.weaponCharge.inventoryId === current.inventoryId && Number(mine.weaponCharge.progress) >= 100) { unavailable = true; reason = "The held weapon is fully Charged."; }
       if (kind === "fire" && current?.category !== "ranged") { unavailable = true; reason = "Hold a ranged weapon to Fire Gun."; }
-      if (kind === "melee" && current?.category !== "melee") { unavailable = true; reason = "Hold a melee weapon to make a Melee Attack."; }
       if (kind === "calledShot" && !["ranged", "melee"].includes(current?.category)) { unavailable = true; reason = "Hold a ranged or melee weapon to make a Called Shot."; }
       if (kind === "throwItem") {
         const canThrowMelee = (mine?.weapons || []).some((entry) => entry.category === "melee");
