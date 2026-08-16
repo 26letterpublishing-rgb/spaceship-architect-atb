@@ -1155,12 +1155,32 @@ h2 {
   z-index: 4;
   animation: combatant-defeat-card 5.55s linear forwards;
 }
+.unit-card.combatant-defeated::after {
+  content: "";
+  position: absolute;
+  z-index: 30;
+  top: 50%;
+  left: 50%;
+  width: 90%;
+  height: 90%;
+  pointer-events: none;
+  background: url("transparent-skull.png") center / contain no-repeat;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.9);
+  animation: combatant-defeat-skull 5.55s linear forwards;
+}
 @keyframes combatant-defeat-card {
   0% { filter: saturate(1) grayscale(0); opacity: 1; }
   71% { filter: saturate(0) grayscale(1) brightness(.72); opacity: 1; background-color: var(--panel-2); }
   73% { filter: saturate(0) grayscale(0) brightness(5); opacity: 1; background-color: #fff; box-shadow: 0 0 28px #fff; }
   92% { filter: saturate(1.45) grayscale(0) brightness(.7); background-color: #6c0710; opacity: 1; }
   100% { filter: saturate(1.7) grayscale(0) brightness(.6); background-color: #6c0710; opacity: 0; transform: scale(.985); }
+}
+@keyframes combatant-defeat-skull {
+  0%, 73.9% { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
+  74% { opacity: .96; transform: translate(-50%, -50%) scale(1.02); filter: drop-shadow(0 0 12px rgba(255,255,255,.7)); }
+  92% { opacity: .96; transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 0 9px rgba(110,0,12,.7)); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.985); }
 }
 .ring-unit.combatant-defeated {
   pointer-events: none;
@@ -1305,6 +1325,7 @@ body.embedded-gm .unit-card.has-avatar .unit-top {
 .meter:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
 
 .fill {
+  display: block;
   position: relative;
   width: 0;
   height: 100%;

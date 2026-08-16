@@ -331,6 +331,10 @@ const campaignCharacterStatus = document.querySelector("#campaignCharacterStatus
 const gmAlarmAudio = new Audio("alarm-noise.mp4");
 gmAlarmAudio.preload = "auto";
 gmAlarmAudio.volume = 0.72;
+const defeatSlashAudio = new Audio("sword-slash.m4a");
+defeatSlashAudio.preload = "auto";
+defeatSlashAudio.volume = 0.78;
+const DEFEAT_FLASH_DELAY_MS = 4050;
 let npcWeaponCatalog = [];
 
 function savedCharacterAtbColor() {
@@ -1460,7 +1464,13 @@ function receiveState(nextState, { force = false } = {}) {
   const previousUnits = new Map((state?.units || []).map((unit) => [unit.id, unit]));
   const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
-  if (newlyDefeated.length) playDefeatSlashSound();
+  if (newlyDefeated.length) {
+    const defeatedIds = new Set(newlyDefeated.map((unit) => unit.id));
+    window.setTimeout(() => {
+      const defeatedStillVisible = (state?.units || []).some((unit) => defeatedIds.has(unit.id) && unit.defeatedAt);
+      if (mode !== "welcome" && defeatedStillVisible) playDefeatSlashSound();
+    }, DEFEAT_FLASH_DELAY_MS);
+  }
   render();
   return true;
 }
@@ -2191,6 +2201,8 @@ function ensureAudio() {
 function stopGmAudio() {
   gmAlarmAudio.pause();
   gmAlarmAudio.currentTime = 0;
+  defeatSlashAudio.pause();
+  defeatSlashAudio.currentTime = 0;
   for (const node of activeGmAudioNodes) {
     try {
       node.gain.gain.cancelScheduledValues(audioContext?.currentTime || 0);
@@ -2321,25 +2333,8 @@ function playDefeatSlashSound() {
   const audible = mode === "gm" ? !gmSoundsMuted : alertsEnabled;
   if (!audible) return;
   try {
-    const audio = ensureAudio();
-    const length = Math.floor(audio.sampleRate * 0.42);
-    const buffer = audio.createBuffer(1, length, audio.sampleRate);
-    const samples = buffer.getChannelData(0);
-    for (let index = 0; index < length; index += 1) {
-      const progress = index / length;
-      samples[index] = (Math.random() * 2 - 1) * Math.sin(Math.PI * progress) * (1 - progress);
-    }
-    const source = audio.createBufferSource();
-    const filter = audio.createBiquadFilter();
-    const gain = audio.createGain();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(3800, audio.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(480, audio.currentTime + 0.4);
-    filter.Q.value = 1.4;
-    gain.gain.setValueAtTime(0.22, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.42);
-    source.connect(filter); filter.connect(gain); gain.connect(audio.destination);
-    source.start();
+    defeatSlashAudio.currentTime = 0;
+    void defeatSlashAudio.play().catch(() => {});
   } catch {
     // The defeat animation remains clear when a browser blocks audio.
   }
@@ -2375,6 +2370,8 @@ function enablePlayerAlerts({ testSound = false } = {}) {
 function disablePlayerAlerts() {
   alertsEnabled = false;
   safeLocalStorageSet("sa-atb-alerts", "off");
+  defeatSlashAudio.pause();
+  defeatSlashAudio.currentTime = 0;
 }
 
 function shouldShowEngageClock() {

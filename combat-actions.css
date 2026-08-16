@@ -546,10 +546,19 @@
 }
 .npc-heart.full { color: #ff405f; text-shadow: 0 0 7px rgba(255,64,95,.72); }
 .npc-heart.half {
-  color: transparent;
-  background: linear-gradient(90deg, #ff405f 0 50%, #27313d 50% 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
+  color: #27313d;
+}
+.npc-heart.half::after {
+  content: "\2665";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  overflow: hidden;
+  color: #ff405f;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 7px rgba(255,64,95,.72);
 }
 .npc-hp-exact {
   width: auto;

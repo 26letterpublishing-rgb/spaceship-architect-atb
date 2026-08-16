@@ -3979,7 +3979,7 @@ async function addGearItem(item, mode) {
   mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
   const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
   if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
-  if (cost > Number(character.resources.creditsBase || 0)) {
+  if (mode === "purchase" && cost > 0 && cost > Number(character.resources.creditsBase || 0)) {
     const accepted = await askConfirmation({
       title: "Not Enough Credits",
       message: `This purchase costs ${cost} Credits, but the character has ${character.resources.creditsBase}. Continue with a negative balance?`,
@@ -5446,9 +5446,10 @@ async function confirmGearPicker(mode) {
   }
   dom.gearPickerPurchase.disabled = true;
   dom.gearPickerReceive.disabled = true;
+  const item = { ...gearDraft };
   try {
-    if (await addGearItem(gearDraft, mode)) {
-      const itemName = gearDraft.name;
+    if (await addGearItem(item, mode)) {
+      const itemName = item.name;
       closeGearPicker();
       renderAll();
       notice(`${itemName} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
@@ -6121,7 +6122,14 @@ window.addEventListener("message", (event) => {
     if (requestKey === lastReceivedCombatRequestKey && (sameRollOpen || sameDamageOpen || pendingCombatRequest?.attackId === request.attackId)) return;
     lastReceivedCombatRequestKey = requestKey;
     pendingCombatRequest = request;
-    processPendingCombatRequest();
+    const completedMatchingAttackRoll = request.type === "damage"
+      && !request.healing
+      && skillCheck?.combatRequest?.attackId === request.attackId
+      && skillCheck.combatRequest.rollRole === "attacker"
+      && skillCheck.combatSubmitted
+      && !diceRoller.isActive();
+    if (completedMatchingAttackRoll) closeSkillCheck({ discardCombat: true });
+    else processPendingCombatRequest();
     return;
   }
   if (event.data?.type === "sa-combat-roll-timer" && skillCheck?.combatRequest?.attackId === event.data.attackId && skillCheck.combatRequest.rollRole === "defender") {
