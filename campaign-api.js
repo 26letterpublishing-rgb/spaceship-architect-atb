@@ -224,7 +224,7 @@ function normalizeCampaign(raw) {
     message: String(request?.message || "").slice(0, 1000),
     character: request?.character && typeof request.character === "object" ? request.character : {},
   }));
-  campaign.shipCredits = Math.round(boundedNumber(campaign.shipCredits, 0, 999999999999));
+  campaign.shipCredits = Math.round(boundedNumber(campaign.shipCredits, -999999999999, 999999999999));
   campaign.bankerCharacterId = campaign.characters.some((record) => record.id === campaign.bankerCharacterId)
     ? campaign.bankerCharacterId
     : null;
@@ -1352,8 +1352,18 @@ class CampaignApi {
         return true;
       }
       const endedSession = campaign.sessionNumber;
+      const sessionZeroCreditAdjustment = endedSession === 0;
+      const interestAdjustedCredits = (value) => {
+        const current = Math.round(Number(value) || 0);
+        const adjustedMagnitude = Math.ceil(Math.abs(current) * 1.2);
+        return current < 0 ? -adjustedMagnitude : adjustedMagnitude;
+      };
+      const groupCreditsBefore = Number(campaign.shipCredits) || 0;
+      if (sessionZeroCreditAdjustment) campaign.shipCredits = interestAdjustedCredits(groupCreditsBefore);
       campaign.privateNotes = campaign.privateNotes.filter((note) => !["session-end", "science-choice"].includes(note.kind));
       for (const record of campaign.characters) {
+        const personalCreditsBefore = Number(record.character?.resources?.creditsBase) || 0;
+        if (sessionZeroCreditAdjustment) record.character.resources.creditsBase = interestAdjustedCredits(personalCreditsBefore);
         record.character.statuses ||= {};
         record.character.statuses.intoxicated = false;
         record.character.session = {
@@ -1371,7 +1381,9 @@ class CampaignApi {
           direction: "to-character",
           kind: "session-end",
           choices: [],
-          message: `Session ${endedSession} ended. Session abilities have been reset.`,
+          message: sessionZeroCreditAdjustment
+            ? `Session 0 ended. Session abilities have been reset. Personal Credits: ${personalCreditsBefore.toLocaleString()} -> ${record.character.resources.creditsBase.toLocaleString()}. Group Credits: ${groupCreditsBefore.toLocaleString()} -> ${campaign.shipCredits.toLocaleString()}. The 20% Session 0 credit adjustment has been applied.`
+            : `Session ${endedSession} ended. Session abilities have been reset.`,
           createdAt: new Date().toISOString(),
           readAt: null,
         });

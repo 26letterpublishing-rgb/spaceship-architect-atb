@@ -5,19 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260815-creation-items" />
-  <link rel="stylesheet" href="weapons.css?v=20260815-creation-items" />
-  <link rel="stylesheet" href="gear.css?v=20260815-creation-items" />
-  <script src="data-reset.js?v=20260815-creation-items"></script>
+  <link rel="stylesheet" href="character.css?v=20260815-manual-entry" />
+  <link rel="stylesheet" href="weapons.css?v=20260815-manual-entry" />
+  <link rel="stylesheet" href="gear.css?v=20260815-manual-entry" />
+  <script src="data-reset.js?v=20260815-manual-entry"></script>
   </head>
   <body>
     <header class="creator-header">
-      <a class="brand-link" href="index.html" aria-label="Return to Spaceship Architect ATB Sync">
-        <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
-      </a>
+      <div class="character-brand-stack">
+        <button id="characterBanner" class="brand-link" type="button" aria-label="Spaceship Architect banner">
+          <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
+        </button>
+        <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
+      </div>
       <div class="creator-title"><span>Second Edition</span><h1>Character Creator</h1></div>
-      <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
-      <a id="backToMainMenu" class="back-link" href="index.html">Back to Main Menu</a>
     </header>
 
     <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
@@ -98,7 +99,8 @@
           <button id="newCharacter" type="button">New</button>
           <button id="duplicateCharacter" type="button">Duplicate</button>
           <button id="exportCharacter" type="button">Export</button>
-          <label class="import-button">Import<input id="importCharacter" type="file" accept=".sa2character,.json,application/json" /></label>
+          <button id="openImportMenu" class="import-button" type="button">Import</button>
+          <input id="importCharacter" type="file" accept=".sa2character,.json,application/json" hidden />
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
         </div>
         <div id="saveStatus" class="save-status" aria-live="polite">Saved locally</div>
@@ -207,6 +209,17 @@
 
         <section class="sheet-panel resources-panel" data-sheet-section="resources">
           <div class="panel-heading"><span>Resources</span></div>
+          <div id="manualDataPanel" class="manual-data-panel" hidden>
+            <div><span>Manual Data Entry</span><strong>Copy current values from the physical sheet. Derived values update automatically.</strong></div>
+            <label>Unspent Experience<input type="number" step="1" data-manual-resource="experience.available" /></label>
+            <label>Total Experience Received<input type="number" step="1" data-manual-resource="experience.totalGained" /></label>
+            <label>Current HP<input type="number" step="1" data-manual-resource="health.current" /></label>
+            <label>Permanent HP Bonus<input type="number" step="1" data-manual-resource="health.permanentBonus" /></label>
+            <label>Current Exertion<input type="number" min="0" step="1" data-manual-resource="resources.exertionCurrent" /></label>
+            <label>Reverence<input type="number" min="0" max="10" step="1" data-manual-resource="resources.reverence" /></label>
+            <label>Credits<input type="number" step="1" data-manual-resource="resources.creditsBase" /></label>
+            <label>Drama Cards<input type="number" min="0" step="1" data-manual-resource="resources.dramaCards" /></label>
+          </div>
           <div class="resource-grid">
             <div class="resource-card exertion-card">
               <div class="exertion-heading">
@@ -327,7 +340,7 @@
           <div class="panel-heading"><span>Carried Items</span><button id="addGearRow" class="compact-add" type="button" aria-label="Add item">+</button></div>
           <div class="gear-table-head" aria-hidden="true"><span>Name</span><span>Description</span><span>Qty</span><span>Cost</span><span>Actions</span></div>
           <div id="gearInventory" class="gear-inventory"></div>
-          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Add an item after finalizing this character.</p>
+          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Add an item when this character receives or purchases one.</p>
         </section>
 
         <section class="sheet-panel storage-panel" data-sheet-section="supplies">
@@ -360,10 +373,19 @@
         </section>
         <section class="banner-settings-card">
           <h2>Interface Banner</h2>
-          <p>Hide the Spaceship Architect banner and campaign room code on this device. The main welcome screen remains unchanged.</p>
-          <div id="bannerVisibilityToggle" class="character-layout-toggle" role="radiogroup" aria-label="Interface banner visibility">
-            <button type="button" data-banner-visible="true" role="radio" aria-checked="true" class="active">Show Banner</button>
-            <button type="button" data-banner-visible="false" role="radio" aria-checked="false">Hide Banner</button>
+          <p>Choose whether the campaign banner is hidden, decorative, or a shortcut that exits after confirmation.</p>
+          <div id="bannerVisibilityToggle" class="character-layout-toggle banner-mode-toggle" role="radiogroup" aria-label="Interface banner behavior">
+            <button type="button" data-banner-mode="hidden" role="radio" aria-checked="false">No Banner</button>
+            <button type="button" data-banner-mode="show" role="radio" aria-checked="true" class="active">Show Banner</button>
+            <button type="button" data-banner-mode="exit" role="radio" aria-checked="false">Banner Exits</button>
+          </div>
+        </section>
+        <section class="sound-settings-card">
+          <h2>Combat Sounds</h2>
+          <p>Mute or enable every player-side combat sound on this device.</p>
+          <div id="playerSoundToggle" class="character-layout-toggle" role="radiogroup" aria-label="Player combat sounds">
+            <button type="button" data-player-sounds="true" role="radio" aria-checked="false">Sounds On</button>
+            <button type="button" data-player-sounds="false" role="radio" aria-checked="true" class="active">Mute All Sounds</button>
           </div>
         </section>
         <section class="character-control-settings">
@@ -454,6 +476,18 @@
         <span class="dialog-kicker">Confirm Command</span><h2 id="confirmTitle">Are you sure?</h2><p id="confirmMessage"></p>
         <div id="confirmPreview" class="confirm-preview" hidden></div>
         <div class="dialog-actions"><button id="confirmCancel" type="button">Keep Current Character</button><button id="confirmAccept" class="danger" type="button">Start Over</button></div>
+      </section>
+    </div>
+    <div id="importChoiceModal" class="modal-shell" hidden>
+      <section class="confirm-dialog import-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="importChoiceTitle">
+        <span class="dialog-kicker">Character Entry</span>
+        <h2 id="importChoiceTitle">Import Character</h2>
+        <p>Load a digital character file or enter a physical character sheet manually.</p>
+        <div class="dialog-actions import-choice-actions">
+          <button id="cancelImportChoice" type="button">Cancel</button>
+          <button id="manualInputChoice" type="button">Manual Input</button>
+          <button id="importFileChoice" class="primary-action" type="button">Import Character File</button>
+        </div>
       </section>
     </div>
     <div id="wipeOverlay" class="wipe-overlay" hidden aria-hidden="true"><span></span></div>
@@ -607,6 +641,6 @@
       </section>
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260815-creation-items"></script>
+  <script type="module" src="character.js?v=20260815-manual-entry"></script>
   </body>
 </html>

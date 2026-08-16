@@ -811,7 +811,8 @@ function renderEncounterStatus() {
 }
 
 function updateExitEncounterVisibility() {
-  dom.exitEncounter.hidden = !campaign || !(encounterState?.units?.length);
+  const liveFrameOpen = dom.atbLive && !dom.atbLive.hidden;
+  dom.exitEncounter.hidden = !campaign || !(encounterState?.units?.length) || liveFrameOpen;
 }
 
 function selectGmTab(tabName = "script") {
@@ -1821,6 +1822,16 @@ dom.soundToggle.addEventListener("click", () => {
 });
 dom.atbFrame.addEventListener("load", () => {
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
+});
+window.addEventListener("message", async (event) => {
+  if (event.origin !== location.origin || event.source !== dom.atbFrame.contentWindow) return;
+  if (event.data?.type !== "sa-combat-ended") return;
+  dom.atbFrame.removeAttribute("src");
+  stagedNpcs = [];
+  encounterNpcDraft = randomBuiltinNpc();
+  await refreshEncounterState().catch(() => null);
+  selectGmTab("script");
+  showMessage(dom.message, "Combat ended for the entire campaign. Character and campaign data remain saved.", "success");
 });
 updateSoundButton();
 

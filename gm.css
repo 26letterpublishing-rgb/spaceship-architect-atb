@@ -1,4 +1,4 @@
-@font-face{font-family:SAInterface;src:url("fonts/nulshock bd.otf") format("opentype");font-display:swap}
+@font-face{font-family:SAInterface;src:url("fonts/PlusJakartaSans-VariableFont_wght.ttf") format("truetype");font-style:normal;font-weight:200 800;font-display:swap}
 :root{--ink:#06101a;--panel:#101c2b;--panel2:#09131f;--line:#2a4158;--cyan:#2bd8ff;--green:#38df9d;--yellow:#f6d267;--red:#ff5c70;--muted:#8ca1b5;--shadow:0 18px 44px rgba(0,0,0,.55)}
 *{box-sizing:border-box;letter-spacing:0}
 [hidden]{display:none!important}

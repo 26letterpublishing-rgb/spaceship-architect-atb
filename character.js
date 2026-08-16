@@ -30,7 +30,8 @@ const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const ACTIVE_DRAFT_KEY = "sa2e-active-draft-v1";
 const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
 const HUD_VISIBILITY_KEY = "sa2e-character-hud-visible-v1";
-const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
+const PLAYER_BANNER_MODE_KEY = "sa-player-banner-mode-v1";
+const PLAYER_SOUND_KEY = "sa-atb-alerts";
 const SKILL_SORT_KEY = "sa2e-character-skill-sort-v1";
 const SHEET_SECTIONS = new Set(["identity", "attributes", "skills", "substats", "resources", "supplies"]);
 const SKILL_SORT_MODES = new Set(["alphabetical", "attribute", "level", "importance", "basic"]);
@@ -109,7 +110,7 @@ const PHYSICAL_SKILLS = new Set([
   "Wrestle/Disarm",
 ]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
-const FORMAT_VERSION = 6;
+const FORMAT_VERSION = 7;
 const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const DEBUG_CONTROLS_ENABLED = false;
 const PAGE_PARAMS = new URLSearchParams(window.location.search);
@@ -121,6 +122,7 @@ const dom = {
   newCharacter: $("#newCharacter"),
   duplicateCharacter: $("#duplicateCharacter"),
   exportCharacter: $("#exportCharacter"),
+  openImportMenu: $("#openImportMenu"),
   importCharacter: $("#importCharacter"),
   deleteCharacter: $("#deleteCharacter"),
   localShowPcCode: $("#localShowPcCode"),
@@ -134,6 +136,7 @@ const dom = {
   tabStatusReverence: $("#tabStatusReverence"),
   tabStatusExertion: $("#tabStatusExertion"),
   tabStatusCredits: $("#tabStatusCredits"),
+  characterBanner: $("#characterBanner"),
   saveStatus: $("#saveStatus"),
   identityPanel: $(".identity-panel"),
   identityCallsign: $("#identityCallsign"),
@@ -198,6 +201,7 @@ const dom = {
   moveSpeedFormula: $("#moveSpeedFormula"),
   creditsValue: $("#creditsValue"),
   creditsFormula: $("#creditsFormula"),
+  manualDataPanel: $("#manualDataPanel"),
   dramaCardsValue: $("#dramaCardsValue"),
   specialAbilitiesCard: $("#specialAbilitiesCard"),
   specialAbilityActions: $("#specialAbilityActions"),
@@ -371,6 +375,7 @@ const dom = {
   playerSettingsPanel: $("#playerSettingsPanel"),
   characterLayoutToggle: $("#characterLayoutToggle"),
   bannerVisibilityToggle: $("#bannerVisibilityToggle"),
+  playerSoundToggle: $("#playerSoundToggle"),
   resourceHudToggle: $("#resourceHudToggle"),
   versionUpdateCard: $("#versionUpdateCard"),
   versionUpdateMessage: $("#versionUpdateMessage"),
@@ -389,6 +394,10 @@ const dom = {
   pcCodeFirst: $("#pcCodeFirst"),
   pcCodeConfirm: $("#pcCodeConfirm"),
   pcCodeMessage: $("#pcCodeMessage"),
+  importChoiceModal: $("#importChoiceModal"),
+  importFileChoice: $("#importFileChoice"),
+  manualInputChoice: $("#manualInputChoice"),
+  cancelImportChoice: $("#cancelImportChoice"),
   pcCodeCancel: $("#pcCodeCancel"),
   pcCodeAccept: $("#pcCodeAccept"),
 };
@@ -659,6 +668,7 @@ function blankCharacter(name = "") {
       raceAttributeChoice: "",
       racialSkillGrants: {},
       freeAttributeUpgradeApplied: false,
+      manualInput: false,
     },
     fubs: {
       status: "unrolled",
@@ -671,7 +681,7 @@ function blankCharacter(name = "") {
       exertionCurrent: 1,
       exertionMax: 1,
       reverence: 0,
-      creditsBase: 0,
+      creditsBase: 500,
       mechanicalExperience: 0,
       dramaCards: 0,
     },
@@ -802,7 +812,7 @@ function normalizeCharacter(raw) {
     resources: {
       ...base.resources,
       ...(source.resources || {}),
-      creditsBase: source.resources?.creditsBase ?? source.resources?.credits ?? 0,
+      creditsBase: source.resources?.creditsBase ?? source.resources?.credits ?? base.resources.creditsBase,
     },
     presentation: { ...base.presentation, ...(source.presentation || {}) },
     access: { ...base.access, ...(source.access || {}) },
@@ -833,8 +843,10 @@ function normalizeCharacter(raw) {
       const fallback = row < 2 ? 0 : -1;
       return Math.round(clamp(Array.isArray(rows) ? rows[row] ?? fallback : fallback, -1, 4));
     });
-    normalized.attributes[definition.key][0] = Math.max(0, normalized.attributes[definition.key][0]);
-    normalized.attributes[definition.key][1] = Math.max(0, normalized.attributes[definition.key][1]);
+    if (!normalized.creation.manualInput) {
+      normalized.attributes[definition.key][0] = Math.max(0, normalized.attributes[definition.key][0]);
+      normalized.attributes[definition.key][1] = Math.max(0, normalized.attributes[definition.key][1]);
+    }
   }
 
   for (const name of ALL_SKILLS) normalized.skills[name] = normalizeSkill(source.skills?.[name], legacy);
@@ -852,6 +864,7 @@ function normalizeCharacter(raw) {
     : [];
   normalized.creation.classGrantsApplied = Boolean(source.creation?.classGrantsApplied);
   normalized.creation.raceGrantsApplied = Boolean(source.creation?.raceGrantsApplied);
+  normalized.creation.manualInput = Boolean(source.creation?.manualInput);
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
   normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
@@ -916,7 +929,7 @@ function normalizeCharacter(raw) {
   normalized.resources.exertionMax = Math.round(clamp(normalized.resources.exertionMax, 0, 99));
   normalized.resources.exertionCurrent = Math.round(clamp(normalized.resources.exertionCurrent, 0, normalized.resources.exertionMax));
   normalized.resources.reverence = Math.round(clamp(normalized.resources.reverence, 0, 10));
-  normalized.resources.creditsBase = Math.round(clamp(normalized.resources.creditsBase, 0, 999999999));
+  normalized.resources.creditsBase = Math.round(clamp(normalized.resources.creditsBase, -999999999, 999999999));
   normalized.resources.dramaCards = Math.round(clamp(normalized.resources.dramaCards, 0, 999));
   normalized.advantagesNotes = typeof source.advantagesNotes === "string" ? source.advantagesNotes : "";
   normalized.notes = typeof source.notes === "string" ? source.notes : "";
@@ -1201,7 +1214,9 @@ let activeCharacterTab = "sheet";
 let activeSheetSection = "identity";
 let characterLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY) === "tabs" ? "tabs" : "sheet";
 let resourceHudVisible = localStorage.getItem(HUD_VISIBILITY_KEY) !== "hidden";
-let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
+const storedPlayerBannerMode = localStorage.getItem(PLAYER_BANNER_MODE_KEY);
+let playerBannerMode = ["hidden", "show", "exit"].includes(storedPlayerBannerMode) ? storedPlayerBannerMode : "show";
+let playerSoundsEnabled = localStorage.getItem(PLAYER_SOUND_KEY) === "on";
 const storedSkillSort = localStorage.getItem(SKILL_SORT_KEY);
 let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
 let joinStatusTimer = null;
@@ -1241,7 +1256,7 @@ function renderTabbedStatus() {
   dom.tabStatusHp.textContent = current + " / " + maximum;
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
-  dom.tabStatusCredits.textContent = Math.max(0, Number(character.resources.creditsBase) || 0).toLocaleString();
+  dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
 
   const visible = resourceHudVisible && character.phase === "finalized" && !CAMPAIGN_READ_ONLY_VIEW;
   dom.globalCharacterHud.hidden = !visible;
@@ -1254,9 +1269,19 @@ function renderTabbedStatus() {
 }
 
 function renderBannerVisibility() {
-  document.body.classList.toggle("interface-banner-hidden", !interfaceBannerVisible);
-  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-visible]").forEach((button) => {
-    const selected = (button.dataset.bannerVisible === "true") === interfaceBannerVisible;
+  document.body.classList.toggle("interface-banner-hidden", playerBannerMode === "hidden");
+  dom.characterBanner?.classList.toggle("banner-exits", playerBannerMode === "exit");
+  dom.characterBanner?.setAttribute("aria-label", playerBannerMode === "exit" ? "Exit campaign or character screen" : "Spaceship Architect banner");
+  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-mode]").forEach((button) => {
+    const selected = button.dataset.bannerMode === playerBannerMode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function renderPlayerSoundSetting() {
+  dom.playerSoundToggle?.querySelectorAll("[data-player-sounds]").forEach((button) => {
+    const selected = (button.dataset.playerSounds === "true") === playerSoundsEnabled;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-checked", String(selected));
   });
@@ -1299,6 +1324,7 @@ function renderCharacterLayout() {
   renderTabbedStatus();
   renderVersionUpdate();
   renderBannerVisibility();
+  renderPlayerSoundSetting();
   showSheetSection(activeSheetSection);
 }
 async function loadPlayerAtb({ reload = false } = {}) {
@@ -1353,7 +1379,7 @@ function renderCharacterNavigation() {
   const roomCode = linked ? campaignCode : character.campaignLink?.roomCode || "";
   dom.roomCode.hidden = !roomCode;
   dom.roomCodeValue.textContent = roomCode || "----";
-  dom.backToMain.hidden = linked;
+  if (dom.backToMain) dom.backToMain.hidden = linked;
   dom.settingsLeaveCampaign.disabled = false;
   dom.settingsLeaveCampaign.closest("section").hidden = gmView;
   dom.messageGmForm.hidden = !linked || gmView;
@@ -2027,7 +2053,12 @@ function skillPointsSpent(characterObject = character) {
   return total;
 }
 
+function manualInputMode(characterObject = character) {
+  return Boolean(characterObject?.creation?.manualInput);
+}
+
 function skillBonusTenths(name, characterObject = character) {
+  if (manualInputMode(characterObject)) return 0;
   const classBonus = Number(classEffects(characterObject).skillBonuses?.[name]) || 0;
   const raceBonus = Number(raceEffects(characterObject).skillBonuses?.[name]) || 0;
   const chosenBonus = finalizedModifiersActive(characterObject) ? Number(characterObject.creation?.racialSkillGrants?.[name]) || 0 : 0;
@@ -2035,6 +2066,7 @@ function skillBonusTenths(name, characterObject = character) {
 }
 
 function skillBonusParts(name, characterObject = character) {
+  if (manualInputMode(characterObject)) return [];
   const parts = [];
   const raceBonus = Number(raceEffects(characterObject).skillBonuses?.[name]) || 0;
   const classBonus = Number(classEffects(characterObject).skillBonuses?.[name]) || 0;
@@ -2173,6 +2205,25 @@ function draftValidation() {
   const attributeBudget = attributePointBudget();
   const skillSpent = skillPointsSpent();
   const skillBudget = skillPointBudget();
+  if (manualInputMode()) {
+    return {
+      attributeSpent,
+      skillSpent,
+      skillBudget,
+      attributeBudget,
+      invalidSkills: new Set(),
+      attributesComplete: true,
+      skillsComplete: true,
+      raceComplete: raceSelectionComplete(),
+      raceSelectionValid: true,
+      raceClassCompatible: true,
+      homePlanetComplete: Boolean(character.identity.homePlanet.trim()),
+      fullIdentityComplete: identityComplete(),
+      backstoryComplete: backgroundComplete(),
+      ready: true,
+      issues: [],
+    };
+  }
   const invalidSkills = invalidSkillKeys();
   const overCap = [];
   for (const name of ALL_SKILLS) {
@@ -2463,6 +2514,18 @@ function renderWorkflow() {
     return;
   }
 
+  if (manualInputMode()) {
+    dom.phaseBadge.textContent = "Manual Data Entry";
+    dom.finalizeCharacter.textContent = "Finalize Character";
+    dom.finalizeCharacter.disabled = false;
+    renderWorkflowRequirements([
+      { label: "Copy Physical Character Data" },
+      { label: "Ready to Finalize", tone: "ready" },
+    ]);
+    dom.workflowDetail.textContent = "Creation budgets are bypassed. Derived values update from the data entered below.";
+    return;
+  }
+
   dom.phaseBadge.textContent = character.legacyDraft ? "Legacy Draft" : "Draft";
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
@@ -2503,6 +2566,24 @@ function renderWorkflow() {
 
 function renderExperience() {
   const validation = draftValidation();
+  if (manualInputMode() && character.phase === "draft") {
+    dom.attributeBudget.textContent = "Manual";
+    dom.attributeBudget.className = "complete";
+    dom.skillBudget.textContent = "Manual";
+    dom.skillBudget.className = "complete";
+    dom.attributeBudgetFormula.textContent = "Copied from a physical character sheet";
+    dom.skillBudgetFormula.textContent = "Enter exact decimal Skill ratings";
+    dom.xpAvailable.textContent = character.experience.available;
+    dom.xpTotal.textContent = character.experience.totalGained;
+    dom.xpFormula.textContent = "Unspent / Total Gained";
+    dom.workflowExperience.textContent = `${character.experience.available} / ${character.experience.totalGained}`;
+    dom.workflowAttributeRemaining.textContent = "Manual";
+    dom.workflowAttributeRemaining.className = "complete";
+    dom.workflowSkillRemaining.textContent = "Manual";
+    dom.workflowSkillRemaining.className = "complete";
+    dom.workflowCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
+    return;
+  }
   const attributeRemaining = character.phase === "draft" ? validation.attributeBudget - validation.attributeSpent : 0;
   const skillRemaining = character.phase === "draft" ? validation.skillBudget - validation.skillSpent : 0;
   dom.attributeBudget.textContent = `${attributeRemaining} / ${validation.attributeBudget}`;
@@ -2567,6 +2648,7 @@ function canPurchaseAttributes() {
 
 function renderAttributes() {
   const validation = draftValidation();
+  const manualDraft = manualInputMode() && character.phase === "draft";
   const advancement = character.phase === "finalized" && character.advancementOpen;
   const interactive = canPurchaseAttributes() && !character.pendingRoll;
   dom.attributeGrid.innerHTML = ATTRIBUTE_DEFS.map((definition) => {
@@ -2576,7 +2658,7 @@ function renderAttributes() {
       const buttons = DICE_NAMES.map((dieName, column) => {
         const purchased = column <= current;
         const next = column === current + 1;
-        const lockedFree = row < 2 && column === 0;
+        const lockedFree = !manualDraft && row < 2 && column === 0;
         const cost = attributeStepCost(definition.key, row, column);
         const raceBlocked = character.identity.raceId === "tamalori" && definition.key === "strength" && column === 4;
         const allowedDraft = character.phase === "draft" && (next || column === current) && !lockedFree
@@ -2586,6 +2668,8 @@ function renderAttributes() {
         const disabled = !interactive || !(allowedDraft || allowedAdvancement);
         let title = purchased ? `${dieName} purchased` : `Purchase ${dieName} for ${cost}`;
         if (lockedFree) title = `${dieName} is a free starting die`;
+        else if (manualDraft && next) title = `Set this row to ${dieName}`;
+        else if (manualDraft && column === current) title = `Remove ${dieName} from this row`;
         else if (character.phase === "draft" && column === current) title = `Refund ${cost} Attribute Points`;
         else if (advancement && next) title = `Spend ${cost} ${mechanicalSpiddixAttribute(definition.key) ? "mechanical XP" : "XP"} to upgrade to ${dieName}`;
         return `<button class="attribute-die ${purchased ? "purchased" : ""} ${next ? "next" : ""}" type="button" data-attribute="${definition.key}" data-row="${row}" data-column="${column}" title="${escapeAttribute(title)}" ${disabled ? "disabled" : ""}>${dieSvg(column, cost, purchased)}</button>`;
@@ -2646,19 +2730,20 @@ function skillRuleIndicators(name) {
 
 function renderSkillRow(name, skill, key) {
   const validation = draftValidation();
+  const manualDraft = manualInputMode() && character.phase === "draft";
   const bonus = skillBonusTenths(name);
   const bonusParts = skillBonusParts(name);
   const displayed = displayedSkillTenths(name, skill);
   const level = skillCreationLevel(skill);
   const advancement = character.phase === "finalized" && character.advancementOpen;
-  const draftBuying = character.phase === "draft" && validation.attributesComplete;
+  const draftBuying = character.phase === "draft" && validation.attributesComplete && !manualDraft;
   const nextCost = advancement ? advancementSkillCost(skill.tenths) : level + 1;
   const mechanical = mechanicalSpiddixSkill(name);
   const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
   const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && advancementFunds >= nextCost));
-  const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll;
+  const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll && !manualDraft;
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
-  const locked = !(draftBuying || advancement);
+  const locked = !(draftBuying || advancement || manualDraft);
   const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll && (!campaignCode || campaignEditable);
   const indicators = skillRuleIndicators(name);
   const markerMarkup = `${indicators.positive.length ? `<b class="skill-rule-sign positive" aria-label="Race or Class bonus">+</b>` : ""}${indicators.negative.length ? `<b class="skill-rule-sign negative" aria-label="Race or Class penalty">-</b>` : ""}`;
@@ -2666,7 +2751,9 @@ function renderSkillRow(name, skill, key) {
   return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
     <span class="skill-name" title="${escapeAttribute(name)}"><span>${formatSkillName(name)}</span>${markerMarkup}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
-    <span class="skill-value"><strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small></span>
+    <span class="skill-value">${manualDraft
+      ? `<input class="manual-skill-rating" data-manual-skill-key="${escapeAttribute(key)}" type="number" min="0" step="0.1" inputmode="decimal" value="${(Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
+      : `<strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small>`}</span>
     <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
   </div>`;
 }
@@ -2720,6 +2807,7 @@ function sortedCustomSkills() {
 
 function renderSkills() {
   const validation = draftValidation();
+  const manualDraft = manualInputMode() && character.phase === "draft";
   const sheetEditable = !campaignCode || campaignEditable;
   const canManageCustomSkills = sheetEditable && !character.pendingRoll
     && ((character.phase === "draft" && validation.attributesComplete) || character.phase === "finalized");
@@ -2740,7 +2828,7 @@ function renderSkills() {
     );
     customRow = customRow.replace("<div class=\"skill-row", `<div class="skill-row custom-skill-row ${validation.invalidSkills.has(key) ? "invalid" : ""}`);
     customRow = customRow.replace(/\n\s*<\/div>$/, `
-    <button class="row-remove" type="button" data-remove-custom-skill="${skill.id}" aria-label="Remove custom skill" ${(canManageCustomSkills && skill.tenths === 0) ? "" : "disabled"}>-</button>
+    <button class="row-remove" type="button" data-remove-custom-skill="${skill.id}" aria-label="Remove custom skill" ${(canManageCustomSkills && (manualDraft || skill.tenths === 0)) ? "" : "disabled"}>-</button>
   </div>`);
     return `<div class="custom-skill-row-wrapper">${customRow}</div>`;
   }).join("");
@@ -2766,6 +2854,13 @@ function exertionMeterMarkup(current, maximum, { selectable = false, selected = 
 
 function renderResources() {
   syncDerivedResources();
+  const manualDraft = manualInputMode() && character.phase === "draft";
+  dom.manualDataPanel.hidden = !manualDraft;
+  if (manualDraft) {
+    dom.manualDataPanel.querySelectorAll("[data-manual-resource]").forEach((input) => {
+      if (document.activeElement !== input) input.value = getPath(character, input.dataset.manualResource) ?? 0;
+    });
+  }
   const move = calculatedMoveSpeedDetails();
   const race = raceEffects();
   const classDefinition = classById(character.identity.classId);
@@ -3642,7 +3737,7 @@ function weaponStat(value) {
 
 function renderWeapons() {
   const onlyRow = character.weapons.length <= 1;
-  const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
+  const editable = ["draft", "finalized"].includes(character.phase) && (!campaignCode || campaignEditable);
   dom.weaponInventory.innerHTML = character.weapons.map((entry) => {
     const weapon = weaponById(entry.weaponId);
     const emptyClass = weapon ? "" : " weapon-empty-stat";
@@ -3806,7 +3901,7 @@ function closeGearPicker() {
 }
 function renderGear() {
   if (!dom.gearInventory) return;
-  const editable = character.phase === "finalized" && (!campaignCode || campaignEditable);
+  const editable = ["draft", "finalized"].includes(character.phase) && (!campaignCode || campaignEditable);
   document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
   dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
@@ -4088,7 +4183,17 @@ function purchaseAttribute(attributeKey, row, column) {
   if (!definition) return;
   const previousMaxHp = maximumHp();
 
-  if (character.phase === "draft") {
+  if (character.phase === "draft" && manualInputMode()) {
+    if (column === current + 1) {
+      character.attributes[attributeKey][row] = column;
+      playPurchaseSound(attributeKey);
+    } else if (column === current) {
+      character.attributes[attributeKey][row] = current - 1;
+    } else {
+      return;
+    }
+    notice(`${definition.label} row set to ${character.attributes[attributeKey][row] >= 0 ? DICE_NAMES[character.attributes[attributeKey][row]] : "empty"}.`, "success");
+  } else if (character.phase === "draft") {
     if (column === current + 1) {
       if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
         notice("TaMalori cannot purchase D12 Strength dice.", "error");
@@ -4357,8 +4462,14 @@ async function beginFinalization() {
     notice(validation.issues[0] || "Resolve the remaining creation requirements first.", "error");
     return;
   }
-  const fubsMissing = character.fubs.status !== "complete";
-  const accepted = await askConfirmation(fubsMissing ? {
+  const manual = manualInputMode();
+  const fubsMissing = !manual && character.fubs.status !== "complete";
+  const accepted = await askConfirmation(manual ? {
+    title: "Finalize Manual Character?",
+    message: "The copied values will be locked as this character's starting record. Creation budgets and Skill decimal rolls are bypassed.",
+    acceptLabel: "Finalize Manual Character",
+    cancelLabel: "Continue Editing",
+  } : fubsMissing ? {
     title: "You have not rolled FUBS yet. Are you sure?",
     message: "FUBS is optional, but finalizing without it permanently marks this character as FUBS: (Not activated).",
     acceptLabel: "Yes, Finalize Without FUBS",
@@ -4382,7 +4493,7 @@ async function beginFinalization() {
     }
     return;
   }
-  if (!await collectFinalizationChoices()) return;
+  if (!manual && !await collectFinalizationChoices()) return;
   const pcCode = await requestPcCode();
   if (!pcCode) return;
   character.access.pcCode = pcCode;
@@ -4390,9 +4501,13 @@ async function beginFinalization() {
   snapshotRecovery("Before Finalization");
   finalizationPresentationActive = true;
   if (fubsMissing) character.fubs.status = "not-activated";
+  if (manual) {
+    character.creation.classGrantsApplied = true;
+    character.creation.raceGrantsApplied = true;
+  }
   character.phase = "finalizing";
   character.advancementOpen = false;
-  character.creation.finalizationQueue = skillKeysForFinalization();
+  character.creation.finalizationQueue = manual ? [] : skillKeysForFinalization();
   character.pendingRoll = null;
   saveLibrary("Finalization started");
   renderAll();
@@ -4461,7 +4576,7 @@ async function finishFinalization() {
   character.legacyDraft = false;
   character.pendingRoll = null;
   character.creation.finalizationQueue = [];
-  character.health.current = maximumHp();
+  if (character.health.current === null || character.health.current === undefined) character.health.current = maximumHp();
   saveLibrary("Character finalized");
   renderAll();
   notice("Character finalized. Advancement rules are now active.", "success");
@@ -4870,6 +4985,37 @@ document.addEventListener("input", (event) => {
     return;
   }
 
+  const manualSkill = event.target.closest("[data-manual-skill-key]");
+  if (manualSkill && manualInputMode() && character.phase === "draft") {
+    const resolved = resolveSkill(character, manualSkill.dataset.manualSkillKey);
+    if (!resolved) return;
+    const rating = clamp(Number(manualSkill.value) || 0, 0, 99999);
+    resolved.skill.tenths = Math.round(rating * 10);
+    resolved.skill.creationDecimal = resolved.skill.tenths % 10;
+    queueSave();
+    renderExperience();
+    renderDerived();
+    return;
+  }
+
+  const manualResource = event.target.closest("[data-manual-resource]");
+  if (manualResource && manualInputMode() && character.phase === "draft") {
+    const path = manualResource.dataset.manualResource;
+    let value = Math.round(Number(manualResource.value) || 0);
+    if (path === "resources.reverence") value = clamp(value, 0, 10);
+    if (["resources.exertionCurrent", "resources.dramaCards", "health.permanentBonus", "experience.available", "experience.totalGained"].includes(path)) value = Math.max(0, value);
+    setPath(character, path, value);
+    if (path.startsWith("experience.")) {
+      character.experience.totalGained = Math.max(character.experience.available, character.experience.totalGained);
+      character.experience.spent = Math.max(0, character.experience.totalGained - character.experience.available);
+    }
+    queueSave();
+    renderExperience();
+    renderResources();
+    renderDerived();
+    return;
+  }
+
   const customName = event.target.closest("[data-custom-name]");
   if (customName && (!campaignCode || campaignEditable)) {
     const custom = character.customSkills.find((skill) => skill.id === customName.dataset.customName);
@@ -4951,7 +5097,7 @@ document.addEventListener("click", (event) => {
     const id = removeCustom.dataset.removeCustomSkill;
     const custom = character.customSkills.find((skill) => skill.id === id);
     if (!custom) return;
-    if (custom.tenths > 0) {
+    if (custom.tenths > 0 && !manualInputMode()) {
       notice("Refund this Custom Skill to 0.0 before removing it.", "error");
       return;
     }
@@ -5022,7 +5168,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("change", async (event) => {
   const select = event.target.closest("[data-weapon-select]");
-  if (!select || character.phase !== "finalized" || (campaignCode && !campaignEditable)) return;
+  if (!select || !["draft", "finalized"].includes(character.phase) || (campaignCode && !campaignEditable)) return;
   const entry = character.weapons.find((weapon) => weapon.id === select.dataset.weaponSelect);
   if (!entry) return;
   const previousWeaponId = entry.weaponId || "";
@@ -5234,7 +5380,7 @@ dom.addCustomSkill.addEventListener("click", () => {
 });
 
 dom.addGearRow?.addEventListener("click", () => {
-  if (character.phase !== "finalized" || (campaignCode && !campaignEditable)) return;
+  if (!["draft", "finalized"].includes(character.phase) || (campaignCode && !campaignEditable)) return;
   openGearPicker();
 });
 
@@ -5628,17 +5774,42 @@ dom.resourceHudToggle?.addEventListener("click", (event) => {
   notice(resourceHudVisible ? "Resource HUD enabled." : "Resource HUD hidden.", "success");
 });
 dom.bannerVisibilityToggle?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-banner-visible]");
+  const button = event.target.closest("[data-banner-mode]");
   if (!button) return;
-  interfaceBannerVisible = button.dataset.bannerVisible === "true";
-  localStorage.setItem(BANNER_VISIBILITY_KEY, interfaceBannerVisible ? "visible" : "hidden");
+  playerBannerMode = ["hidden", "show", "exit"].includes(button.dataset.bannerMode) ? button.dataset.bannerMode : "show";
+  localStorage.setItem(PLAYER_BANNER_MODE_KEY, playerBannerMode);
   renderBannerVisibility();
-  notice(interfaceBannerVisible ? "Interface banner shown." : "Interface banner hidden on this device.", "success");
+  notice({ hidden: "Interface banner hidden on this device.", show: "Interface banner shown without navigation.", exit: "The banner can now exit after confirmation." }[playerBannerMode], "success");
+});
+dom.playerSoundToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-player-sounds]");
+  if (!button) return;
+  playerSoundsEnabled = button.dataset.playerSounds === "true";
+  localStorage.setItem(PLAYER_SOUND_KEY, playerSoundsEnabled ? "on" : "off");
+  dom.playerAtbFrame?.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
+  renderPlayerSoundSetting();
+  notice(playerSoundsEnabled ? "Player combat sounds enabled." : "All player combat sounds muted.", "success");
+});
+dom.characterBanner?.addEventListener("click", async () => {
+  if (playerBannerMode !== "exit") return;
+  const accepted = await askConfirmation({
+    title: campaignCode ? "Exit campaign?" : "Return to the main menu?",
+    message: campaignCode ? "Your character remains linked and saved. You can log back in from the main menu." : "Current character data is saved locally.",
+    acceptLabel: "Exit",
+    cancelLabel: "Stay Here",
+  });
+  if (accepted) window.location.href = "index.html";
 });
 window.addEventListener("storage", (event) => {
-  if (event.key !== BANNER_VISIBILITY_KEY) return;
-  interfaceBannerVisible = event.newValue !== "hidden";
-  renderBannerVisibility();
+  if (event.key === PLAYER_BANNER_MODE_KEY) {
+    playerBannerMode = ["hidden", "show", "exit"].includes(event.newValue) ? event.newValue : "show";
+    renderBannerVisibility();
+  }
+  if (event.key === PLAYER_SOUND_KEY) {
+    playerSoundsEnabled = event.newValue === "on";
+    renderPlayerSoundSetting();
+    dom.playerAtbFrame?.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
+  }
 });
 
 dom.specialAbilityActions?.addEventListener("click", (event) => {
@@ -5907,6 +6078,7 @@ window.addEventListener("message", (event) => {
 });
 dom.playerAtbFrame?.addEventListener("load", () => {
   dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
+  dom.playerAtbFrame.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
 });
 
 dom.launchPlayerAtb?.addEventListener("click", () => {
@@ -6078,6 +6250,35 @@ dom.marineHeal.addEventListener("click", async () => {
 });
 
 dom.exportCharacter.addEventListener("click", exportCurrentCharacter);
+
+dom.openImportMenu?.addEventListener("click", () => {
+  dom.importChoiceModal.hidden = false;
+  dom.importFileChoice.focus({ preventScroll: true });
+});
+dom.cancelImportChoice?.addEventListener("click", () => { dom.importChoiceModal.hidden = true; });
+dom.importFileChoice?.addEventListener("click", () => {
+  dom.importChoiceModal.hidden = true;
+  dom.importCharacter.click();
+});
+dom.manualInputChoice?.addEventListener("click", () => {
+  dom.importChoiceModal.hidden = true;
+  if (character.phase !== "finalized") {
+    snapshotRecovery("Before Manual Data Entry");
+    library = library.filter((entry) => entry.id !== character.id);
+  }
+  const manual = blankCharacter();
+  manual.creation.manualInput = true;
+  manual.health.current = maximumHp(manual);
+  library.push(manual);
+  activeId = manual.id;
+  character = manual;
+  dom.skillSearch.value = "";
+  saveLibrary("Manual character entry started");
+  renderAll();
+  renderCharacterNavigation();
+  showCharacterPanel("sheet");
+  notice("Manual Data Entry is active. Copy the physical sheet, then finalize at any time.", "success");
+});
 
 dom.importCharacter.addEventListener("change", async () => {
   const file = dom.importCharacter.files?.[0];

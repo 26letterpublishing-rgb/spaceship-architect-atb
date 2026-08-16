@@ -76,11 +76,11 @@
     return seconds >= 10 ? `${Math.ceil(seconds)} sec` : `${seconds.toFixed(1)} sec`;
   }
 
-  function targetOptions({ includeLocation = false } = {}) {
+  function targetOptions({ includeLocation = false, includeSelf = false } = {}) {
     const options = [];
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
-      .filter((entry) => entry.id !== currentUnit?.id && !entry.defeatedAt)
+      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt)
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : "NPC"})</option>`));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
@@ -155,7 +155,7 @@
     drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItems: true, note: "Choose a carried item or ready a weapon. Stored items do not appear here." },
     throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, includeItems: true, note: "Smoke Grenades detonate after 5 seconds. Other explosives use their listed countdown. Thrown melee weapons deal half damage." },
     charge: { title: "Charge Weapon", note: "The Charge meter fills alongside normal ATB. Each completed segment provides one card Charge." },
-    firstAid: { title: "First Aid", target: true, kit: true, note: "Choose the patient and whether to commit a carried First Aid Kit. Treatment time uses Intellect boxes + Anatomy/First Aid." },
+    firstAid: { title: "First Aid", target: true, includeSelf: true, kit: true, note: "Choose the patient and whether to commit a carried First Aid Kit. Treatment time uses Intellect boxes + Anatomy/First Aid." },
     station: { title: "Station / Mount", weapon: "station", text: "SIC / Station Name", placeholder: "Helm, Engine Room, Sensor Console...", note: "Mount a carried vehicle, join an available Small ATV, dismount, or enter a ship station." },
   };
 
@@ -221,7 +221,7 @@
       ? `Held: ${current.name} | To-Hit: ${current.toHit} | Damage: ${current.damage}${charges ? ` | ${charges} Charge${charges === 1 ? "" : "s"}` : ""}`
       : "No weapon is currently held.";
     targetWrap.hidden = !config.target;
-    target.innerHTML = config.target ? targetOptions({ includeLocation: config.includeLocation }) : "";
+    target.innerHTML = config.target ? targetOptions({ includeLocation: config.includeLocation, includeSelf: config.includeSelf }) : "";
     amountWrap.hidden = !config.amount;
     if (config.amount) {
       amountLabel.textContent = config.amount;

@@ -41,6 +41,8 @@ let lastRingActionPressAt = 0;
 let ringDrag = null;
 let ringMovedId = "";
 let ringMovedTimeout = null;
+let lastBarOrder = [];
+const defeatedBarPositions = new Map();
 let delayModalState = null;
 let queuedEffectModalState = null;
 let playerPreviewRecord = null;
@@ -1304,7 +1306,7 @@ function tacticalRingMarkup(units) {
     `);
 
     slices.push(`
-      <g class="ring-unit ${ready ? "ready" : ""} ${delayed ? "delayed" : ""} ${own ? "own-ring-unit" : ""} ${active?.id === unit.id ? "active-ring-unit" : ""} ${ringDrag?.id === unit.id ? "dragging" : ""} ${ringMovedId === unit.id ? "moved" : ""}" data-unit-id="${unit.id}" style="--bar-color:${escapeHtml(unit.color || "#39e58f")}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};">
+      <g class="ring-unit ${ready ? "ready" : ""} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "combatant-defeated" : ""} ${own ? "own-ring-unit" : ""} ${active?.id === unit.id ? "active-ring-unit" : ""} ${ringDrag?.id === unit.id ? "dragging" : ""} ${ringMovedId === unit.id ? "moved" : ""}" data-unit-id="${unit.id}" style="--bar-color:${escapeHtml(unit.color || "#39e58f")}; --bar-rgb:${rgb.r}, ${rgb.g}, ${rgb.b};">
         <path class="ring-slice-shell" d="${describeWedge(160, 160, 136, start, end)}" />
         <path class="ring-slice-fill" d="${describeWedge(160, 160, atbRadius, start, end)}" fill="url(#${gradId})" />
         <path class="ring-slice-sheen" d="${describeWedge(160, 160, Math.min(136, atbRadius + 2), start, end)}" />
@@ -1455,7 +1457,10 @@ function receiveState(nextState, { force = false } = {}) {
     return false;
   }
 
+  const previousUnits = new Map((state?.units || []).map((unit) => [unit.id, unit]));
+  const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
+  if (newlyDefeated.length) playDefeatSlashSound();
   render();
   return true;
 }
@@ -1690,22 +1695,15 @@ function unitCard(unit, { gm = false, player = false } = {}) {
   const type = "Character";
   const signature = unitSignature(unit, { gm, player });
   return `
-    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "npc-defeated" : ""} ${own ? "own-unit" : ""} ${icon ? "has-avatar" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
+    <article class="unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "combatant-defeated" : ""} ${own ? "own-unit" : ""} ${icon ? "has-avatar" : ""}" data-unit-id="${unit.id}" data-signature="${escapeHtml(signature)}" style="${barStyle(unit)}">
       <div class="unit-top">
         ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
-          <div class="unit-name-line"><div class="unit-name">${escapeHtml(unit.characterName)}</div>${npcHealthMarkup(unit, { gm })}</div>
+          <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${npcHealthMarkup(unit, { gm })}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
           ${npcCombatStatsMarkup(unit, { gm })}
         </div>
-        ${
-          player && own
-            ? `<label class="player-color-inline" title="Change your ATB color">
-                <span>Color</span>
-                <input data-action="playerColor" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
-              </label>`
-            : ""
-        }
+        ${gm ? `<label class="speed-edit compact-speed"><span>Speed</span><input data-action="speed" data-id="${unit.id}" type="number" min="1" max="100" step="0.1" value="${speedInputValue}" /></label>` : ""}
         <div class="unit-readout">
           <strong>${Math.floor(atbPercent)}%</strong>
           <span>${delayed ? "Delayed" : player ? (ready ? "Ready" : "Charging") : escapeHtml(estimateTurn(unit))}</span>
@@ -1713,14 +1711,6 @@ function unitCard(unit, { gm = false, player = false } = {}) {
         ${
           gm
             ? `<div class="unit-actions">
-                <label class="name-edit">
-                  Name
-                  <input data-action="name" data-id="${unit.id}" value="${escapeHtml(unit.characterName)}" />
-                </label>
-                <label class="speed-edit">
-                  Speed
-                  <input data-action="speed" data-id="${unit.id}" type="number" min="1" max="100" step="0.5" value="${speedInputValue}" />
-                </label>
                 ${
                   unit.team === "pc"
                     ? `<label class="command-edit">
@@ -1729,10 +1719,6 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                       </label>`
                     : ""
                 }
-                <label class="color-edit">
-                  Color
-                  <input data-action="color" data-id="${unit.id}" type="color" value="${escapeHtml(unit.color || "#39e58f")}" />
-                </label>
                 <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini damage" data-action="damage" data-id="${unit.id}">Damage</button>
@@ -1760,7 +1746,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       ${
         window.SACombatActions?.statusMarkup(unit, { gm }) || ""
       }
-      <div class="meter"><div class="fill" style="width:${pct(unit)}%"></div></div>
+      <button type="button" class="meter color-trigger" data-action="barColor" data-id="${escapeHtml(unit.id)}" title="Change ${escapeHtml(unit.characterName)}'s ATB color"><span class="fill" style="width:${pct(unit)}%"></span></button>
     </article>
   `;
 }
@@ -1806,7 +1792,7 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
   const close = atbPercent >= 75 && !ready && !delayed;
   const hotClass = atbPercent >= 95 && !ready && !delayed ? "charge-critical" : atbPercent >= 90 && !ready && !delayed ? "charge-hot" : close ? "charge-warm" : "";
   const own = player && unit.id === myUnitId;
-  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "npc-defeated" : ""} ${own ? "own-unit" : ""} ${myIconForUnit(unit) ? "has-avatar" : ""}`.trim();
+  card.className = `unit-card ${ready ? "ready" : ""} ${close ? "close-ready" : ""} ${hotClass} ${delayed ? "delayed" : ""} ${unit.defeatedAt ? "combatant-defeated" : ""} ${own ? "own-unit" : ""} ${myIconForUnit(unit) ? "has-avatar" : ""}`.trim();
   card.setAttribute("style", barStyle(unit));
 
   const readout = card.querySelector(".unit-readout strong");
@@ -1878,6 +1864,20 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
 function renderUnitList(sorted) {
   const gm = mode === "gm";
   const player = mode === "player";
+  const liveIds = new Set(sorted.map((unit) => unit.id));
+  for (const id of defeatedBarPositions.keys()) if (!liveIds.has(id)) defeatedBarPositions.delete(id);
+  for (const unit of sorted) {
+    if (!unit.defeatedAt || defeatedBarPositions.has(unit.id)) continue;
+    const priorIndex = lastBarOrder.indexOf(unit.id);
+    defeatedBarPositions.set(unit.id, priorIndex < 0 ? sorted.indexOf(unit) : priorIndex);
+  }
+  for (const [id, lockedIndex] of [...defeatedBarPositions.entries()].sort((a, b) => a[1] - b[1])) {
+    const currentIndex = sorted.findIndex((unit) => unit.id === id);
+    if (currentIndex < 0) continue;
+    const [locked] = sorted.splice(currentIndex, 1);
+    sorted.splice(Math.min(lockedIndex, sorted.length), 0, locked);
+  }
+  lastBarOrder = sorted.map((unit) => unit.id);
   const existingCards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   const canUpdateInPlace =
     existingCards.length === sorted.length &&
@@ -2314,6 +2314,45 @@ function playInterruptedBuzz() {
     tone(120, 0.4, 0.36, 0.42, "sawtooth");
   } catch {
     // The visual interruption still appears in the combat log if audio is blocked.
+  }
+}
+
+function playDefeatSlashSound() {
+  const audible = mode === "gm" ? !gmSoundsMuted : alertsEnabled;
+  if (!audible) return;
+  try {
+    const audio = ensureAudio();
+    const length = Math.floor(audio.sampleRate * 0.42);
+    const buffer = audio.createBuffer(1, length, audio.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let index = 0; index < length; index += 1) {
+      const progress = index / length;
+      samples[index] = (Math.random() * 2 - 1) * Math.sin(Math.PI * progress) * (1 - progress);
+    }
+    const source = audio.createBufferSource();
+    const filter = audio.createBiquadFilter();
+    const gain = audio.createGain();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(3800, audio.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(480, audio.currentTime + 0.4);
+    filter.Q.value = 1.4;
+    gain.gain.setValueAtTime(0.22, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.42);
+    source.connect(filter); filter.connect(gain); gain.connect(audio.destination);
+    source.start();
+  } catch {
+    // The defeat animation remains clear when a browser blocks audio.
+  }
+}
+
+function playNpcDiceRollSound() {
+  if (gmSoundsMuted) return;
+  try {
+    [0, 0.06, 0.13, 0.2, 0.27].forEach((start, index) => {
+      tone(260 + index * 83, start, 0.055, 0.026, index % 2 ? "triangle" : "square");
+    });
+  } catch {
+    // Automatic rolls still resolve when audio is unavailable.
   }
 }
 
@@ -3182,7 +3221,11 @@ clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
 });
 exitCombat.addEventListener("click", () => {
-  if (confirm("End this combat and return to the campaign controls?")) returnToWelcome("Combat ended. Create or join a room when ready.");
+  if (!confirm("End this combat for everyone and return to the campaign controls?")) return;
+  void action({ action: "exitEncounter" }, "danger").then(() => {
+    if (embeddedGm) postCombatMessage({ type: "sa-combat-ended" });
+    else returnToWelcome("Combat ended. Create or join a room when ready.");
+  });
 });
 completeTurn.addEventListener("click", () => {
   const active = activeUnit();
@@ -3248,6 +3291,7 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
   try {
     const definition = gmNpcRollDefinition(attack, rollRole, rollingUnit);
     if (!definition.dice.length) return;
+    playNpcDiceRollSound();
     if (rollRole === "damage") {
       const result = await window.SANpcDice.rollDamage({ sides: definition.dice, flat: definition.flat, title: definition.title });
       await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: result.score, mode: "gm-automatic", diceResults: result.results }, "resolve");
@@ -3487,7 +3531,31 @@ function handleUnitActionButton(button, event = null) {
 
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (!button || mode !== "gm") return;
+  if (!button) return;
+  if (button.dataset.action === "barColor") {
+    const unit = state?.units?.find((entry) => entry.id === button.dataset.id);
+    const allowed = mode === "gm" || (mode === "player" && unit?.id === myUnitId);
+    if (!unit || !allowed || unit.defeatedAt) return;
+    const picker = document.createElement("input");
+    picker.type = "color";
+    picker.value = unit.color || "#39e58f";
+    picker.style.position = "fixed";
+    picker.style.opacity = "0";
+    picker.style.pointerEvents = "none";
+    picker.addEventListener("input", () => action({ action: "setColor", id: unit.id, color: picker.value }, "tap"));
+    picker.addEventListener("change", () => picker.remove(), { once: true });
+    document.body.appendChild(picker);
+    picker.click();
+    return;
+  }
+  if (mode !== "gm") return;
+  if (button.dataset.action === "rename") {
+    const unit = state?.units?.find((entry) => entry.id === button.dataset.id);
+    if (!unit) return;
+    const characterName = prompt("Rename combatant:", unit.characterName);
+    if (characterName?.trim()) action({ action: "setName", id: unit.id, characterName: characterName.trim() }, "tap");
+    return;
+  }
   if (button.classList.contains("ring-action-btn") && Date.now() - lastRingActionPressAt < 650) return;
   handleUnitActionButton(button, event);
 });
@@ -3502,8 +3570,6 @@ unitList.addEventListener("change", (event) => {
   if (mode !== "gm") return;
   if (input.dataset.action === "speed") action({ action: "setSpeed", id: input.dataset.id, speed: input.value }, "tap");
   if (input.dataset.action === "commandWindow") action({ action: "setCommandWindow", id: input.dataset.id, commandWindow: input.value }, "tap");
-  if (input.dataset.action === "name") action({ action: "setName", id: input.dataset.id, characterName: input.value }, "tap");
-  if (input.dataset.action === "color") action({ action: "setColor", id: input.dataset.id, color: input.value }, "tap");
   if (input.dataset.action === "npcWeapon") action({ action: "setNpcWeapon", id: input.dataset.id, weaponId: input.value }, "tap");
 });
 
@@ -3562,6 +3628,13 @@ window.addEventListener("message", (event) => {
     safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
     gmMuteSound.classList.toggle("muted", gmSoundsMuted);
     gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
+    return;
+  }
+  if (message.type === "sa-player-sound-enabled") {
+    alertsEnabled = Boolean(message.enabled);
+    safeLocalStorageSet("sa-atb-alerts", alertsEnabled ? "on" : "off");
+    if (alertsEnabled) ensureAudio();
+    render();
     return;
   }
   const resolution = state?.itemResolution;

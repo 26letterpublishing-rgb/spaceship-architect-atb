@@ -375,7 +375,7 @@ function syncNpcDefeat(room, unit) {
   }
   const newlyDefeated = !unit.defeatedAt;
   unit.defeatedAt = Number(unit.defeatedAt) || Date.now();
-  unit.defeatRemovesAt = Number(unit.defeatRemovesAt) || unit.defeatedAt + 3500;
+  unit.defeatRemovesAt = Number(unit.defeatRemovesAt) || unit.defeatedAt + 5600;
   unit.atb = Math.min(unit.atb, Math.max(0, room.threshold - 0.001));
   if (newlyDefeated) pushLog(room, `${unit.characterName} was defeated.`);
   cancelNpcDefeat(room.roomCode, unit.id);
