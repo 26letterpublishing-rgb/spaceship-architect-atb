@@ -40,6 +40,94 @@ function safeCharacterName(record) {
   return String(record?.character?.identity?.characterName || "Unnamed Character").trim().slice(0, 80) || "Unnamed Character";
 }
 
+function rewardLabel(resource) {
+  return { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Group Credits" }[resource] || resource;
+}
+
+function characterRewardSnapshot(record) {
+  const character = record.character;
+  character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+  character.resources ||= {};
+  return {
+    id: record.id,
+    experience: clone(character.experience),
+    creditsBase: Number(character.resources.creditsBase) || 0,
+    reverence: Number(character.resources.reverence) || 0,
+  };
+}
+
+function applyCharacterReward(record, award) {
+  const character = record.character;
+  const resource = award.resource;
+  const amount = Math.round(Number(award.amount) || 0);
+  const before = characterRewardSnapshot(record);
+  let appliedAmount = amount;
+  let appliedResource = resource;
+  let messageDetail = "";
+
+  if (resource === "experience") {
+    const raceId = character.identity?.raceId;
+    const received = raceId === "android" ? 0 : raceId === "spiddix" ? Math.floor(amount / 2) : amount;
+    character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + received));
+    character.experience.totalGained = Math.max(
+      Number(character.experience.spent) + character.experience.available,
+      Math.round((Number(character.experience.totalGained) || 0) + amount),
+    );
+    appliedAmount = received;
+    if (received !== amount) messageDetail = raceId === "android"
+      ? " Androids do not receive Experience awards."
+      : ` Spiddix receives ${received.toLocaleString()} Experience after its racial adjustment.`;
+  }
+
+  const androidConversion = resource === "credits"
+    && amount > 0
+    && Array.isArray(award.androidExperienceIds)
+    && award.androidExperienceIds.includes(record.id);
+  if (androidConversion) {
+    const converted = Math.max(0, Math.floor(amount / 75));
+    character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + converted));
+    character.experience.totalGained = Math.max(
+      Number(character.experience.spent) + character.experience.available,
+      Math.round((Number(character.experience.totalGained) || 0) + converted),
+    );
+    appliedAmount = converted;
+    appliedResource = "experience";
+    messageDetail = ` Converted into ${converted.toLocaleString()} Android Experience.`;
+  } else if (resource === "credits") {
+    const current = Number(character.resources.creditsBase) || 0;
+    character.resources.creditsBase = Math.round(boundedNumber(current + amount, 0, 999999999));
+    appliedAmount = character.resources.creditsBase - current;
+  }
+
+  if (resource === "reverence") {
+    const current = Number(character.resources.reverence) || 0;
+    character.resources.reverence = Math.round(boundedNumber(current + amount, 0, 10));
+    appliedAmount = character.resources.reverence - current;
+    const wasted = Math.max(0, amount - appliedAmount);
+    if (wasted) messageDetail = ` ${wasted.toLocaleString()} excess Reverence was lost at the maximum of 10.`;
+  }
+
+  record.updatedAt = new Date().toISOString();
+  return { before, appliedAmount, appliedResource, messageDetail };
+}
+
+function trimAwardHistory(campaign) {
+  const history = Array.isArray(campaign.awardHistory) ? campaign.awardHistory : [];
+  const keep = new Set(history.slice(-20).map((award) => award.id));
+  for (const award of history) {
+    const claimed = new Set(Array.isArray(award.claimedCharacterIds) ? award.claimedCharacterIds : []);
+    if (award.claimRequired && (award.targetIds || []).some((id) => !claimed.has(id))) keep.add(award.id);
+  }
+  campaign.awardHistory = history.filter((award) => keep.has(award.id));
+}
+
+function limitedNotes(notes, limit) {
+  const recent = notes.slice(-limit);
+  const pending = notes.filter((note) => note.kind === "award" && note.rewardStatus === "pending");
+  const keep = new Set([...recent, ...pending].map((note) => note.id));
+  return notes.filter((note) => keep.has(note.id));
+}
+
 function normalizeInventoryItem(raw) {
   const chargesMax = raw?.chargesMax === null || raw?.chargesMax === undefined ? null : Math.max(0, Number(raw.chargesMax) || 0);
   return {
@@ -132,6 +220,7 @@ function trimPrivateNotes(campaign) {
   for (const record of campaign.characters || []) {
     notes.filter((note) => note.characterId === record.id).slice(-PLAYER_INBOX_LIMIT).forEach((note) => keep.add(note.id));
   }
+  notes.filter((note) => note.kind === "award" && note.rewardStatus === "pending").forEach((note) => keep.add(note.id));
   campaign.privateNotes = notes.filter((note) => keep.has(note.id));
 }
 function applyConditionalDelivery(campaign, record, action) {
@@ -140,28 +229,23 @@ function applyConditionalDelivery(campaign, record, action) {
     campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "message", message: action.message, createdAt: now, readAt: null });
     return { kind: "message" };
   }
-  const character = record.character;
-  character.experience ||= { available: 0, spent: 0, totalGained: 0 };
-  character.resources ||= {};
-  const before = { shipCredits: campaign.shipCredits, characters: [{ id: record.id, experience: clone(character.experience), creditsBase: Number(character.resources.creditsBase) || 0, reverence: Number(character.resources.reverence) || 0 }] };
   const resource = action.resource;
   const amount = Math.max(0, Math.round(Number(action.amount) || 0));
-  if (resource === "experience") {
-    const raceId = character.identity?.raceId;
-    const received = raceId === "android" ? 0 : raceId === "spiddix" ? Math.floor(amount / 2) : amount;
-    character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + received));
-    character.experience.totalGained = Math.max(Number(character.experience.spent) + character.experience.available, Math.round((Number(character.experience.totalGained) || 0) + amount));
-  }
-  if (resource === "credits") character.resources.creditsBase = Math.round(boundedNumber((Number(character.resources.creditsBase) || 0) + amount, 0, 999999999));
-  if (resource === "reverence") character.resources.reverence = Math.round(boundedNumber((Number(character.resources.reverence) || 0) + amount, 0, 10));
-  if (resource === "shipCredits") campaign.shipCredits = Math.round(boundedNumber((Number(campaign.shipCredits) || 0) + amount, 0, 999999999));
-  record.updatedAt = now;
-  const award = { id: uid("award"), resource, amount, targetIds: [record.id], before, at: now };
+  const award = {
+    id: uid("award"), resource, amount, targetIds: [record.id],
+    before: { shipCredits: campaign.shipCredits, characters: [] },
+    at: now, claimRequired: true, claimedCharacterIds: [], androidExperienceIds: [],
+  };
   campaign.awardHistory.push(award);
-  campaign.awardHistory = campaign.awardHistory.slice(-20);
-  const label = { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Group Credits" }[resource] || resource;
-  campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", awardId: award.id, message: `Successful ${action.attribute} + ${action.skill} check: awarded ${amount.toLocaleString()} ${label}.`, createdAt: now, readAt: null });
-  return { kind: "award", resource, amount, awardId: award.id };
+  trimAwardHistory(campaign);
+  campaign.privateNotes.push({
+    id: uid("note"), characterId: record.id, characterName: safeCharacterName(record),
+    direction: "to-character", kind: "award", awardId: award.id,
+    rewardResource: resource, rewardAmount: amount, rewardStatus: "pending",
+    message: `Successful ${action.attribute} + ${action.skill} check: ${amount.toLocaleString()} ${rewardLabel(resource)} is ready to receive.`,
+    createdAt: now, readAt: null,
+  });
+  return { kind: "award", resource, amount, awardId: award.id, pending: true };
 }
 
 function defaultCampaign({ code, name, gmCode }) {
@@ -214,7 +298,7 @@ function normalizeCampaign(raw) {
     keyword: String(action?.keyword || "").trim().slice(0, 60),
     kind: action?.kind === "award" ? "award" : "message",
     message: String(action?.message || "").trim().slice(0, 4000),
-    resource: ["experience", "credits", "reverence"].includes(action?.resource) ? action.resource : "experience",
+    resource: ["experience", "credits", "reverence", "shipCredits"].includes(action?.resource) ? action.resource : "experience",
     amount: Math.round(boundedNumber(action?.amount, 0, 999999999)),
     attribute: String(action?.attribute || "").slice(0, 40),
     skill: String(action?.skill || "").slice(0, 80),
@@ -247,7 +331,19 @@ function normalizeCampaign(raw) {
   campaign.bankerCharacterId = campaign.characters.some((record) => record.id === campaign.bankerCharacterId)
     ? campaign.bankerCharacterId
     : null;
-  campaign.awardHistory = Array.isArray(campaign.awardHistory) ? campaign.awardHistory.slice(-20) : [];
+  campaign.awardHistory = (Array.isArray(campaign.awardHistory) ? campaign.awardHistory : []).map((award) => ({
+    ...award,
+    id: String(award?.id || uid("award")),
+    resource: ["experience", "credits", "reverence", "shipCredits"].includes(award?.resource) ? award.resource : "experience",
+    amount: Math.round(Number(award?.amount) || 0),
+    targetIds: Array.isArray(award?.targetIds) ? [...new Set(award.targetIds.map(String))] : [],
+    before: award?.before && typeof award.before === "object" ? award.before : { shipCredits: campaign.shipCredits, characters: [] },
+    claimRequired: Boolean(award?.claimRequired),
+    claimedCharacterIds: Array.isArray(award?.claimedCharacterIds) ? [...new Set(award.claimedCharacterIds.map(String))] : [],
+    androidExperienceIds: Array.isArray(award?.androidExperienceIds) ? [...new Set(award.androidExperienceIds.map(String))] : [],
+    at: award?.at || new Date().toISOString(),
+  }));
+  trimAwardHistory(campaign);
   campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
   campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
     id: String(note?.id || uid("note")),
@@ -258,6 +354,11 @@ function normalizeCampaign(raw) {
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
+    rewardResource: ["experience", "credits", "reverence", "shipCredits"].includes(note?.rewardResource) ? note.rewardResource : "",
+    rewardAmount: Math.max(0, Math.round(Number(note?.rewardAmount) || 0)),
+    rewardStatus: ["pending", "claimed", "cancelled"].includes(note?.rewardStatus) ? note.rewardStatus : "",
+    rewardClaimedAt: note?.rewardClaimedAt || null,
+    rewardAppliedAmount: Math.max(0, Math.round(Number(note?.rewardAppliedAmount) || 0)),
     transactionId: String(note?.transactionId || ""),
     deficit: Math.max(0, Number(note?.deficit) || 0),
     reversible: Boolean(note?.reversible),
@@ -471,7 +572,7 @@ class CampaignApi {
         ...publicCharacter(record, {
           gm,
           own: record.id === ownId,
-          notes: (notesByCharacter.get(record.id) || []).slice(-PLAYER_INBOX_LIMIT),
+          notes: limitedNotes(notesByCharacter.get(record.id) || [], PLAYER_INBOX_LIMIT),
         }),
         connected: connectedIds.has(record.id),
       })),
@@ -1547,36 +1648,21 @@ class CampaignApi {
         sendJson(res, 400, { error: "A resource and non-zero amount are required." });
         return true;
       }
+      const targetRecords = resource === "shipCredits"
+        ? []
+        : campaign.characters.filter((entry) => targetIds.includes(entry.id));
+      if (resource !== "shipCredits" && !targetRecords.length) {
+        sendJson(res, 400, { error: "At least one campaign character is required." });
+        return true;
+      }
+      const claimRequired = resource !== "shipCredits" && amount > 0;
       const before = { shipCredits: campaign.shipCredits, characters: [] };
       if (resource === "shipCredits") {
         campaign.shipCredits = Math.round(boundedNumber(campaign.shipCredits + amount, 0, 999999999999));
-      } else {
-        for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
-          const character = record.character;
-          character.experience ||= { available: 0, spent: 0, totalGained: 0 };
-          character.resources ||= {};
-          before.characters.push({
-            id: record.id,
-            experience: clone(character.experience),
-            creditsBase: Number(character.resources.creditsBase) || 0,
-            reverence: Number(character.resources.reverence) || 0,
-          });
-          if (resource === "experience") {
-            const raceId = character.identity?.raceId;
-            const received = raceId === "android" ? 0 : raceId === "spiddix" ? Math.floor(amount / 2) : amount;
-            character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + received));
-            character.experience.totalGained = Math.max(
-              Number(character.experience.spent) + character.experience.available,
-              Math.round((Number(character.experience.totalGained) || 0) + amount),
-            );
-          }
-          if (resource === "credits" && amount > 0 && character.identity?.raceId === "android" && androidExperienceIds.has(record.id)) {
-            const converted = Math.max(0, Math.floor(amount / 75));
-            character.experience.available += converted;
-            character.experience.totalGained += converted;
-          } else if (resource === "credits") character.resources.creditsBase = Math.round(boundedNumber((Number(character.resources.creditsBase) || 0) + amount, 0, 999999999));
-          if (resource === "reverence") character.resources.reverence = Math.round(boundedNumber((Number(character.resources.reverence) || 0) + amount, 0, 10));
-          record.updatedAt = new Date().toISOString();
+      } else if (!claimRequired) {
+        for (const record of targetRecords) {
+          const result = applyCharacterReward(record, { resource, amount, androidExperienceIds: [...androidExperienceIds] });
+          before.characters.push(result.before);
         }
       }
       const award = {
@@ -1586,11 +1672,14 @@ class CampaignApi {
         targetIds,
         before,
         at: new Date().toISOString(),
+        claimRequired,
+        claimedCharacterIds: claimRequired ? [] : targetRecords.map((record) => record.id),
+        androidExperienceIds: [...androidExperienceIds],
       };
       if (resource !== "shipCredits") {
-        const label = { experience: "Experience", credits: "Credits", reverence: "Reverence" }[resource] || resource;
+        const label = rewardLabel(resource);
         const verb = amount > 0 ? "awarded" : "adjusted";
-        for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
+        for (const record of targetRecords) {
           const convertedAndroidAward = resource === "credits" && amount > 0 && record.character.identity?.raceId === "android" && androidExperienceIds.has(record.id);
           const androidExperience = convertedAndroidAward ? Math.max(0, Math.floor(amount / 75)) : 0;
           campaign.privateNotes.push({
@@ -1600,8 +1689,13 @@ class CampaignApi {
             direction: "to-character",
             kind: "award",
             awardId: award.id,
-            message: convertedAndroidAward
-              ? `The GM converted a ${Math.abs(amount).toLocaleString()} Credit award into ${androidExperience} Android Experience.`
+            rewardResource: claimRequired ? resource : "",
+            rewardAmount: claimRequired ? Math.abs(amount) : 0,
+            rewardStatus: claimRequired ? "pending" : "",
+            message: claimRequired
+              ? convertedAndroidAward
+                ? `The GM sent a reward worth ${Math.abs(amount).toLocaleString()} Credits, convertible into ${androidExperience} Android Experience.`
+                : `The GM sent ${Math.abs(amount).toLocaleString()} ${label}. Claim this reward when you are ready.`
               : `The GM ${verb} ${Math.abs(amount).toLocaleString()} ${label}.`,
             createdAt: award.at,
             readAt: null,
@@ -1609,9 +1703,76 @@ class CampaignApi {
         }
       }
       campaign.awardHistory.push(award);
-      campaign.awardHistory = campaign.awardHistory.slice(-20);
+      trimAwardHistory(campaign);
       await this.save(campaign);
       sendJson(res, 200, { award: clone(award), campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/award/claim" && req.method === "POST") {
+      const note = campaign.privateNotes.find((entry) => entry.id === body.noteId && entry.kind === "award");
+      if (!note || !this.characterSession(token, code, note.characterId)) {
+        sendJson(res, 403, { error: "That reward is not available to this character." });
+        return true;
+      }
+      if (note.rewardStatus === "claimed") {
+        sendJson(res, 200, { claimed: true, alreadyClaimed: true, campaign: this.state(campaign, token) });
+        return true;
+      }
+      if (note.rewardStatus !== "pending") {
+        sendJson(res, 409, { error: "That reward is no longer available." });
+        return true;
+      }
+      const award = campaign.awardHistory.find((entry) => entry.id === note.awardId && entry.claimRequired);
+      const record = campaign.characters.find((entry) => entry.id === note.characterId);
+      if (!award || !record || !award.targetIds.includes(record.id)) {
+        sendJson(res, 409, { error: "That reward has expired or was reversed by the GM." });
+        return true;
+      }
+      award.claimedCharacterIds ||= [];
+      if (award.claimedCharacterIds.includes(record.id)) {
+        note.rewardStatus = "claimed";
+        note.rewardClaimedAt ||= new Date().toISOString();
+        await this.save(campaign);
+        sendJson(res, 200, { claimed: true, alreadyClaimed: true, campaign: this.state(campaign, token) });
+        return true;
+      }
+
+      const result = award.resource === "shipCredits"
+        ? (() => {
+            const before = characterRewardSnapshot(record);
+            const previous = Number(campaign.shipCredits) || 0;
+            campaign.shipCredits = Math.round(boundedNumber(previous + award.amount, -999999999999, 999999999999));
+            award.before ||= { shipCredits: previous, characters: [] };
+            award.before.shipCredits = previous;
+            return {
+              before,
+              appliedAmount: campaign.shipCredits - previous,
+              appliedResource: "shipCredits",
+              messageDetail: " Added to the shared Group Credits pool.",
+            };
+          })()
+        : applyCharacterReward(record, award);
+      award.before ||= { shipCredits: campaign.shipCredits, characters: [] };
+      award.before.characters ||= [];
+      award.before.characters.push(result.before);
+      award.claimedCharacterIds.push(record.id);
+      note.rewardStatus = "claimed";
+      note.rewardClaimedAt = new Date().toISOString();
+      note.rewardAppliedAmount = Math.max(0, result.appliedAmount);
+      note.readAt = note.rewardClaimedAt;
+      const appliedLabel = rewardLabel(result.appliedResource);
+      note.message = result.appliedAmount > 0
+        ? `Received ${result.appliedAmount.toLocaleString()} ${appliedLabel}.${result.messageDetail}`
+        : `Reward processed.${result.messageDetail || " No points were added."}`;
+      trimAwardHistory(campaign);
+      await this.save(campaign);
+      sendJson(res, 200, {
+        claimed: true,
+        resource: result.appliedResource,
+        appliedAmount: result.appliedAmount,
+        campaign: this.state(campaign, token),
+      });
       return true;
     }
 
@@ -1625,7 +1786,7 @@ class CampaignApi {
         sendJson(res, 400, { error: "There is no award to undo." });
         return true;
       }
-      campaign.shipCredits = award.before.shipCredits;
+      if (award.resource === "shipCredits") campaign.shipCredits = award.before.shipCredits;
       for (const snapshot of award.before.characters || []) {
         const record = campaign.characters.find((entry) => entry.id === snapshot.id);
         if (!record) continue;
@@ -1635,8 +1796,9 @@ class CampaignApi {
         record.character.resources.reverence = snapshot.reverence;
         record.updatedAt = new Date().toISOString();
       }
+      campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.awardId === award.id && note.rewardStatus === "pending"));
       if (award.resource !== "shipCredits") {
-        const label = { experience: "Experience", credits: "Credits", reverence: "Reverence" }[award.resource] || award.resource;
+        const label = rewardLabel(award.resource);
         for (const snapshot of award.before.characters || []) {
           const record = campaign.characters.find((entry) => entry.id === snapshot.id);
           if (!record) continue;

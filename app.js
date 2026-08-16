@@ -43,6 +43,8 @@ let ringMovedId = "";
 let ringMovedTimeout = null;
 let lastBarOrder = [];
 const defeatedBarPositions = new Map();
+let defeatSequenceUntil = 0;
+let defeatSequenceTimer = null;
 let delayModalState = null;
 let queuedEffectModalState = null;
 let playerPreviewRecord = null;
@@ -335,6 +337,7 @@ const defeatSlashAudio = new Audio("sword-slash.m4a");
 defeatSlashAudio.preload = "auto";
 defeatSlashAudio.volume = 0.78;
 const DEFEAT_FLASH_DELAY_MS = 4050;
+const DEFEAT_SEQUENCE_MS = 5600;
 let npcWeaponCatalog = [];
 
 function savedCharacterAtbColor() {
@@ -1443,6 +1446,27 @@ function setConnected(isConnected, message) {
     : message || "Cannot reach the ATB room server. Start the server launcher, then refresh this page.";
 }
 
+function defeatSequenceActive() {
+  return Date.now() < defeatSequenceUntil;
+}
+
+function beginDefeatSequence() {
+  defeatSequenceUntil = Math.max(defeatSequenceUntil, Date.now() + DEFEAT_SEQUENCE_MS);
+  hideActionSheet();
+  closeTurnPanel();
+  if (embeddedPlayer && window.parent !== window) {
+    window.parent.postMessage({
+      type: "sa-combat-defeat-sequence",
+      duration: Math.max(0, defeatSequenceUntil - Date.now()),
+    }, window.location.origin);
+  }
+  clearTimeout(defeatSequenceTimer);
+  defeatSequenceTimer = window.setTimeout(() => {
+    defeatSequenceTimer = null;
+    render();
+  }, Math.max(0, defeatSequenceUntil - Date.now()) + 30);
+}
+
 function receiveState(nextState, { force = false } = {}) {
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
@@ -1465,6 +1489,7 @@ function receiveState(nextState, { force = false } = {}) {
   const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
   if (newlyDefeated.length) {
+    if (mode === "player") beginDefeatSequence();
     const defeatedIds = new Set(newlyDefeated.map((unit) => unit.id));
     window.setTimeout(() => {
       const defeatedStillVisible = (state?.units || []).some((unit) => defeatedIds.has(unit.id) && unit.defeatedAt);
@@ -2775,15 +2800,16 @@ function render() {
   renderRejoinOptions();
   const active = activeUnit();
   const mine = state.units.find((unit) => unit.id === myUnitId);
+  const playerDeathSequence = mode === "player" && defeatSequenceActive();
   if (mode === "gm" && active?.team === "npc" && !state.attackResolution) {
     window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
   }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
   const waitingThree = mine?.timedAction?.kind === "wait";
-  const showMineOverlay = mode === "player" && Boolean(mine) && !waitingThree && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  const showMineOverlay = mode === "player" && !playerDeathSequence && Boolean(mine) && !waitingThree && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
-  document.body.classList.toggle("other-turn-active", mode === "player" && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
+  document.body.classList.toggle("other-turn-active", mode === "player" && !playerDeathSequence && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
   document.body.classList.toggle("player-combat-preview", playerPreviewMode);
   if (embeddedPlayer && window.parent !== window) {
     window.parent.postMessage({ type: "sa-combat-layout", preview: playerPreviewMode }, window.location.origin);
@@ -2824,12 +2850,17 @@ function render() {
     renderPlayerCommand(null);
   }
 
-  if (state.attackResolution || state.itemResolution) {
+  if (state.attackResolution || state.itemResolution || playerDeathSequence) {
     closeTurnPanel();
     hideActionSheet();
   }
-  renderAttackResolution(mine || null);
-  renderItemResolution(mine || null);
+  if (playerDeathSequence) {
+    attackResolutionPanel?.classList.add("hidden");
+    firstAidResolutionPanel?.classList.add("hidden");
+  } else {
+    renderAttackResolution(mine || null);
+    renderItemResolution(mine || null);
+  }
 
   logList.innerHTML = state.log
     .slice()
@@ -2838,7 +2869,7 @@ function render() {
     .join("");
 
   if (!state.pausedForTurn && turnPanelOpen()) closeTurnPanel();
-  notifyTurnIfNeeded();
+  if (!playerDeathSequence) notifyTurnIfNeeded();
   notifyInterruptionIfNeeded();
   notifyDamageIfNeeded();
   queueGmDelayRequestPrompt();

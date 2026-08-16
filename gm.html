@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260816-storage-give" />
+  <link rel="stylesheet" href="gm.css?v=20260816-reward-death" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -65,7 +65,10 @@
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
-            <div class="script-heading-actions"><strong id="scriptSaveState">Saved</strong></div>
+            <div class="script-heading-actions">
+              <label>Recipient<select id="scriptRecipient"><option value="all">All PCs</option></select></label>
+              <strong id="scriptSaveState">Saved</strong>
+            </div>
           </div>
           <div class="script-chapter-console">
             <div id="scriptChapterTabs" class="script-chapter-tabs" aria-label="Script chapters"></div>
@@ -80,8 +83,6 @@
             <h3>Insert Roll Command</h3>
             <div class="builder-grid">
               <label>Command<select id="scriptCommandType"><option value="">Direct Roll</option></select></label>
-              <label>Recipients<select id="scriptScope"><option>All Players</option><option>Choose PC</option><option>Target Character</option></select></label>
-              <label id="scriptTargetWrap" hidden>Target Character<select id="scriptTarget"></select></label>
               <label>Attribute<select id="scriptAttribute"></select></label>
               <label>Skill<select id="scriptSkill"></select></label>
               <label>Difficulty (Optional)<input id="scriptDifficulty" type="number" min="0" step="0.1" /></label>
@@ -300,6 +301,6 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
-  <script type="module" src="gm.js?v=20260816-storage-give"></script>
+  <script type="module" src="gm.js?v=20260816-reward-death"></script>
   </body>
 </html>

@@ -821,7 +821,7 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
 .skill-dice-results{width:min(680px,100%);margin:0 auto 10px;display:grid;gap:3px;padding:8px 12px;border:1px solid #2e4b64;background:rgba(2,8,14,.76);text-align:left}
 .skill-dice-results span{color:#8fa8bd;font-size:.66rem;font-weight:850;line-height:1.35}
 .skill-dice-results strong{color:#e9fbff;font-size:.9rem;line-height:1.35;text-shadow:0 0 8px rgba(43,216,255,.34)}
-.rule-choice-modal{width:min(650px,100%)}.rule-choice-fields{display:grid;gap:9px;margin:12px 0}.rule-choice-fields label{display:grid;gap:5px}.private-note-actions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.private-note-actions button{float:none;min-height:32px}.player-atb-actions{display:flex;flex-wrap:wrap;gap:6px}.embedded-sheet .creator-header,.embedded-sheet .character-tabs,.embedded-sheet .saved-character-bar,.embedded-sheet #backToMenu,.embedded-sheet .campaign-banner-room{display:none!important}.embedded-sheet .creator-shell{width:100%;margin-top:0}.embedded-sheet .character-workspace{margin-top:0}
+.rule-choice-modal{width:min(650px,100%)}.rule-choice-fields{display:grid;gap:9px;margin:12px 0}.rule-choice-fields label{display:grid;gap:5px}.private-note-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}.private-note-actions button{float:none;min-height:32px}.private-note.pending-reward{border-color:#f6d267;box-shadow:0 0 18px rgba(246,210,103,.16)}.reward-claim-actions .claim-reward{color:#07110a;border-color:#7ff3b7;background:linear-gradient(180deg,#b6ffd9,#39d98c);font-weight:800}.reward-claim-actions small{color:#b9c8d5}.player-atb-actions{display:flex;flex-wrap:wrap;gap:6px}.embedded-sheet .creator-header,.embedded-sheet .character-tabs,.embedded-sheet .saved-character-bar,.embedded-sheet #backToMenu,.embedded-sheet .campaign-banner-room{display:none!important}.embedded-sheet .creator-shell{width:100%;margin-top:0}.embedded-sheet .character-workspace{margin-top:0}
 .reverence-footer{min-height:29px}
 
 @media(min-width:1081px){
@@ -1459,6 +1459,7 @@ html { -webkit-text-size-adjust:100%; }
 
 /* Staged firearm roll and Damage presentation. */
 .combat-damage-modal { z-index: 2600; }
+.combat-death-sequence .campaign-roll-prompt { display:none!important; }
 .combat-damage-dialog { width: min(680px, 100%); }
 .combat-damage-summary {
   grid-template-columns: repeat(3, minmax(0,1fr));

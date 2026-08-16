@@ -38,9 +38,7 @@ const dom = {
   renameScriptChapter: $("#renameScriptChapter"),
   deleteScriptChapter: $("#deleteScriptChapter"),
   scriptCommandType: $("#scriptCommandType"),
-  scriptScope: $("#scriptScope"),
-  scriptTargetWrap: $("#scriptTargetWrap"),
-  scriptTarget: $("#scriptTarget"),
+  scriptRecipient: $("#scriptRecipient"),
   scriptAttribute: $("#scriptAttribute"),
   scriptSkill: $("#scriptSkill"),
   scriptDifficulty: $("#scriptDifficulty"),
@@ -155,7 +153,6 @@ let editingConditionalActionId = "";
 let selectedTargets = new Set();
 let targetSelectionTouched = false;
 const executedCommands = new Set();
-const scriptTargetSelections = new Map();
 let pendingRestoreBackup = null;
 let encounterState = null;
 let npcSequence = 0;
@@ -546,8 +543,8 @@ function renderRollResults() {
 
 function parseCommand(raw, index) {
   const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
-  const scopePart = parts.shift() || "";
-  const rollPart = parts.shift() || "";
+  let rollPart = parts.shift() || "";
+  if (/^(all players|all pcs|choose pc|target character)/i.test(rollPart)) rollPart = parts.shift() || "";
   let [attribute, skill] = rollPart.split("+").map((part) => part?.trim());
   const difficultyPart = parts.find((part) => /^difficulty\s+/i.test(part));
   let difficulty = difficultyPart ? Number(difficultyPart.replace(/^difficulty\s+/i, "")) : null;
@@ -562,21 +559,11 @@ function parseCommand(raw, index) {
     difficulty = Number(conditionalAction.difficulty);
     hideDifficulty = Boolean(conditionalAction.hideDifficulty);
   }
-  let scope = "";
-  let targetName = "";
-  if (/^all players$/i.test(scopePart)) scope = "all";
-  else if (/^choose pc$/i.test(scopePart)) scope = "choose";
-  else if (/^target character/i.test(scopePart)) {
-    scope = "target";
-    targetName = scopePart.split(":").slice(1).join(":").trim();
-  }
   const validAttribute = ATTRIBUTE_DEFS.some((definition) => definition.label.toLowerCase() === String(attribute || "").toLowerCase());
   const validSkill = allSkills.some((entry) => entry.toLowerCase() === String(skill || "").toLowerCase());
   return {
     id: `script-command-${index}`,
     raw,
-    scope,
-    targetName,
     attribute,
     skill,
     keyword,
@@ -584,7 +571,7 @@ function parseCommand(raw, index) {
     conditionalAction,
     difficulty: Number.isFinite(difficulty) ? difficulty : null,
     hideDifficulty,
-    valid: Boolean(scope && validAttribute && validSkill && (!keyword || conditionalAction)),
+    valid: Boolean(validAttribute && validSkill && (!keyword || conditionalAction)),
   };
 }
 
@@ -966,14 +953,10 @@ function renderScriptEditor(source = scriptSource()) {
   while ((match = expression.exec(source))) {
     pieces.push(escapeHtml(source.slice(cursor, match.index)));
     const command = commands[index];
-    const selectionKey = `${index}:${command?.raw || ""}`;
-    const selectedTargetId = scriptTargetSelections.get(selectionKey) || "";
-    const options = (campaign?.characters || []).map((record) => `<option value="${record.id}" ${record.id === selectedTargetId ? "selected" : ""}>${escapeHtml(characterName(record))}${record.connected ? " | Connected" : " | Offline"}</option>`).join("");
-    const needsSelection = command?.scope === "choose" || (command?.scope === "target" && !command.targetName);
     const label = command?.valid
       ? command.keyword || `${command.skill || command.attribute} Check`
       : `INVALID ROLL PROMPT / ${match[1].trim()}`;
-    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button>${needsSelection ? `<select class="script-inline-target" data-command-target="${index}"><option value="">Choose Character</option>${options}</select>` : ""}</span>&#8203;`);
+    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button></span>&#8203;`);
     cursor = expression.lastIndex;
     index += 1;
   }
@@ -1018,7 +1001,9 @@ function renderCampaign() {
   if (document.activeElement !== dom.universalCommandWindowBonus) {
     dom.universalCommandWindowBonus.value = String(Math.max(0, Number(campaign.settings?.commandWindowBonus) || 0));
   }
-  dom.scriptTarget.innerHTML = campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("");
+  const selectedRecipient = dom.scriptRecipient.value || "all";
+  dom.scriptRecipient.innerHTML = `<option value="all">All PCs</option>${campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}${record.connected ? "" : " (Offline)"}</option>`).join("")}`;
+  dom.scriptRecipient.value = campaign.characters.some((record) => record.id === selectedRecipient) ? selectedRecipient : "all";
   dom.bankerCharacter.innerHTML = `<option value="">No Banker - Any PC May Use Pool</option>${campaign.characters.map((record) => `<option value="${record.id}">${escapeHtml(characterName(record))}</option>`).join("")}`;
   dom.bankerCharacter.value = campaign.bankerCharacterId || "";
   renderScriptChapterControls();
@@ -1260,13 +1245,6 @@ dom.deleteScriptChapter.addEventListener("click", async () => {
   }
 });
 
-dom.script.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-command-target]");
-  if (!select) return;
-  const index = Number(select.dataset.commandTarget);
-  const command = scriptCommandList()[index];
-  if (command) scriptTargetSelections.set(`${index}:${command.raw}`, select.value);
-});
 dom.script.addEventListener("input", () => {
   rememberScriptSelection();
   scriptDirty = true;
@@ -1306,15 +1284,11 @@ function syncScriptCommandType() {
   [dom.scriptAttribute, dom.scriptSkill, dom.scriptDifficulty, dom.scriptHideDifficulty].forEach((control) => { control.disabled = savedAction; });
 }
 dom.scriptCommandType.addEventListener("change", syncScriptCommandType);
-dom.scriptScope.addEventListener("change", () => { dom.scriptTargetWrap.hidden = dom.scriptScope.value !== "Target Character"; });
 dom.insertCommand.addEventListener("click", () => {
-  const scope = dom.scriptScope.value === "Target Character"
-    ? `Target Character:${characterName(campaign.characters.find((record) => record.id === dom.scriptTarget.value))}`
-    : dom.scriptScope.value;
   const savedAction = (campaign?.conditionalActions || []).find((entry) => entry.id === dom.scriptCommandType.value);
   const parts = [savedAction
-    ? `${scope}/Keyword:${savedAction.keyword}`
-    : `${scope}/${dom.scriptAttribute.value}+${dom.scriptSkill.value}`];
+    ? `Keyword:${savedAction.keyword}`
+    : `${dom.scriptAttribute.value}+${dom.scriptSkill.value}`];
   if (!savedAction && dom.scriptDifficulty.value !== "") parts.push(`Difficulty ${dom.scriptDifficulty.value}`);
   if (!savedAction && dom.scriptHideDifficulty.checked) parts.push("Hidden");
   const command = `::${parts.join("/")}::`;
@@ -1341,22 +1315,12 @@ dom.script.addEventListener("click", async (event) => {
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
   if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this roll request again?", acceptLabel: "Send Again" })) return;
-  let targets = [];
-  if (command.scope === "all") targets = campaign.characters.filter((record) => record.connected).map((record) => record.id);
-  if (["choose", "target"].includes(command.scope)) {
-    const select = dom.script.querySelector(`[data-command-target="${index}"]`);
-    const selectionKey = `${index}:${command.raw}`;
-    const namedTarget = command.targetName
-      ? campaign.characters.find((record) => characterName(record).toLowerCase() === command.targetName.toLowerCase())?.id
-      : "";
-    const selectedId = select?.value || scriptTargetSelections.get(selectionKey) || namedTarget;
-    if (selectedId) {
-      scriptTargetSelections.set(selectionKey, selectedId);
-      targets = [selectedId];
-    }
-  }
+  const selectedRecipient = dom.scriptRecipient.value || "all";
+  const targets = selectedRecipient === "all"
+    ? campaign.characters.filter((record) => record.connected).map((record) => record.id)
+    : campaign.characters.some((record) => record.id === selectedRecipient) ? [selectedRecipient] : [];
   if (!targets.length) {
-    showMessage(dom.message, "Choose a target character for that command.", "error");
+    showMessage(dom.message, selectedRecipient === "all" ? "No PCs are currently connected." : "Choose a valid Story Console recipient.", "error");
     return;
   }
   try {
@@ -1367,7 +1331,7 @@ dom.script.addEventListener("click", async (event) => {
       difficulty: command.difficulty,
       hideDifficulty: command.hideDifficulty,
       source: `Script: ${command.raw}`,
-      connectedOnly: command.scope === "all",
+      connectedOnly: selectedRecipient === "all",
       completionActionId: command.conditionalActionId,
     });
     executedCommands.add(command.id);
@@ -1599,7 +1563,10 @@ dom.awardForm.addEventListener("submit", async (event) => {
     receiveCampaign(payload.campaign);
     const amount = Number(dom.awardAmount.value).toLocaleString();
     const recipients = resource === "shipCredits" ? "Group Credits" : selectedRecords().map(characterName).join(", ");
-    showMessage(dom.awardMessage, `${amount} ${dom.awardResource.selectedOptions[0].text} delivered to ${recipients}.`, "success");
+    const pendingClaim = resource !== "shipCredits" && Number(dom.awardAmount.value) > 0;
+    showMessage(dom.awardMessage, pendingClaim
+      ? `${amount} ${dom.awardResource.selectedOptions[0].text} sent to ${recipients}. Players can receive it from their inbox.`
+      : `${amount} ${dom.awardResource.selectedOptions[0].text} applied to ${recipients}.`, "success");
   } catch (error) {
     showMessage(dom.awardMessage, error.message, "error");
   }

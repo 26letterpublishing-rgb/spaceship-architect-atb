@@ -548,6 +548,10 @@ let pendingCombatRequest = null;
 let lastReceivedCombatRequestKey = "";
 let activeCombatDamageRequest = null;
 let combatDamageSubmitted = false;
+let combatDeathSequenceUntil = 0;
+let combatDeathSequenceTimer = null;
+let suspendedSkillPromptForDefeat = false;
+let suspendedDamagePromptForDefeat = false;
 let speedPreviewFrame = null;
 let speedPreviewStartedAt = performance.now();
 let speedPreviewValue = null;
@@ -1557,6 +1561,9 @@ function showPinEntry(characterId) {
 }
 
 function privateNoteActions(note) {
+  if (note.kind === "award" && note.rewardStatus === "pending") {
+    return `<div class="private-note-actions reward-claim-actions"><button type="button" class="claim-reward" data-claim-reward="${escapeAttribute(note.id)}">Receive Reward</button><small>Applied once to this character when claimed.</small></div>`;
+  }
   if (note.kind !== "science-choice" || !Array.isArray(note.choices)) return "";
   return `<div class="private-note-actions">${note.choices.map((skill) => `<button type="button" data-science-choice="${escapeAttribute(skill)}" data-note-id="${escapeAttribute(note.id)}">+0.1 ${escapeHtml(skill)}</button>`).join("")}</div>`;
 }
@@ -1575,14 +1582,15 @@ function refreshPrivateNotes() {
       : note.kind === "damage"
         ? "COMBAT DAMAGE"
       : note.kind === "award"
-        ? "GM AWARD"
+        ? note.rewardStatus === "pending" ? "REWARD READY" : "GM AWARD"
         : note.kind === "system"
           ? "CAMPAIGN NOTICE"
           : note.direction === "to-gm"
             ? "MESSAGE SENT"
             : "PRIVATE GM MESSAGE";
-    return `<article class="private-note ${note.direction !== "to-gm" && !note.readAt ? "unread" : "read"}" data-note-id="${note.id}">
-      <small>${label} | ${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}<button type="button" data-delete-note="${note.id}">Delete</button>
+    const pendingReward = note.kind === "award" && note.rewardStatus === "pending";
+    return `<article class="private-note ${note.direction !== "to-gm" && !note.readAt ? "unread" : "read"} ${pendingReward ? "pending-reward" : ""}" data-note-id="${note.id}">
+      <small>${label} | ${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}${pendingReward ? "" : `<button type="button" data-delete-note="${note.id}">Delete</button>`}
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
 }
@@ -2451,7 +2459,9 @@ function renderClass() {
   const raceContent = customRace
     ? `<p class="modifier-empty">Custom race rules can be recorded in the Unique Advantages / Disadvantages field below.</p>`
     : raceDefinition
-      ? `${modifierRulesMarkup("Racial Advantages", raceAdvantages, "advantage")}${modifierRulesMarkup("Racial Disadvantages", raceDisadvantages, "disadvantage")}`
+      ? raceDefinition.types?.length && !raceType
+        ? `<p class="modifier-empty race-type-required">choose race type from secondary drop down menu</p>`
+        : `${modifierRulesMarkup("Racial Advantages", raceAdvantages, "advantage")}${modifierRulesMarkup("Racial Disadvantages", raceDisadvantages, "disadvantage")}`
       : `<p class="modifier-empty">Choose a race to display its 1E advantages and disadvantages.</p>`;
   const classContent = character.identity.classId
     ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}${modifierRulesMarkup("Class Disadvantages", [], "disadvantage")}`
@@ -3381,8 +3391,54 @@ function openCombatDamageRequest(request) {
   document.body.classList.add("skill-check-open");
 }
 
+function combatDeathSequenceActive() {
+  return Date.now() < combatDeathSequenceUntil;
+}
+
+function beginCombatDeathSequence(duration) {
+  combatDeathSequenceUntil = Math.max(combatDeathSequenceUntil, Date.now() + Math.max(0, Number(duration) || 5600));
+  document.body.classList.add("combat-death-sequence");
+  suspendedSkillPromptForDefeat = false;
+  suspendedDamagePromptForDefeat = false;
+
+  if (skillCheck && !diceRoller.isActive()) {
+    if (!dom.skillResultStage.hidden) closeSkillCheck({ discardCombat: true });
+    else if (!dom.skillCheckModal.hidden) {
+      dom.skillCheckModal.hidden = true;
+      document.body.classList.remove("skill-check-open");
+      suspendedSkillPromptForDefeat = true;
+    }
+  }
+  if (!dom.combatDamageModal.hidden) {
+    if (combatDamageSubmitted && !dom.exitCombatDamageResult.hidden) closeCombatDamageResult({ processNext: false });
+    else {
+      dom.combatDamageModal.hidden = true;
+      document.body.classList.remove("skill-check-open");
+      suspendedDamagePromptForDefeat = true;
+    }
+  }
+
+  showCharacterPanel("atb");
+  window.clearTimeout(combatDeathSequenceTimer);
+  combatDeathSequenceTimer = window.setTimeout(() => {
+    combatDeathSequenceTimer = null;
+    document.body.classList.remove("combat-death-sequence");
+    if (suspendedSkillPromptForDefeat && skillCheck) {
+      dom.skillCheckModal.hidden = false;
+      document.body.classList.add("skill-check-open");
+    }
+    if (suspendedDamagePromptForDefeat && activeCombatDamageRequest && !combatDamageSubmitted) {
+      dom.combatDamageModal.hidden = false;
+      document.body.classList.add("skill-check-open");
+    }
+    suspendedSkillPromptForDefeat = false;
+    suspendedDamagePromptForDefeat = false;
+    processPendingCombatRequest();
+  }, Math.max(0, combatDeathSequenceUntil - Date.now()) + 40);
+}
+
 function processPendingCombatRequest() {
-  if (!pendingCombatRequest || skillCheck || diceRoller.isActive() || !dom.combatDamageModal.hidden) return;
+  if (combatDeathSequenceActive() || !pendingCombatRequest || skillCheck || diceRoller.isActive() || !dom.combatDamageModal.hidden) return;
   const request = pendingCombatRequest;
   pendingCombatRequest = null;
   if (request.type === "damage") openCombatDamageRequest(request);
@@ -3426,6 +3482,12 @@ function closeCombatDamageResult(options = {}) {
 }
 
 function resetCombatInterfaceState({ clearFrame = false } = {}) {
+  window.clearTimeout(combatDeathSequenceTimer);
+  combatDeathSequenceTimer = null;
+  combatDeathSequenceUntil = 0;
+  suspendedSkillPromptForDefeat = false;
+  suspendedDamagePromptForDefeat = false;
+  document.body.classList.remove("combat-death-sequence");
   pendingCombatRequest = null;
   lastReceivedCombatRequestKey = "";
   if (skillCheck?.combatRequest) closeSkillCheck({ discardCombat: true });
@@ -3466,8 +3528,10 @@ function rollCombatDamage() {
     onSettled: (results) => {
       document.body.classList.remove("skill-roll-active");
       diceRoller.stop();
-      dom.combatDamageModal.hidden = false;
+      const deathActive = combatDeathSequenceActive();
+      if (!deathActive) dom.combatDamageModal.hidden = false;
       finishCombatDamage(Math.max(0, results.reduce((sum, value) => sum + value, 0) + parsed.flat), "automatic", results);
+      if (deathActive) closeCombatDamageResult({ processNext: false });
     },
   });
 }
@@ -6089,6 +6153,10 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if (event.data?.type === "sa-combat-defeat-sequence") {
+    beginCombatDeathSequence(event.data.duration);
+    return;
+  }
   if (event.data?.type === "sa-combat-layout") {
     const preview = Boolean(event.data.preview);
     dom.playerAtbFrame.closest(".player-atb-live")?.classList.toggle("combat-preview", preview);
@@ -6176,6 +6244,39 @@ dom.angilurosSpeedBoost?.addEventListener("click", async () => {
 });
 
 dom.privateNotesList?.addEventListener("click", async (event) => {
+  const claimButton = event.target.closest("[data-claim-reward]");
+  if (claimButton && campaignEditable) {
+    claimButton.disabled = true;
+    const originalLabel = claimButton.textContent;
+    claimButton.textContent = "Receiving...";
+    try {
+      const saved = await saveCampaignCharacter({ force: true });
+      if (!saved && campaignDirty) throw new Error("Save the character before receiving this reward.");
+      const payload = await campaignRequest("/api/campaign/award/claim", {
+        method: "POST",
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: claimButton.dataset.claimReward }),
+      });
+      campaignState = payload.campaign;
+      cacheCampaign(payload.campaign);
+      const remote = payload.campaign?.characters?.find((entry) => entry.id === campaignCharacterId);
+      if (remote) showCampaignCharacter(remote, { editable: true, token: campaignToken, pin: campaignPin });
+      else receiveCampaignState(payload.campaign);
+      const amount = Number(payload.appliedAmount) || 0;
+      const rewardName = payload.resource === "credits"
+        ? "Credits"
+        : payload.resource === "reverence"
+          ? "Reverence"
+          : payload.resource === "shipCredits"
+            ? "Group Credits"
+            : "Experience";
+      notice(amount > 0 ? `${amount.toLocaleString()} ${rewardName} received.` : "Reward processed.", "success");
+    } catch (error) {
+      claimButton.disabled = false;
+      claimButton.textContent = originalLabel;
+      notice(error.message, "error");
+    }
+    return;
+  }
   const button = event.target.closest("[data-delete-note]");
   if (!button || !campaignEditable) return;
   try {

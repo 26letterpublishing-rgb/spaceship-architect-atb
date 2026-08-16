@@ -32,6 +32,9 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .script-command-token{display:inline-flex;max-width:100%;align-items:center;vertical-align:middle;white-space:normal}
 .script-command-token::selection,.script-command-token *::selection{background:rgba(255,92,112,.45)}
 .script-heading-actions strong{color:var(--green);font-size:.68rem;text-transform:uppercase}
+.script-heading-actions label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:.62rem;text-transform:uppercase}
+.script-heading-actions select{width:auto;min-width:150px;min-height:35px;padding-block:4px}
+@media(max-width:650px){.script-heading-actions{align-items:flex-end}.script-heading-actions select{min-width:132px}}
 .tool-message{min-height:18px;margin:0;color:var(--muted);font-size:.66rem;line-height:1.25}
 .tool-message.error{color:var(--red)}
 .tool-message.success{color:var(--green)}
