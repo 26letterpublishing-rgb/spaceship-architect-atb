@@ -1526,6 +1526,12 @@ button,
 /* Final compact sheet polish */
 .credits-card>span{color:#ffe35c!important;text-shadow:0 0 8px rgba(255,220,68,.28)}
 .character-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(113,54,207,.28)}
+.character-tabs button{--tab-color:#31cdea;--tab-dark:#082638;border-top:3px solid var(--tab-color)!important;color:color-mix(in srgb,var(--tab-color) 64%,white);background:linear-gradient(180deg,color-mix(in srgb,var(--tab-color) 10%,#091521),#091521 48%)!important}
+.character-tabs button[data-character-tab="sheet"]{--tab-color:#42d9ff;--tab-dark:#073047}
+.character-tabs button[data-character-tab="roster"]{--tab-color:#4ee29a;--tab-dark:#073525}
+.character-tabs button[data-character-tab="atb"]{--tab-color:#ff685f;--tab-dark:#46130f}
+.character-tabs button[data-character-tab="settings"]{--tab-color:#8aa8c4;--tab-dark:#172a3a}
+.character-tabs button.active{border-color:var(--tab-color)!important;color:#f8fcff!important;background:linear-gradient(180deg,color-mix(in srgb,var(--tab-color) 86%,white 8%),var(--tab-dark))!important;box-shadow:inset 0 1px rgba(255,255,255,.45),0 0 16px color-mix(in srgb,var(--tab-color) 28%,transparent)!important;text-shadow:0 1px 1px #000!important}
 .sheet-grid{align-items:start}.sheet-panel{min-height:0}.crew-panel{grid-column:9/-1}.notes-panel,.weapons-panel,.gear-panel,.storage-panel{grid-column:1/-1}
 /* Per-device compact header preference. */
 .interface-banner-hidden .creator-header {

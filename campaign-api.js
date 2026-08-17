@@ -534,6 +534,7 @@ function normalizeCampaign(raw) {
     mentalSkill: boundedNumber(template?.mentalSkill, 0, 4),
     heldWeaponId: String(template?.heldWeaponId || "unarmed").slice(0, 100),
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
+    allyNpc: Boolean(template?.allyNpc ?? template?.ally),
   }));
   campaign.sessionNumber = Math.max(0, Math.round(Number(campaign.sessionNumber) || 0));
   normalizeDramaDeck(campaign);

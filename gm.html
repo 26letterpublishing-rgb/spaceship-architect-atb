@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260817-campaign-recovery" />
+  <link rel="stylesheet" href="gm.css?v=20260817-ally-tabs" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -270,10 +270,11 @@
             </section>
             <section class="settings-card">
               <h3>Interface Banner</h3>
-              <p>Hide the Spaceship Architect banner and room code on this device. The main welcome screen remains unchanged.</p>
+              <p>Choose how the campaign header appears on this device. The main welcome screen remains unchanged.</p>
               <div id="gmBannerVisibilityToggle" class="gm-banner-visibility" role="radiogroup" aria-label="Interface banner visibility">
-                <button type="button" data-banner-visible="true" role="radio" aria-checked="true" class="active">Show Banner</button>
-                <button type="button" data-banner-visible="false" role="radio" aria-checked="false">Hide Banner</button>
+                <button type="button" data-banner-mode="show" role="radio" aria-checked="true" class="active">Show Banner</button>
+                <button type="button" data-banner-mode="hide-code" role="radio" aria-checked="false">Hide Room Code</button>
+                <button type="button" data-banner-mode="hidden" role="radio" aria-checked="false">Hide Banner</button>
               </div>
             </section>
             <section class="settings-card streaming-privacy-card">
@@ -324,6 +325,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260817-campaign-recovery"></script>
+  <script type="module" src="gm.js?v=20260817-ally-tabs"></script>
   </body>
 </html>

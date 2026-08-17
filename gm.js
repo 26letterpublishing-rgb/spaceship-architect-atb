@@ -179,10 +179,11 @@ let premadeNpcDraft = null;
 let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
-const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f" };
+const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false };
 const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
+const BANNER_MODE_KEY = "sa-interface-banner-mode-v2";
 let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "off";
-let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
+let interfaceBannerMode = localStorage.getItem(BANNER_MODE_KEY) || (localStorage.getItem(BANNER_VISIBILITY_KEY) === "hidden" ? "hidden" : "show");
 let settingsRoomCodeRevealed = false;
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let gmDialogState = null;
@@ -831,6 +832,7 @@ function npcEditorMarkup(npc) {
       <label>Move<input data-npc-field="moveSpeed" type="number" min="1" max="30" step="0.1" value="${npc.moveSpeed}" /></label>
       <label>HP<input data-npc-field="maximumHp" type="number" min="1" max="999999" step="1" value="${npc.maximumHp}" /></label>
       <label>Color<input data-npc-field="color" type="color" value="${escapeHtml(npc.color)}" /></label>
+      <label class="npc-ally-field"><input data-npc-field="allyNpc" type="checkbox" ${npc.allyNpc ? "checked" : ""} /> Ally</label>
     </div>
     <div class="npc-card-stats">
       <label>Physical Attribute <span>2-20</span><input data-npc-field="physicalAttribute" type="number" min="2" max="20" step="1" value="${npc.physicalAttribute}" /></label>
@@ -844,6 +846,10 @@ function npcEditorMarkup(npc) {
 
 function updateNpcField(npc, field, value) {
   if (!npc || !field) return;
+  if (field === "allyNpc") {
+    npc.allyNpc = Boolean(value);
+    return;
+  }
   const ranges = {
     speed: [0.1, 100], moveSpeed: [1, 30], maximumHp: [1, 999999],
     physicalAttribute: [2, 20], mentalAttribute: [2, 20], physicalSkill: [0, 4], mentalSkill: [0, 4],
@@ -869,6 +875,7 @@ function npcTemplatePayload(npc) {
     mentalSkill: Number(npc.mentalSkill) || 0,
     heldWeaponId: npc.heldWeaponId || "unarmed",
     color: npc.color || "#39e58f",
+    allyNpc: Boolean(npc.allyNpc),
   };
 }
 
@@ -929,7 +936,7 @@ function renderEncounterBuilder() {
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   dom.encounterNpcEditor.innerHTML = npcEditorMarkup(encounterNpcDraft);
   dom.encounterNpcList.innerHTML = stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="staged-npc-summary" data-staged-npc="${npc.id}" style="--npc-color:${escapeHtml(npc.color)}">
-    <div><strong>${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
+    <div><strong>${npc.allyNpc ? '<span class="npc-ally-badge" title="Ally NPC">&#9786;</span>' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>';
@@ -1081,6 +1088,7 @@ async function beginEncounter() {
         weaponMechanics: npc.mentalSkill,
         weapons: weapon ? [{ inventoryId: `npc-${npc.id}-weapon`, weaponId: weapon.id }] : [],
         heldWeaponId: weapon ? `npc-${npc.id}-weapon` : "",
+        allyNpc: Boolean(npc.allyNpc),
       });
     }
     encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
@@ -1882,7 +1890,7 @@ dom.encounterNpcTemplate.addEventListener("change", () => {
   renderEncounterBuilder();
 });
 dom.encounterNpcEditor.addEventListener("input", (event) => {
-  updateNpcField(encounterNpcDraft, event.target.dataset.npcField, event.target.value);
+  updateNpcField(encounterNpcDraft, event.target.dataset.npcField, event.target.type === "checkbox" ? event.target.checked : event.target.value);
 });
 dom.addEncounterNpc.addEventListener("click", () => {
   if (!encounterNpcDraft) return;
@@ -1896,7 +1904,7 @@ dom.premadeNpcSelect.addEventListener("change", () => {
   renderPremadeNpcConsole();
 });
 dom.premadeNpcEditor.addEventListener("input", (event) => {
-  updateNpcField(premadeNpcDraft, event.target.dataset.npcField, event.target.value);
+  updateNpcField(premadeNpcDraft, event.target.dataset.npcField, event.target.type === "checkbox" ? event.target.checked : event.target.value);
 });
 dom.newPremadeNpc.addEventListener("click", () => {
   premadeNpcDraft = stagedNpc(NPC_BLANK);
@@ -1929,24 +1937,28 @@ dom.bannerExitEnabled.addEventListener("change", () => {
 });
 
 function renderGmBannerVisibility() {
-  document.body.classList.toggle("interface-banner-hidden", !interfaceBannerVisible);
-  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-visible]").forEach((button) => {
-    const selected = (button.dataset.bannerVisible === "true") === interfaceBannerVisible;
+  if (!["show", "hide-code", "hidden"].includes(interfaceBannerMode)) interfaceBannerMode = "show";
+  document.body.classList.toggle("interface-banner-hidden", interfaceBannerMode === "hidden");
+  document.body.classList.toggle("interface-room-code-hidden", interfaceBannerMode === "hide-code");
+  dom.bannerVisibilityToggle?.querySelectorAll("[data-banner-mode]").forEach((button) => {
+    const selected = button.dataset.bannerMode === interfaceBannerMode;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-checked", String(selected));
   });
 }
 dom.bannerVisibilityToggle?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-banner-visible]");
+  const button = event.target.closest("[data-banner-mode]");
   if (!button) return;
-  interfaceBannerVisible = button.dataset.bannerVisible === "true";
-  localStorage.setItem(BANNER_VISIBILITY_KEY, interfaceBannerVisible ? "visible" : "hidden");
+  interfaceBannerMode = button.dataset.bannerMode;
+  localStorage.setItem(BANNER_MODE_KEY, interfaceBannerMode);
+  localStorage.setItem(BANNER_VISIBILITY_KEY, interfaceBannerMode === "hidden" ? "hidden" : "visible");
   renderGmBannerVisibility();
-  showMessage(dom.message, interfaceBannerVisible ? "Interface banner shown." : "Interface banner hidden on this device.", "success");
+  const messages = { show: "Interface banner and Room Code shown.", "hide-code": "Interface banner shown with the Room Code hidden on this device.", hidden: "Interface banner hidden on this device." };
+  showMessage(dom.message, messages[interfaceBannerMode], "success");
 });
 window.addEventListener("storage", (event) => {
-  if (event.key !== BANNER_VISIBILITY_KEY) return;
-  interfaceBannerVisible = event.newValue !== "hidden";
+  if (![BANNER_MODE_KEY, BANNER_VISIBILITY_KEY].includes(event.key)) return;
+  interfaceBannerMode = localStorage.getItem(BANNER_MODE_KEY) || (localStorage.getItem(BANNER_VISIBILITY_KEY) === "hidden" ? "hidden" : "show");
   renderGmBannerVisibility();
 });
 renderGmBannerVisibility();

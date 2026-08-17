@@ -1309,6 +1309,7 @@ function tacticalRingMarkup(units) {
     const own = mode === "player" && unit.id === myUnitId;
     const icon = mode === "player" ? myIconForUnit(unit) : "";
     const labelPoint = polarPoint(160, 160, 83, mid);
+    const allyPoint = polarPoint(160, 160, 112, mid);
     const label = ringInnerLabel(unit, ordered.length);
     const labelSize = ringInnerLabelSize(label, ordered.length);
 
@@ -1331,6 +1332,7 @@ function tacticalRingMarkup(units) {
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
         ${ringQueuedEffects(unit, start, end)}
         <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;">${escapeHtml(label)}</text>
+        ${unit.allyNpc ? `<text class="ring-ally-marker" x="${allyPoint.x.toFixed(2)}" y="${allyPoint.y.toFixed(2)}" aria-label="Ally NPC">&#9786;</text>` : ""}
         ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
       </g>
     `);
@@ -1626,7 +1628,7 @@ function openGmNpcAttackDialog() {
   const targets = state.units.filter((entry) => entry.id !== attacker.id);
   if (!targets.length) { alert("Add a target to the encounter first."); return; }
   gmNpcAttackActor.textContent = attacker.characterName;
-  gmNpcAttackTarget.innerHTML = targets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team.toUpperCase()})</option>`).join("");
+  gmNpcAttackTarget.innerHTML = targets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`).join("");
   gmNpcAttackName.value = "NPC attack";
   gmNpcAttackDistance.value = "1";
   gmNpcAttackDamage.value = "2D6";
@@ -1735,7 +1737,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
     : "No Command Window";
   const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
   const delayDisabled = gm && !delayConsoleAllowed();
-  const side = unit.team === "pc" ? "PC" : "NPC";
+  const side = unit.team === "pc" ? "PC" : unit.allyNpc ? "Ally NPC" : "NPC";
   const type = "Character";
   const signature = unitSignature(unit, { gm, player });
   return `
@@ -1743,7 +1745,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       <div class="unit-top">
         ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
-          <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${npcHealthMarkup(unit, { gm })}</div>
+          <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${unit.allyNpc ? '<span class="ally-npc-marker" title="Ally NPC" aria-label="Ally NPC">&#9786;</span>' : ""}${npcHealthMarkup(unit, { gm })}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
           ${npcCombatStatsMarkup(unit, { gm })}
         </div>
@@ -1808,6 +1810,7 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.commandWindow || "",
     unit.color || "",
     unit.team,
+    unit.allyNpc ? "ally" : "standard",
     unit.currentHp ?? "",
     unit.maximumHp ?? "",
     unit.defeatedAt ?? "",
@@ -2051,7 +2054,7 @@ function closeTurnPanel() {
 
 function unitRoleText(unit) {
   if (!unit) return "";
-  const side = unit.team === "pc" ? "PC" : "NPC";
+  const side = unit.team === "pc" ? "PC" : unit.allyNpc ? "Ally NPC" : "NPC";
   return `${unit.playerName} - ${side} Character`;
 }
 

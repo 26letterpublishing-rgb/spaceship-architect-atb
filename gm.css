@@ -116,13 +116,15 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .add-encounter-npc{position:relative;z-index:3}
 
 /* Per-device GM banner preference. */
-.gm-banner-visibility{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.gm-banner-visibility{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
 .gm-banner-visibility button{min-height:38px;border-radius:4px}
 .gm-banner-visibility button.active{border-color:var(--cyan);color:#06131d;background:linear-gradient(180deg,#b7f7ff,#36d3ee)}
 .interface-banner-hidden .gm-header{grid-template-columns:minmax(0,1fr) auto}
 .interface-banner-hidden .gm-brand,
 .interface-banner-hidden .campaign-heading span{display:none!important}
 .interface-banner-hidden .campaign-heading{justify-content:flex-start}
+.interface-room-code-hidden .campaign-heading span,
+.interface-room-code-hidden .atb-live-toolbar>strong{display:none!important}
 
 /* Shared Drama Card deck */
 .character-tab-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
@@ -165,5 +167,20 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 }
 
 /* Campaign privacy and the GM-only banner crop. */
-.gm-brand img{object-position:center calc(50% + 20px)}
+.gm-brand img{object-position:center calc(50% + 10px)}
 .settings-room-code{display:grid;grid-template-columns:auto 1fr 38px;align-items:center;gap:9px;margin-top:10px;padding:9px;border:1px solid #334c61;background:#06101a}.settings-room-code>span{color:var(--muted);font-size:.58rem}.settings-room-code>strong{color:#f5fbff;font-size:1rem;letter-spacing:2px}.settings-room-code button{position:relative;width:36px;min-width:36px;min-height:32px;padding:0;border-radius:5px}.settings-room-code button::before{content:"";position:absolute;inset:0;background:no-repeat center/20px 20px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9d5e7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='m3 3 18 18'/%3E%3C/svg%3E")}.settings-room-code button.revealed::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2339e5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E")}
+
+/* Primary GM navigation colors. Character sheet sub-navigation is intentionally untouched. */
+.gm-tabs button{--tab-color:#31cdea;--tab-dark:#082638;border-top:3px solid var(--tab-color)!important;color:color-mix(in srgb,var(--tab-color) 64%,white);background:linear-gradient(180deg,color-mix(in srgb,var(--tab-color) 10%,#091521),#091521 48%)!important}
+.gm-tabs button[data-tab="script"]{--tab-color:#42d9ff;--tab-dark:#073047}
+.gm-tabs button[data-tab="characters"]{--tab-color:#4ee29a;--tab-dark:#073525}
+.gm-tabs button[data-tab="prompt"]{--tab-color:#ffd05a;--tab-dark:#493508}
+.gm-tabs button[data-tab="inbox"]{--tab-color:#ef72c7;--tab-dark:#421234}
+.gm-tabs button[data-tab="atb"]{--tab-color:#ff685f;--tab-dark:#46130f}
+.gm-tabs button[data-tab="settings"]{--tab-color:#8aa8c4;--tab-dark:#172a3a}
+.gm-tabs button.active{border-color:var(--tab-color)!important;color:#f8fcff!important;background:linear-gradient(180deg,color-mix(in srgb,var(--tab-color) 86%,white 8%),var(--tab-dark))!important;box-shadow:inset 0 1px rgba(255,255,255,.45),0 0 16px color-mix(in srgb,var(--tab-color) 28%,transparent)!important;text-shadow:0 1px 1px #000!important}
+.gm-tab[data-tab-panel="script"]{--tab-panel-color:66,217,255}.gm-tab[data-tab-panel="characters"]{--tab-panel-color:78,226,154}.gm-tab[data-tab-panel="prompt"]{--tab-panel-color:255,208,90}.gm-tab[data-tab-panel="inbox"]{--tab-panel-color:239,114,199}.gm-tab[data-tab-panel="atb"]{--tab-panel-color:255,104,95}.gm-tab[data-tab-panel="settings"]{--tab-panel-color:138,168,196}
+.gm-tab{border-top-color:rgba(var(--tab-panel-color,43,216,255),.68);background:linear-gradient(180deg,rgba(var(--tab-panel-color,43,216,255),.075),rgba(6,13,22,.98) 155px)!important}
+.npc-ally-field{display:flex!important;min-height:42px;align-items:center;justify-content:center;gap:7px;padding:0 8px;border:1px solid #806b22;border-radius:5px;color:#ffe36d!important;background:#211d0b}.npc-ally-field input{width:auto;min-height:0}.npc-ally-badge{display:inline-grid;width:20px;height:20px;margin-right:6px;place-items:center;border:1px solid #ffe36d;border-radius:50%;color:#ffe36d;background:#2b2508;box-shadow:0 0 9px rgba(255,227,109,.34);font-family:Arial,sans-serif;font-size:.86rem;vertical-align:middle}
+.npc-card-head{grid-template-columns:minmax(140px,1.4fr) 82px 72px 86px 54px 82px}
+@media(max-width:650px){.gm-banner-visibility{grid-template-columns:1fr}.npc-card-head{grid-template-columns:1fr 1fr}.npc-card-head label:first-child,.npc-card-head .npc-ally-field{grid-column:1/-1}}

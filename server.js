@@ -1599,6 +1599,7 @@ async function handleAction(req, res) {
       existingCampaignUnit.color = normalizeColor(body.color);
       existingCampaignUnit.controlledBy = "player";
       existingCampaignUnit.team = "pc";
+      existingCampaignUnit.allyNpc = false;
       existingCampaignUnit.playerConnected = true;
       syncUnitCombat(existingCampaignUnit, body);
       pushLog(room, `${characterName} rejoined the encounter.`);
@@ -1626,6 +1627,7 @@ async function handleAction(req, res) {
       queuedEffects: [],
       controlledBy: body.controlledBy || "player",
       team: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")),
+      allyNpc: normalizeTeam(body.team || (body.controlledBy === "player" ? "pc" : "npc")) === "npc" && Boolean(body.allyNpc),
       actorType: normalizeActorType(body.actorType),
       color: normalizeColor(body.color),
       tieSeed: Math.random(),

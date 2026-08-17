@@ -100,7 +100,7 @@
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
       .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt)
-      .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : "NPC"})</option>`));
+      .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
 
