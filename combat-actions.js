@@ -166,7 +166,7 @@
     move: { title: "Move", amount: "Units Moved", min: 1, max: () => {
       const vehicle = selectedVehicle();
       return Math.max(1, jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1);
-    }, value: 1, jetPack: true, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
+    }, value: () => configurations.move.max(), jetPack: true, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
     melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Movement from the immediately previous action adds one Charge per unit, limited by Move Speed and the card's Max Charge." },
     wrestle: { title: "Wrestle / Disarm", target: true, note: "The GM and player resolve this nearby contest manually." },
     fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
@@ -248,6 +248,8 @@
       amount.min = String(typeof config.min === "function" ? config.min() : config.min);
       amount.max = String(typeof config.max === "function" ? config.max() : config.max);
       amount.value = String(typeof config.value === "function" ? config.value() : config.value);
+      amount.step = kind === "move" ? "1" : "0.1";
+      amount.inputMode = kind === "move" ? "numeric" : "decimal";
     }
     weaponWrap.hidden = !config.weapon;
     weapon.innerHTML = config.weapon
@@ -330,6 +332,10 @@
         error.textContent = `Enter a value from ${min} to ${max}.`;
         return;
       }
+      if (pendingKind === "move" && !Number.isInteger(entered)) {
+        error.textContent = "Move distance must be a whole number of units.";
+        return;
+      }
       if (pendingKind === "move") { details.units = entered; details.jetPack = Boolean(jetPack.checked); }
       if (pendingKind === "defense") details.seconds = entered;
     }
@@ -370,7 +376,7 @@
   jetPack?.addEventListener("change", () => {
     if (pendingKind !== "move") return;
     amount.max = String(configurations.move.max());
-    amount.value = String(Math.min(Number(amount.value) || 1, Number(amount.max)));
+    amount.value = String(Number(amount.max));
     note.textContent = jetPack.checked ? "FLIGHT: Move Speed 4. This spends one Jet-Pack charge." : configurations.move.note;
   });
   [target, distance, calledShot].forEach((control) => {

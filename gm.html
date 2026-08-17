@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260817-drama-awards" />
+  <link rel="stylesheet" href="gm.css?v=20260817-campaign-recovery" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -276,6 +276,13 @@
                 <button type="button" data-banner-visible="false" role="radio" aria-checked="false">Hide Banner</button>
               </div>
             </section>
+            <section class="settings-card streaming-privacy-card">
+              <h3>Streaming Privacy</h3>
+              <p>Hide the campaign Room Code at the top of every GM and player screen.</p>
+              <label class="check-field"><input id="hideCampaignRoomCode" type="checkbox" /> Hide Room Code from campaign screens</label>
+              <div class="settings-room-code"><span>ROOM CODE</span><strong id="settingsRoomCode">••••</strong><button id="revealSettingsRoomCode" type="button" aria-label="Show Room Code" title="Show Room Code"></button></div>
+              <p id="roomCodePrivacyMessage" class="tool-message" role="status"></p>
+            </section>
             <section class="settings-card">
               <h3>Campaign Backup</h3>
               <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
@@ -317,6 +324,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260817-drama-awards"></script>
+  <script type="module" src="gm.js?v=20260817-campaign-recovery"></script>
   </body>
 </html>

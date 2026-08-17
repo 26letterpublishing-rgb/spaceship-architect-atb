@@ -141,6 +141,10 @@ const dom = {
   commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
   bannerExitEnabled: $("#bannerExitEnabled"),
   bannerVisibilityToggle: $("#gmBannerVisibilityToggle"),
+  hideCampaignRoomCode: $("#hideCampaignRoomCode"),
+  settingsRoomCode: $("#settingsRoomCode"),
+  revealSettingsRoomCode: $("#revealSettingsRoomCode"),
+  roomCodePrivacyMessage: $("#roomCodePrivacyMessage"),
   confirmModal: $("#gmConfirmModal"),
   confirmDialog: $("#gmConfirmModal .gm-confirm-dialog"),
   confirmTitle: $("#gmConfirmTitle"),
@@ -179,6 +183,7 @@ const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, p
 const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
 let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "off";
 let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
+let settingsRoomCodeRevealed = false;
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let gmDialogState = null;
 let gmDramaAudioContext = null;
@@ -771,6 +776,11 @@ function renderSettings() {
   dom.adjustCharacter.innerHTML = options || '<option value="">No campaign characters</option>';
   dom.kickCharacterButton.disabled = !campaign.characters.length;
   dom.adjustCharacterButton.disabled = !campaign.characters.length;
+  dom.hideCampaignRoomCode.checked = Boolean(campaign.settings?.hideRoomCode);
+  dom.settingsRoomCode.textContent = settingsRoomCodeRevealed ? campaign.code : "••••";
+  dom.revealSettingsRoomCode.classList.toggle("revealed", settingsRoomCodeRevealed);
+  dom.revealSettingsRoomCode.setAttribute("aria-label", settingsRoomCodeRevealed ? "Hide Room Code" : "Show Room Code");
+  dom.revealSettingsRoomCode.title = settingsRoomCodeRevealed ? "Hide Room Code" : "Show Room Code";
 }
 
 function scriptCommandList(source = scriptSource()) {
@@ -966,7 +976,7 @@ async function refreshEncounterState() {
 function showEncounterLive() {
   dom.atbSetup.hidden = true;
   dom.atbLive.hidden = false;
-  dom.liveEncounterCode.textContent = code;
+  dom.liveEncounterCode.textContent = campaign?.settings?.hideRoomCode ? "••••" : code;
   const expected = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
   if (!dom.atbFrame.getAttribute("src")) dom.atbFrame.src = expected;
   updateExitEncounterVisibility();
@@ -1131,7 +1141,7 @@ function rememberScriptSelection() {
 
 function renderCampaign() {
   if (!campaign) return;
-  dom.codeHeading.textContent = campaign.code;
+  dom.codeHeading.textContent = campaign.settings?.hideRoomCode ? "••••" : campaign.code;
   dom.nameHeading.textContent = campaign.name;
   dom.dramaDeckStatus.hidden = !campaign.dramaDeck;
   if (campaign.dramaDeck) {
@@ -1614,6 +1624,13 @@ dom.endSession.addEventListener("click", async () => {
     const payload = await api("/api/campaign/session/end", { code, token });
     receiveCampaign(payload.campaign);
     showMessage(dom.message, `Session ${payload.sessionEnded} ended. Player abilities and counters were reset.`, "success");
+    const exportNow = await confirmGm({
+      title: "Session Complete",
+      message: "Save a campaign backup now? Free hosting can lose campaign data after a restart or deployment.",
+      acceptLabel: "Export Campaign Backup",
+      cancelLabel: "Continue Without Export",
+    });
+    if (exportNow) await downloadCampaignBackup();
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   } finally {
@@ -1956,6 +1973,34 @@ dom.soundToggle.addEventListener("click", () => {
   updateSoundButton();
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
 });
+
+dom.revealSettingsRoomCode?.addEventListener("click", () => {
+  settingsRoomCodeRevealed = !settingsRoomCodeRevealed;
+  renderSettings();
+});
+
+dom.hideCampaignRoomCode?.addEventListener("change", async () => {
+  dom.hideCampaignRoomCode.disabled = true;
+  dom.roomCodePrivacyMessage.textContent = "Saving...";
+  try {
+    const payload = await api("/api/campaign/settings", {
+      code,
+      token,
+      hideRoomCode: dom.hideCampaignRoomCode.checked,
+    });
+    receiveCampaign(payload.campaign);
+    dom.roomCodePrivacyMessage.textContent = dom.hideCampaignRoomCode.checked
+      ? "Room Code hidden on GM and player campaign screens."
+      : "Room Code visible on campaign screens.";
+    dom.roomCodePrivacyMessage.className = "tool-message success";
+  } catch (error) {
+    dom.roomCodePrivacyMessage.textContent = error.message;
+    dom.roomCodePrivacyMessage.className = "tool-message error";
+    dom.hideCampaignRoomCode.checked = Boolean(campaign.settings?.hideRoomCode);
+  } finally {
+    dom.hideCampaignRoomCode.disabled = false;
+  }
+});
 dom.dismissDramaCard?.addEventListener("click", () => {
   dom.dramaAlert.hidden = true;
   requestAnimationFrame(showNextDramaAlert);
@@ -1985,23 +2030,33 @@ window.addEventListener("message", async (event) => {
 });
 updateSoundButton();
 
-dom.saveCampaignBackup.addEventListener("click", async () => {
+async function downloadCampaignBackup() {
   try {
     const backup = await api(`/api/campaign/backup?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
     cacheFullCampaignBackup(backup);
     const safeName = campaign.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "campaign";
     downloadJson(backup, `${safeName}-${campaign.code}.sa2campaign`);
     showMessage(dom.message, "Campaign synchronized and backed up to this computer.", "success");
+    return true;
   } catch (error) {
     showMessage(dom.message, error.message, "error");
+    return false;
   }
-});
+}
+
+dom.saveCampaignBackup.addEventListener("click", downloadCampaignBackup);
 
 dom.restoreOpenCampaignFile.addEventListener("change", async () => {
   try {
     const backup = await readCampaignBackup(dom.restoreOpenCampaignFile.files?.[0]);
     if (backup.campaign.code !== code) throw new Error(`That backup belongs to campaign ${backup.campaign.code}, not ${code}.`);
-    if (!await confirmGm({ title: "Restore Campaign?", message: `Restore ${campaign.name} from the backup made ${new Date(backup.exportedAt).toLocaleString()}? Current campaign data will be replaced.`, acceptLabel: "Restore Backup", danger: true })) return;
+    const hostedRevision = Math.max(1, Number(campaign.revision) || 1);
+    const backupRevision = Math.max(1, Number(backup.campaign.revision ?? backup.summary?.revision) || 1);
+    const hostedUpdated = new Date(campaign.updatedAt || campaign.createdAt).toLocaleString();
+    const backupUpdated = new Date(backup.campaign.updatedAt || backup.exportedAt).toLocaleString();
+    const newer = backupRevision > hostedRevision ? "The backup appears newer." : hostedRevision > backupRevision ? "The hosted campaign appears newer." : "Both copies have the same revision number.";
+    const comparison = `HOSTED: Session ${campaign.sessionNumber || 0}, Revision ${hostedRevision}, updated ${hostedUpdated}.\nBACKUP: Session ${backup.campaign.sessionNumber || 0}, Revision ${backupRevision}, updated ${backupUpdated}.\n\n${newer}`;
+    if (!await confirmGm({ title: "Restore Campaign?", message: `${comparison}\n\nRestoring replaces the hosted campaign with the backup file.`, acceptLabel: "Restore Backup", danger: true })) return;
     const payload = await api("/api/campaign/restore", { code, token, backup });
     receiveCampaign(payload.campaign);
     await refreshEncounterState();

@@ -184,6 +184,15 @@ const createRoom = document.querySelector("#createRoom");
 const mainCampaignName = document.querySelector("#mainCampaignName");
 const mainGmCode = document.querySelector("#mainGmCode");
 const mainPcCode = document.querySelector("#mainPcCode");
+const recentCampaigns = document.querySelector("#recentCampaigns");
+const loadCampaignBackup = document.querySelector("#loadCampaignBackup");
+const backupConflictModal = document.querySelector("#backupConflictModal");
+const hostedBackupSummary = document.querySelector("#hostedBackupSummary");
+const fileBackupSummary = document.querySelector("#fileBackupSummary");
+const backupConflictRecommendation = document.querySelector("#backupConflictRecommendation");
+const cancelBackupLoad = document.querySelector("#cancelBackupLoad");
+const useHostedCampaign = document.querySelector("#useHostedCampaign");
+const restoreBackupCampaign = document.querySelector("#restoreBackupCampaign");
 const enterGmCampaign = document.querySelector("#enterGmCampaign");
 const enterPcCampaign = document.querySelector("#enterPcCampaign");
 const mainMenuMessage = document.querySelector("#mainMenuMessage");
@@ -3079,6 +3088,82 @@ function showMainMenuMessage(message, error = false) {
   mainMenuMessage.classList.toggle("error", error);
 }
 
+const RECENT_CAMPAIGNS_KEY = "sa-recent-campaigns-v1";
+let pendingCampaignBackup = null;
+
+function recentCampaignList() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_CAMPAIGNS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry) => entry?.name).slice(0, 12) : [];
+  } catch {
+    return [];
+  }
+}
+
+function renderRecentCampaigns() {
+  if (!recentCampaigns) return;
+  const entries = recentCampaignList();
+  recentCampaigns.innerHTML = `<option value="">${entries.length ? "Choose a recent campaign" : "No recent campaigns on this device"}</option>${entries.map((entry) => `<option value="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}${entry.role ? ` - ${escapeHtml(entry.role)}` : ""}${entry.code ? ` (${escapeHtml(entry.code)})` : ""}</option>`).join("")}`;
+}
+
+function rememberRecentCampaign(campaign, role = "") {
+  if (!campaign?.name) return;
+  const entries = recentCampaignList().filter((entry) => !(entry.name === campaign.name && entry.code === campaign.code && entry.role === role));
+  entries.unshift({ name: campaign.name, code: campaign.code || "", role, accessedAt: new Date().toISOString() });
+  safeLocalStorageSet(RECENT_CAMPAIGNS_KEY, JSON.stringify(entries.slice(0, 12)));
+  renderRecentCampaigns();
+}
+
+function setSecretVisibility(button, revealed) {
+  const input = document.getElementById(button.dataset.visibilityTarget || "");
+  if (!input) return;
+  input.type = revealed ? "text" : "password";
+  button.classList.toggle("revealed", revealed);
+  const label = revealed ? "Hide" : "Show";
+  const fieldName = input === mainCampaignName ? "Campaign Name" : input === mainGmCode ? "GM Code" : "PC identifier";
+  button.setAttribute("aria-label", `${label} ${fieldName}`);
+  button.title = `${label} ${fieldName}`;
+}
+
+function backupSummaryMarkup(summary, heading) {
+  const updated = summary?.updatedAt ? new Date(summary.updatedAt).toLocaleString() : "Unknown";
+  const exported = summary?.exportedAt ? new Date(summary.exportedAt).toLocaleString() : "";
+  return `<strong>${heading}</strong><span>Session ${Number(summary?.sessionNumber) || 0} | Revision ${Number(summary?.revision) || 1}</span><small>Last updated: ${escapeHtml(updated)}</small>${exported ? `<small>Backup exported: ${escapeHtml(exported)}</small>` : ""}<small>${Number(summary?.characterCount) || 0} character${Number(summary?.characterCount) === 1 ? "" : "s"}</small>`;
+}
+
+function showBackupConflict(comparison) {
+  hostedBackupSummary.innerHTML = backupSummaryMarkup(comparison.hosted, "Hosted Campaign");
+  fileBackupSummary.innerHTML = backupSummaryMarkup(comparison.backup, "Backup File");
+  hostedBackupSummary.classList.toggle("recommended", comparison.preferred === "hosted");
+  fileBackupSummary.classList.toggle("recommended", comparison.preferred === "backup");
+  backupConflictRecommendation.textContent = comparison.preferred === "hosted"
+    ? "The hosted campaign appears newer. You may still restore the backup if that is the version you intended."
+    : "The backup file appears newer. Restoring it is recommended, but the final choice remains yours.";
+  backupConflictModal.classList.remove("hidden");
+}
+
+async function finishCampaignBackupLoad(choice = "") {
+  if (!pendingCampaignBackup) return;
+  showMainMenuMessage(choice ? "Loading the selected campaign version..." : "Reading campaign backup...");
+  const response = await fetch("/api/campaign/backup/load", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ backup: pendingCampaignBackup, choice, gmCode: mainGmCode?.value || "" }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 409 && payload.requiresChoice) {
+    showBackupConflict(payload.comparison);
+    return;
+  }
+  if (!response.ok) throw new Error(payload.error || "Campaign backup could not be loaded.");
+  backupConflictModal.classList.add("hidden");
+  const campaign = payload.campaign;
+  safeLocalStorageSet(`sa-gm-token-${campaign.code}`, payload.token);
+  safeLocalStorageSet("sa-current-campaign-code", campaign.code);
+  rememberRecentCampaign(campaign, "GM");
+  window.location.href = `gm.html?campaign=${encodeURIComponent(campaign.code)}`;
+}
+
 async function openGmCampaignFromMenu({ create = false } = {}) {
   const name = mainCampaignName?.value.trim() || "";
   const gmCode = mainGmCode?.value || "";
@@ -3094,6 +3179,7 @@ async function openGmCampaignFromMenu({ create = false } = {}) {
     const roomCode = payload.campaign.code;
     safeLocalStorageSet(`sa-gm-token-${roomCode}`, payload.token);
     safeLocalStorageSet("sa-current-campaign-code", roomCode);
+    rememberRecentCampaign(payload.campaign, "GM");
     window.location.href = `gm.html?campaign=${encodeURIComponent(roomCode)}`;
   } catch (error) {
     showMainMenuMessage(error.message, true);
@@ -3113,6 +3199,7 @@ function finishPcCampaignLogin(payload) {
   safeLocalStorageSet("sa-character-campaign-code", roomCode);
   safeLocalStorageSet("sa-atb-campaign-character-id", campaignCharacterId);
   safeLocalStorageSet(campaignTokenKey(roomCode, campaignCharacterId), campaignCharacterToken);
+  rememberRecentCampaign(payload.campaign, "PC");
   window.location.href = `character.html?campaign=${encodeURIComponent(roomCode)}&character=${encodeURIComponent(campaignCharacterId)}`;
 }
 
@@ -3160,6 +3247,36 @@ mainGmCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") 
 mainPcCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openPcCampaignFromMenu(); });
 mainPcCode?.addEventListener("input", clearPcLoginMatches);
 mainCampaignName?.addEventListener("input", clearPcLoginMatches);
+document.querySelectorAll("[data-visibility-target]").forEach((button) => {
+  setSecretVisibility(button, false);
+  button.addEventListener("click", () => setSecretVisibility(button, !button.classList.contains("revealed")));
+});
+recentCampaigns?.addEventListener("change", () => {
+  if (!recentCampaigns.value) return;
+  mainCampaignName.value = recentCampaigns.value;
+  clearPcLoginMatches();
+});
+loadCampaignBackup?.addEventListener("change", async () => {
+  const file = loadCampaignBackup.files?.[0];
+  if (!file) return;
+  try {
+    pendingCampaignBackup = JSON.parse(await file.text());
+    await finishCampaignBackupLoad();
+  } catch (error) {
+    showMainMenuMessage(error.message || "That file is not a valid campaign backup.", true);
+    pendingCampaignBackup = null;
+  } finally {
+    loadCampaignBackup.value = "";
+  }
+});
+cancelBackupLoad?.addEventListener("click", () => {
+  backupConflictModal.classList.add("hidden");
+  pendingCampaignBackup = null;
+  showMainMenuMessage("Campaign backup load cancelled.");
+});
+useHostedCampaign?.addEventListener("click", () => finishCampaignBackupLoad("hosted").catch((error) => showMainMenuMessage(error.message, true)));
+restoreBackupCampaign?.addEventListener("click", () => finishCampaignBackupLoad("backup").catch((error) => showMainMenuMessage(error.message, true)));
+renderRecentCampaigns();
 pcLoginMatchList?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-pc-match-character]");
   if (!button) return;

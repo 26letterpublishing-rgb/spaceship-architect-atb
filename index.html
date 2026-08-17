@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260816-combat-polish" />
+  <link rel="stylesheet" href="styles.css?v=20260817-campaign-recovery" />
   <link rel="stylesheet" href="combat-actions.css?v=20260816-combat-polish" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
@@ -17,20 +17,24 @@
         </div>
         <div class="campaign-main-menu">
           <label class="campaign-name-field">Campaign Name
-            <input id="mainCampaignName" type="text" maxlength="80" autocomplete="organization" placeholder="Order of the White Flame" />
+            <span class="secure-entry"><input id="mainCampaignName" type="password" maxlength="80" autocomplete="off" placeholder="Order of the White Flame" /><button class="visibility-toggle" type="button" data-visibility-target="mainCampaignName" aria-label="Show Campaign Name" title="Show Campaign Name"></button></span>
+          </label>
+          <label class="recent-campaign-field">Recently Accessed
+            <select id="recentCampaigns"><option value="">Choose a recent campaign</option></select>
           </label>
           <div class="campaign-code-row">
             <label>GM Code
-              <span class="code-entry"><input id="mainGmCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter GM Code" /><button id="enterGmCampaign" type="button">Enter as GM</button></span>
+              <span class="code-entry"><span class="secure-entry"><input id="mainGmCode" type="password" maxlength="120" autocomplete="off" placeholder="Enter GM Code" /><button class="visibility-toggle" type="button" data-visibility-target="mainGmCode" aria-label="Show GM Code" title="Show GM Code"></button></span><button id="enterGmCampaign" type="button">Enter as GM</button></span>
             </label>
             <label>PC Code, Player Name, or Character Name
-              <span class="code-entry"><input id="mainPcCode" type="text" maxlength="120" autocomplete="off" placeholder="Enter any character identifier" /><button id="enterPcCampaign" type="button">Enter as Player</button></span>
+              <span class="code-entry"><span class="secure-entry"><input id="mainPcCode" type="password" maxlength="120" autocomplete="off" placeholder="Enter any character identifier" /><button class="visibility-toggle" type="button" data-visibility-target="mainPcCode" aria-label="Show PC identifier" title="Show PC identifier"></button></span><button id="enterPcCampaign" type="button">Enter as Player</button></span>
             </label>
           </div>
           <div class="campaign-menu-divider"></div>
           <div class="campaign-create-actions">
             <a id="createCharacterMain" class="character-creator-link" href="character.html">Create/View Character</a>
             <button id="createRoom" class="primary" type="button">Create New Campaign</button>
+            <label class="load-campaign-backup">Load Campaign Backup<input id="loadCampaignBackup" type="file" accept=".sa2campaign,.json,application/json" hidden /></label>
           </div>
           <p id="mainMenuMessage" class="main-menu-message" role="status"></p>
           <section id="pcLoginMatches" class="pc-login-matches" hidden aria-label="Matching campaign characters">
@@ -38,6 +42,7 @@
             <div id="pcLoginMatchList"></div>
           </section>
         </div>
+        <small id="appVersion" class="app-version">Playtest Build 2026.08.17.2</small>
       </section>
 
       <section id="topbar" class="topbar">
@@ -526,10 +531,28 @@
       </section>
     </div>
 
+    <div id="backupConflictModal" class="backup-conflict-shell hidden" role="dialog" aria-modal="true" aria-labelledby="backupConflictTitle">
+      <section class="backup-conflict-dialog">
+        <span>CAMPAIGN RECOVERY</span>
+        <h2 id="backupConflictTitle">Choose Campaign Version</h2>
+        <p>Both a hosted campaign and a backup file are available. Review their revisions before choosing.</p>
+        <div class="backup-comparison-grid">
+          <article id="hostedBackupSummary"><strong>Hosted Campaign</strong></article>
+          <article id="fileBackupSummary"><strong>Backup File</strong></article>
+        </div>
+        <p id="backupConflictRecommendation" class="backup-recommendation"></p>
+        <div class="backup-conflict-actions">
+          <button id="cancelBackupLoad" type="button">Cancel</button>
+          <button id="useHostedCampaign" type="button">Use Hosted Campaign</button>
+          <button id="restoreBackupCampaign" class="primary" type="button">Restore Backup</button>
+        </div>
+      </section>
+    </div>
+
 
   <script src="combat-rules.js?v=20260816-storage-give"></script>
-  <script src="app.js?v=20260816-atb-2e"></script>
-  <script src="combat-actions.js?v=20260816-atb-2e"></script>
+  <script src="app.js?v=20260817-campaign-recovery"></script>
+  <script src="combat-actions.js?v=20260817-campaign-recovery"></script>
   <script type="module" src="npc-combat-dice.js?v=20260816-storage-give"></script>
   </body>
 </html>

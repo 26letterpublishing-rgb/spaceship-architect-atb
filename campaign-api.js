@@ -109,6 +109,10 @@ function campaignCode() {
   return Array.from({ length: 4 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
 }
 
+function backupKey() {
+  return crypto.randomBytes(24).toString("base64url");
+}
+
 function passwordRecord(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
@@ -198,7 +202,7 @@ function applyCharacterReward(record, award, campaign = null) {
     messageDetail = ` Converted into ${converted.toLocaleString()} Android Experience.`;
   } else if (resource === "credits") {
     const current = Number(character.resources.creditsBase) || 0;
-    character.resources.creditsBase = Math.round(boundedNumber(current + amount, 0, 999999999));
+    character.resources.creditsBase = Math.round(boundedNumber(current + amount, -999999999, 999999999));
     appliedAmount = character.resources.creditsBase - current;
   }
 
@@ -389,10 +393,12 @@ function applyConditionalDelivery(campaign, record, action) {
 function defaultCampaign({ code, name, gmCode }) {
   const now = new Date().toISOString();
   return {
-    version: 2,
+    version: 3,
     code,
     name: String(name || "New Campaign").trim().slice(0, 80) || "New Campaign",
     gmCode: passwordRecord(gmCode),
+    backupKey: backupKey(),
+    revision: 1,
     createdAt: now,
     updatedAt: now,
     script: "",
@@ -408,7 +414,7 @@ function defaultCampaign({ code, name, gmCode }) {
     rollRequests: [],
     npcTemplates: [],
     dramaDeck: createDramaDeck(),
-    settings: { commandWindowBonus: 0 },
+    settings: { commandWindowBonus: 0, hideRoomCode: false },
     encounter: null,
     sessionNumber: 0,
   };
@@ -416,10 +422,14 @@ function defaultCampaign({ code, name, gmCode }) {
 
 function normalizeCampaign(raw) {
   const campaign = raw && typeof raw === "object" ? raw : {};
-  campaign.version = 2;
+  campaign.version = 3;
   campaign.code = String(campaign.code || "").trim().toUpperCase();
   campaign.name = String(campaign.name || "Campaign").trim().slice(0, 80) || "Campaign";
   campaign.gmCode = campaign.gmCode || campaign.password || null;
+  campaign.backupKey = String(campaign.backupKey || "").trim() || backupKey();
+  campaign.revision = Math.max(1, Math.round(Number(campaign.revision) || 1));
+  campaign.createdAt = campaign.createdAt || new Date().toISOString();
+  campaign.updatedAt = campaign.updatedAt || campaign.createdAt;
   delete campaign.password;
   campaign.script = String(campaign.script || "").slice(0, MAX_SCRIPT_LENGTH);
   const previousScript = campaign.script;
@@ -446,6 +456,7 @@ function normalizeCampaign(raw) {
   })).filter((action) => action.keyword && action.attribute && action.skill && action.difficulty >= 0);
   campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
   campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
+  campaign.settings.hideRoomCode = Boolean(campaign.settings.hideRoomCode);
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
   campaign.characters = campaign.characters.map((record) => ({
     id: String(record?.id || record?.character?.id || uid("character")),
@@ -531,14 +542,29 @@ function normalizeCampaign(raw) {
 }
 
 function campaignBackup(campaign) {
+  const exportedAt = new Date().toISOString();
   return {
     format: "spaceship-architect-campaign",
-    version: 1,
-    exportedAt: new Date().toISOString(),
+    version: 2,
+    exportedAt,
+    authentication: {
+      gmCode: clone(campaign.gmCode),
+      backupKey: campaign.backupKey,
+    },
+    summary: {
+      campaignName: campaign.name,
+      campaignCode: campaign.code,
+      revision: campaign.revision,
+      updatedAt: campaign.updatedAt,
+      exportedAt,
+      sessionNumber: campaign.sessionNumber,
+      characterCount: campaign.characters.length,
+    },
     campaign: clone({
       version: campaign.version,
       code: campaign.code,
       name: campaign.name,
+      revision: campaign.revision,
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
       script: campaign.script,
@@ -566,9 +592,40 @@ function campaignFromBackup(backup, { code = "", gmCode = null, currentGmCode = 
   const restored = normalizeCampaign(clone(backup.campaign));
   restored.code = String(code || restored.code || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(restored.code)) return null;
-  restored.gmCode = currentGmCode || passwordRecord(gmCode);
+  restored.gmCode = currentGmCode || backup.authentication?.gmCode || (gmCode ? passwordRecord(gmCode) : null);
+  restored.backupKey = String(backup.authentication?.backupKey || restored.backupKey || "").trim() || backupKey();
+  if (!restored.gmCode?.salt || !restored.gmCode?.hash) return null;
   restored.updatedAt = new Date().toISOString();
   return restored;
+}
+
+function campaignComparison(hosted, backup) {
+  const backupCampaign = backup?.campaign || {};
+  const hostedRevision = Math.max(1, Math.round(Number(hosted?.revision) || 1));
+  const backupRevision = Math.max(1, Math.round(Number(backupCampaign.revision ?? backup?.summary?.revision) || 1));
+  const hostedUpdatedAt = hosted?.updatedAt || hosted?.createdAt || null;
+  const backupUpdatedAt = backupCampaign.updatedAt || backup?.summary?.updatedAt || backup?.exportedAt || null;
+  const hostedTime = Date.parse(hostedUpdatedAt || 0) || 0;
+  const backupTime = Date.parse(backupUpdatedAt || 0) || 0;
+  const preferred = hostedRevision === backupRevision
+    ? hostedTime >= backupTime ? "hosted" : "backup"
+    : hostedRevision > backupRevision ? "hosted" : "backup";
+  const summarize = (source, fallback = {}) => ({
+    campaignName: String(source?.name || fallback.campaignName || "Campaign"),
+    campaignCode: String(source?.code || fallback.campaignCode || ""),
+    revision: Math.max(1, Math.round(Number(source?.revision ?? fallback.revision) || 1)),
+    updatedAt: source?.updatedAt || fallback.updatedAt || null,
+    exportedAt: fallback.exportedAt || null,
+    sessionNumber: Math.max(0, Math.round(Number(source?.sessionNumber ?? fallback.sessionNumber) || 0)),
+    characterCount: Array.isArray(source?.characters)
+      ? source.characters.length
+      : Math.max(0, Math.round(Number(fallback.characterCount) || 0)),
+  });
+  return {
+    preferred,
+    hosted: summarize(hosted),
+    backup: summarize(backupCampaign, backup?.summary || { exportedAt: backup?.exportedAt }),
+  };
 }
 
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
@@ -664,9 +721,10 @@ class CampaignApi {
     return this.campaignLoads.get(normalizedCode);
   }
 
-  async save(campaign, { broadcast = true } = {}) {
+  async save(campaign, { broadcast = true, incrementRevision = true } = {}) {
     normalizeDramaDeck(campaign);
     trimPrivateNotes(campaign);
+    if (incrementRevision) campaign.revision = Math.max(1, Math.round(Number(campaign.revision) || 1)) + 1;
     this.campaignCache.set(campaign.code, campaign);
     const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
     const queued = previous.catch(() => {}).then(async () => {
@@ -704,6 +762,7 @@ class CampaignApi {
       name: campaign.name,
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
+      revision: campaign.revision,
       storageMode: this.storageMode,
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
@@ -900,6 +959,11 @@ class CampaignApi {
         sendJson(res, 400, { error: "Campaign Name and GM Code are required." });
         return true;
       }
+      const duplicate = (await this.campaignsNamed(name)).some((entry) => passwordMatches(gmCode, entry.gmCode));
+      if (duplicate) {
+        sendJson(res, 409, { error: "That Campaign Name and GM Code combination is already in use. Choose a different name or GM Code." });
+        return true;
+      }
       let campaign;
       for (let attempt = 0; attempt < 200; attempt += 1) {
         campaign = defaultCampaign({ code: campaignCode(), name, gmCode });
@@ -1003,14 +1067,80 @@ class CampaignApi {
       return true;
     }
 
-    const campaign = await this.campaign(code);
-    if (!campaign) {
+    const loadingBackup = path === "/api/campaign/backup/load" && req.method === "POST";
+    const campaign = loadingBackup ? null : await this.campaign(code);
+    if (!loadingBackup && !campaign) {
       sendJson(res, 404, { error: "Campaign not found." });
       return true;
     }
 
     if (path === "/api/campaign/state" && req.method === "GET") {
       sendJson(res, 200, this.state(campaign, token));
+      return true;
+    }
+
+    if (path === "/api/campaign/backup/load" && req.method === "POST") {
+      const backup = body.backup;
+      const backupCode = String(backup?.campaign?.code || "").trim().toUpperCase();
+      if (backup?.format !== "spaceship-architect-campaign" || !/^[A-Z0-9]{4}$/.test(backupCode)) {
+        sendJson(res, 400, { error: "That file is not a valid Spaceship Architect campaign backup." });
+        return true;
+      }
+      const hosted = await this.campaign(backupCode);
+      const suppliedGmCode = String(body.gmCode ?? "");
+      const suppliedBackupKey = String(backup?.authentication?.backupKey || "");
+      const backupHasAccess = hosted
+        ? (suppliedBackupKey && suppliedBackupKey === hosted.backupKey) || passwordMatches(suppliedGmCode, hosted.gmCode)
+        : Boolean(backup?.authentication?.gmCode?.salt && backup?.authentication?.gmCode?.hash) || Boolean(suppliedGmCode);
+      if (!backupHasAccess) {
+        sendJson(res, 403, { error: "This older backup needs the campaign's GM Code. Enter it in the GM Code field and load the backup again." });
+        return true;
+      }
+      const comparison = hosted ? campaignComparison(hosted, backup) : null;
+      const choice = String(body.choice || "");
+      if (hosted && !["hosted", "backup"].includes(choice)) {
+        sendJson(res, 409, {
+          error: "A hosted copy of this campaign still exists. Choose which version to open.",
+          requiresChoice: true,
+          comparison,
+        });
+        return true;
+      }
+      let selected;
+      if (hosted && choice === "hosted") {
+        selected = hosted;
+      } else {
+        selected = campaignFromBackup(backup, {
+          code: backupCode,
+          gmCode: suppliedGmCode,
+          currentGmCode: hosted?.gmCode || null,
+        });
+        if (!selected) {
+          sendJson(res, 400, { error: "This backup cannot restore GM access. Enter its GM Code and try again." });
+          return true;
+        }
+        if (hosted) {
+          selected.backupKey = hosted.backupKey;
+          selected.revision = Math.max(Number(hosted.revision) || 1, Number(selected.revision) || 1);
+          await this.save(selected);
+        } else {
+          selected.revision = Math.max(1, Number(selected.revision) || 1) + 1;
+          if (!await this.store.create(selected)) {
+            sendJson(res, 409, { error: "The campaign appeared on the server while the backup was loading. Try again." });
+            return true;
+          }
+          this.campaignCache.set(selected.code, selected);
+        }
+        this.restoreEncounter(selected.code, selected.encounter);
+      }
+      this.campaignCache.set(selected.code, selected);
+      const gmToken = this.newSession(selected.code, "gm");
+      sendJson(res, 200, {
+        token: gmToken,
+        restored: !hosted || choice === "backup",
+        comparison,
+        campaign: this.state(selected, gmToken),
+      });
       return true;
     }
 
@@ -1253,6 +1383,8 @@ class CampaignApi {
         sendJson(res, 400, { error: "That backup does not match this campaign." });
         return true;
       }
+      restored.backupKey = campaign.backupKey;
+      restored.revision = Math.max(Number(campaign.revision) || 1, Number(restored.revision) || 1);
       await this.save(restored);
       this.restoreEncounter(code, restored.encounter);
       sendJson(res, 200, { campaign: this.state(restored, token) });
@@ -1491,6 +1623,13 @@ class CampaignApi {
       }
       const next = clone(body.character);
       next.id = record.id;
+      next.campaignLink = {
+        roomCode: campaign.code,
+        campaignName: campaign.name,
+        status: "linked",
+        requestId: "",
+        message: "",
+      };
       next.resources ||= {};
       next.health ||= { current: null, permanentBonus: 0 };
       const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
@@ -1603,6 +1742,18 @@ class CampaignApi {
         createdAt: new Date().toISOString(),
         readAt: null,
       });
+      for (const client of this.clients.get(code) || []) {
+        const clientSession = this.session(client.token, code);
+        if (clientSession?.role === "character" && clientSession.characterId === record.id) {
+          writeEvent(client.response, "character-kicked", {
+            campaignName: campaign.name,
+            character: {
+              ...clone(record.character),
+              campaignLink: { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" },
+            },
+          });
+        }
+      }
       this.invalidateCharacterSessions(code, record.id);
       await this.save(campaign);
       sendJson(res, 200, { kicked: true, campaign: this.state(campaign, token) });
@@ -1630,8 +1781,11 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization is required." });
         return true;
       }
-      campaign.settings ||= { commandWindowBonus: 0 };
-      campaign.settings.commandWindowBonus = Math.round(boundedNumber(body.commandWindowBonus, 0, 3600));
+      campaign.settings ||= { commandWindowBonus: 0, hideRoomCode: false };
+      if (body.commandWindowBonus !== undefined) {
+        campaign.settings.commandWindowBonus = Math.round(boundedNumber(body.commandWindowBonus, 0, 3600));
+      }
+      if (body.hideRoomCode !== undefined) campaign.settings.hideRoomCode = Boolean(body.hideRoomCode);
       await this.save(campaign);
       sendJson(res, 200, { campaign: this.state(campaign, token) });
       return true;

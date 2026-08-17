@@ -861,6 +861,7 @@ function normalizeCharacter(raw) {
   const sourceVersion = Math.max(1, Math.round(Number(source.version) || 1));
   const preV4 = sourceVersion < 4;
   const identity = { ...base.identity, ...(source.identity || {}) };
+  identity.characterName = String(identity.characterName || "").replace(/\s*\(Recovered\)\s*$/i, "");
   identity.classId = identity.classId || classIdFromName(identity.className);
   identity.className = classById(identity.classId).name;
   identity.race = String(identity.race || "");
@@ -1478,7 +1479,7 @@ function renderCharacterNavigation() {
   dom.joinCampaignForm.hidden = pending;
   const roomCode = linked ? campaignCode : character.campaignLink?.roomCode || "";
   dom.roomCode.hidden = !roomCode;
-  dom.roomCodeValue.textContent = roomCode || "----";
+  dom.roomCodeValue.textContent = roomCode && campaignState?.settings?.hideRoomCode ? "••••" : roomCode || "----";
   if (dom.backToMain) dom.backToMain.hidden = linked;
   dom.settingsLeaveCampaign.disabled = false;
   dom.settingsLeaveCampaign.closest("section").hidden = gmView;
@@ -1759,25 +1760,8 @@ function receiveCampaignState(nextState) {
   }
   const remote = nextState.characters.find((entry) => entry.id === campaignCharacterId);
   if (!remote) {
-    const removedName = campaignState?.name || character.campaignLink?.campaignName || "the campaign";
-    resetCombatInterfaceState({ clearFrame: true });
-    character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
-    campaignEvents?.close();
-    campaignEvents = null;
-    campaignCode = "";
-    campaignState = null;
-    campaignCharacterId = "";
-    campaignToken = "";
-    campaignPin = character.access?.pcCode || "";
-    campaignEditable = false;
-    dom.campaignAccessBar.hidden = true;
-    dom.characterPicker.closest(".library-bar").hidden = false;
-    document.body.classList.remove("campaign-view-only");
-    saveLibrary("Character saved locally");
-    renderAll();
-    renderCharacterNavigation();
-    showCharacterPanel("sheet");
-    notice(`This character is no longer linked to ${removedName}.`, "error");
+    dom.saveStatus.textContent = "Campaign synchronization interrupted; link preserved";
+    dom.saveStatus.classList.add("saving");
     return;
   }
   const remoteHp = Number(remote.character?.health?.current);
@@ -1828,6 +1812,29 @@ function connectCampaignState() {
   if (!campaignCode) return;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
   campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
+  campaignEvents.addEventListener("character-kicked", (event) => {
+    const payload = JSON.parse(event.data);
+    if (payload.character) character = normalizeCharacter(payload.character);
+    resetCombatInterfaceState({ clearFrame: true });
+    const existing = library.findIndex((entry) => entry.id === character.id);
+    if (existing >= 0) library[existing] = character;
+    else library.push(character);
+    activeId = character.id;
+    campaignEvents?.close();
+    campaignEvents = null;
+    campaignCode = "";
+    campaignState = null;
+    campaignCharacterId = "";
+    campaignToken = "";
+    campaignEditable = false;
+    character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
+    localStorage.removeItem("sa-character-campaign-code");
+    saveLibrary("Character removed from campaign");
+    renderAll();
+    renderCharacterNavigation();
+    showCharacterPanel("sheet");
+    notice(`The GM removed this character from ${payload.campaignName || "the campaign"}.`, "error");
+  });
   campaignEvents.addEventListener("campaign-deleted", (event) => {
     const payload = JSON.parse(event.data);
     if (payload.character) character = normalizeCharacter(payload.character);
@@ -1939,20 +1946,11 @@ async function checkJoinStatus() {
   } catch (error) {
     if (error.status === 404) {
       const campaignName = character.campaignLink?.campaignName || "That campaign";
-      character.localInbox = [...(character.localInbox || []), {
-        id: `local-${Date.now()}`,
-        kind: "system",
-        direction: "to-character",
-        message: `${campaignName} is no longer available. Your character may join another campaign.`,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-      }].slice(-20);
-      character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
-      localStorage.removeItem("sa-character-campaign-code");
-      saveLibrary("Unavailable campaign link cleared");
+      character.campaignLink.message = `${campaignName} is temporarily unavailable. The campaign link is preserved.`;
+      saveLibrary("Campaign link preserved while unavailable");
       renderCharacterNavigation();
-      refreshPrivateNotes();
-      notice(`${campaignName} is no longer available. Your character has been released.`, "error");
+      notice(`${campaignName} is unavailable right now. Your character remains linked and will retry.`, "error");
+      scheduleJoinStatusCheck(15000);
       return;
     }
     dom.joinCampaignStatus.textContent = error.message;
@@ -5702,7 +5700,7 @@ dom.characterPicker.addEventListener("change", () => {
     if (!recovery) return;
     const restored = normalizeCharacter(deepCopy(recovery.character));
     restored.id = uid();
-    restored.identity.characterName = `${restored.identity.characterName || "Character"} (Recovered)`;
+    restored.identity.characterName = restored.identity.characterName || "Character";
     restored.phase = restored.phase === "finalizing" ? "draft" : restored.phase;
     restored.pendingRoll = null;
     restored.creation.finalizationQueue = [];
@@ -6939,11 +6937,24 @@ async function initializeCharacterApp() {
   dom.campaignGate.hidden = true;
   dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {
-    const token = gmAccess
+    let token = gmAccess
       ? localStorage.getItem(`sa-gm-token-${requestedCode}`) || ""
       : localStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
     try {
-      const state = await loadCampaign(requestedCode, token);
+      let state = await loadCampaign(requestedCode, token);
+      if (!gmAccess && state.role !== "character") {
+        const localRecord = library.find((entry) => entry.id === requestedCharacter) || character;
+        const pcCode = localRecord?.access?.pcCode || "";
+        if (pcCode) {
+          const unlocked = await campaignRequest("/api/campaign/character/unlock", {
+            method: "POST",
+            body: JSON.stringify({ code: requestedCode, characterId: requestedCharacter, pcCode }),
+          });
+          token = unlocked.token;
+          localStorage.setItem(campaignTokenKey(requestedCode, requestedCharacter), token);
+          state = await loadCampaign(requestedCode, token);
+        }
+      }
       const record = state.characters.find((entry) => entry.id === requestedCharacter);
       if (record) {
         const editable = state.role === "gm" || (state.role === "character" && state.ownCharacterId === requestedCharacter);
@@ -6955,10 +6966,9 @@ async function initializeCharacterApp() {
     } catch (error) {
       dom.campaignMessage.textContent = error.message;
       if (error.status === 404 && character.campaignLink?.roomCode === requestedCode) {
-        character.campaignLink = { roomCode: "", campaignName: "", status: "unlinked", requestId: "", message: "" };
-        localStorage.removeItem("sa-character-campaign-code");
-        saveLibrary("Character preserved locally");
-        notice("That campaign was deleted. Your character remains saved on this device.", "error");
+        character.campaignLink.message = "Campaign temporarily unavailable. Link preserved until you explicitly leave or the GM removes it.";
+        saveLibrary("Campaign link preserved");
+        notice("That campaign is unavailable right now. Your character remains linked.", "error");
       }
     }
   }
