@@ -1,9 +1,12 @@
 const crypto = require("crypto");
+const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama-card-data.js");
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SCRIPT_LENGTH = 250000;
 const PLAYER_INBOX_LIMIT = 20;
 const GM_INBOX_LIMIT = 50;
+const DRAMA_CARD_BY_ID = new Map(DRAMA_CARDS.map((card) => [card.id, card]));
+const DRAMA_CARD_IDS = DRAMA_CARDS.map((card) => card.id);
 
 function uid(prefix = "id") {
   return `${prefix}-${crypto.randomBytes(9).toString("base64url")}`;
@@ -11,6 +14,93 @@ function uid(prefix = "id") {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function shuffle(values) {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swap = crypto.randomInt(0, index + 1);
+    [result[index], result[swap]] = [result[swap], result[index]];
+  }
+  return result;
+}
+
+function createDramaDeck() {
+  return { drawPile: shuffle(DRAMA_CARD_IDS), discardPile: [], hands: {}, playEvents: [] };
+}
+
+function drawDramaCardId(deck) {
+  if (!deck.drawPile.length && deck.discardPile.length) {
+    deck.drawPile = shuffle(deck.discardPile);
+    deck.discardPile = [];
+  }
+  return deck.drawPile.shift() || "";
+}
+
+function normalizeDramaDeck(campaign) {
+  const source = campaign.dramaDeck && typeof campaign.dramaDeck === "object" ? campaign.dramaDeck : null;
+  const deck = { drawPile: [], discardPile: [], hands: {}, playEvents: [] };
+  const valid = new Set(DRAMA_CARD_IDS);
+  const used = new Set();
+  const characterIds = new Set((campaign.characters || []).map((record) => record.id));
+
+  const collect = (values, target) => {
+    for (const value of Array.isArray(values) ? values : []) {
+      const id = String(value || "");
+      if (!valid.has(id) || used.has(id)) continue;
+      used.add(id);
+      target.push(id);
+    }
+  };
+
+  collect(source?.drawPile, deck.drawPile);
+  collect(source?.discardPile, deck.discardPile);
+  for (const record of campaign.characters || []) {
+    const hand = [];
+    collect(source?.hands?.[record.id], hand);
+    deck.hands[record.id] = hand;
+  }
+  for (const [characterId, hand] of Object.entries(source?.hands || {})) {
+    if (characterIds.has(characterId)) continue;
+    collect(hand, deck.discardPile);
+  }
+
+  const missing = DRAMA_CARD_IDS.filter((id) => !used.has(id));
+  deck.drawPile.push(...(source ? missing : shuffle(missing)));
+  deck.playEvents = (Array.isArray(source?.playEvents) ? source.playEvents : []).slice(-50).map((event) => ({
+    id: String(event?.id || uid("drama-play")).slice(0, 120),
+    cardId: valid.has(String(event?.cardId || "")) ? String(event.cardId) : "",
+    characterId: String(event?.characterId || "").slice(0, 120),
+    characterName: String(event?.characterName || "Unnamed Character").slice(0, 80),
+    playerName: String(event?.playerName || "Player").slice(0, 80),
+    playedAt: event?.playedAt || new Date().toISOString(),
+  })).filter((event) => event.cardId);
+
+  for (const record of campaign.characters || []) {
+    record.character.resources ||= {};
+    const requested = Math.max(0, Math.min(DRAMA_CARDS.length, Math.round(Number(record.character.resources.dramaCards) || 0)));
+    const hand = deck.hands[record.id];
+    while (hand.length < requested) {
+      const cardId = drawDramaCardId(deck);
+      if (!cardId) break;
+      hand.push(cardId);
+    }
+    record.character.resources.dramaCards = hand.length;
+  }
+
+  campaign.dramaDeck = deck;
+  return deck;
+}
+
+function releaseDramaHand(campaign, characterId) {
+  const deck = normalizeDramaDeck(campaign);
+  deck.discardPile.push(...(deck.hands[characterId] || []));
+  delete deck.hands[characterId];
+}
+
+function dramaCardState(cardId) {
+  const card = DRAMA_CARD_BY_ID.get(cardId);
+  return card ? clone(card) : null;
 }
 
 function campaignCode() {
@@ -270,6 +360,7 @@ function defaultCampaign({ code, name, gmCode }) {
     privateNotes: [],
     rollRequests: [],
     npcTemplates: [],
+    dramaDeck: createDramaDeck(),
     settings: { commandWindowBonus: 0 },
     encounter: null,
     sessionNumber: 0,
@@ -387,6 +478,7 @@ function normalizeCampaign(raw) {
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
   }));
   campaign.sessionNumber = Math.max(0, Math.round(Number(campaign.sessionNumber) || 0));
+  normalizeDramaDeck(campaign);
   trimPrivateNotes(campaign);
   return campaign;
 }
@@ -415,6 +507,7 @@ function campaignBackup(campaign) {
       privateNotes: campaign.privateNotes,
       rollRequests: campaign.rollRequests,
       npcTemplates: campaign.npcTemplates,
+      dramaDeck: campaign.dramaDeck,
       encounter: campaign.encounter,
       sessionNumber: campaign.sessionNumber,
     }),
@@ -432,6 +525,8 @@ function campaignFromBackup(backup, { code = "", gmCode = null, currentGmCode = 
 }
 
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
+  const character = clone(record.character);
+  if (!gm && !own && character.resources) delete character.resources.dramaCards;
   return {
     id: record.id,
     pcCode: gm || own ? record.pcCode : undefined,
@@ -439,7 +534,7 @@ function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
     imported: record.imported,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-    character: clone(record.character),
+    character,
     privateNotes: gm || own ? clone(notes) : undefined,
   };
 }
@@ -523,6 +618,7 @@ class CampaignApi {
   }
 
   async save(campaign, { broadcast = true } = {}) {
+    normalizeDramaDeck(campaign);
     trimPrivateNotes(campaign);
     this.campaignCache.set(campaign.code, campaign);
     const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
@@ -540,6 +636,7 @@ class CampaignApi {
   }
 
   state(campaign, token = "") {
+    const dramaDeck = normalizeDramaDeck(campaign);
     const session = this.session(token, campaign.code);
     const gm = session?.role === "gm";
     const ownId = session?.role === "character" ? session.characterId : null;
@@ -572,6 +669,21 @@ class CampaignApi {
       settings: clone(campaign.settings),
       npcTemplates: gm ? clone(campaign.npcTemplates) : undefined,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
+      dramaDeck: gm
+        ? {
+            drawCount: dramaDeck.drawPile.length,
+            discardCount: dramaDeck.discardPile.length,
+            handCounts: Object.fromEntries(campaign.characters.map((record) => [record.id, (dramaDeck.hands[record.id] || []).length])),
+            playEvents: dramaDeck.playEvents.map((event) => ({ ...clone(event), card: dramaCardState(event.cardId) })),
+          }
+        : ownId
+          ? {
+              cost: DRAMA_CARD_COST,
+              handLimit: DRAMA_CARD_HAND_LIMIT,
+              hand: (dramaDeck.hands[ownId] || []).map(dramaCardState).filter(Boolean),
+              playEvents: dramaDeck.playEvents.map((event) => ({ ...clone(event), card: dramaCardState(event.cardId) })),
+            }
+          : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
       inbox: gm ? clone(campaign.privateNotes.slice(-GM_INBOX_LIMIT)) : undefined,
       characters: campaign.characters.map((record) => ({
@@ -854,6 +966,77 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/drama/draw" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      if (record.character?.phase !== "finalized") {
+        sendJson(res, 409, { error: "Finalize this character before purchasing Drama Cards." });
+        return true;
+      }
+      const deck = normalizeDramaDeck(campaign);
+      const hand = deck.hands[record.id] || (deck.hands[record.id] = []);
+      if (hand.length >= DRAMA_CARD_HAND_LIMIT) {
+        sendJson(res, 409, { error: `You may purchase cards only while holding fewer than ${DRAMA_CARD_HAND_LIMIT}.` });
+        return true;
+      }
+      record.character.resources ||= {};
+      const reverence = Math.max(0, Number(record.character.resources.reverence) || 0);
+      if (reverence < DRAMA_CARD_COST) {
+        sendJson(res, 409, { error: `Purchasing a Drama Card costs ${DRAMA_CARD_COST} Reverence.` });
+        return true;
+      }
+      const cardId = drawDramaCardId(deck);
+      if (!cardId) {
+        sendJson(res, 409, { error: "No Drama Cards are currently available to draw." });
+        return true;
+      }
+      record.character.resources.reverence = reverence - DRAMA_CARD_COST;
+      hand.push(cardId);
+      record.character.resources.dramaCards = hand.length;
+      record.updatedAt = new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { card: dramaCardState(cardId), campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/drama/play" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const deck = normalizeDramaDeck(campaign);
+      const hand = deck.hands[record.id] || [];
+      const cardId = String(body.cardId || "");
+      const cardIndex = hand.indexOf(cardId);
+      const card = DRAMA_CARD_BY_ID.get(cardId);
+      if (cardIndex < 0 || !card) {
+        sendJson(res, 404, { error: "That Drama Card is not in this character's hand." });
+        return true;
+      }
+      hand.splice(cardIndex, 1);
+      deck.discardPile.push(cardId);
+      const event = {
+        id: uid("drama-play"),
+        cardId,
+        characterId: record.id,
+        characterName: safeCharacterName(record),
+        playerName: String(record.character?.identity?.playerName || "Player").trim().slice(0, 80) || "Player",
+        playedAt: new Date().toISOString(),
+      };
+      deck.playEvents.push(event);
+      deck.playEvents = deck.playEvents.slice(-50);
+      record.character.resources ||= {};
+      record.character.resources.dramaCards = hand.length;
+      record.updatedAt = event.playedAt;
+      await this.save(campaign);
+      sendJson(res, 200, { played: true, card: dramaCardState(cardId), campaign: this.state(campaign, token) });
+      return true;
+    }
+
     if (path === "/api/campaign/join/request" && req.method === "POST") {
       const source = body.character && typeof body.character === "object" ? clone(body.character) : null;
       const pcCode = String(body.pcCode || source?.access?.pcCode || "");
@@ -940,6 +1123,7 @@ class CampaignApi {
       }
       campaign.joinRequests = campaign.joinRequests.filter((entry) => entry.characterId !== characterId || entry.pcCode !== pcCode);
       if (linked) {
+        releaseDramaHand(campaign, linked.id);
         campaign.characters = campaign.characters.filter((entry) => entry.id !== linked.id);
         campaign.rollRequests = campaign.rollRequests.filter((rollRequest) => !rollRequest.targetIds.includes(linked.id));
         if (campaign.bankerCharacterId === linked.id) campaign.bankerCharacterId = null;
@@ -1309,6 +1493,7 @@ class CampaignApi {
         sendJson(res, 403, { error: "Character authorization is required." });
         return true;
       }
+      releaseDramaHand(campaign, record.id);
       campaign.characters = campaign.characters.filter((entry) => entry.id !== record.id);
       campaign.privateNotes = campaign.privateNotes.filter((note) => note.characterId !== record.id);
       campaign.rollRequests = campaign.rollRequests.filter((request) => !request.targetIds.includes(record.id));
@@ -1326,6 +1511,7 @@ class CampaignApi {
       }
       const detachedCharacter = clone(record.character);
       detachedCharacter.campaignLink = { roomCode: "", campaignName: "", status: "unlinked" };
+      releaseDramaHand(campaign, record.id);
       campaign.characters = campaign.characters.filter((entry) => entry.id !== record.id);
       campaign.rollRequests = campaign.rollRequests.filter((request) => !request.targetIds.includes(record.id));
       if (campaign.bankerCharacterId === record.id) campaign.bankerCharacterId = null;
@@ -1355,6 +1541,7 @@ class CampaignApi {
         sendJson(res, 404, { error: "Character not found." });
         return true;
       }
+      releaseDramaHand(campaign, record.id);
       campaign.characters = campaign.characters.filter((entry) => entry.id !== record.id);
       campaign.rollRequests = campaign.rollRequests.filter((request) => !request.targetIds.includes(record.id));
       if (campaign.bankerCharacterId === record.id) campaign.bankerCharacterId = null;

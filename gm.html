@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260816-reverence-polish" />
+  <link rel="stylesheet" href="gm.css?v=20260816-drama-cards" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -16,6 +16,7 @@
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
         <div class="gm-header-actions">
+          <div id="gmDramaDeckStatus" class="gm-drama-deck-status" hidden><span>DRAMA DECK</span><strong>72 DRAW / 0 DISCARD</strong></div>
           <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
         </div>
@@ -301,6 +302,18 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
-  <script type="module" src="gm.js?v=20260816-atb-2e"></script>
+    <div id="gmDramaCardAlert" class="gm-modal-shell gm-drama-alert-shell" hidden>
+      <section class="gm-drama-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="gmDramaCardName">
+        <p id="gmDramaPlayedBy" class="gm-drama-played-by"></p>
+        <article id="gmDramaCardDisplay" class="gm-drama-card" data-category="">
+          <header><span id="gmDramaCardCategory">Drama Card</span><b id="gmDramaCardNumber">#00</b></header>
+          <div><span class="gm-drama-sigil" aria-hidden="true">SA</span><h2 id="gmDramaCardName">Drama Card</h2><p id="gmDramaCardRules"></p></div>
+          <footer id="gmDramaCardHandling"></footer>
+        </article>
+        <button id="dismissGmDramaCard" class="primary" type="button">Dismiss</button>
+      </section>
+    </div>
+  <script src="drama-card-data.js?v=20260816-drama-cards"></script>
+  <script type="module" src="gm.js?v=20260816-drama-cards"></script>
   </body>
 </html>

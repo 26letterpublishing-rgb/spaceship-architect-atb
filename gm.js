@@ -8,6 +8,16 @@ const dom = {
   heading: $("#campaignHeading"),
   brand: $("#gmBrand"),
   soundToggle: $("#gmSoundToggle"),
+  dramaDeckStatus: $("#gmDramaDeckStatus"),
+  dramaAlert: $("#gmDramaCardAlert"),
+  dramaPlayedBy: $("#gmDramaPlayedBy"),
+  dramaCardDisplay: $("#gmDramaCardDisplay"),
+  dramaCardCategory: $("#gmDramaCardCategory"),
+  dramaCardNumber: $("#gmDramaCardNumber"),
+  dramaCardName: $("#gmDramaCardName"),
+  dramaCardRules: $("#gmDramaCardRules"),
+  dramaCardHandling: $("#gmDramaCardHandling"),
+  dismissDramaCard: $("#dismissGmDramaCard"),
   codeHeading: $("#campaignCodeHeading"),
   nameHeading: $("#campaignNameHeading"),
   logout: $("#gmLogout"),
@@ -168,6 +178,10 @@ let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "o
 let interfaceBannerVisible = localStorage.getItem(BANNER_VISIBILITY_KEY) !== "hidden";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let gmDialogState = null;
+let gmDramaAudioContext = null;
+let dramaEventCampaignCode = "";
+let knownDramaPlayIds = new Set();
+let dramaAlertQueue = [];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -334,6 +348,65 @@ function selectedRaceEffects(record) {
     skillBonuses: { ...(race?.effects?.skillBonuses || {}), ...(raceType?.effects?.skillBonuses || {}) },
     postFinalizeSkillBonuses: { ...(race?.effects?.postFinalizeSkillBonuses || {}), ...(raceType?.effects?.postFinalizeSkillBonuses || {}) },
   };
+}
+
+function playDramaJolt() {
+  if (gmSoundsMuted) return;
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (!Context) return;
+  gmDramaAudioContext ||= new Context();
+  const audio = gmDramaAudioContext;
+  const sound = () => {
+    const startsAt = audio.currentTime + 0.015;
+    const master = audio.createGain();
+    master.gain.setValueAtTime(0.0001, startsAt);
+    master.gain.exponentialRampToValueAtTime(0.3, startsAt + 0.012);
+    master.gain.exponentialRampToValueAtTime(0.0001, startsAt + 0.42);
+    master.connect(audio.destination);
+    [[155, "sawtooth", 0], [520, "square", 0.035], [920, "triangle", 0.085]].forEach(([frequency, type, offset]) => {
+      const oscillator = audio.createOscillator();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, startsAt + offset);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(55, frequency * 0.42), startsAt + offset + 0.28);
+      oscillator.connect(master);
+      oscillator.start(startsAt + offset);
+      oscillator.stop(startsAt + offset + 0.32);
+    });
+  };
+  if (audio.state === "suspended") audio.resume().then(sound).catch(() => {});
+  else sound();
+}
+
+function showNextDramaAlert() {
+  if (!dom.dramaAlert.hidden || !dramaAlertQueue.length) return;
+  const event = dramaAlertQueue.shift();
+  const card = event.card;
+  dom.dramaPlayedBy.textContent = `${event.playerName || "A player"} played ${card.name} as ${event.characterName || "their character"}.`;
+  dom.dramaCardDisplay.dataset.category = card.category || "";
+  dom.dramaCardCategory.textContent = card.category || "Drama Card";
+  dom.dramaCardNumber.textContent = `#${String(card.number || 0).padStart(2, "0")}`;
+  dom.dramaCardName.textContent = card.name || "Drama Card";
+  dom.dramaCardRules.textContent = card.text || "";
+  dom.dramaCardHandling.textContent = card.handling || "Reveal, resolve, then discard.";
+  dom.dramaAlert.hidden = false;
+  playDramaJolt();
+  requestAnimationFrame(() => dom.dismissDramaCard.focus());
+}
+
+function processDramaPlayEvents(nextCampaign) {
+  const plays = Array.isArray(nextCampaign?.dramaDeck?.playEvents) ? nextCampaign.dramaDeck.playEvents : [];
+  if (dramaEventCampaignCode !== nextCampaign?.code) {
+    dramaEventCampaignCode = nextCampaign?.code || "";
+    knownDramaPlayIds = new Set(plays.map((event) => event.id));
+    dramaAlertQueue = [];
+    return;
+  }
+  for (const event of plays) {
+    if (!event?.id || knownDramaPlayIds.has(event.id)) continue;
+    knownDramaPlayIds.add(event.id);
+    if (event.card) dramaAlertQueue.push(event);
+  }
+  showNextDramaAlert();
 }
 
 function skillRating(record, name) {
@@ -1033,6 +1106,10 @@ function renderCampaign() {
   if (!campaign) return;
   dom.codeHeading.textContent = campaign.code;
   dom.nameHeading.textContent = campaign.name;
+  dom.dramaDeckStatus.hidden = !campaign.dramaDeck;
+  if (campaign.dramaDeck) {
+    dom.dramaDeckStatus.querySelector("strong").textContent = `${campaign.dramaDeck.drawCount} DRAW / ${campaign.dramaDeck.discardCount} DISCARD`;
+  }
   dom.shipCredits.textContent = Number(campaign.shipCredits || 0).toLocaleString();
   const sessionNumber = Math.max(0, Number(campaign.sessionNumber) || 0);
   dom.sessionNumberLabel.textContent = `Session ${sessionNumber}`;
@@ -1064,6 +1141,7 @@ function renderCampaign() {
 }
 
 function receiveCampaign(next) {
+  processDramaPlayEvents(next);
   campaign = next;
   if (!targetSelectionTouched && !selectedTargets.size && next.characters?.length === 1) {
     selectedTargets.add(next.characters[0].id);
@@ -1846,8 +1924,14 @@ function updateSoundButton() {
 dom.soundToggle.addEventListener("click", () => {
   gmSoundsMuted = !gmSoundsMuted;
   localStorage.setItem("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  if (gmSoundsMuted) gmDramaAudioContext?.suspend().catch(() => {});
+  else gmDramaAudioContext?.resume().catch(() => {});
   updateSoundButton();
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
+});
+dom.dismissDramaCard?.addEventListener("click", () => {
+  dom.dramaAlert.hidden = true;
+  requestAnimationFrame(showNextDramaAlert);
 });
 dom.atbFrame.addEventListener("load", () => {
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);

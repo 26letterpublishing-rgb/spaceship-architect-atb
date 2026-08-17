@@ -22,6 +22,11 @@ import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tab
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 
+const {
+  DRAMA_CARD_COST = 4,
+  DRAMA_CARD_HAND_LIMIT = 7,
+} = globalThis.SA_DRAMA_CARDS || {};
+
 const STORAGE_KEY = "sa2e-character-library-v1";
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
@@ -203,6 +208,21 @@ const dom = {
   creditsFormula: $("#creditsFormula"),
   manualDataPanel: $("#manualDataPanel"),
   dramaCardsValue: $("#dramaCardsValue"),
+  dramaCardsFormula: $("#dramaCardsFormula"),
+  purchaseDramaCard: $("#purchaseDramaCard"),
+  dramaCardHandPanel: $("#dramaCardHandPanel"),
+  dramaCardHandStatus: $("#dramaCardHandStatus"),
+  dramaCardHand: $("#dramaCardHand"),
+  dramaCardModal: $("#dramaCardModal"),
+  dramaCardDisplay: $("#dramaCardDisplay"),
+  dramaCardCategory: $("#dramaCardCategory"),
+  dramaCardNumber: $("#dramaCardNumber"),
+  dramaCardDialogTitle: $("#dramaCardDialogTitle"),
+  dramaCardRules: $("#dramaCardRules"),
+  dramaCardHandling: $("#dramaCardHandling"),
+  dramaCardAlertByline: $("#dramaCardAlertByline"),
+  closeDramaCard: $("#closeDramaCard"),
+  playDramaCard: $("#playDramaCard"),
   specialAbilitiesCard: $("#specialAbilitiesCard"),
   specialAbilityActions: $("#specialAbilityActions"),
   reverenceCurrent: $("#reverenceCurrent"),
@@ -595,6 +615,11 @@ let suppressCampaignSave = false;
 let pinModalMode = "display";
 let pendingPinCharacterId = "";
 let activeCampaignRollRequest = null;
+let dramaEventCampaignCode = "";
+let knownDramaPlayIds = new Set();
+let dramaAlertQueue = [];
+let activeDramaAlert = null;
+let selectedDramaCard = null;
 
 function showRollResultToast(message) {
   if (!dom.rollResultToast) return;
@@ -1688,6 +1713,7 @@ function refreshCampaignRollPrompt() {
 }
 
 function receiveCampaignState(nextState) {
+  processDramaPlayEvents(nextState);
   campaignState = nextState;
   cacheCampaign(nextState);
   if (!campaignCharacterId) {
@@ -1980,6 +2006,71 @@ function notice(message, type = "") {
     dom.creatorNotice.textContent = "";
     dom.creatorNotice.className = "creator-notice";
   }, 4800);
+}
+
+function dramaCardPreviewText(card) {
+  const text = String(card?.text || "");
+  return text.length > 150 ? `${text.slice(0, 147).trim()}...` : text;
+}
+
+function fillDramaCard(card) {
+  if (!card) return;
+  dom.dramaCardDisplay.dataset.category = card.category || "";
+  dom.dramaCardCategory.textContent = card.category || "Drama Card";
+  dom.dramaCardNumber.textContent = `#${String(card.number || 0).padStart(2, "0")}`;
+  dom.dramaCardDialogTitle.textContent = card.name || "Drama Card";
+  dom.dramaCardRules.textContent = card.text || "";
+  dom.dramaCardHandling.textContent = card.handling || "Reveal, resolve, then discard.";
+}
+
+function openDramaCard(card, { alert = null } = {}) {
+  if (!card) return;
+  selectedDramaCard = alert ? null : card;
+  activeDramaAlert = alert;
+  fillDramaCard(card);
+  dom.dramaCardAlertByline.hidden = !alert;
+  dom.dramaCardAlertByline.textContent = alert
+    ? `${alert.playerName || "A player"} played ${card.name} as ${alert.characterName || "their character"}.`
+    : "";
+  dom.playDramaCard.hidden = Boolean(alert);
+  dom.playDramaCard.disabled = false;
+  dom.playDramaCard.dataset.confirming = "false";
+  dom.playDramaCard.textContent = "Play Card";
+  dom.closeDramaCard.textContent = alert ? "Dismiss" : "Close";
+  dom.dramaCardModal.hidden = false;
+  requestAnimationFrame(() => dom.closeDramaCard.focus());
+}
+
+function showNextDramaAlert() {
+  if (!dom.dramaCardModal.hidden || !dramaAlertQueue.length) return;
+  const alert = dramaAlertQueue.shift();
+  openDramaCard(alert.card, { alert });
+}
+
+function closeDramaCard() {
+  const dismissedAlert = Boolean(activeDramaAlert);
+  dom.dramaCardModal.hidden = true;
+  dom.playDramaCard.dataset.confirming = "false";
+  activeDramaAlert = null;
+  selectedDramaCard = null;
+  if (dismissedAlert) requestAnimationFrame(showNextDramaAlert);
+}
+
+function processDramaPlayEvents(nextState) {
+  const events = Array.isArray(nextState?.dramaDeck?.playEvents) ? nextState.dramaDeck.playEvents : [];
+  if (dramaEventCampaignCode !== nextState?.code) {
+    dramaEventCampaignCode = nextState?.code || "";
+    knownDramaPlayIds = new Set(events.map((event) => event.id));
+    dramaAlertQueue = [];
+    return;
+  }
+  for (const event of events) {
+    if (!event?.id || knownDramaPlayIds.has(event.id)) continue;
+    knownDramaPlayIds.add(event.id);
+    if (event.characterId === nextState.ownCharacterId || !event.card) continue;
+    dramaAlertQueue.push(event);
+  }
+  showNextDramaAlert();
 }
 
 function finalizedModifiersActive(characterObject = character) {
@@ -2937,7 +3028,36 @@ function renderResources() {
   dom.giftReverence.title = giftTargets.length ? "Suggest a Reverence reward for another character" : "No other campaign characters are available";
   dom.characterAtbColor.value = character.presentation.atbColor;
   dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
-  dom.dramaCardsValue.textContent = Math.max(0, Number(character.resources.dramaCards) || 0);
+  const dramaHand = campaignState?.role === "character" && campaignState.ownCharacterId === campaignCharacterId && character.id === campaignCharacterId
+    ? campaignState.dramaDeck?.hand || []
+    : [];
+  const dramaCount = dramaHand.length || Math.max(0, Number(character.resources.dramaCards) || 0);
+  dom.dramaCardsValue.textContent = dramaCount;
+  dom.dramaCardsFormula.textContent = campaignState?.role === "character"
+    ? `${dramaCount}/${DRAMA_CARD_HAND_LIMIT} purchase limit; card effects may exceed it`
+    : "Join a campaign to use its shared deck";
+  dom.dramaCardHandStatus.textContent = dramaHand.length
+    ? `${dramaHand.length} card${dramaHand.length === 1 ? "" : "s"} held`
+    : "No cards held";
+  dom.dramaCardHand.innerHTML = dramaHand.map((card) => `<button type="button" class="drama-card-mini" data-drama-card="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category)}" aria-label="Open ${escapeHtml(card.name)}">
+    <span>${escapeHtml(card.category)}</span>
+    <strong>${escapeHtml(card.name)}</strong>
+    <small>${escapeHtml(dramaCardPreviewText(card))}</small>
+  </button>`).join("");
+  const mayPurchaseDrama = character.phase === "finalized"
+    && campaignState?.role === "character"
+    && campaignEditable
+    && dramaHand.length < DRAMA_CARD_HAND_LIMIT
+    && character.resources.reverence >= DRAMA_CARD_COST;
+  dom.purchaseDramaCard.disabled = !mayPurchaseDrama;
+  dom.purchaseDramaCard.querySelector("small").textContent = `Spend ${DRAMA_CARD_COST} Reverence`;
+  dom.purchaseDramaCard.title = !campaignState
+    ? "Join a campaign to draw from its shared deck."
+    : dramaHand.length >= DRAMA_CARD_HAND_LIMIT
+      ? `Purchase limit reached (${DRAMA_CARD_HAND_LIMIT}).`
+      : character.resources.reverence < DRAMA_CARD_COST
+        ? `Requires ${DRAMA_CARD_COST} Reverence.`
+        : "Draw one unique card from the campaign deck.";
   const specialActions = [];
   if (character.identity.classId === "marine-soldier") {
     const marineUsed = Boolean(character.session.marineHealingUsed);
@@ -6595,6 +6715,70 @@ dom.skillSort?.addEventListener("change", () => {
   localStorage.setItem(SKILL_SORT_KEY, skillSortMode);
   renderSkills();
 });
+
+dom.dramaCardHand?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-drama-card]");
+  if (!button) return;
+  const card = campaignState?.dramaDeck?.hand?.find((entry) => entry.id === button.dataset.dramaCard);
+  if (card) openDramaCard(card);
+});
+
+dom.closeDramaCard?.addEventListener("click", closeDramaCard);
+
+dom.playDramaCard?.addEventListener("click", async () => {
+  if (!selectedDramaCard || !campaignEditable) return;
+  if (dom.playDramaCard.dataset.confirming !== "true") {
+    dom.playDramaCard.dataset.confirming = "true";
+    dom.playDramaCard.textContent = "Confirm Play";
+    dom.closeDramaCard.textContent = "Cancel";
+    dom.dramaCardAlertByline.hidden = false;
+    dom.dramaCardAlertByline.textContent = "Play this card now? It will move to the shared discard pile.";
+    return;
+  }
+  dom.playDramaCard.disabled = true;
+  try {
+    const payload = await campaignRequest("/api/campaign/drama/play", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, cardId: selectedDramaCard.id }),
+    });
+    closeDramaCard();
+    receiveCampaignState(payload.campaign);
+    notice(`${payload.card.name} played. The table has been alerted.`, "success");
+  } catch (error) {
+    dom.playDramaCard.disabled = false;
+    dom.playDramaCard.dataset.confirming = "false";
+    dom.playDramaCard.textContent = "Play Card";
+    dom.closeDramaCard.textContent = "Close";
+    dom.dramaCardAlertByline.hidden = true;
+    notice(error.message, "error");
+  }
+});
+
+dom.purchaseDramaCard?.addEventListener("click", async () => {
+  if (dom.purchaseDramaCard.disabled || !campaignEditable) return;
+  const accepted = await askConfirmation({
+    title: "Purchase a Drama Card?",
+    message: `Spend ${DRAMA_CARD_COST} Reverence to draw one unique card from the campaign deck.`,
+    acceptLabel: "Purchase Card",
+    cancelLabel: "Cancel",
+  });
+  if (!accepted) return;
+  dom.purchaseDramaCard.disabled = true;
+  try {
+    await saveCampaignCharacter({ force: true });
+    const payload = await campaignRequest("/api/campaign/drama/draw", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId }),
+    });
+    receiveCampaignState(payload.campaign);
+    openDramaCard(payload.card);
+    notice(`${payload.card.name} added to your hand.`, "success");
+  } catch (error) {
+    notice(error.message, "error");
+    renderResources();
+  }
+});
+
 window.addEventListener("beforeunload", () => {
   if (CAMPAIGN_READ_ONLY_VIEW) return;
   saveLibrary();

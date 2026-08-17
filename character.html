@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260816-reverence-polish" />
+  <link rel="stylesheet" href="character.css?v=20260816-drama-cards" />
   <link rel="stylesheet" href="weapons.css?v=20260816-storage-give" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -244,7 +244,7 @@
             </div>
             <div class="resource-card drama-cards-card">
               <span>Drama Cards</span><strong id="dramaCardsValue">0</strong>
-              <small class="resource-formula">Current cards held by this character</small>
+              <small id="dramaCardsFormula" class="resource-formula">Join a campaign to use its shared deck</small>
             </div>
             <div id="specialAbilitiesCard" class="resource-card special-abilities-card" hidden>
               <span>Special Actions</span>
@@ -261,7 +261,7 @@
               </div>
               <div id="reverenceMeter" class="reverence-meter" aria-label="10 Reverence slots"></div>
               <div class="reverence-actions">
-                <button type="button" disabled title="Drama Cards have not been added to the digital sheet yet">Draw a Drama Card</button>
+                <button id="purchaseDramaCard" type="button">Purchase Drama Card<small>Spend 4 Reverence</small></button>
                 <button id="maxHpBonus" type="button">Max HP Bonus<small>Spend 6 for +2 HP</small></button>
               </div>
               <div class="reverence-footer" hidden>
@@ -269,6 +269,13 @@
               </div>
             </div>
           </div>
+          <section id="dramaCardHandPanel" class="drama-card-hand-panel">
+            <div class="drama-card-hand-heading">
+              <div><span>DRAMA CARD HAND</span><h3>Your Cards</h3></div>
+              <small id="dramaCardHandStatus">No cards held</small>
+            </div>
+            <div id="dramaCardHand" class="drama-card-hand"></div>
+          </section>
         </section>
 
         <section class="sheet-panel attributes-panel" data-sheet-section="attributes">
@@ -663,7 +670,26 @@
         </div>
       </section>
     </div>
+    <div id="dramaCardModal" class="modal-shell drama-card-modal" hidden>
+      <section class="drama-card-dialog" role="dialog" aria-modal="true" aria-labelledby="dramaCardDialogTitle">
+        <p id="dramaCardAlertByline" class="drama-card-alert-byline" hidden></p>
+        <article id="dramaCardDisplay" class="drama-card-display" data-category="">
+          <header><span id="dramaCardCategory">Drama Card</span><b id="dramaCardNumber">#00</b></header>
+          <div class="drama-card-core">
+            <div class="drama-card-sigil" aria-hidden="true"><span>SA</span></div>
+            <h2 id="dramaCardDialogTitle">Drama Card</h2>
+            <p id="dramaCardRules"></p>
+          </div>
+          <footer id="dramaCardHandling"></footer>
+        </article>
+        <div class="drama-card-dialog-actions">
+          <button id="closeDramaCard" type="button">Close</button>
+          <button id="playDramaCard" class="primary-action" type="button">Play Card</button>
+        </div>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="character.js?v=20260816-atb-2e"></script>
+  <script src="drama-card-data.js?v=20260816-drama-cards"></script>
+  <script type="module" src="character.js?v=20260816-drama-cards"></script>
   </body>
 </html>
