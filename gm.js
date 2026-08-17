@@ -936,7 +936,7 @@ function renderEncounterBuilder() {
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   dom.encounterNpcEditor.innerHTML = npcEditorMarkup(encounterNpcDraft);
   dom.encounterNpcList.innerHTML = stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="staged-npc-summary" data-staged-npc="${npc.id}" style="--npc-color:${escapeHtml(npc.color)}">
-    <div><strong>${npc.allyNpc ? '<span class="npc-ally-badge" title="Ally NPC">&#9786;</span>' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
+    <div><strong>${npc.allyNpc ? '<img class="npc-ally-badge" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>';
