@@ -284,10 +284,10 @@ function normalizeCampaign(raw) {
   campaign.gmCode = campaign.gmCode || campaign.password || null;
   delete campaign.password;
   campaign.script = String(campaign.script || "").slice(0, MAX_SCRIPT_LENGTH);
-  const legacyScript = campaign.script;
+  const previousScript = campaign.script;
   const chapterSource = Array.isArray(campaign.scriptChapters) && campaign.scriptChapters.length
     ? campaign.scriptChapters
-    : [{ id: uid("chapter"), name: "Chapter 1", script: legacyScript }];
+    : [{ id: uid("chapter"), name: "Chapter 1", script: previousScript }];
   campaign.scriptChapters = chapterSource.slice(0, 100).map((chapter, index) => ({
     id: String(chapter?.id || uid("chapter")).slice(0, 100),
     name: String(chapter?.name || `Chapter ${index + 1}`).trim().slice(0, 80) || `Chapter ${index + 1}`,

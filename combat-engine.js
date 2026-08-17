@@ -110,6 +110,14 @@ function syncUnitCombat(unit, source = {}) {
   unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
   unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
+  unit.raceId = safeText(source.raceId, unit.raceId || "", 80);
+  unit.raceType = safeText(source.raceType, unit.raceType || "", 80);
+  unit.classId = safeText(source.classId, unit.classId || "", 80);
+  unit.defenseScoreModifier = clamp(source.defenseScoreModifier, -20, 20, unit.defenseScoreModifier || 0);
+  unit.recurringHealingInterval = Math.max(0, Number(source.recurringHealingInterval) || 0);
+  unit.recurringHealingAmount = Math.max(0, Number(source.recurringHealingAmount) || 0);
+  unit.recurringHealingLabel = safeText(source.recurringHealingLabel, "", 80);
+  unit.recurringHealingProgress = Math.max(0, Number(unit.recurringHealingProgress) || 0);
   unit.strengthDice = Array.isArray(source.strengthDice) ? source.strengthDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
   unit.physicalAttribute = unit.team === "npc" ? Math.max(2, Math.min(20, Math.round(Number(source.physicalAttribute) || 4))) : null;
   unit.mentalAttribute = unit.team === "npc" ? Math.max(2, Math.min(20, Math.round(Number(source.mentalAttribute) || 4))) : null;
@@ -162,6 +170,13 @@ function migrateUnitCombat(unit) {
     projectileSkill: unit.projectileSkill,
     meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
+    raceId: unit.raceId,
+    raceType: unit.raceType,
+    classId: unit.classId,
+    defenseScoreModifier: unit.defenseScoreModifier,
+    recurringHealingInterval: unit.recurringHealingInterval,
+    recurringHealingAmount: unit.recurringHealingAmount,
+    recurringHealingLabel: unit.recurringHealingLabel,
     strengthDice: unit.strengthDice,
     physicalAttribute: unit.physicalAttribute,
     mentalAttribute: unit.mentalAttribute,

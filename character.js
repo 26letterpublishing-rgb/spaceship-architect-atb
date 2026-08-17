@@ -15,11 +15,11 @@ import {
   raceById,
   CLASS_DEFS,
   classById,
-} from "./character-data.js?v=20260807-tabs-2";
+} from "./character-data.js?v=20260816-atb-2e";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
-import { WEAPONS, weaponById } from "./weapon-data.js?v=20260809-weapons-1";
+import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 
 const STORAGE_KEY = "sa2e-character-library-v1";
@@ -661,7 +661,7 @@ function blankCharacter(name = "") {
     version: FORMAT_VERSION,
     phase: "draft",
     advancementOpen: false,
-    legacyDraft: false,
+    importedDraft: false,
     identity: {
       playerName: "",
       characterName: name,
@@ -745,7 +745,7 @@ function raceIdFromName(name) {
   return RACE_DEFS.find((entry) => entry.name.toLowerCase() === normalized)?.id || "";
 }
 
-function normalizeSkill(raw, legacy = false) {
+function normalizeSkill(raw, preV4 = false) {
   if (raw && typeof raw === "object") {
     return {
       tenths: Math.round(clamp(raw.tenths, 0, 9999)),
@@ -757,7 +757,7 @@ function normalizeSkill(raw, legacy = false) {
   const numeric = Math.max(0, Number(raw) || 0);
   return {
     tenths: Math.round(numeric * 10),
-    creationDecimal: legacy ? null : Math.round((numeric * 10) % 10),
+    creationDecimal: preV4 ? null : Math.round((numeric * 10) % 10),
   };
 }
 
@@ -799,7 +799,7 @@ function normalizeCharacter(raw) {
   const base = blankCharacter();
   const source = raw && typeof raw === "object" ? raw : {};
   const sourceVersion = Math.max(1, Math.round(Number(source.version) || 1));
-  const legacy = sourceVersion < 4;
+  const preV4 = sourceVersion < 4;
   const identity = { ...base.identity, ...(source.identity || {}) };
   identity.classId = identity.classId || classIdFromName(identity.className);
   identity.className = classById(identity.classId).name;
@@ -826,7 +826,7 @@ function normalizeCharacter(raw) {
     version: sourceVersion,
     phase: ["draft", "finalizing", "finalized"].includes(source.phase) ? source.phase : "draft",
     advancementOpen: Boolean(source.advancementOpen),
-    legacyDraft: Boolean(source.legacyDraft),
+    importedDraft: Boolean(source.importedDraft),
     identity,
     experience: { ...base.experience, ...(source.experience || {}) },
     attributes: { ...base.attributes },
@@ -876,12 +876,12 @@ function normalizeCharacter(raw) {
     }
   }
 
-  for (const name of ALL_SKILLS) normalized.skills[name] = normalizeSkill(source.skills?.[name], legacy);
+  for (const name of ALL_SKILLS) normalized.skills[name] = normalizeSkill(source.skills?.[name], preV4);
   normalized.customSkills = (Array.isArray(source.customSkills) ? source.customSkills : []).slice(0, 24).map((entry) => {
-    const value = normalizeSkill(entry, legacy);
+    const value = normalizeSkill(entry, preV4);
     return { id: entry?.id || uid(), name: String(entry?.name || ""), ...value };
   });
-  if (legacy) normalized.customSkills = normalized.customSkills.filter((skill) => skill.name.trim() || skill.tenths > 0);
+  if (preV4) normalized.customSkills = normalized.customSkills.filter((skill) => skill.name.trim() || skill.tenths > 0);
 
   normalized.creation.skillPurchaseOrder = Array.isArray(source.creation?.skillPurchaseOrder)
     ? source.creation.skillPurchaseOrder.filter((entry) => entry && typeof entry.key === "string").map((entry) => ({ key: entry.key, cost: Math.max(1, Math.round(Number(entry.cost) || 1)) }))
@@ -1076,12 +1076,23 @@ const pendingGearAdds = new Set();
 function saveLibrary(message = "Saved locally") {
   character.updatedAt = new Date().toISOString();
   const computed = derivedValues({ includeCampaignBonus: false });
+  const race = raceEffects();
+  const recurringHealing = character.identity.raceId === "everliving-brethren"
+    ? { amount: highestAttributeDie("health"), label: "Everliving Brethren" }
+    : character.identity.raceId === "yuhorn-symitron" && character.identity.raceType === "wood"
+      ? { amount: Math.max(0, Number(character.resources.exertionCurrent) || 0) * 3, label: "Wood Symitron" }
+      : null;
   character.computed = {
     speed: computed.speed,
     commandWindow: computed.command,
     maximumHp: maximumHp(),
     moveSpeed: calculatedMoveSpeed(),
     damageReduction: damageReductionDetails().value,
+    skills: Object.fromEntries(ALL_SKILLS.map((name) => [name, displayedSkillTenths(name, character.skills[name]) / 10])),
+    defenseScoreModifier: Number(race.defenseScoreModifier) || 0,
+    recurringHealingInterval: recurringHealing?.amount ? 6 : 0,
+    recurringHealingAmount: recurringHealing?.amount || 0,
+    recurringHealingLabel: recurringHealing?.label || "",
   };
   if (!CAMPAIGN_READ_ONLY_VIEW) {
     if (character.phase === "finalized") clearDraftRecovery(character.id);
@@ -2326,7 +2337,7 @@ function renderCharacterPicker() {
   const currentDraft = character.phase === "finalized"
     ? ""
     : `<optgroup label="Current Draft"><option value="current:${character.id}">${escapeHtml(character.identity.characterName || "Unnamed Character")} (autosaved)</option></optgroup>`;
-  const saved = library.filter((entry) => entry.phase === "finalized").map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.legacyDraft ? " [Legacy Draft]" : ""}</option>`).join("");
+  const saved = library.filter((entry) => entry.phase === "finalized").map((entry) => `<option value="saved:${entry.id}">${escapeHtml(entry.identity.characterName || "Unnamed Character")}${entry.importedDraft ? " [Imported Draft]" : ""}</option>`).join("");
   const recovery = recoveries.map((entry) => {
     const time = new Date(entry.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     return `<option value="recovery:${entry.id}">${escapeHtml(entry.label)} - ${escapeHtml(time)}</option>`;
@@ -2488,21 +2499,21 @@ function renderClass() {
       ? raceDefinition.types?.length && !raceType
         ? `<p class="modifier-empty race-type-required">choose race type from secondary drop down menu</p>`
         : `${modifierRulesMarkup("Racial Advantages", raceAdvantages, "advantage")}${modifierRulesMarkup("Racial Disadvantages", raceDisadvantages, "disadvantage")}`
-      : `<p class="modifier-empty">Choose a race to display its 1E advantages and disadvantages.</p>`;
+      : `<p class="modifier-empty">Choose a race to display its advantages and disadvantages.</p>`;
   const classContent = character.identity.classId
     ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}${modifierRulesMarkup("Class Disadvantages", [], "disadvantage")}`
-    : `<p class="modifier-empty">Choose a class to display its 1E advantage.</p>`;
+    : `<p class="modifier-empty">Choose a class to display its advantages.</p>`;
   dom.automaticModifiers.innerHTML = `
     <article class="modifier-summary race-modifier">
       <strong>${raceName ? escapeHtml(raceName) : "Racial Modifiers"}</strong>
       ${raceContent}
-      ${raceDefinition ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Creation effects are active now. Rules marked after character creation apply during finalization."}</small>` : ""}
+      ${raceDefinition ? `<small>${character.phase === "finalized" ? "Automated effects are active; other listed rules remain available for table resolution." : "Creation effects are active now. Rules marked after character creation apply during finalization."}</small>` : ""}
     </article>
     <article class="modifier-summary class-modifier">
       <strong>${escapeHtml(classDefinition.name)}</strong>
       ${classContent}
       ${classDefinition.manual ? `<small>${escapeHtml(classDefinition.manual)}</small>` : ""}
-      ${character.identity.classId ? `<small>${character.phase === "finalized" ? "Supported finalized effects are active; remaining rules are retained as reference." : "Class effects apply during finalization."}</small>` : ""}
+      ${character.identity.classId ? `<small>${character.phase === "finalized" ? "Automated effects are active; other listed rules remain available for table resolution." : "Class effects apply during finalization."}</small>` : ""}
     </article>`;
 }
 function scrollToCreationModifiers() {
@@ -2562,7 +2573,7 @@ function renderWorkflow() {
     return;
   }
 
-  dom.phaseBadge.textContent = character.legacyDraft ? "Legacy Draft" : "Draft";
+  dom.phaseBadge.textContent = character.importedDraft ? "Imported Draft" : "Draft";
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
   const requirements = [];
@@ -4747,7 +4758,7 @@ async function finishFinalization() {
   character.phase = "finalized";
   if (character.fubs.status === "unrolled") character.fubs.status = "not-activated";
   character.advancementOpen = false;
-  character.legacyDraft = false;
+  character.importedDraft = false;
   character.pendingRoll = null;
   character.creation.finalizationQueue = [];
   character.health.current = maximumHp();
@@ -6146,7 +6157,7 @@ async function updateCurrentCharacterVersion() {
   if (!accepted) return;
 
   const previousMaximum = maximumHp();
-  const upgraded = normalizeCharacter({ ...deepCopy(character), version: FORMAT_VERSION, legacyDraft: false });
+  const upgraded = normalizeCharacter({ ...deepCopy(character), version: FORMAT_VERSION, importedDraft: false });
   upgraded.id = character.id;
   upgraded.phase = character.phase;
   const libraryIndex = library.findIndex((entry) => entry.id === character.id);

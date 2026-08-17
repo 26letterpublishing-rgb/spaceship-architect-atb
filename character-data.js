@@ -61,6 +61,7 @@ export const RACE_DEFS = [
   {
     id: "android",
     name: "Android",
+    effects: { skillBonuses: { Initiative: 50 } },
     types: [
       { id: "perfect-android", name: "Perfect Android" },
       { id: "imperfect-android", name: "Imperfect Android" },
@@ -75,7 +76,7 @@ export const RACE_DEFS = [
     advantages: [
       "Others may spend 75 Credits to spend 1 Experience on your character sheet for you.",
       "You do not need to eat, sleep, or breathe; you do not age; you can survive in nearly any temperature; and you cannot be poisoned or become sick.",
-      "Add +5 to Initiative rolls.",
+      "Add +5.0 to Initiative. This bonus also increases ATB Speed.",
       "Mechanical devices and weapons may be attached to your body for an additional 25% of their cost. Attached items do not use Weapon Inventory slots.",
       "Each leg beyond two but below five adds +1 Move Speed and -1 Defense Score. Each arm beyond two but below five adds +1 to combat To-Hit rolls and -1 Defense Score. Additional limbs cost 1,000 Credits each.",
     ],
@@ -85,7 +86,7 @@ export const RACE_DEFS = [
     name: "Angiluros",
     effects: { moveSpeedModifier: 1 },
     disadvantages: [
-      "Whenever you fire or use a weapon made from metal or made by another character, lose one Willpower die and roll Willpower + Resist Distress against Difficulty 13. On a failure, take no further actions this CvC round or the following CvC round. Starship weapons do not cause this penalty.",
+      "Whenever you fire or use a weapon made from metal or made by another character, lose one Willpower die and roll Willpower + Resist Distress against Difficulty 13. On a failure, reset ATB to 0% and begin Reload/Recovery equal to two personal ATB cycles (200 divided by Speed, in seconds). Starship weapons do not cause this penalty.",
     ],
     advantages: [
       "When rolling Jump or Climb, treat regular successes as critical successes and critical failures as regular failures.",
@@ -94,7 +95,7 @@ export const RACE_DEFS = [
       "Low-light vision.",
       "Reroll any one Attribute die up to four times per session.",
       "+1 Move Speed.",
-      "Spend 2 Exertion to take an additional CvC Combat Action on your turn.",
+      "Spend 2 Exertion to gain +4 ATB Speed for the rest of the encounter.",
     ],
   },
   {
@@ -123,7 +124,7 @@ export const RACE_DEFS = [
           "You cannot fly while wearing a spacesuit or power armor.",
         ],
         advantages: [
-          "Fly in most habitable environments for Move Speed x2 Combat rounds. This ability is lost for one week after taking Fire damage and is unavailable while wet.",
+          "Fly in most habitable environments for Move Speed x12 seconds. This ability is lost for one week after taking Fire damage and is unavailable while wet.",
           "+2 Move Speed.",
         ],
       },
@@ -132,7 +133,7 @@ export const RACE_DEFS = [
         name: "Fins",
         disadvantages: [
           "Take x2 damage from the Ice property.",
-          "Take one fewer Combat Action in a cold environment.",
+          "After resolving an action in a cold environment, begin Reload/Recovery equal to one personal ATB cycle (100 divided by Speed, in seconds).",
         ],
         advantages: [
           "Triple Move Speed while swimming.",
@@ -157,6 +158,7 @@ export const RACE_DEFS = [
   {
     id: "bruggle",
     name: "Bruggle",
+    effects: { defenseScoreModifier: -2 },
     disadvantages: [
       "Take -2 Defense Score.",
       "Easily susceptible to alcoholism.",
@@ -231,7 +233,7 @@ export const RACE_DEFS = [
     ],
     advantages: [
       "Your race has no vital organs and does not need to breathe.",
-      "Regenerate HP equal to your highest Health die type each CvC round, even while as low as -25 HP.",
+      "Every 6 seconds while the ATB clock is active, regenerate HP equal to your highest Health die type, even while as low as -25 HP.",
       "Reattach severed limbs or replace them with stolen limbs.",
       "Each leg beyond two but below five adds +1 Move Speed and -1 Defense Score. Each arm beyond two but below five adds +1 to combat To-Hit rolls and -1 Defense Score.",
     ],
@@ -288,7 +290,7 @@ export const RACE_DEFS = [
       "Do not add Strength dice to Melee damage.",
     ],
     advantages: [
-      "Spend one Combat turn and 1 Exertion to skip a target character's next Combat turn within 60 meters and visual range. The target may spend Exertion to recover lost Combat Actions, one per point.",
+      "Spend your action and 1 Exertion to give a target within 60 meters and visual range Reload/Recovery equal to one personal ATB cycle (100 divided by the target's Speed, in seconds). The target may spend 1 Exertion to cancel this delay.",
       "Spend 2 Exertion to move an object within 60 meters and visual range as though beside it. Using the object as a weapon applies -5 To-Hit in addition to other modifiers.",
       "Reroll Intellect once per session.",
     ],
@@ -316,6 +318,7 @@ export const RACE_DEFS = [
     name: "Kabuto",
     effects: {
       moveSpeedModifier: 2,
+      defenseScoreModifier: 3,
       hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
     },
     disadvantages: [
@@ -324,7 +327,7 @@ export const RACE_DEFS = [
       "Cannot dual wield, gain Charge Bonus Damage from Melee weapons, or wear spacesuits or power armor.",
     ],
     advantages: [
-      "+3 Reaction Defense and +2 Move Speed.",
+      "+3 Defense Score and +2 Move Speed.",
       "Immune to falling damage and capable of limited gliding.",
       "You do not feel pain and critically succeed all Resist Distress rolls.",
       "If you die, your next character starts with 100% of this character's total gained Experience instead of 50%. If the new character is also Kabuto, retain Reverence, Drama Cards, and personal Credits. Offspring may retain the previous character's memories.",
@@ -335,6 +338,7 @@ export const RACE_DEFS = [
     name: "Krax G'ny V'Tek",
     effects: {
       moveSpeedModifier: 1,
+      defenseScoreModifier: 2,
       hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 10, label: "Two highest Health dice +10" },
       postFinalizeSkillBonuses: { "Intimidate/Taunt": 30, "Stealth/Hide": 20 },
     },
@@ -343,11 +347,11 @@ export const RACE_DEFS = [
       "While missing 5 or more HP, you may roll no more than three Dexterity dice.",
     ],
     advantages: [
-      "After character creation, add +3.0 to Intimidate/Taunt, +2.0 to Stealth/Hide, +2 Reaction Defense, and +1 Move Speed.",
-      "Critically succeeding while avoiding a Melee attack grants one immediate free action.",
+      "After character creation, add +3.0 to Intimidate/Taunt, +2.0 to Stealth/Hide, +2 Defense Score, and +1 Move Speed.",
+      "Critically succeeding while avoiding a Melee attack immediately fills ATB to 100%.",
       "All successful unarmed Melee attacks count as Critical Hits.",
       "Nocturnal vision.",
-      "Survive unprotected in the vacuum of space for up to 20 CvC rounds.",
+      "Survive unprotected in the vacuum of space for up to 120 seconds.",
     ],
   },
   {
@@ -396,6 +400,7 @@ export const RACE_DEFS = [
     id: "skeder",
     name: "Sked'er",
     effects: {
+      defenseScoreModifier: 2,
       damageReduction: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
     },
     disadvantages: [
@@ -406,7 +411,7 @@ export const RACE_DEFS = [
     ],
     advantages: [
       "Customized weapons impose -5 To-Hit when used by another race.",
-      "+2 Reaction Defense.",
+      "+2 Defense Score.",
       "Natural Damage Reduction equals the maximum roll of any two Health dice.",
       "Add +3 when calculating Jump height.",
       "310-degree vision, with the only blind spot directly behind the head.",
@@ -419,11 +424,11 @@ export const RACE_DEFS = [
     effects: { postFinalizeSkillBonuses: { "Dodge/Block": 20 } },
     disadvantages: [
       "Take x2 damage from the Ice property.",
-      "Take one fewer Combat Action in a cold environment.",
+      "After resolving an action in a cold environment, begin Reload/Recovery equal to one personal ATB cycle (100 divided by Speed, in seconds).",
     ],
     advantages: [
       "Breathe underwater.",
-      "While falling, choose to fall only one meter per CvC round and fly at normal Move Speed.",
+      "While falling, choose to fall only one meter every 6 seconds and fly at normal Move Speed.",
       "After character creation, add +2.0 to Dodge/Block.",
       "Reroll one Dexterity or Charisma die on each roll.",
       "Triple Move Speed in water.",
@@ -474,7 +479,7 @@ export const RACE_DEFS = [
     name: "Vinolio Paxton",
     disadvantages: ["Willpower dice cost twice as much."],
     advantages: [
-      "Spend 1 Exertion to fly for one Combat round at normal Move Speed.",
+      "Spend 1 Exertion to fly for 6 seconds at normal Move Speed.",
       "Spend 1 Exertion to move an object within 30 meters and visual range as though beside it. Using the object as a weapon applies -5 To-Hit in addition to other modifiers.",
     ],
   },
@@ -513,7 +518,7 @@ export const RACE_DEFS = [
       "Reroll Intellect twice per session and Perception twice per session.",
       "Immune to the effects and damage of cold and ice.",
       "Night vision and heat vision.",
-      "Survive unprotected in the vacuum of space for up to 15 CvC rounds.",
+      "Survive unprotected in the vacuum of space for up to 90 seconds.",
     ],
   },
   {
@@ -525,6 +530,7 @@ export const RACE_DEFS = [
         name: "Ice",
         effects: {
           moveSpeedModifier: -1,
+          defenseScoreModifier: -3,
           hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
           damageReduction: { kind: "top", attributes: ["willpower"], count: 2, bonus: 0, label: "Two highest Willpower dice" },
         },
@@ -538,7 +544,7 @@ export const RACE_DEFS = [
           "Maximum HP equals the highest roll of all Health and Strength dice +15.",
           "Natural Damage Reduction equals the highest roll of the top two Willpower dice.",
           "Immune to Ice and Cold damage.",
-          "Unarmed Melee and Wrestle attacks reduce the opponent's Combat Actions by one. The opponent may spend Exertion to restore lost actions.",
+          "A successful Unarmed Melee or Wrestle attack gives the opponent Reload/Recovery equal to one personal ATB cycle (100 divided by Speed, in seconds). The opponent may spend 1 Exertion to cancel this delay.",
           "Does not produce a heat signature.",
         ],
       },
@@ -547,6 +553,7 @@ export const RACE_DEFS = [
         name: "Lava",
         effects: {
           moveSpeedModifier: -1,
+          defenseScoreModifier: -3,
           hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
           damageReduction: { kind: "top", attributes: ["willpower"], count: 1, bonus: 0, label: "Highest Willpower die" },
         },
@@ -569,6 +576,7 @@ export const RACE_DEFS = [
         effects: {
           moveSpeedModifier: -2,
           moveSpeedMinimum: 1,
+          defenseScoreModifier: -4,
           hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
           damageReduction: { kind: "sum", attributes: ["willpower"], bonus: 2, label: "Willpower dice maximum +2" },
         },
@@ -587,6 +595,7 @@ export const RACE_DEFS = [
         name: "Wood",
         effects: {
           moveSpeedModifier: -1,
+          defenseScoreModifier: -3,
           hpFormula: { kind: "sum", attributes: ["health", "strength"], bonus: 15, label: "Health and Strength dice maximum +15" },
           damageReduction: { kind: "top", attributes: ["willpower"], count: 1, bonus: 0, label: "Highest Willpower die" },
         },
@@ -598,7 +607,7 @@ export const RACE_DEFS = [
         advantages: [
           "Maximum HP equals the highest roll of all Health and Strength dice +15.",
           "Natural Damage Reduction equals the highest Willpower die type.",
-          "Regenerate 3 HP per CvC round for each point of unspent Exertion.",
+          "Every 6 seconds while the ATB clock is active, regenerate 3 HP for each point of unspent Exertion.",
           "Spend 1 Exertion to heal half Maximum HP, rounded down. Fire damage cannot be regenerated this way.",
         ],
       },
@@ -756,7 +765,7 @@ export const CLASS_DEFS = [
   {
     id: "medical-officer",
     name: "Medical Officer",
-    summary: "Triple the effectiveness of HP healing. May heal someone below zero HP for up to 25 combat rounds while vital organs remain.",
+    summary: "Triple the effectiveness of HP healing. May heal someone below zero HP for up to 150 seconds while vital organs remain.",
   },
   {
     id: "navigator-sensor-tech",
@@ -766,7 +775,7 @@ export const CLASS_DEFS = [
   {
     id: "ninja",
     name: "Ninja",
-    summary: "Each Exertion spent on Stealth/Hide adds its normal +1D12 and +1, plus another +4 to the final Score. Legacy melee-defense, climbing, and Called Shot benefits remain for later combat automation.",
+    summary: "Each Exertion spent on Stealth/Hide adds its normal +1D12 and +1, plus another +4 to the final Score. Melee-defense, climbing, and Called Shot benefits are resolved at the table until their dedicated combat prompts are added.",
     pendingAtb: true,
   },
   {
@@ -797,7 +806,7 @@ export const CLASS_DEFS = [
   {
     id: "rogue-drifter",
     name: "Rogue / Drifter",
-    summary: "Begins each combat with 99% ATB. The former Ambush Round and React wording is replaced by this ATB benefit.",
+    summary: "Begins each combat with 99% ATB and acts as soon as Speed supplies the remaining 1%.",
   },
   {
     id: "science-officer",
@@ -807,7 +816,7 @@ export const CLASS_DEFS = [
   {
     id: "scout-sniper",
     name: "Scout / Sniper",
-    summary: "After creation, add +2.0 to Survival/Tracking and Awareness. Legacy benefit spends Exertion for additional Aim actions.",
+    summary: "After creation, add +2.0 to Survival/Tracking and Awareness. Spend 1 Exertion when choosing Aim to resolve Aim without resetting ATB, granting an immediate follow-up action.",
     pendingAtb: true,
     effects: { skillBonuses: { "Survival/Tracking": 20, Awareness: 20 } },
   },

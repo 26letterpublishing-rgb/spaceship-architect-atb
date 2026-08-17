@@ -274,7 +274,7 @@
   .player-turn-actions.combat-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* The legacy turn screen pinned its two original controls to the top edge. */
+/* The compact turn screen pins its primary controls to the top edge. */
 .player-mode.own-turn-active #myTurnBanner.turn-banner {
   display: flex;
   flex-direction: column;
@@ -521,7 +521,7 @@
 }
 
 
-/* Final staged-firearm interface: this layer intentionally supersedes legacy turn layouts. */
+/* Final staged-firearm interface: this layer supersedes earlier turn layouts. */
 .unit-name-line {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
-import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS } from "./character-data.js?v=20260813-feedback-2";
-import { WEAPONS, weaponById } from "./weapon-data.js?v=20260813-feedback-2";
+import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS, raceById, classById } from "./character-data.js?v=20260816-atb-2e";
+import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -324,8 +324,33 @@ function playerName(record) {
   return record?.character?.identity?.playerName || "No Player Name";
 }
 
+function selectedRaceEffects(record) {
+  const character = record?.character || {};
+  const race = raceById(character.identity?.raceId);
+  const raceType = race?.types?.find((entry) => entry.id === character.identity?.raceType);
+  return {
+    ...(race?.effects || {}),
+    ...(raceType?.effects || {}),
+    skillBonuses: { ...(race?.effects?.skillBonuses || {}), ...(raceType?.effects?.skillBonuses || {}) },
+    postFinalizeSkillBonuses: { ...(race?.effects?.postFinalizeSkillBonuses || {}), ...(raceType?.effects?.postFinalizeSkillBonuses || {}) },
+  };
+}
+
 function skillRating(record, name) {
-  return ((Number(record?.character?.skills?.[name]?.tenths) || 0) / 10).toFixed(1);
+  const computed = Number(record?.character?.computed?.skills?.[name]);
+  if (Number.isFinite(computed)) return computed.toFixed(1);
+  const character = record?.character || {};
+  let tenths = Number(character.skills?.[name]?.tenths) || 0;
+  if (!character.creation?.manualInput) {
+    const race = selectedRaceEffects(record);
+    tenths += Number(race.skillBonuses?.[name]) || 0;
+    if (character.phase === "finalized") {
+      tenths += Number(race.postFinalizeSkillBonuses?.[name]) || 0;
+      tenths += Number(classById(character.identity?.classId)?.effects?.skillBonuses?.[name]) || 0;
+      tenths += Number(character.creation?.racialSkillGrants?.[name]) || 0;
+    }
+  }
+  return (tenths / 10).toFixed(1);
 }
 
 function boxesFilled(record, attribute) {
@@ -339,7 +364,7 @@ function highestAttributeDie(record, attribute) {
 }
 
 function characterSpeed(record) {
-  const initiative = (Number(record?.character?.skills?.Initiative?.tenths) || 0) / 10;
+  const initiative = Number(skillRating(record, "Initiative")) || 0;
   const multiplier = record?.character?.identity?.classId === "mastermind" ? 1.5 : 1;
   return record?.character?.computed?.speed
     ?? Math.max(1, boxesFilled(record, "intellect") + initiative * multiplier);
@@ -348,7 +373,7 @@ function characterSpeed(record) {
 function commandWindow(record) {
   const awarenessMultiplier = record?.character?.identity?.classId === "mastermind" ? 45 : 12;
   const base = record?.character?.computed?.commandWindow
-    ?? Math.max(1, boxesFilled(record, "perception") * 8 + ((Number(record?.character?.skills?.Awareness?.tenths) || 0) / 10) * awarenessMultiplier);
+    ?? Math.max(1, boxesFilled(record, "perception") * 8 + (Number(skillRating(record, "Awareness")) || 0) * awarenessMultiplier);
   const campaignBonus = Math.max(0, Number(campaign?.settings?.commandWindowBonus) || 0);
   return Math.max(1, Number(base) + campaignBonus);
 }
@@ -363,10 +388,24 @@ function combatWeaponInventory(record) {
 
 function encounterRuleFields(record) {
   const identity = record?.character?.identity || {};
+  const race = selectedRaceEffects(record);
   const heldEntry = (record?.character?.weapons || []).find((entry) => entry?.held && weaponById(entry.weaponId));
+  const recurringHealing = identity.raceId === "everliving-brethren"
+    ? { amount: highestAttributeDie(record, "health"), label: "Everliving Brethren" }
+    : identity.raceId === "yuhorn-symitron" && identity.raceType === "wood"
+      ? { amount: Math.max(0, Number(record?.character?.resources?.exertionCurrent) || 0) * 3, label: "Wood Symitron" }
+      : null;
   return {
+    raceId: identity.raceId || "",
+    raceType: identity.raceType || "",
+    classId: identity.classId || "",
     initialAtb: identity.classId === "rogue-drifter" ? 99 : 0,
     regenerationRate: identity.raceId === "antropic" && identity.raceType === "fins" ? boxesFilled(record, "health") : 0,
+    regenerationLabel: identity.raceId === "antropic" && identity.raceType === "fins" ? "Antropic Fins" : "",
+    recurringHealingInterval: recurringHealing?.amount ? 6 : 0,
+    recurringHealingAmount: recurringHealing?.amount || 0,
+    recurringHealingLabel: recurringHealing?.label || "",
+    defenseScoreModifier: Number(race.defenseScoreModifier) || 0,
     dexterityBoxes: boxesFilled(record, "dexterity"),
     highestPerceptionDie: highestAttributeDie(record, "perception"),
     moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
@@ -401,7 +440,7 @@ function selectedRecords() {
 
 function scriptChapters() {
   if (campaign?.scriptChapters?.length) return campaign.scriptChapters;
-  return [{ id: "legacy-chapter", name: "Chapter 1", script: campaign?.script || "" }];
+  return [{ id: "chapter-1", name: "Chapter 1", script: campaign?.script || "" }];
 }
 
 function activeScriptChapter() {

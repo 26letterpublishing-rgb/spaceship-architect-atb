@@ -427,6 +427,10 @@
     const highestDie = (key) => Math.max(0, ...(record.character.attributes?.[key] || [])
       .filter((value) => Number(value) >= 0)
       .map((value) => [4, 6, 8, 10, 12][Number(value)] || 0));
+    const skillValue = (name) => {
+      const computed = Number(record.character.computed?.skills?.[name]);
+      return Number.isFinite(computed) ? Math.max(0, computed) : Math.max(0, Number(record.character.skills?.[name]?.tenths) || 0) / 10;
+    };
     const payload = {
       action: "syncCharacterLoadout",
       id: unit.id,
@@ -435,11 +439,11 @@
       dexterityBoxes: boxes("dexterity"),
       highestPerceptionDie: highestDie("perception"),
       moveSpeed: Math.max(1, Number(record.character.computed?.moveSpeed) || 1),
-      weaponMechanics: Math.max(0, Number(record.character.skills?.["Weapon Mechanics"]?.tenths) || 0) / 10,
+      weaponMechanics: skillValue("Weapon Mechanics"),
       dexterityDice: (record.character.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
-      projectileSkill: Math.max(0, Number(record.character.skills?.Projectile?.tenths) || 0) / 10,
-      meleeSkill: Math.max(0, Number(record.character.skills?.Melee?.tenths) || 0) / 10,
-      dodgeSkill: Math.max(0, Number(record.character.skills?.["Dodge/Block"]?.tenths) || 0) / 10,
+      projectileSkill: skillValue("Projectile"),
+      meleeSkill: skillValue("Melee"),
+      dodgeSkill: skillValue("Dodge/Block"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       damageReduction: Math.max(0, Number(record.character.computed?.damageReduction) || 0),
       maximumHp: Math.max(0, Number(record.character.computed?.maximumHp) || 0),
@@ -447,7 +451,14 @@
       items: (record.character.items || []).map((entry) => ({ id: entry.id, catalogId: entry.catalogId, name: entry.name, description: entry.description, quantity: entry.quantity, unitCost: entry.unitCost, charges: entry.charges, chargesMax: entry.chargesMax, chargeState: entry.chargeState, special: entry.special })),
       intellectBoxes: boxes("intellect"),
       intellectDice: (record.character.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
-      anatomySkill: Math.max(0, Number(record.character.skills?.["Anatomy/First Aid"]?.tenths) || 0) / 10,
+      anatomySkill: skillValue("Anatomy/First Aid"),
+      raceId: String(record.character.identity?.raceId || ""),
+      raceType: String(record.character.identity?.raceType || ""),
+      classId: String(record.character.identity?.classId || ""),
+      defenseScoreModifier: Number(record.character.computed?.defenseScoreModifier) || 0,
+      recurringHealingInterval: Number(record.character.computed?.recurringHealingInterval) || 0,
+      recurringHealingAmount: Number(record.character.computed?.recurringHealingAmount) || 0,
+      recurringHealingLabel: String(record.character.computed?.recurringHealingLabel || ""),
       statuses: { ...(record.character.statuses || {}) },
     };
     const signature = JSON.stringify(payload);

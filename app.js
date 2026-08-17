@@ -2604,8 +2604,9 @@ function renderAttackResolution(mine) {
   attackResolutionTitle.textContent = attack.attackerName + " vs " + attack.defenderName;
   attackResolutionMeta.textContent = attack.weaponName + " at " + attack.distance + " unit" + (attack.distance === 1 ? "" : "s") + " | " + attack.plan.rangeExplanation;
   attackRollStatus.textContent = attack.attackerRoll ? "Score " + attack.attackerRoll.score : "Waiting";
+  const defenseAdjustment = Number(attack.defenseBonus) || 0;
   defenseRollStatus.textContent = attack.defenseRoll
-    ? "Score " + attack.defenseRoll.score + (attack.defenseBonus ? " + " + attack.defenseBonus + " Defense" : "")
+    ? "Score " + attack.defenseRoll.score + (defenseAdjustment ? ` ${defenseAdjustment > 0 ? "+" : "-"} ${Math.abs(defenseAdjustment)} Defense` : "")
     : attack.defenderCommand?.expired
       ? "WINDOW EXPIRED"
       : "Waiting";

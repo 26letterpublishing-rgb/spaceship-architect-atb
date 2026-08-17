@@ -467,20 +467,36 @@ function resolveAttackChecks(room) {
   const state = room.attackResolution;
   if (!state || state.phase !== "checks" || !state.attackerRoll || !state.defenseRoll) return null;
   const defender = room.units.find((entry) => entry.id === state.defenderId);
+  const attacker = room.units.find((entry) => entry.id === state.attackerId);
   const defenseTimed = defender?.timedAction?.kind === "defense";
-  const defenseBonus = defenseTimed ? Math.max(0, Number(defender.dodgeSkill) || 0) : 0;
+  const timedDefenseBonus = defenseTimed ? Math.max(0, Number(defender.dodgeSkill) || 0) : 0;
+  const racialDefenseBonus = Number(defender?.defenseScoreModifier) || 0;
+  const attackerDefenseModifier = state.attackType === "melee"
+    && state.weaponId === "unarmed"
+    && attacker?.raceId === "antropic"
+    && attacker?.raceType === "fangs"
+    ? -3
+    : 0;
+  const defenseBonus = timedDefenseBonus + racialDefenseBonus + attackerDefenseModifier;
   const targetDefense = Number(state.defenseRoll.score) + defenseBonus;
   state.defenseBonus = defenseBonus;
+  state.timedDefenseBonus = timedDefenseBonus;
+  state.racialDefenseBonus = racialDefenseBonus;
+  state.attackerDefenseModifier = attackerDefenseModifier;
   state.attackResult = combatRules.resolveAttack({
     baseAttackScore: state.attackerRoll.score,
     targetDefense,
     calledShot: state.calledShot,
     plan: state.plan,
   });
-  const attacker = room.units.find((entry) => entry.id === state.attackerId);
-  if (!state.attackResult.hit && state.attackType === "melee" && defenseTimed) {
+  if (!state.attackResult.hit && state.attackType === "melee") {
     const defenderCritical = targetDefense >= Number(state.attackResult.attackScore) * 2;
-    if (defenderCritical) {
+    if (defenderCritical && defender?.raceId === "krax-gny-vtek") {
+      defender.atb = Math.max(room.threshold, Number(defender.atb) || 0);
+      state.defenderImmediateAtb = true;
+      pushLog(room, defender.characterName + " critically avoided a Melee attack; ATB immediately filled to 100%.");
+    }
+    if (defenderCritical && defenseTimed) {
       const elapsedDefense = Math.max(0, Number(defender.timedAction.total) - Number(defender.timedAction.remaining));
       state.counterDelaySeconds = Math.ceil(elapsedDefense * 20) / 10;
       if (state.counterDelaySeconds > 0) {
@@ -1194,8 +1210,16 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
       const healing = Math.floor(unit.regenerationProgress / 100);
       if (healing > 0) {
         unit.regenerationProgress %= 100;
-        campaignApi?.healCharacter(room.roomCode, unit.characterId, healing).catch(() => {});
-        pushLog(room, `${unit.characterName}'s Antropic Fins restored ${healing} HP.`);
+        applyHealingToUnit(room, unit, healing, unit.regenerationLabel || "Healing ATB").catch(() => {});
+      }
+    }
+    if (unit.characterId && unit.recurringHealingInterval > 0 && unit.recurringHealingAmount > 0) {
+      unit.recurringHealingProgress = (Number(unit.recurringHealingProgress) || 0) + seconds * multiplier;
+      const intervals = Math.floor(unit.recurringHealingProgress / unit.recurringHealingInterval);
+      if (intervals > 0) {
+        unit.recurringHealingProgress %= unit.recurringHealingInterval;
+        const healing = intervals * unit.recurringHealingAmount;
+        applyHealingToUnit(room, unit, healing, unit.recurringHealingLabel || "Regeneration").catch(() => {});
       }
     }
     if (Array.isArray(unit.queuedEffects)) {
@@ -1593,7 +1617,9 @@ async function handleAction(req, res) {
       atb: Math.max(0, Math.min(room.threshold - 0.001, Number(body.initialAtb) || 0)),
       encounterSpeedBonus: 0,
       regenerationRate: Math.max(0, Math.min(100, Number(body.regenerationRate) || 0)),
+      regenerationLabel: String(body.regenerationLabel || "").slice(0, 80),
       regenerationProgress: 0,
+      recurringHealingProgress: 0,
       delay: null,
       delayTimer: null,
       delayedAction: null,
@@ -1627,6 +1653,7 @@ async function handleAction(req, res) {
       unit.speed = nextSpeed === null ? null : nextSpeed + (Number(unit.encounterSpeedBonus) || 0);
       unit.commandWindow = nextCommand;
       unit.regenerationRate = Math.max(0, Math.min(100, Number(update.regenerationRate) || 0));
+      unit.regenerationLabel = String(update.regenerationLabel || unit.regenerationLabel || "").slice(0, 80);
       unit.characterName = nextName;
       unit.playerName = nextPlayer;
       unit.color = nextColor;
