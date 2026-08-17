@@ -7,6 +7,7 @@ const PLAYER_INBOX_LIMIT = 20;
 const GM_INBOX_LIMIT = 50;
 const DRAMA_CARD_BY_ID = new Map(DRAMA_CARDS.map((card) => [card.id, card]));
 const DRAMA_CARD_IDS = DRAMA_CARDS.map((card) => card.id);
+const REWARD_RESOURCES = ["experience", "credits", "reverence", "dramaCards", "attributePoints", "skillPoints", "shipCredits"];
 
 function uid(prefix = "id") {
   return `${prefix}-${crypto.randomBytes(9).toString("base64url")}`;
@@ -131,26 +132,38 @@ function safeCharacterName(record) {
 }
 
 function rewardLabel(resource) {
-  return { experience: "Experience", credits: "Credits", reverence: "Reverence", shipCredits: "Group Credits" }[resource] || resource;
+  return {
+    experience: "Experience",
+    credits: "Credits",
+    reverence: "Reverence",
+    dramaCards: "Drama Cards",
+    attributePoints: "Attribute Points",
+    skillPoints: "Skill Points",
+    shipCredits: "Group Credits",
+  }[resource] || resource;
 }
 
-function characterRewardSnapshot(record) {
+function characterRewardSnapshot(record, campaign = null) {
   const character = record.character;
   character.experience ||= { available: 0, spent: 0, totalGained: 0 };
   character.resources ||= {};
+  const hand = campaign ? normalizeDramaDeck(campaign).hands[record.id] || [] : [];
   return {
     id: record.id,
     experience: clone(character.experience),
     creditsBase: Number(character.resources.creditsBase) || 0,
     reverence: Number(character.resources.reverence) || 0,
+    attributePoints: Math.max(0, Math.round(Number(character.resources.attributePoints) || 0)),
+    skillPoints: Math.max(0, Math.round(Number(character.resources.skillPoints) || 0)),
+    dramaHand: clone(hand),
   };
 }
 
-function applyCharacterReward(record, award) {
+function applyCharacterReward(record, award, campaign = null) {
   const character = record.character;
   const resource = award.resource;
   const amount = Math.round(Number(award.amount) || 0);
-  const before = characterRewardSnapshot(record);
+  const before = characterRewardSnapshot(record, campaign);
   let appliedAmount = amount;
   let appliedResource = resource;
   let messageDetail = "";
@@ -195,6 +208,40 @@ function applyCharacterReward(record, award) {
     appliedAmount = character.resources.reverence - current;
     const wasted = Math.max(0, amount - appliedAmount);
     if (wasted) messageDetail = ` ${wasted.toLocaleString()} excess Reverence was lost at the maximum of 10.`;
+  }
+
+  if (resource === "attributePoints" || resource === "skillPoints") {
+    const current = Math.max(0, Math.round(Number(character.resources[resource]) || 0));
+    character.resources[resource] = Math.round(boundedNumber(current + amount, 0, 999999));
+    appliedAmount = character.resources[resource] - current;
+  }
+
+  if (resource === "dramaCards") {
+    const deck = campaign ? normalizeDramaDeck(campaign) : null;
+    if (!deck) {
+      appliedAmount = 0;
+      messageDetail = " The shared campaign deck was unavailable.";
+    } else {
+      const hand = deck.hands[record.id] || (deck.hands[record.id] = []);
+      const requested = Math.abs(amount);
+      let changed = 0;
+      if (amount > 0) {
+        for (let index = 0; index < requested; index += 1) {
+          const cardId = drawDramaCardId(deck);
+          if (!cardId) break;
+          hand.push(cardId);
+          changed += 1;
+        }
+      } else {
+        for (let index = 0; index < requested && hand.length; index += 1) {
+          deck.discardPile.push(hand.pop());
+          changed -= 1;
+        }
+      }
+      character.resources.dramaCards = hand.length;
+      appliedAmount = changed;
+      if (changed !== amount) messageDetail = ` ${Math.abs(amount - changed)} requested card${Math.abs(amount - changed) === 1 ? " was" : "s were"} unavailable.`;
+    }
   }
 
   record.updatedAt = new Date().toISOString();
@@ -390,7 +437,7 @@ function normalizeCampaign(raw) {
     keyword: String(action?.keyword || "").trim().slice(0, 60),
     kind: action?.kind === "award" ? "award" : "message",
     message: String(action?.message || "").trim().slice(0, 4000),
-    resource: ["experience", "credits", "reverence", "shipCredits"].includes(action?.resource) ? action.resource : "experience",
+    resource: REWARD_RESOURCES.includes(action?.resource) ? action.resource : "experience",
     amount: Math.round(boundedNumber(action?.amount, 0, 999999999)),
     attribute: String(action?.attribute || "").slice(0, 40),
     skill: String(action?.skill || "").slice(0, 80),
@@ -426,7 +473,7 @@ function normalizeCampaign(raw) {
   campaign.awardHistory = (Array.isArray(campaign.awardHistory) ? campaign.awardHistory : []).map((award) => ({
     ...award,
     id: String(award?.id || uid("award")),
-    resource: ["experience", "credits", "reverence", "shipCredits"].includes(award?.resource) ? award.resource : "experience",
+    resource: REWARD_RESOURCES.includes(award?.resource) ? award.resource : "experience",
     amount: Math.round(Number(award?.amount) || 0),
     targetIds: Array.isArray(award?.targetIds) ? [...new Set(award.targetIds.map(String))] : [],
     before: award?.before && typeof award.before === "object" ? award.before : { shipCredits: campaign.shipCredits, characters: [] },
@@ -442,11 +489,11 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
-    rewardResource: ["experience", "credits", "reverence", "shipCredits"].includes(note?.rewardResource) ? note.rewardResource : "",
+    rewardResource: REWARD_RESOURCES.includes(note?.rewardResource) ? note.rewardResource : "",
     rewardAmount: Math.max(0, Math.round(Number(note?.rewardAmount) || 0)),
     rewardStatus: ["pending", "claimed", "cancelled"].includes(note?.rewardStatus) ? note.rewardStatus : "",
     rewardClaimedAt: note?.rewardClaimedAt || null,
@@ -673,6 +720,7 @@ class CampaignApi {
         ? {
             drawCount: dramaDeck.drawPile.length,
             discardCount: dramaDeck.discardPile.length,
+            discard: dramaDeck.discardPile.map(dramaCardState).filter(Boolean),
             handCounts: Object.fromEntries(campaign.characters.map((record) => [record.id, (dramaDeck.hands[record.id] || []).length])),
             playEvents: dramaDeck.playEvents.map((event) => ({ ...clone(event), card: dramaCardState(event.cardId) })),
           }
@@ -1671,7 +1719,7 @@ class CampaignApi {
       const keyword = String(body.keyword || "").trim().slice(0, 60);
       const kind = body.kind === "award" ? "award" : "message";
       const message = String(body.message || "").trim().slice(0, 4000);
-      const resource = ["experience", "credits", "reverence", "shipCredits"].includes(body.resource) ? body.resource : "experience";
+      const resource = REWARD_RESOURCES.includes(body.resource) ? body.resource : "experience";
       const amount = Math.round(boundedNumber(body.amount, 0, 999999999));
       const attribute = String(body.attribute || "").trim().slice(0, 40);
       const skill = String(body.skill || "").trim().slice(0, 80);
@@ -1837,7 +1885,7 @@ class CampaignApi {
       const amount = Math.round(Number(body.amount) || 0);
       const targetIds = [...new Set(Array.isArray(body.targetIds) ? body.targetIds.map(String) : [])];
       const androidExperienceIds = new Set(Array.isArray(body.androidExperienceIds) ? body.androidExperienceIds.map(String) : []);
-      if (!amount || !["experience", "credits", "reverence", "shipCredits"].includes(resource)) {
+      if (!amount || !REWARD_RESOURCES.includes(resource)) {
         sendJson(res, 400, { error: "A resource and non-zero amount are required." });
         return true;
       }
@@ -1854,7 +1902,7 @@ class CampaignApi {
         campaign.shipCredits = Math.round(boundedNumber(campaign.shipCredits + amount, 0, 999999999999));
       } else if (!claimRequired) {
         for (const record of targetRecords) {
-          const result = applyCharacterReward(record, { resource, amount, androidExperienceIds: [...androidExperienceIds] });
+          const result = applyCharacterReward(record, { resource, amount, androidExperienceIds: [...androidExperienceIds] }, campaign);
           before.characters.push(result.before);
         }
       }
@@ -1933,7 +1981,7 @@ class CampaignApi {
 
       const result = award.resource === "shipCredits"
         ? (() => {
-            const before = characterRewardSnapshot(record);
+            const before = characterRewardSnapshot(record, campaign);
             const previous = Number(campaign.shipCredits) || 0;
             campaign.shipCredits = Math.round(boundedNumber(previous + award.amount, -999999999999, 999999999999));
             award.before ||= { shipCredits: previous, characters: [] };
@@ -1945,7 +1993,7 @@ class CampaignApi {
               messageDetail: " Added to the shared Group Credits pool.",
             };
           })()
-        : applyCharacterReward(record, award);
+        : applyCharacterReward(record, award, campaign);
       award.before ||= { shipCredits: campaign.shipCredits, characters: [] };
       award.before.characters ||= [];
       award.before.characters.push(result.before);
@@ -1966,6 +2014,29 @@ class CampaignApi {
         appliedAmount: result.appliedAmount,
         campaign: this.state(campaign, token),
       });
+      return true;
+    }
+
+    if (path === "/api/campaign/reverence/spent" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const amount = Math.max(1, Math.min(10, Math.round(Number(body.amount) || 1)));
+      campaign.privateNotes.push({
+        id: uid("note"),
+        characterId: record.id,
+        characterName: safeCharacterName(record),
+        direction: "to-gm",
+        kind: "reverence-spent",
+        message: `${safeCharacterName(record)} manually spent ${amount} Reverence.`,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      });
+      trimPrivateNotes(campaign);
+      await this.save(campaign);
+      sendJson(res, 200, { recorded: true, campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -2083,6 +2154,7 @@ class CampaignApi {
         return true;
       }
       if (award.resource === "shipCredits") campaign.shipCredits = award.before.shipCredits;
+      const dramaDeck = normalizeDramaDeck(campaign);
       for (const snapshot of award.before.characters || []) {
         const record = campaign.characters.find((entry) => entry.id === snapshot.id);
         if (!record) continue;
@@ -2090,6 +2162,18 @@ class CampaignApi {
         record.character.resources ||= {};
         record.character.resources.creditsBase = snapshot.creditsBase;
         record.character.resources.reverence = snapshot.reverence;
+        record.character.resources.attributePoints = Math.max(0, Number(snapshot.attributePoints) || 0);
+        record.character.resources.skillPoints = Math.max(0, Number(snapshot.skillPoints) || 0);
+        if (Array.isArray(snapshot.dramaHand)) {
+          const restored = new Set(snapshot.dramaHand);
+          dramaDeck.drawPile = dramaDeck.drawPile.filter((cardId) => !restored.has(cardId));
+          dramaDeck.discardPile = dramaDeck.discardPile.filter((cardId) => !restored.has(cardId));
+          for (const cardId of dramaDeck.hands[record.id] || []) {
+            if (!restored.has(cardId)) dramaDeck.discardPile.push(cardId);
+          }
+          dramaDeck.hands[record.id] = [...snapshot.dramaHand];
+          record.character.resources.dramaCards = snapshot.dramaHand.length;
+        }
         record.updatedAt = new Date().toISOString();
       }
       campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.awardId === award.id && note.rewardStatus === "pending"));

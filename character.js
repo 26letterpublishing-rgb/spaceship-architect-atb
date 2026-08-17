@@ -529,11 +529,44 @@ function playRewardChime(resource = "experience") {
     experience: [[520, 0], [780, 0.09], [1040, 0.18], [1560, 0.29]],
     credits: [[1250, 0], [1760, 0.08], [1320, 0.17], [1980, 0.26]],
     reverence: [[392, 0], [588, 0.05], [784, 0.1], [1176, 0.2], [1568, 0.31]],
+    dramaCards: [[330, 0], [495, 0.06], [660, 0.12], [990, 0.2], [1320, 0.3]],
+    attributePoints: [[260, 0], [520, 0.08], [780, 0.16], [1040, 0.25]],
+    skillPoints: [[440, 0], [660, 0.08], [880, 0.16], [1320, 0.25]],
     shipCredits: [[220, 0], [330, 0.07], [440, 0.14], [660, 0.24]],
   };
   (patterns[resource] || patterns.experience).forEach(([frequency, start], index) => {
     scheduleTone(audio, frequency, start, 0.25 + index * 0.025, 0.026, index % 2 ? "triangle" : "sine");
   });
+}
+
+function playDramaCardUseSound() {
+  if (!playerSoundsEnabled) return;
+  const audio = ensureCharacterAudio();
+  if (!audio) return;
+  [[392, 0], [523.25, 0.07], [659.25, 0.14], [987.77, 0.23], [1318.5, 0.34]].forEach(([frequency, start], index) => {
+    scheduleTone(audio, frequency, start, 0.3 + index * 0.02, 0.024, index % 2 ? "triangle" : "sine");
+  });
+  const duration = 0.32;
+  const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < data.length; index += 1) {
+    const progress = index / data.length;
+    data[index] = (Math.random() * 2 - 1) * Math.sin(Math.PI * progress) * 0.32;
+  }
+  const source = audio.createBufferSource();
+  const filter = audio.createBiquadFilter();
+  const gain = audio.createGain();
+  source.buffer = buffer;
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(480, audio.currentTime + 0.2);
+  filter.frequency.exponentialRampToValueAtTime(2600, audio.currentTime + 0.5);
+  gain.gain.setValueAtTime(0.0001, audio.currentTime + 0.2);
+  gain.gain.exponentialRampToValueAtTime(0.13, audio.currentTime + 0.27);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.52);
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audio.destination);
+  source.start(audio.currentTime + 0.2);
 }
 
 function playDiceRollSound() {
@@ -736,6 +769,8 @@ function blankCharacter(name = "") {
       creditsBase: 500,
       mechanicalExperience: 0,
       dramaCards: 0,
+      attributePoints: 0,
+      skillPoints: 0,
     },
     presentation: { atbColor: "#39e58f" },
     access: { pcCode: "" },
@@ -983,6 +1018,8 @@ function normalizeCharacter(raw) {
   normalized.resources.reverence = Math.round(clamp(normalized.resources.reverence, 0, 10));
   normalized.resources.creditsBase = Math.round(clamp(normalized.resources.creditsBase, -999999999, 999999999));
   normalized.resources.dramaCards = Math.round(clamp(normalized.resources.dramaCards, 0, 999));
+  normalized.resources.attributePoints = Math.round(clamp(normalized.resources.attributePoints, 0, 999999));
+  normalized.resources.skillPoints = Math.round(clamp(normalized.resources.skillPoints, 0, 999999));
   normalized.advantagesNotes = typeof source.advantagesNotes === "string" ? source.advantagesNotes : "";
   normalized.notes = typeof source.notes === "string" ? source.notes : "";
   normalized.health.permanentBonus = Math.round(clamp(normalized.health.permanentBonus, 0, 9999));
@@ -2008,9 +2045,12 @@ function notice(message, type = "") {
   }, 4800);
 }
 
-function dramaCardPreviewText(card) {
-  const text = String(card?.text || "");
-  return text.length > 150 ? `${text.slice(0, 147).trim()}...` : text;
+function dramaCardMiniMarkup(card) {
+  return `<article class="drama-card-mini-face" data-category="${escapeAttribute(card.category || "")}">
+    <header><span>${escapeHtml(card.category || "Drama Card")}</span><b>#${String(card.number || 0).padStart(2, "0")}</b></header>
+    <div class="drama-card-mini-core"><span class="drama-card-mini-sigil" aria-hidden="true">SA</span><h4>${escapeHtml(card.name || "Drama Card")}</h4><p>${escapeHtml(card.text || "")}</p></div>
+    <footer>${escapeHtml(card.handling || "Reveal, resolve, then discard.")}</footer>
+  </article>`;
 }
 
 function fillDramaCard(card) {
@@ -2023,22 +2063,42 @@ function fillDramaCard(card) {
   dom.dramaCardHandling.textContent = card.handling || "Reveal, resolve, then discard.";
 }
 
-function openDramaCard(card, { alert = null } = {}) {
+function openDramaCard(card, { alert = null, receipt = false } = {}) {
   if (!card) return;
-  selectedDramaCard = alert ? null : card;
+  selectedDramaCard = alert || receipt ? null : card;
   activeDramaAlert = alert;
   fillDramaCard(card);
+  dom.dramaCardDisplay.classList.remove("playing");
+  dom.dramaCardModal.dataset.mode = receipt ? "receipt" : alert ? "alert" : "hand";
   dom.dramaCardAlertByline.hidden = !alert;
   dom.dramaCardAlertByline.textContent = alert
     ? `${alert.playerName || "A player"} played ${card.name} as ${alert.characterName || "their character"}.`
     : "";
-  dom.playDramaCard.hidden = Boolean(alert);
+  dom.playDramaCard.hidden = Boolean(alert) || receipt;
   dom.playDramaCard.disabled = false;
   dom.playDramaCard.dataset.confirming = "false";
   dom.playDramaCard.textContent = "Play Card";
-  dom.closeDramaCard.textContent = alert ? "Dismiss" : "Close";
+  dom.closeDramaCard.textContent = receipt ? "Confirm" : alert ? "Dismiss" : "Close";
   dom.dramaCardModal.hidden = false;
   requestAnimationFrame(() => dom.closeDramaCard.focus());
+}
+
+function animateDramaCardDeparture() {
+  playDramaCardUseSound();
+  dom.dramaCardDisplay.classList.remove("playing");
+  void dom.dramaCardDisplay.offsetWidth;
+  dom.dramaCardDisplay.classList.add("playing");
+  return new Promise((resolve) => setTimeout(resolve, 920));
+}
+
+function syncDramaCampaignState(nextState) {
+  receiveCampaignState(nextState);
+  const remote = nextState?.characters?.find((entry) => entry.id === campaignCharacterId);
+  if (remote?.character?.resources) {
+    character.resources.reverence = Math.max(0, Number(remote.character.resources.reverence) || 0);
+    character.resources.dramaCards = Math.max(0, Number(remote.character.resources.dramaCards) || 0);
+  }
+  renderResources();
 }
 
 function showNextDramaAlert() {
@@ -2050,6 +2110,8 @@ function showNextDramaAlert() {
 function closeDramaCard() {
   const dismissedAlert = Boolean(activeDramaAlert);
   dom.dramaCardModal.hidden = true;
+  dom.dramaCardDisplay.classList.remove("playing");
+  delete dom.dramaCardModal.dataset.mode;
   dom.playDramaCard.dataset.confirming = "false";
   activeDramaAlert = null;
   selectedDramaCard = null;
@@ -2640,14 +2702,21 @@ function renderWorkflow() {
   }
 
   if (character.phase === "finalized") {
+    const attributePoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
+    const skillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
+    const available = [
+      character.experience.available > 0 ? `${character.experience.available} XP` : "",
+      attributePoints > 0 ? `${attributePoints} Attribute Points` : "",
+      skillPoints > 0 ? `${skillPoints} Skill Points` : "",
+    ].filter(Boolean);
     dom.phaseBadge.textContent = character.advancementOpen ? "Advancement" : "Finalized";
     dom.phaseBadge.classList.add("finalized");
     renderWorkflowRequirements([{
-      label: character.advancementOpen ? `${character.experience.available} XP available to spend` : "Character Finalized",
+      label: character.advancementOpen ? `${available.join(" | ") || "No advancement points"} available to spend` : "Character Finalized",
       tone: "ready",
     }]);
     dom.workflowDetail.textContent = character.advancementOpen ? "Purchases are permanent. Finish spending when you are done." : "Race, Class, and creation allocations are locked.";
-    dom.spendExperience.textContent = character.advancementOpen ? "Finish Spending" : "Spend EXP";
+    dom.spendExperience.textContent = character.advancementOpen ? "Finish Spending" : attributePoints || skillPoints ? "Spend Advancement" : "Spend EXP";
     dom.spendExperience.disabled = Boolean(character.pendingRoll);
     return;
   }
@@ -2704,6 +2773,15 @@ function renderWorkflow() {
 
 function renderExperience() {
   const validation = draftValidation();
+  const awardedAttributePoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
+  const awardedSkillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
+  const showAttributePoints = character.phase !== "finalized" || awardedAttributePoints > 0;
+  const showSkillPoints = character.phase !== "finalized" || awardedSkillPoints > 0;
+  dom.attributeBudget.closest("div").hidden = !showAttributePoints;
+  dom.skillBudget.closest("div").hidden = !showSkillPoints;
+  dom.workflowAttributeRemaining.closest("div").hidden = !showAttributePoints;
+  dom.workflowSkillRemaining.closest("div").hidden = !showSkillPoints;
+  dom.characterWorkspace.classList.toggle("has-awarded-points", character.phase === "finalized" && (awardedAttributePoints > 0 || awardedSkillPoints > 0));
   if (manualInputMode() && character.phase === "draft") {
     dom.attributeBudget.textContent = "Manual";
     dom.attributeBudget.className = "complete";
@@ -2722,8 +2800,26 @@ function renderExperience() {
     dom.workflowCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
     return;
   }
-  const attributeRemaining = character.phase === "draft" ? validation.attributeBudget - validation.attributeSpent : 0;
-  const skillRemaining = character.phase === "draft" ? validation.skillBudget - validation.skillSpent : 0;
+  const attributeRemaining = character.phase === "draft" ? validation.attributeBudget - validation.attributeSpent : awardedAttributePoints;
+  const skillRemaining = character.phase === "draft" ? validation.skillBudget - validation.skillSpent : awardedSkillPoints;
+  if (character.phase === "finalized") {
+    dom.attributeBudget.textContent = `${attributeRemaining} available`;
+    dom.attributeBudget.className = attributeRemaining > 0 ? "" : "complete";
+    dom.skillBudget.textContent = `${skillRemaining} available`;
+    dom.skillBudget.className = skillRemaining > 0 ? "" : "complete";
+    dom.attributeBudgetFormula.textContent = "Awarded by the GM; spend at printed creation costs";
+    dom.skillBudgetFormula.textContent = "Awarded by the GM; each full Skill level costs its new level";
+    dom.xpAvailable.textContent = character.experience.available;
+    dom.xpTotal.textContent = character.experience.totalGained;
+    dom.xpFormula.textContent = "Unspent / Total Gained";
+    dom.workflowExperience.textContent = `${character.experience.available} / ${character.experience.totalGained}`;
+    dom.workflowAttributeRemaining.textContent = String(attributeRemaining);
+    dom.workflowAttributeRemaining.className = attributeRemaining > 0 ? "" : "complete";
+    dom.workflowSkillRemaining.textContent = String(skillRemaining);
+    dom.workflowSkillRemaining.className = skillRemaining > 0 ? "" : "complete";
+    dom.workflowCredits.textContent = Number(character.resources.creditsBase || 0).toLocaleString();
+    return;
+  }
   dom.attributeBudget.textContent = `${attributeRemaining} / ${validation.attributeBudget}`;
   dom.attributeBudget.className = attributeRemaining === 0 ? "complete" : attributeRemaining < 0 ? "invalid" : "";
   dom.skillBudget.textContent = validation.attributesComplete || character.phase !== "draft"
@@ -2788,6 +2884,7 @@ function renderAttributes() {
   const validation = draftValidation();
   const manualDraft = manualInputMode() && character.phase === "draft";
   const advancement = character.phase === "finalized" && character.advancementOpen;
+  const awardedPoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
   const interactive = canPurchaseAttributes() && !character.pendingRoll;
   dom.attributeGrid.innerHTML = ATTRIBUTE_DEFS.map((definition) => {
     const rows = character.attributes[definition.key];
@@ -2802,14 +2899,15 @@ function renderAttributes() {
         const allowedDraft = character.phase === "draft" && (next || column === current) && !lockedFree
           && !(character.identity.raceId === "tamalori" && definition.key === "strength" && column === 4);
         const advancementFunds = mechanicalSpiddixAttribute(definition.key) ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
-        const allowedAdvancement = advancement && next && advancementFunds >= cost && !raceBlocked;
+        const useAwardedPoints = awardedPoints >= cost;
+        const allowedAdvancement = advancement && next && (useAwardedPoints || advancementFunds >= cost) && !raceBlocked;
         const disabled = !interactive || !(allowedDraft || allowedAdvancement);
         let title = purchased ? `${dieName} purchased` : `Purchase ${dieName} for ${cost}`;
         if (lockedFree) title = `${dieName} is a free starting die`;
         else if (manualDraft && next) title = `Set this row to ${dieName}`;
         else if (manualDraft && column === current) title = `Remove ${dieName} from this row`;
         else if (character.phase === "draft" && column === current) title = `Refund ${cost} Attribute Points`;
-        else if (advancement && next) title = `Spend ${cost} ${mechanicalSpiddixAttribute(definition.key) ? "mechanical XP" : "XP"} to upgrade to ${dieName}`;
+        else if (advancement && next) title = `Spend ${cost} ${useAwardedPoints ? "Attribute Points" : mechanicalSpiddixAttribute(definition.key) ? "mechanical XP" : "XP"} to upgrade to ${dieName}`;
         return `<button class="attribute-die ${purchased ? "purchased" : ""} ${next ? "next" : ""}" type="button" data-attribute="${definition.key}" data-row="${row}" data-column="${column}" title="${escapeAttribute(title)}" ${disabled ? "disabled" : ""}>${dieSvg(column, cost, purchased)}</button>`;
       }).join("");
       const wave = current >= 0 ? `<span class="attribute-purchased-wave" aria-hidden="true"></span>` : "";
@@ -2875,10 +2973,13 @@ function renderSkillRow(name, skill, key) {
   const level = skillCreationLevel(skill);
   const advancement = character.phase === "finalized" && character.advancementOpen;
   const draftBuying = character.phase === "draft" && validation.attributesComplete && !manualDraft;
-  const nextCost = advancement ? advancementSkillCost(skill.tenths) : level + 1;
+  const creationPointCost = level + 1;
+  const awardedSkillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
+  const usingAwardedSkillPoints = advancement && awardedSkillPoints >= creationPointCost;
+  const nextCost = advancement ? usingAwardedSkillPoints ? creationPointCost : advancementSkillCost(skill.tenths) : creationPointCost;
   const mechanical = mechanicalSpiddixSkill(name);
   const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
-  const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && advancementFunds >= nextCost));
+  const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && (usingAwardedSkillPoints || advancementFunds >= nextCost)));
   const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll && !manualDraft;
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement || manualDraft);
@@ -2892,7 +2993,7 @@ function renderSkillRow(name, skill, key) {
     <span class="skill-value">${manualDraft
       ? `<input class="manual-skill-rating" data-manual-skill-key="${escapeAttribute(key)}" type="number" min="0" step="0.1" inputmode="decimal" value="${(Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
       : `<strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small>`}</span>
-    <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
+    <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${usingAwardedSkillPoints ? "Skill Points" : advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${usingAwardedSkillPoints ? "SP" : advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
   </div>`;
 }
 
@@ -3039,11 +3140,7 @@ function renderResources() {
   dom.dramaCardHandStatus.textContent = dramaHand.length
     ? `${dramaHand.length} card${dramaHand.length === 1 ? "" : "s"} held`
     : "No cards held";
-  dom.dramaCardHand.innerHTML = dramaHand.map((card) => `<button type="button" class="drama-card-mini" data-drama-card="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category)}" aria-label="Open ${escapeHtml(card.name)}">
-    <span>${escapeHtml(card.category)}</span>
-    <strong>${escapeHtml(card.name)}</strong>
-    <small>${escapeHtml(dramaCardPreviewText(card))}</small>
-  </button>`).join("");
+  dom.dramaCardHand.innerHTML = dramaHand.map((card) => `<button type="button" class="drama-card-mini" data-drama-card="${escapeAttribute(card.id)}" data-category="${escapeAttribute(card.category)}" aria-label="Open ${escapeAttribute(card.name)}">${dramaCardMiniMarkup(card)}</button>`).join("");
   const mayPurchaseDrama = character.phase === "finalized"
     && campaignState?.role === "character"
     && campaignEditable
@@ -4527,10 +4624,13 @@ function purchaseAttribute(attributeKey, row, column) {
     }
     const cost = attributeStepCost(attributeKey, row, column);
     const mechanical = mechanicalSpiddixAttribute(attributeKey);
-    if (!(mechanical ? spendMechanicalXp(cost, `${definition.label} ${DICE_NAMES[column]}`) : spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`))) return;
+    const awardedPoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
+    const usingAwardedPoints = awardedPoints >= cost;
+    if (usingAwardedPoints) character.resources.attributePoints = awardedPoints - cost;
+    else if (!(mechanical ? spendMechanicalXp(cost, `${definition.label} ${DICE_NAMES[column]}`) : spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`))) return;
     character.attributes[attributeKey][row] = column;
     playPurchaseSound(attributeKey);
-    notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} ${mechanical ? "mechanical XP" : "XP"}.`, "success");
+    notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} ${usingAwardedPoints ? "Attribute Points" : mechanical ? "mechanical XP" : "XP"}.`, "success");
   } else {
     return;
   }
@@ -4949,6 +5049,17 @@ function startSkillAdvancement(key) {
   const resolved = resolveSkill(character, key);
   if (!resolved) return;
   const purchased = Number(resolved.skill.tenths) || 0;
+  const creationPointCost = skillCreationLevel(resolved.skill) + 1;
+  const awardedSkillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
+  if (awardedSkillPoints >= creationPointCost) {
+    character.resources.skillPoints = awardedSkillPoints - creationPointCost;
+    resolved.skill.tenths = purchased + 10;
+    playPurchaseSound();
+    queueSave();
+    renderWithoutViewportJump();
+    notice(`${resolved.name} increased to ${ratingText(resolved.skill.tenths)} for ${creationPointCost} Skill Point${creationPointCost === 1 ? "" : "s"}.`, "success");
+    return;
+  }
   const cost = advancementSkillCost(purchased);
   const currency = mechanicalSpiddixSkill(resolved.name) ? "mechanical" : "standard";
   if (!(currency === "mechanical" ? spendMechanicalXp(cost, `${resolved.name} advancement`) : spendXp(cost, `${resolved.name} advancement`))) return;
@@ -5865,12 +5976,23 @@ dom.characterAtbColor.addEventListener("input", () => {
   queueSave();
 });
 
-dom.spendOneReverence.addEventListener("click", () => {
+dom.spendOneReverence.addEventListener("click", async () => {
   if (character.phase !== "finalized" || character.resources.reverence < 1 || (campaignCode && !campaignEditable)) return;
   character.resources.reverence -= 1;
   queueSave();
   renderResources();
   notice("1 Reverence spent.", "success");
+  if (!campaignCode || !campaignCharacterId || !campaignEditable) return;
+  try {
+    await saveCampaignCharacter({ force: true });
+    const payload = await campaignRequest("/api/campaign/reverence/spent", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, amount: 1 }),
+    });
+    receiveCampaignState(payload.campaign);
+  } catch (error) {
+    notice(`Reverence was spent, but the GM notification failed: ${error.message}`, "error");
+  }
 });
 
 function closeReverenceGift() {
@@ -6506,6 +6628,12 @@ dom.privateNotesList?.addEventListener("click", async (event) => {
         ? "Credits"
         : payload.resource === "reverence"
           ? "Reverence"
+          : payload.resource === "dramaCards"
+            ? "Drama Cards"
+            : payload.resource === "attributePoints"
+              ? "Attribute Points"
+              : payload.resource === "skillPoints"
+                ? "Skill Points"
           : payload.resource === "shipCredits"
             ? "Group Credits"
             : "Experience";
@@ -6737,12 +6865,14 @@ dom.playDramaCard?.addEventListener("click", async () => {
   }
   dom.playDramaCard.disabled = true;
   try {
+    const card = selectedDramaCard;
     const payload = await campaignRequest("/api/campaign/drama/play", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, cardId: selectedDramaCard.id }),
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, cardId: card.id }),
     });
+    syncDramaCampaignState(payload.campaign);
+    await animateDramaCardDeparture();
     closeDramaCard();
-    receiveCampaignState(payload.campaign);
     notice(`${payload.card.name} played. The table has been alerted.`, "success");
   } catch (error) {
     dom.playDramaCard.disabled = false;
@@ -6770,8 +6900,8 @@ dom.purchaseDramaCard?.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId }),
     });
-    receiveCampaignState(payload.campaign);
-    openDramaCard(payload.card);
+    syncDramaCampaignState(payload.campaign);
+    openDramaCard(payload.card, { receipt: true });
     notice(`${payload.card.name} added to your hand.`, "success");
   } catch (error) {
     notice(error.message, "error");

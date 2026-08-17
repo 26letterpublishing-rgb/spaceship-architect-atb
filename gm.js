@@ -18,6 +18,9 @@ const dom = {
   dramaCardRules: $("#gmDramaCardRules"),
   dramaCardHandling: $("#gmDramaCardHandling"),
   dismissDramaCard: $("#dismissGmDramaCard"),
+  dramaDiscardPanel: $("#gmDramaDiscardPanel"),
+  dramaDiscardCount: $("#gmDramaDiscardCount"),
+  dramaDiscardList: $("#gmDramaDiscardList"),
   codeHeading: $("#campaignCodeHeading"),
   nameHeading: $("#campaignNameHeading"),
   logout: $("#gmLogout"),
@@ -377,20 +380,39 @@ function playDramaJolt() {
   else sound();
 }
 
-function showNextDramaAlert() {
-  if (!dom.dramaAlert.hidden || !dramaAlertQueue.length) return;
-  const event = dramaAlertQueue.shift();
-  const card = event.card;
-  dom.dramaPlayedBy.textContent = `${event.playerName || "A player"} played ${card.name} as ${event.characterName || "their character"}.`;
+function fillGmDramaCard(card, byline) {
+  dom.dramaPlayedBy.textContent = byline;
   dom.dramaCardDisplay.dataset.category = card.category || "";
   dom.dramaCardCategory.textContent = card.category || "Drama Card";
   dom.dramaCardNumber.textContent = `#${String(card.number || 0).padStart(2, "0")}`;
   dom.dramaCardName.textContent = card.name || "Drama Card";
   dom.dramaCardRules.textContent = card.text || "";
   dom.dramaCardHandling.textContent = card.handling || "Reveal, resolve, then discard.";
+}
+
+function openGmDramaCard(card, { byline = "Discarded Drama Card", alert = false } = {}) {
+  if (!card) return;
+  fillGmDramaCard(card, byline);
   dom.dramaAlert.hidden = false;
-  playDramaJolt();
+  if (alert) playDramaJolt();
   requestAnimationFrame(() => dom.dismissDramaCard.focus());
+}
+
+function showNextDramaAlert() {
+  if (!dom.dramaAlert.hidden || !dramaAlertQueue.length) return;
+  const event = dramaAlertQueue.shift();
+  openGmDramaCard(event.card, {
+    byline: `${event.playerName || "A player"} played ${event.card.name} as ${event.characterName || "their character"}.`,
+    alert: true,
+  });
+}
+
+function gmDramaCardMiniMarkup(card) {
+  return `<article class="gm-drama-card-mini-face" data-category="${escapeHtml(card.category || "")}">
+    <header><span>${escapeHtml(card.category || "Drama Card")}</span><b>#${String(card.number || 0).padStart(2, "0")}</b></header>
+    <div><span class="gm-drama-mini-sigil" aria-hidden="true">SA</span><h4>${escapeHtml(card.name || "Drama Card")}</h4><p>${escapeHtml(card.text || "")}</p></div>
+    <footer>${escapeHtml(card.handling || "Reveal, resolve, then discard.")}</footer>
+  </article>`;
 }
 
 function processDramaPlayEvents(nextCampaign) {
@@ -633,6 +655,11 @@ function renderCharacters() {
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can create one from the Characters option on the main menu.</p>";
+  const discard = campaign.dramaDeck?.discard || [];
+  dom.dramaDiscardCount.textContent = `${discard.length} Card${discard.length === 1 ? "" : "s"}`;
+  dom.dramaDiscardList.innerHTML = discard.length
+    ? discard.map((card) => `<button type="button" class="gm-drama-card-mini" data-discard-card="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category || "")}" aria-label="View ${escapeHtml(card.name || "Drama Card")}">${gmDramaCardMiniMarkup(card)}</button>`).join("")
+    : "<p>No Drama Cards have been played.</p>";
 }
 
 function renderRollResults() {
@@ -1932,6 +1959,16 @@ dom.soundToggle.addEventListener("click", () => {
 dom.dismissDramaCard?.addEventListener("click", () => {
   dom.dramaAlert.hidden = true;
   requestAnimationFrame(showNextDramaAlert);
+});
+dom.dramaDeckStatus?.addEventListener("click", () => {
+  selectGmTab("characters");
+  requestAnimationFrame(() => dom.dramaDiscardPanel?.scrollIntoView({ behavior: "smooth", block: "start" }));
+});
+dom.dramaDiscardList?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-discard-card]");
+  if (!button) return;
+  const card = campaign?.dramaDeck?.discard?.find((entry) => entry.id === button.dataset.discardCard);
+  if (card) openGmDramaCard(card, { byline: `Discard pile: ${card.name}` });
 });
 dom.atbFrame.addEventListener("load", () => {
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
