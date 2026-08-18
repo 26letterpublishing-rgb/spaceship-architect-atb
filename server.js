@@ -758,7 +758,7 @@ function broadcast(room) {
 
 function normalizeSpeed(value) {
   if (value === null || value === undefined || value === "") return null;
-  return Math.max(1, Math.min(100, Number(value) || 1));
+  return Math.max(0.1, Math.min(100, Number(value) || 0.1));
 }
 
 function normalizeCommandWindow(value) {

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260817-adjustment-pass" />
-  <link rel="stylesheet" href="weapons.css?v=20260816-storage-give" />
+  <link rel="stylesheet" href="character.css?v=20260817-weapon-slots" />
+  <link rel="stylesheet" href="weapons.css?v=20260817-weapon-slots" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
@@ -344,6 +344,15 @@
 
         <section class="sheet-panel weapons-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Weapons</span><button id="addWeaponRow" class="compact-add" type="button" aria-label="Add weapon">+</button></div>
+          <section class="weapon-slot-console" aria-labelledby="weaponSlotTitle">
+            <div class="weapon-slot-heading">
+              <div><span>WEAPON CARRY LIMIT</span><h3 id="weaponSlotTitle">Weapon Slots</h3></div>
+              <strong id="weaponSlotStatus">ALL WEAPONS LEGALLY STORED</strong>
+            </div>
+            <div id="weaponSlotPyramid" class="weapon-slot-pyramid" aria-label="One A, two B, four C, and eight D weapon slots"></div>
+            <div id="weaponSlotAssignments" class="weapon-slot-assignments" aria-live="polite"></div>
+            <p id="weaponSlotWarning" class="weapon-slot-warning">Larger slots may hold smaller weapons. Ordinary Gear and Class F items do not use Weapon Slots.</p>
+          </section>
           <div class="weapon-table-shell">
             <div class="weapon-table" role="table" aria-label="Character weapons">
               <div class="weapon-table-head" role="row">
@@ -696,6 +705,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="character.js?v=20260817-adjustment-pass"></script>
+  <script type="module" src="character.js?v=20260817-weapon-slots"></script>
   </body>
 </html>

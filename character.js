@@ -246,6 +246,10 @@ const dom = {
   addCrewRow: $("#addCrewRow"),
   weaponInventory: $("#weaponInventory"),
   addWeaponRow: $("#addWeaponRow"),
+  weaponSlotPyramid: $("#weaponSlotPyramid"),
+  weaponSlotAssignments: $("#weaponSlotAssignments"),
+  weaponSlotStatus: $("#weaponSlotStatus"),
+  weaponSlotWarning: $("#weaponSlotWarning"),
   gearPickerModal: $("#gearPickerModal"),
   gearCatalogSearch: $("#gearCatalogSearch"),
   gearCatalogPicker: $("#gearCatalogPicker"),
@@ -2447,8 +2451,12 @@ function derivedValues({ includeCampaignBonus = true } = {}) {
   const awareness = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
   const mastermind = finalizedModifiersActive() && character.identity.classId === "mastermind";
   const commandBase = boxesFilled("perception") * 8 + awareness * (mastermind ? 45 : 12);
+  const speedBeforeLoad = Math.max(0, boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1) + (Number(character.gmAdjustments?.speed) || 0));
+  const weaponOverloaded = weaponSlotAllocation().overloaded;
   return {
-    speed: Math.max(0, boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1) + (Number(character.gmAdjustments?.speed) || 0)),
+    speed: Math.max(0, speedBeforeLoad * (weaponOverloaded ? 0.7 : 1)),
+    speedBeforeLoad,
+    weaponOverloaded,
     command: Math.max(0, commandBase + (includeCampaignBonus ? campaignCommandWindowBonus() : 0) + (Number(character.gmAdjustments?.command) || 0)),
   };
 }
@@ -3048,6 +3056,7 @@ function skillRuleIndicators(name) {
 function renderSkillRow(name, skill, key) {
   const validation = draftValidation();
   const manualDraft = manualInputMode() && character.phase === "draft";
+  const directSkillEntry = manualDraft || GM_ADJUSTMENT_MODE;
   const bonus = skillBonusTenths(name);
   const bonusParts = skillBonusParts(name);
   const displayed = displayedSkillTenths(name, skill);
@@ -3071,10 +3080,10 @@ function renderSkillRow(name, skill, key) {
   return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
     <span class="skill-name" title="${escapeAttribute(name)}"><span>${formatSkillName(name)}</span>${markerMarkup}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
-    <span class="skill-value">${manualDraft
-      ? `<input class="manual-skill-rating" data-manual-skill-key="${escapeAttribute(key)}" type="number" min="0" step="0.1" inputmode="decimal" value="${(Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
+    <span class="skill-value">${directSkillEntry
+      ? `<input class="manual-skill-rating${GM_ADJUSTMENT_MODE ? " gm-skill-rating" : ""}" ${GM_ADJUSTMENT_MODE ? `data-gm-skill-key="${escapeAttribute(key)}"` : `data-manual-skill-key="${escapeAttribute(key)}"`} type="number" min="0" step="0.1" inputmode="decimal" value="${GM_ADJUSTMENT_MODE ? ratingText(displayed) : (Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
       : `<strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small>`}</span>
-    <button class="skill-buy" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="Spend ${nextCost} ${usingAwardedSkillPoints ? "Skill Points" : advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}" ${canIncrease ? "" : "disabled"}><strong>${nextCost}</strong><small>${usingAwardedSkillPoints ? "SP" : advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small></button>
+    <button class="skill-buy${GM_ADJUSTMENT_MODE ? " gm-skill-step" : ""}" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="${GM_ADJUSTMENT_MODE ? `Increase ${escapeAttribute(name)} by 0.1` : `Spend ${nextCost} ${usingAwardedSkillPoints ? "Skill Points" : advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}`}" ${canIncrease ? "" : "disabled"}>${GM_ADJUSTMENT_MODE ? "<strong>+</strong>" : `<strong>${nextCost}</strong><small>${usingAwardedSkillPoints ? "SP" : advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small>`}</button>
   </div>`;
 }
 
@@ -4152,7 +4161,7 @@ function renderDerived() {
   const mastermind = character.identity.classId === "mastermind" && finalizedModifiersActive();
   dom.derivedSpeed.textContent = formatNumber(derived.speed);
   const gmSpeed = Number(character.gmAdjustments?.speed) || 0;
-  dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmSpeed ? ` ${gmSpeed > 0 ? "+" : ""}${gmSpeed} GM adjustment` : ""}`;
+  dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmSpeed ? ` ${gmSpeed > 0 ? "+" : ""}${gmSpeed} GM adjustment` : ""}${derived.weaponOverloaded ? " x0.70 Weapon Slot overload" : ""}`;
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
   const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 12;
@@ -4223,7 +4232,12 @@ async function handleGmDirectEdit(element) {
   const [label, current, min, max, step] = details;
   const value = await requestGmNumber(label, current, { min, max, step });
   if (value === null || !Number.isFinite(value)) return true;
-  if (key === "derivedSpeed") setGmAdjustmentTarget("speed", value, derivedValues().speed - (Number(character.gmAdjustments.speed) || 0));
+  if (key === "derivedSpeed") {
+    const derived = derivedValues();
+    const loadMultiplier = derived.weaponOverloaded ? 0.7 : 1;
+    const baseWithoutGm = derived.speedBeforeLoad - (Number(character.gmAdjustments.speed) || 0);
+    setGmAdjustmentTarget("speed", value / loadMultiplier, baseWithoutGm);
+  }
   if (key === "derivedCommand") setGmAdjustmentTarget("command", value, derivedValues().command - (Number(character.gmAdjustments.command) || 0));
   if (key === "maximumHp") setGmAdjustmentTarget("maximumHp", value, maximumHp() - (Number(character.gmAdjustments.maximumHp) || 0));
   if (key === "damageReduction") setGmAdjustmentTarget("damageReduction", value, damageReductionDetails().value - (Number(character.gmAdjustments.damageReduction) || 0));
@@ -4249,8 +4263,68 @@ async function handleGmDirectEdit(element) {
 function weaponOptions(selectedId) {
   return [
     `<option value="">Choose a weapon</option>`,
-    ...WEAPONS.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}</option>`),
+    ...WEAPONS.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)} - ${weaponCreditCost(weapon).toLocaleString()} Credits</option>`),
   ].join("");
+}
+
+const WEAPON_SLOT_COUNTS = Object.freeze({ A: 1, B: 2, C: 4, D: 8 });
+const WEAPON_SLOT_ORDER = Object.freeze(["A", "B", "C", "D"]);
+
+function weaponSlotAllocation(characterObject = character) {
+  const slots = WEAPON_SLOT_ORDER.flatMap((sizeClass) => Array.from({ length: WEAPON_SLOT_COUNTS[sizeClass] }, (_, index) => ({
+    id: `${sizeClass}${index + 1}`,
+    sizeClass,
+    weapon: null,
+  })));
+  const weapons = (characterObject.weapons || []).flatMap((entry) => {
+    const weapon = weaponById(entry?.weaponId);
+    return weapon && WEAPON_SLOT_ORDER.includes(weapon.sizeClass) ? [{ entry, weapon }] : [];
+  }).sort((left, right) => WEAPON_SLOT_ORDER.indexOf(left.weapon.sizeClass) - WEAPON_SLOT_ORDER.indexOf(right.weapon.sizeClass));
+  const overflow = [];
+  for (const carried of weapons) {
+    const weaponRank = WEAPON_SLOT_ORDER.indexOf(carried.weapon.sizeClass);
+    let assigned = null;
+    for (let slotRank = weaponRank; slotRank >= 0 && !assigned; slotRank -= 1) {
+      assigned = slots.find((slot) => !slot.weapon && slot.sizeClass === WEAPON_SLOT_ORDER[slotRank]) || null;
+    }
+    if (assigned) assigned.weapon = carried;
+    else overflow.push(carried);
+  }
+  return { slots, overflow, overloaded: overflow.length > 0, weaponCount: weapons.length };
+}
+
+function weaponInitials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return words.slice(0, 3).map((word) => word[0]).join("").toUpperCase();
+}
+
+function renderWeaponSlots() {
+  if (!dom.weaponSlotPyramid) return;
+  const allocation = weaponSlotAllocation();
+  dom.weaponSlotPyramid.innerHTML = WEAPON_SLOT_ORDER.map((sizeClass) => {
+    const slots = allocation.slots.filter((slot) => slot.sizeClass === sizeClass);
+    return `<div class="weapon-slot-row weapon-slot-row-${sizeClass.toLowerCase()}"><span class="weapon-slot-class">${sizeClass}</span><div class="weapon-slot-cells">${slots.map((slot) => {
+      const weapon = slot.weapon?.weapon;
+      const substituted = weapon && weapon.sizeClass !== slot.sizeClass;
+      const label = weapon ? `${slot.id}: ${weapon.name}, Class ${weapon.sizeClass}${substituted ? ` stored in larger Class ${slot.sizeClass} slot` : ""}` : `${slot.id}: Empty Class ${slot.sizeClass} slot`;
+      return `<div class="weapon-slot ${weapon ? "occupied" : "empty"} ${substituted ? "substituted" : ""}" data-slot-class="${slot.sizeClass}" title="${escapeAttribute(label)}" aria-label="${escapeAttribute(label)}"><small>${slot.id}</small><strong>${weapon ? escapeHtml(weaponInitials(weapon.name)) : ""}</strong>${weapon ? `<span>${escapeHtml(weapon.sizeClass)}</span>` : ""}</div>`;
+    }).join("")}</div></div>`;
+  }).join("");
+  const assigned = allocation.slots.filter((slot) => slot.weapon);
+  dom.weaponSlotAssignments.innerHTML = [
+    ...assigned.map((slot) => `<span class="weapon-slot-assignment"><b>${slot.id}</b>${escapeHtml(slot.weapon.weapon.name)}</span>`),
+    ...allocation.overflow.map(({ weapon }) => `<span class="weapon-slot-assignment illegal"><b>ILLEGAL</b>${escapeHtml(weapon.name)} (${escapeHtml(weapon.sizeClass)})</span>`),
+  ].join("");
+  dom.weaponSlotStatus.textContent = allocation.overloaded
+    ? "OVERLOADED - ATB SPEED REDUCED 30%"
+    : `${assigned.length} / ${allocation.slots.length} SLOTS OCCUPIED`;
+  dom.weaponSlotStatus.classList.toggle("overloaded", allocation.overloaded);
+  dom.weaponSlotWarning.classList.toggle("overloaded", allocation.overloaded);
+  dom.weaponSlotWarning.textContent = allocation.overloaded
+    ? `${allocation.overflow.length} weapon${allocation.overflow.length === 1 ? " has" : "s have"} no legal slot. The character's final ATB Speed is multiplied by 0.70.`
+    : "Larger slots may hold smaller weapons. Ordinary Gear and Class F items do not use Weapon Slots.";
 }
 
 function weaponStat(value) {
@@ -4280,6 +4354,7 @@ function renderWeapons() {
       <button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow || !editable ? "disabled" : ""} aria-label="Remove weapon">-</button>
     </div>`;
   }).join("");
+  renderWeaponSlots();
 }
 
 function weaponCreditCost(weapon) {
@@ -5608,6 +5683,18 @@ document.addEventListener("input", (event) => {
     return;
   }
 
+  const gmSkill = event.target.closest("[data-gm-skill-key]");
+  if (gmSkill && GM_ADJUSTMENT_MODE) {
+    const resolved = resolveSkill(character, gmSkill.dataset.gmSkillKey);
+    if (!resolved) return;
+    const desiredTenths = Math.round(clamp(Number(gmSkill.value) || 0, 0, 99999) * 10);
+    resolved.skill.tenths = Math.max(0, desiredTenths - skillBonusTenths(resolved.name));
+    resolved.skill.creationDecimal = resolved.skill.tenths % 10;
+    campaignDirty = true;
+    renderDerived();
+    return;
+  }
+
   const manualResource = event.target.closest("[data-manual-resource]");
   if (manualResource && manualInputMode() && character.phase === "draft") {
     const path = manualResource.dataset.manualResource;
@@ -5755,7 +5842,8 @@ document.addEventListener("click", (event) => {
     character.weapons = character.weapons.filter((weapon) => weapon.id !== removeWeapon.dataset.removeWeapon);
     queueSave();
     renderWeapons();
-  renderGear();
+    renderGear();
+    renderDerived();
     notice(`${name} removed from Supplies.`, "success");
     return;
   }
@@ -5803,6 +5891,7 @@ document.addEventListener("change", async (event) => {
     entry.held = false;
     queueSave();
     renderWeapons();
+    renderDerived();
     notice("Weapon row cleared.", "success");
     return;
   }

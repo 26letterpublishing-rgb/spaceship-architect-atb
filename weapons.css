@@ -1,7 +1,54 @@
-.weapons-panel { grid-column:1 / -1; grid-row:5; }
-.advantages-panel { grid-row:6; }
-.crew-panel { grid-row:6; }
-.notes-panel { grid-row:7; }
+.weapons-panel { grid-column:1 / -1; grid-row:7; }
+.advantages-panel { grid-row:5; }
+.crew-panel { grid-row:5; }
+.notes-panel { grid-row:6; }
+.gear-panel { grid-row:8; }
+.storage-panel { grid-row:9; }
+
+.weapon-slot-console {
+  padding:10px;
+  border-bottom:1px solid #29465d;
+  background:linear-gradient(180deg,rgba(12,28,42,.96),rgba(5,13,22,.98));
+}
+.weapon-slot-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; }
+.weapon-slot-heading span { color:var(--cyan); font-size:.5rem; font-weight:900; }
+.weapon-slot-heading h3 { margin:2px 0 0; font-size:.86rem; text-transform:uppercase; }
+.weapon-slot-heading > strong { color:var(--green); font-size:.58rem; text-align:right; }
+.weapon-slot-heading > strong.overloaded { color:#ff667b; text-shadow:0 0 9px rgba(255,67,93,.55); }
+.weapon-slot-pyramid { display:grid; gap:4px; width:min(100%,430px); margin:10px auto 8px; }
+.weapon-slot-row { position:relative; min-height:36px; display:grid; grid-template-columns:22px 1fr; align-items:center; gap:5px; }
+.weapon-slot-class { color:#778da1; font-size:.62rem; font-weight:950; text-align:center; }
+.weapon-slot-cells { display:grid; justify-content:center; gap:4px; }
+.weapon-slot-row-a .weapon-slot-cells { grid-template-columns:repeat(1,36px); }
+.weapon-slot-row-b .weapon-slot-cells { grid-template-columns:repeat(2,36px); }
+.weapon-slot-row-c .weapon-slot-cells { grid-template-columns:repeat(4,36px); }
+.weapon-slot-row-d .weapon-slot-cells { grid-template-columns:repeat(8,36px); }
+.weapon-slot {
+  position:relative;
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border:1px solid #496075;
+  background:linear-gradient(145deg,#101d2a,#050b12);
+  box-shadow:inset 0 1px rgba(255,255,255,.08),0 2px 5px rgba(0,0,0,.55);
+}
+.weapon-slot small { position:absolute; top:2px; left:3px; color:#768a9d; font:800 .34rem Arial,sans-serif; }
+.weapon-slot strong { color:#eaf8ff; font-size:.58rem; text-shadow:0 1px 2px #000; }
+.weapon-slot > span { position:absolute; right:3px; bottom:1px; color:#d6f9ff; font:900 .34rem Arial,sans-serif; }
+.weapon-slot.occupied { border-color:var(--slot-color,#47dfff); background:linear-gradient(145deg,color-mix(in srgb,var(--slot-color,#47dfff) 68%,white 4%),color-mix(in srgb,var(--slot-color,#47dfff) 38%,#07111b)); box-shadow:inset 0 1px rgba(255,255,255,.5),0 0 10px color-mix(in srgb,var(--slot-color,#47dfff) 42%,transparent); }
+.weapon-slot[data-slot-class="A"] { --slot-color:#ff5d70; }
+.weapon-slot[data-slot-class="B"] { --slot-color:#ffbc4c; }
+.weapon-slot[data-slot-class="C"] { --slot-color:#43dfff; }
+.weapon-slot[data-slot-class="D"] { --slot-color:#54e59b; }
+.weapon-slot.substituted { border-style:dashed; }
+.weapon-slot-assignments { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+.weapon-slot-assignment { display:flex; align-items:center; gap:5px; min-height:23px; padding:3px 7px; border:1px solid #29465d; color:#aabdc9; background:#07131e; font-size:.48rem; }
+.weapon-slot-assignment b { color:var(--cyan); }
+.weapon-slot-assignment.illegal { border-color:#a72f43; color:#ffd8dd; background:#2b0910; }
+.weapon-slot-assignment.illegal b { color:#ff5d73; }
+.weapon-slot-warning { margin:7px 0 0; color:#71899b; font-size:.52rem; text-align:center; }
+.weapon-slot-warning.overloaded { color:#ff94a3; font-weight:850; }
 
 .weapon-table-shell {
   width:100%;
@@ -91,6 +138,18 @@
 }
 
 @media (max-width:760px) {
+  .weapon-slot-console { padding:9px 6px; }
+  .weapon-slot-heading { align-items:start; }
+  .weapon-slot-heading > strong { max-width:52%; }
+  .weapon-slot-pyramid { width:min(100%,350px); }
+  .weapon-slot-row { grid-template-columns:17px 1fr; gap:2px; }
+  .weapon-slot-cells { gap:3px; }
+  .weapon-slot-row-a .weapon-slot-cells { grid-template-columns:repeat(1,32px); }
+  .weapon-slot-row-b .weapon-slot-cells { grid-template-columns:repeat(2,32px); }
+  .weapon-slot-row-c .weapon-slot-cells { grid-template-columns:repeat(4,32px); }
+  .weapon-slot-row-d .weapon-slot-cells { grid-template-columns:repeat(8,32px); }
+  .weapon-slot { width:32px; height:32px; }
+  .weapon-slot strong { font-size:.52rem; }
   .weapon-table { min-width:0; }
   .weapon-table-head { display:none; }
   .weapon-inventory { gap:7px; padding:7px; }
