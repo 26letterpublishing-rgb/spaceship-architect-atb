@@ -32,7 +32,7 @@ export const GEAR = [
   gear("digital-binoculars", "Digital Binoculars", 300, "Up to 100x zoom. Adds +4 to Common Knowledge and Research rolls. Requires a Slow Delayed Resolution to focus in combat.", { special: "digital-binoculars" }),
   gear("distress-flares", "Distress Flares", 20, "Pack of five bright aerial lights that hover for approximately one hour."),
   gear("earplugs-dark-shades", "Earplugs/Dark Shades", 10, "Protects against harmful noise or light while worn; -3 to Perception rolls."),
-  gear("electronics-toolkit", "Electronics Toolkit", 100, "Tools and wires for electronic work. Adds +2 to Engineering rolls. Five uses."),
+  gear("electronics-toolkit", "Electronics Toolkit", 100, "Tools and wires for electronic work. Adds +2 to Engineering rolls. Five uses.", { chargesMax: 5 }),
   gear("emf-scanner", "EMF Scanner", 225, "Detects abnormal electrical disturbances up to eight units away."),
   gear("external-storage-unit", "External Storage Unit", 100, "Stores nearly limitless digital data; size and appearance are customized."),
   gear("fancy-clothing", "Fancy Clothing", 180, "A custom set of impressive clothing."),

@@ -6,7 +6,7 @@
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
   <link rel="stylesheet" href="styles.css?v=20260817-adjustment-pass" />
-  <link rel="stylesheet" href="combat-actions.css?v=20260816-combat-polish" />
+  <link rel="stylesheet" href="combat-actions.css?v=20260818-qol-pass" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -206,18 +206,22 @@
         <div id="heldWeaponReadout" class="held-weapon-readout">
           <span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies.</small>
         </div>
+        <div id="playerCombatStatusChips" class="combat-status-chips" hidden></div>
         <div id="playerTurnActions" class="player-turn-actions combat-action-grid">
-          <button type="button" data-combat-action="wait3">Wait 3</button>
-          <button type="button" data-combat-action="defense">Defense</button>
+          <span class="combat-action-group-label attack">Attack</span>
           <button type="button" data-combat-action="melee">Melee Attack</button>
-          <button type="button" data-combat-action="move">Move</button>
           <button type="button" data-combat-action="wrestle">Wrestle / Disarm</button>
-          <button type="button" data-combat-action="aim">Aim</button>
-          <button type="button" data-combat-action="charge">Charge</button>
           <button type="button" data-combat-action="fire">Fire Gun</button>
-          <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
           <button type="button" data-combat-action="calledShot">Called Shot</button>
           <button type="button" data-combat-action="throwItem">Throw Item</button>
+          <span class="combat-action-group-label tactical">Movement / Tactical</span>
+          <button type="button" data-combat-action="wait3">Wait 3</button>
+          <button type="button" data-combat-action="defense">Defense</button>
+          <button type="button" data-combat-action="move">Move</button>
+          <button type="button" data-combat-action="aim">Aim</button>
+          <button type="button" data-combat-action="charge">Charge</button>
+          <span class="combat-action-group-label support">Items / Support</span>
+          <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
           <button type="button" data-combat-action="firstAid">First Aid</button>
           <button type="button" data-combat-action="station">Station</button>
           <button id="playerDelay" type="button" class="secondary">Delay</button>
@@ -280,16 +284,19 @@
         <span>Held Weapon</span><strong>None</strong><small>Choose one before attacking.</small>
       </div>
       <div id="gmNpcTurnActions" class="gm-npc-turn-actions combat-action-grid" hidden>
+        <span class="combat-action-group-label attack">Attack</span>
+        <button type="button" data-combat-action="melee">Melee Attack</button>
+        <button type="button" data-combat-action="wrestle">Wrestle / Disarm</button>
+        <button type="button" data-combat-action="fire">Fire Gun</button>
+        <button type="button" data-combat-action="calledShot">Called Shot</button>
+        <span class="combat-action-group-label tactical">Movement / Tactical</span>
         <button type="button" data-combat-action="wait3">Wait 3</button>
         <button type="button" data-combat-action="defense">Defense</button>
-        <button type="button" data-combat-action="melee">Melee Attack</button>
         <button type="button" data-combat-action="move">Move</button>
-        <button type="button" data-combat-action="wrestle">Wrestle / Disarm</button>
         <button type="button" data-combat-action="aim">Aim</button>
         <button type="button" data-combat-action="charge">Charge</button>
-        <button type="button" data-combat-action="fire">Fire Gun</button>
+        <span class="combat-action-group-label support">Items / Support</span>
         <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
-        <button type="button" data-combat-action="calledShot">Called Shot</button>
         <button type="button" data-combat-action="firstAid">First Aid</button>
         <button type="button" data-combat-action="station">Station</button>
       </div>
@@ -551,8 +558,8 @@
 
 
   <script src="combat-rules.js?v=20260816-storage-give"></script>
-  <script src="app.js?v=20260817-adjustment-pass"></script>
-  <script src="combat-actions.js?v=20260817-ally-tabs"></script>
+  <script src="app.js?v=20260818-qol-pass"></script>
+  <script src="combat-actions.js?v=20260818-qol-pass"></script>
   <script type="module" src="npc-combat-dice.js?v=20260816-storage-give"></script>
   </body>
 </html>

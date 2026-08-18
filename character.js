@@ -143,6 +143,8 @@ const dom = {
   tabStatusReverence: $("#tabStatusReverence"),
   tabStatusExertion: $("#tabStatusExertion"),
   tabStatusCredits: $("#tabStatusCredits"),
+  hudWeaponOverload: $("#hudWeaponOverload"),
+  syncIndicator: $("#syncIndicator"),
   characterBanner: $("#characterBanner"),
   creatorTitle: $("#creatorTitle"),
   creatorCampaignTitle: $("#creatorCampaignTitle"),
@@ -304,6 +306,8 @@ const dom = {
   skillExertionBlock: $("#skillExertionBlock"),
   skillExertionReadout: $("#skillExertionReadout"),
   skillExertionMeter: $("#skillExertionMeter"),
+  skillEquipmentBlock: $("#skillEquipmentBlock"),
+  skillEquipmentChoices: $("#skillEquipmentChoices"),
   skillDifficulty: $("#skillDifficulty"),
   manualSkillScore: $("#manualSkillScore"),
   cancelSkillCheck: $("#cancelSkillCheck"),
@@ -655,6 +659,7 @@ let campaignPin = "";
 let campaignEditable = false;
 let campaignDirty = false;
 let campaignSaving = false;
+let lastCampaignSyncAt = null;
 let campaignBaselineCredits = 0;
 let campaignBaselineHp = null;
 let campaignSaveTimer = null;
@@ -668,6 +673,23 @@ let knownDramaPlayIds = new Set();
 let dramaAlertQueue = [];
 let activeDramaAlert = null;
 let selectedDramaCard = null;
+
+function renderSyncIndicator(state = "local") {
+  if (!dom.syncIndicator) return;
+  const normalized = ["local", "saving", "synced", "offline"].includes(state) ? state : "local";
+  const labels = { local: "LOCAL", saving: "SAVING", synced: "SYNCED", offline: "OFFLINE" };
+  dom.syncIndicator.className = `sync-indicator ${normalized}`;
+  const timestamp = lastCampaignSyncAt
+    ? lastCampaignSyncAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : "Not yet synchronized";
+  const visibleLabel = normalized === "synced" && lastCampaignSyncAt
+    ? `SYNCED ${timestamp}`
+    : normalized === "offline" && lastCampaignSyncAt
+      ? `OFFLINE ${timestamp}`
+      : labels[normalized];
+  dom.syncIndicator.querySelector("span").textContent = visibleLabel;
+  dom.syncIndicator.title = normalized === "synced" ? `Last synchronized ${timestamp}` : labels[normalized];
+}
 
 function showRollResultToast(message) {
   if (!dom.rollResultToast) return;
@@ -1193,6 +1215,7 @@ function saveLibrary(message = "Saved locally") {
   }
   dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
   dom.saveStatus.classList.remove("saving");
+  renderSyncIndicator(campaignCode ? (campaignEditable ? "saving" : "synced") : "local");
   if (campaignCode && campaignCharacterId && campaignEditable && !suppressCampaignSave) {
     campaignDirty = true;
     queueCampaignCharacterSave();
@@ -1208,6 +1231,7 @@ function queueSave() {
   }
   dom.saveStatus.textContent = "Saving...";
   dom.saveStatus.classList.add("saving");
+  renderSyncIndicator(campaignCode ? "saving" : "local");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveLibrary(), 160);
 }
@@ -1300,6 +1324,7 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
   if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return false;
   campaignSaving = true;
   campaignDirty = false;
+  renderSyncIndicator("saving");
   try {
     const payload = await campaignRequest("/api/campaign/character/save", {
       method: "POST",
@@ -1327,12 +1352,15 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
     if (payload.updatedAt) character.updatedAt = payload.updatedAt;
     dom.saveStatus.textContent = "Saved to campaign";
     dom.saveStatus.classList.remove("saving");
+    lastCampaignSyncAt = new Date();
+    renderSyncIndicator("synced");
     cacheCampaignCharacter();
     return true;
   } catch (error) {
     campaignDirty = true;
     dom.saveStatus.textContent = error.message;
     dom.saveStatus.classList.add("saving");
+    renderSyncIndicator("offline");
     return false;
   } finally {
     campaignSaving = false;
@@ -1391,9 +1419,11 @@ function renderTabbedStatus() {
     const empty = units === 2 ? "0%" : units === 1 ? "50%" : "100%";
     return `<svg class="hud-heart" style="--heart-empty:${empty}" viewBox="0 0 24 22" aria-hidden="true"><path class="hud-heart-base" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/><path class="hud-heart-fill" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/></svg>`;
   }).join("");
+  dom.tabStatusHearts.closest(".hud-health")?.classList.toggle("half-heart-emergency", heartUnits === 1 && current > 0);
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
+  if (dom.hudWeaponOverload) dom.hudWeaponOverload.hidden = !weaponSlotAllocation().overloaded;
 
   const visible = resourceHudVisible && character.phase === "finalized" && !CAMPAIGN_READ_ONLY_VIEW;
   dom.globalCharacterHud.hidden = !visible;
@@ -2635,6 +2665,15 @@ function renderHomePlanet() {
   dom.homePlanetCustom.value = custom ? character.identity.homePlanet : "";
 }
 
+function renderAmbientEasterEggs() {
+  document.body.classList.remove("towel-red", "towel-blue", "towel-white", "homeworld-earth");
+  const carried = new Set((character.items || []).filter((entry) => Number(entry.quantity) > 0).map((entry) => entry.catalogId));
+  if (carried.has("red-towel")) document.body.classList.add("towel-red");
+  else if (carried.has("blue-towel")) document.body.classList.add("towel-blue");
+  else if (carried.has("white-towel")) document.body.classList.add("towel-white");
+  if (String(character.identity.homePlanet || "").trim().toLowerCase() === "earth") document.body.classList.add("homeworld-earth");
+}
+
 function renderRace() {
   dom.racePicker.innerHTML = [
     '<option value="">(Choose Race)</option>',
@@ -3426,6 +3465,41 @@ function skillCheckPoolLabel() {
   return labels.length ? labels.join(" + ") : "No dice";
 }
 
+const SKILL_EQUIPMENT = [
+  { catalogId: "advanced-climbing-gear", skill: "Climb", bonus: 4, label: "Adv. Climbing Gear", detail: "+4 while used" },
+  { catalogId: "electronics-toolkit", skill: "Engineering", bonus: 2, label: "Electronics Toolkit", detail: "+2; spends 1 use", consumableUse: true },
+  { catalogId: "chameleon-cloak", skill: "Stealth/Hide", bonus: 4, label: "Chameleon Cloak", detail: "+4 while immobile" },
+  { catalogId: "vr-headset", skill: "Computer Systems", bonus: 2, label: "VR Headset", detail: "+2 at an adapted terminal" },
+];
+
+function relevantSkillEquipment() {
+  if (!skillCheck || skillCheck.attributeOnly) return [];
+  const skillName = skillCheckResolvedSkill()?.name || "";
+  return SKILL_EQUIPMENT.flatMap((rule) => {
+    if (rule.skill !== skillName) return [];
+    const item = (character.items || []).find((entry) => entry.catalogId === rule.catalogId && Number(entry.quantity) > 0);
+    if (!item) return [];
+    const uses = rule.consumableUse ? Math.max(0, Number(item.charges ?? 5)) : null;
+    if (rule.consumableUse && uses <= 0) return [];
+    return [{ ...rule, item, uses }];
+  });
+}
+
+function selectedSkillEquipment() {
+  const selected = skillCheck?.selectedEquipment || new Set();
+  return relevantSkillEquipment().filter((rule) => selected.has(rule.catalogId));
+}
+
+function renderSkillEquipment() {
+  const choices = relevantSkillEquipment();
+  dom.skillEquipmentBlock.hidden = choices.length === 0;
+  dom.skillEquipmentChoices.innerHTML = choices.map((rule) => {
+    const active = skillCheck.selectedEquipment.has(rule.catalogId);
+    const remaining = rule.consumableUse ? ` | ${rule.uses}/5 uses` : "";
+    return `<button type="button" class="skill-equipment-choice ${active ? "active" : ""}" data-skill-equipment="${escapeAttribute(rule.catalogId)}" aria-pressed="${active}"><strong>${escapeHtml(rule.label)}</strong><small>${escapeHtml(rule.detail + remaining)}</small></button>`;
+  }).join("");
+}
+
 function rollRuleExplanations() {
   if (!skillCheck) return [];
   const profile = rollRuleProfile();
@@ -3463,6 +3537,7 @@ function rollRuleExplanations() {
   if (profile.raceId === "epoc" && ["strength", "health", "dexterity", "perception"].includes(profile.attributeKey)) add(raceName, "each die result of 1 applies -1 to the final Score.");
   if (profile.raceId === "angiluros" && ["Jump", "Climb"].includes(profile.skillName)) add(raceName, "ordinary successes become Critical Successes; Critical Failures become Failures.");
   if (profile.raceId === "kabuto" && profile.skillName === "Resist Distress") add(raceName, "every successful Resist Distress check becomes a Critical Success.");
+  selectedSkillEquipment().forEach((rule) => add(rule.label, `${rule.detail}${rule.consumableUse ? "; one use was spent." : "."}`));
   return lines;
 }
 
@@ -3512,6 +3587,7 @@ function renderSkillSetup() {
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.manualSkillScore.value = "";
   renderSkillExertion();
+  renderSkillEquipment();
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
 }
 
@@ -3553,6 +3629,8 @@ function openSkillCheck(skillKey) {
     manual: false,
     freeRerollUsed: false,
     lastResults: [],
+    selectedEquipment: new Set(),
+    equipmentCommitted: false,
   };
   dom.skillCheckModal.hidden = false;
   document.body.classList.add("skill-check-open");
@@ -3579,6 +3657,8 @@ function openAttributeCheck(attributeKey) {
     manual: false,
     freeRerollUsed: false,
     lastResults: [],
+    selectedEquipment: new Set(),
+    equipmentCommitted: false,
   };
   dom.skillCheckModal.hidden = false;
   document.body.classList.add("skill-check-open");
@@ -3621,6 +3701,20 @@ function commitSkillCheckCosts() {
     skillCheck.stagedExertion = 0;
     queueSave();
     renderResources();
+  }
+  if (!skillCheck.equipmentCommitted) {
+    for (const rule of selectedSkillEquipment()) {
+      if (!rule.consumableUse) continue;
+      const current = Math.max(0, Number(rule.item.charges ?? 5));
+      if (current < 1) {
+        notice(`${rule.label} has no uses remaining.`, "error");
+        renderSkillSetup();
+        return false;
+      }
+      rule.item.charges = current - 1;
+    }
+    skillCheck.equipmentCommitted = true;
+    if (skillCheck.selectedEquipment.size) queueSave();
   }
   return true;
 }
@@ -3995,6 +4089,9 @@ async function resolvePhysicalSkillRoll(results) {
   const resolved = skillCheckResolvedSkill();
   const skillBonus = skillCheck.attributeOnly ? 0 : combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
   let flatBonus = skillCheck.committedExertion;
+  const equipmentRules = selectedSkillEquipment();
+  const equipmentBonus = equipmentRules.reduce((sum, rule) => sum + rule.bonus, 0);
+  flatBonus += equipmentBonus;
   const intoxicationBonus = character.statuses?.intoxicated
     ? (["charisma", "willpower"].includes(profile.attributeKey) ? 2 : ["dexterity", "intellect"].includes(profile.attributeKey) ? -3 : 0)
     : 0;
@@ -4026,6 +4123,14 @@ async function resolvePhysicalSkillRoll(results) {
   if (unusedDiceBonus) equationParts.push(`Unused dice +${formatNumber(unusedDiceBonus)}`);
   if (garmocBonusResults.length) equationParts.push(`Garmoc fusion bonus: ${garmocBonusResults.map((value) => `D20=${value}`).join(", ")}`);
   if (intoxicationBonus) equationParts.push(`STILL DRUNK ${intoxicationBonus > 0 ? "+" : ""}${intoxicationBonus}`);
+  if (equipmentBonus) equationParts.push(`Equipment +${equipmentBonus}`);
+  const allOnes = results.length > 0 && results.every((value) => value === 1);
+  if (allOnes) {
+    equationParts.push("INPUT QUALITY: QUESTIONABLE");
+    document.body.classList.add("dice-input-flicker");
+    showRollResultToast("INPUT QUALITY: QUESTIONABLE");
+    setTimeout(() => document.body.classList.remove("dice-input-flicker"), 760);
+  }
   showSkillResult({
     score,
     equation: equationParts.join(" | "),
@@ -4047,9 +4152,11 @@ function calculateManualSkillResult() {
   skillCheck.difficulty = dom.skillDifficulty.value;
   const outcome = adjustedSkillOutcome(score, Number(skillCheck.difficulty));
   const committed = skillCheck.committedExertion ? ` | ${skillCheck.committedExertion} Exertion committed` : "";
+  const equipment = selectedSkillEquipment();
+  const equipmentReminder = equipment.length ? ` | Include ${equipment.map((rule) => `${rule.label} +${rule.bonus}`).join(", ")} in this entered Score` : "";
   showSkillResult({
     score,
-    equation: `Manual Final Score${committed}${character.statuses?.intoxicated ? " | STILL DRUNK (include the printed Attribute modifier)" : ""}`,
+    equation: `Manual Final Score${committed}${equipmentReminder}${character.statuses?.intoxicated ? " | STILL DRUNK (include the printed Attribute modifier)" : ""}`,
     outcome,
     manual: true,
     diceResults: [],
@@ -4539,6 +4646,7 @@ function renderGear() {
     <div class="storage-actions"><button type="button" data-return-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Return 1</button>${canGive ? `<button type="button" class="give" data-give-gear="${escapeAttribute(entry.id)}">Give 1</button>` : ""}</div>
   </div>`).join("");
   dom.storedGearEmpty.hidden = Boolean(character.storedItems.length);
+  renderAmbientEasterEggs();
 }
 
 function gearPayload(entry) {
@@ -4792,6 +4900,7 @@ function renderAll() {
   renderDerived();
   renderWeapons();
   renderGear();
+  renderAmbientEasterEggs();
   renderCrew();
   renderCharacterLayout();
 }
@@ -6405,6 +6514,15 @@ dom.skillExertionMeter.addEventListener("click", (event) => {
   skillCheck.stagedExertion = skillCheck.stagedExertion === spend ? 0 : spend;
   renderSkillExertion();
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
+});
+
+dom.skillEquipmentChoices?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-skill-equipment]");
+  if (!button || !skillCheck || skillCheck.equipmentCommitted) return;
+  const id = button.dataset.skillEquipment;
+  if (skillCheck.selectedEquipment.has(id)) skillCheck.selectedEquipment.delete(id);
+  else skillCheck.selectedEquipment.add(id);
+  renderSkillEquipment();
 });
 
 dom.skillDifficulty.addEventListener("input", () => {

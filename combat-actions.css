@@ -35,9 +35,8 @@
   grid-template-columns: repeat(4, minmax(130px, 1fr));
   gap: 8px;
   width: min(900px, 96vw);
-  max-height: min(38vh, 330px);
   padding: 5px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .player-turn-actions.combat-action-grid.hidden { display: none; }
@@ -151,6 +150,30 @@
 .weapon-charge-meter {
   isolation: isolate;
 }
+
+.combat-action-group-label {
+  grid-column: 1 / -1;
+  padding: 3px 9px 2px;
+  border-bottom: 1px solid currentColor;
+  color: #87a1b4;
+  font-size: .54rem;
+  font-weight: 950;
+  text-align: left;
+  text-transform: uppercase;
+  opacity: .86;
+}
+.combat-action-group-label.attack { color:#ff7b8d; }
+.combat-action-group-label.tactical { color:#74d9ff; }
+.combat-action-group-label.support { color:#66e5aa; }
+.combat-status-chips { width:min(680px,94vw); margin:-5px auto 9px; display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
+.combat-status-chips[hidden] { display:none; }
+.combat-status-chip { min-height:20px; padding:3px 8px; border:1px solid #536a7d; border-radius:999px; color:#cfe5f2; background:#101b25; font-size:.52rem; font-weight:950; text-transform:uppercase; }
+.combat-status-chip.aimed,.combat-status-chip.charging { border-color:#f0d35b; color:#fff0a4; background:#332b08; }
+.combat-status-chip.defending { border-color:#ffad5c; color:#ffd5a8; background:#38200b; }
+.combat-status-chip.drunk { border-color:#bd6cff; color:#e8c5ff; background:#2b113d; }
+.combat-status-chip.shields { border-color:#5de6ff; color:#c8f7ff; background:#0a303b; }
+.combat-status-chip.mounted { border-color:#65e4a6; color:#ccffe5; background:#0a3424; }
+.combat-status-chip.delayed { border-color:#a4adb4; color:#e6ebee; background:#252b30; }
 .weapon-charge-meter::after {
   content: "";
   position: absolute;
@@ -176,6 +199,8 @@
 }
 .weapon-charge-meter > span { z-index: 4; }
 .weapon-charge-meter.fully-charged { border-color: #fff3a3; box-shadow: 0 0 12px rgba(255, 222, 89, .72), inset 0 0 7px rgba(255,255,255,.3); }
+.weapon-charge-meter.charge-segment-complete { animation:charge-segment-complete .72s ease-out; }
+@keyframes charge-segment-complete { 0%{filter:brightness(1)} 18%{filter:brightness(2.4);box-shadow:0 0 22px #fff} 100%{filter:brightness(1)} }
 .timed-action-meter.defense-active { border-color: #ffb15d; }
 @keyframes earned-charge-cycle {
   0% { background: #ff416c; box-shadow: 0 0 10px #ff416c; }
@@ -185,6 +210,8 @@
   64% { background: #55c8ff; box-shadow: 0 0 10px #55c8ff; }
   80% { background: #b56cff; box-shadow: 0 0 10px #b56cff; }
 }
+@media(max-width:620px){.player-turn-actions.combat-action-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.combat-action-grid button{min-height:40px;padding:5px 4px;font-size:.61rem}.combat-action-group-label{padding-top:5px}}
+@media(prefers-reduced-motion:reduce){.weapon-charge-meter.charge-segment-complete{animation:none}}
 .thrown-effect-meter > div { background: linear-gradient(90deg, #3c3f43, #8b9298); }
 .thrown-effect-meter.resolving { border-color: #ff3b55; animation: detonation-pulse .34s steps(2) infinite; }
 

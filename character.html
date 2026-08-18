@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260817-weapon-slots" />
-  <link rel="stylesheet" href="weapons.css?v=20260817-weapon-slots" />
+  <link rel="stylesheet" href="character.css?v=20260818-qol-pass" />
+  <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
@@ -17,6 +17,7 @@
           <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
         </button>
         <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
+        <div id="syncIndicator" class="sync-indicator local" title="Saved on this device"><i aria-hidden="true"></i><span>LOCAL</span></div>
       </div>
       <button id="creatorTitle" class="creator-title" type="button"><span id="creatorRoleLabel">Second Edition</span><h1 id="creatorCampaignTitle">Character Creator</h1></button>
     </header>
@@ -40,6 +41,7 @@
       <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
       <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
       <div class="hud-health"><span>HP</span><div id="tabStatusHearts" class="hud-hearts" aria-hidden="true"></div><strong id="tabStatusHp">0 / 0</strong></div>
+      <div id="hudWeaponOverload" class="hud-overload" hidden>WEAPON OVERLOAD <strong>SPEED -30%</strong></div>
     </section>
 
     <section id="characterCampaignGate" class="character-campaign-gate character-page-panel" data-character-panel="roster" hidden>
@@ -344,15 +346,6 @@
 
         <section class="sheet-panel weapons-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Weapons</span><button id="addWeaponRow" class="compact-add" type="button" aria-label="Add weapon">+</button></div>
-          <section class="weapon-slot-console" aria-labelledby="weaponSlotTitle">
-            <div class="weapon-slot-heading">
-              <div><span>WEAPON CARRY LIMIT</span><h3 id="weaponSlotTitle">Weapon Slots</h3></div>
-              <strong id="weaponSlotStatus">ALL WEAPONS LEGALLY STORED</strong>
-            </div>
-            <div id="weaponSlotPyramid" class="weapon-slot-pyramid" aria-label="One A, two B, four C, and eight D weapon slots"></div>
-            <div id="weaponSlotAssignments" class="weapon-slot-assignments" aria-live="polite"></div>
-            <p id="weaponSlotWarning" class="weapon-slot-warning">Larger slots may hold smaller weapons. Ordinary Gear and Class F items do not use Weapon Slots.</p>
-          </section>
           <div class="weapon-table-shell">
             <div class="weapon-table" role="table" aria-label="Character weapons">
               <div class="weapon-table-head" role="row">
@@ -375,6 +368,16 @@
           <div class="panel-heading"><span>Items in Storage</span><button id="storeGearButton" class="compact-add" type="button" aria-label="Move an item to storage">+</button></div>
           <div id="storedGearInventory" class="stored-gear-inventory"></div>
           <p id="storedGearEmpty" class="gear-empty">Nothing is currently in storage.</p>
+        </section>
+
+        <section class="sheet-panel weapon-slots-panel" data-sheet-section="supplies">
+          <div class="panel-heading"><span>Weapon Slots</span><strong id="weaponSlotStatus">ALL WEAPONS LEGALLY STORED</strong></div>
+          <section class="weapon-slot-console" aria-label="Weapon carry limit">
+            <div class="weapon-slot-heading"><span>WEAPON CARRY LIMIT</span></div>
+            <div id="weaponSlotPyramid" class="weapon-slot-pyramid" aria-label="One A, two B, four C, and eight D weapon slots"></div>
+            <div id="weaponSlotAssignments" class="weapon-slot-assignments" aria-live="polite"></div>
+            <p id="weaponSlotWarning" class="weapon-slot-warning">Larger slots may hold smaller weapons. Ordinary Gear and Class F items do not use Weapon Slots.</p>
+          </section>
         </section>
 
       </section>
@@ -408,6 +411,7 @@
             <button type="button" data-banner-mode="exit" role="radio" aria-checked="false">Banner Exits</button>
           </div>
         </section>
+
         <section class="sound-settings-card">
           <h2>Combat Sounds</h2>
           <p>Mute or enable every player-side combat sound on this device.</p>
@@ -575,6 +579,13 @@
             <div id="skillExertionMeter" class="exertion-meter selectable" aria-label="Select Exertion to spend"></div>
           </div>
 
+          <div id="skillEquipmentBlock" class="skill-equipment-block" hidden>
+            <div class="skill-control-heading">
+              <div><span>Equipment Assistance</span><small>Activate carried gear when its situation applies.</small></div>
+            </div>
+            <div id="skillEquipmentChoices" class="skill-equipment-choices"></div>
+          </div>
+
           <div class="skill-input-grid">
             <label>Optional Difficulty
               <input id="skillDifficulty" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="No Difficulty" />
@@ -695,6 +706,7 @@
             <h2 id="dramaCardDialogTitle">Drama Card</h2>
             <p id="dramaCardRules"></p>
           </div>
+
           <footer id="dramaCardHandling"></footer>
         </article>
         <div class="drama-card-dialog-actions">
@@ -705,6 +717,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="character.js?v=20260817-weapon-slots"></script>
+    <script type="module" src="character.js?v=20260818-qol-pass"></script>
   </body>
 </html>

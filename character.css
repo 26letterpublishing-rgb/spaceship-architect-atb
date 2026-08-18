@@ -591,6 +591,14 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
 .skill-roll-summary strong { min-width:0; color:#eaf8ff; font-size:.83rem; overflow-wrap:anywhere; }
 .attribute-return { min-width:38px; min-height:100%; padding:0; border:0; border-radius:0; font-size:1.45rem; }
 .skill-exertion-block { margin-top:10px; padding:10px; border:1px solid #315644; background:rgba(7,32,25,.5); }
+.skill-equipment-block { margin-top:10px; padding:10px; border:1px solid #695638; background:rgba(39,28,10,.48); }
+.skill-equipment-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:8px; }
+.skill-equipment-choice { --accent:#d7a94f; min-height:48px; display:grid; grid-template-columns:auto 1fr; align-items:center; justify-content:start; gap:1px 8px; padding:7px 10px; border-radius:6px; text-align:left; }
+.skill-equipment-choice::before { content:""; grid-row:1 / 3; width:12px; height:12px; border:1px solid #8b7756; border-radius:3px; background:#101317; }
+.skill-equipment-choice strong { font-size:.67rem; }
+.skill-equipment-choice small { color:#a99e89; font-size:.54rem; }
+.skill-equipment-choice.active { border-color:#ffd26f; box-shadow:inset 0 1px rgba(255,255,255,.3),0 0 14px rgba(255,195,75,.26); }
+.skill-equipment-choice.active::before { border-color:#fff0a8; background:#f0bb49; box-shadow:0 0 8px #ffc84e; }
 .skill-control-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .skill-control-heading > div { display:grid; gap:2px; }
 .skill-control-heading small { color:#8ca69d; font-size:.58rem; }
@@ -1380,6 +1388,7 @@ html { -webkit-text-size-adjust:100%; }
 .character-creation-active #characterSheet > .weapons-panel { order:10; }
 .character-creation-active #characterSheet > .gear-panel { order:11; }
 .character-creation-active #characterSheet > .storage-panel { order:12; }
+.character-creation-active #characterSheet > .weapon-slots-panel { order:13; }
 .character-creation-active .character-layout-toggle button:disabled { opacity:.56; cursor:not-allowed; }
 
 .skill-buy,
@@ -1510,17 +1519,28 @@ button,
 @media (max-width: 760px) {
   input, select, textarea { font-size: 16px; }
 }
-.global-character-hud .hud-health{grid-template-columns:auto auto auto;justify-content:center;column-gap:5px}
+.global-character-hud{position:sticky}
+.global-character-hud .hud-health{grid-template-columns:auto minmax(0,max-content);grid-template-rows:auto auto;justify-content:center;column-gap:4px;row-gap:1px}
+.global-character-hud .hud-health>span{grid-column:1/-1}
 .hud-hearts{display:flex;align-items:center;gap:2px}
 .hud-heart{display:block;width:14px;height:13px;overflow:visible;filter:drop-shadow(0 0 3px rgba(255,82,104,.45))}
 .hud-heart-base{fill:#202a34;stroke:#73808d;stroke-width:1.4}
 .hud-heart-fill{fill:#ff5068;stroke:#ff8798;stroke-width:.8;clip-path:inset(0 var(--heart-empty,100%) 0 0)}
+.hud-health.half-heart-emergency{border-color:#ff405c;animation:half-heart-emergency 1.65s ease-in-out infinite}
+.hud-health.half-heart-emergency .hud-heart{filter:drop-shadow(0 0 7px rgba(255,37,67,.95))}
+.hud-overload{position:absolute;z-index:4;right:6px;bottom:-24px;min-height:22px!important;display:flex!important;grid-auto-flow:column;gap:6px;padding:3px 8px!important;border-color:#b52f45!important;color:#ff91a2;font-size:.47rem;font-weight:900;background:#2b0810!important;box-shadow:0 0 13px rgba(255,47,76,.35)!important}
+.hud-overload[hidden]{display:none!important}.hud-overload strong{color:#fff!important;font-size:.49rem!important}
+.sync-indicator{grid-area:room;align-self:end;justify-self:center;transform:translateY(22px);display:flex;align-items:center;gap:5px;padding:2px 6px;border:1px solid #33495b;border-radius:999px;color:#889cac;background:#06101a;font-size:.42rem;font-weight:900;pointer-events:none}
+.sync-indicator i{width:7px;height:7px;border-radius:50%;background:#7f8a94;box-shadow:0 0 6px currentColor}.sync-indicator.synced{color:#55e5a2}.sync-indicator.saving{color:#ffd064}.sync-indicator.offline{color:#ff687d}.sync-indicator.local{color:#9daebb}
+.sync-indicator.saving i{animation:sync-indicator-pulse .7s ease-in-out infinite alternate}
+@keyframes sync-indicator-pulse{to{opacity:.35;transform:scale(.72)}}
+@keyframes half-heart-emergency{0%,100%{box-shadow:inset 0 1px rgba(255,255,255,.08)}50%{box-shadow:inset 0 0 13px rgba(255,45,72,.25),0 0 11px rgba(255,45,72,.42)}}
 .gm-adjustment-bar{position:sticky;z-index:190;top:0;width:min(1500px,calc(100% - 28px));margin:8px auto;padding:9px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;border:2px solid #ffca55;background:linear-gradient(90deg,#382405,#111925 48%,#382405);box-shadow:0 8px 28px #000,0 0 22px rgba(255,202,85,.32)}
 .gm-adjustment-bar span,.gm-adjustment-bar strong{display:block}.gm-adjustment-bar span{color:#ffca55;font-size:.58rem}.gm-adjustment-bar strong{color:#fff;font-size:.9rem}.gm-adjustment-bar p{margin:0;color:#d6c9ac;font:600 .67rem Arial,sans-serif}.gm-adjustment-bar>div:last-child{display:flex;gap:7px}.gm-adjustment-mode .character-tabs,.gm-adjustment-mode .global-character-hud{display:none!important}.gm-adjustment-mode .workflow-bar{position:static}.gm-adjustment-mode [data-gm-direct-edit],.gm-adjustment-mode [data-gm-skill-key]{outline:1px solid rgba(255,202,85,.45)}
 .gm-adjustment-mode #restExertion,.gm-adjustment-mode #spendOneExertion,.gm-adjustment-mode #giftReverence,.gm-adjustment-mode #spendOneReverence,.gm-adjustment-mode #purchaseDramaCard,.gm-adjustment-mode #maxHpBonus,.gm-adjustment-mode #debugReverence{display:none!important}
 .join-campaign-attention{animation:join-campaign-attention 900ms ease-in-out 2}
 @keyframes join-campaign-attention{50%{border-color:#bf7bff;box-shadow:0 0 30px rgba(169,84,255,.85),inset 0 0 18px rgba(169,84,255,.18)}}
-@media(max-width:760px){.gm-adjustment-bar{width:calc(100% - 12px);grid-template-columns:1fr}.gm-adjustment-bar>div:last-child{display:grid;grid-template-columns:1fr 1fr}.hud-heart{width:11px;height:10px}}
+@media(max-width:760px){.gm-adjustment-bar{width:calc(100% - 12px);grid-template-columns:1fr}.gm-adjustment-bar>div:last-child{display:grid;grid-template-columns:1fr 1fr}.hud-heart{width:9px;height:9px}.global-character-hud .hud-health{column-gap:2px}.global-character-hud .hud-health strong{font-size:.61rem}.hud-overload{right:3px}.sync-indicator{transform:translateY(19px)}}
 
 /* Confirmation safety: one outer scrolling surface, never a hidden action row. */
 .modal-shell {
@@ -1554,7 +1574,17 @@ button,
 .character-page-panel[data-character-panel="sheet"]{--character-panel-color:66,217,255}.character-page-panel[data-character-panel="roster"]{--character-panel-color:78,226,154}.character-page-panel[data-character-panel="atb"]{--character-panel-color:255,104,95}.character-page-panel[data-character-panel="settings"]{--character-panel-color:138,168,196}
 .character-page-panel{background-image:linear-gradient(180deg,rgba(var(--character-panel-color,66,217,255),.14),transparent 230px)}
 .character-tool-page{background-color:rgba(6,14,24,.98)}
-.sheet-grid{align-items:start}.sheet-panel{min-height:0}.crew-panel{grid-column:9/-1}.notes-panel,.weapons-panel,.gear-panel,.storage-panel{grid-column:1/-1}
+.sheet-grid{align-items:start}.sheet-panel{min-height:0}.crew-panel{grid-column:9/-1}.notes-panel,.weapons-panel,.gear-panel,.storage-panel,.weapon-slots-panel{grid-column:1/-1}
+
+/* Small ambient rewards that never interfere with sheet controls. */
+body.towel-red::after{background:#ff5569;box-shadow:0 0 5px 2px rgba(255,70,93,.72),0 0 14px 5px rgba(255,65,92,.2)}
+body.towel-blue::after{background:#74d8ff;box-shadow:0 0 5px 2px rgba(55,194,255,.75),0 0 14px 5px rgba(45,170,255,.24)}
+body.towel-white::after{background:#fff;box-shadow:0 0 6px 2px rgba(255,255,255,.78),0 0 16px 5px rgba(205,237,255,.24)}
+body.homeworld-earth::after{animation-duration:13s;background:#67ffd5;box-shadow:0 0 6px 2px rgba(65,227,255,.85),0 0 18px 6px rgba(60,255,159,.24)}
+body.dice-input-flicker::before{animation:dice-input-flicker .72s steps(2,end)}
+@keyframes dice-input-flicker{0%,100%{opacity:.16}20%,55%{opacity:.03}35%,72%{opacity:.31}}
+@media(max-width:430px){.skill-equipment-choices{grid-template-columns:1fr}.sync-indicator{font-size:.37rem}}
+@media(prefers-reduced-motion:reduce){.hud-health.half-heart-emergency,.sync-indicator.saving i{animation:none!important}}
 @media(max-width:1080px){.crew-panel{grid-column:1/-1}}
 /* Per-device compact header preference. */
 .interface-banner-hidden .creator-header {

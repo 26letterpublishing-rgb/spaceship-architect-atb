@@ -4,12 +4,14 @@
 .notes-panel { grid-row:6; }
 .gear-panel { grid-row:8; }
 .storage-panel { grid-row:9; }
+.weapon-slots-panel { grid-column:1 / -1; grid-row:10; }
 
 .weapon-slot-console {
   padding:10px;
-  border-bottom:1px solid #29465d;
   background:linear-gradient(180deg,rgba(12,28,42,.96),rgba(5,13,22,.98));
 }
+.weapon-slots-panel > .panel-heading strong { color:var(--green); font-size:.58rem; text-align:right; }
+.weapon-slots-panel > .panel-heading strong.overloaded { color:#ff667b; text-shadow:0 0 9px rgba(255,67,93,.55); }
 .weapon-slot-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; }
 .weapon-slot-heading span { color:var(--cyan); font-size:.5rem; font-weight:900; }
 .weapon-slot-heading h3 { margin:2px 0 0; font-size:.86rem; text-transform:uppercase; }
@@ -133,7 +135,7 @@
 .weapon-empty-stat { color:#526a7d; }
 
 @media (max-width:1080px) {
-  .weapons-panel { grid-column:1; grid-row:auto; }
+  .weapons-panel,.weapon-slots-panel { grid-column:1; grid-row:auto; }
   .advantages-panel,.crew-panel,.notes-panel { grid-row:auto; }
 }
 

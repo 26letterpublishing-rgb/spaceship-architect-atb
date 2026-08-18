@@ -2338,6 +2338,17 @@ function playGmSound(name = "tap") {
   }
 }
 
+function playChargeReadySound() {
+  if ((mode === "gm" && gmSoundsMuted) || (mode === "player" && !alertsEnabled)) return;
+  try {
+    tone(880, 0, 0.08, 0.012, "sine");
+    tone(1320, 0.065, 0.12, 0.014, "triangle");
+  } catch {
+    // Audio remains optional when a browser has not granted playback yet.
+  }
+}
+window.SAPlayChargeReadySound = playChargeReadySound;
+
 function gmClockIsAudiblyActive() {
   return mode === "gm" && state?.running && !state.pausedForTurn && !state.holdPaused && !state.hardPaused && !document.hidden;
 }

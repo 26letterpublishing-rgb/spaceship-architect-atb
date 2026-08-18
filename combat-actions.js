@@ -20,6 +20,8 @@
   const jetPackWrap = document.querySelector("#combatJetPackWrap");
   const jetPack = document.querySelector("#combatJetPack");
   const jetPackCharges = document.querySelector("#combatJetPackCharges");
+  const statusChips = document.querySelector("#playerCombatStatusChips");
+  const lastChargeCounts = new Map();
   const shieldWrap = document.querySelector("#combatShieldWrap");
   const shieldTargets = document.querySelector("#combatShieldTargets");
   const smokeWrap = document.querySelector("#combatSmokeWrap");
@@ -389,6 +391,18 @@
     currentUnit = mine;
     const current = held(mine);
     const charges = chargeCount(mine);
+    if (statusChips) {
+      const chips = [];
+      if (mine?.aim) chips.push(["AIMED", "aimed"]);
+      if (mine?.timedAction?.kind === "defense") chips.push(["DEFENDING", "defending"]);
+      else if (mine?.timedAction) chips.push(["DELAYED", "delayed"]);
+      if (mine?.statuses?.intoxicated) chips.push(["DRUNK", "drunk"]);
+      if (mine?.powerShield?.active) chips.push(["SHIELDS", "shields"]);
+      if (mine?.mountedVehicleId) chips.push(["MOUNTED", "mounted"]);
+      if (mine?.weaponCharge && current?.inventoryId === mine.weaponCharge.inventoryId) chips.push([`CHARGING ${charges}/${Math.max(1, Number(current.chargeSegments) || 1)}`, "charging"]);
+      statusChips.innerHTML = chips.map(([label, className]) => `<span class="combat-status-chip ${className}">${esc(label)}</span>`).join("");
+      statusChips.hidden = chips.length === 0;
+    }
     heldReadouts.forEach((heldReadout) => {
       const chargeReadout = current?.category === "melee"
         ? `${charges}/${Math.max(0, Math.min(Number(mine?.moveSpeed) || 0, Number.isFinite(Number(current.maxCharge)) ? Number(current.maxCharge) : Number(mine?.moveSpeed) || 0))} Move Charges`
@@ -551,7 +565,21 @@
       charge.querySelector("span").textContent = `${current?.name || "Weapon"} Charge - ${chargeCount(unit)}/${Math.max(1, Number(current?.chargeSegments) || 1)}`;
       charge.classList.toggle("has-charge", earned > 0);
       charge.classList.toggle("fully-charged", Number(unit.weaponCharge.progress) >= 100);
+      const completed = chargeCount(unit);
+      if (!lastChargeCounts.has(unit.id)) lastChargeCounts.set(unit.id, completed);
+      else {
+        const previous = lastChargeCounts.get(unit.id);
+        if (completed > previous) {
+          charge.classList.remove("charge-segment-complete");
+          void charge.offsetWidth;
+          charge.classList.add("charge-segment-complete");
+          window.setTimeout(() => charge.classList.remove("charge-segment-complete"), 760);
+          window.SAPlayChargeReadySound?.();
+        }
+        lastChargeCounts.set(unit.id, completed);
+      }
     }
+    else if (unit?.id) lastChargeCounts.set(unit.id, 0);
     for (const effect of unit.thrownEffects || []) {
       const meter = card.querySelector(`[data-effect-id="${CSS.escape(effect.id)}"]`);
       if (!meter) continue;
