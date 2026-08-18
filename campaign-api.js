@@ -7,7 +7,7 @@ const PLAYER_INBOX_LIMIT = 20;
 const GM_INBOX_LIMIT = 50;
 const DRAMA_CARD_BY_ID = new Map(DRAMA_CARDS.map((card) => [card.id, card]));
 const DRAMA_CARD_IDS = DRAMA_CARDS.map((card) => card.id);
-const REWARD_RESOURCES = ["experience", "credits", "reverence", "dramaCards", "attributePoints", "skillPoints", "shipCredits"];
+const REWARD_RESOURCES = ["experience", "credits", "reverence", "dramaCards", "attributePoints", "skillPoints", "shipCredits", "rest"];
 
 function uid(prefix = "id") {
   return `${prefix}-${crypto.randomBytes(9).toString("base64url")}`;
@@ -144,6 +144,7 @@ function rewardLabel(resource) {
     attributePoints: "Attribute Points",
     skillPoints: "Skill Points",
     shipCredits: "Group Credits",
+    rest: "Rest",
   }[resource] || resource;
 }
 
@@ -159,6 +160,7 @@ function characterRewardSnapshot(record, campaign = null) {
     reverence: Number(character.resources.reverence) || 0,
     attributePoints: Math.max(0, Math.round(Number(character.resources.attributePoints) || 0)),
     skillPoints: Math.max(0, Math.round(Number(character.resources.skillPoints) || 0)),
+    exertionCurrent: Math.max(0, Math.round(Number(character.resources.exertionCurrent) || 0)),
     dramaHand: clone(hand),
   };
 }
@@ -218,6 +220,14 @@ function applyCharacterReward(record, award, campaign = null) {
     const current = Math.max(0, Math.round(Number(character.resources[resource]) || 0));
     character.resources[resource] = Math.round(boundedNumber(current + amount, 0, 999999));
     appliedAmount = character.resources[resource] - current;
+  }
+
+  if (resource === "rest") {
+    const current = Math.max(0, Math.round(Number(character.resources.exertionCurrent) || 0));
+    const maximum = Math.max(0, Math.round(Number(character.resources.exertionMax) || 0));
+    character.resources.exertionCurrent = maximum;
+    appliedAmount = Math.max(0, maximum - current);
+    messageDetail = appliedAmount ? " Exertion fully restored." : " Exertion was already full.";
   }
 
   if (resource === "dramaCards") {
@@ -500,7 +510,7 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -514,6 +524,7 @@ function normalizeCampaign(raw) {
     targetCharacterId: String(note?.targetCharacterId || ""),
     requestedAmount: Math.max(0, Math.min(10, Math.round(Number(note?.requestedAmount) || 0))),
     requestResolvedAt: note?.requestResolvedAt || null,
+    grantedAmount: Math.max(0, Math.round(Number(note?.grantedAmount) || 0)),
     transactionId: String(note?.transactionId || ""),
     deficit: Math.max(0, Number(note?.deficit) || 0),
     reversible: Boolean(note?.reversible),
@@ -1216,6 +1227,22 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/drama/reshuffle" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const deck = normalizeDramaDeck(campaign);
+      const count = deck.discardPile.length;
+      if (count) {
+        deck.drawPile = shuffle([...deck.drawPile, ...deck.discardPile]);
+        deck.discardPile = [];
+      }
+      await this.save(campaign);
+      sendJson(res, 200, { reshuffled: count, campaign: this.state(campaign, token) });
+      return true;
+    }
+
     if (path === "/api/campaign/join/request" && req.method === "POST") {
       const source = body.character && typeof body.character === "object" ? clone(body.character) : null;
       const pcCode = String(body.pcCode || source?.access?.pcCode || "");
@@ -1636,7 +1663,8 @@ class CampaignApi {
       const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
       const submittedCredits = Number(next.resources.creditsBase) || 0;
       const baseCredits = Number(body.baseCredits);
-      next.resources.creditsBase = Number.isFinite(baseCredits)
+      const exactGmSave = Boolean(body.exact && this.gmSession(token, code));
+      next.resources.creditsBase = !exactGmSave && Number.isFinite(baseCredits)
         ? Math.round(boundedNumber(serverCredits + (submittedCredits - baseCredits), -999999999, 999999999))
         : Math.round(boundedNumber(submittedCredits, -999999999, 999999999));
       const serverHp = record.character?.health?.current === null || record.character?.health?.current === undefined
@@ -1647,7 +1675,7 @@ class CampaignApi {
         ? Number.NaN
         : Number(body.baseCurrentHp);
       const nextMaximumHp = Math.max(0, Number(next.computed?.maximumHp) || 0);
-      next.health.current = Number.isFinite(baseCurrentHp) && Number.isFinite(submittedHp)
+      next.health.current = !exactGmSave && Number.isFinite(baseCurrentHp) && Number.isFinite(submittedHp)
         ? Math.round(boundedNumber(serverHp + (submittedHp - baseCurrentHp), -9999, nextMaximumHp))
         : Math.round(boundedNumber(submittedHp, -9999, nextMaximumHp));
       record.character = next;
@@ -2172,6 +2200,84 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/exertion/spent" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      const amount = Math.max(1, Math.min(99, Math.round(Number(body.amount) || 1)));
+      campaign.privateNotes.push({
+        id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm", kind: "exertion-spent",
+        message: `${safeCharacterName(record)} spent ${amount} Exertion manually.`, createdAt: new Date().toISOString(), readAt: null,
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { recorded: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/exertion/rest" && req.method === "POST") {
+      const record = campaign.characters.find((entry) => entry.id === body.characterId);
+      if (!record || !this.characterSession(token, code, record.id)) {
+        sendJson(res, 403, { error: "Character authorization is required." });
+        return true;
+      }
+      record.character.resources ||= {};
+      const before = Math.max(0, Math.round(Number(body.before) || 0));
+      const maximum = Math.max(0, Math.round(Number(record.character.resources.exertionMax) || Number(body.maximum) || 0));
+      const grantedAmount = Math.max(0, maximum - before);
+      record.character.resources.exertionCurrent = maximum;
+      record.updatedAt = new Date().toISOString();
+      campaign.privateNotes.push({
+        id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm", kind: "rest-request",
+        requestStatus: "pending", grantedAmount,
+        message: `${safeCharacterName(record)} rested and restored ${grantedAmount} Exertion. Ignoring this message approves the Rest.`,
+        createdAt: record.updatedAt, readAt: null,
+      });
+      await this.save(campaign);
+      sendJson(res, 200, { rested: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/exertion/rest-decision" && req.method === "POST") {
+      if (!this.gmSession(token, code)) {
+        sendJson(res, 403, { error: "GM authorization is required." });
+        return true;
+      }
+      const note = campaign.privateNotes.find((entry) => entry.id === body.noteId && entry.kind === "rest-request");
+      if (!note || note.requestStatus !== "pending") {
+        sendJson(res, 409, { error: "That Rest message is no longer pending." });
+        return true;
+      }
+      const now = new Date().toISOString();
+      if (body.decision === "deny") {
+        const record = campaign.characters.find((entry) => entry.id === note.characterId);
+        if (record) {
+          record.character.resources ||= {};
+          record.character.resources.exertionCurrent = Math.max(0, Math.round(Number(record.character.resources.exertionCurrent) || 0) - Math.max(0, Number(note.grantedAmount) || 0));
+          record.updatedAt = now;
+          campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: "The GM denied that Rest. The Exertion restored by it was removed.", createdAt: now, readAt: null });
+        }
+        note.requestStatus = "denied";
+      } else if (body.decision === "approve-all") {
+        for (const record of campaign.characters) {
+          const award = { id: uid("award"), resource: "rest", amount: 1, targetIds: [record.id], before: { shipCredits: campaign.shipCredits, characters: [] }, at: now, claimRequired: true, claimedCharacterIds: [], androidExperienceIds: [] };
+          campaign.awardHistory.push(award);
+          campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", awardId: award.id, rewardResource: "rest", rewardAmount: 1, rewardStatus: "pending", message: "The GM approved Rest for everyone. Receive this reward to restore all Exertion.", createdAt: now, readAt: null });
+        }
+        trimAwardHistory(campaign);
+        note.requestStatus = "approved";
+      } else {
+        sendJson(res, 400, { error: "Choose Deny or Approve for All." });
+        return true;
+      }
+      note.requestResolvedAt = now;
+      note.readAt ||= now;
+      await this.save(campaign);
+      sendJson(res, 200, { resolved: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
     if (path === "/api/campaign/reverence/spent" && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
       if (!record || !this.characterSession(token, code, record.id)) {
@@ -2319,6 +2425,7 @@ class CampaignApi {
         record.character.resources.reverence = snapshot.reverence;
         record.character.resources.attributePoints = Math.max(0, Number(snapshot.attributePoints) || 0);
         record.character.resources.skillPoints = Math.max(0, Number(snapshot.skillPoints) || 0);
+        if (Number.isFinite(Number(snapshot.exertionCurrent))) record.character.resources.exertionCurrent = Math.max(0, Number(snapshot.exertionCurrent));
         if (Array.isArray(snapshot.dramaHand)) {
           const restored = new Set(snapshot.dramaHand);
           dramaDeck.drawPile = dramaDeck.drawPile.filter((cardId) => !restored.has(cardId));

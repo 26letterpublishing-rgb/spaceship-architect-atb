@@ -21,6 +21,7 @@ const dom = {
   dramaDiscardPanel: $("#gmDramaDiscardPanel"),
   dramaDiscardCount: $("#gmDramaDiscardCount"),
   dramaDiscardList: $("#gmDramaDiscardList"),
+  reshuffleDramaCards: $("#reshuffleDramaCards"),
   codeHeading: $("#campaignCodeHeading"),
   nameHeading: $("#campaignNameHeading"),
   logout: $("#gmLogout"),
@@ -136,6 +137,8 @@ const dom = {
   kickCharacterButton: $("#kickCharacterButton"),
   adjustCharacter: $("#adjustCharacter"),
   adjustCharacterButton: $("#adjustCharacterButton"),
+  adjustmentModal: $("#gmAdjustmentModal"),
+  adjustmentFrame: $("#gmAdjustmentFrame"),
   commandWindowSettingsForm: $("#commandWindowSettingsForm"),
   universalCommandWindowBonus: $("#universalCommandWindowBonus"),
   commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
@@ -666,6 +669,7 @@ function renderCharacters() {
   dom.dramaDiscardList.innerHTML = discard.length
     ? discard.map((card) => `<button type="button" class="gm-drama-card-mini" data-discard-card="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category || "")}" aria-label="View ${escapeHtml(card.name || "Drama Card")}">${gmDramaCardMiniMarkup(card)}</button>`).join("")
     : "<p>No Drama Cards have been played.</p>";
+  dom.reshuffleDramaCards.disabled = discard.length === 0;
 }
 
 function renderRollResults() {
@@ -741,6 +745,9 @@ function scriptSource() {
 function inboxItemActions(note) {
   if (note.kind === "reverence-gift-request" && note.requestStatus === "pending") {
     return `<div class="inbox-actions"><button class="danger" type="button" data-reverence-gift-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-reverence-gift-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve</button></div>`;
+  }
+  if (note.kind === "rest-request" && note.requestStatus === "pending") {
+    return `<div class="inbox-actions"><button class="danger" type="button" data-rest-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-rest-decision="approve-all" data-note-id="${escapeHtml(note.id)}">Approve for All</button></div>`;
   }
   if (note.kind !== "item-transaction") return "";
   const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
@@ -980,6 +987,27 @@ async function refreshEncounterState() {
   return encounterState;
 }
 
+async function syncCampaignCharactersToEncounter() {
+  await refreshCampaign();
+  await refreshEncounterState();
+  const updates = (encounterState?.units || []).flatMap((unit) => {
+    if (!unit.characterId) return [];
+    const record = campaign.characters.find((entry) => entry.id === unit.characterId);
+    if (!record) return [];
+    return [{
+      characterId: record.id,
+      playerName: playerName(record),
+      characterName: characterName(record),
+      speed: characterSpeed(record),
+      commandWindow: commandWindow(record),
+      color: record.character?.presentation?.atbColor || "#39e58f",
+      ...encounterRuleFields(record),
+    }];
+  });
+  if (updates.length) encounterState = await encounterAction("syncCampaignUnits", { units: updates });
+  return updates.length;
+}
+
 function showEncounterLive() {
   dom.atbSetup.hidden = true;
   dom.atbLive.hidden = false;
@@ -1150,7 +1178,7 @@ function rememberScriptSelection() {
 function renderCampaign() {
   if (!campaign) return;
   dom.codeHeading.textContent = campaign.settings?.hideRoomCode ? "••••" : campaign.code;
-  dom.nameHeading.textContent = campaign.name;
+  dom.nameHeading.innerHTML = `${escapeHtml(campaign.name)} <small>(GM)</small>`;
   dom.dramaDeckStatus.hidden = !campaign.dramaDeck;
   if (campaign.dramaDeck) {
     dom.dramaDeckStatus.querySelector("strong").textContent = `${campaign.dramaDeck.drawCount} DRAW / ${campaign.dramaDeck.discardCount} DISCARD`;
@@ -1519,6 +1547,20 @@ dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouc
 dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
 dom.inboxList.addEventListener("click", async (event) => {
+  const restDecision = event.target.closest("[data-rest-decision]");
+  if (restDecision) {
+    event.stopPropagation();
+    restDecision.disabled = true;
+    try {
+      const payload = await api("/api/campaign/exertion/rest-decision", { code, token, noteId: restDecision.dataset.noteId, decision: restDecision.dataset.restDecision });
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, restDecision.dataset.restDecision === "deny" ? "Rest denied and its restored Exertion removed." : "Rest reward sent to every linked character.", "success");
+    } catch (error) {
+      restDecision.disabled = false;
+      showMessage(dom.message, error.message, "error");
+    }
+    return;
+  }
   const giftDecision = event.target.closest("[data-reverence-gift-decision]");
   if (giftDecision) {
     event.stopPropagation();
@@ -1694,7 +1736,35 @@ dom.kickCharacterButton.addEventListener("click", async () => {
 dom.adjustCharacterButton.addEventListener("click", () => {
   const characterId = dom.adjustCharacter.value;
   if (!characterId) return;
-  window.location.href = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1`;
+  dom.adjustmentFrame.src = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1&gmAdjust=1&embedded=1`;
+  dom.adjustmentModal.hidden = false;
+});
+
+dom.reshuffleDramaCards?.addEventListener("click", async () => {
+  if (dom.reshuffleDramaCards.disabled) return;
+  dom.reshuffleDramaCards.disabled = true;
+  dom.dramaDiscardList.classList.add("reshuffling");
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  try {
+    const payload = await api("/api/campaign/drama/reshuffle", { code, token });
+    receiveCampaign(payload.campaign);
+    showMessage(dom.message, `${payload.reshuffled} discarded Drama Card${payload.reshuffled === 1 ? " was" : "s were"} shuffled back into the deck.`, "success");
+  } catch (error) {
+    dom.dramaDiscardList.classList.remove("reshuffling");
+    dom.reshuffleDramaCards.disabled = false;
+    showMessage(dom.message, error.message, "error");
+  }
+});
+
+window.addEventListener("message", async (event) => {
+  if (event.origin !== location.origin || event.source !== dom.adjustmentFrame.contentWindow) return;
+  if (!["sa-gm-adjustment-saved", "sa-gm-adjustment-cancelled"].includes(event.data?.type)) return;
+  dom.adjustmentModal.hidden = true;
+  dom.adjustmentFrame.removeAttribute("src");
+  if (event.data.type === "sa-gm-adjustment-saved") {
+    await syncCampaignCharactersToEncounter().catch(() => null);
+    showMessage(dom.message, "Character adjustments saved and synchronized.", "success");
+  }
 });
 
 dom.setBanker.addEventListener("click", async () => {

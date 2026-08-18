@@ -180,6 +180,7 @@ if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
 const roomCode = document.querySelector("#roomCode");
 const connectionStatus = document.querySelector("#connectionStatus");
 const welcomePanel = document.querySelector("#welcomePanel");
+const welcomeBanner = document.querySelector(".welcome-banner");
 const createRoom = document.querySelector("#createRoom");
 const mainCampaignName = document.querySelector("#mainCampaignName");
 const mainGmCode = document.querySelector("#mainGmCode");
@@ -203,6 +204,27 @@ const confirmJoinRoom = document.querySelector("#confirmJoinRoom");
 const backToWelcome = document.querySelector("#backToWelcome");
 const topbar = document.querySelector("#topbar");
 const joinPanel = document.querySelector("#joinPanel");
+
+function playWelcomeZigBurst() {
+  if (!welcomePanel || !welcomeBanner) return;
+  const colors = ["#28d7ff", "#9b5cff", "#ff4f69", "#ffd05a", "#39e58f"];
+  for (let index = 0; index < 26; index += 1) {
+    const point = document.createElement("span");
+    point.className = "welcome-zig-point";
+    const direction = Math.random() > 0.5 ? 1 : -1;
+    point.style.setProperty("--zig-x", `${8 + Math.random() * 84}vw`);
+    point.style.setProperty("--zig-y", `${8 + Math.random() * 76}vh`);
+    const step = direction * (28 + Math.random() * 54);
+    point.style.setProperty("--zig-step", `${step}px`);
+    point.style.setProperty("--zig-step-2", `${step * 2}px`);
+    point.style.setProperty("--zig-step-3", `${step * 2.4}px`);
+    point.style.setProperty("--zig-lift", `${(Math.random() - 0.5) * 90}px`);
+    point.style.setProperty("--zig-color", colors[index % colors.length]);
+    point.style.setProperty("--zig-delay", `${Math.random() * 180}ms`);
+    welcomePanel.append(point);
+    point.addEventListener("animationend", () => point.remove(), { once: true });
+  }
+}
 const gmPanel = document.querySelector("#gmPanel");
 const gmTopControls = document.querySelector("#gmTopControls");
 const playerTopControls = document.querySelector("#playerTopControls");
@@ -3244,6 +3266,7 @@ async function openPcCampaignFromMenu(selection = null) {
 }
 
 createRoom?.addEventListener("click", () => openGmCampaignFromMenu({ create: true }));
+welcomeBanner?.addEventListener("click", playWelcomeZigBurst);
 enterGmCampaign?.addEventListener("click", () => openGmCampaignFromMenu());
 enterPcCampaign?.addEventListener("click", () => openPcCampaignFromMenu());
 mainGmCode?.addEventListener("keydown", (event) => { if (event.key === "Enter") openGmCampaignFromMenu(); });

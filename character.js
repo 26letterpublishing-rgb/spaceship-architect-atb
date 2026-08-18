@@ -120,6 +120,7 @@ const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const DEBUG_CONTROLS_ENABLED = false;
 const PAGE_PARAMS = new URLSearchParams(window.location.search);
 const CAMPAIGN_READ_ONLY_VIEW = PAGE_PARAMS.get("campaignView") === "1";
+const GM_ADJUSTMENT_MODE = PAGE_PARAMS.get("gmAdjust") === "1";
 const $ = (selector) => document.querySelector(selector);
 
 const dom = {
@@ -136,12 +137,20 @@ const dom = {
   tabbedToolbar: $("#tabbedCharacterToolbar"),
   sheetSectionTabs: $("#sheetSectionTabs"),
   globalCharacterHud: $("#globalCharacterHud"),
+  tabStatusHearts: $("#tabStatusHearts"),
   tabStatusExperience: $("#tabStatusExperience"),
   tabStatusHp: $("#tabStatusHp"),
   tabStatusReverence: $("#tabStatusReverence"),
   tabStatusExertion: $("#tabStatusExertion"),
   tabStatusCredits: $("#tabStatusCredits"),
   characterBanner: $("#characterBanner"),
+  creatorTitle: $("#creatorTitle"),
+  creatorCampaignTitle: $("#creatorCampaignTitle"),
+  creatorRoleLabel: $("#creatorRoleLabel"),
+  gmAdjustmentBar: $("#gmAdjustmentBar"),
+  gmAdjustmentCharacterName: $("#gmAdjustmentCharacterName"),
+  saveGmAdjustment: $("#saveGmAdjustment"),
+  cancelGmAdjustment: $("#cancelGmAdjustment"),
   saveStatus: $("#saveStatus"),
   identityPanel: $(".identity-panel"),
   identityCallsign: $("#identityCallsign"),
@@ -202,6 +211,7 @@ const dom = {
   exertionMeter: $("#exertionMeter"),
   exertionFormula: $("#exertionFormula"),
   restExertion: $("#restExertion"),
+  spendOneExertion: $("#spendOneExertion"),
   moveSpeedValue: $("#moveSpeedValue"),
   moveSpeedFormula: $("#moveSpeedFormula"),
   creditsValue: $("#creditsValue"),
@@ -645,6 +655,7 @@ let campaignBaselineCredits = 0;
 let campaignBaselineHp = null;
 let campaignSaveTimer = null;
 let suppressCampaignSave = false;
+let gmAdjustmentSnapshot = null;
 let pinModalMode = "display";
 let pendingPinCharacterId = "";
 let activeCampaignRollRequest = null;
@@ -762,6 +773,7 @@ function blankCharacter(name = "") {
     },
     pendingRoll: null,
     health: { current: null, permanentBonus: 0 },
+    gmAdjustments: { maximumHp: 0, exertionMax: 0, moveSpeed: 0, speed: 0, command: 0, damageReduction: 0 },
     resources: {
       exertionCurrent: 1,
       exertionMax: 1,
@@ -897,6 +909,7 @@ function normalizeCharacter(raw) {
     fubs: { ...base.fubs, ...(source.fubs || {}) },
     pendingRoll: source.pendingRoll || null,
     health: { ...base.health, ...(source.health || {}) },
+    gmAdjustments: { ...base.gmAdjustments, ...(source.gmAdjustments || {}) },
     resources: {
       ...base.resources,
       ...(source.resources || {}),
@@ -953,6 +966,7 @@ function normalizeCharacter(raw) {
   normalized.creation.classGrantsApplied = Boolean(source.creation?.classGrantsApplied);
   normalized.creation.raceGrantsApplied = Boolean(source.creation?.raceGrantsApplied);
   normalized.creation.manualInput = Boolean(source.creation?.manualInput);
+  for (const key of Object.keys(base.gmAdjustments)) normalized.gmAdjustments[key] = Math.round(clamp(normalized.gmAdjustments[key], -999999, 999999) * 10) / 10;
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
   normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
@@ -1182,6 +1196,12 @@ function saveLibrary(message = "Saved locally") {
 }
 
 function queueSave() {
+  if (GM_ADJUSTMENT_MODE) {
+    campaignDirty = true;
+    dom.saveStatus.textContent = "Unsaved GM changes";
+    dom.saveStatus.classList.add("saving");
+    return;
+  }
   dom.saveStatus.textContent = "Saving...";
   dom.saveStatus.classList.add("saving");
   clearTimeout(saveTimer);
@@ -1263,11 +1283,15 @@ async function browseCampaignCharacter(offset) {
 }
 
 function queueCampaignCharacterSave(delay = 280) {
+  if (GM_ADJUSTMENT_MODE) {
+    campaignDirty = true;
+    return;
+  }
   clearTimeout(campaignSaveTimer);
   campaignSaveTimer = setTimeout(saveCampaignCharacter, delay);
 }
 
-async function saveCampaignCharacter({ force = false } = {}) {
+async function saveCampaignCharacter({ force = false, exact = false } = {}) {
   if (force && campaignCode && campaignCharacterId && campaignEditable) campaignDirty = true;
   if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return false;
   campaignSaving = true;
@@ -1281,6 +1305,7 @@ async function saveCampaignCharacter({ force = false } = {}) {
         characterId: campaignCharacterId,
         baseCredits: campaignBaselineCredits,
         baseCurrentHp: campaignBaselineHp,
+        exact: Boolean(exact && GM_ADJUSTMENT_MODE),
         character,
       }),
     });
@@ -1355,6 +1380,13 @@ function renderTabbedStatus() {
     : Math.min(maximum, Math.max(-9999, Math.round(Number(character.health.current) || 0)));
   dom.tabStatusExperience.textContent = Math.max(0, Number(character.experience.available) || 0) + " / " + Math.max(0, Number(character.experience.totalGained) || 0);
   dom.tabStatusHp.textContent = current + " / " + maximum;
+  const hpRatio = maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0;
+  const heartUnits = Math.round(hpRatio * 6);
+  dom.tabStatusHearts.innerHTML = Array.from({ length: 3 }, (_, index) => {
+    const units = Math.max(0, Math.min(2, heartUnits - index * 2));
+    const empty = units === 2 ? "0%" : units === 1 ? "50%" : "100%";
+    return `<svg class="hud-heart" style="--heart-empty:${empty}" viewBox="0 0 24 22" aria-hidden="true"><path class="hud-heart-base" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/><path class="hud-heart-fill" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/></svg>`;
+  }).join("");
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
@@ -1378,6 +1410,50 @@ function renderBannerVisibility() {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-checked", String(selected));
   });
+}
+
+function setGmAdjustmentTarget(key, target, baseValue) {
+  character.gmAdjustments[key] = Math.round((Number(target) - Number(baseValue)) * 10) / 10;
+}
+
+function enableGmAdjustmentMode() {
+  if (!GM_ADJUSTMENT_MODE) return;
+  document.body.classList.add("gm-adjustment-mode");
+  dom.gmAdjustmentBar.hidden = false;
+  dom.gmAdjustmentCharacterName.textContent = character.identity.characterName || "Unnamed Character";
+  suppressCampaignSave = false;
+  campaignDirty = false;
+  gmAdjustmentSnapshot = deepCopy(character);
+}
+
+async function saveGmAdjustments() {
+  if (!GM_ADJUSTMENT_MODE) return;
+  dom.saveGmAdjustment.disabled = true;
+  saveLibrary("Preparing GM adjustments");
+  const saved = await saveCampaignCharacter({ force: true, exact: true });
+  dom.saveGmAdjustment.disabled = false;
+  if (!saved) {
+    notice("GM changes could not be saved. Keep this window open and try again.", "error");
+    return;
+  }
+  window.parent.postMessage({ type: "sa-gm-adjustment-saved", characterId: campaignCharacterId }, location.origin);
+}
+
+function cancelGmAdjustments() {
+  if (!GM_ADJUSTMENT_MODE) return;
+  if (gmAdjustmentSnapshot) character = normalizeCharacter(deepCopy(gmAdjustmentSnapshot));
+  window.parent.postMessage({ type: "sa-gm-adjustment-cancelled", characterId: campaignCharacterId }, location.origin);
+}
+
+function renderCharacterHeader() {
+  const linked = Boolean(campaignCode && (campaignState || character.campaignLink?.status === "linked"));
+  const gm = campaignState?.role === "gm" || GM_ADJUSTMENT_MODE;
+  const role = gm ? "(GM)" : "(PC)";
+  const title = linked ? String(campaignState?.name || character.campaignLink?.campaignName || "Campaign").toUpperCase() : "JOIN A GAME";
+  dom.creatorRoleLabel.textContent = "";
+  dom.creatorCampaignTitle.innerHTML = `${escapeHtml(title)} <small>${role}</small>`;
+  dom.creatorTitle.disabled = gm || linked;
+  dom.creatorTitle.title = !gm && !linked ? "Open Settings and join a campaign" : "";
 }
 
 function renderPlayerSoundSetting() {
@@ -1426,6 +1502,7 @@ function renderCharacterLayout() {
   renderVersionUpdate();
   renderBannerVisibility();
   renderPlayerSoundSetting();
+  renderCharacterHeader();
   showSheetSection(activeSheetSection);
 }
 async function loadPlayerAtb({ reload = false } = {}) {
@@ -1505,6 +1582,7 @@ function renderCharacterNavigation() {
     activeCharacterTab = "sheet";
   }
   renderTabbedStatus();
+  renderCharacterHeader();
   showCharacterPanel(activeCharacterTab);
 }
 
@@ -2304,10 +2382,12 @@ function maximumHpDetails(characterObject = character) {
     : standardHealth + 20;
   const permanent = Number(characterObject.health.permanentBonus) || 0;
   const classBonus = Number(classEffects(characterObject).maxHpBonus) || 0;
+  const gmBonus = Number(characterObject.gmAdjustments?.maximumHp) || 0;
   const parts = [selectedFormula?.label || "Health dice maximum +20"];
   if (classBonus) parts.push(`+${classBonus} ${classById(characterObject.identity.classId).name}`);
   if (permanent) parts.push(`+${permanent} permanent`);
-  return { value: racialBase + classBonus + permanent, formula: parts.join(" ") };
+  if (gmBonus) parts.push(`${gmBonus > 0 ? "+" : ""}${gmBonus} GM adjustment`);
+  return { value: Math.max(0, racialBase + classBonus + permanent + gmBonus), formula: parts.join(" ") };
 }
 
 function maximumHp(characterObject = character) {
@@ -2315,18 +2395,20 @@ function maximumHp(characterObject = character) {
 }
 
 function calculatedExertionMax(characterObject = character) {
-  return 1 + characterObject.attributes.willpower.filter((dieIndex) => dieIndex >= 3).length;
+  return Math.max(0, 1 + characterObject.attributes.willpower.filter((dieIndex) => dieIndex >= 3).length + (Number(characterObject.gmAdjustments?.exertionMax) || 0));
 }
 
 function calculatedMoveSpeedDetails(characterObject = character) {
   const dexterityBonus = characterObject.attributes.dexterity.filter((dieIndex) => dieIndex >= 3).length;
   const race = raceEffects(characterObject);
   const racialBonus = Number(race.moveSpeedModifier) || 0;
+  const gmBonus = Number(characterObject.gmAdjustments?.moveSpeed) || 0;
   const minimum = Number.isFinite(Number(race.moveSpeedMinimum)) ? Number(race.moveSpeedMinimum) : 0;
-  const value = Math.max(minimum, 2 + dexterityBonus + racialBonus);
+  const value = Math.max(0, minimum, 2 + dexterityBonus + racialBonus + gmBonus);
   const parts = ["Base 2", `+${dexterityBonus} DEX D10+`];
   if (racialBonus) parts.push(`${racialBonus > 0 ? "+" : ""}${racialBonus} ${selectedRace(characterObject)?.name || "Race"}`);
   if (minimum) parts.push(`minimum ${minimum}`);
+  if (gmBonus) parts.push(`${gmBonus > 0 ? "+" : ""}${gmBonus} GM adjustment`);
   return { value, formula: parts.join(" ") };
 }
 
@@ -2336,11 +2418,12 @@ function calculatedMoveSpeed(characterObject = character) {
 
 function damageReductionDetails(characterObject = character) {
   const reduction = raceEffects(characterObject).damageReduction;
-  if (!reduction) return { value: 0, formula: "No natural Damage Reduction" };
-  const value = reduction.kind === "flat"
+  const gmBonus = Number(characterObject.gmAdjustments?.damageReduction) || 0;
+  if (!reduction) return { value: Math.max(0, gmBonus), formula: gmBonus ? `No natural Damage Reduction ${gmBonus > 0 ? "+" : ""}${gmBonus} GM adjustment` : "No natural Damage Reduction" };
+  const value = (reduction.kind === "flat"
     ? Number(reduction.value) || 0
-    : formulaDiceValue(reduction, characterObject) + (Number(reduction.bonus) || 0);
-  return { value, formula: reduction.label || "Racial Damage Reduction" };
+    : formulaDiceValue(reduction, characterObject) + (Number(reduction.bonus) || 0)) + gmBonus;
+  return { value: Math.max(0, value), formula: `${reduction.label || "Racial Damage Reduction"}${gmBonus ? ` ${gmBonus > 0 ? "+" : ""}${gmBonus} GM adjustment` : ""}` };
 }
 
 function syncDerivedResources(previousMaxHp = null) {
@@ -2365,8 +2448,8 @@ function derivedValues({ includeCampaignBonus = true } = {}) {
   const mastermind = finalizedModifiersActive() && character.identity.classId === "mastermind";
   const commandBase = boxesFilled("perception") * 8 + awareness * (mastermind ? 45 : 12);
   return {
-    speed: boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1),
-    command: commandBase + (includeCampaignBonus ? campaignCommandWindowBonus() : 0),
+    speed: Math.max(0, boxesFilled("intellect") + initiative * (mastermind ? 1.5 : 1) + (Number(character.gmAdjustments?.speed) || 0)),
+    command: Math.max(0, commandBase + (includeCampaignBonus ? campaignCommandWindowBonus() : 0) + (Number(character.gmAdjustments?.command) || 0)),
   };
 }
 
@@ -2883,7 +2966,7 @@ function renderAttributes() {
   const manualDraft = manualInputMode() && character.phase === "draft";
   const advancement = character.phase === "finalized" && character.advancementOpen;
   const awardedPoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
-  const interactive = canPurchaseAttributes() && !character.pendingRoll;
+  const interactive = (canPurchaseAttributes() || GM_ADJUSTMENT_MODE) && !character.pendingRoll;
   dom.attributeGrid.innerHTML = ATTRIBUTE_DEFS.map((definition) => {
     const rows = character.attributes[definition.key];
     const rowMarkup = rows.map((current, row) => {
@@ -2899,7 +2982,7 @@ function renderAttributes() {
         const advancementFunds = mechanicalSpiddixAttribute(definition.key) ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
         const useAwardedPoints = awardedPoints >= cost;
         const allowedAdvancement = advancement && next && (useAwardedPoints || advancementFunds >= cost) && !raceBlocked;
-        const disabled = !interactive || !(allowedDraft || allowedAdvancement);
+        const disabled = !interactive || (!GM_ADJUSTMENT_MODE && !(allowedDraft || allowedAdvancement));
         let title = purchased ? `${dieName} purchased` : `Purchase ${dieName} for ${cost}`;
         if (lockedFree) title = `${dieName} is a free starting die`;
         else if (manualDraft && next) title = `Set this row to ${dieName}`;
@@ -2977,8 +3060,8 @@ function renderSkillRow(name, skill, key) {
   const nextCost = advancement ? usingAwardedSkillPoints ? creationPointCost : advancementSkillCost(skill.tenths) : creationPointCost;
   const mechanical = mechanicalSpiddixSkill(name);
   const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
-  const canIncrease = !character.pendingRoll && ((draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && (usingAwardedSkillPoints || advancementFunds >= nextCost)));
-  const canDecrease = character.phase === "draft" && level > 0 && !character.pendingRoll && !manualDraft;
+  const canIncrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE || (draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && (usingAwardedSkillPoints || advancementFunds >= nextCost)));
+  const canDecrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE ? skill.tenths > 0 : character.phase === "draft" && level > 0 && !manualDraft);
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement || manualDraft);
   const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll && (!campaignCode || campaignEditable);
@@ -3085,7 +3168,7 @@ function exertionMeterMarkup(current, maximum, { selectable = false, selected = 
     const attributes = selectable && filled
       ? `type="button" data-exertion-spend="${spend}" aria-label="${chosen ? "Cancel" : "Stage"} ${spend} Exertion"`
       : selectable ? "type=\"button\" disabled" : "aria-hidden=\"true\"";
-    return `<${element} class="exertion-unit ${capacity ? "has-capacity" : "inactive"} ${filled ? "filled available" : ""} ${chosen ? "selected" : ""}" ${attributes}><span class="exertion-charge"></span><span class="exertion-capacity"></span></${element}>`;
+    return `<${element} class="exertion-unit ${capacity ? "has-capacity" : "inactive"} ${filled ? "filled available" : ""} ${chosen ? "selected" : ""}" ${attributes}><span class="exertion-charge" ${GM_ADJUSTMENT_MODE ? "data-gm-direct-edit=\"exertionCurrent\"" : ""}></span><span class="exertion-capacity" ${GM_ADJUSTMENT_MODE ? "data-gm-direct-edit=\"exertionMax\"" : ""}></span></${element}>`;
   }).join("");
 }
 
@@ -3105,8 +3188,11 @@ function renderResources() {
   const maxHpCost = Number(race.maxHpReverenceCost) || 6;
   const maxHpForbidden = Boolean(race.forbidMaxHpReverence);
   dom.exertionMeter.innerHTML = exertionMeterMarkup(character.resources.exertionCurrent, character.resources.exertionMax);
+  if (GM_ADJUSTMENT_MODE) dom.exertionMeter.dataset.gmDirectEdit = "exertionCurrent";
   dom.restExertion.disabled = character.resources.exertionCurrent >= character.resources.exertionMax || Boolean(character.pendingRoll);
-  dom.exertionFormula.textContent = "Base 1 + each Willpower die at D10 or higher";
+  dom.spendOneExertion.disabled = character.phase !== "finalized" || character.resources.exertionCurrent < 1 || Boolean(character.pendingRoll) || (Boolean(campaignCode) && !campaignEditable);
+  const gmExertion = Number(character.gmAdjustments?.exertionMax) || 0;
+  dom.exertionFormula.textContent = `Base 1 + each Willpower die at D10 or higher${gmExertion ? ` ${gmExertion > 0 ? "+" : ""}${gmExertion} GM adjustment` : ""}`;
   dom.moveSpeedValue.textContent = move.value;
   dom.moveSpeedFormula.textContent = move.formula;
   const finalizedRaceCredits = finalizedModifiersActive() ? Number(rawRaceEffects().creditsOnFinalize) || 0 : 0;
@@ -3117,7 +3203,7 @@ function renderResources() {
   if (finalizedClassCredits) creditParts.push(`includes +${finalizedClassCredits.toLocaleString()} ${classDefinition.name} finalization grant`);
   dom.creditsFormula.textContent = creditParts.join(" ");
   dom.reverenceCurrent.textContent = character.resources.reverence;
-  dom.reverenceMeter.innerHTML = Array.from({ length: 10 }, (_, index) => `<span class="reverence-slot ${index < character.resources.reverence ? "filled" : ""}" aria-hidden="true"></span>`).join("");
+  dom.reverenceMeter.innerHTML = Array.from({ length: 10 }, (_, index) => `<span class="reverence-slot ${index < character.resources.reverence ? "filled" : ""}" ${GM_ADJUSTMENT_MODE ? `data-gm-reverence="${index + 1}"` : "aria-hidden=\"true\""}></span>`).join("");
   dom.maxHpBonus.disabled = character.phase !== "finalized" || maxHpForbidden || character.resources.reverence < maxHpCost || Boolean(character.pendingRoll);
   dom.maxHpBonus.title = maxHpForbidden ? `${selectedRace()?.name || "This race"} cannot purchase Maximum HP with Reverence.` : `Spend ${maxHpCost} Reverence for +2 Maximum HP`;
   dom.maxHpBonus.querySelector("small").textContent = maxHpForbidden ? "Unavailable to this race" : `Spend ${maxHpCost} for +2 HP`;
@@ -4065,14 +4151,16 @@ function renderDerived() {
   const initiativeRating = displayedSkillTenths("Initiative", character.skills.Initiative) / 10;
   const mastermind = character.identity.classId === "mastermind" && finalizedModifiersActive();
   dom.derivedSpeed.textContent = formatNumber(derived.speed);
-  dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}`;
+  const gmSpeed = Number(character.gmAdjustments?.speed) || 0;
+  dom.derivedSpeedFormula.textContent = `Intellect boxes ${intellectBoxes} + Initiative ${formatNumber(initiativeRating)}${mastermind ? " x1.5 Mastermind" : ""}${initiativeParts.length ? ` (${initiativeParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmSpeed ? ` ${gmSpeed > 0 ? "+" : ""}${gmSpeed} GM adjustment` : ""}`;
   syncSpeedPreview(derived.speed);
   dom.derivedCommand.textContent = `${formatNumber(derived.command)} sec`;
   const awarenessSeconds = character.identity.classId === "mastermind" && finalizedModifiersActive() ? 45 : 12;
   const perceptionBoxes = boxesFilled("perception");
   const awarenessRating = displayedSkillTenths("Awareness", character.skills.Awareness) / 10;
   const gmCommandBonus = campaignCommandWindowBonus();
-  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x8 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmCommandBonus ? ` + GM bonus ${gmCommandBonus} sec` : ""}`;
+  const gmCommand = Number(character.gmAdjustments?.command) || 0;
+  dom.derivedCommandFormula.textContent = `Perception boxes ${perceptionBoxes} x8 + Awareness ${formatNumber(awarenessRating)} x${awarenessSeconds}${awarenessParts.length ? ` (${awarenessParts.map((part) => `+${ratingText(part.value)} ${part.source}`).join(", ")})` : ""}${gmCommandBonus ? ` + GM bonus ${gmCommandBonus} sec` : ""}${gmCommand ? ` ${gmCommand > 0 ? "+" : ""}${gmCommand} GM adjustment` : ""}`;
   dom.maximumHp.textContent = hp.value;
   dom.maximumHpFormula.textContent = hp.formula;
   dom.permanentHpBonus.textContent = character.health.permanentBonus;
@@ -4088,6 +4176,74 @@ function renderDerived() {
   dom.marineHeal.disabled = Boolean(character.session.marineHealingUsed) || diceRoller.isActive();
   dom.marineHeal.textContent = character.session.marineHealingUsed ? "Marine Recovery Used" : "Marine Recovery";
   renderTabbedStatus();
+  if (GM_ADJUSTMENT_MODE) {
+    [dom.derivedSpeed, dom.derivedCommand, dom.maximumHp, dom.permanentHpBonus, dom.damageReduction, dom.currentHp, dom.moveSpeedValue, dom.creditsValue, dom.reverenceCurrent, dom.xpAvailable, dom.xpTotal]
+      .filter(Boolean).forEach((element) => { element.dataset.gmDirectEdit = element.id; });
+  }
+}
+
+function requestGmNumber(label, current, { min = -999999, max = 999999, step = "0.1" } = {}) {
+  return new Promise((resolve) => {
+    const shell = document.createElement("div");
+    shell.className = "modal-shell";
+    shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">GM Adjustment</span><h2>${escapeHtml(label)}</h2><label>New Value<input data-gm-number type="number" min="${min}" max="${max}" step="${step}" value="${escapeAttribute(current)}" /></label><div class="dialog-actions"><button type="button" data-gm-number-action="cancel">Cancel</button><button class="primary-action" type="button" data-gm-number-action="save">Apply</button></div></section>`;
+    document.body.append(shell);
+    const input = shell.querySelector("[data-gm-number]");
+    const close = (value) => { shell.remove(); resolve(value); };
+    shell.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-gm-number-action]")?.dataset.gmNumberAction;
+      if (action === "cancel") close(null);
+      if (action === "save") close(Math.max(min, Math.min(max, Number(input.value))));
+    });
+    input.addEventListener("keydown", (event) => { if (event.key === "Enter") close(Math.max(min, Math.min(max, Number(input.value)))); });
+    input.focus({ preventScroll: true });
+    input.select();
+  });
+}
+
+async function handleGmDirectEdit(element) {
+  if (!GM_ADJUSTMENT_MODE) return false;
+  const key = element.dataset.gmDirectEdit;
+  const details = {
+    derivedSpeed: ["ATB Speed", derivedValues().speed, 0, 9999, "0.1"],
+    derivedCommand: ["Command Window (seconds)", derivedValues().command, 0, 999999, "0.1"],
+    maximumHp: ["Maximum HP", maximumHp(), 0, 999999, "1"],
+    permanentHpBonus: ["Permanent HP Bonus", character.health.permanentBonus, -9999, 999999, "1"],
+    damageReduction: ["Damage Reduction", damageReductionDetails().value, 0, 999999, "0.1"],
+    currentHp: ["Current HP", character.health.current, -9999, maximumHp(), "1"],
+    moveSpeedValue: ["Move Speed", calculatedMoveSpeed(), 0, 9999, "0.1"],
+    creditsValue: ["Credits", character.resources.creditsBase, -999999999, 999999999, "1"],
+    reverenceCurrent: ["Reverence", character.resources.reverence, 0, 10, "1"],
+    xpAvailable: ["Unspent Experience", character.experience.available, 0, 999999999, "1"],
+    xpTotal: ["Total Experience Received", character.experience.totalGained, 0, 999999999, "1"],
+    exertionCurrent: ["Current Exertion", character.resources.exertionCurrent, 0, character.resources.exertionMax, "1"],
+    exertionMax: ["Maximum Exertion", character.resources.exertionMax, 0, 99, "1"],
+  }[key];
+  if (!details) return false;
+  const [label, current, min, max, step] = details;
+  const value = await requestGmNumber(label, current, { min, max, step });
+  if (value === null || !Number.isFinite(value)) return true;
+  if (key === "derivedSpeed") setGmAdjustmentTarget("speed", value, derivedValues().speed - (Number(character.gmAdjustments.speed) || 0));
+  if (key === "derivedCommand") setGmAdjustmentTarget("command", value, derivedValues().command - (Number(character.gmAdjustments.command) || 0));
+  if (key === "maximumHp") setGmAdjustmentTarget("maximumHp", value, maximumHp() - (Number(character.gmAdjustments.maximumHp) || 0));
+  if (key === "damageReduction") setGmAdjustmentTarget("damageReduction", value, damageReductionDetails().value - (Number(character.gmAdjustments.damageReduction) || 0));
+  if (key === "moveSpeedValue") setGmAdjustmentTarget("moveSpeed", value, calculatedMoveSpeed() - (Number(character.gmAdjustments.moveSpeed) || 0));
+  if (key === "permanentHpBonus") character.health.permanentBonus = Math.round(value);
+  if (key === "currentHp") character.health.current = Math.round(value);
+  if (key === "creditsValue") character.resources.creditsBase = Math.round(value);
+  if (key === "reverenceCurrent") character.resources.reverence = Math.round(value);
+  if (key === "xpAvailable") character.experience.available = Math.round(value);
+  if (key === "xpTotal") character.experience.totalGained = Math.max(character.experience.available, Math.round(value));
+  if (key === "exertionCurrent") character.resources.exertionCurrent = Math.round(value);
+  if (key === "exertionMax") {
+    const base = 1 + character.attributes.willpower.filter((dieIndex) => dieIndex >= 3).length;
+    setGmAdjustmentTarget("exertionMax", Math.round(value), base);
+  }
+  character.experience.spent = Math.max(0, character.experience.totalGained - character.experience.available);
+  syncDerivedResources();
+  campaignDirty = true;
+  renderAll();
+  return true;
 }
 
 function weaponOptions(selectedId) {
@@ -4132,7 +4288,7 @@ function weaponCreditCost(weapon) {
 }
 
 function requestWeaponMode(weapon) {
-  if (manualInputMode() && character.phase === "draft") return Promise.resolve("receive");
+  if (GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft")) return Promise.resolve("receive");
   return new Promise((resolve) => {
     const shell = document.createElement("div");
     shell.className = "modal-shell weapon-acquire-modal";
@@ -4155,7 +4311,7 @@ function requestWeaponMode(weapon) {
 }
 
 async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
-  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
+  mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
   if (cost > Number(character.resources.creditsBase || 0)) {
     const accepted = await askConfirmation({
@@ -4170,7 +4326,16 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
       method: "POST",
       body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, inventoryType: "weapon", item: { id: entry.id, weaponId: weapon.id, previousWeaponId, name: weapon.name, unitCost: weaponCreditCost(weapon) } }),
     });
+    const remote = payload.campaign?.characters?.find((record) => record.id === campaignCharacterId)?.character;
+    if (remote) {
+      character.resources.creditsBase = Number(remote.resources?.creditsBase) || 0;
+      character.weapons = deepCopy(remote.weapons || character.weapons);
+      campaignBaselineCredits = character.resources.creditsBase;
+      campaignDirty = false;
+    }
     if (payload.campaign) receiveCampaignState(payload.campaign);
+    renderResources();
+    renderWeapons();
   } else {
     entry.weaponId = weapon.id;
     entry.held = false;
@@ -4215,7 +4380,7 @@ function gearDraftFromCatalog(catalog) {
 
 function updateGearPickerActions() {
   const valid = Boolean(gearDraft?.name.trim());
-  const manualReceive = manualInputMode() && character.phase === "draft";
+  const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
   dom.gearPickerPurchase.hidden = manualReceive;
   dom.gearPickerReceive.textContent = manualReceive ? "Add Received Item" : "Receive";
   dom.gearPickerPurchase.disabled = !valid;
@@ -4277,7 +4442,7 @@ function renderGear() {
   document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
   dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
-  const manualReceive = manualInputMode() && character.phase === "draft";
+  const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
   const rows = character.items.map((entry) => {
     const pending = pendingGearAdds.has(entry.id);
     const charge = itemChargeLabel(entry);
@@ -4343,7 +4508,7 @@ function requestStorageRecipient(item) {
 }
 
 async function addGearItem(item, mode) {
-  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
+  mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
   if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
   if (mode === "purchase" && cost > 0 && cost > Number(character.resources.creditsBase || 0)) {
@@ -4359,7 +4524,16 @@ async function addGearItem(item, mode) {
       method: "POST",
       body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, item: gearPayload(item) }),
     });
+    const remote = payload.campaign?.characters?.find((record) => record.id === campaignCharacterId)?.character;
+    if (remote) {
+      character.resources.creditsBase = Number(remote.resources?.creditsBase) || 0;
+      character.items = deepCopy(remote.items || character.items);
+      campaignBaselineCredits = character.resources.creditsBase;
+      campaignDirty = false;
+    }
     if (payload.campaign) receiveCampaignState(payload.campaign);
+    renderResources();
+    renderGear();
   } else {
     mergeItemInto(character.items, item, 1);
     if (mode === "purchase") character.resources.creditsBase -= cost;
@@ -4635,6 +4809,28 @@ function purchaseAttribute(attributeKey, row, column) {
   syncDerivedResources(previousMaxHp);
   queueSave();
   renderWithoutViewportJump();
+}
+
+function gmAdjustAttribute(attributeKey, row, column) {
+  if (!GM_ADJUSTMENT_MODE) return false;
+  const current = character.attributes[attributeKey]?.[row];
+  if (!Number.isFinite(current)) return true;
+  character.attributes[attributeKey][row] = column === current ? current - 1 : column;
+  syncDerivedResources();
+  campaignDirty = true;
+  renderAll();
+  return true;
+}
+
+function gmAdjustSkill(key, direction) {
+  if (!GM_ADJUSTMENT_MODE) return false;
+  const resolved = resolveSkill(character, key);
+  if (!resolved) return true;
+  resolved.skill.tenths = Math.max(0, Math.round((Number(resolved.skill.tenths) || 0) + direction));
+  resolved.skill.creationDecimal = resolved.skill.tenths % 10;
+  campaignDirty = true;
+  renderAll();
+  return true;
 }
 
 function removeLastPurchaseEntry(key) {
@@ -5455,6 +5651,19 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  const gmDirectEdit = event.target.closest("[data-gm-direct-edit]");
+  if (gmDirectEdit && GM_ADJUSTMENT_MODE) {
+    event.preventDefault();
+    void handleGmDirectEdit(gmDirectEdit);
+    return;
+  }
+  const gmReverence = event.target.closest("[data-gm-reverence]");
+  if (gmReverence && GM_ADJUSTMENT_MODE) {
+    character.resources.reverence = Number(gmReverence.dataset.gmReverence);
+    campaignDirty = true;
+    renderResources();
+    return;
+  }
   const scienceChoice = event.target.closest("[data-science-choice]");
   if (scienceChoice) {
     if (!campaignEditable || !campaignToken) return;
@@ -5479,6 +5688,7 @@ document.addEventListener("click", (event) => {
   }
   const attributeButton = event.target.closest("[data-attribute]");
   if (attributeButton) {
+    if (gmAdjustAttribute(attributeButton.dataset.attribute, Number(attributeButton.dataset.row), Number(attributeButton.dataset.column))) return;
     purchaseAttribute(attributeButton.dataset.attribute, Number(attributeButton.dataset.row), Number(attributeButton.dataset.column));
     return;
   }
@@ -5488,6 +5698,7 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     skillButton.blur();
     const key = skillButton.dataset.skillKey;
+    if (gmAdjustSkill(key, skillButton.dataset.skillAction === "decrease" ? -1 : 1)) return;
     if (skillButton.dataset.skillAction === "decrease") changeDraftSkill(key, -1);
     else if (character.phase === "draft") changeDraftSkill(key, 1);
     else startSkillAdvancement(key);
@@ -5606,12 +5817,12 @@ document.addEventListener("change", async (event) => {
   } catch (error) {
     renderWeapons();
     notice(error.message, "error");
-  const previousMaxHp = maximumHp();
   }
 });
 
 dom.racePicker.addEventListener("change", () => {
   if (character.phase !== "draft") return;
+  const previousMaxHp = maximumHp();
   character.identity.raceType = "";
   character.creation.raceSkillChoices = [];
   character.creation.raceAttributeChoice = "";
@@ -5624,9 +5835,9 @@ dom.racePicker.addEventListener("change", () => {
     const definition = raceById(dom.racePicker.value);
     character.identity.raceKind = "preset";
     character.identity.raceId = definition?.id || "";
-  syncDerivedResources(previousMaxHp);
     character.identity.race = definition?.name || "";
   }
+  syncDerivedResources(previousMaxHp);
   queueSave();
   renderAll();
   if (character.identity.raceKind === "other") dom.raceCustom.focus();
@@ -5642,9 +5853,9 @@ dom.raceCustom.addEventListener("input", () => {
   renderWorkflow();
 });
 
-  const previousMaxHp = maximumHp();
 dom.raceTypePicker.addEventListener("change", () => {
   if (character.phase !== "draft") return;
+  const previousMaxHp = maximumHp();
   const definition = selectedRace();
   character.identity.raceType = definition?.types?.some((type) => type.id === dom.raceTypePicker.value)
     ? dom.raceTypePicker.value
@@ -5819,7 +6030,7 @@ dom.gearCatalogPicker?.addEventListener("change", () => {
 dom.gearPickerCancel?.addEventListener("click", closeGearPicker);
 
 async function confirmGearPicker(mode) {
-  mode = manualInputMode() && character.phase === "draft" ? "receive" : mode;
+  mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (!gearDraft?.name.trim()) {
     updateGearPickerActions();
     dom.gearPickerName.focus({ preventScroll: true });
@@ -5993,6 +6204,25 @@ dom.spendOneReverence.addEventListener("click", async () => {
   }
 });
 
+dom.spendOneExertion.addEventListener("click", async () => {
+  if (character.phase !== "finalized" || character.resources.exertionCurrent < 1 || (campaignCode && !campaignEditable)) return;
+  character.resources.exertionCurrent -= 1;
+  queueSave();
+  renderResources();
+  notice("1 Exertion spent.", "success");
+  if (!campaignCode || !campaignCharacterId || !campaignEditable) return;
+  try {
+    await saveCampaignCharacter({ force: true });
+    const payload = await campaignRequest("/api/campaign/exertion/spent", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, amount: 1 }),
+    });
+    receiveCampaignState(payload.campaign);
+  } catch (error) {
+    notice(`Exertion was spent, but the GM notification failed: ${error.message}`, "error");
+  }
+});
+
 function closeReverenceGift() {
   dom.reverenceGiftModal.hidden = true;
   dom.reverenceGiftError.textContent = "";
@@ -6048,10 +6278,22 @@ dom.restExertion.addEventListener("click", async () => {
     cancelLabel: "Keep Going",
   });
   if (!accepted) return;
+  const before = character.resources.exertionCurrent;
   character.resources.exertionCurrent = character.resources.exertionMax;
   queueSave();
   renderResources();
   notice("Eight-hour rest complete. Exertion restored.", "success");
+  if (!campaignCode || !campaignCharacterId || !campaignEditable) return;
+  try {
+    await saveCampaignCharacter({ force: true });
+    const payload = await campaignRequest("/api/campaign/exertion/rest", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, before, maximum: character.resources.exertionMax }),
+    });
+    receiveCampaignState(payload.campaign);
+  } catch (error) {
+    notice(`Rest completed, but the GM notification failed: ${error.message}`, "error");
+  }
 });
 
 dom.skillAttributeChoices.addEventListener("click", (event) => {
@@ -6908,7 +7150,7 @@ dom.purchaseDramaCard?.addEventListener("click", async () => {
 });
 
 window.addEventListener("beforeunload", () => {
-  if (CAMPAIGN_READ_ONLY_VIEW) return;
+  if (CAMPAIGN_READ_ONLY_VIEW || GM_ADJUSTMENT_MODE) return;
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
     const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, baseCurrentHp: campaignBaselineHp, character });
@@ -6959,6 +7201,7 @@ async function initializeCharacterApp() {
       if (record) {
         const editable = state.role === "gm" || (state.role === "character" && state.ownCharacterId === requestedCharacter);
         showCampaignCharacter(record, { editable, token, pin: record.pcCode || "" });
+        enableGmAdjustmentMode();
         if (editable && character.phase === "finalizing") window.setTimeout(processFinalization, 120);
         else if (editable && character.pendingRoll) window.setTimeout(rollPending, 120);
         return;
@@ -6979,6 +7222,21 @@ async function initializeCharacterApp() {
   showCharacterPanel("sheet");
   if (character.campaignLink?.status === "pending") scheduleJoinStatusCheck(800);
 }
+
+dom.creatorTitle?.addEventListener("click", () => {
+  if (dom.creatorTitle.disabled) return;
+  showCharacterPanel("settings");
+  requestAnimationFrame(() => {
+    dom.joinCampaignPanel.hidden = false;
+    dom.joinCampaignPanel.classList.remove("join-campaign-attention");
+    void dom.joinCampaignPanel.offsetWidth;
+    dom.joinCampaignPanel.classList.add("join-campaign-attention");
+    dom.joinCampaignPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    dom.joinCampaignRoomCode.focus({ preventScroll: true });
+  });
+});
+dom.saveGmAdjustment?.addEventListener("click", saveGmAdjustments);
+dom.cancelGmAdjustment?.addEventListener("click", cancelGmAdjustments);
 
 function publishEmbeddedCharacterHeight() {
   if (!CAMPAIGN_READ_ONLY_VIEW || window.parent === window) return;

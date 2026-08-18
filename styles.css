@@ -222,6 +222,8 @@ label {
 }
 
 .welcome-panel {
+  position: relative;
+  overflow: hidden;
   min-height: calc(100vh - 44px);
   display: grid;
   grid-template-columns: minmax(280px, 760px);
@@ -232,6 +234,8 @@ label {
 }
 
 .welcome-hero {
+  position: relative;
+  z-index: 2;
   border: 1px solid rgba(40, 215, 255, 0.46);
   background: #05070a;
   box-shadow:
@@ -244,6 +248,31 @@ label {
   display: block;
   width: 100%;
   height: auto;
+  cursor: pointer;
+}
+
+.welcome-zig-point {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 0 5px #fff, 0 0 14px var(--zig-color), 0 0 30px var(--zig-color);
+  opacity: 0;
+  animation: welcome-zig-burst 1.1s var(--zig-delay) ease-out forwards;
+}
+
+@keyframes welcome-zig-burst {
+  0% { opacity: 0; transform: translate(var(--zig-x), var(--zig-y)) scale(.3); }
+  9% { opacity: .95; transform: translate(var(--zig-x), var(--zig-y)) scale(1); }
+  30% { opacity: 1; transform: translate(calc(var(--zig-x) + var(--zig-step)), var(--zig-y)) scale(.85); }
+  56% { opacity: .88; transform: translate(calc(var(--zig-x) + var(--zig-step)), calc(var(--zig-y) + var(--zig-lift))) scale(.72); }
+  82% { opacity: .6; transform: translate(calc(var(--zig-x) + var(--zig-step-2)), calc(var(--zig-y) + var(--zig-lift))) scale(.5); }
+  100% { opacity: 0; transform: translate(calc(var(--zig-x) + var(--zig-step-3)), calc(var(--zig-y) + var(--zig-lift))) scale(.15); }
 }
 
 .welcome-actions {

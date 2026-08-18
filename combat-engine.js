@@ -433,8 +433,21 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       aimDie: Math.max(0, Number(unit.highestPerceptionDie) || 0),
       createdAt: Date.now(),
     };
-    setCombatBrief(unit, kind, "Aim", [`+${unit.aim.speedBonus} ATB Speed`, unit.aim.aimDie ? `+1D${unit.aim.aimDie} to Dexterity pool and Damage` : "+highest Perception die to Dexterity pool and Damage"]);
-    finishTurn(room, unit, `aimed; the next ATB refill gains +${unit.aim.speedBonus} Speed`, helpers);
+    let chargeStarted = false;
+    if (weapon?.chargeMode === "meter" && Number(weapon.chargeSegments) > 0) {
+      const sameCharge = unit.weaponCharge?.inventoryId === weapon.inventoryId;
+      const chargeComplete = sameCharge && Number(unit.weaponCharge.progress) >= 100;
+      if (!chargeComplete) {
+        if (!sameCharge) unit.weaponCharge = { inventoryId: weapon.inventoryId, weaponId: weapon.weaponId, progress: 0 };
+        chargeStarted = true;
+      }
+    }
+    setCombatBrief(unit, kind, "Aim", [
+      `+${unit.aim.speedBonus} ATB Speed`,
+      unit.aim.aimDie ? `+1D${unit.aim.aimDie} to Dexterity pool and Damage` : "+highest Perception die to Dexterity pool and Damage",
+      chargeStarted ? `${weapon.name} Charge meter activated` : "",
+    ].filter(Boolean));
+    finishTurn(room, unit, `aimed; the next ATB refill gains +${unit.aim.speedBonus} Speed${chargeStarted ? ` and ${weapon.name} began charging` : ""}`, helpers);
     return { ok: true };
   }
 
@@ -568,14 +581,19 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     const useKit = Boolean(body.useKit);
     if (useKit && !kit) return { ok: false, error: "This character is not carrying a First Aid Kit." };
     if (useKit) consumeCarriedItem(unit, kit.id, 1);
-    const treatmentRating = Math.max(0.1, Number(unit.intellectBoxes) + Number(unit.anatomySkill));
+    const treatmentRating = Math.max(0.1, unit.team === "npc"
+      ? Number(unit.mentalAttribute) + Number(unit.mentalSkill)
+      : Number(unit.intellectBoxes) + Number(unit.anatomySkill));
     const duration = Math.max(0.1, ceilTenth(100 / treatmentRating));
     unit.movementChargeUnits = 0;
     beginTimedAction(room, unit, {
       id: helpers.id(), kind: "firstAid", label: `First Aid: ${aidTarget.characterName}`, total: duration, remaining: duration,
       targetId: aidTarget.id, useKit, itemId: useKit ? kit.id : "", treatmentRating,
     }, `${unit.characterName} began First Aid on ${aidTarget.characterName} (${duration.toFixed(1)} sec).`, helpers, { resetAtb: true });
-    setCombatBrief(unit, kind, `Treating ${aidTarget.characterName}`, [`Intellect boxes + Anatomy/First Aid = ${treatmentRating.toFixed(1)} Speed`, useKit ? "First Aid Kit committed" : "No kit"]);
+    setCombatBrief(unit, kind, `Treating ${aidTarget.characterName}`, [
+      `${unit.team === "npc" ? "Mental Attribute + Mental Skill" : "Intellect boxes + Anatomy/First Aid"} = ${treatmentRating.toFixed(1)} Speed`,
+      useKit ? "First Aid Kit committed" : "No kit",
+    ]);
     return { ok: true, itemConsumed: useKit ? kit.id : "" };
   }
 

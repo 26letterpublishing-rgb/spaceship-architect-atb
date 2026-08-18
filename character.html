@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260817-ally-tabs" />
+  <link rel="stylesheet" href="character.css?v=20260817-adjustment-pass" />
   <link rel="stylesheet" href="weapons.css?v=20260816-storage-give" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -18,8 +18,14 @@
         </button>
         <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
       </div>
-      <div class="creator-title"><span>Second Edition</span><h1>Character Creator</h1></div>
+      <button id="creatorTitle" class="creator-title" type="button"><span id="creatorRoleLabel">Second Edition</span><h1 id="creatorCampaignTitle">Character Creator</h1></button>
     </header>
+
+    <section id="gmAdjustmentBar" class="gm-adjustment-bar" hidden>
+      <div><span>GM ADJUSTMENT MODE</span><strong id="gmAdjustmentCharacterName">Character</strong></div>
+      <p>Direct edits ignore costs. Derived-stat changes are stored as permanent GM adjustments.</p>
+      <div><button id="cancelGmAdjustment" type="button">Cancel</button><button id="saveGmAdjustment" class="primary-action" type="button">Save Changes</button></div>
+    </section>
 
     <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
@@ -33,7 +39,7 @@
       <div><span>Credits</span><strong id="tabStatusCredits">0</strong></div>
       <div><span>Reverence</span><strong id="tabStatusReverence">0 / 10</strong></div>
       <div><span>Exertion</span><strong id="tabStatusExertion">0 / 0</strong></div>
-      <div><span>HP</span><strong id="tabStatusHp">0 / 0</strong></div>
+      <div class="hud-health"><span>HP</span><div id="tabStatusHearts" class="hud-hearts" aria-hidden="true"></div><strong id="tabStatusHp">0 / 0</strong></div>
     </section>
 
     <section id="characterCampaignGate" class="character-campaign-gate character-page-panel" data-character-panel="roster" hidden>
@@ -224,7 +230,7 @@
             <div class="resource-card exertion-card">
               <div class="exertion-heading">
                 <span>Exertion</span>
-                <button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button>
+                <div class="exertion-heading-actions"><button id="spendOneExertion" type="button" aria-label="Spend one Exertion">-1</button><button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button></div>
               </div>
               <div id="exertionMeter" class="exertion-meter" aria-label="Current and maximum Exertion"></div>
               <small id="exertionFormula" class="resource-formula">1 + each Willpower die at D10 or higher</small>
@@ -690,6 +696,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="character.js?v=20260817-campaign-recovery"></script>
+  <script type="module" src="character.js?v=20260817-adjustment-pass"></script>
   </body>
 </html>

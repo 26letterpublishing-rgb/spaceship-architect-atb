@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260817-ally-smile" />
+  <link rel="stylesheet" href="gm.css?v=20260817-adjustment-pass" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -131,7 +131,7 @@
           </div>
           <div id="gmCharacterList" class="gm-character-list"></div>
           <section id="gmDramaDiscardPanel" class="gm-drama-discard-panel">
-            <div class="section-title"><div><h3>Drama Card Discard Pile</h3><small>Played cards remain visible until the shared deck reshuffles.</small></div><strong id="gmDramaDiscardCount">0 Cards</strong></div>
+            <div class="section-title"><div><h3>Drama Card Discard Pile</h3><small>Played cards remain visible until the shared deck reshuffles.</small></div><div class="discard-actions"><strong id="gmDramaDiscardCount">0 Cards</strong><button id="reshuffleDramaCards" type="button">Reshuffle</button></div></div>
             <div id="gmDramaDiscardList" class="gm-drama-discard-list"></div>
           </section>
           <section class="premade-npc-console">
@@ -313,6 +313,12 @@
         <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
       </section>
     </div>
+
+    <section id="gmAdjustmentModal" class="gm-adjustment-modal" hidden>
+      <div class="gm-adjustment-frame-shell">
+        <iframe id="gmAdjustmentFrame" title="GM Character Adjustment"></iframe>
+      </div>
+    </section>
     <div id="gmDramaCardAlert" class="gm-modal-shell gm-drama-alert-shell" hidden>
       <section class="gm-drama-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="gmDramaCardName">
         <p id="gmDramaPlayedBy" class="gm-drama-played-by"></p>
@@ -325,6 +331,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260817-ally-smile"></script>
+  <script type="module" src="gm.js?v=20260817-adjustment-pass"></script>
   </body>
 </html>
