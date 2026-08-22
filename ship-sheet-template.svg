@@ -4281,12 +4281,12 @@ SUVORK5CYII="/>
 <use data-text="i" xlink:href="#font_169_76" transform="matrix(8,0,0,-8,273.5037,46.900026)" fill="#ffffff"/>
 <use data-text="t" xlink:href="#font_169_87" transform="matrix(8,0,0,-8,277.0637,46.900026)" fill="#ffffff"/>
 <use data-text="y" xlink:href="#font_169_92" transform="matrix(8,0,0,-8,283.6237,46.900026)" fill="#ffffff"/>
-<path transform="matrix(1,0,0,-1,348,112.46802)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0H7.928"/>
-<path transform="matrix(1,0,0,-1,355.032,115.41998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0H6.264"/>
-<path transform="matrix(1,0,0,-1,355.032,129.09198)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0H6.264"/>
-<path transform="matrix(1,0,0,-1,348,118.731998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0H7.928"/>
-<path transform="matrix(1,0,0,-1,355.4375,112.03998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0V-7.132"/>
-<path transform="matrix(1,0,0,-1,360.788,114.91998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#abe1fa" d="M0 0V-14.608"/>
+<path transform="matrix(1,0,0,-1,348,112.46802)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0H7.928"/>
+<path transform="matrix(1,0,0,-1,355.032,115.41998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0H6.264"/>
+<path transform="matrix(1,0,0,-1,355.032,129.09198)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0H6.264"/>
+<path transform="matrix(1,0,0,-1,348,118.731998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0H7.928"/>
+<path transform="matrix(1,0,0,-1,355.4375,112.03998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0V-7.132"/>
+<path transform="matrix(1,0,0,-1,360.788,114.91998)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#20d8ff" d="M0 0V-14.608"/>
 <path transform="matrix(1,0,0,-1,375.4839,49.055177)" stroke-width="4" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#4a515b" d="M0 0V-142.473"/>
 <path transform="matrix(1,0,0,-1,268.9819,190.77002)" stroke-width="4" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#4a515b" d="M0 0-3.902 9.421"/>
 <path transform="matrix(1,0,0,-1,246.5239,97.94043)" d="M0 0V-19.612L38.232-22.121V2.509Z" fill="#abe1fa"/>
@@ -4834,13 +4834,40 @@ tQAAAABJRU5ErkJggg=="/>
     </path>
   </g>
 </g>
-<g id="neon-category-circuits" fill="none" stroke="#005700" stroke-width=".4" stroke-linecap="square" stroke-linejoin="miter" opacity=".58">
-  <path d="M15 88V19H53L59 14H181V26"/>
-  <path d="M13 187V119H39L45 114H101V127"/>
-  <path d="M117 187V119H138L144 114H198V127"/>
-  <path d="M197 143V18H234L240 13H416V26M431 143V18"/>
-  <path d="M384 193V171H418L424 166H583V193"/>
-  <path d="M478 142V59H502L508 54H589V67"/>
-  <path d="M435 35V13H468L474 9H587V20"/>
+<g id="sample-starship-values" fill="#000000" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">
+  <text x="139" y="43" font-size="9">42</text>
+  <text x="181" y="43" font-size="8">42</text>
+  <text x="127" y="61" font-size="7">4</text>
+  <text x="139" y="88" font-size="9">68</text>
+  <text x="181" y="88" font-size="8">68</text>
+  <text x="127" y="106" font-size="7">6</text>
+
+  <text x="88" y="139" font-size="8">12</text>
+  <text x="82" y="165" font-size="8">2D8</text>
+  <text x="82" y="190" font-size="8">2D10</text>
+  <text x="174" y="148" font-size="8">8</text>
+  <text x="152" y="195" font-size="8">2D8</text>
+
+  <text x="374" y="39" font-size="9">4</text>
+  <text x="281" y="79" font-size="8">2</text>
+  <text x="332" y="79" font-size="8">3</text>
+  <text x="417" y="79" font-size="8">5</text>
+  <text x="339" y="113" font-size="8">2D8</text>
+  <text x="284" y="170" font-size="9">8</text>
+  <text x="216" y="109" font-size="7">1</text>
+  <text x="225" y="131" font-size="7">1</text>
+  <text x="234" y="153" font-size="7">1</text>
+  <text x="243" y="175" font-size="7">1</text>
+
+  <text x="511" y="30" font-size="10">12,500</text>
+  <text x="568" y="81" font-size="7">4</text>
+  <text x="568" y="94" font-size="7">3</text>
+  <text x="568" y="107" font-size="7">2</text>
+  <text x="568" y="120" font-size="7">1</text>
+  <text x="568" y="133" font-size="7">1</text>
+  <text x="568" y="146" font-size="7">0</text>
+  <text x="452" y="186" font-size="8">18</text>
+  <text x="477" y="186" font-size="8">24</text>
+  <text x="568" y="186" font-size="9">6</text>
 </g>
 </svg>
