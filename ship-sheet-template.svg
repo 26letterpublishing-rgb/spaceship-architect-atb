@@ -3770,7 +3770,7 @@ SUVORK5CYII="/>
 <use data-text="w" xlink:href="#font_169_90" transform="matrix(8,0,0,-8,494.16,161.5)" fill="#ffffff"/>
 <use data-text="e" xlink:href="#font_169_72" transform="matrix(8,0,0,-8,501.72,161.5)" fill="#ffffff"/>
 <use data-text="r" xlink:href="#font_169_85" transform="matrix(8,0,0,-8,508.28,161.5)" fill="#ffffff"/>
-<path transform="matrix(1,0,0,-1,118.68,130.2207)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#ff7582"/>
+<path transform="matrix(1,0,0,-1,118.68,130.2207)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#ef243f"/>
 <path transform="matrix(1,0,0,-1,126.6454,133.80298)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-2.958V-5.117H-1.806V-3.129H-.146V-2.195H-1.806V-.938H0V0Z"/>
 <g clip-path="url(#clip_183)">
 <path transform="matrix(1,0,0,-1,128.417,134.52368)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.12 .109 .18 .25 .18 .421 .18 .59 .12 .728 0 .835-.12 .942-.277 .996-.469 .996-.66 .996-.815 .942-.937 .835-1.058 .728-1.119 .59-1.119 .421-1.119 .257-1.058 .118-.937 .005-.815-.108-.66-.164-.469-.164-.277-.164-.12-.109 0 0ZM.087-.742H-1.041V-4.396H.087Z"/>
@@ -4315,7 +4315,7 @@ SUVORK5CYII="/>
 <use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,269.45967,114.57849)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M285.349 671.338H351.051V697.17007H285.349Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.185" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M285.349 671.338H351.051V697.17007H285.349Z"/>
-<path transform="matrix(1,0,0,-1,319.92,28.289307)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#5f3f87"/>
+<path transform="matrix(1,0,0,-1,319.92,28.289307)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#6336a8"/>
 <path transform="matrix(1,0,0,-1,327.7729,31.871582)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.156V-2.041H-3.276V0H-4.428V-5.117H-3.276V-3.033H-1.156V-5.117H0V0Z"/>
 <g clip-path="url(#clip_220)">
 <path transform="matrix(1,0,0,-1,332.3047,33.334596)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.124V-2.091C-1.124-2.334-1.185-2.526-1.306-2.667-1.427-2.809-1.589-2.88-1.791-2.88-2.201-2.88-2.405-2.622-2.405-2.105V0H-3.529V-2.205C-3.529-3.231-3.106-3.743-2.259-3.743-1.793-3.743-1.42-3.528-1.142-3.097H-1.124V-3.654H0V0Z"/>
@@ -4720,7 +4720,39 @@ tQAAAABJRU5ErkJggg=="/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M271.65 609.343H297.289V630.934H271.65Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M271.65 609.343H297.289V630.934H271.65Z"/>
 </g>
-<g id="neon-category-circuits" fill="none" stroke="#005700" stroke-width=".55" stroke-linecap="square" stroke-linejoin="miter" opacity=".9">
+<style>
+  use[stroke="#000000"][stroke-width=".38"] {
+    fill: #000000;
+    stroke: #ffffff;
+    stroke-width: .22;
+  }
+  [fill="#abe1fa"] { fill: #83e7ff; }
+  [fill="#bacad3"] { fill: #82cce8; }
+  [fill="#98d8e3"] { fill: #72e4e2; }
+  [fill="#ce99c5"] { fill: #c7a0ff; }
+  [fill="#ee4a9a"] { fill: #ff7695; }
+  [fill="#6c3f58"] { fill: #c29cff; }
+  [fill="#5f3f87"] { fill: #b98cff; }
+  [fill="#6336a8"] { fill: #b98cff; }
+  [fill="#b7da9b"] { fill: #2e7f39; }
+  [fill="#ef8956"] { fill: #ad4f0d; }
+  [fill="#f79428"] { fill: #b45600; }
+  [fill="#f7ec10"] { fill: #766900; }
+  [fill="#ff7582"] { fill: #ffd0d3; }
+  [fill="#ef243f"] { fill: #ffd0d3; }
+  [fill="#b9243b"] { fill: #ffc7cb; }
+  @media (prefers-reduced-motion: reduce) {
+    #hsm-circuit-pulse { display: none; }
+  }
+</style>
+<g id="hsm-circuit-pulse" pointer-events="none">
+  <path d="M375 49V187H270L231 84" fill="none" stroke="#5f3f87" stroke-width="2.2" stroke-linecap="round" opacity=".12"/>
+  <circle r="2.15" fill="#000000" stroke="#5f3f87" stroke-width="1.1" opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.6s" repeatCount="indefinite"/>
+    <animateMotion path="M375 49V187H270L231 84" dur="3.6s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear"/>
+  </circle>
+</g>
+<g id="neon-category-circuits" fill="none" stroke="#005700" stroke-width=".55" stroke-linecap="square" stroke-linejoin="miter" opacity=".82">
   <path d="M12 22H48L54 16H183L198 31V105H151M12 22V105H72"/>
   <path d="M12 118H35L41 112H99L110 123V204H72M12 118V204H42"/>
   <path d="M114 116H132L138 110H190L202 122V204H170M114 116V204H143"/>
