@@ -70,3 +70,11 @@ addCrewmember.addEventListener("click", () => {
 });
 
 renderCrew();
+
+document.querySelectorAll("[data-reputation]").forEach((track) => {
+  for (let index = 0; index < 10; index += 1) {
+    const pip = document.createElement("i");
+    pip.setAttribute("aria-hidden", "true");
+    track.append(pip);
+  }
+});
