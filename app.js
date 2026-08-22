@@ -1353,7 +1353,7 @@ function tacticalRingMarkup(units) {
         ${ringDelayPocket(delayedActionFor(unit), start, end, 106, "action-delay")}
         ${ringDelayPocket(delayTimerFor(unit), start, end, 92, "timer-delay")}
         ${ringQueuedEffects(unit, start, end)}
-        <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;">${escapeHtml(label)}</text>
+        <text class="ring-slice-name" x="${labelPoint.x.toFixed(2)}" y="${labelPoint.y.toFixed(2)}" style="font-size:${labelSize.toFixed(2)}px;"><tspan>${escapeHtml(label)}</tspan>${unit.team === "pc" ? '<tspan class="ring-pc-role" dx="4">(PC)</tspan>' : ""}</text>
         ${unit.allyNpc ? `<image class="ring-ally-marker" href="SMILE.png?v=20260817" x="${(allyPoint.x - 10.5).toFixed(2)}" y="${(allyPoint.y - 10.5).toFixed(2)}" width="21" height="21" preserveAspectRatio="xMidYMid meet" aria-label="Ally NPC" />` : ""}
         ${icon ? `<image class="ring-avatar" href="${escapeHtml(icon)}" x="${(labelPoint.x - 12).toFixed(2)}" y="${(labelPoint.y - 12).toFixed(2)}" width="24" height="24" />` : ""}
       </g>
@@ -1767,7 +1767,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       <div class="unit-top">
         ${icon ? `<img class="unit-avatar" src="${escapeHtml(icon)}" alt="" />` : ""}
         <div>
-          <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${unit.allyNpc ? '<img class="ally-npc-marker" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${npcHealthMarkup(unit, { gm })}</div>
+          <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${unit.team === "pc" ? '<small class="unit-pc-role">(PC)</small>' : ""}${unit.allyNpc ? '<img class="ally-npc-marker" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${npcHealthMarkup(unit, { gm })}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
           ${npcCombatStatsMarkup(unit, { gm })}
         </div>
@@ -2253,8 +2253,16 @@ function notifyCommandWindowIfNeeded(active) {
 function ensureAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
   if (!audioContext) audioContext = new Context();
-  if (audioContext.state === "suspended") audioContext.resume();
+  if (audioContext.state === "suspended") void audioContext.resume().catch(() => {});
   return audioContext;
+}
+
+function resumeAudio() {
+  if ((mode === "gm" && gmSoundsMuted) || (mode === "player" && !alertsEnabled)) return;
+  try {
+    const audio = ensureAudio();
+    if (audio.state === "suspended") void audio.resume().catch(() => {});
+  } catch {}
 }
 
 function stopGmAudio() {
@@ -2442,6 +2450,14 @@ function disablePlayerAlerts() {
   safeLocalStorageSet("sa-atb-alerts", "off");
   defeatSlashAudio.pause();
   defeatSlashAudio.currentTime = 0;
+  for (const node of activeGmAudioNodes) {
+    try {
+      node.gain.gain.cancelScheduledValues(audioContext?.currentTime || 0);
+      node.gain.gain.setValueAtTime(0, audioContext?.currentTime || 0);
+      node.osc.stop();
+    } catch {}
+  }
+  activeGmAudioNodes.clear();
 }
 
 function shouldShowEngageClock() {
@@ -2830,9 +2846,11 @@ function render() {
   if (playerClock) playerClock.textContent = statusText();
   updateGmClockButton();
   enableAlerts.textContent = playerAlertLabel();
-  gmMuteSound.classList.toggle("hidden", mode !== "gm");
-  gmMuteSound.classList.toggle("muted", gmSoundsMuted);
-  gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
+  const soundsMuted = mode === "gm" ? gmSoundsMuted : !alertsEnabled;
+  gmMuteSound.classList.toggle("hidden", mode !== "gm" && mode !== "player");
+  gmMuteSound.classList.toggle("muted", soundsMuted);
+  gmMuteSound.title = soundsMuted ? "Unmute sounds" : "Mute sounds";
+  gmMuteSound.setAttribute("aria-label", gmMuteSound.title);
   visualModeToggle.classList.toggle("hidden", mode !== "gm" && mode !== "player");
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
@@ -3388,6 +3406,13 @@ visualModeToggle.addEventListener("click", () => {
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.addEventListener("click", () => action({ action: "reset" }, "danger"));
 gmMuteSound.addEventListener("click", () => {
+  if (mode === "player") {
+    if (alertsEnabled) disablePlayerAlerts();
+    else enablePlayerAlerts({ testSound: true });
+    postCombatMessage({ type: "sa-player-sound-enabled", enabled: alertsEnabled });
+    render();
+    return;
+  }
   gmSoundsMuted = !gmSoundsMuted;
   safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
   if (gmSoundsMuted) stopGmAudio();
@@ -3874,9 +3899,13 @@ function queueVisibleCombatRecovery() {
   clearTimeout(visibleRecoveryTimer);
   visibleRecoveryTimer = setTimeout(recoverVisibleCombatState, 80);
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) queueVisibleCombatRecovery(); });
-window.addEventListener("pageshow", queueVisibleCombatRecovery);
-window.addEventListener("focus", queueVisibleCombatRecovery);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) { queueVisibleCombatRecovery(); resumeAudio(); }
+});
+window.addEventListener("pageshow", () => { queueVisibleCombatRecovery(); resumeAudio(); });
+window.addEventListener("focus", () => { queueVisibleCombatRecovery(); resumeAudio(); });
+document.addEventListener("pointerdown", resumeAudio, { passive: true });
+document.addEventListener("touchend", resumeAudio, { passive: true });
 async function initializeEmbeddedPlayer() {
   document.body.classList.add("embedded-player");
   if (!campaignCharacterToken) {

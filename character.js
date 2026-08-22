@@ -1420,6 +1420,7 @@ function renderTabbedStatus() {
     return `<svg class="hud-heart" style="--heart-empty:${empty}" viewBox="0 0 24 22" aria-hidden="true"><path class="hud-heart-base" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/><path class="hud-heart-fill" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/></svg>`;
   }).join("");
   dom.tabStatusHearts.closest(".hud-health")?.classList.toggle("half-heart-emergency", heartUnits === 1 && current > 0);
+  dom.tabStatusHearts.closest(".hud-health")?.classList.toggle("zero-heart-emergency", heartUnits === 0 && maximum > 0);
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
@@ -5750,16 +5751,39 @@ function filenameForCharacter() {
   return raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "spaceship-architect-character";
 }
 
-function exportCurrentCharacter() {
+async function exportCurrentCharacter() {
   saveLibrary();
   const payload = { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: new Date().toISOString(), character };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const json = JSON.stringify(payload, null, 2);
+  const baseName = filenameForCharacter();
+  const mobileDevice = Boolean(navigator.userAgentData?.mobile) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  const sharedFile = mobileDevice && typeof File === "function"
+    ? new File([json], `${baseName}.sa2character.json`, { type: "application/json" })
+    : null;
+
+  if (sharedFile && typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [sharedFile] })) {
+    try {
+      await navigator.share({
+        files: [sharedFile],
+        title: `${character.identity.characterName || "Spaceship Architect"} Character`,
+      });
+      notice("Character export opened. Choose Save to Files or another destination.", "success");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${filenameForCharacter()}.sa2character`;
+  anchor.download = `${baseName}.sa2character`;
+  anchor.hidden = true;
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   notice("Character exported. Import the file on another device to continue.", "success");
 }
 document.addEventListener("input", (event) => {
@@ -6237,14 +6261,19 @@ async function confirmGearPicker(mode) {
   dom.gearPickerPurchase.disabled = true;
   dom.gearPickerReceive.disabled = true;
   const item = { ...gearDraft };
+  // A negative-balance confirmation must replace the picker, not sit underneath it.
+  dom.gearPickerModal.hidden = true;
   try {
     if (await addGearItem(item, mode)) {
       const itemName = item.name;
       closeGearPicker();
       renderAll();
       notice(`${itemName} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
+    } else {
+      dom.gearPickerModal.hidden = false;
     }
   } catch (error) {
+    dom.gearPickerModal.hidden = false;
     dom.gearPickerError.textContent = error.message;
   } finally {
     if (!dom.gearPickerModal.hidden) updateGearPickerActions();
@@ -6962,6 +6991,13 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if (event.data?.type === "sa-player-sound-enabled") {
+    playerSoundsEnabled = Boolean(event.data.enabled);
+    localStorage.setItem(PLAYER_SOUND_KEY, playerSoundsEnabled ? "on" : "off");
+    renderPlayerSoundSetting();
+    notice(playerSoundsEnabled ? "Player combat sounds enabled." : "All player combat sounds muted.", "success");
+    return;
+  }
   if (event.data?.type === "sa-combat-defeat-sequence") {
     beginCombatDeathSequence(event.data.duration);
     return;

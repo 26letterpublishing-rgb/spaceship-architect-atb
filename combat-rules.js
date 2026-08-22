@@ -59,7 +59,7 @@
       .sort((a, b) => a[0] - b[0])
       .map(([sides, count]) => `${count < 0 ? "-" : ""}${Math.abs(count)}D${sides}`);
     if (parsed.flat) terms.push(`${parsed.flat > 0 ? "+ " : "- "}${Math.abs(parsed.flat)}`);
-    return terms.join(" ").replace(/^\+\s*/, "") || "0";
+    return terms.join(" ").replace(/ (?=\d+D)/g, " + ").replace(/^\+\s*/, "") || "0";
   }
 
   function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0, attackType = "ranged", strengthDice = [], situationalAttackModifier = 0 } = {}) {
@@ -109,7 +109,11 @@
     const strengthFormula = Array.isArray(strengthDice) && strengthDice.length
       ? strengthDice.map((sides) => `1D${number(sides)}`).join(" + ")
       : "2D4";
-    const printedDamage = /All Strength Dice/i.test(String(weapon?.damage || "")) ? strengthFormula : weapon?.damage;
+    const weaponDamage = String(weapon?.damage || "").trim();
+    const printedStrengthDamage = /All Strength Dice/i.test(weaponDamage);
+    const printedDamage = attackType === "melee"
+      ? `${printedStrengthDamage ? strengthFormula : weaponDamage} + ${strengthFormula}`
+      : weaponDamage;
     const damage = parseDiceFormula(printedDamage);
     mergeDamageBonus(damage, weapon?.chargeBonus, Math.max(0, number(charges)));
     if (aimDie > 0) damage.dice.set(number(aimDie), (damage.dice.get(number(aimDie)) || 0) + 1);

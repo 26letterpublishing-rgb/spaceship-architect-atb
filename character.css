@@ -1528,6 +1528,8 @@ button,
 .hud-heart-fill{fill:#ff5068;stroke:#ff8798;stroke-width:.8;clip-path:inset(0 var(--heart-empty,100%) 0 0)}
 .hud-health.half-heart-emergency{border-color:#ff405c;animation:half-heart-emergency 1.65s ease-in-out infinite}
 .hud-health.half-heart-emergency .hud-heart{filter:drop-shadow(0 0 7px rgba(255,37,67,.95))}
+.hud-health.zero-heart-emergency{border-color:#ff173d!important;background:linear-gradient(180deg,#3d050e,#13030a)!important;animation:zero-heart-emergency .42s ease-in-out infinite alternate}
+.hud-health.zero-heart-emergency .hud-heart{filter:drop-shadow(0 0 8px rgba(255,20,52,1))}
 .hud-overload{position:absolute;z-index:4;right:6px;bottom:-24px;min-height:22px!important;display:flex!important;grid-auto-flow:column;gap:6px;padding:3px 8px!important;border-color:#b52f45!important;color:#ff91a2;font-size:.47rem;font-weight:900;background:#2b0810!important;box-shadow:0 0 13px rgba(255,47,76,.35)!important}
 .hud-overload[hidden]{display:none!important}.hud-overload strong{color:#fff!important;font-size:.49rem!important}
 .sync-indicator{grid-area:room;align-self:end;justify-self:center;transform:translateY(22px);display:flex;align-items:center;gap:5px;padding:2px 6px;border:1px solid #33495b;border-radius:999px;color:#889cac;background:#06101a;font-size:.42rem;font-weight:900;pointer-events:none}
@@ -1535,6 +1537,7 @@ button,
 .sync-indicator.saving i{animation:sync-indicator-pulse .7s ease-in-out infinite alternate}
 @keyframes sync-indicator-pulse{to{opacity:.35;transform:scale(.72)}}
 @keyframes half-heart-emergency{0%,100%{box-shadow:inset 0 1px rgba(255,255,255,.08)}50%{box-shadow:inset 0 0 13px rgba(255,45,72,.25),0 0 11px rgba(255,45,72,.42)}}
+@keyframes zero-heart-emergency{from{box-shadow:inset 0 0 5px rgba(255,0,39,.28),0 0 5px rgba(255,0,39,.28);filter:brightness(.78)}to{box-shadow:inset 0 0 22px rgba(255,0,39,.82),0 0 18px rgba(255,0,39,.95);filter:brightness(1.42)}}
 .gm-adjustment-bar{position:sticky;z-index:190;top:0;width:min(1500px,calc(100% - 28px));margin:8px auto;padding:9px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;border:2px solid #ffca55;background:linear-gradient(90deg,#382405,#111925 48%,#382405);box-shadow:0 8px 28px #000,0 0 22px rgba(255,202,85,.32)}
 .gm-adjustment-bar span,.gm-adjustment-bar strong{display:block}.gm-adjustment-bar span{color:#ffca55;font-size:.58rem}.gm-adjustment-bar strong{color:#fff;font-size:.9rem}.gm-adjustment-bar p{margin:0;color:#d6c9ac;font:600 .67rem Arial,sans-serif}.gm-adjustment-bar>div:last-child{display:flex;gap:7px}.gm-adjustment-mode .character-tabs,.gm-adjustment-mode .global-character-hud{display:none!important}.gm-adjustment-mode .workflow-bar{position:static}.gm-adjustment-mode [data-gm-direct-edit],.gm-adjustment-mode [data-gm-skill-key]{outline:1px solid rgba(255,202,85,.45)}
 .gm-adjustment-mode #restExertion,.gm-adjustment-mode #spendOneExertion,.gm-adjustment-mode #giftReverence,.gm-adjustment-mode #spendOneReverence,.gm-adjustment-mode #purchaseDramaCard,.gm-adjustment-mode #maxHpBonus,.gm-adjustment-mode #debugReverence{display:none!important}
@@ -1584,7 +1587,7 @@ body.homeworld-earth::after{animation-duration:13s;background:#67ffd5;box-shadow
 body.dice-input-flicker::before{animation:dice-input-flicker .72s steps(2,end)}
 @keyframes dice-input-flicker{0%,100%{opacity:.16}20%,55%{opacity:.03}35%,72%{opacity:.31}}
 @media(max-width:430px){.skill-equipment-choices{grid-template-columns:1fr}.sync-indicator{font-size:.37rem}}
-@media(prefers-reduced-motion:reduce){.hud-health.half-heart-emergency,.sync-indicator.saving i{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.hud-health.half-heart-emergency,.hud-health.zero-heart-emergency,.sync-indicator.saving i{animation:none!important}}
 @media(max-width:1080px){.crew-panel{grid-column:1/-1}}
 /* Per-device compact header preference. */
 .interface-banner-hidden .creator-header {
