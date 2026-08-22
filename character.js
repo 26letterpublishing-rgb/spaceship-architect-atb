@@ -2599,11 +2599,75 @@ function identityComplete() {
     && fields.every((field) => String(character.identity[field] ?? "").trim());
 }
 
+let previousWorkflowRequirements = new Map();
+let workflowRequirementCharacterId = "";
+let workflowGhostDirection = 1;
+
+function animateCompletedWorkflowRequirements(removed, previousRects) {
+  for (const item of removed) {
+    const rect = previousRects.get(item.key);
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+    const ghost = document.createElement("span");
+    ghost.className = `workflow-completion-ghost ${workflowGhostDirection > 0 ? "whiz-right" : "whiz-left"}`;
+    workflowGhostDirection *= -1;
+    ghost.textContent = item.label;
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.top = `${rect.top}px`;
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.height = `${rect.height}px`;
+    document.body.append(ghost);
+    window.setTimeout(() => ghost.remove(), 850);
+  }
+}
+
 function renderWorkflowRequirements(items) {
-  dom.nextRequirement.innerHTML = items.map(({ label, tone = "" }) => (
-    `<span class="workflow-requirement ${tone}" role="listitem">${escapeHtml(label)}</span>`
+  const normalized = items.map((item, index) => ({
+    ...item,
+    key: item.key || `requirement-${index}-${item.label}`,
+  }));
+  const previousRects = new Map();
+  dom.nextRequirement.querySelectorAll("[data-workflow-key]").forEach((element) => {
+    previousRects.set(element.dataset.workflowKey, element.getBoundingClientRect());
+  });
+  const sameDraft = workflowRequirementCharacterId === character.id && character.phase === "draft";
+  const nextKeys = new Set(normalized.map((item) => item.key));
+  const removed = sameDraft
+    ? [...previousWorkflowRequirements.values()].filter((item) => !nextKeys.has(item.key) && item.tone !== "ready")
+    : [];
+
+  dom.nextRequirement.innerHTML = normalized.map(({ key, label, tone = "", target = "" }) => (
+    `<button class="workflow-requirement ${tone}" type="button" data-workflow-key="${escapeAttribute(key)}"${target ? ` data-workflow-target="${escapeAttribute(target)}"` : ""}>${escapeHtml(label)}</button>`
   )).join("");
-  dom.nextRequirement.setAttribute("aria-label", items.map((item) => item.label).join(". "));
+  dom.nextRequirement.setAttribute("aria-label", normalized.map((item) => item.label).join(". "));
+  previousWorkflowRequirements = new Map(normalized.map((item) => [item.key, item]));
+  workflowRequirementCharacterId = character.id;
+  if (removed.length) animateCompletedWorkflowRequirements(removed, previousRects);
+}
+
+function firstIncompleteIdentityTarget() {
+  const fields = ["playerName", "characterName", "sex", "age", "height", "weight", "hair", "eyes", "description"];
+  const missing = fields.find((field) => !String(character.identity[field] ?? "").trim());
+  return missing ? `[data-field="identity.${missing}"]` : ".identity-panel";
+}
+
+function scrollToWorkflowTarget(selector) {
+  if (!selector) return;
+  const target = document.querySelector(selector);
+  if (!target) return;
+  const section = target.closest("[data-sheet-section]")?.dataset.sheetSection;
+  if (section && isTabbedCharacterLayout()) showSheetSection(section);
+  window.requestAnimationFrame(() => {
+    const currentTarget = document.querySelector(selector);
+    if (!currentTarget) return;
+    const highlight = currentTarget.matches("input, select, textarea, button")
+      ? currentTarget.closest("label, .panel-heading") || currentTarget
+      : currentTarget;
+    currentTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+    highlight.classList.remove("workflow-target-pulse");
+    void highlight.offsetWidth;
+    highlight.classList.add("workflow-target-pulse");
+    window.setTimeout(() => highlight.classList.remove("workflow-target-pulse"), 1500);
+  });
 }
 
 function renderCharacterPicker() {
@@ -2818,6 +2882,7 @@ function renderWorkflow() {
   dom.workflowBar.classList.remove("invalid");
   dom.workflowBar.classList.toggle("draft-active", character.phase === "draft");
   dom.finalizeCharacter.hidden = character.phase === "finalized";
+  dom.finalizeCharacter.classList.remove("finalize-spectrum");
   dom.spendExperience.hidden = character.phase !== "finalized";
 
   if (character.phase === "finalizing") {
@@ -2854,6 +2919,7 @@ function renderWorkflow() {
     dom.phaseBadge.textContent = "Manual Data Entry";
     dom.finalizeCharacter.textContent = "Finalize Character";
     dom.finalizeCharacter.disabled = false;
+    dom.finalizeCharacter.classList.remove("finalize-spectrum");
     renderWorkflowRequirements([
       { label: "Copy Physical Character Data" },
       { label: "Ready to Finalize", tone: "ready" },
@@ -2866,34 +2932,40 @@ function renderWorkflow() {
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
   const requirements = [];
-  if (!character.identity.race.trim()) requirements.push({ label: "Choose Race" });
+  if (!character.identity.race.trim()) requirements.push({ key: "race", label: "Choose Race", target: "#racePicker" });
   else if (!validation.raceComplete) {
     const race = selectedRace();
-    requirements.push({ label: `Choose ${race?.name || "Race"} Type` });
+    requirements.push({ key: "race", label: `Choose ${race?.name || "Race"} Type`, target: "#raceTypePicker" });
   }
-  if (!character.identity.classId) requirements.push({ label: "Choose Class" });
-  if (!validation.raceClassCompatible) requirements.push({ label: "Change incompatible Race or Class", tone: "warning" });
-  if (!validation.homePlanetComplete) requirements.push({ label: "Choose Home Planet" });
+  if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classPicker" });
+  if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#racePicker" });
+  if (!validation.homePlanetComplete) requirements.push({ key: "home-planet", label: "Choose Home Planet", target: "#homePlanetPicker" });
   if (!validation.attributesComplete) {
     const difference = validation.attributeBudget - validation.attributeSpent;
     requirements.push({
+      key: "attributes",
       label: difference > 0 ? `Spend ${difference} Attribute Points` : `Refund ${Math.abs(difference)} Attribute Points`,
       tone: difference < 0 ? "warning" : "",
+      target: ".attributes-panel",
     });
   } else if (!validation.skillsComplete || validation.invalidSkills.size) {
     const difference = validation.skillBudget - validation.skillSpent;
     requirements.push({
+      key: "skills",
       label: difference > 0 ? `Spend ${difference} Skill Points` : difference < 0 ? `Refund ${Math.abs(difference)} Skill Points` : `Resolve ${validation.invalidSkills.size} invalid skill ${validation.invalidSkills.size === 1 ? "entry" : "entries"}`,
       tone: difference < 0 || validation.invalidSkills.size ? "warning" : "",
+      target: ".skills-panel",
     });
   }
-  if (!backgroundComplete()) requirements.push({ label: "Write Backstory" });
-  else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ label: "Roll on FUBS Chart" });
-  if (!identityComplete()) requirements.push({ label: "Fill in Identity" });
-  if (validation.ready) requirements.push({ label: "Ready to Finalize", tone: "ready" });
+  if (!backgroundComplete()) requirements.push({ key: "backstory", label: "Write Backstory", target: ".notes-panel" });
+  else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ key: "fubs", label: "Roll on FUBS Chart", target: "#fubsButton" });
+  if (!identityComplete()) requirements.push({ key: "identity", label: "Fill in Identity", target: firstIncompleteIdentityTarget() });
+  dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
-  dom.workflowDetail.textContent = validation.ready
-    ? "Finalization is available. Any remaining identity or FUBS steps are shown above."
+  dom.workflowDetail.textContent = validation.ready && requirements.length === 0
+    ? "All creation tasks are complete. This character is ready to finalize."
+    : validation.ready
+      ? "Finalization is available. Optional creation tasks are still shown above."
     : validation.attributesComplete
       ? "All currently available creation steps are shown."
       : `Skills unlock after Attribute allocation is exactly ${validation.attributeBudget} points.`;
@@ -6205,6 +6277,11 @@ dom.grantXp.addEventListener("click", () => {
 });
 
 dom.finalizeCharacter.addEventListener("click", beginFinalization);
+dom.nextRequirement.addEventListener("click", (event) => {
+  const task = event.target.closest("[data-workflow-target]");
+  if (!task) return;
+  scrollToWorkflowTarget(task.dataset.workflowTarget);
+});
 
 dom.spendExperience.addEventListener("click", () => {
   if (character.phase !== "finalized" || character.pendingRoll) return;
