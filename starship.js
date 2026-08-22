@@ -72,9 +72,36 @@ addCrewmember.addEventListener("click", () => {
 renderCrew();
 
 document.querySelectorAll("[data-reputation]").forEach((track) => {
-  for (let index = 0; index < 10; index += 1) {
+  const values = ["+5", "+4", "+3", "+2", "+1", "0", "+1", "+2", "+3", "+4", "+5"];
+  values.forEach((value) => {
     const pip = document.createElement("i");
-    pip.setAttribute("aria-hidden", "true");
+    pip.textContent = value;
     track.append(pip);
-  }
+  });
 });
+
+const minerals = [
+  "Aethion", "Infinium", "Carmot", "Dark Phaedon", "Endernium", "Necronium",
+  "Phaedon", "Drakonite", "Mirium", "Argol", "Paridon", "Crystilium", "Ragnaron",
+  "Transpherion", "Hpidium", "Umbrehium", "Dianium", "Zennium", "Rupium", "Crixium",
+  "Zeltera", "Magnesium", "Iron"
+];
+
+const mineralRows = document.querySelector("#mineralRows");
+minerals.forEach((mineral) => {
+  const row = document.createElement("tr");
+  const name = document.createElement("td");
+  const quantity = document.createElement("td");
+  name.textContent = mineral;
+  row.append(name, quantity);
+  mineralRows.append(row);
+});
+
+const shipGrid = document.querySelector(".ship-grid");
+for (let index = 0; index < 400; index += 1) {
+  const cell = document.createElement("span");
+  cell.className = "ship-grid-cell";
+  cell.setAttribute("role", "gridcell");
+  cell.setAttribute("aria-label", `Ship grid square ${index + 1}`);
+  shipGrid.append(cell);
+}

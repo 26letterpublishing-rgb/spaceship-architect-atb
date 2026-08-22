@@ -5,15 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260822-sheet-fidelity-pass" />
+    <link rel="stylesheet" href="starship.css?v=20260822-blueprint" />
+    <link rel="stylesheet" href="starship-layout.css?v=20260822-blueprint" />
   </head>
   <body>
     <header class="starship-header">
       <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
-      <div class="starship-heading">
-        <span>Under Construction</span>
-        <h1>Starship Creator</h1>
-      </div>
+      <div class="starship-heading"><span>Under Construction</span><h1>Starship Creator</h1></div>
       <a class="back-link" href="index.html">Back to Main Menu</a>
     </header>
 
@@ -24,127 +22,110 @@
       </section>
 
       <section class="ship-console" aria-label="Starship statistics">
-        <div class="console-column console-left">
-          <section class="console-group resistance-group">
-            <h2>Resistance</h2>
-            <div class="health-stat">
-              <strong>Shield HP:</strong><output></output><span>Max</span><output class="maximum"></output>
-              <small>Damage Reduction</small><output class="reduction"></output>
-            </div>
-            <div class="health-stat">
-              <strong>Hull HP:</strong><output></output><span>Max</span><output class="maximum"></output>
-              <small>Damage Reduction</small><output class="reduction"></output>
-            </div>
-          </section>
-
-          <div class="lower-left-stats">
-            <section class="console-group detection-group">
-              <h2>Detection</h2>
-              <label class="accent-label sensor-range">Sensor Range<output></output></label>
-              <label class="accent-label sensor-dice">Sensor Dice<output></output></label>
-              <label class="accent-label lockon-dice">Lock-On Dice<output></output></label>
-            </section>
-            <section class="console-group security-group">
-              <h2>Digital Security</h2>
-              <label class="accent-label firewall">Firewall Level<output></output></label>
-              <label class="accent-label break-lock">Break Lock-On<output></output></label>
-            </section>
+        <section class="console-group resistance-group" data-mobile-order="1">
+          <h2>Resistance</h2>
+          <div class="health-stat">
+            <strong>Shield HP:</strong><output class="health-current"></output><span>Max</span><output class="maximum"></output>
+            <small>Damage Reduction</small><output class="reduction"></output>
           </div>
-        </div>
-
-        <section class="console-group mobility-group">
-          <h2>Defense &amp; Mobility</h2>
-          <div class="masking-equation" aria-label="Masking Level calculation">
-            <label class="exhaust">Exhaust<output></output></label><b>+</b>
-            <label class="darkveil">Darkveil<output></output></label><b>+</b>
-            <span class="hsm-token">HSM</span><b>=</b>
-            <label class="masking">Masking Lvl<output></output></label>
+          <div class="health-stat">
+            <strong>Hull HP:</strong><output class="health-current"></output><span>Max</span><output class="maximum"></output>
+            <small>Damage Reduction</small><output class="reduction"></output>
           </div>
+        </section>
 
-          <div class="mobility-diagram">
-            <svg class="dependency-lines" viewBox="0 0 620 250" preserveAspectRatio="none" aria-hidden="true">
-              <defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"></path></marker></defs>
-              <path d="M95 29 L207 124" />
-              <path d="M117 77 L207 124" />
-              <path d="M139 125 L207 124" />
-              <path d="M161 173 L207 124" />
-              <circle cx="207" cy="124" r="5" />
-              <path class="arrow-line" d="M207 124 L280 71" />
-              <path class="arrow-line" d="M207 124 L285 202" />
+        <section class="console-group mobility-group" data-mobile-order="2">
+          <h2>Defense &amp;<br />Mobility</h2>
+          <div class="mobility-blueprint">
+            <svg class="mobility-wires" viewBox="0 0 760 410" preserveAspectRatio="none" aria-hidden="true">
+              <path class="hsm-spine" d="M488 16 V316 H287 Q276 316 271 305 L246 244" />
+              <path class="cyan-wire" d="M457 189 h21 v31 h-21 v52 h-82" />
+              <path class="cyan-wire" d="M457 205 h9" />
+              <path class="thin-wire" d="M178 182 L287 249" />
+              <path class="thin-wire" d="M204 228 L287 249" />
+              <path class="thin-wire" d="M230 274 L287 249" />
+              <path class="thin-wire" d="M256 320 L287 249" />
+              <path class="thin-wire arrow" d="M287 249 L363 186" />
+              <path class="thin-wire arrow" d="M287 249 L330 317" />
+              <circle class="junction" cx="287" cy="249" r="6" />
             </svg>
-            <div class="impulse-stack" aria-label="Impulse values">
-              <span class="impulse-rail" aria-hidden="true"></span>
-              <span class="vertical-label">Impulse</span>
-              <label><small>Thruster 1</small><output></output></label>
-              <label><small>Thruster 2</small><output></output></label>
-              <label><small>Thruster 3</small><output></output></label>
-              <label><small>Thruster 4</small><output></output></label>
+
+            <label class="hull-modifier reverse-d"><span>Hull Size<br />Modifier</span><output></output></label>
+            <div class="masking-equation" aria-label="Masking Level calculation">
+              <label class="equation-field exhaust"><span>Exhaust</span><output></output></label><b>+</b>
+              <label class="equation-field darkveil"><span>Darkveil</span><output></output></label><b>+</b>
+              <span class="hsm-token">HSM</span><b>=</b>
+              <label class="equation-field masking"><span>Masking Lvl</span><output></output></label>
             </div>
-            <div class="evade-result"><strong>Evade<br />Dice</strong><output></output></div>
-            <div class="thruster-count"><span># of<br />Thrusters</span></div>
-            <div class="move-speed"><span>Move<br />Speed</span><output></output></div>
+
+            <div class="impulse-stack" aria-label="Impulse values">
+              <span class="impulse-rail" aria-hidden="true"></span><span class="impulse-title">Impulse</span><span class="rail-label">HSM/2</span>
+              <label class="thruster thruster-1"><small>Thruster 1</small><output></output><i>+</i></label>
+              <label class="thruster thruster-2"><small>Thruster 2</small><output></output><i>+</i></label>
+              <label class="thruster thruster-3"><small>Thruster 3</small><output></output><i>+</i></label>
+              <label class="thruster thruster-4"><small>Thruster 4</small><output></output><i>+</i></label>
+            </div>
+
+            <div class="evade-result"><strong class="reverse-d">Evade<br />Dice</strong><div class="evade-value"><output></output><b>D</b><output></output></div></div>
+            <div class="thruster-count"># of<br />Thrusters</div>
+            <label class="move-speed reverse-d"><span>Move<br />Speed</span><output></output></label>
             <table class="speed-chart" aria-label="Move Speed die type chart">
               <thead><tr><th>Move Speed</th><th>Die Type</th></tr></thead>
-              <tbody>
-                <tr><td>3 or less</td><td>D4</td></tr><tr><td>4-7</td><td>D6</td></tr>
-                <tr><td>8-11</td><td>D8</td></tr><tr><td>12-15</td><td>D10</td></tr>
-                <tr><td>16+</td><td>D12</td></tr>
-              </tbody>
+              <tbody><tr><td>3 or less</td><td>D4</td></tr><tr><td>4-7</td><td>D6</td></tr><tr><td>8-11</td><td>D8</td></tr><tr><td>12-15</td><td>D10</td></tr><tr><td>16+</td><td>D12</td></tr></tbody>
             </table>
             <span class="defense-plus">+</span><span class="defense-hsm hsm-token">HSM</span><span class="defense-equals">=</span>
             <div class="defense-score">Defense<br />Score</div>
           </div>
-
-          <label class="hull-modifier">Hull Size<br />Modifier<output></output></label>
         </section>
 
-        <div class="console-column console-right">
-          <section class="group-credits">
-            <h2>Group Credits</h2>
-            <output></output>
-          </section>
-          <section class="fuel-panel">
-            <div class="fuel-dial" aria-hidden="true"><i></i></div>
-            <table><thead><tr><th>FTL Fuel</th><th>Qty.</th></tr></thead>
-              <tbody><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Other</td><td></td></tr></tbody>
-            </table>
-          </section>
-          <section class="power-panel">
-            <h2>Power</h2>
-            <label class="en"><span>EN</span><output></output><i>/</i><output></output></label>
-            <label class="au"><span>AU</span><output></output></label>
-          </section>
-        </div>
+        <section class="console-group detection-group" data-mobile-order="3">
+          <h2>Detection</h2>
+          <label class="accent-label sensor-range"><span>Sensor<br />Range</span><output></output></label>
+          <label class="accent-label sensor-dice"><span>Sensor<br />Dice</span><output></output></label>
+          <label class="accent-label lockon-dice"><span>Lock-On<br />Dice</span><output></output></label>
+        </section>
+
+        <section class="console-group security-group" data-mobile-order="4">
+          <h2>Digital<br />Security</h2>
+          <label class="accent-label firewall"><span>Firewall<br />Level</span><output></output></label>
+          <label class="break-lock"><span>Break Lock-On</span><output></output></label>
+        </section>
+
+        <section class="console-group power-panel" data-mobile-order="5">
+          <h2>Power</h2>
+          <label class="en"><span class="reverse-d">EN</span><output></output><i>/</i><output></output></label>
+          <label class="au"><span class="reverse-d">AU</span><output></output></label>
+        </section>
+
+        <section class="fuel-panel" data-mobile-order="6">
+          <table><thead><tr><th>FTL Fuel</th><th>Qty.</th></tr></thead>
+            <tbody><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr></tbody>
+          </table>
+        </section>
+
+        <section class="group-credits" data-mobile-order="7"><h2>Group Credits</h2><output></output></section>
       </section>
 
       <section class="construction-workspace">
-        <aside class="ship-identity">
-          <h2>Starship Identity</h2>
-          <label>Ship Title<input type="text" data-ship-field="title" autocomplete="off" /></label>
-          <label>Affiliation<input type="text" data-ship-field="affiliation" autocomplete="off" /></label>
-          <label>Class<input type="text" data-ship-field="class" autocomplete="off" /></label>
-          <div class="crewmembers-heading"><h3>Crewmembers</h3><button id="addCrewmember" type="button" title="Add crewmember" aria-label="Add crewmember">+</button></div>
-          <div id="crewmemberList" class="crewmember-list"></div>
+        <aside class="ship-sidebar">
+          <section class="ship-identity">
+            <label>Ship Title:<input type="text" data-ship-field="title" autocomplete="off" /></label>
+            <label>Affiliation:<input type="text" data-ship-field="affiliation" autocomplete="off" /></label>
+            <label>Class:<input type="text" data-ship-field="class" autocomplete="off" /></label>
+            <div class="crewmembers-heading"><h2>Crewmembers</h2><button id="addCrewmember" type="button" title="Add crewmember" aria-label="Add crewmember">+</button></div>
+            <div id="crewmemberList" class="crewmember-list"></div>
+          </section>
+          <section class="mineral-panel"><table aria-label="Mineral inventory"><thead><tr><th>Mineral</th><th>Qty.</th></tr></thead><tbody id="mineralRows"></tbody></table></section>
         </aside>
 
         <section class="ship-grid-panel">
-          <div class="ship-grid" aria-label="Future SIC construction grid"><div class="grid-origin" title="Ship grid origin"></div></div>
+          <div class="ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div>
           <footer><span>Total Squares Used <output>0</output></span><span>Scale Rank <output></output></span></footer>
         </section>
       </section>
 
       <section class="ship-lower-sheet">
-        <section class="weapons-panel">
-          <h2>Weapons</h2>
-          <table aria-label="Starship weapons">
-            <thead><tr><th>Weapon</th><th>Damage</th><th>Notes</th></tr></thead>
-            <tbody>
-              <tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr>
-              <tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr>
-              <tr><td></td><td></td><td></td></tr>
-            </tbody>
-          </table>
-        </section>
+        <section class="weapons-panel"><table aria-label="Starship weapons"><thead><tr><th>Weapon</th><th>Damage</th><th>Notes</th></tr></thead><tbody><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr></tbody></table></section>
         <section class="reputation-panel">
           <h2>Reputation</h2>
           <div class="reputation-grid">
@@ -154,10 +135,10 @@
             <div><strong>Powerful</strong><span data-reputation="powerful"></span><strong>Weak</strong></div>
             <div><strong>Cunning</strong><span data-reputation="cunning"></span><strong>Exploitable</strong></div>
           </div>
-          <label class="popularity">Popularity <output></output><b>%</b></label>
+          <label class="popularity">Popularity: <output></output><b>%</b></label>
         </section>
       </section>
     </main>
-    <script src="starship.js?v=20260822-sheet-fidelity-pass"></script>
+    <script src="starship.js?v=20260822-blueprint"></script>
   </body>
 </html>
