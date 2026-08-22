@@ -3770,7 +3770,7 @@ SUVORK5CYII="/>
 <use data-text="w" xlink:href="#font_169_90" transform="matrix(8,0,0,-8,494.16,161.5)" fill="#ffffff"/>
 <use data-text="e" xlink:href="#font_169_72" transform="matrix(8,0,0,-8,501.72,161.5)" fill="#ffffff"/>
 <use data-text="r" xlink:href="#font_169_85" transform="matrix(8,0,0,-8,508.28,161.5)" fill="#ffffff"/>
-<path transform="matrix(1,0,0,-1,118.68,130.2207)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#6c3f58"/>
+<path transform="matrix(1,0,0,-1,118.68,130.2207)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#ff7582"/>
 <path transform="matrix(1,0,0,-1,126.6454,133.80298)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-2.958V-5.117H-1.806V-3.129H-.146V-2.195H-1.806V-.938H0V0Z"/>
 <g clip-path="url(#clip_183)">
 <path transform="matrix(1,0,0,-1,128.417,134.52368)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.12 .109 .18 .25 .18 .421 .18 .59 .12 .728 0 .835-.12 .942-.277 .996-.469 .996-.66 .996-.815 .942-.937 .835-1.058 .728-1.119 .59-1.119 .421-1.119 .257-1.058 .118-.937 .005-.815-.108-.66-.164-.469-.164-.277-.164-.12-.109 0 0ZM.087-.742H-1.041V-4.396H.087Z"/>
@@ -3856,23 +3856,23 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,44.0492,163.19983)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.42 .378 .63 .893 .63 1.545 .63 2.148 .427 2.633 .019 3-.389 3.367-.951 3.55-1.668 3.55-2.396 3.55-2.974 3.367-3.401 3-3.829 2.633-4.042 2.125-4.042 1.476-4.042 .847-3.836 .35-3.425-.017-3.013-.384-2.447-.567-1.727-.567-.996-.567-.42-.378 0 0ZM-.728 1.522C-.728 .748-1.047 .36-1.685 .36-2.354 .36-2.689 .737-2.689 1.491-2.689 1.852-2.601 2.13-2.427 2.327-2.253 2.524-2.008 2.622-1.693 2.622-1.049 2.622-.728 2.256-.728 1.522Z"/>
 <path transform="matrix(1,0,0,-1,48.3615,159.72229)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.079 .031-.188 .046-.329 .046-.877 .046-1.257-.22-1.468-.751H-1.485V-.023H-2.817V-3.949H-1.485V-2.074C-1.485-1.742-1.403-1.479-1.24-1.286-1.077-1.093-.851-.997-.561-.997-.347-.997-.16-1.036 0-1.116V0Z"/>
 </g>
-<use data-text="S" xlink:href="#font_176_482" transform="matrix(8.6372,0,0,-7.852,21.1635,163.67133)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,26.004652,163.67133)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(8.6372,0,0,-7.852,30.677378,163.67133)" fill="#231f20"/>
-<use data-text="s" xlink:href="#font_176_483" transform="matrix(8.6372,0,0,-7.852,35.902887,163.67133)" fill="#231f20"/>
-<use data-text="o" xlink:href="#font_176_376" transform="matrix(8.6372,0,0,-7.852,39.703256,163.67133)" fill="#231f20"/>
-<use data-text="r" xlink:href="#font_176_459" transform="matrix(8.6372,0,0,-7.852,44.980585,163.67133)" fill="#231f20"/>
-<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,48.41819,163.67133)" fill="#231f20"/>
+<use data-text="S" xlink:href="#font_176_482" transform="matrix(8.6372,0,0,-7.852,21.1635,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,26.004652,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(8.6372,0,0,-7.852,30.677378,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="s" xlink:href="#font_176_483" transform="matrix(8.6372,0,0,-7.852,35.902887,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="o" xlink:href="#font_176_376" transform="matrix(8.6372,0,0,-7.852,39.703256,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="r" xlink:href="#font_176_459" transform="matrix(8.6372,0,0,-7.852,44.980585,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,48.41819,163.67133)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <g clip-path="url(#clip_191)">
 <path transform="matrix(1,0,0,-1,28.8054,171.52338)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.976 0 1.757 .256 2.343 .767 2.929 1.278 3.222 1.962 3.222 2.818 3.222 4.605 2.148 5.498 0 5.498H-2.142V0H0ZM-.114 4.49C.488 4.49 .955 4.339 1.288 4.039 1.622 3.739 1.788 3.327 1.788 2.803 1.788 2.248 1.62 1.81 1.284 1.488 .948 1.166 .485 1.005-.105 1.005H-.78V4.49H-.114Z"/>
 <path transform="matrix(1,0,0,-1,34.1299,166.79993)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.142 .117 .213 .268 .213 .452 .213 .634 .142 .782 0 .897-.142 1.012-.327 1.07-.555 1.07-.78 1.07-.964 1.012-1.107 .897-1.25 .782-1.322 .634-1.322 .452-1.322 .276-1.25 .127-1.107 .006-.964-.116-.78-.176-.555-.176-.327-.176-.142-.118 0 0ZM.103-.797H-1.2299999V-4.723H.103Z"/>
 <path transform="matrix(1,0,0,-1,38.6277,170.40772)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.318-.189-.642-.284-.974-.284-1.348-.284-1.642-.185-1.856 .013-2.069 .211-2.176 .484-2.176 .832-2.176 1.19-2.064 1.47-1.841 1.674-1.617 1.877-1.314 1.978-.932 1.978-.589 1.978-.278 1.884 0 1.695V2.722C-.228 2.845-.596 2.906-1.105 2.906-1.842 2.906-2.43 2.714-2.87 2.329-3.31 1.944-3.53 1.419-3.53 .751-3.53 .174-3.325-.298-2.914-.663-2.504-1.029-1.967-1.212-1.303-1.212-.735-1.212-.301-1.132 0-.974V0Z"/>
 <path transform="matrix(1,0,0,-1,43.3808,169.39551)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .583-.172 1.044-.517 1.384-.861 1.724-1.348 1.894-1.978 1.894-2.585 1.894-3.097 1.704-3.513 1.323-3.929 .942-4.137 .426-4.137-.226-4.137-.855-3.945-1.345-3.559-1.697-3.174-2.048-2.633-2.224-1.936-2.224-1.298-2.224-.779-2.127-.38-1.932V-1.058C-.74-1.263-1.157-1.365-1.632-1.365-2.377-1.365-2.772-1.08-2.817-.51H0V0ZM-2.826 .234C-2.792 .474-2.697 .675-2.541 .836-2.385 .997-2.2 1.077-1.986 1.077-1.486 1.077-1.236 .796-1.236 .234H-2.826Z"/>
 </g>
-<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,25.9713,171.52338)" fill="#231f20"/>
-<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,32.336919,171.52338)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,34.789884,171.52338)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,38.935739,171.52338)" fill="#231f20"/>
+<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,25.9713,171.52338)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,32.336919,171.52338)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,34.789884,171.52338)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,38.935739,171.52338)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M54.825 614.393H105.145008V640.225H54.825Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.185" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M54.825 614.393H105.145008V640.225H54.825Z"/>
 <path transform="matrix(1,0,0,-1,16,183.6853)" d="M0 0V-19.612L38.232-22.121V2.509Z" fill="#ce99c5"/>
@@ -3885,24 +3885,24 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,45.3946,191.7735)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.552 .529 .829 1.226 .829 2.089 .829 2.93 .562 3.608 .03 4.122-.503 4.635-1.201 4.892-2.064 4.892-2.978 4.892-3.712 4.624-4.266 4.087-4.82 3.55-5.097 2.847-5.097 1.978-5.097 1.155-4.824 .487-4.279-.025-3.733-.537-3.027-.794-2.161-.794-1.273-.794-.552-.529 0 0ZM-1.006 3.351C-.739 3.034-.605 2.59-.605 2.021-.605 1.474-.743 1.046-1.019 .738-1.294 .43-1.667 .276-2.136 .276-2.592 .276-2.96 .434-3.241 .751-3.522 1.068-3.663 1.499-3.663 2.044-3.663 2.58-3.522 3.012-3.241 3.337-2.96 3.663-2.58 3.826-2.102 3.826-1.638 3.826-1.273 3.668-1.006 3.351Z"/>
 <path transform="matrix(1,0,0,-1,51.2673,190.06739)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 1.079-.478 1.618-1.434 1.618-2.041 1.618-2.504 1.379-2.821 .901H-2.838V1.522H-4.171V-2.404H-2.838V-.165C-2.838 .083-2.764 .288-2.615 .449-2.466 .61-2.276 .69-2.045 .69-1.568 .69-1.328 .386-1.328-.222V-2.404H0V0Z"/>
 </g>
-<use data-text="L" xlink:href="#font_176_309" transform="matrix(8.6372,0,0,-7.852,17.8233,192.47132)" fill="#231f20"/>
-<use data-text="o" xlink:href="#font_176_376" transform="matrix(8.6372,0,0,-7.852,22.236908,192.47132)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,27.514237,192.47132)" fill="#231f20"/>
-<use data-text="k" xlink:href="#font_176_296" transform="matrix(8.6372,0,0,-7.852,31.660094,192.47132)" fill="#231f20"/>
-<use data-text="-" xlink:href="#font_176_730" transform="matrix(8.6372,0,0,-7.852,36.48829,192.47132)" fill="#231f20"/>
-<use data-text="O" xlink:href="#font_176_375" transform="matrix(8.6372,0,0,-7.852,39.97772,192.47132)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(8.6372,0,0,-7.852,46.524717,192.47132)" fill="#231f20"/>
-<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,51.75022,192.47132)" fill="#231f20"/>
+<use data-text="L" xlink:href="#font_176_309" transform="matrix(8.6372,0,0,-7.852,17.8233,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="o" xlink:href="#font_176_376" transform="matrix(8.6372,0,0,-7.852,22.236908,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,27.514237,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="k" xlink:href="#font_176_296" transform="matrix(8.6372,0,0,-7.852,31.660094,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="-" xlink:href="#font_176_730" transform="matrix(8.6372,0,0,-7.852,36.48829,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="O" xlink:href="#font_176_375" transform="matrix(8.6372,0,0,-7.852,39.97772,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(8.6372,0,0,-7.852,46.524717,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,51.75022,192.47132)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <g clip-path="url(#clip_193)">
 <path transform="matrix(1,0,0,-1,28.8054,200.32343)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.976 0 1.757 .256 2.343 .767 2.929 1.278 3.222 1.962 3.222 2.818 3.222 4.605 2.148 5.498 0 5.498H-2.142V0H0ZM-.114 4.49C.488 4.49 .955 4.339 1.288 4.039 1.622 3.739 1.788 3.327 1.788 2.803 1.788 2.248 1.62 1.81 1.284 1.488 .948 1.166 .485 1.005-.105 1.005H-.78V4.49H-.114Z"/>
 <path transform="matrix(1,0,0,-1,34.1299,195.59992)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.142 .117 .213 .268 .213 .452 .213 .634 .142 .782 0 .897-.142 1.012-.327 1.07-.555 1.07-.78 1.07-.964 1.012-1.107 .897-1.25 .782-1.322 .634-1.322 .452-1.322 .276-1.25 .127-1.107 .006-.964-.116-.78-.176-.555-.176-.327-.176-.142-.118 0 0ZM.103-.797H-1.2299999V-4.723H.103Z"/>
 <path transform="matrix(1,0,0,-1,38.6277,199.20758)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.318-.189-.643-.284-.974-.284-1.348-.284-1.642-.185-1.856 .013-2.069 .211-2.176 .484-2.176 .832-2.176 1.19-2.064 1.47-1.841 1.674-1.617 1.877-1.314 1.978-.932 1.978-.589 1.978-.278 1.884 0 1.695V2.722C-.228 2.845-.596 2.906-1.105 2.906-1.842 2.906-2.43 2.714-2.87 2.329-3.31 1.944-3.53 1.419-3.53 .751-3.53 .174-3.325-.298-2.914-.663-2.504-1.029-1.967-1.212-1.303-1.212-.735-1.212-.301-1.132 0-.974V0Z"/>
 <path transform="matrix(1,0,0,-1,43.3808,198.1955)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .583-.172 1.044-.517 1.384-.861 1.724-1.348 1.894-1.978 1.894-2.585 1.894-3.097 1.704-3.513 1.323-3.929 .942-4.137 .426-4.137-.226-4.137-.855-3.945-1.345-3.559-1.697-3.174-2.048-2.633-2.224-1.936-2.224-1.298-2.224-.779-2.127-.38-1.932V-1.058C-.74-1.263-1.157-1.365-1.632-1.365-2.377-1.365-2.772-1.08-2.817-.51H0V0ZM-2.826 .234C-2.792 .474-2.697 .675-2.541 .836-2.385 .997-2.2 1.077-1.986 1.077-1.486 1.077-1.236 .796-1.236 .234H-2.826Z"/>
 </g>
-<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,25.9713,200.32343)" fill="#231f20"/>
-<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,32.336919,200.32343)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,34.789884,200.32343)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,38.935739,200.32343)" fill="#231f20"/>
+<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,25.9713,200.32343)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,32.336919,200.32343)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,34.789884,200.32343)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,38.935739,200.32343)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M54.825 585.593H105.145008V611.42507H54.825Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.185" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M54.825 585.593H105.145008V611.42507H54.825Z"/>
 <path transform="matrix(1,0,0,-1,31.1737,126.44641)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#bacad3"/>
@@ -3914,12 +3914,12 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,56.7543,134.70679)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.356 .352 .533 .831 .533 1.438 .533 1.999 .361 2.451 .016 2.792-.329 3.134-.805 3.304-1.411 3.304-2.027 3.304-2.516 3.134-2.878 2.792-3.24 2.451-3.42 1.978-3.42 1.374-3.42 .789-3.246 .325-2.898-.016-2.549-.357-2.07-.528-1.461-.528-.843-.528-.356-.352 0 0ZM-.616 1.417C-.616 .696-.886 .335-1.426 .335-1.992 .335-2.275 .686-2.275 1.388-2.275 1.724-2.201 1.983-2.054 2.166-1.906 2.349-1.699 2.441-1.433 2.441-.888 2.441-.616 2.099-.616 1.417Z"/>
 <path transform="matrix(1,0,0,-1,60.4029,131.47028)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.067 .029-.159 .043-.278 .043-.742 .043-1.063-.205-1.242-.699H-1.256V-.021H-2.384V-3.675H-1.256V-1.93C-1.256-1.621-1.187-1.377-1.049-1.197-.911-1.018-.72-.928-.475-.928-.294-.928-.136-.965 0-1.038V0Z"/>
 </g>
-<use data-text="S" xlink:href="#font_176_482" transform="matrix(7.308,0,0,-7.308,37.3906,135.14569)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(7.308,0,0,-7.308,41.490388,135.14569)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(7.308,0,0,-7.308,45.444017,135.14569)" fill="#231f20"/>
-<use data-text="s" xlink:href="#font_176_483" transform="matrix(7.308,0,0,-7.308,49.865358,135.14569)" fill="#231f20"/>
-<use data-text="o" xlink:href="#font_176_376" transform="matrix(7.308,0,0,-7.308,53.080877,135.14569)" fill="#231f20"/>
-<use data-text="r" xlink:href="#font_176_459" transform="matrix(7.308,0,0,-7.308,57.546064,135.14569)" fill="#231f20"/>
+<use data-text="S" xlink:href="#font_176_482" transform="matrix(7.308,0,0,-7.308,37.3906,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(7.308,0,0,-7.308,41.490388,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(7.308,0,0,-7.308,45.444017,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="s" xlink:href="#font_176_483" transform="matrix(7.308,0,0,-7.308,49.865358,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="o" xlink:href="#font_176_376" transform="matrix(7.308,0,0,-7.308,53.080877,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="r" xlink:href="#font_176_459" transform="matrix(7.308,0,0,-7.308,57.546064,135.14569)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <g clip-path="url(#clip_195)">
 <path transform="matrix(1,0,0,-1,42.0312,139.89673)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.05 .078-.105 .159-.166 .241-.227 .323-.29 .4-.357 .471-.423 .542-.492 .605-.564 .658-.635 .712-.709 .75-.785 .774V.789C-.611 .839-.454 .908-.312 .996-.171 1.084-.05 1.188 .05 1.31 .15 1.431 .227 1.567 .282 1.718 .337 1.869 .364 2.034 .364 2.212 .364 3.14-.257 3.604-1.499 3.604H-3.326V-1.513H-2.173V.446H-1.863C-1.791 .446-1.725 .431-1.665 .401-1.604 .372-1.546 .329-1.49 .273-1.434 .217-1.379 .15-1.324 .071-1.269-.007-1.212-.096-1.153-.196L-.357-1.513H.967L0 0ZM-1.652 2.74C-1.117 2.74-.849 2.517-.849 2.07-.849 1.856-.925 1.676-1.078 1.531-1.228 1.388-1.426 1.317-1.674 1.317H-2.173V2.74H-1.652Z"/>
 <path transform="matrix(1,0,0,-1,46.406,139.22583)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 1.04-.521 1.559-1.563 1.559-1.787 1.559-2.035 1.528-2.307 1.467-2.579 1.405-2.794 1.333-2.951 1.253V.403C-2.559 .662-2.145 .792-1.709 .792-1.276 .792-1.06 .592-1.06 .193L-2.052 .061C-2.892-.049-3.311-.458-3.311-1.167-3.311-1.502-3.21-1.771-3.006-1.971-2.803-2.173-2.524-2.273-2.17-2.273-1.689-2.273-1.326-2.068-1.081-1.659H-1.067V-2.184H0V0ZM-1.26-1.254C-1.393-1.401-1.565-1.474-1.777-1.474-1.929-1.474-2.05-1.433-2.139-1.351-2.228-1.269-2.273-1.163-2.273-1.035-2.273-.752-2.09-.586-1.724-.539L-1.06-.453V-.699C-1.06-.923-1.126-1.108-1.26-1.254Z"/>
@@ -3927,11 +3927,11 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,55.302,137.75568)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.128V-.425H-1.142C-1.363-.082-1.696 .089-2.141 .089-2.638 .089-3.039-.093-3.344-.457-3.648-.821-3.8-1.312-3.8-1.93-3.8-2.482-3.664-2.922-3.39-3.251-3.116-3.579-2.746-3.743-2.28-3.743-1.778-3.743-1.399-3.539-1.142-3.129H-1.128V-3.418C-1.128-3.763-1.232-4.036-1.442-4.237-1.651-4.438-1.946-4.539-2.327-4.539-2.71-4.539-3.089-4.43-3.465-4.211V-5.16C-3.177-5.3-2.787-5.37-2.294-5.37-1.55-5.37-.981-5.184-.589-4.812-.196-4.44 0-3.914 0-3.237V0ZM-1.329-2.61C-1.473-2.79-1.662-2.88-1.895-2.88-2.13-2.88-2.316-2.791-2.451-2.614-2.587-2.437-2.655-2.196-2.655-1.891-2.655-1.537-2.583-1.262-2.441-1.067-2.298-.872-2.102-.774-1.852-.774-1.633-.774-1.455-.856-1.319-1.019-1.182-1.182-1.113-1.379-1.113-1.609V-1.898C-1.113-2.193-1.185-2.431-1.329-2.61Z"/>
 <path transform="matrix(1,0,0,-1,59.5269,139.4292)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .542-.146 .972-.437 1.288-.729 1.604-1.141 1.763-1.674 1.763-2.187 1.763-2.62 1.586-2.972 1.231-3.325 .877-3.501 .396-3.501-.211-3.501-.796-3.338-1.252-3.012-1.579-2.686-1.906-2.228-2.07-1.638-2.07-1.098-2.07-.659-1.979-.321-1.798V-.985C-.626-1.175-.979-1.27-1.381-1.27-2.011-1.27-2.346-1.005-2.384-.475H0V0ZM-2.391 .218C-2.362 .441-2.282 .628-2.15 .778-2.018 .928-1.862 1.003-1.681 1.003-1.257 1.003-1.046 .741-1.046 .218H-2.391Z"/>
 </g>
-<use data-text="R" xlink:href="#font_176_458" transform="matrix(7.308,0,0,-7.308,38.1203,141.40973)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(7.308,0,0,-7.308,42.892427,141.40973)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(7.308,0,0,-7.308,46.82413,141.40973)" fill="#231f20"/>
-<use data-text="g" xlink:href="#font_176_182" transform="matrix(7.308,0,0,-7.308,51.245473,141.40973)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(7.308,0,0,-7.308,55.769124,141.40973)" fill="#231f20"/>
+<use data-text="R" xlink:href="#font_176_458" transform="matrix(7.308,0,0,-7.308,38.1203,141.40973)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(7.308,0,0,-7.308,42.892427,141.40973)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(7.308,0,0,-7.308,46.82413,141.40973)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="g" xlink:href="#font_176_182" transform="matrix(7.308,0,0,-7.308,51.245473,141.40973)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(7.308,0,0,-7.308,55.769124,141.40973)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M67.309 644.406H105.186V668.448H67.309Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.103" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M67.309 644.406H105.186V668.448H67.309Z"/>
 <g clip-path="url(#clip_196)">
@@ -4016,22 +4016,22 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,74.8268,58.61731)" stroke-linecap="butt" stroke-miterlimit="1.977" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.273 .246 .41 .58 .41 1.004 .41 1.395 .277 1.71 .012 1.949-.252 2.187-.618 2.306-1.083 2.306-1.556 2.306-1.932 2.187-2.209 1.949-2.487 1.71-2.626 1.38-2.626 .959-2.626 .55-2.492 .227-2.224-.011-1.957-.249-1.589-.369-1.122-.369-.647-.369-.273-.246 0 0ZM-.473 .989C-.473 .486-.68 .234-1.094 .234-1.529 .234-1.746 .479-1.746 .969-1.746 1.203-1.69 1.384-1.576 1.512-1.463 1.639-1.304 1.703-1.1 1.703-.682 1.703-.473 1.465-.473 .989Z"/>
 <path transform="matrix(1,0,0,-1,78.507,57.362184)" stroke-linecap="butt" stroke-miterlimit="1.977" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .701-.31 1.051-.931 1.051-1.326 1.051-1.626 .896-1.833 .585H-1.844V.989H-2.709V-1.561H-1.844V-.107C-1.844 .054-1.795 .187-1.698 .291-1.602 .396-1.478 .448-1.329 .448-1.018 .448-.863 .251-.863-.144V-1.561H0V0Z"/>
 </g>
-<use data-text="D" xlink:href="#font_176_94" transform="matrix(5.61,0,0,-5.1,28.6005,58.923585)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,32.73507,58.923585)" fill="#231f20"/>
-<use data-text="m" xlink:href="#font_176_334" transform="matrix(5.61,0,0,-5.1,35.75325,58.923585)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,40.89201,58.923585)" fill="#231f20"/>
-<use data-text="g" xlink:href="#font_176_182" transform="matrix(5.61,0,0,-5.1,43.91019,58.923585)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,47.382783,58.923585)" fill="#231f20"/>
-<use data-text=" " xlink:href="#font_176_3" transform="matrix(5.61,0,0,-5.1,50.417795,58.923585)" fill="#231f20"/>
-<use data-text="R" xlink:href="#font_176_458" transform="matrix(5.61,0,0,-5.1,51.966154,58.923585)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,55.629484,58.923585)" fill="#231f20"/>
-<use data-text="d" xlink:href="#font_176_95" transform="matrix(5.61,0,0,-5.1,58.664495,58.923585)" fill="#231f20"/>
-<use data-text="u" xlink:href="#font_176_534" transform="matrix(5.61,0,0,-5.1,62.137086,58.923585)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(5.61,0,0,-5.1,65.531139,58.923585)" fill="#231f20"/>
-<use data-text="t" xlink:href="#font_176_508" transform="matrix(5.61,0,0,-5.1,68.22394,58.923585)" fill="#231f20"/>
-<use data-text="i" xlink:href="#font_176_222" transform="matrix(5.61,0,0,-5.1,70.40623,58.923585)" fill="#231f20"/>
-<use data-text="o" xlink:href="#font_176_376" transform="matrix(5.61,0,0,-5.1,71.999469,58.923585)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(5.61,0,0,-5.1,75.42718,58.923585)" fill="#231f20"/>
+<use data-text="D" xlink:href="#font_176_94" transform="matrix(5.61,0,0,-5.1,28.6005,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,32.73507,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="m" xlink:href="#font_176_334" transform="matrix(5.61,0,0,-5.1,35.75325,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,40.89201,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="g" xlink:href="#font_176_182" transform="matrix(5.61,0,0,-5.1,43.91019,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,47.382783,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text=" " xlink:href="#font_176_3" transform="matrix(5.61,0,0,-5.1,50.417795,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="R" xlink:href="#font_176_458" transform="matrix(5.61,0,0,-5.1,51.966154,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,55.629484,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="d" xlink:href="#font_176_95" transform="matrix(5.61,0,0,-5.1,58.664495,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="u" xlink:href="#font_176_534" transform="matrix(5.61,0,0,-5.1,62.137086,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(5.61,0,0,-5.1,65.531139,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="t" xlink:href="#font_176_508" transform="matrix(5.61,0,0,-5.1,68.22394,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="i" xlink:href="#font_176_222" transform="matrix(5.61,0,0,-5.1,70.40623,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="o" xlink:href="#font_176_376" transform="matrix(5.61,0,0,-5.1,71.999469,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(5.61,0,0,-5.1,75.42718,58.923585)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M82.25 727.674H133.329V740.978H82.25Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width=".85" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M82.25 727.674H133.329V740.978H82.25Z"/>
 <path transform="matrix(1,0,0,-1,19.9841,52.981019)" stroke-width=".702" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030405" d="M0 0 8.864-11.281"/>
@@ -4074,22 +4074,22 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,74.8268,100.05731)" stroke-linecap="butt" stroke-miterlimit="1.977" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.273 .246 .41 .58 .41 1.004 .41 1.395 .277 1.71 .012 1.949-.252 2.187-.618 2.306-1.083 2.306-1.556 2.306-1.932 2.187-2.209 1.949-2.487 1.71-2.626 1.38-2.626 .959-2.626 .55-2.492 .227-2.224-.011-1.957-.249-1.589-.369-1.122-.369-.647-.369-.273-.246 0 0ZM-.473 .989C-.473 .486-.68 .234-1.094 .234-1.529 .234-1.746 .479-1.746 .969-1.746 1.203-1.69 1.384-1.576 1.512-1.463 1.639-1.304 1.703-1.1 1.703-.682 1.703-.473 1.465-.473 .989Z"/>
 <path transform="matrix(1,0,0,-1,78.507,98.802188)" stroke-linecap="butt" stroke-miterlimit="1.977" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .701-.31 1.051-.931 1.051-1.326 1.051-1.626 .896-1.833 .585H-1.844V.989H-2.709V-1.561H-1.844V-.107C-1.844 .054-1.795 .187-1.698 .291-1.602 .396-1.478 .448-1.329 .448-1.018 .448-.863 .251-.863-.144V-1.561H0V0Z"/>
 </g>
-<use data-text="D" xlink:href="#font_176_94" transform="matrix(5.61,0,0,-5.1,28.6005,100.36359)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,32.73507,100.36359)" fill="#231f20"/>
-<use data-text="m" xlink:href="#font_176_334" transform="matrix(5.61,0,0,-5.1,35.75325,100.36359)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,40.89201,100.36359)" fill="#231f20"/>
-<use data-text="g" xlink:href="#font_176_182" transform="matrix(5.61,0,0,-5.1,43.91019,100.36359)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,47.382783,100.36359)" fill="#231f20"/>
-<use data-text=" " xlink:href="#font_176_3" transform="matrix(5.61,0,0,-5.1,50.417795,100.36359)" fill="#231f20"/>
-<use data-text="R" xlink:href="#font_176_458" transform="matrix(5.61,0,0,-5.1,51.966154,100.36359)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,55.629484,100.36359)" fill="#231f20"/>
-<use data-text="d" xlink:href="#font_176_95" transform="matrix(5.61,0,0,-5.1,58.664495,100.36359)" fill="#231f20"/>
-<use data-text="u" xlink:href="#font_176_534" transform="matrix(5.61,0,0,-5.1,62.137086,100.36359)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(5.61,0,0,-5.1,65.531139,100.36359)" fill="#231f20"/>
-<use data-text="t" xlink:href="#font_176_508" transform="matrix(5.61,0,0,-5.1,68.22394,100.36359)" fill="#231f20"/>
-<use data-text="i" xlink:href="#font_176_222" transform="matrix(5.61,0,0,-5.1,70.40623,100.36359)" fill="#231f20"/>
-<use data-text="o" xlink:href="#font_176_376" transform="matrix(5.61,0,0,-5.1,71.999469,100.36359)" fill="#231f20"/>
-<use data-text="n" xlink:href="#font_176_344" transform="matrix(5.61,0,0,-5.1,75.42718,100.36359)" fill="#231f20"/>
+<use data-text="D" xlink:href="#font_176_94" transform="matrix(5.61,0,0,-5.1,28.6005,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,32.73507,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="m" xlink:href="#font_176_334" transform="matrix(5.61,0,0,-5.1,35.75325,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(5.61,0,0,-5.1,40.89201,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="g" xlink:href="#font_176_182" transform="matrix(5.61,0,0,-5.1,43.91019,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,47.382783,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text=" " xlink:href="#font_176_3" transform="matrix(5.61,0,0,-5.1,50.417795,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="R" xlink:href="#font_176_458" transform="matrix(5.61,0,0,-5.1,51.966154,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(5.61,0,0,-5.1,55.629484,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="d" xlink:href="#font_176_95" transform="matrix(5.61,0,0,-5.1,58.664495,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="u" xlink:href="#font_176_534" transform="matrix(5.61,0,0,-5.1,62.137086,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(5.61,0,0,-5.1,65.531139,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="t" xlink:href="#font_176_508" transform="matrix(5.61,0,0,-5.1,68.22394,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="i" xlink:href="#font_176_222" transform="matrix(5.61,0,0,-5.1,70.40623,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="o" xlink:href="#font_176_376" transform="matrix(5.61,0,0,-5.1,71.999469,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="n" xlink:href="#font_176_344" transform="matrix(5.61,0,0,-5.1,75.42718,100.36359)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,19.9688,94.6792)" stroke-width=".702" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030405" d="M0 0 8.864-11.281"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M82.25 686.234H133.329V699.538H82.25Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width=".85" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M82.25 686.234H133.329V699.538H82.25Z"/>
@@ -4297,25 +4297,25 @@ SUVORK5CYII="/>
 <path transform="matrix(1,0,0,-1,272.0553,100.91412)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.333V-2.335H-1.35C-1.569-1.972-1.957-1.791-2.514-1.791-3.101-1.791-3.576-1.986-3.939-2.377-4.302-2.768-4.483-3.288-4.483-3.938-4.483-4.559-4.319-5.042-3.99-5.389-3.661-5.735-3.226-5.908-2.686-5.908-2.099-5.908-1.653-5.696-1.35-5.272H-1.333V-5.812H0V0ZM-1.563-4.685C-1.733-4.882-1.953-4.98-2.223-4.98-2.507-4.98-2.729-4.887-2.889-4.701-3.049-4.514-3.129-4.248-3.129-3.903-3.129-3.535-3.046-3.245-2.88-3.035-2.715-2.824-2.484-2.718-2.189-2.718-1.927-2.718-1.715-2.803-1.552-2.971-1.389-3.14-1.307-3.352-1.307-3.608V-3.903C-1.307-4.228-1.392-4.488-1.563-4.685Z"/>
 <path transform="matrix(1,0,0,-1,277.0571,104.59857)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .583-.172 1.044-.517 1.384-.861 1.724-1.348 1.894-1.978 1.894-2.585 1.894-3.097 1.704-3.513 1.323-3.929 .942-4.137 .426-4.137-.226-4.137-.855-3.945-1.345-3.56-1.697-3.174-2.048-2.633-2.224-1.936-2.224-1.298-2.224-.779-2.127-.38-1.932V-1.058C-.74-1.263-1.157-1.365-1.632-1.365-2.377-1.365-2.772-1.08-2.817-.51H0V0ZM-2.826 .234C-2.792 .474-2.697 .675-2.541 .836-2.385 .997-2.2 1.077-1.986 1.077-1.486 1.077-1.236 .796-1.236 .234H-2.826Z"/>
 </g>
-<use data-text="E" xlink:href="#font_176_114" transform="matrix(8.6372,0,0,-7.852,253.3427,106.72638)" fill="#231f20"/>
-<use data-text="v" xlink:href="#font_176_602" transform="matrix(8.6372,0,0,-7.852,257.93769,106.72638)" fill="#231f20"/>
-<use data-text="a" xlink:href="#font_176_5" transform="matrix(8.6372,0,0,-7.852,262.61906,106.72638)" fill="#231f20"/>
-<use data-text="d" xlink:href="#font_176_95" transform="matrix(8.6372,0,0,-7.852,267.26588,106.72638)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,272.6123,106.72638)" fill="#231f20"/>
-<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,277.28504,106.72638)" fill="#231f20"/>
+<use data-text="E" xlink:href="#font_176_114" transform="matrix(8.6372,0,0,-7.852,253.3427,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="v" xlink:href="#font_176_602" transform="matrix(8.6372,0,0,-7.852,257.93769,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="a" xlink:href="#font_176_5" transform="matrix(8.6372,0,0,-7.852,262.61906,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="d" xlink:href="#font_176_95" transform="matrix(8.6372,0,0,-7.852,267.26588,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,272.6123,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text=" " xlink:href="#font_176_3" transform="matrix(8.6372,0,0,-7.852,277.28504,106.72638)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <g clip-path="url(#clip_219)">
 <path transform="matrix(1,0,0,-1,259.3293,114.57849)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.976 0 1.757 .256 2.343 .767 2.929 1.278 3.222 1.962 3.222 2.818 3.222 4.605 2.148 5.498 0 5.498H-2.142V0H0ZM-.114 4.49C.488 4.49 .955 4.339 1.288 4.039 1.622 3.739 1.788 3.327 1.788 2.803 1.788 2.248 1.62 1.81 1.284 1.488 .948 1.166 .485 1.005-.105 1.005H-.78V4.49H-.114Z"/>
 <path transform="matrix(1,0,0,-1,264.6537,109.85498)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.142 .117 .213 .268 .213 .452 .213 .634 .142 .782 0 .897-.142 1.012-.327 1.07-.555 1.07-.78 1.07-.964 1.012-1.107 .897-1.25 .782-1.322 .634-1.322 .452-1.322 .276-1.25 .127-1.107 .006-.964-.116-.78-.176-.555-.176-.327-.176-.142-.118 0 0ZM.103-.797H-1.2299999V-4.723H.103Z"/>
 <path transform="matrix(1,0,0,-1,269.1516,113.46283)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C-.318-.189-.643-.284-.974-.284-1.348-.284-1.642-.185-1.856 .013-2.069 .211-2.176 .484-2.176 .832-2.176 1.19-2.064 1.47-1.841 1.674-1.617 1.877-1.314 1.978-.932 1.978-.589 1.978-.278 1.884 0 1.695V2.722C-.228 2.845-.596 2.906-1.105 2.906-1.842 2.906-2.43 2.714-2.87 2.329-3.31 1.944-3.53 1.419-3.53 .751-3.53 .174-3.325-.298-2.914-.663-2.504-1.029-1.967-1.212-1.303-1.212-.735-1.212-.301-1.132 0-.974V0Z"/>
 <path transform="matrix(1,0,0,-1,273.9046,112.45062)" stroke-linecap="butt" stroke-miterlimit="2.499" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C0 .583-.172 1.044-.517 1.384-.861 1.724-1.348 1.894-1.978 1.894-2.585 1.894-3.097 1.704-3.513 1.323-3.929 .942-4.137 .426-4.137-.226-4.137-.855-3.945-1.345-3.559-1.697-3.174-2.048-2.633-2.224-1.936-2.224-1.298-2.224-.779-2.127-.38-1.932V-1.058C-.74-1.263-1.157-1.365-1.632-1.365-2.377-1.365-2.772-1.08-2.817-.51H0V0ZM-2.826 .234C-2.792 .474-2.697 .675-2.541 .836-2.385 .997-2.2 1.077-1.986 1.077-1.486 1.077-1.236 .796-1.236 .234H-2.826Z"/>
 </g>
-<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,256.4952,114.57849)" fill="#231f20"/>
-<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,262.86085,114.57849)" fill="#231f20"/>
-<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,265.3138,114.57849)" fill="#231f20"/>
-<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,269.45967,114.57849)" fill="#231f20"/>
+<use data-text="D" xlink:href="#font_176_94" transform="matrix(8.6372,0,0,-7.852,256.4952,114.57849)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="i" xlink:href="#font_176_222" transform="matrix(8.6372,0,0,-7.852,262.86085,114.57849)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="c" xlink:href="#font_176_79" transform="matrix(8.6372,0,0,-7.852,265.3138,114.57849)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
+<use data-text="e" xlink:href="#font_176_115" transform="matrix(8.6372,0,0,-7.852,269.45967,114.57849)" fill="#ffffff" stroke="#000000" stroke-width=".38" vector-effect="non-scaling-stroke" stroke-linejoin="round" paint-order="stroke fill"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M285.349 671.338H351.051V697.17007H285.349Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.185" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M285.349 671.338H351.051V697.17007H285.349Z"/>
-<path transform="matrix(1,0,0,-1,319.92,28.289307)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#6c3f58"/>
+<path transform="matrix(1,0,0,-1,319.92,28.289307)" d="M0 0V-18.253L35.583-20.588V2.335Z" fill="#5f3f87"/>
 <path transform="matrix(1,0,0,-1,327.7729,31.871582)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.156V-2.041H-3.276V0H-4.428V-5.117H-3.276V-3.033H-1.156V-5.117H0V0Z"/>
 <g clip-path="url(#clip_220)">
 <path transform="matrix(1,0,0,-1,332.3047,33.334596)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.124V-2.091C-1.124-2.334-1.185-2.526-1.306-2.667-1.427-2.809-1.589-2.88-1.791-2.88-2.201-2.88-2.405-2.622-2.405-2.105V0H-3.529V-2.205C-3.529-3.231-3.106-3.743-2.259-3.743-1.793-3.743-1.42-3.528-1.142-3.097H-1.124V-3.654H0V0Z"/>
@@ -4354,7 +4354,7 @@ SUVORK5CYII="/>
 <use data-text="r" xlink:href="#font_222_459" transform="matrix(7.308,0,0,-7.308,349.65443,43.252626)" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M356.055 742.563H393.932V766.605H356.055Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1.103" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#030404" d="M356.055 742.563H393.932V766.605H356.055Z"/>
-<path transform="matrix(1,0,0,-1,0,792)" d="M365.484 712.945H384.65403V723.745H365.484Z" fill="#6c3f58"/>
+<path transform="matrix(1,0,0,-1,0,792)" d="M365.484 712.945H384.65403V723.745H365.484Z" fill="#5f3f87"/>
 <path transform="matrix(1,0,0,-1,371.7378,71.24298)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.156V-2.041H-3.276V0H-4.428V-5.117H-3.276V-3.033H-1.156V-5.117H0V0Z"/>
 <g clip-path="url(#clip_223)">
 <path transform="matrix(1,0,0,-1,373.3311,76.37781)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.253-.048 .52-.071 .801-.071 1.075-.071 1.335-.045 1.581 .007 1.827 .059 2.043 .146 2.228 .266 2.414 .386 2.561 .543 2.669 .737 2.777 .931 2.832 1.17 2.832 1.456 2.832 1.663 2.801 1.844 2.739 2 2.677 2.156 2.588 2.294 2.471 2.416 2.355 2.537 2.215 2.646 2.052 2.742 1.889 2.839 1.705 2.93 1.5 3.015 1.351 3.077 1.216 3.137 1.097 3.195 .978 3.254 .877 3.313 .794 3.374 .711 3.435 .646 3.499 .601 3.567 .556 3.634 .533 3.711 .533 3.797 .533 3.875 .554 3.946 .594 4.009 .635 4.072 .692 4.126 .765 4.171 .839 4.217 .93 4.252 1.037 4.277 1.144 4.302 1.263 4.314 1.393 4.314 1.489 4.314 1.589 4.307 1.695 4.293 1.801 4.278 1.907 4.256 2.014 4.227 2.121 4.197 2.225 4.159 2.327 4.114 2.428 4.069 2.521 4.017 2.607 3.957V5.024C2.433 5.091 2.243 5.14 2.038 5.172 1.832 5.204 1.596 5.221 1.329 5.221 1.058 5.221 .801 5.191 .558 5.133 .316 5.075 .102 4.984-.082 4.86-.266 4.736-.412 4.579-.519 4.387-.626 4.196-.68 3.967-.68 3.7-.68 3.36-.582 3.07-.385 2.83-.189 2.589 .109 2.386 .508 2.219 .665 2.155 .812 2.092 .947 2.03 1.083 1.969 1.2 1.904 1.299 1.838 1.398 1.771 1.476 1.699 1.533 1.62 1.59 1.542 1.618 1.452 1.618 1.352 1.618 1.279 1.6 1.21 1.565 1.147 1.529 1.084 1.475 1.029 1.402 .983 1.33 .937 1.239 .9 1.131 .874 1.023 .848 .896 .835 .751 .835 .504 .835 .259 .878 .016 .965-.227 1.052-.451 1.182-.658 1.356V.214C-.473 .119-.253 .048 0 0Z"/>
@@ -4363,7 +4363,7 @@ SUVORK5CYII="/>
 <use data-text="H" xlink:href="#font_176_203" transform="matrix(7.308,0,0,-7.308,366.7242,76.359989)" fill="#ffffff"/>
 <use data-text="S" xlink:href="#font_176_482" transform="matrix(7.308,0,0,-7.308,372.32215,76.359989)" fill="#ffffff"/>
 <use data-text="M" xlink:href="#font_176_333" transform="matrix(7.308,0,0,-7.308,376.42195,76.359989)" fill="#ffffff"/>
-<path transform="matrix(1,0,0,-1,0,792)" d="M365.484 678.745H384.65403V689.545H365.484Z" fill="#6c3f58"/>
+<path transform="matrix(1,0,0,-1,0,792)" d="M365.484 678.745H384.65403V689.545H365.484Z" fill="#5f3f87"/>
 <path transform="matrix(1,0,0,-1,371.7378,105.44287)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0H-1.156V-2.041H-3.276V0H-4.428V-5.117H-3.276V-3.033H-1.156V-5.117H0V0Z"/>
 <g clip-path="url(#clip_224)">
 <path transform="matrix(1,0,0,-1,373.3311,110.57782)" stroke-linecap="butt" stroke-miterlimit="2.326" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M0 0C.253-.048 .52-.071 .801-.071 1.075-.071 1.335-.045 1.581 .007 1.827 .059 2.043 .146 2.228 .266 2.414 .386 2.561 .543 2.669 .737 2.777 .931 2.832 1.17 2.832 1.456 2.832 1.663 2.801 1.844 2.739 2 2.677 2.156 2.588 2.294 2.471 2.416 2.355 2.537 2.215 2.646 2.052 2.742 1.889 2.839 1.705 2.93 1.5 3.015 1.351 3.077 1.216 3.137 1.097 3.195 .978 3.254 .877 3.313 .794 3.374 .711 3.435 .646 3.499 .601 3.567 .556 3.634 .533 3.711 .533 3.797 .533 3.875 .554 3.946 .594 4.009 .635 4.072 .692 4.126 .765 4.171 .839 4.217 .93 4.252 1.037 4.277 1.144 4.302 1.263 4.314 1.393 4.314 1.489 4.314 1.589 4.307 1.695 4.293 1.801 4.278 1.907 4.256 2.014 4.227 2.121 4.197 2.225 4.159 2.327 4.114 2.428 4.069 2.521 4.017 2.607 3.957V5.024C2.433 5.091 2.243 5.14 2.038 5.172 1.832 5.204 1.596 5.221 1.329 5.221 1.058 5.221 .801 5.191 .558 5.133 .316 5.075 .102 4.984-.082 4.86-.266 4.736-.412 4.579-.519 4.387-.626 4.196-.68 3.967-.68 3.7-.68 3.36-.582 3.07-.385 2.83-.189 2.589 .109 2.386 .508 2.219 .665 2.155 .812 2.092 .947 2.03 1.083 1.969 1.2 1.904 1.299 1.838 1.398 1.771 1.476 1.699 1.533 1.62 1.59 1.542 1.618 1.452 1.618 1.352 1.618 1.279 1.6 1.21 1.565 1.147 1.529 1.084 1.475 1.029 1.402 .983 1.33 .937 1.239 .9 1.131 .874 1.023 .848 .896 .835 .751 .835 .504 .835 .259 .878 .016 .965-.227 1.052-.451 1.182-.658 1.356V.214C-.473 .119-.253 .048 0 0Z"/>
@@ -4719,5 +4719,23 @@ tQAAAABJRU5ErkJggg=="/>
 <use data-text="d" xlink:href="#font_176_95" transform="matrix(6,0,0,-6,289.5456,158.8714)" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" d="M271.65 609.343H297.289V630.934H271.65Z" fill="#ffffff"/>
 <path transform="matrix(1,0,0,-1,0,792)" stroke-width="1" stroke-linecap="butt" stroke-miterlimit="4" stroke-linejoin="miter" fill="none" stroke="#231f20" d="M271.65 609.343H297.289V630.934H271.65Z"/>
+</g>
+<g id="neon-category-circuits" fill="none" stroke="#005700" stroke-width=".55" stroke-linecap="square" stroke-linejoin="miter" opacity=".9">
+  <path d="M12 22H48L54 16H183L198 31V105H151M12 22V105H72"/>
+  <path d="M12 118H35L41 112H99L110 123V204H72M12 118V204H42"/>
+  <path d="M114 116H132L138 110H190L202 122V204H170M114 116V204H143"/>
+  <path d="M193 18H232L238 12H417L445 39V185L426 204H363M193 18V189L208 204H245"/>
+  <path d="M382 171H412L418 165H584L600 181V207H545M382 171V207H450"/>
+  <path d="M475 59H499L505 53H589L603 67V158H565M475 59V158H520"/>
+  <path d="M432 15H465L471 9H589L602 22V48H545M432 15V48H492"/>
+  <g fill="#005700" stroke="none">
+    <circle cx="151" cy="105" r="1.15"/><circle cx="72" cy="105" r="1.15"/>
+    <circle cx="72" cy="204" r="1.15"/><circle cx="42" cy="204" r="1.15"/>
+    <circle cx="170" cy="204" r="1.15"/><circle cx="143" cy="204" r="1.15"/>
+    <circle cx="363" cy="204" r="1.15"/><circle cx="245" cy="204" r="1.15"/>
+    <circle cx="545" cy="207" r="1.15"/><circle cx="450" cy="207" r="1.15"/>
+    <circle cx="565" cy="158" r="1.15"/><circle cx="520" cy="158" r="1.15"/>
+    <circle cx="545" cy="48" r="1.15"/><circle cx="492" cy="48" r="1.15"/>
+  </g>
 </g>
 </svg>
