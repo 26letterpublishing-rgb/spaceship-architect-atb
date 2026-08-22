@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spaceship Architect Starship Creator</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="starship.css?v=20260821-layout-pass" />
+  </head>
+  <body>
+    <header class="starship-header">
+      <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
+      <div class="starship-heading">
+        <span>Under Construction</span>
+        <h1>Starship Creator</h1>
+      </div>
+      <a class="back-link" href="index.html">Back to Main Menu</a>
+    </header>
+
+    <main class="starship-shell">
+      <section class="prototype-notice">
+        <strong>Shipyard Interface Prototype</strong>
+        <span>Visual layout only. Ship calculations and SIC installation will be connected in later passes.</span>
+      </section>
+
+      <section class="ship-console" aria-label="Starship statistics">
+        <div class="console-column console-left">
+          <section class="console-group resistance-group">
+            <h2>Resistance</h2>
+            <div class="health-stat">
+              <strong>Shield HP:</strong><output></output><span>Max</span><output class="maximum"></output>
+              <small>Damage Reduction</small><output class="reduction"></output>
+            </div>
+            <div class="health-stat">
+              <strong>Hull HP:</strong><output></output><span>Max</span><output class="maximum"></output>
+              <small>Damage Reduction</small><output class="reduction"></output>
+            </div>
+          </section>
+
+          <div class="lower-left-stats">
+            <section class="console-group detection-group">
+              <h2>Detection</h2>
+              <label class="accent-label sensor-range">Sensor Range<output></output></label>
+              <label class="accent-label sensor-dice">Sensor Dice<output></output></label>
+              <label class="accent-label lockon-dice">Lock-On Dice<output></output></label>
+            </section>
+            <section class="console-group security-group">
+              <h2>Digital Security</h2>
+              <label class="accent-label firewall">Firewall Level<output></output></label>
+              <label class="accent-label break-lock">Break Lock-On<output></output></label>
+            </section>
+          </div>
+        </div>
+
+        <section class="console-group mobility-group">
+          <h2>Defense &amp; Mobility</h2>
+          <div class="masking-equation" aria-label="Masking Level calculation">
+            <label class="exhaust">Exhaust<output></output></label><b>+</b>
+            <label class="darkveil">Darkveil<output></output></label><b>+</b>
+            <span class="hsm-token">HSM</span><b>=</b>
+            <label class="masking">Masking Lvl<output></output></label>
+          </div>
+
+          <div class="mobility-diagram">
+            <svg class="dependency-lines" viewBox="0 0 640 290" preserveAspectRatio="none" aria-hidden="true">
+              <defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"></path></marker></defs>
+              <path d="M125 48 L285 115" />
+              <path d="M125 103 L285 125" />
+              <path d="M125 158 L285 135" />
+              <path d="M125 213 L285 145" />
+              <path class="arrow-line" d="M140 235 L345 235" />
+              <path class="arrow-line" d="M410 210 L410 164" />
+              <path d="M423 130 L535 130" />
+            </svg>
+            <div class="impulse-stack" aria-label="Impulse values">
+              <span class="vertical-label">Impulse</span>
+              <label><small>Thruster 1</small><output></output></label>
+              <label><small>Thruster 2</small><output></output></label>
+              <label><small>Thruster 3</small><output></output></label>
+              <label><small>Thruster 4</small><output></output></label>
+            </div>
+            <div class="evade-result"><strong>Evade<br />Dice</strong><output></output></div>
+            <div class="thruster-count"><span># of Thrusters</span><output></output></div>
+            <div class="move-speed"><span>Move Speed</span><output></output></div>
+            <table class="speed-chart" aria-label="Move Speed die type chart">
+              <thead><tr><th>Move Speed</th><th>Die Type</th></tr></thead>
+              <tbody>
+                <tr><td>3 or less</td><td>D4</td></tr><tr><td>4-7</td><td>D6</td></tr>
+                <tr><td>8-11</td><td>D8</td></tr><tr><td>12-15</td><td>D10</td></tr>
+                <tr><td>16+</td><td>D12</td></tr>
+              </tbody>
+            </table>
+            <span class="defense-plus">+</span><span class="defense-hsm hsm-token">HSM</span><span class="defense-equals">=</span>
+            <div class="defense-score">Defense<br />Score</div>
+          </div>
+
+          <label class="hull-modifier">Hull Size<br />Modifier<output></output></label>
+        </section>
+
+        <div class="console-column console-right">
+          <section class="group-credits">
+            <h2>Group Credits</h2>
+            <output></output>
+          </section>
+          <section class="fuel-panel">
+            <div class="fuel-dial" aria-hidden="true"><i></i></div>
+            <table><thead><tr><th>FTL Fuel</th><th>Qty.</th></tr></thead>
+              <tbody><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Warp</td><td></td></tr><tr><td>Other</td><td></td></tr></tbody>
+            </table>
+          </section>
+          <section class="power-panel">
+            <h2>Power</h2>
+            <label class="en"><span>EN</span><output></output><i>/</i><output></output></label>
+            <label class="au"><span>AU</span><output></output></label>
+          </section>
+        </div>
+      </section>
+
+      <section class="construction-workspace">
+        <aside class="ship-identity">
+          <h2>Starship Identity</h2>
+          <label>Ship Title<input type="text" data-ship-field="title" autocomplete="off" /></label>
+          <label>Affiliation<input type="text" data-ship-field="affiliation" autocomplete="off" /></label>
+          <label>Class<input type="text" data-ship-field="class" autocomplete="off" /></label>
+          <div class="crewmembers-heading"><h3>Crewmembers</h3><button id="addCrewmember" type="button" title="Add crewmember" aria-label="Add crewmember">+</button></div>
+          <div id="crewmemberList" class="crewmember-list"></div>
+        </aside>
+
+        <section class="ship-grid-panel">
+          <div class="ship-grid" aria-label="Future SIC construction grid"><div class="grid-origin" title="Ship grid origin"></div></div>
+          <footer><span>Total Squares Used <output>0</output></span><span>Scale Rank <output></output></span></footer>
+        </section>
+      </section>
+    </main>
+    <script src="starship.js?v=20260821-layout-pass"></script>
+  </body>
+</html>
