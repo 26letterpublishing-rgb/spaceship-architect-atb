@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260823-field-centers" />
+    <link rel="stylesheet" href="starship.css?v=20260823-ship-controls" />
   </head>
   <body>
     <header class="starship-header">
@@ -21,7 +21,7 @@
       </section>
 
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
-        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260823-final-alignment" alt="Spaceship Architect starship sheet" />
+        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260823-ship-controls" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
           <rect width="620" height="240" fill="#050b12" />
           <path d="M10 28L74 10H546L610 28V174H10Z" fill="#c8cbd0" stroke="#ffffff" stroke-width="3" />
@@ -33,9 +33,10 @@
           <g class="reputation-row" transform="translate(0 164)"><text x="142" y="6">CUNNING</text><text x="478" y="6" text-anchor="start">EXPLOITABLE</text><g transform="translate(165 0)"></g></g>
           <g class="desktop-popularity" font-family="Arial, sans-serif" font-weight="900">
             <rect x="10" y="192" width="270" height="38" fill="#c8cbd0" stroke="#ffffff" stroke-width="3" />
-            <rect x="167" y="196" width="109" height="30" fill="#ffffff" />
+            <rect x="190" y="196" width="86" height="30" fill="#ffffff" />
             <text x="25" y="218" fill="#10141a" font-size="20">POPULARITY:</text>
-            <text x="267" y="219" fill="#10141a" font-size="23" text-anchor="end">0%</text>
+            <foreignObject x="190" y="196" width="70" height="30"><input xmlns="http://www.w3.org/1999/xhtml" class="reputation-popularity" data-reputation-popularity type="number" min="0" max="100" inputmode="numeric" aria-label="Popularity percentage" /></foreignObject>
+            <text x="268" y="219" fill="#10141a" font-size="23" text-anchor="end">%</text>
           </g>
         </svg>
         <section class="identity-overlay" aria-label="Starship identity">
@@ -51,29 +52,29 @@
       <section class="mobile-sheet" aria-label="Mobile starship sheet">
         <article class="mobile-blueprint resistance-mobile">
           <h2>Resistance</h2>
-          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint mobility-mobile">
           <h2>Defense &amp; Mobility</h2>
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
-            <image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" />
+            <image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" />
           </svg>
         </article>
         <article class="mobile-blueprint detection-mobile">
           <h2>Detection</h2>
-          <svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint security-mobile">
           <h2>Digital Security</h2>
-          <svg viewBox="115 105 82 104" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="115 105 82 104" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint power-mobile">
           <h2>Power</h2>
-          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
-          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint credits-mobile">
           <h2>Group Credits</h2>
@@ -95,13 +96,13 @@
 
         <article class="mobile-blueprint minerals-mobile">
           <h2>Minerals</h2>
-          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg>
+          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg>
         </article>
         <section class="mobile-grid-panel"><h2>SIC Construction Grid</h2><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div><footer><span>Total Squares Used <output>0</output></span><span>Scale Rank <output></output></span></footer></section>
-        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260823-final-alignment" width="612" height="792" /></svg></article>
+        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260823-ship-controls" width="612" height="792" /></svg></article>
         <article class="mobile-blueprint reputation-mobile">
           <h2>Reputation</h2>
-          <svg class="mobile-reputation-chart reputation-chart" viewBox="0 0 620 250" role="img" aria-label="Five reputation tracks, with one selected position on each track">
+          <svg class="mobile-reputation-chart reputation-chart" viewBox="0 0 620 292" role="img" aria-label="Five reputation tracks, with one selected position on each track">
             <path d="M10 35L74 17H546L610 35V238H10Z" fill="#c8cbd0" stroke="#ffffff" stroke-width="3" />
             <text x="310" y="29" fill="#10141a" font-size="25" font-family="Arial, sans-serif" font-weight="900" text-anchor="middle">REPUTATION</text>
             <g class="reputation-row" transform="translate(0 62)"><text x="142" y="6">BENEVOLENT</text><text x="478" y="6" text-anchor="start">RUTHLESS</text><g transform="translate(165 0)"></g></g>
@@ -109,10 +110,17 @@
             <g class="reputation-row" transform="translate(0 136)"><text x="142" y="6">CIVIL</text><text x="478" y="6" text-anchor="start">SAVAGE</text><g transform="translate(165 0)"></g></g>
             <g class="reputation-row" transform="translate(0 173)"><text x="142" y="6">POWERFUL</text><text x="478" y="6" text-anchor="start">WEAK</text><g transform="translate(165 0)"></g></g>
             <g class="reputation-row" transform="translate(0 210)"><text x="142" y="6">CUNNING</text><text x="478" y="6" text-anchor="start">EXPLOITABLE</text><g transform="translate(165 0)"></g></g>
+            <g class="mobile-popularity" font-family="Arial, sans-serif" font-weight="900">
+              <rect x="10" y="246" width="270" height="38" fill="#c8cbd0" stroke="#ffffff" stroke-width="3" />
+              <rect x="190" y="250" width="86" height="30" fill="#ffffff" />
+              <text x="25" y="272" fill="#10141a" font-size="20">POPULARITY:</text>
+              <foreignObject x="190" y="250" width="70" height="30"><input xmlns="http://www.w3.org/1999/xhtml" class="reputation-popularity" data-reputation-popularity type="number" min="0" max="100" inputmode="numeric" aria-label="Popularity percentage" /></foreignObject>
+              <text x="268" y="273" fill="#10141a" font-size="23" text-anchor="end">%</text>
+            </g>
           </svg>
         </article>
       </section>
     </main>
-    <script src="starship.js?v=20260823-field-centers"></script>
+    <script src="starship.js?v=20260823-ship-controls"></script>
   </body>
 </html>
