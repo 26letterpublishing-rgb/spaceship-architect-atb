@@ -127,22 +127,25 @@ document.querySelectorAll(".ship-grid").forEach((grid) => {
 const reputationValues = ["+5", "+4", "+3", "+2", "+1", "0", "+1", "+2", "+3", "+4", "+5"];
 const reputationSelections = [4, 5, 3, 4, 4];
 
-document.querySelectorAll(".reputation-row > g").forEach((track, rowIndex) => {
-  reputationValues.forEach((value, index) => {
-    const selected = reputationSelections[rowIndex] === index;
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", String(index * 29));
-    circle.setAttribute("cy", "0");
-    circle.setAttribute("r", "11.5");
-    circle.classList.toggle("selected", selected);
-    track.append(circle);
+document.querySelectorAll(".reputation-chart").forEach((chart) => {
+  chart.querySelectorAll(".reputation-row > g").forEach((track, rowIndex) => {
+    const isDesktopTrack = chart.classList.contains("desktop-reputation-chart");
+    reputationValues.forEach((value, index) => {
+      const selected = reputationSelections[rowIndex] === index;
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", String(index * 29));
+      circle.setAttribute("cy", "0");
+      circle.setAttribute("r", isDesktopTrack ? "9.5" : "11.5");
+      circle.classList.toggle("selected", selected);
+      track.append(circle);
 
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", String(index * 29));
-    label.setAttribute("y", "3");
-    label.classList.toggle("selected", selected);
-    label.textContent = value;
-    track.append(label);
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", String(index * 29));
+      label.setAttribute("y", "3");
+      label.classList.toggle("selected", selected);
+      label.textContent = value;
+      track.append(label);
+    });
   });
 });
 
