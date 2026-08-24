@@ -42,3 +42,19 @@ button,input{font:inherit}input{width:100%;min-width:0;border:0;border-bottom:1p
 @media(max-width:820px){.ship-identity-strip{grid-template-columns:1fr;margin-top:10px}.ship-identity-strip label{grid-template-columns:92px 1fr}.mobile-construction-sidebar{display:block}.desktop-construction-sidebar{display:none}.mobile-grid-panel footer output{font-size:1.25rem}.sic-card-gallery{width:min(350px,100%)}.sic-poker-card{min-height:490px}.construction-sidebar>header h2{font-size:.95rem}.construction-finances span,.construction-preview-stats span{font-size:.55rem}.construction-finances strong,.construction-preview-stats strong{font-size:.92rem}.sic-state-list>header strong{font-size:.63rem}.sic-state-list>header small,.inventory-sic-name small{font-size:.5rem}.inventory-sic-name strong{font-size:.67rem}.inventory-sic-actions button{font-size:.48rem}.construction-sidebar .construction-actions button{font-size:.53rem}.construction-message{font-size:.52rem}}
 @media(min-width:821px){.mobile-construction-sidebar{display:none}}
 @media(max-width:470px){.ship-identity-strip{padding:8px}.ship-identity-strip label{grid-template-columns:78px 1fr;font-size:.56rem}.sic-poker-card{min-height:455px}.sic-poker-heading{min-height:58px}.sic-poker-heading h3{font-size:1rem}.sic-poker-rules p{font-size:.58rem}}
+
+/* Shipyard alignment and HSM charge cycle */
+.desktop-total-squares{top:81.95%;font-size:clamp(.9rem,1.75vw,1.55rem);transform:none}
+.desktop-scale-rank{left:86.78%;top:81.95%;font-size:clamp(.9rem,1.65vw,1.45rem)}
+.hsm-charge-glow{fill:#a84fff;stroke:#d5a7ff;stroke-width:1.2;opacity:0;mix-blend-mode:screen;filter:drop-shadow(0 0 2px #ad57ff);animation:hsmChargeGlow 8.3s linear infinite;pointer-events:none}
+@keyframes hsmChargeGlow{0%,39.7%{opacity:0;filter:drop-shadow(0 0 0 transparent)}72%{opacity:.2;filter:drop-shadow(0 0 3px #ad57ff)}99%{opacity:.52;filter:drop-shadow(0 0 4px #d3a0ff) drop-shadow(0 0 8px #8e35ff)}100%{opacity:0;filter:drop-shadow(0 0 0 transparent)}}
+
+/* Denser construction inventory with primary actions beside each SIC */
+.sic-state-list{margin-top:5px}.sic-state-list>header{padding:4px 6px}.sic-state-list>header small{line-height:1.15}
+.inventory-sic{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;padding:6px 7px}.inventory-sic-name strong{font-size:clamp(.72rem,.84vw,.92rem)}.inventory-sic-name small{margin-top:1px}.inventory-sic-actions{justify-content:flex-end;flex-wrap:nowrap}.inventory-sic-actions button{white-space:nowrap}
+
+/* Preserve the full engine illustration in a smaller square card window */
+.sic-poker-card{grid-template-rows:auto 23.2% auto 1fr auto}.sic-poker-card>.sic-poker-art{width:auto;height:100%;max-width:100%;aspect-ratio:1;justify-self:center;object-fit:contain;object-position:center;border:0;background:#04070b}
+
+@media(max-width:820px){.mobile-grid-panel footer output{font-size:1.55rem}.inventory-sic-name strong{font-size:.82rem}.inventory-sic-actions{flex-wrap:wrap}.hsm-charge-glow{stroke-width:1.6}}
+@media(prefers-reduced-motion:reduce){.hsm-charge-glow{animation:none}}

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260824-shipyard3" />
+    <link rel="stylesheet" href="starship.css?v=20260824-shipyard4" />
   </head>
   <body>
     <header class="starship-header">
@@ -33,14 +33,15 @@
 
       <section class="starship-panel is-active" data-starship-panel="sheet">
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
-        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260823-sic-engine2" alt="Spaceship Architect starship sheet" />
+        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260824-shipyard4" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
           <text data-live-stat="hull" x="139" y="84">0</text>
           <text data-live-stat="hull" x="179.5" y="86">0</text>
           <text data-live-stat="en" x="446" y="185">0</text>
           <text data-live-stat="en" x="478" y="185">0</text>
           <text data-live-stat="credits" x="511" y="27">999,999</text>
-          <text data-live-stat="hsm" x="374" y="42">--</text>
+          <path class="hsm-charge-glow" d="M333 27 L365 24 L365 49 L333 46 Z" />
+          <text data-live-stat="hsm" x="374" y="37.5">--</text>
         </svg>
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
           <rect width="620" height="240" fill="#050b12" />
@@ -88,34 +89,34 @@
       <section class="mobile-sheet" aria-label="Mobile starship sheet">
         <article class="mobile-blueprint resistance-mobile">
           <h2>Resistance</h2>
-          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
+          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
         </article>
         <article class="mobile-blueprint mobility-mobile">
           <h2>Defense &amp; Mobility</h2>
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
-            <image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" />
+            <image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" />
             <g class="mobile-thruster-label" aria-hidden="true">
               <text x="286" y="133"># OF</text>
               <text x="286" y="139">THRUSTERS</text>
             </g>
-            <g class="mobile-live-stats"><text data-live-stat="hsm" x="374" y="42">--</text></g>
+            <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M333 27 L365 24 L365 49 L333 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
         </article>
         <article class="mobile-blueprint detection-mobile">
           <h2>Detection</h2>
-          <svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /></svg>
+          <svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint security-mobile">
           <h2>Digital Security</h2>
-          <svg viewBox="115 105 82 104" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /></svg>
+          <svg viewBox="115 105 82 104" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint power-mobile">
           <h2>Power</h2>
-          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" x="446" y="185">0</text><text data-live-stat="en" x="478" y="185">0</text></g></svg>
+          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" x="446" y="185">0</text><text data-live-stat="en" x="478" y="185">0</text></g></svg>
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
-          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /></svg>
+          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint credits-mobile">
           <h2>Group Credits</h2>
@@ -128,7 +129,7 @@
 
         <article class="mobile-blueprint minerals-mobile">
           <h2>Minerals</h2>
-          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /></svg>
+          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
         <section class="construction-sidebar mobile-construction-sidebar" data-construction-sidebar aria-label="Shipyard construction inventory">
           <header><span>Shipyard</span><h2>Construction Bay</h2></header>
@@ -152,7 +153,7 @@
           <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
         </section>
         <section class="mobile-grid-panel"><h2>SIC Construction Grid</h2><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div><div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div><footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer></section>
-        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260823-sic-engine2" width="612" height="792" /></svg></article>
+        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
         <article class="mobile-blueprint reputation-mobile">
           <h2>Reputation</h2>
           <svg class="mobile-reputation-chart reputation-chart" viewBox="0 0 620 292" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -183,7 +184,7 @@
         <div class="sic-card-gallery">
           <article class="sic-poker-card en-engine-card" tabindex="0" aria-label="EN Engine 1 details">
             <header class="sic-poker-heading"><span>Engine <small>A-7</small></span><div><h3>EN Engine 1</h3><strong>Price: 1,750</strong></div></header>
-            <img src="en-engine-1-graphic.png" alt="EN Engine 1" />
+            <img class="sic-poker-art" src="en-engine-1-graphic.png" alt="EN Engine 1" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradon, 5 hrs</dd></div></dl>
             <section class="sic-poker-rules"><p>Small Engine for basic energy needs.</p><p>Minimum distance away from another Engine is 1 square.</p><strong>Outputs 5 EN</strong><p>Stations 1<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>10</span></footer>
@@ -193,6 +194,6 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260824-shipyard3"></script>
+    <script src="starship.js?v=20260824-shipyard4"></script>
   </body>
 </html>
