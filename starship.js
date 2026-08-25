@@ -1,10 +1,22 @@
 const STORAGE_KEY = "sa-starship-layout-draft";
+const VIEW_STORAGE_KEY = "sa-starship-map-view";
 const BUILD_VERSION = 3;
 const HULL_COST = 1000;
 const EN_ENGINE_COST = 1750;
 const GRID_SIZE = 20;
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+function loadMapView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_STORAGE_KEY) || "{}");
+    return {
+      labels: saved.labels !== false,
+      highResolution: Boolean(saved.highResolution),
+      combatMesh: Boolean(saved.combatMesh),
+    };
+  } catch { return { labels: true, highResolution: false, combatMesh: false }; }
+}
 
 function constructionState(source) {
   const placements = Array.isArray(source?.placements)
@@ -55,6 +67,7 @@ function loadDraft() {
 }
 
 let draft = loadDraft();
+let mapView = loadMapView();
 let undoState = null;
 let selectedSicId = null;
 let mobilePreviewCell = null;
@@ -68,9 +81,13 @@ const confirmButtons = [...document.querySelectorAll('[data-construction-action=
 const undoButtons = [...document.querySelectorAll('[data-construction-action="undo"]')];
 const discardButtons = [...document.querySelectorAll('[data-construction-action="discard"]')];
 const mobilePlacementControls = document.querySelector("#mobilePlacementControls");
+const mapViewToggles = [...document.querySelectorAll("[data-map-toggle]")];
 
 function saveDraft() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch { /* Keep the editor usable in private contexts. */ }
+}
+function saveMapView() {
+  try { localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(mapView)); } catch { /* View preferences may remain session-only. */ }
 }
 function formatCredits(value) { return Math.round(value).toLocaleString("en-US"); }
 function getWorkingState() { return constructionState(draft); }
@@ -226,16 +243,42 @@ function handleGridClick(index, cell, mobile) {
 function renderGridCells() {
   const hull = new Set(draft.gridCells);
   const placementMap = new Map(draft.placements.map((placement) => [placement.cell, placement]));
-  shipGrids.forEach((grid) => grid.querySelectorAll(".ship-grid-cell").forEach((cell) => {
-    const index = Number(cell.dataset.gridIndex);
-    const placement = placementMap.get(index);
-    cell.classList.toggle("is-selected", hull.has(index));
-    cell.classList.toggle("has-engine", Boolean(placement));
-    cell.classList.toggle("construction-error", validation.cells.has(index));
-    cell.textContent = placement ? "EN 1" : "";
-    cell.setAttribute("aria-pressed", String(hull.has(index)));
-  }));
+  const placementActive = Boolean(selectedSic());
+  shipGrids.forEach((grid) => {
+    grid.classList.toggle("show-sic-labels", mapView.labels);
+    grid.classList.toggle("high-resolution", mapView.highResolution && !placementActive);
+    grid.classList.toggle("combat-mesh", mapView.combatMesh);
+    grid.classList.toggle("placement-active", placementActive);
+    grid.querySelectorAll(".ship-grid-cell").forEach((cell) => {
+      const index = Number(cell.dataset.gridIndex);
+      const placement = placementMap.get(index);
+      cell.classList.toggle("is-selected", hull.has(index));
+      cell.classList.toggle("has-engine", Boolean(placement));
+      cell.classList.toggle("construction-error", validation.cells.has(index));
+      cell.replaceChildren();
+      if (placement && mapView.labels) {
+        const label = document.createElement("span");
+        label.className = "sic-grid-label";
+        label.textContent = "EN 1";
+        cell.append(label);
+      }
+      cell.setAttribute("aria-pressed", String(hull.has(index)));
+      cell.setAttribute("aria-label", placement ? `Ship grid square ${index + 1}, EN Engine 1` : `Ship grid square ${index + 1}`);
+    });
+  });
   totalSquareOutputs.forEach((output) => { output.value = String(hull.size); output.textContent = String(hull.size); });
+}
+
+function renderMapViewControls() {
+  const placementActive = Boolean(selectedSic());
+  mapViewToggles.forEach((toggle) => {
+    const key = toggle.dataset.mapToggle;
+    toggle.checked = Boolean(mapView[key]);
+    const label = toggle.closest("label");
+    const suspended = key === "highResolution" && placementActive && mapView.highResolution;
+    label?.classList.toggle("is-suspended", suspended);
+    if (label) label.title = suspended ? "Basic colors remain visible while placing a SIC." : "";
+  });
 }
 function renderMobilePlacement() {
   if (!mobilePlacementControls) return;
@@ -384,7 +427,7 @@ function renderConstructionControls() {
   discardButtons.forEach((button) => { button.disabled = !changed; });
 }
 function renderAll() {
-  renderGridCells(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
+  renderGridCells(); renderMapViewControls(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
 }
 
 shipFields.forEach((field) => {
@@ -411,6 +454,10 @@ shipGrids.forEach((grid) => {
 });
 document.querySelector("[data-mobile-place]")?.addEventListener("click", () => { if (mobilePreviewCell !== null) placeSelectedSic(mobilePreviewCell); });
 document.querySelectorAll("[data-cancel-placement]").forEach((button) => button.addEventListener("click", cancelPlacement));
+mapViewToggles.forEach((toggle) => toggle.addEventListener("change", () => {
+  mapView[toggle.dataset.mapToggle] = toggle.checked;
+  saveMapView(); renderAll();
+}));
 document.querySelector("#purchaseEnEngine")?.addEventListener("click", () => {
   rememberForUndo();
   const id = `en-engine-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260824-shipyard4" />
+    <link rel="stylesheet" href="starship.css?v=20260824-map-view1" />
   </head>
   <body>
     <header class="starship-header">
@@ -70,6 +70,12 @@
             <span>Working HSM<strong data-working-hsm>--</strong></span>
             <span>Scale Rank<strong data-working-scale>--</strong></span>
           </div>
+          <fieldset class="map-view-controls" data-map-view-controls>
+            <legend>Map View</legend>
+            <label><input type="checkbox" data-map-toggle="labels" checked /><span>Labels</span></label>
+            <label><input type="checkbox" data-map-toggle="highResolution" /><span>High Resolution</span></label>
+            <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
+          </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
@@ -95,7 +101,12 @@
           <h2>Defense &amp; Mobility</h2>
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
             <image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" />
-            <g class="mobile-thruster-label" aria-hidden="true">
+            <g class="mobile-thruster-overlay" aria-hidden="true">
+              <rect class="mobile-thruster-label-mask" x="268" y="124" width="37" height="18" rx="2" />
+              <g class="mobile-thruster-needle">
+                <path d="M286 145L257 107M286 145L266 127M286 145L276 149M286 145L286 170M286 145L278 177" />
+                <circle cx="286" cy="145" r="2.3" />
+              </g>
               <text x="286" y="133"># OF</text>
               <text x="286" y="139">THRUSTERS</text>
             </g>
@@ -141,6 +152,12 @@
             <span>Working HSM<strong data-working-hsm>--</strong></span>
             <span>Scale Rank<strong data-working-scale>--</strong></span>
           </div>
+          <fieldset class="map-view-controls" data-map-view-controls>
+            <legend>Map View</legend>
+            <label><input type="checkbox" data-map-toggle="labels" checked /><span>Labels</span></label>
+            <label><input type="checkbox" data-map-toggle="highResolution" /><span>High Resolution</span></label>
+            <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
+          </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
@@ -194,6 +211,6 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260824-shipyard4"></script>
+    <script src="starship.js?v=20260824-map-view1"></script>
   </body>
 </html>
