@@ -14,8 +14,9 @@ function loadMapView() {
       labels: saved.labels !== false,
       highResolution: Boolean(saved.highResolution),
       combatMesh: Boolean(saved.combatMesh),
+      walls: saved.walls !== false,
     };
-  } catch { return { labels: true, highResolution: false, combatMesh: false }; }
+  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true }; }
 }
 
 function constructionState(source) {
@@ -45,6 +46,8 @@ function defaultDraft() {
     buildVersion: BUILD_VERSION,
     title: "", affiliation: "", class: "",
     reputationSelections: [5, 5, 5, 5, 5], popularity: 0,
+    doorStates: {},
+    crewCharacterIds: [], crewmemberNames: [],
     ...initial, confirmed: clone(initial),
   };
 }
@@ -58,6 +61,9 @@ function loadDraft() {
       reputationSelections: Array.isArray(saved.reputationSelections) && saved.reputationSelections.length === 5
         ? saved.reputationSelections.map((value) => Math.max(0, Math.min(10, Number(value) || 0))) : fresh.reputationSelections,
       popularity: Math.max(0, Math.min(100, Number(saved.popularity) || 0)),
+      doorStates: saved.doorStates && typeof saved.doorStates === "object" ? saved.doorStates : {},
+      crewCharacterIds: Array.isArray(saved.crewCharacterIds) ? saved.crewCharacterIds.map(String) : [],
+      crewmemberNames: Array.isArray(saved.crewmemberNames) ? saved.crewmemberNames.map(String) : [],
     };
     if (saved.buildVersion !== BUILD_VERSION) return { ...fresh, ...identity };
     const working = constructionState(saved);
@@ -72,6 +78,13 @@ let undoState = null;
 let selectedSicId = null;
 let mobilePreviewCell = null;
 let validation = { errors: [], cells: new Set() };
+
+const SIDES = [
+  { name: "top", offset: -GRID_SIZE, valid: (index) => index >= GRID_SIZE },
+  { name: "right", offset: 1, valid: (index) => index % GRID_SIZE < GRID_SIZE - 1 },
+  { name: "bottom", offset: GRID_SIZE, valid: (index) => index < GRID_SIZE * (GRID_SIZE - 1) },
+  { name: "left", offset: -1, valid: (index) => index % GRID_SIZE > 0 },
+];
 
 const shipFields = [...document.querySelectorAll("[data-ship-field]")];
 const shipGrids = [...document.querySelectorAll(".ship-grid")];
@@ -114,6 +127,80 @@ function selectedSic() {
 }
 function placementAt(cell) { return draft.placements.find((placement) => placement.cell === cell) || null; }
 function placementForSic(sicId) { return draft.placements.find((placement) => placement.sicId === sicId) || null; }
+
+function doorKey(firstCell, secondCell) {
+  return [firstCell, secondCell].sort((left, right) => left - right).join(":");
+}
+
+function currentDoorOperator() {
+  const parameters = new URLSearchParams(location.search);
+  const requestedCharacterId = parameters.get("character") || localStorage.getItem("sa2e-active-character-v1") || "";
+  try {
+    const library = JSON.parse(localStorage.getItem("sa2e-character-library-v1") || "[]");
+    const character = Array.isArray(library) ? library.find((entry) => entry?.id === requestedCharacterId) : null;
+    return character ? { id: character.id, name: String(character.identity?.characterName || "").trim() } : null;
+  } catch { return null; }
+}
+
+function canOperateDoors() {
+  const parameters = new URLSearchParams(location.search);
+  const operator = currentDoorOperator();
+  const crewIds = Array.isArray(draft.crewCharacterIds) ? draft.crewCharacterIds : [];
+  const crewNames = Array.isArray(draft.crewmemberNames) ? draft.crewmemberNames.map((name) => String(name).trim().toLowerCase()) : [];
+  if (!parameters.has("character")) return true;
+  if (!operator) return false;
+  return crewIds.includes(operator.id) || crewNames.includes(operator.name.toLowerCase());
+}
+
+function makeWall(side, segment = "full") {
+  const wall = document.createElement("span");
+  wall.className = `sic-wall sic-wall-${side} sic-wall-${segment}`;
+  wall.setAttribute("aria-hidden", "true");
+  return wall;
+}
+
+function toggleDoor(key) {
+  if (!canOperateDoors()) {
+    showMessage("Only a listed crewmember can operate this door.", "error");
+    return;
+  }
+  draft.doorStates ||= {};
+  draft.doorStates[key] = draft.doorStates[key] === "open" ? "closed" : "open";
+  saveDraft();
+  renderGridCells();
+}
+
+function makeDoor(index, adjacent, side) {
+  const key = doorKey(index, adjacent);
+  const open = draft.doorStates?.[key] === "open";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `sic-door sic-door-${side}${open ? " is-open" : ""}`;
+  button.dataset.doorKey = key;
+  button.disabled = !canOperateDoors();
+  button.title = button.disabled ? "Only a listed crewmember can operate this door" : `${open ? "Close" : "Open"} door`;
+  button.setAttribute("aria-label", button.title);
+  button.setAttribute("aria-pressed", String(open));
+  const first = document.createElement("span");
+  const second = document.createElement("span");
+  first.className = "door-panel door-panel-first";
+  second.className = "door-panel door-panel-second";
+  button.append(first, second);
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", (event) => { event.stopPropagation(); toggleDoor(key); });
+  return button;
+}
+
+function renderEngineBoundaries(cell, index, hull) {
+  SIDES.forEach((side) => {
+    const adjacent = index + side.offset;
+    if (!side.valid(index) || !hull.has(adjacent)) {
+      cell.append(makeWall(side.name));
+      return;
+    }
+    cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
+  });
+}
 
 function shipScaleStats(squareCount) {
   const count = Number(squareCount) || 0;
@@ -248,6 +335,7 @@ function renderGridCells() {
     grid.classList.toggle("show-sic-labels", mapView.labels);
     grid.classList.toggle("high-resolution", mapView.highResolution && !placementActive);
     grid.classList.toggle("combat-mesh", mapView.combatMesh);
+    grid.classList.toggle("show-walls", mapView.walls && !placementActive);
     grid.classList.toggle("placement-active", placementActive);
     grid.querySelectorAll(".ship-grid-cell").forEach((cell) => {
       const index = Number(cell.dataset.gridIndex);
@@ -256,6 +344,7 @@ function renderGridCells() {
       cell.classList.toggle("has-engine", Boolean(placement));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
+      if (placement && mapView.walls && !placementActive) renderEngineBoundaries(cell, index, hull);
       if (placement && mapView.labels) {
         const label = document.createElement("span");
         label.className = "sic-grid-label";
@@ -275,9 +364,9 @@ function renderMapViewControls() {
     const key = toggle.dataset.mapToggle;
     toggle.checked = Boolean(mapView[key]);
     const label = toggle.closest("label");
-    const suspended = key === "highResolution" && placementActive && mapView.highResolution;
+    const suspended = (key === "highResolution" || key === "walls") && placementActive && mapView[key];
     label?.classList.toggle("is-suspended", suspended);
-    if (label) label.title = suspended ? "Basic colors remain visible while placing a SIC." : "";
+    if (label) label.title = suspended ? "Basic placement view remains visible while placing a SIC." : "";
   });
 }
 function renderMobilePlacement() {
