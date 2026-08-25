@@ -4,8 +4,12 @@ const ACTIVE_STARSHIP_KEY = "sa-starship-active-v1";
 const VIEW_STORAGE_KEY = "sa-starship-map-view";
 const BUILD_VERSION = 3;
 const HULL_COST = 1000;
-const EN_ENGINE_COST = 1750;
 const GRID_SIZE = 20;
+const SIC_CATALOG = {
+  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png" },
+  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png" },
+  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png" },
+};
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function uid(prefix = "ship") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
@@ -38,8 +42,8 @@ function constructionState(source) {
       ? [...new Set(source.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 400))].sort((a, b) => a - b)
       : [],
     sicInventory: Array.isArray(source?.sicInventory)
-      ? source.sicInventory.filter((item) => item?.id && item.type === "en-engine-1").map((item) => ({
-          id: String(item.id), type: "en-engine-1", pendingPurchase: Boolean(item.pendingPurchase),
+      ? source.sicInventory.filter((item) => item?.id && SIC_CATALOG[item.type]).map((item) => ({
+          id: String(item.id), type: item.type, pendingPurchase: Boolean(item.pendingPurchase),
           storage: !placedIds.has(String(item.id)) && !item.pendingPurchase ? item.storage !== false : false,
           pendingDisposition: item.pendingDisposition === "sell" || item.pendingDisposition === "destroy" ? item.pendingDisposition : "",
         }))
@@ -159,14 +163,26 @@ function pendingCost() {
   const confirmedCells = new Set(draft.confirmed.gridCells);
   const additions = [...workingCells].filter((cell) => !confirmedCells.has(cell)).length;
   const removals = [...confirmedCells].filter((cell) => !workingCells.has(cell)).length;
-  const engines = draft.sicInventory.filter((item) => item.pendingPurchase).length;
-  const soldEngines = draft.sicInventory.filter((item) => !item.pendingPurchase && item.pendingDisposition === "sell").length;
-  return ((additions - removals) * HULL_COST) + (engines * EN_ENGINE_COST) - (soldEngines * Math.ceil(EN_ENGINE_COST / 2));
+  const purchases = draft.sicInventory.filter((item) => item.pendingPurchase).reduce((total, item) => total + SIC_CATALOG[item.type].price, 0);
+  const sales = draft.sicInventory.filter((item) => !item.pendingPurchase && item.pendingDisposition === "sell").reduce((total, item) => total + Math.ceil(SIC_CATALOG[item.type].price / 2), 0);
+  return ((additions - removals) * HULL_COST) + purchases - sales;
 }
 function selectedSic() {
   return draft.sicInventory.find((item) => item.id === selectedSicId && !item.storage && !item.pendingDisposition) || null;
 }
-function placementAt(cell) { return draft.placements.find((placement) => placement.cell === cell) || null; }
+function sicDefinition(itemOrType) { return SIC_CATALOG[typeof itemOrType === "string" ? itemOrType : itemOrType?.type] || SIC_CATALOG["en-engine-1"]; }
+function placementCells(placement) {
+  const item = draft.sicInventory.find((entry) => entry.id === placement?.sicId);
+  const definition = sicDefinition(item);
+  const row = Math.floor(placement.cell / GRID_SIZE); const column = placement.cell % GRID_SIZE;
+  const cells = [];
+  for (let y = 0; y < definition.height; y += 1) for (let x = 0; x < definition.width; x += 1) {
+    if (row + y >= GRID_SIZE || column + x >= GRID_SIZE) return [];
+    cells.push(placement.cell + (y * GRID_SIZE) + x);
+  }
+  return cells;
+}
+function placementAt(cell) { return draft.placements.find((placement) => placementCells(placement).includes(cell)) || null; }
 function placementForSic(sicId) { return draft.placements.find((placement) => placement.sicId === sicId) || null; }
 
 function doorKey(firstCell, secondCell) {
@@ -257,7 +273,7 @@ function renderCellBoundaries(cell, index, hull, placement) {
       cell.append(makeWall(side.name));
       return;
     }
-    if (placement) {
+    if (placement && placementAt(adjacent)?.sicId !== placement.sicId) {
       cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
     }
   });
@@ -288,13 +304,37 @@ function orthogonalNeighbors(cell) {
   if (column < GRID_SIZE - 1) neighbors.push(cell + 1);
   return neighbors;
 }
-function isLegalEnginePlacement(sicId, cell) {
-  if (!draft.gridCells.includes(cell)) return { legal: false, reason: "Purchase this hull square first." };
-  const occupant = placementAt(cell);
-  if (occupant && occupant.sicId !== sicId) return { legal: false, reason: "That hull square already contains a SIC." };
-  const touchingEngine = draft.placements.some((placement) => placement.sicId !== sicId && orthogonalNeighbors(cell).includes(placement.cell));
-  if (touchingEngine) return { legal: false, reason: "Engines require one clear horizontal or vertical square between them." };
-  return { legal: true, reason: "Legal EN Engine 1 placement." };
+function candidateCells(sicId, cell) {
+  const item = draft.sicInventory.find((entry) => entry.id === sicId);
+  if (!item) return [];
+  return placementCells({ sicId, cell });
+}
+function minimumCellDistance(leftCells, rightCells) {
+  let minimum = Infinity;
+  leftCells.forEach((left) => rightCells.forEach((right) => {
+    const distance = Math.abs(Math.floor(left / GRID_SIZE) - Math.floor(right / GRID_SIZE)) + Math.abs((left % GRID_SIZE) - (right % GRID_SIZE));
+    minimum = Math.min(minimum, distance);
+  }));
+  return minimum;
+}
+function validateSicPlacement(sicId, cell) {
+  const item = draft.sicInventory.find((entry) => entry.id === sicId);
+  if (!item) return { legal: false, reason: "That SIC is no longer available.", cells: [] };
+  const definition = sicDefinition(item); const cells = candidateCells(sicId, cell);
+  if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
+  if (cells.some((candidate) => !draft.gridCells.includes(candidate))) return { legal: false, reason: `Purchase all ${definition.width * definition.height} required hull squares first.`, cells };
+  if (cells.some((candidate) => { const occupant = placementAt(candidate); return occupant && occupant.sicId !== sicId; })) return { legal: false, reason: "That area already contains a SIC.", cells };
+  if (definition.category === "engine") {
+    const tooClose = draft.placements.find((placement) => {
+      if (placement.sicId === sicId) return false;
+      const otherItem = draft.sicInventory.find((entry) => entry.id === placement.sicId);
+      const otherDefinition = sicDefinition(otherItem);
+      if (otherDefinition.category !== "engine") return false;
+      return minimumCellDistance(cells, placementCells(placement)) < Math.max(definition.clearance, otherDefinition.clearance) + 1;
+    });
+    if (tooClose) return { legal: false, reason: `${definition.name} requires ${definition.clearance} clear grid square${definition.clearance === 1 ? "" : "s"} from another Engine.`, cells };
+  }
+  return { legal: true, reason: `Legal ${definition.name} placement.`, cells };
 }
 function disconnectedHullCells() {
   if (draft.gridCells.length < 2) return [];
@@ -319,19 +359,10 @@ function inspectConstruction() {
   }
   const seenCells = new Set();
   draft.placements.forEach((placement) => {
-    if (!draft.gridCells.includes(placement.cell)) { errors.push("A SIC is installed outside the purchased hull."); cells.add(placement.cell); }
-    if (seenCells.has(placement.cell)) { errors.push("Two SICs occupy the same hull square."); cells.add(placement.cell); }
-    seenCells.add(placement.cell);
+    const result = validateSicPlacement(placement.sicId, placement.cell);
+    if (!result.legal) errors.push(result.reason);
+    result.cells.forEach((cell) => { if (!draft.gridCells.includes(cell) || seenCells.has(cell)) cells.add(cell); seenCells.add(cell); });
   });
-  for (let index = 0; index < draft.placements.length; index += 1) {
-    for (let other = index + 1; other < draft.placements.length; other += 1) {
-      const left = draft.placements[index].cell;
-      const right = draft.placements[other].cell;
-      if (orthogonalNeighbors(left).includes(right)) {
-        errors.push("EN Engines cannot touch horizontally or vertically."); cells.add(left); cells.add(right);
-      }
-    }
-  }
   if (pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
   return { errors: [...new Set(errors)], cells };
 }
@@ -347,21 +378,22 @@ function clearPlacementPreview() {
 function previewPlacement(cellIndex, cellElement) {
   clearPlacementPreview();
   if (!selectedSic()) return;
-  const result = isLegalEnginePlacement(selectedSicId, cellIndex);
-  cellElement.classList.add("placement-preview", result.legal ? "is-valid" : "is-invalid");
+  const result = validateSicPlacement(selectedSicId, cellIndex);
+  const grid = cellElement.closest(".ship-grid");
+  result.cells.forEach((cell) => grid?.querySelector(`[data-grid-index="${cell}"]`)?.classList.add("placement-preview", result.legal ? "is-valid" : "is-invalid"));
 }
 function cancelPlacement() { selectedSicId = null; mobilePreviewCell = null; clearPlacementPreview(); renderAll(); }
 function placeSelectedSic(cell) {
   const sic = selectedSic();
   if (!sic) return;
-  const result = isLegalEnginePlacement(sic.id, cell);
+  const result = validateSicPlacement(sic.id, cell);
   if (!result.legal) { showMessage(result.reason, "error"); return; }
   rememberForUndo();
   draft.placements = draft.placements.filter((placement) => placement.sicId !== sic.id);
   draft.placements.push({ sicId: sic.id, cell });
   selectedSicId = null; mobilePreviewCell = null;
   saveDraft();
-  showMessage("EN Engine 1 placed. Confirm Changes to apply it to the ship.", "success");
+  showMessage(`${sicDefinition(sic).name} placed. Confirm Changes to apply it to the ship.`, "success");
   renderAll();
 }
 function removePlacedSic(placement) {
@@ -370,7 +402,7 @@ function removePlacedSic(placement) {
   draft.placements = draft.placements.filter((entry) => entry.sicId !== placement.sicId);
   if (item) item.storage = !item.pendingPurchase;
   saveDraft();
-  showMessage(item?.pendingPurchase ? "EN Engine 1 returned to the Installation Queue." : "EN Engine 1 moved into Storage.");
+  showMessage(item?.pendingPurchase ? `${sicDefinition(item).name} returned to the Installation Queue.` : `${sicDefinition(item).name} moved into Storage.`);
   renderAll();
 }
 function toggleHullCell(index) {
@@ -391,7 +423,8 @@ function handleGridClick(index, cell, mobile) {
 }
 function renderGridCells() {
   const hull = new Set(draft.gridCells);
-  const placementMap = new Map(draft.placements.map((placement) => [placement.cell, placement]));
+  const placementMap = new Map();
+  draft.placements.forEach((placement) => placementCells(placement).forEach((cell, offset) => placementMap.set(cell, { placement, offset })));
   const placementActive = Boolean(selectedSic());
   shipGrids.forEach((grid) => {
     grid.classList.toggle("show-sic-labels", mapView.labels);
@@ -403,20 +436,34 @@ function renderGridCells() {
     grid.classList.toggle("explore-mode", mapView.mode === "explore");
     grid.querySelectorAll(".ship-grid-cell").forEach((cell) => {
       const index = Number(cell.dataset.gridIndex);
-      const placement = placementMap.get(index);
+      const occupied = placementMap.get(index); const placement = occupied?.placement || null;
+      const item = placement ? draft.sicInventory.find((entry) => entry.id === placement.sicId) : null;
+      const definition = item ? sicDefinition(item) : null;
       cell.classList.toggle("is-selected", hull.has(index));
-      cell.classList.toggle("has-engine", Boolean(placement));
+      cell.classList.toggle("has-engine", definition?.category === "engine");
+      cell.classList.toggle("has-sic", Boolean(placement));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
+      cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
+      if (placement) {
+        const x = occupied.offset % definition.width; const y = Math.floor(occupied.offset / definition.width);
+        cell.style.setProperty("--sic-floorplan", `url('${definition.floorplan}')`);
+        cell.style.setProperty("--sic-bg-size", `${definition.width * 100}% ${definition.height * 100}%`);
+        cell.style.setProperty("--sic-bg-x", definition.width === 1 ? "50%" : `${x / (definition.width - 1) * 100}%`);
+        cell.style.setProperty("--sic-bg-y", definition.height === 1 ? "50%" : `${y / (definition.height - 1) * 100}%`);
+        cell.dataset.sicType = item.type;
+      } else delete cell.dataset.sicType;
       if (hull.has(index) && mapView.walls && !placementActive) renderCellBoundaries(cell, index, hull, placement);
-      if (placement && mapView.labels) {
+      if (placement && placement.cell === index && mapView.labels) {
         const label = document.createElement("span");
         label.className = "sic-grid-label";
-        label.textContent = "EN 1";
+        label.textContent = definition.shortLabel;
+        label.style.setProperty("--sic-width", String(definition.width));
+        label.style.setProperty("--sic-height", String(definition.height));
         cell.append(label);
       }
       cell.setAttribute("aria-pressed", String(hull.has(index)));
-      cell.setAttribute("aria-label", placement ? `Ship grid square ${index + 1}, EN Engine 1` : `Ship grid square ${index + 1}`);
+      cell.setAttribute("aria-label", placement ? `Ship grid square ${index + 1}, ${definition.name}` : `Ship grid square ${index + 1}`);
     });
   });
   totalSquareOutputs.forEach((output) => { output.value = String(hull.size); output.textContent = String(hull.size); });
@@ -468,7 +515,7 @@ function renderMobilePlacement() {
   const active = Boolean(selectedSic()) && mobilePreviewCell !== null;
   mobilePlacementControls.hidden = !active;
   if (!active) return;
-  const result = isLegalEnginePlacement(selectedSicId, mobilePreviewCell);
+  const result = validateSicPlacement(selectedSicId, mobilePreviewCell);
   mobilePlacementControls.dataset.valid = String(result.legal);
   mobilePlacementControls.querySelector("[data-mobile-placement-message]").textContent = result.reason;
   mobilePlacementControls.querySelector("[data-mobile-place]").disabled = !result.legal;
@@ -520,13 +567,15 @@ function renderInventoryList(container, kind) {
     const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "None"; container.append(empty); return;
   }
   items.forEach((item) => {
+    const definition = sicDefinition(item);
     const card = document.createElement("article"); card.className = `inventory-sic inventory-${kind}`;
     const placement = placementForSic(item.id);
     const name = document.createElement("div"); name.className = "inventory-sic-name";
-    const detail = item.pendingDisposition === "sell" ? "Sale pending · +875 cr"
+    const saleValue = Math.ceil(definition.price / 2);
+    const detail = item.pendingDisposition === "sell" ? `Sale pending · +${formatCredits(saleValue)} cr`
       : item.pendingDisposition === "destroy" ? "Destruction pending"
-        : placement ? `Grid ${Math.floor(placement.cell / GRID_SIZE) + 1}, ${placement.cell % GRID_SIZE + 1}` : `1 square · ${formatCredits(EN_ENGINE_COST)} cr`;
-    name.innerHTML = `<strong>EN Engine 1</strong><small>${detail}</small>`;
+        : placement ? `Grid ${Math.floor(placement.cell / GRID_SIZE) + 1}, ${placement.cell % GRID_SIZE + 1}` : `${definition.width}×${definition.height} · ${formatCredits(definition.price)} cr`;
+    name.innerHTML = `<strong>${escapeHtml(definition.name)}</strong><small>${detail}</small>`;
     const actions = document.createElement("div"); actions.className = "inventory-sic-actions";
     if (kind === "pending" && item.pendingDisposition) {
       actions.append(inventoryButton("Keep SIC", "keep-sic", () => {
@@ -545,7 +594,7 @@ function renderInventoryList(container, kind) {
       actions.append(inventoryButton("Remove", "store-sic", () => removePlacedSic(placement)));
     } else {
       actions.append(inventoryButton("Install", "install-sic", () => moveSicToQueue(item)));
-      actions.append(inventoryButton("Sell 875", "sell-sic", () => markSicDisposition(item, "sell")));
+      actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`, "sell-sic", () => markSicDisposition(item, "sell")));
       actions.append(inventoryButton("Destroy", "destroy-sic", () => markSicDisposition(item, "destroy")));
     }
     card.append(name, actions); container.append(card);
@@ -556,23 +605,24 @@ function refundPendingSic(item) {
   rememberForUndo(); draft.placements = draft.placements.filter((entry) => entry.sicId !== item.id);
   draft.sicInventory = draft.sicInventory.filter((sic) => sic.id !== item.id);
   if (selectedSicId === item.id) selectedSicId = null;
-  saveDraft(); showMessage("Pending EN Engine 1 refunded in full."); renderAll();
+  saveDraft(); showMessage(`Pending ${sicDefinition(item).name} refunded in full.`); renderAll();
 }
 function moveSicToStorage(item) {
   rememberForUndo(); item.storage = true; if (selectedSicId === item.id) selectedSicId = null;
-  saveDraft(); showMessage("EN Engine 1 moved into Storage."); renderAll();
+  saveDraft(); showMessage(`${sicDefinition(item).name} moved into Storage.`); renderAll();
 }
 function moveSicToQueue(item) {
   rememberForUndo(); item.storage = false; item.pendingDisposition = ""; selectedSicId = item.id;
-  saveDraft(); showMessage("EN Engine 1 moved to the Installation Queue. Select a hull square."); renderAll();
+  saveDraft(); showMessage(`${sicDefinition(item).name} moved to the Installation Queue. Select its hull area.`); renderAll();
 }
 function markSicDisposition(item, disposition) {
+  const definition = sicDefinition(item); const saleValue = Math.ceil(definition.price / 2);
   const message = disposition === "sell"
-    ? "Sell this EN Engine 1 for 875 credits when changes are confirmed?"
-    : "Destroy this EN Engine 1 permanently when changes are confirmed?";
+    ? `Sell this ${definition.name} for ${formatCredits(saleValue)} credits when changes are confirmed?`
+    : `Destroy this ${definition.name} permanently when changes are confirmed?`;
   if (!window.confirm(message)) return;
   rememberForUndo(); item.pendingDisposition = disposition; item.storage = true;
-  saveDraft(); showMessage(disposition === "sell" ? "EN Engine 1 marked for sale." : "EN Engine 1 marked for destruction."); renderAll();
+  saveDraft(); showMessage(disposition === "sell" ? `${definition.name} marked for sale.` : `${definition.name} marked for destruction.`); renderAll();
 }
 
 function renderInventory() {
@@ -581,10 +631,14 @@ function renderInventory() {
 function renderLiveStats() {
   const confirmed = constructionState(draft.confirmed);
   const hull = confirmed.gridCells.length;
-  const en = confirmed.placements.length * 5;
+  const installed = confirmed.placements.map((placement) => confirmed.sicInventory.find((item) => item.id === placement.sicId)).filter(Boolean);
+  const enMax = installed.reduce((total, item) => total + sicDefinition(item).enOutput, 0);
+  const enAvailable = enMax - installed.reduce((total, item) => total + sicDefinition(item).energyCost, 0);
   const scale = shipScaleStats(hull);
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });
-  document.querySelectorAll('[data-live-stat="en"]').forEach((element) => { element.textContent = String(en); });
+  document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
+    element.textContent = String(element.dataset.enPart === "max" ? enMax : enAvailable);
+  });
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
   document.querySelectorAll('[data-live-stat="credits"], [data-group-credits]').forEach((element) => { element.textContent = formatCredits(confirmed.groupCredits); });
   document.querySelectorAll("[data-confirmed-scale]").forEach((element) => { element.value = String(scale.scale); element.textContent = String(scale.scale); });
@@ -679,14 +733,16 @@ shipGrids.forEach((grid) => {
   grid.addEventListener("pointerup", finishPan);
   grid.addEventListener("pointercancel", finishPan);
 });
-document.querySelector("#purchaseEnEngine")?.addEventListener("click", () => {
+function purchaseSic(type) {
+  const definition = SIC_CATALOG[type]; if (!definition) return;
   rememberForUndo();
-  const id = `en-engine-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  draft.sicInventory.push({ id, type: "en-engine-1", pendingPurchase: true, storage: false, pendingDisposition: "" });
+  const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  draft.sicInventory.push({ id, type, pendingPurchase: true, storage: false, pendingDisposition: "" });
   selectedSicId = id; mapView.mode = "build"; saveDraft(); saveMapView();
   document.querySelector('[data-starship-tab="sheet"]')?.click();
-  showMessage("EN Engine 1 added to pending purchases. Select a hull square to install it.", "success"); renderAll();
-});
+  showMessage(`${definition.name} added to pending purchases. Select its ${definition.width}×${definition.height} hull area to install it.`, "success"); renderAll();
+}
+document.querySelectorAll("[data-purchase-sic]").forEach((button) => button.addEventListener("click", () => purchaseSic(button.dataset.purchaseSic)));
 function undoConstruction() {
   if (!undoState) return;
   const current = getWorkingState(); restoreWorkingState(undoState); undoState = current;
@@ -718,7 +774,7 @@ function confirmConstruction() {
   mapView.mode = "explore";
   saveDraft(); saveMapView(); syncLinkedStarship();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
-  renderAll();
+  renderSavedStarships(); renderCampaignLink(); renderAll();
 }
 undoButtons.forEach((button) => button.addEventListener("click", undoConstruction));
 discardButtons.forEach((button) => button.addEventListener("click", discardConstruction));
@@ -736,7 +792,7 @@ document.querySelectorAll("[data-starship-tab]").forEach((button) => {
 const savedStarshipSelect = document.querySelector("#savedStarshipSelect");
 const starshipSaveState = document.querySelector("#starshipSaveState");
 const importStarshipFile = document.querySelector("#importStarshipFile");
-const linkStarshipForm = document.querySelector("#linkStarshipForm");
+const linkStarshipForms = [...document.querySelectorAll("[data-link-starship-form]")];
 let linkedCampaignState = null;
 
 function applyDraftToUi() {
@@ -821,38 +877,32 @@ async function refreshLinkedCampaign() {
   renderCampaignLink();
 }
 function campaignMessage(message, tone = "") {
-  const output = document.querySelector("#starshipCampaignMessage"); if (!output) return;
-  output.textContent = message; output.dataset.tone = tone;
+  document.querySelectorAll("[data-starship-campaign-message]").forEach((output) => { output.textContent = message; output.dataset.tone = tone; });
 }
 function renderCampaignLink() {
   const linked = draft.campaignLink;
-  const status = document.querySelector("#starshipCampaignStatus");
-  const crewPanel = document.querySelector("#starshipCrewPanel");
-  const linkButton = document.querySelector("#linkStarshipButton");
-  if (!status || !linkStarshipForm) return;
-  linkStarshipForm.hidden = Boolean(linked);
-  status.hidden = !linked;
-  crewPanel.hidden = !linked;
-  if (!linked) {
-    if (linkButton) {
-      linkButton.disabled = !draft.confirmedOnce;
-      linkButton.title = draft.confirmedOnce ? "" : "Confirm construction at least once before linking this starship.";
-    }
-    return;
-  }
-  document.querySelector("#linkedCampaignName").textContent = linkedCampaignState?.name || linked.campaignName || "Campaign";
-  document.querySelector("#linkedCampaignCode").textContent = linked.roomCode;
-  document.querySelector("#linkedControlType").textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled";
   const records = linkedCampaignState?.characters || [];
   const selected = new Set(draft.crewCharacterIds || []);
-  document.querySelector("#starshipCrewList").innerHTML = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Open this campaign as a player or GM to manage its crew.</p>";
+  linkStarshipForms.forEach((form) => { form.hidden = Boolean(linked); });
+  document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
+  document.querySelectorAll("[data-save-starship-crew]").forEach((button) => { button.hidden = !linked; });
+  if (!linked) {
+    document.querySelectorAll("[data-link-starship]").forEach((button) => { button.disabled = !draft.confirmedOnce; button.title = draft.confirmedOnce ? "" : "Confirm construction at least once before linking this starship."; });
+    document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = '<span class="empty-inventory">Link this ship to assign crew.</span>'; });
+    return;
+  }
+  document.querySelectorAll("[data-linked-campaign-name]").forEach((node) => { node.textContent = linkedCampaignState?.name || linked.campaignName || "Campaign"; });
+  document.querySelectorAll("[data-linked-campaign-code]").forEach((node) => { node.textContent = linked.roomCode; });
+  document.querySelectorAll("[data-linked-control-type]").forEach((node) => { node.textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled"; });
+  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Open this campaign as a player or GM to manage its crew.</p>";
+  document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = markup; });
 }
 async function linkStarship(event) {
   event.preventDefault();
   if (!draft.confirmedOnce) { campaignMessage("Confirm construction at least once before linking this starship.", "error"); return; }
-  const code = document.querySelector("#starshipCampaignCode").value.trim().toUpperCase();
+  const form = event.currentTarget; const code = form.querySelector("[data-starship-campaign-code]").value.trim().toUpperCase();
   try {
-    const result = await campaignApi("/api/campaign/starship/link", { code, controlType: document.querySelector("#starshipControlType").value, starship: draft });
+    const result = await campaignApi("/api/campaign/starship/link", { code, controlType: form.querySelector("[data-starship-control-type]").value, starship: draft });
     draft.campaignLink = { roomCode: code, campaignName: result.campaignName, controlType: result.starship.controlType, accessKey: result.accessKey };
     draft.crewCharacterIds = []; saveDraft(); linkedCampaignState = null; await refreshLinkedCampaign(); campaignMessage("Starship linked successfully.");
   } catch (error) { campaignMessage(error.message, "error"); }
@@ -870,33 +920,35 @@ document.querySelector("#duplicateStarship")?.addEventListener("click", duplicat
 document.querySelector("#exportStarship")?.addEventListener("click", exportStarship);
 document.querySelector("#deleteStarship")?.addEventListener("click", deleteStarship);
 importStarshipFile?.addEventListener("change", () => importStarship(importStarshipFile.files?.[0]));
-linkStarshipForm?.addEventListener("submit", linkStarship);
-document.querySelector("#unlinkStarship")?.addEventListener("click", async () => {
+linkStarshipForms.forEach((form) => form.addEventListener("submit", linkStarship));
+document.querySelectorAll("[data-unlink-starship]").forEach((button) => button.addEventListener("click", async () => {
   if (!draft.campaignLink || !window.confirm("Unlink this starship? It will remain saved on this device and campaign crew assignments will be cleared.")) return;
   try { await campaignApi("/api/campaign/starship/unlink", { code: draft.campaignLink.roomCode, accessKey: draft.campaignLink.accessKey, starshipId: draft.id }); }
   catch (error) { campaignMessage(error.message, "error"); return; }
   draft.campaignLink = null; draft.crewCharacterIds = []; draft.crewmemberNames = []; linkedCampaignState = null; saveDraft(); renderCampaignLink();
-});
-document.querySelector("#saveStarshipCrew")?.addEventListener("click", async () => {
+}));
+document.querySelectorAll("[data-save-starship-crew]").forEach((button) => button.addEventListener("click", async () => {
   if (!draft.campaignLink) return;
-  const crewCharacterIds = [...document.querySelectorAll("#starshipCrewList input:checked")].map((input) => input.value);
+  const crewCharacterIds = [...button.closest("[data-crew-campaign-tools]").querySelectorAll("[data-starship-crew-list] input:checked")].map((input) => input.value);
   const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
   try {
     const result = await campaignApi("/api/campaign/starship/crew", { code: draft.campaignLink.roomCode, token: credentials.token, characterId: credentials.characterId, starshipId: draft.id, crewCharacterIds });
     draft.crewCharacterIds = result.starship.crewCharacterIds; saveDraft(); campaignMessage("Crew assignments saved."); await refreshLinkedCampaign();
   } catch (error) { campaignMessage(error.message, "error"); }
-});
+}));
 
-const sicCard = document.querySelector(".sic-poker-card");
+const sicCards = [...document.querySelectorAll(".sic-poker-card")];
 const sicCardDialog = document.querySelector("#sicCardDialog");
-function openSicCard() {
+function openSicCard(sicCard) {
   if (!sicCard || !sicCardDialog) return;
   const cloneCard = sicCard.cloneNode(true); cloneCard.removeAttribute("tabindex");
   sicCardDialog.querySelector("[data-sic-card-dialog-body]").replaceChildren(cloneCard);
   if (typeof sicCardDialog.showModal === "function") sicCardDialog.showModal();
 }
-sicCard?.addEventListener("click", openSicCard);
-sicCard?.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSicCard(); } });
+sicCards.forEach((sicCard) => {
+  sicCard.addEventListener("click", () => openSicCard(sicCard));
+  sicCard.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSicCard(sicCard); } });
+});
 document.querySelector("[data-close-sic-card]")?.addEventListener("click", () => sicCardDialog?.close());
 sicCardDialog?.addEventListener("click", (event) => { if (event.target === sicCardDialog) sicCardDialog.close(); });
 

@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260825-ships1" />
+    <link rel="stylesheet" href="starship.css?v=20260825-ships2" />
   </head>
   <body>
     <header class="starship-header">
-      <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
+      <div class="starship-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></div>
       <div class="starship-heading"><span>Under Construction</span><h1>Starship Creator</h1></div>
       <a class="back-link" href="index.html">Back to Main Menu</a>
     </header>
@@ -23,7 +23,6 @@
       <nav class="starship-tabs" aria-label="Starship creator sections">
         <button class="starship-tab is-active" type="button" data-starship-tab="sheet">Starship</button>
         <button class="starship-tab" type="button" data-starship-tab="sics">SICs</button>
-        <button class="starship-tab" type="button" data-starship-tab="campaign">Campaign</button>
       </nav>
 
       <section class="starship-library" aria-label="Saved starships">
@@ -50,10 +49,10 @@
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
           <text data-live-stat="hull" x="139" y="84">0</text>
           <text data-live-stat="hull" x="179.5" y="86">0</text>
-          <text data-live-stat="en" x="446" y="185">0</text>
-          <text data-live-stat="en" x="478" y="185">0</text>
+          <text data-live-stat="en" data-en-part="available" x="446" y="185">0</text>
+          <text data-live-stat="en" data-en-part="max" x="478" y="185">0</text>
           <text data-live-stat="credits" x="511" y="27">999,999</text>
-          <path class="hsm-charge-glow" d="M333 27 L365 24 L365 49 L333 46 Z" />
+          <path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" />
           <text data-live-stat="hsm" x="374" y="37.5">--</text>
         </svg>
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -100,6 +99,22 @@
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
           <div class="sic-state-list" data-sic-list="storage"></div>
+          <section class="construction-crew-campaign" data-crew-campaign-tools>
+            <header><strong>Crew</strong><small>Assigned crewmembers may operate this ship's doors.</small></header>
+            <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
+            <button type="button" data-save-starship-crew hidden>Save Crew</button>
+            <form class="compact-starship-link" data-link-starship-form>
+              <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
+              <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
+              <button type="submit" data-link-starship>Link</button>
+            </form>
+            <div class="compact-starship-status" data-starship-campaign-status hidden>
+              <span><strong data-linked-campaign-name>Campaign</strong><small data-linked-campaign-code>----</small></span>
+              <span data-linked-control-type>PC Controlled</span>
+              <button type="button" data-unlink-starship>Unlink</button>
+            </div>
+            <p class="starship-campaign-message" data-starship-campaign-message role="status"></p>
+          </section>
           <div class="construction-actions">
             <button type="button" data-construction-action="undo">Undo</button>
             <button type="button" data-construction-action="discard">Discard All Changes</button>
@@ -140,7 +155,7 @@
               <text x="286" y="133"># OF</text>
               <text x="286" y="139">THRUSTERS</text>
             </g>
-            <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M333 27 L365 24 L365 49 L333 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
+            <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
         </article>
         <article class="mobile-blueprint detection-mobile">
@@ -153,7 +168,7 @@
         </article>
         <article class="mobile-blueprint power-mobile">
           <h2>Power</h2>
-          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" x="446" y="185">0</text><text data-live-stat="en" x="478" y="185">0</text></g></svg>
+          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" data-en-part="available" x="446" y="185">0</text><text data-live-stat="en" data-en-part="max" x="478" y="185">0</text></g></svg>
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
@@ -199,6 +214,22 @@
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
           <div class="sic-state-list" data-sic-list="storage"></div>
+          <section class="construction-crew-campaign" data-crew-campaign-tools>
+            <header><strong>Crew</strong><small>Assigned crewmembers may operate this ship's doors.</small></header>
+            <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
+            <button type="button" data-save-starship-crew hidden>Save Crew</button>
+            <form class="compact-starship-link" data-link-starship-form>
+              <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
+              <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
+              <button type="submit" data-link-starship>Link</button>
+            </form>
+            <div class="compact-starship-status" data-starship-campaign-status hidden>
+              <span><strong data-linked-campaign-name>Campaign</strong><small data-linked-campaign-code>----</small></span>
+              <span data-linked-control-type>PC Controlled</span>
+              <button type="button" data-unlink-starship>Unlink</button>
+            </div>
+            <p class="starship-campaign-message" data-starship-campaign-message role="status"></p>
+          </section>
           <div class="construction-actions">
             <button type="button" data-construction-action="undo">Undo</button>
             <button type="button" data-construction-action="discard">Discard All Changes</button>
@@ -249,38 +280,34 @@
           <strong>Group Credits <span data-group-credits>999,999</span></strong>
         </header>
         <div class="sic-card-gallery">
-          <article class="sic-poker-card en-engine-card" tabindex="0" aria-label="EN Engine 1 details">
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-1" tabindex="0" aria-label="EN Engine 1 details">
             <header class="sic-poker-heading"><span>Engine <small>A-7</small></span><div><h3>EN Engine 1</h3><strong>Price: 1,750</strong></div></header>
             <img class="sic-poker-art" src="en-engine-1-graphic.png" alt="EN Engine 1" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradon, 5 hrs</dd></div></dl>
             <section class="sic-poker-rules"><p>Small Engine for basic energy needs.</p><p>Minimum distance away from another Engine is 1 square.</p><strong>Outputs 5 EN</strong><p>Stations 1<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>10</span></footer>
           </article>
-          <button id="purchaseEnEngine" class="sic-purchase-button" type="button">Purchase EN Engine 1 - 1,750</button>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-1" type="button">Purchase EN Engine 1 - 1,750</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-2" tabindex="0" aria-label="EN Engine 2 details">
+            <header class="sic-poker-heading"><span>Engine <small>A-8</small></span><div><h3>EN Engine 2</h3><strong>Price: 4,550</strong></div></header>
+            <img class="sic-poker-art" src="en-engine-2-graphic.png" alt="EN Engine 2" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>2×2</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Drakkonite, 10 hrs</dd></div></dl>
+            <section class="sic-poker-rules"><p>Small Engine for basic energy needs.</p><p>Minimum distance away from another Engine is 2 squares.</p><strong>Outputs 13 EN</strong><p>Stations 2<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
+            <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>17</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-2" type="button">Purchase EN Engine 2 - 4,550</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card life-support-card" data-sic-card="life-support" tabindex="0" aria-label="Life Support details">
+            <header class="sic-poker-heading"><span>Utility <small>A-29</small></span><div><h3>Life Support</h3><strong>Price: 1,500</strong></div></header>
+            <img class="sic-poker-art" src="life-support-graphic.png" alt="Life Support system" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>2</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>2×2</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Mirium, 6 hrs</dd></div></dl>
+            <section class="sic-poker-rules"><p>Provides temperature control, breathable air, a water system, and gravity.</p><p>Loss of gravity is immediate if impaired. Total oxygen loss follows after a Delay Timer equal to 15 minus HSM.</p></section>
+            <footer><span><small>If Impaired</small>Gravity and oxygen endangered</span><span><small>Damage Threshold</small>18</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="life-support" type="button">Purchase Life Support - 1,500</button></section>
         </div>
-      </section>
-
-      <section class="starship-panel starship-campaign-panel" data-starship-panel="campaign" hidden>
-        <header><span>Campaign Fleet</span><h2>Link Starship</h2><p>Link this saved ship to a campaign with its four-character Room Code.</p></header>
-        <form id="linkStarshipForm" class="starship-link-form">
-          <label>Campaign Room Code<input id="starshipCampaignCode" maxlength="4" autocomplete="off" required /></label>
-          <label>Control<select id="starshipControlType"><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
-          <button id="linkStarshipButton" class="primary" type="submit">Link Starship</button>
-        </form>
-        <section id="starshipCampaignStatus" class="starship-campaign-status" hidden>
-          <div><span>Linked Campaign</span><strong id="linkedCampaignName">Campaign</strong><small id="linkedCampaignCode">----</small></div>
-          <div><span>Control</span><strong id="linkedControlType">PC Controlled</strong></div>
-          <button id="unlinkStarship" class="danger" type="button">Unlink Starship</button>
-        </section>
-        <section id="starshipCrewPanel" class="starship-crew-panel" hidden>
-          <header><h3>Assigned Crewmembers</h3><small>A crewless PC ship may be claimed by any campaign player. Once assigned, only its crew and GM may change it.</small></header>
-          <div id="starshipCrewList"></div>
-          <button id="saveStarshipCrew" type="button">Save Crew</button>
-        </section>
-        <p id="starshipCampaignMessage" class="starship-campaign-message" role="status"></p>
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260825-ships1"></script>
+    <script src="starship.js?v=20260825-ships2"></script>
   </body>
 </html>
