@@ -159,9 +159,9 @@ function canOperateDoors() {
   const operator = currentDoorOperator();
   const crewIds = Array.isArray(draft.crewCharacterIds) ? draft.crewCharacterIds : [];
   const crewNames = Array.isArray(draft.crewmemberNames) ? draft.crewmemberNames.map((name) => String(name).trim().toLowerCase()) : [];
-  const campaignCode = String(parameters.get("campaign") || operator?.campaignCode || "").trim();
-  const campaignLinked = Boolean(campaignCode && operator?.campaignStatus === "linked");
-  if (!campaignLinked) return true;
+  const campaignCode = String(parameters.get("campaign") || "").trim();
+  if (!campaignCode) return true;
+  if (!parameters.has("character")) return true;
   if (!operator) return false;
   return crewIds.includes(operator.id) || crewNames.includes(operator.name.toLowerCase());
 }
@@ -625,7 +625,7 @@ gridZoomButtons.forEach((button) => button.addEventListener("click", () => {
 shipGrids.forEach((grid) => {
   let panGesture = null;
   grid.addEventListener("pointerdown", (event) => {
-    if (mapView.mode !== "explore" || mapView.zoom <= 1 || event.target.closest(".sic-door")) return;
+    if (mapView.mode !== "explore" || event.target.closest(".sic-door")) return;
     panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY };
     grid.setPointerCapture?.(event.pointerId);
     grid.classList.add("is-panning");

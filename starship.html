@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260824-walls2" />
+    <link rel="stylesheet" href="starship.css?v=20260824-map3" />
   </head>
   <body>
     <header class="starship-header">
@@ -61,7 +61,13 @@
           </g>
         </svg>
         <section class="construction-sidebar desktop-construction-sidebar" data-construction-sidebar aria-label="Shipyard construction inventory">
-          <header><span>Shipyard</span><h2>Construction Bay</h2></header>
+          <header class="construction-sidebar-header">
+            <div><span>Shipyard</span><h2>Construction Bay</h2></div>
+            <div class="grid-mode-switch construction-mode-switch" role="group" aria-label="Map interaction mode">
+              <button type="button" data-grid-mode="build">Build</button>
+              <button type="button" data-grid-mode="explore">Explore</button>
+            </div>
+          </header>
           <div class="construction-finances">
             <span>Group Credits<strong data-group-credits>999,999</strong></span>
             <span>Pending Total<strong data-pending-total>0</strong></span>
@@ -91,10 +97,6 @@
         <div class="desktop-grid-viewport" data-grid-viewport>
           <div class="desktop-grid-overlay ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div>
           <div class="desktop-grid-toolbar grid-toolbar" aria-label="Starship map controls">
-            <div class="grid-mode-switch" role="group" aria-label="Map interaction mode">
-              <button type="button" data-grid-mode="build">Build</button>
-              <button type="button" data-grid-mode="explore">Explore</button>
-            </div>
             <div class="grid-zoom-controls" role="group" aria-label="Map zoom">
               <button type="button" data-grid-zoom="out" aria-label="Zoom out">−</button>
               <output data-grid-zoom-level>100%</output>
@@ -158,7 +160,13 @@
           <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
         <section class="construction-sidebar mobile-construction-sidebar" data-construction-sidebar aria-label="Shipyard construction inventory">
-          <header><span>Shipyard</span><h2>Construction Bay</h2></header>
+          <header class="construction-sidebar-header">
+            <div><span>Shipyard</span><h2>Construction Bay</h2></div>
+            <div class="grid-mode-switch construction-mode-switch" role="group" aria-label="Map interaction mode">
+              <button type="button" data-grid-mode="build">Build</button>
+              <button type="button" data-grid-mode="explore">Explore</button>
+            </div>
+          </header>
           <div class="construction-finances">
             <span>Group Credits<strong data-group-credits>999,999</strong></span>
             <span>Pending Total<strong data-pending-total>0</strong></span>
@@ -190,10 +198,6 @@
           <div class="mobile-grid-viewport" data-grid-viewport><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div></div>
           <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
           <div class="grid-toolbar" aria-label="Starship map controls">
-            <div class="grid-mode-switch" role="group" aria-label="Map interaction mode">
-              <button type="button" data-grid-mode="build">Build</button>
-              <button type="button" data-grid-mode="explore">Explore</button>
-            </div>
             <div class="grid-zoom-controls" role="group" aria-label="Map zoom">
               <button type="button" data-grid-zoom="out" aria-label="Zoom out">−</button>
               <output data-grid-zoom-level>100%</output>
@@ -244,6 +248,6 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260824-walls2"></script>
+    <script src="starship.js?v=20260824-map3"></script>
   </body>
 </html>
