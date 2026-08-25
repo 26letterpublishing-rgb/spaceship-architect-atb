@@ -1,4 +1,6 @@
 const STORAGE_KEY = "sa-starship-layout-draft";
+const LIBRARY_KEY = "sa-starship-library-v1";
+const ACTIVE_STARSHIP_KEY = "sa-starship-active-v1";
 const VIEW_STORAGE_KEY = "sa-starship-map-view";
 const BUILD_VERSION = 3;
 const HULL_COST = 1000;
@@ -6,6 +8,8 @@ const EN_ENGINE_COST = 1750;
 const GRID_SIZE = 20;
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+function uid(prefix = "ship") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
 
 function loadMapView() {
   try {
@@ -47,7 +51,9 @@ function constructionState(source) {
 function defaultDraft() {
   const initial = constructionState({});
   return {
-    buildVersion: BUILD_VERSION,
+    id: uid(), buildVersion: BUILD_VERSION, confirmedOnce: false,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    campaignLink: null,
     title: "", affiliation: "", class: "",
     reputationSelections: [5, 5, 5, 5, 5], popularity: 0,
     doorStates: {},
@@ -59,7 +65,9 @@ function defaultDraft() {
 function loadDraft() {
   const fresh = defaultDraft();
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const library = loadStarshipLibrary();
+    const activeId = localStorage.getItem(ACTIVE_STARSHIP_KEY) || "";
+    const saved = library.find((ship) => ship?.id === activeId) || JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     const identity = {
       title: saved.title || "", affiliation: saved.affiliation || "", class: saved.class || "",
       reputationSelections: Array.isArray(saved.reputationSelections) && saved.reputationSelections.length === 5
@@ -72,7 +80,12 @@ function loadDraft() {
     if (saved.buildVersion !== BUILD_VERSION) return { ...fresh, ...identity };
     const working = constructionState(saved);
     const confirmed = constructionState(saved.confirmed || working);
-    return { ...fresh, ...identity, ...working, confirmed, buildVersion: BUILD_VERSION };
+    return {
+      ...fresh, ...identity, ...working, confirmed, buildVersion: BUILD_VERSION,
+      id: String(saved.id || fresh.id), confirmedOnce: Boolean(saved.confirmedOnce),
+      createdAt: saved.createdAt || fresh.createdAt, updatedAt: saved.updatedAt || fresh.updatedAt,
+      campaignLink: saved.campaignLink && typeof saved.campaignLink === "object" ? saved.campaignLink : null,
+    };
   } catch { return fresh; }
 }
 
@@ -103,8 +116,29 @@ const gridModeButtons = [...document.querySelectorAll("[data-grid-mode]")];
 const gridZoomButtons = [...document.querySelectorAll("[data-grid-zoom]")];
 const gridZoomOutputs = [...document.querySelectorAll("[data-grid-zoom-level]")];
 
+function loadStarshipLibrary() {
+  try {
+    const ships = JSON.parse(localStorage.getItem(LIBRARY_KEY) || "[]");
+    return Array.isArray(ships) ? ships : [];
+  } catch { return []; }
+}
+function saveStarshipLibrary(ships) {
+  try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(ships.slice(-100))); } catch { /* Keep local recovery available. */ }
+}
+function storeConfirmedStarship() {
+  if (!draft.confirmedOnce) return;
+  const library = loadStarshipLibrary();
+  const index = library.findIndex((ship) => ship?.id === draft.id);
+  const saved = clone(draft);
+  if (index >= 0) library[index] = saved; else library.push(saved);
+  saveStarshipLibrary(library);
+  localStorage.setItem(ACTIVE_STARSHIP_KEY, draft.id);
+}
+
 function saveDraft() {
+  draft.updatedAt = new Date().toISOString();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch { /* Keep the editor usable in private contexts. */ }
+  storeConfirmedStarship();
 }
 function saveMapView() {
   try { localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(mapView)); } catch { /* View preferences may remain session-only. */ }
@@ -159,9 +193,10 @@ function canOperateDoors() {
   const operator = currentDoorOperator();
   const crewIds = Array.isArray(draft.crewCharacterIds) ? draft.crewCharacterIds : [];
   const crewNames = Array.isArray(draft.crewmemberNames) ? draft.crewmemberNames.map((name) => String(name).trim().toLowerCase()) : [];
-  const campaignCode = String(parameters.get("campaign") || "").trim();
+  const campaignCode = String(parameters.get("campaign") || draft.campaignLink?.roomCode || "").trim();
   if (!campaignCode) return true;
-  if (!parameters.has("character")) return true;
+  if (localStorage.getItem(`sa-gm-token-${campaignCode}`)) return true;
+  if (!crewIds.length && !crewNames.length && draft.campaignLink?.accessKey) return true;
   if (!operator) return false;
   return crewIds.includes(operator.id) || crewNames.includes(operator.name.toLowerCase());
 }
@@ -678,9 +713,10 @@ function confirmConstruction() {
     item.storage = !placementForSic(item.id);
   });
   draft.confirmed = constructionState(draft);
+  draft.confirmedOnce = true;
   undoState = null; selectedSicId = null; mobilePreviewCell = null;
   mapView.mode = "explore";
-  saveDraft(); saveMapView();
+  saveDraft(); saveMapView(); syncLinkedStarship();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
   renderAll();
 }
@@ -695,6 +731,160 @@ document.querySelectorAll("[data-starship-tab]").forEach((button) => {
       const active = panel.dataset.starshipPanel === target; panel.classList.toggle("is-active", active); panel.hidden = !active;
     });
   });
+});
+
+const savedStarshipSelect = document.querySelector("#savedStarshipSelect");
+const starshipSaveState = document.querySelector("#starshipSaveState");
+const importStarshipFile = document.querySelector("#importStarshipFile");
+const linkStarshipForm = document.querySelector("#linkStarshipForm");
+let linkedCampaignState = null;
+
+function applyDraftToUi() {
+  shipFields.forEach((field) => { field.value = draft[field.dataset.shipField] || ""; });
+  popularityInputs.forEach((input) => { input.value = String(draft.popularity || 0); });
+  selectedSicId = null; mobilePreviewCell = null; undoState = null;
+  renderReputationSelections(); renderSavedStarships(); renderAll(); renderCampaignLink();
+}
+function renderSavedStarships() {
+  if (!savedStarshipSelect) return;
+  const library = loadStarshipLibrary();
+  savedStarshipSelect.replaceChildren();
+  if (!draft.confirmedOnce) {
+    const option = document.createElement("option"); option.value = ""; option.textContent = `Unconfirmed Draft${draft.title ? `: ${draft.title}` : ""}`; savedStarshipSelect.append(option);
+  }
+  library.forEach((ship) => { const option = document.createElement("option"); option.value = String(ship.id || ""); option.textContent = ship.title || "Untitled Starship"; savedStarshipSelect.append(option); });
+  savedStarshipSelect.value = draft.confirmedOnce ? draft.id : "";
+  starshipSaveState.textContent = draft.confirmedOnce ? "Saved Locally" : "Recoverable Draft";
+  document.querySelector("#duplicateStarship").disabled = !draft.confirmedOnce;
+  document.querySelector("#exportStarship").disabled = !draft.confirmedOnce;
+  document.querySelector("#deleteStarship").disabled = !draft.confirmedOnce;
+}
+function startNewStarship() {
+  if (!window.confirm("Start a fresh starship? The current unconfirmed work will be replaced. Confirmed starships remain saved.")) return;
+  localStorage.removeItem(ACTIVE_STARSHIP_KEY);
+  draft = defaultDraft(); saveDraft(); applyDraftToUi();
+}
+function loadSavedStarship(id) {
+  const selected = loadStarshipLibrary().find((ship) => ship?.id === id);
+  if (!selected) return;
+  draft = clone(selected); localStorage.setItem(ACTIVE_STARSHIP_KEY, draft.id); saveDraft(); applyDraftToUi();
+}
+function duplicateStarship() {
+  if (!draft.confirmedOnce) return;
+  const now = new Date().toISOString();
+  draft = { ...clone(draft), id: uid(), title: `${draft.title || "Untitled Starship"} Copy`, campaignLink: null, createdAt: now, updatedAt: now };
+  saveDraft(); applyDraftToUi();
+}
+function exportStarship() {
+  if (!draft.confirmedOnce) return;
+  const payload = { format: "spaceship-architect-2e-starship", version: 1, exportedAt: new Date().toISOString(), starship: clone(draft) };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob); const link = document.createElement("a");
+  link.href = url; link.download = `${(draft.title || "starship").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.sa2ship`;
+  document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function importStarship(file) {
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    const imported = payload?.format === "spaceship-architect-2e-starship" ? payload.starship : payload;
+    if (!imported?.confirmedOnce || !Array.isArray(imported.gridCells)) throw new Error("That file is not a confirmed Spaceship Architect starship.");
+    const fresh = defaultDraft();
+    draft = { ...fresh, ...clone(imported), id: uid(), campaignLink: null, title: `${imported.title || "Imported Starship"}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    saveDraft(); applyDraftToUi();
+  } catch (error) { window.alert(error.message || "The starship file could not be imported."); }
+  importStarshipFile.value = "";
+}
+function deleteStarship() {
+  if (!draft.confirmedOnce || !window.confirm(`Delete ${draft.title || "this starship"} from this device?`)) return;
+  const library = loadStarshipLibrary().filter((ship) => ship.id !== draft.id); saveStarshipLibrary(library);
+  localStorage.removeItem(ACTIVE_STARSHIP_KEY); draft = defaultDraft(); saveDraft(); applyDraftToUi();
+}
+function activeCampaignCredentials(code) {
+  const operator = currentDoorOperator();
+  const characterToken = operator?.id ? localStorage.getItem(`sa-character-token-${code}-${operator.id}`) || "" : "";
+  const gmToken = localStorage.getItem(`sa-gm-token-${code}`) || "";
+  return { token: gmToken || characterToken, characterId: gmToken ? "" : operator?.id || "" };
+}
+async function campaignApi(path, body = null, method = "POST") {
+  const response = await fetch(path, { method, headers: body === null ? undefined : { "Content-Type": "application/json" }, body: body === null ? undefined : JSON.stringify(body) });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "The campaign server rejected that request.");
+  return payload;
+}
+async function refreshLinkedCampaign() {
+  if (!draft.campaignLink?.roomCode) { linkedCampaignState = null; renderCampaignLink(); return; }
+  const code = draft.campaignLink.roomCode;
+  const credentials = activeCampaignCredentials(code);
+  try { linkedCampaignState = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(code)}&token=${encodeURIComponent(credentials.token)}`, null, "GET"); }
+  catch { linkedCampaignState = null; }
+  renderCampaignLink();
+}
+function campaignMessage(message, tone = "") {
+  const output = document.querySelector("#starshipCampaignMessage"); if (!output) return;
+  output.textContent = message; output.dataset.tone = tone;
+}
+function renderCampaignLink() {
+  const linked = draft.campaignLink;
+  const status = document.querySelector("#starshipCampaignStatus");
+  const crewPanel = document.querySelector("#starshipCrewPanel");
+  const linkButton = document.querySelector("#linkStarshipButton");
+  if (!status || !linkStarshipForm) return;
+  linkStarshipForm.hidden = Boolean(linked);
+  status.hidden = !linked;
+  crewPanel.hidden = !linked;
+  if (!linked) {
+    if (linkButton) {
+      linkButton.disabled = !draft.confirmedOnce;
+      linkButton.title = draft.confirmedOnce ? "" : "Confirm construction at least once before linking this starship.";
+    }
+    return;
+  }
+  document.querySelector("#linkedCampaignName").textContent = linkedCampaignState?.name || linked.campaignName || "Campaign";
+  document.querySelector("#linkedCampaignCode").textContent = linked.roomCode;
+  document.querySelector("#linkedControlType").textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled";
+  const records = linkedCampaignState?.characters || [];
+  const selected = new Set(draft.crewCharacterIds || []);
+  document.querySelector("#starshipCrewList").innerHTML = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Open this campaign as a player or GM to manage its crew.</p>";
+}
+async function linkStarship(event) {
+  event.preventDefault();
+  if (!draft.confirmedOnce) { campaignMessage("Confirm construction at least once before linking this starship.", "error"); return; }
+  const code = document.querySelector("#starshipCampaignCode").value.trim().toUpperCase();
+  try {
+    const result = await campaignApi("/api/campaign/starship/link", { code, controlType: document.querySelector("#starshipControlType").value, starship: draft });
+    draft.campaignLink = { roomCode: code, campaignName: result.campaignName, controlType: result.starship.controlType, accessKey: result.accessKey };
+    draft.crewCharacterIds = []; saveDraft(); linkedCampaignState = null; await refreshLinkedCampaign(); campaignMessage("Starship linked successfully.");
+  } catch (error) { campaignMessage(error.message, "error"); }
+}
+async function syncLinkedStarship() {
+  if (!draft.campaignLink?.roomCode || !draft.confirmedOnce) return;
+  const link = draft.campaignLink; const credentials = activeCampaignCredentials(link.roomCode);
+  try { await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, starship: draft }); }
+  catch (error) { campaignMessage(`Saved locally. Campaign sync needs attention: ${error.message}`, "error"); }
+}
+
+savedStarshipSelect?.addEventListener("change", () => { if (savedStarshipSelect.value) loadSavedStarship(savedStarshipSelect.value); });
+document.querySelector("#newStarship")?.addEventListener("click", startNewStarship);
+document.querySelector("#duplicateStarship")?.addEventListener("click", duplicateStarship);
+document.querySelector("#exportStarship")?.addEventListener("click", exportStarship);
+document.querySelector("#deleteStarship")?.addEventListener("click", deleteStarship);
+importStarshipFile?.addEventListener("change", () => importStarship(importStarshipFile.files?.[0]));
+linkStarshipForm?.addEventListener("submit", linkStarship);
+document.querySelector("#unlinkStarship")?.addEventListener("click", async () => {
+  if (!draft.campaignLink || !window.confirm("Unlink this starship? It will remain saved on this device and campaign crew assignments will be cleared.")) return;
+  try { await campaignApi("/api/campaign/starship/unlink", { code: draft.campaignLink.roomCode, accessKey: draft.campaignLink.accessKey, starshipId: draft.id }); }
+  catch (error) { campaignMessage(error.message, "error"); return; }
+  draft.campaignLink = null; draft.crewCharacterIds = []; draft.crewmemberNames = []; linkedCampaignState = null; saveDraft(); renderCampaignLink();
+});
+document.querySelector("#saveStarshipCrew")?.addEventListener("click", async () => {
+  if (!draft.campaignLink) return;
+  const crewCharacterIds = [...document.querySelectorAll("#starshipCrewList input:checked")].map((input) => input.value);
+  const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
+  try {
+    const result = await campaignApi("/api/campaign/starship/crew", { code: draft.campaignLink.roomCode, token: credentials.token, characterId: credentials.characterId, starshipId: draft.id, crewCharacterIds });
+    draft.crewCharacterIds = result.starship.crewCharacterIds; saveDraft(); campaignMessage("Crew assignments saved."); await refreshLinkedCampaign();
+  } catch (error) { campaignMessage(error.message, "error"); }
 });
 
 const sicCard = document.querySelector(".sic-poker-card");
@@ -756,4 +946,26 @@ popularityInputs.forEach((input) => {
 });
 
 renderReputationSelections();
-renderAll();
+async function initializeStarshipPage() {
+  const parameters = new URLSearchParams(location.search);
+  const requestedShipId = parameters.get("ship") || "";
+  const campaignCode = (parameters.get("campaign") || "").toUpperCase();
+  if (requestedShipId && campaignCode) {
+    const credentials = activeCampaignCredentials(campaignCode);
+    try {
+      const state = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(credentials.token)}`, null, "GET");
+      const record = (state.starships || []).find((entry) => entry.id === requestedShipId);
+      if (record) {
+        draft = {
+          ...defaultDraft(), ...clone(record.ship), id: record.id, title: record.title || record.ship.title,
+          confirmedOnce: true, crewCharacterIds: clone(record.crewCharacterIds || []),
+          campaignLink: { roomCode: campaignCode, campaignName: state.name, controlType: record.controlType, accessKey: draft.campaignLink?.accessKey || "" },
+        };
+        linkedCampaignState = state; saveDraft();
+      }
+    } catch (error) { campaignMessage(error.message, "error"); }
+  }
+  applyDraftToUi();
+  if (draft.campaignLink) await refreshLinkedCampaign();
+}
+initializeStarshipPage();

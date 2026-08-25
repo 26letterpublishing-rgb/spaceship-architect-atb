@@ -348,6 +348,8 @@ const dom = {
   lobbyCampaignCode: $("#lobbyCampaignCode"),
   lobbyCampaignName: $("#lobbyCampaignName"),
   campaignRosterCards: $("#campaignRosterCards"),
+  campaignStarshipRoster: $("#campaignStarshipRoster"),
+  campaignStarshipCards: $("#campaignStarshipCards"),
   campaignSheetViewer: $("#campaignSheetViewer"),
   campaignSheetViewerName: $("#campaignSheetViewerName"),
   campaignSheetViewerPosition: $("#campaignSheetViewerPosition"),
@@ -1682,6 +1684,18 @@ function renderCampaignRoster() {
       </div>
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
+  const starships = campaignState.starships || [];
+  dom.campaignStarshipRoster.hidden = starships.length === 0;
+  dom.campaignStarshipCards.innerHTML = starships.map((record) => {
+    const ship = record.ship || {};
+    const hull = ship.confirmed?.gridCells?.length ?? ship.gridCells?.length ?? 0;
+    const engines = ship.confirmed?.placements?.length ?? ship.placements?.length ?? 0;
+    const characterQuery = campaignState.ownCharacterId ? `&character=${encodeURIComponent(campaignState.ownCharacterId)}` : "";
+    return `<article class="campaign-starship-card">
+      <div><span>PC CONTROLLED</span><strong>${escapeHtml(record.title || "Untitled Starship")}</strong><small>${escapeHtml(ship.class || "Unclassified")} | Hull ${hull} | EN ${engines * 5}</small></div>
+      <a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}${characterQuery}">Open Starship</a>
+    </article>`;
+  }).join("");
   if (campaignViewerCharacterId && records.some((record) => record.id === campaignViewerCharacterId)) {
     openCampaignSheetViewer(campaignViewerCharacterId);
   } else {

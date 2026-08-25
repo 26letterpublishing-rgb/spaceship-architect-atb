@@ -400,6 +400,36 @@ function applyConditionalDelivery(campaign, record, action) {
   return { kind: "award", resource, amount, awardId: award.id, pending: true };
 }
 
+function normalizeStarshipRecord(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const ship = source.ship && typeof source.ship === "object" ? clone(source.ship) : {};
+  const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 400))].slice(0, 400) : [];
+  const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => entry?.sicId && cleanCells.includes(entry.cell)).slice(0, 400).map((entry) => ({ sicId: String(entry.sicId).slice(0, 120), cell: entry.cell })) : [];
+  ship.gridCells = cleanCells;
+  ship.placements = cleanPlacements;
+  ship.sicInventory = Array.isArray(ship.sicInventory) ? ship.sicInventory.slice(0, 400) : [];
+  ship.title = String(ship.title || source.title || "Untitled Starship").trim().slice(0, 100) || "Untitled Starship";
+  ship.affiliation = String(ship.affiliation || "").slice(0, 100);
+  ship.class = String(ship.class || "").slice(0, 100);
+  ship.confirmedOnce = true;
+  return {
+    id: String(source.id || ship.id || uid("starship")).slice(0, 120),
+    title: ship.title,
+    controlType: source.controlType === "gm" ? "gm" : "pc",
+    accessKey: String(source.accessKey || "").slice(0, 160),
+    crewCharacterIds: [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100),
+    createdAt: source.createdAt || new Date().toISOString(),
+    updatedAt: source.updatedAt || new Date().toISOString(),
+    ship,
+  };
+}
+
+function publicStarship(record) {
+  const copy = clone(record);
+  delete copy.accessKey;
+  return copy;
+}
+
 function defaultCampaign({ code, name, gmCode }) {
   const now = new Date().toISOString();
   return {
@@ -415,6 +445,7 @@ function defaultCampaign({ code, name, gmCode }) {
     scriptChapters: [{ id: uid("chapter"), name: "Chapter 1", script: "" }],
     conditionalActions: [],
     characters: [],
+    starships: [],
     joinRequests: [],
     shipCredits: 0,
     bankerCharacterId: null,
@@ -503,6 +534,7 @@ function normalizeCampaign(raw) {
     androidExperienceIds: Array.isArray(award?.androidExperienceIds) ? [...new Set(award.androidExperienceIds.map(String))] : [],
     at: award?.at || new Date().toISOString(),
   }));
+  campaign.starships = (Array.isArray(campaign.starships) ? campaign.starships : []).slice(0, 100).map(normalizeStarshipRecord);
   trimAwardHistory(campaign);
   campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
   campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
@@ -583,6 +615,7 @@ function campaignBackup(campaign) {
       scriptChapters: campaign.scriptChapters,
       conditionalActions: campaign.conditionalActions,
       characters: campaign.characters,
+      starships: campaign.starships,
       joinRequests: campaign.joinRequests,
       settings: campaign.settings,
       shipCredits: campaign.shipCredits,
@@ -813,6 +846,9 @@ class CampaignApi {
         }),
         connected: connectedIds.has(record.id),
       })),
+      starships: campaign.starships
+        .filter((record) => gm || record.controlType === "pc")
+        .map(publicStarship),
       rollRequests: clone(requests.slice(-50)),
     };
   }
@@ -1088,6 +1124,91 @@ class CampaignApi {
 
     if (path === "/api/campaign/state" && req.method === "GET") {
       sendJson(res, 200, this.state(campaign, token));
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/link" && req.method === "POST") {
+      if (!body.starship?.confirmedOnce) {
+        sendJson(res, 400, { error: "Confirm the starship's construction before linking it." });
+        return true;
+      }
+      const supplied = normalizeStarshipRecord({
+        id: body.starship?.id,
+        ship: body.starship,
+        controlType: body.controlType,
+        crewCharacterIds: [],
+      });
+      if (!supplied.ship.gridCells.length) {
+        sendJson(res, 400, { error: "Confirm the starship's construction before linking it." });
+        return true;
+      }
+      const existing = campaign.starships.find((record) => record.id === supplied.id);
+      if (existing) {
+        sendJson(res, 409, { error: "That starship is already linked to this campaign." });
+        return true;
+      }
+      supplied.accessKey = crypto.randomBytes(24).toString("base64url");
+      campaign.starships.push(supplied);
+      await this.save(campaign);
+      sendJson(res, 201, { starship: publicStarship(supplied), accessKey: supplied.accessKey, campaignName: campaign.name });
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/save" && req.method === "POST") {
+      const record = campaign.starships.find((entry) => entry.id === String(body.starship?.id || body.starshipId || ""));
+      if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
+      const characterId = String(body.characterId || "");
+      const gmAccess = Boolean(this.gmSession(token, code));
+      const crewAccess = Boolean(characterId && record.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
+      const ownerAccess = Boolean(!record.crewCharacterIds.length && body.accessKey && body.accessKey === record.accessKey);
+      if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
+      const updated = normalizeStarshipRecord({ ...record, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
+      updated.controlType = record.controlType;
+      updated.crewCharacterIds = record.crewCharacterIds;
+      updated.createdAt = record.createdAt;
+      updated.updatedAt = new Date().toISOString();
+      campaign.starships[campaign.starships.indexOf(record)] = updated;
+      await this.save(campaign);
+      sendJson(res, 200, { starship: publicStarship(updated) });
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/crew" && req.method === "POST") {
+      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
+      const callerId = String(body.characterId || "");
+      const gmAccess = Boolean(this.gmSession(token, code));
+      const callerAccess = Boolean(callerId && this.characterSession(token, code, callerId));
+      if (!gmAccess && (!callerAccess || (record.crewCharacterIds.length && !record.crewCharacterIds.includes(callerId)))) {
+        sendJson(res, 403, { error: "Once a ship has crew, only assigned crewmembers or the GM may change its roster." }); return true;
+      }
+      const validIds = new Set(campaign.characters.map((entry) => entry.id));
+      record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
+      record.ship.crewCharacterIds = clone(record.crewCharacterIds);
+      record.updatedAt = new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { starship: publicStarship(record) });
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/control" && req.method === "POST") {
+      if (!this.gmSession(token, code)) { sendJson(res, 403, { error: "GM access required." }); return true; }
+      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
+      record.controlType = body.controlType === "gm" ? "gm" : "pc";
+      record.updatedAt = new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { starship: publicStarship(record) });
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/unlink" && req.method === "POST") {
+      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
+      if (!this.gmSession(token, code) && body.accessKey !== record.accessKey) { sendJson(res, 403, { error: "GM or owning starship access required." }); return true; }
+      campaign.starships = campaign.starships.filter((entry) => entry.id !== record.id);
+      await this.save(campaign);
+      sendJson(res, 200, { unlinked: true });
       return true;
     }
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260824-map3" />
+    <link rel="stylesheet" href="starship.css?v=20260825-ships1" />
   </head>
   <body>
     <header class="starship-header">
@@ -23,7 +23,20 @@
       <nav class="starship-tabs" aria-label="Starship creator sections">
         <button class="starship-tab is-active" type="button" data-starship-tab="sheet">Starship</button>
         <button class="starship-tab" type="button" data-starship-tab="sics">SICs</button>
+        <button class="starship-tab" type="button" data-starship-tab="campaign">Campaign</button>
       </nav>
+
+      <section class="starship-library" aria-label="Saved starships">
+        <label><span>Saved Starship</span><select id="savedStarshipSelect"><option value="">Unconfirmed Draft</option></select></label>
+        <div class="starship-library-actions">
+          <button id="newStarship" type="button">New</button>
+          <button id="duplicateStarship" type="button">Duplicate</button>
+          <button id="exportStarship" type="button">Export</button>
+          <label class="import-starship-button">Import<input id="importStarshipFile" type="file" accept=".sa2ship,.json,application/json" /></label>
+          <button id="deleteStarship" class="danger" type="button">Delete</button>
+        </div>
+        <strong id="starshipSaveState">Recoverable Draft</strong>
+      </section>
 
       <section class="ship-identity-strip" aria-label="Starship identity">
         <label><span>Ship Title</span><input type="text" data-ship-field="title" autocomplete="off" /></label>
@@ -246,8 +259,28 @@
           <button id="purchaseEnEngine" class="sic-purchase-button" type="button">Purchase EN Engine 1 - 1,750</button>
         </div>
       </section>
+
+      <section class="starship-panel starship-campaign-panel" data-starship-panel="campaign" hidden>
+        <header><span>Campaign Fleet</span><h2>Link Starship</h2><p>Link this saved ship to a campaign with its four-character Room Code.</p></header>
+        <form id="linkStarshipForm" class="starship-link-form">
+          <label>Campaign Room Code<input id="starshipCampaignCode" maxlength="4" autocomplete="off" required /></label>
+          <label>Control<select id="starshipControlType"><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
+          <button id="linkStarshipButton" class="primary" type="submit">Link Starship</button>
+        </form>
+        <section id="starshipCampaignStatus" class="starship-campaign-status" hidden>
+          <div><span>Linked Campaign</span><strong id="linkedCampaignName">Campaign</strong><small id="linkedCampaignCode">----</small></div>
+          <div><span>Control</span><strong id="linkedControlType">PC Controlled</strong></div>
+          <button id="unlinkStarship" class="danger" type="button">Unlink Starship</button>
+        </section>
+        <section id="starshipCrewPanel" class="starship-crew-panel" hidden>
+          <header><h3>Assigned Crewmembers</h3><small>A crewless PC ship may be claimed by any campaign player. Once assigned, only its crew and GM may change it.</small></header>
+          <div id="starshipCrewList"></div>
+          <button id="saveStarshipCrew" type="button">Save Crew</button>
+        </section>
+        <p id="starshipCampaignMessage" class="starship-campaign-message" role="status"></p>
+      </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260824-map3"></script>
+    <script src="starship.js?v=20260825-ships1"></script>
   </body>
 </html>

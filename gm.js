@@ -62,6 +62,8 @@ const dom = {
   sessionNumberLabel: $("#sessionNumberLabel"),
   characterList: $("#gmCharacterList"),
   characterCount: $("#characterCount"),
+  starshipCount: $("#starshipCount"),
+  starshipList: $("#gmStarshipList"),
   premadeNpcSelect: $("#premadeNpcSelect"),
   premadeNpcEditor: $("#premadeNpcEditor"),
   newPremadeNpc: $("#newPremadeNpc"),
@@ -672,6 +674,24 @@ function renderCharacters() {
   dom.reshuffleDramaCards.disabled = discard.length === 0;
 }
 
+function renderStarships() {
+  if (!dom.starshipList) return;
+  const ships = campaign?.starships || [];
+  dom.starshipCount.textContent = `${ships.length} Starship${ships.length === 1 ? "" : "s"}`;
+  dom.starshipList.innerHTML = ships.length ? ships.map((record) => {
+    const hull = record.ship?.confirmed?.gridCells?.length ?? record.ship?.gridCells?.length ?? 0;
+    const engines = record.ship?.confirmed?.placements?.length ?? record.ship?.placements?.length ?? 0;
+    const crew = new Set(record.crewCharacterIds || []);
+    return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}">
+      <header><div><h3>${escapeHtml(record.title || "Untitled Starship")}</h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
+      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${engines * 5}</dd></div><div><dt>Crew</dt><dd>${crew.size}</dd></div></dl>
+      <label>Control<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled</option></select></label>
+      <div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> ${escapeHtml(characterName(character))}</label>`).join("") : "<small>No campaign characters available.</small>"}</div>
+      <div class="gm-starship-actions"><button type="button" data-open-starship>Open / Edit</button><button type="button" data-save-starship-crew>Save Crew</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
+    </article>`;
+  }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>";
+}
+
 function renderRollResults() {
   const requests = [...(campaign.rollRequests || [])].reverse().filter((request) => !request.closedAt);
   dom.rollResults.innerHTML = requests.length ? requests.map((request) => {
@@ -1205,6 +1225,7 @@ function renderCampaign() {
     renderScriptEditor(chapter?.script || "");
   }
   renderCharacters();
+  renderStarships();
   renderPremadeNpcConsole();
   renderInbox();
   renderSettings();
@@ -1738,6 +1759,62 @@ dom.adjustCharacterButton.addEventListener("click", () => {
   if (!characterId) return;
   dom.adjustmentFrame.src = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1&gmAdjust=1&embedded=1`;
   dom.adjustmentModal.hidden = false;
+});
+
+dom.starshipList?.addEventListener("change", async (event) => {
+  const select = event.target.closest("[data-starship-control]");
+  if (!select) return;
+  const card = select.closest("[data-starship-id]");
+  if (!card) return;
+  select.disabled = true;
+  try {
+    await api("/api/campaign/starship/control", { code, token, starshipId: card.dataset.starshipId, controlType: select.value });
+    await refreshCampaign();
+    showMessage(dom.message, `Starship is now ${select.value === "gm" ? "GM controlled and hidden from players" : "PC controlled and visible to players"}.`, "success");
+  } catch (error) {
+    showMessage(dom.message, error.message, "error");
+    await refreshCampaign().catch(() => {});
+  } finally { select.disabled = false; }
+});
+
+dom.starshipList?.addEventListener("click", async (event) => {
+  const card = event.target.closest("[data-starship-id]");
+  if (!card) return;
+  const starshipId = card.dataset.starshipId;
+  if (event.target.closest("[data-open-starship]")) {
+    location.href = `starship.html?campaign=${encodeURIComponent(code)}&ship=${encodeURIComponent(starshipId)}`;
+    return;
+  }
+  const saveCrew = event.target.closest("[data-save-starship-crew]");
+  if (saveCrew) {
+    saveCrew.disabled = true;
+    try {
+      const crewCharacterIds = [...card.querySelectorAll("[data-starship-crew]:checked")].map((input) => input.dataset.starshipCrew);
+      await api("/api/campaign/starship/crew", { code, token, starshipId, crewCharacterIds });
+      await refreshCampaign();
+      showMessage(dom.message, "Starship crew assignments saved.", "success");
+    } catch (error) { showMessage(dom.message, error.message, "error"); }
+    finally { saveCrew.disabled = false; }
+    return;
+  }
+  const unlink = event.target.closest("[data-unlink-starship]");
+  if (!unlink) return;
+  const record = campaign.starships.find((entry) => entry.id === starshipId);
+  if (!await confirmGm({
+    title: "Unlink Starship?",
+    message: `${record?.title || "This starship"} will be removed from the campaign. Its local saved copy will remain on the device that created it, and campaign crew assignments will be cleared.`,
+    acceptLabel: "Unlink Starship",
+    danger: true,
+  })) return;
+  unlink.disabled = true;
+  try {
+    await api("/api/campaign/starship/unlink", { code, token, starshipId });
+    await refreshCampaign();
+    showMessage(dom.message, "Starship unlinked. Its original local copy was not deleted.", "success");
+  } catch (error) {
+    unlink.disabled = false;
+    showMessage(dom.message, error.message, "error");
+  }
 });
 
 dom.reshuffleDramaCards?.addEventListener("click", async () => {
