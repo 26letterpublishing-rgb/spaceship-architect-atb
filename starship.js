@@ -15,8 +15,12 @@ function loadMapView() {
       highResolution: Boolean(saved.highResolution),
       combatMesh: Boolean(saved.combatMesh),
       walls: saved.walls !== false,
+      mode: saved.mode === "explore" ? "explore" : "build",
+      zoom: Math.max(0.5, Math.min(4, Number(saved.zoom) || 1)),
+      panX: Number(saved.panX) || 0,
+      panY: Number(saved.panY) || 0,
     };
-  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true }; }
+  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true, mode: "build", zoom: 1, panX: 0, panY: 0 }; }
 }
 
 function constructionState(source) {
@@ -95,6 +99,9 @@ const undoButtons = [...document.querySelectorAll('[data-construction-action="un
 const discardButtons = [...document.querySelectorAll('[data-construction-action="discard"]')];
 const mobilePlacementControls = document.querySelector("#mobilePlacementControls");
 const mapViewToggles = [...document.querySelectorAll("[data-map-toggle]")];
+const gridModeButtons = [...document.querySelectorAll("[data-grid-mode]")];
+const gridZoomButtons = [...document.querySelectorAll("[data-grid-zoom]")];
+const gridZoomOutputs = [...document.querySelectorAll("[data-grid-zoom-level]")];
 
 function saveDraft() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch { /* Keep the editor usable in private contexts. */ }
@@ -138,7 +145,12 @@ function currentDoorOperator() {
   try {
     const library = JSON.parse(localStorage.getItem("sa2e-character-library-v1") || "[]");
     const character = Array.isArray(library) ? library.find((entry) => entry?.id === requestedCharacterId) : null;
-    return character ? { id: character.id, name: String(character.identity?.characterName || "").trim() } : null;
+    return character ? {
+      id: character.id,
+      name: String(character.identity?.characterName || "").trim(),
+      campaignCode: String(character.campaignLink?.roomCode || "").trim(),
+      campaignStatus: String(character.campaignLink?.status || "unlinked"),
+    } : null;
   } catch { return null; }
 }
 
@@ -147,7 +159,9 @@ function canOperateDoors() {
   const operator = currentDoorOperator();
   const crewIds = Array.isArray(draft.crewCharacterIds) ? draft.crewCharacterIds : [];
   const crewNames = Array.isArray(draft.crewmemberNames) ? draft.crewmemberNames.map((name) => String(name).trim().toLowerCase()) : [];
-  if (!parameters.has("character")) return true;
+  const campaignCode = String(parameters.get("campaign") || operator?.campaignCode || "").trim();
+  const campaignLinked = Boolean(campaignCode && operator?.campaignStatus === "linked");
+  if (!campaignLinked) return true;
   if (!operator) return false;
   return crewIds.includes(operator.id) || crewNames.includes(operator.name.toLowerCase());
 }
@@ -167,7 +181,13 @@ function toggleDoor(key) {
   draft.doorStates ||= {};
   draft.doorStates[key] = draft.doorStates[key] === "open" ? "closed" : "open";
   saveDraft();
-  renderGridCells();
+  const open = draft.doorStates[key] === "open";
+  document.querySelectorAll(`[data-door-key="${key}"]`).forEach((door) => {
+    door.classList.toggle("is-open", open);
+    door.title = `${open ? "Close" : "Open"} door`;
+    door.setAttribute("aria-label", door.title);
+    door.setAttribute("aria-pressed", String(open));
+  });
 }
 
 function makeDoor(index, adjacent, side) {
@@ -177,8 +197,12 @@ function makeDoor(index, adjacent, side) {
   button.type = "button";
   button.className = `sic-door sic-door-${side}${open ? " is-open" : ""}`;
   button.dataset.doorKey = key;
-  button.disabled = !canOperateDoors();
-  button.title = button.disabled ? "Only a listed crewmember can operate this door" : `${open ? "Close" : "Open"} door`;
+  button.disabled = mapView.mode !== "explore" || !canOperateDoors();
+  button.title = mapView.mode !== "explore"
+    ? "Switch to Explore to operate doors"
+    : button.disabled
+      ? "Only a listed crewmember can operate this door"
+      : `${open ? "Close" : "Open"} door`;
   button.setAttribute("aria-label", button.title);
   button.setAttribute("aria-pressed", String(open));
   const first = document.createElement("span");
@@ -191,14 +215,16 @@ function makeDoor(index, adjacent, side) {
   return button;
 }
 
-function renderEngineBoundaries(cell, index, hull) {
+function renderCellBoundaries(cell, index, hull, placement) {
   SIDES.forEach((side) => {
     const adjacent = index + side.offset;
     if (!side.valid(index) || !hull.has(adjacent)) {
       cell.append(makeWall(side.name));
       return;
     }
-    cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
+    if (placement) {
+      cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
+    }
   });
 }
 
@@ -323,6 +349,7 @@ function toggleHullCell(index) {
 }
 function handleGridClick(index, cell, mobile) {
   validation = { errors: [], cells: new Set() };
+  if (mapView.mode !== "build") return;
   if (!selectedSic()) { toggleHullCell(index); return; }
   if (mobile) { mobilePreviewCell = index; previewPlacement(index, cell); renderMobilePlacement(); return; }
   placeSelectedSic(index);
@@ -337,6 +364,8 @@ function renderGridCells() {
     grid.classList.toggle("combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls && !placementActive);
     grid.classList.toggle("placement-active", placementActive);
+    grid.classList.toggle("build-mode", mapView.mode === "build");
+    grid.classList.toggle("explore-mode", mapView.mode === "explore");
     grid.querySelectorAll(".ship-grid-cell").forEach((cell) => {
       const index = Number(cell.dataset.gridIndex);
       const placement = placementMap.get(index);
@@ -344,7 +373,7 @@ function renderGridCells() {
       cell.classList.toggle("has-engine", Boolean(placement));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
-      if (placement && mapView.walls && !placementActive) renderEngineBoundaries(cell, index, hull);
+      if (hull.has(index) && mapView.walls && !placementActive) renderCellBoundaries(cell, index, hull, placement);
       if (placement && mapView.labels) {
         const label = document.createElement("span");
         label.className = "sic-grid-label";
@@ -368,6 +397,36 @@ function renderMapViewControls() {
     label?.classList.toggle("is-suspended", suspended);
     if (label) label.title = suspended ? "Basic placement view remains visible while placing a SIC." : "";
   });
+}
+function applyGridTransform() {
+  shipGrids.forEach((grid) => {
+    grid.style.transform = `scale(${mapView.zoom}) translate(${mapView.panX}%, ${mapView.panY}%)`;
+    grid.classList.toggle("is-zoomed", mapView.zoom > 1.001);
+  });
+  gridZoomOutputs.forEach((output) => { output.textContent = `${Math.round(mapView.zoom * 100)}%`; });
+}
+function renderGridNavigation() {
+  gridModeButtons.forEach((button) => {
+    const active = button.dataset.gridMode === mapView.mode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  applyGridTransform();
+}
+function fitShipToViewport() {
+  if (!draft.gridCells.length) {
+    mapView.zoom = 1; mapView.panX = 0; mapView.panY = 0;
+  } else {
+    const rows = draft.gridCells.map((cell) => Math.floor(cell / GRID_SIZE));
+    const columns = draft.gridCells.map((cell) => cell % GRID_SIZE);
+    const minRow = Math.min(...rows); const maxRow = Math.max(...rows);
+    const minColumn = Math.min(...columns); const maxColumn = Math.max(...columns);
+    const span = Math.max(maxRow - minRow + 1, maxColumn - minColumn + 1);
+    mapView.zoom = Math.max(1, Math.min(4, 18 / span));
+    mapView.panX = 50 - (((minColumn + maxColumn + 1) / 2) / GRID_SIZE * 100);
+    mapView.panY = 50 - (((minRow + maxRow + 1) / 2) / GRID_SIZE * 100);
+  }
+  saveMapView(); applyGridTransform();
 }
 function renderMobilePlacement() {
   if (!mobilePlacementControls) return;
@@ -440,7 +499,9 @@ function renderInventoryList(container, kind) {
       }));
     } else if (kind === "pending" || kind === "queue") {
       actions.append(inventoryButton(selectedSicId === item.id ? "Cancel Placement" : "Place", selectedSicId === item.id ? "is-selected" : "", () => {
-        selectedSicId = selectedSicId === item.id ? null : item.id; mobilePreviewCell = null; clearPlacementPreview(); renderAll();
+        selectedSicId = selectedSicId === item.id ? null : item.id;
+        if (selectedSicId) mapView.mode = "build";
+        mobilePreviewCell = null; clearPlacementPreview(); saveMapView(); renderAll();
       }));
       if (item.pendingPurchase) actions.append(inventoryButton("Refund in Full", "refund-sic", () => refundPendingSic(item)));
       else actions.append(inventoryButton("To Storage", "store-sic", () => moveSicToStorage(item)));
@@ -516,7 +577,7 @@ function renderConstructionControls() {
   discardButtons.forEach((button) => { button.disabled = !changed; });
 }
 function renderAll() {
-  renderGridCells(); renderMapViewControls(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
+  renderGridCells(); renderMapViewControls(); renderGridNavigation(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
 }
 
 shipFields.forEach((field) => {
@@ -547,11 +608,47 @@ mapViewToggles.forEach((toggle) => toggle.addEventListener("change", () => {
   mapView[toggle.dataset.mapToggle] = toggle.checked;
   saveMapView(); renderAll();
 }));
+gridModeButtons.forEach((button) => button.addEventListener("click", () => {
+  mapView.mode = button.dataset.gridMode === "explore" ? "explore" : "build";
+  saveMapView();
+  if (mapView.mode === "explore") cancelPlacement();
+  else renderAll();
+}));
+gridZoomButtons.forEach((button) => button.addEventListener("click", () => {
+  const action = button.dataset.gridZoom;
+  if (action === "fit") { fitShipToViewport(); return; }
+  const change = action === "in" ? 0.25 : -0.25;
+  mapView.zoom = Math.max(0.5, Math.min(4, Math.round((mapView.zoom + change) * 100) / 100));
+  if (mapView.zoom <= 1) { mapView.panX = 0; mapView.panY = 0; }
+  saveMapView(); applyGridTransform();
+}));
+shipGrids.forEach((grid) => {
+  let panGesture = null;
+  grid.addEventListener("pointerdown", (event) => {
+    if (mapView.mode !== "explore" || mapView.zoom <= 1 || event.target.closest(".sic-door")) return;
+    panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY };
+    grid.setPointerCapture?.(event.pointerId);
+    grid.classList.add("is-panning");
+  });
+  grid.addEventListener("pointermove", (event) => {
+    if (!panGesture) return;
+    const rect = grid.getBoundingClientRect();
+    mapView.panX = panGesture.panX + ((event.clientX - panGesture.x) / rect.width * 100 / mapView.zoom);
+    mapView.panY = panGesture.panY + ((event.clientY - panGesture.y) / rect.height * 100 / mapView.zoom);
+    applyGridTransform();
+  });
+  const finishPan = () => {
+    if (!panGesture) return;
+    panGesture = null; grid.classList.remove("is-panning"); saveMapView();
+  };
+  grid.addEventListener("pointerup", finishPan);
+  grid.addEventListener("pointercancel", finishPan);
+});
 document.querySelector("#purchaseEnEngine")?.addEventListener("click", () => {
   rememberForUndo();
   const id = `en-engine-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   draft.sicInventory.push({ id, type: "en-engine-1", pendingPurchase: true, storage: false, pendingDisposition: "" });
-  selectedSicId = id; saveDraft();
+  selectedSicId = id; mapView.mode = "build"; saveDraft(); saveMapView();
   document.querySelector('[data-starship-tab="sheet"]')?.click();
   showMessage("EN Engine 1 added to pending purchases. Select a hull square to install it.", "success"); renderAll();
 });
@@ -582,7 +679,8 @@ function confirmConstruction() {
   });
   draft.confirmed = constructionState(draft);
   undoState = null; selectedSicId = null; mobilePreviewCell = null;
-  saveDraft();
+  mapView.mode = "explore";
+  saveDraft(); saveMapView();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
   renderAll();
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260824-walls1" />
+    <link rel="stylesheet" href="starship.css?v=20260824-walls2" />
   </head>
   <body>
     <header class="starship-header">
@@ -88,7 +88,21 @@
           </div>
           <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
         </section>
-        <div class="desktop-grid-overlay ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div>
+        <div class="desktop-grid-viewport" data-grid-viewport>
+          <div class="desktop-grid-overlay ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div>
+          <div class="desktop-grid-toolbar grid-toolbar" aria-label="Starship map controls">
+            <div class="grid-mode-switch" role="group" aria-label="Map interaction mode">
+              <button type="button" data-grid-mode="build">Build</button>
+              <button type="button" data-grid-mode="explore">Explore</button>
+            </div>
+            <div class="grid-zoom-controls" role="group" aria-label="Map zoom">
+              <button type="button" data-grid-zoom="out" aria-label="Zoom out">−</button>
+              <output data-grid-zoom-level>100%</output>
+              <button type="button" data-grid-zoom="in" aria-label="Zoom in">+</button>
+              <button type="button" data-grid-zoom="fit">Fit Ship</button>
+            </div>
+          </div>
+        </div>
         <output class="desktop-total-squares" data-total-squares aria-label="Total squares used">0</output>
         <output class="desktop-scale-rank" data-confirmed-scale aria-label="Scale Rank">--</output>
       </section>
@@ -171,7 +185,24 @@
           </div>
           <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
         </section>
-        <section class="mobile-grid-panel"><h2>SIC Construction Grid</h2><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div><div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div><footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer></section>
+        <section class="mobile-grid-panel">
+          <h2>SIC Construction Grid</h2>
+          <div class="mobile-grid-viewport" data-grid-viewport><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div></div>
+          <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
+          <div class="grid-toolbar" aria-label="Starship map controls">
+            <div class="grid-mode-switch" role="group" aria-label="Map interaction mode">
+              <button type="button" data-grid-mode="build">Build</button>
+              <button type="button" data-grid-mode="explore">Explore</button>
+            </div>
+            <div class="grid-zoom-controls" role="group" aria-label="Map zoom">
+              <button type="button" data-grid-zoom="out" aria-label="Zoom out">−</button>
+              <output data-grid-zoom-level>100%</output>
+              <button type="button" data-grid-zoom="in" aria-label="Zoom in">+</button>
+              <button type="button" data-grid-zoom="fit">Fit Ship</button>
+            </div>
+          </div>
+          <footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer>
+        </section>
         <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
         <article class="mobile-blueprint reputation-mobile">
           <h2>Reputation</h2>
@@ -213,6 +244,6 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260824-walls1"></script>
+    <script src="starship.js?v=20260824-walls2"></script>
   </body>
 </html>
