@@ -17,8 +17,26 @@ const ACTION_KINDS = new Set([
   "throwItem",
   "firstAid",
   "station",
+  "enterStation",
+  "getUp",
   "actionResolved",
 ]);
+
+function normalizeCombatLocation(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const starshipId = safeText(source.starshipId, "", 120);
+  const square = Number.isInteger(Number(source.square)) ? Math.max(0, Math.min(399, Number(source.square))) : null;
+  const mesh = Number.isInteger(Number(source.mesh)) ? Math.max(0, Math.min(8, Number(source.mesh))) : 4;
+  return {
+    environment: starshipId ? "starship" : "exterior",
+    starshipId,
+    square: starshipId ? square : null,
+    mesh,
+    sicId: starshipId ? safeText(source.sicId, "", 120) : "",
+    stationed: Boolean(starshipId && source.stationed),
+    stationSlot: starshipId && source.stationed ? Math.max(0, Math.round(Number(source.stationSlot) || 0)) : null,
+  };
+}
 
 function safeText(value, fallback = "", limit = 80) {
   return String(value || fallback).trim().replace(/\s+/g, " ").slice(0, limit);
@@ -149,6 +167,10 @@ function syncUnitCombat(unit, source = {}) {
   unit.movementChargeUnits = Math.max(0, Number(unit.movementChargeUnits) || 0);
   unit.thrownEffects = Array.isArray(unit.thrownEffects) ? unit.thrownEffects.slice(0, 5) : [];
   unit.combatBrief = unit.combatBrief && typeof unit.combatBrief === "object" ? unit.combatBrief : null;
+  unit.location = normalizeCombatLocation(source.location ?? unit.location);
+  unit.travelRoute = Array.isArray(unit.travelRoute)
+    ? unit.travelRoute.slice(0, 600).map(normalizeCombatLocation).filter((entry) => entry.starshipId)
+    : [];
 
   if (unit.weaponCharge && !weapons.some((weapon) => weapon.inventoryId === unit.weaponCharge.inventoryId)) {
     unit.weaponCharge = null;
@@ -278,6 +300,28 @@ function tickCombatTimers(unit, seconds, multiplier = 1) {
     if (unit.timedAction.remaining <= 0.0001) {
       const completedAction = unit.timedAction;
       unit.timedAction = null;
+      if (completedAction.kind === "move" && completedAction.destination) {
+        unit.location = normalizeCombatLocation(completedAction.destination);
+        if (Array.isArray(unit.travelRoute) && unit.travelRoute.length) {
+          const moveSpeed = Math.max(1, Number(completedAction.moveSpeed) || Number(unit.moveSpeed) || 1);
+          const segment = unit.travelRoute.splice(0, moveSpeed);
+          const destination = segment[segment.length - 1];
+          if (destination) {
+            const duration = Math.max(0.1, ceilTenth((3 * segment.length) / moveSpeed));
+            unit.timedAction = {
+              id: `${completedAction.id}-next-${unit.travelRoute.length}`,
+              kind: "move",
+              label: `Travel ${segment.length} unit${segment.length === 1 ? "" : "s"}`,
+              total: duration,
+              remaining: duration,
+              units: segment.length,
+              moveSpeed,
+              destination,
+              routed: true,
+            };
+          }
+        }
+      }
       if (completedAction.kind === "wait") {
         unit.commandCarrySeconds = Math.max(0, Number(completedAction.commandRemaining) || 0);
       }
@@ -302,6 +346,7 @@ function cancelTimedActionForForcedDelay(unit) {
   unit.timedAction = null;
   unit.commandCarrySeconds = null;
   unit.movementChargeUnits = 0;
+  unit.travelRoute = [];
   unit.atb = 0;
   return true;
 }
@@ -387,7 +432,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     const useJetPack = Boolean(body.jetPack);
     if (useJetPack && !(carriedItem(unit, "jet-pack")?.charges > 0)) return { ok: false, error: "A charged Jet-Pack must be carried to fly." };
     const maxUnits = effectiveMoveSpeed(room, unit, { jetPack: useJetPack });
-    const units = clamp(body.units, 1, maxUnits, 1);
+    const requestedRoute = Array.isArray(body.route)
+      ? body.route.slice(0, 600).map(normalizeCombatLocation).filter((entry) => entry.starshipId && entry.starshipId === unit.location?.starshipId)
+      : [];
+    const units = requestedRoute.length ? Math.min(maxUnits, requestedRoute.length) : clamp(body.units, 1, maxUnits, 1);
     const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits));
     clearAim(unit);
     unit.movementChargeUnits = Math.min(maxUnits, units);
@@ -395,15 +443,44 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (mounted?.driverId === unit.id) {
       mounted.currentMoveSpeed = Math.min(mounted.maximumMoveSpeed, mounted.currentMoveSpeed + mounted.acceleration);
     }
+    const routeSegment = requestedRoute.slice(0, units);
+    unit.travelRoute = requestedRoute.slice(units);
     beginTimedAction(room, unit, {
       id: helpers.id(),
       kind: "move",
-      label: `${useJetPack ? "Flight" : "Move"} ${units} unit${units === 1 ? "" : "s"}`,
+      label: `${useJetPack ? "Flight" : requestedRoute.length > maxUnits ? "Travel" : "Move"} ${units} unit${units === 1 ? "" : "s"}`,
       total: duration,
       remaining: duration,
       units,
+      moveSpeed: maxUnits,
+      destination: routeSegment[routeSegment.length - 1] || null,
+      routed: Boolean(requestedRoute.length),
     }, `${unit.characterName} moved ${units} unit${units === 1 ? "" : "s"} (${duration.toFixed(1)} sec).`, helpers);
     setCombatBrief(unit, kind, `Moved ${units} unit${units === 1 ? "" : "s"}`, [`Immediate action in ${duration.toFixed(1)} sec`, `${units} melee movement Charge${units === 1 ? "" : "s"}`]);
+    return { ok: true };
+  }
+
+  if (kind === "enterStation") {
+    if (!unit.location?.starshipId || !unit.location?.sicId) return { ok: false, error: "Move into an SIC before entering its station." };
+    const occupied = room.units.some((entry) => entry.id !== unit.id
+      && entry.location?.starshipId === unit.location.starshipId
+      && entry.location?.sicId === unit.location.sicId
+      && entry.location?.stationed);
+    if (occupied) return { ok: false, error: "That SIC station is currently occupied." };
+    unit.location.stationed = true;
+    unit.location.stationSlot = 0;
+    unit.travelRoute = [];
+    setCombatBrief(unit, kind, `Stationed at ${safeText(body.stationName, "SIC", 80)}`, ["Starship actions available"]);
+    finishTurn(room, unit, `entered the ${safeText(body.stationName, "SIC", 80)} station`, helpers);
+    return { ok: true };
+  }
+
+  if (kind === "getUp") {
+    if (!unit.location?.stationed) return { ok: false, error: "This character is not currently stationed." };
+    unit.location.stationed = false;
+    unit.location.stationSlot = null;
+    setCombatBrief(unit, kind, "Left station", ["Personal combat actions restored"]);
+    finishTurn(room, unit, "got up from their station", helpers);
     return { ok: true };
   }
 

@@ -57,6 +57,35 @@ function roomCode() {
   return code;
 }
 
+function normalizeEncounterStarships(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 24).map((record) => {
+    const ship = record?.ship && typeof record.ship === "object" ? record.ship : {};
+    const gridCells = [...new Set((Array.isArray(ship.gridCells) ? ship.gridCells : [])
+      .map(Number).filter((cell) => Number.isInteger(cell) && cell >= 0 && cell < 400))];
+    const placements = (Array.isArray(ship.placements) ? ship.placements : []).slice(0, 400).flatMap((entry) => {
+      const cell = Number(entry?.cell);
+      if (!Number.isInteger(cell) || !gridCells.includes(cell)) return [];
+      return [{ sicId: String(entry.sicId || "").slice(0, 120), cell }];
+    });
+    const sicInventory = (Array.isArray(ship.sicInventory) ? ship.sicInventory : []).slice(0, 400).map((entry) => ({
+      id: String(entry?.id || "").slice(0, 120),
+      type: String(entry?.type || "").slice(0, 80),
+      status: String(entry?.status || "").slice(0, 40),
+    }));
+    const doorStates = {};
+    for (const [key, state] of Object.entries(ship.doorStates && typeof ship.doorStates === "object" ? ship.doorStates : {})) {
+      if (/^\d{1,3}:\d{1,3}$/.test(key)) doorStates[key] = state === "open" ? "open" : "closed";
+    }
+    return {
+      id: String(record?.id || ship.id || "").slice(0, 120),
+      title: String(record?.title || ship.title || "Starship").slice(0, 100),
+      controlType: record?.controlType === "gm" ? "gm" : "pc",
+      crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
+      ship: { gridCells, placements, sicInventory, doorStates },
+    };
+  }).filter((record) => record.id);
+}
+
 function createRoom(requestedCode = "", snapshot = null) {
   let code = String(requestedCode || "").trim().toUpperCase() || roomCode();
   while (!requestedCode && rooms.has(code)) code = roomCode();
@@ -87,6 +116,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     delayRequest: null,
     hasEngagedClock: false,
     threshold: 100,
+    starships: [],
     units: [],
     log: [],
     undoSnapshot: null,
@@ -121,6 +151,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
+    room.starships = normalizeEncounterStarships(snapshot.starships);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
     for (const unit of room.units) unit.playerConnected = Boolean(unit.playerConnected);
     room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
@@ -186,6 +217,7 @@ function publicState(room) {
     lastKeepAliveAt: room.lastKeepAliveAt,
     encounterEndedAt: room.encounterEndedAt,
     threshold: room.threshold,
+    starships: room.starships,
     units: room.units,
     log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
@@ -660,6 +692,7 @@ function snapshotRoom(room) {
     delayRequest: clone(room.delayRequest),
     hasEngagedClock: room.hasEngagedClock,
     threshold: room.threshold,
+    starships: clone(room.starships || []),
     units: clone(room.units),
     log: clone(room.log),
   };
@@ -697,6 +730,7 @@ function restoreUndoSnapshot(room) {
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.threshold = snapshot.threshold;
+  room.starships = clone(snapshot.starships || []);
   room.units = clone(snapshot.units);
   for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   room.log = clone(snapshot.log);
@@ -742,6 +776,8 @@ const gmUndoableActions = new Set([
   "setFirstAidDifficulty",
   "submitFirstAidRoll",
   "submitFirstAidHealing",
+  "setCombatLocation",
+  "operateCombatDoor",
 ]);
 
 const gmClockOnlyActions = new Set(["setRunning", "setHardPaused", "toggleClock", "step"]);
@@ -1519,7 +1555,7 @@ async function handleAction(req, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing"].includes(action) && playerUnit) {
+  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1580,6 +1616,41 @@ async function handleAction(req, res) {
   if (gmAuthorized && gmUndoableActions.has(action)) {
     // Clock movement must not erase the checkpoint for a substantive GM edit.
     if (!gmClockOnlyActions.has(action) || !room.undoSnapshot) saveUndoSnapshot(room, action);
+  }
+
+  if (action === "syncEncounterStarships") {
+    room.starships = normalizeEncounterStarships(body.starships);
+    pushLog(room, `${room.starships.length} starship${room.starships.length === 1 ? "" : "s"} synchronized for combat.`);
+  }
+
+  if (action === "setCombatLocation") {
+    const unit = room.units.find((entry) => entry.id === String(body.id || ""));
+    if (!unit) { sendJson(res, 404, { error: "Combatant not found." }); return; }
+    syncUnitCombat(unit, { location: body.location });
+    unit.travelRoute = [];
+    unit.timedAction = null;
+    pushLog(room, `${unit.characterName} was relocated by the GM.`);
+  }
+
+  if (action === "stopTravel") {
+    if (!playerUnit || playerUnit.timedAction?.kind !== "move") { sendJson(res, 409, { error: "That character is not traveling." }); return; }
+    playerUnit.timedAction = null;
+    playerUnit.travelRoute = [];
+    playerUnit.atb = room.threshold;
+    pushLog(room, `${playerUnit.characterName} stopped moving and may act.`);
+    if (!room.pausedForTurn) pauseForReadyUnit(room, playerUnit, "travel-stop");
+  }
+
+  if (action === "operateCombatDoor") {
+    const starship = (room.starships || []).find((entry) => entry.id === String(body.starshipId || ""));
+    const key = String(body.doorKey || "");
+    const cells = key.split(":").map(Number);
+    const adjacent = cells.length === 2 && cells.every((cell) => Number.isInteger(cell) && starship?.ship?.gridCells?.includes(cell))
+      && (Math.abs(cells[0] - cells[1]) === 20 || (Math.abs(cells[0] - cells[1]) === 1 && Math.floor(cells[0] / 20) === Math.floor(cells[1] / 20)));
+    const isCrew = Boolean(playerUnit?.characterId && starship?.crewCharacterIds?.includes(playerUnit.characterId));
+    if (!starship || !adjacent || (!gmAuthorized && !isCrew)) { sendJson(res, 403, { error: "That door cannot be operated by this character." }); return; }
+    starship.ship.doorStates[key] = starship.ship.doorStates[key] === "open" ? "closed" : "open";
+    pushLog(room, `${playerUnit?.characterName || "GM"} ${starship.ship.doorStates[key] === "open" ? "opened" : "closed"} a door aboard ${starship.title}.`);
   }
 
   if (action === "join" || action === "addUnit") {

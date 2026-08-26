@@ -1530,6 +1530,7 @@ function receiveState(nextState, { force = false } = {}) {
     }, DEFEAT_FLASH_DELAY_MS);
   }
   render();
+  window.dispatchEvent(new CustomEvent("sa-combat-state", { detail: { state, mode, myUnitId } }));
   return true;
 }
 
@@ -1569,6 +1570,13 @@ async function action(payload, soundName = "tap") {
   if (mode === "gm") playGmSound(soundName);
   return state;
 }
+
+window.SACombatBridge = {
+  action,
+  state: () => state,
+  mode: () => mode,
+  myUnitId: () => myUnitId,
+};
 
 function setMode(next) {
   mode = next;

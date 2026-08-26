@@ -7,6 +7,7 @@
     <link rel="icon" href="data:," />
   <link rel="stylesheet" href="styles.css?v=20260821-melee-export-pass" />
   <link rel="stylesheet" href="combat-actions.css?v=20260818-qol-pass" />
+  <link rel="stylesheet" href="ship-combat-map.css?v=20260826-location-foundation" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -256,6 +257,7 @@
             </div>
           </div>
           <span id="readyCount" class="ready-count">0 Ready</span>
+          <button id="openCombatMap" class="combat-map-open hidden" type="button">Ship Map</button>
         </div>
         <div id="combatAreaEffects" class="combat-area-effects" hidden></div>
         <div id="unitList" class="unit-list"></div>
@@ -275,6 +277,23 @@
         <div id="logList" class="log-list"></div>
       </section>
     </main>
+
+    <section id="combatMapDialog" class="combat-map-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="combatMapTitle">
+      <div class="combat-map-panel">
+        <header>
+          <div><span>LOCATION CONSOLE</span><h2 id="combatMapTitle">Starship Interior</h2><p id="combatMapStatus">Select a destination.</p></div>
+          <div class="combat-map-header-actions"><select id="combatMapShip" aria-label="Starship"></select><button id="closeCombatMap" type="button" aria-label="Close map">X</button></div>
+        </header>
+        <div class="combat-map-layout">
+          <aside id="combatMapRoster" class="combat-map-roster"></aside>
+          <div id="combatMapViewport" class="combat-map-viewport"><div id="combatMapGrid" class="combat-map-grid"></div></div>
+        </div>
+        <footer>
+          <div class="combat-map-legend"><i class="green"></i> One Move <i class="yellow"></i> Extended travel <i class="red"></i> Blocked</div>
+          <div class="combat-map-actions"><button id="stopCombatTravel" type="button" class="danger" hidden>Stop Moving</button><button id="leaveCombatStation" type="button" hidden>Get Up</button><button id="enterCombatStation" type="button" hidden>Enter Station</button><button id="cancelCombatMove" type="button">Cancel</button><button id="confirmCombatMove" type="button" class="primary" disabled>Confirm Move</button></div>
+        </footer>
+      </div>
+    </section>
 
     <section id="turnDialog" class="turn-dialog hidden" role="dialog" aria-live="polite">
       <button id="collapseNpcTurn" class="collapse-npc-turn hidden" type="button" aria-label="Slide NPC action panel away">&lt;</button>
@@ -560,6 +579,7 @@
 
   <script src="combat-rules.js?v=20260821-melee-export-pass"></script>
   <script src="app.js?v=20260821-melee-export-pass"></script>
+  <script src="ship-combat-map.js?v=20260826-location-foundation"></script>
   <script src="combat-actions.js?v=20260818-qol-pass"></script>
   <script type="module" src="npc-combat-dice.js?v=20260816-storage-give"></script>
   </body>

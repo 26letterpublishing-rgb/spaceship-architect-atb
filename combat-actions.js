@@ -313,6 +313,10 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
+        window.SACombatMap.openMove(currentUnit);
+        return;
+      }
       if (configurations[kind]) openDialog(kind);
       else send(kind);
     });
@@ -495,6 +499,7 @@
     const pieces = [];
     const aimText = unit?.aim ? `Aim +${Number(unit.aim.speedBonus) || 0} Speed${unit.aim.aimDie ? ` / 1D${unit.aim.aimDie}` : ""}` : "";
     pieces.push(`<div class="combat-loadout-line"><span>Held</span><strong>${esc(current?.name || "None")}</strong>${aimText ? `<i>${esc(aimText)}</i>` : ""}${unit?.movementChargeUnits ? `<i>${Number(unit.movementChargeUnits)} Move Charge</i>` : ""}${unit?.statuses?.intoxicated ? '<i class="combat-status-drunk">STILL DRUNK</i>' : ""}</div>`);
+    if (unit?.location?.starshipId) pieces.push(`<div class="combat-vehicle-state">${unit.location.stationed ? "STATIONED" : "ABOARD SHIP"} | SQUARE ${Number(unit.location.square) + 1}</div>`);
     if (unit?.powerShield) {
       const shieldPercent = Math.max(0, Math.min(100, (Number(unit.powerShield.hp) / Math.max(1, Number(unit.powerShield.maximumHp) || 30)) * 100));
       pieces.push(`<div class="combat-submeter power-shield-meter ${unit.powerShield.active ? "active" : "inactive"} ${unit.powerShield.collapsedAt ? "collapsed" : ""}" data-combat-meter="shield"><div style="width:${shieldPercent}%"></div><span>POWER SHIELDS - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP${unit.powerShield.active ? "" : " (OFFLINE)"}</span></div>`);

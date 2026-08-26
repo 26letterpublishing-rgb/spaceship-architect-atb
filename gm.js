@@ -183,6 +183,7 @@ let encounterNpcDraft = null;
 let premadeNpcDraft = null;
 let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
+const encounterLocations = new Map();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
 const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false };
 const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
@@ -952,11 +953,14 @@ function renderEncounterBuilder() {
   const approved = campaign.characters.filter((record) => record.approved !== false);
   dom.encounterCharacterList.innerHTML = approved.length ? approved.map((record) => {
     const color = record.character?.presentation?.atbColor || "#39e58f";
+    const deployment = encounterLocations.has(record.id) ? encounterLocations.get(record.id) : defaultDeployment(record);
+    encounterLocations.set(record.id, deployment);
     return `<label class="encounter-character-option" style="--character-color:${escapeHtml(color)}">
       <input type="checkbox" data-encounter-character="${record.id}" ${selectedEncounterCharacters.has(record.id) ? "checked" : ""} />
       <span><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))}</small></span>
       <span class="encounter-stat">SPD ${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</span>
       <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
+      <select class="encounter-deployment" data-encounter-location="${record.id}" aria-label="Starting location for ${escapeHtml(characterName(record))}">${deploymentOptions(deployment)}</select>
     </label>`;
   }).join("") : '<p>No approved campaign characters are available yet.</p>';
   dom.encounterNpcTemplate.innerHTML = npcTemplateOptions();
@@ -965,6 +969,7 @@ function renderEncounterBuilder() {
   dom.encounterNpcList.innerHTML = stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="staged-npc-summary" data-staged-npc="${npc.id}" style="--npc-color:${escapeHtml(npc.color)}">
     <div><strong>${npc.allyNpc ? '<img class="npc-ally-badge" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
+    <select class="encounter-deployment" data-staged-location="${npc.id}" aria-label="Starting location for ${escapeHtml(npc.name)}">${deploymentOptions(npc.locationStarshipId || "")}</select>
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>';
   dom.beginEncounter.disabled = !selectedEncounterCharacters.size && !stagedNpcs.length;
@@ -986,6 +991,22 @@ function renderEncounterStatus() {
 function updateExitEncounterVisibility() {
   const liveFrameOpen = dom.atbLive && !dom.atbLive.hidden;
   dom.exitEncounter.hidden = !campaign || !(encounterState?.units?.length) || liveFrameOpen;
+}
+
+function deploymentOptions(selected = "") {
+  return `<option value="">Exterior / Surface</option>${(campaign?.starships || []).map((record) => `<option value="${escapeHtml(record.id)}" ${record.id === selected ? "selected" : ""}>${escapeHtml(record.title || record.ship?.title || "Starship")}</option>`).join("")}`;
+}
+
+function defaultDeployment(record) {
+  return (campaign?.starships || []).find((ship) => ship.controlType === "pc" && ship.crewCharacterIds?.includes(record.id))?.id || "";
+}
+
+function combatLocation(starshipId) {
+  const record = (campaign?.starships || []).find((entry) => entry.id === starshipId);
+  const square = Number(record?.ship?.gridCells?.[0]);
+  return starshipId && Number.isInteger(square)
+    ? { environment: "starship", starshipId, square, mesh: 4, sicId: "", stationed: false }
+    : { environment: "exterior", starshipId: "", square: null, mesh: 4, sicId: "", stationed: false };
 }
 
 function selectGmTab(tabName = "script") {
@@ -1101,6 +1122,7 @@ async function beginEncounter() {
   dom.beginEncounter.textContent = "Preparing Combat...";
   try {
     await encounterAction("clearEncounter");
+    await encounterAction("syncEncounterStarships", { starships: campaign.starships || [] });
     for (const record of selected) {
       await encounterAction("addUnit", {
         playerName: playerName(record),
@@ -1112,6 +1134,7 @@ async function beginEncounter() {
         team: "pc",
         actorType: "character",
         characterId: record.id,
+        location: combatLocation(encounterLocations.get(record.id) || defaultDeployment(record)),
         ...encounterRuleFields(record),
       });
     }
@@ -1137,6 +1160,7 @@ async function beginEncounter() {
         weapons: weapon ? [{ inventoryId: `npc-${npc.id}-weapon`, weaponId: weapon.id }] : [],
         heldWeaponId: weapon ? `npc-${npc.id}-weapon` : "",
         allyNpc: Boolean(npc.allyNpc),
+        location: combatLocation(npc.locationStarshipId || ""),
       });
     }
     encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
@@ -1265,6 +1289,7 @@ function openWorkspace(nextCampaign, nextToken) {
   targetSelectionTouched = false;
   selectedTargets = campaign.characters.length === 1 ? new Set([campaign.characters[0].id]) : new Set();
   selectedEncounterCharacters = new Set(campaign.characters.filter((record) => record.approved !== false).map((record) => record.id));
+  encounterLocations.clear();
   npcSequence = 0;
   stagedNpcs = [];
   encounterNpcDraft = randomBuiltinNpc();
@@ -2016,6 +2041,11 @@ dom.rollResults.addEventListener("click", async (event) => {
 });
 
 dom.encounterCharacterList.addEventListener("change", (event) => {
+  const location = event.target.closest("[data-encounter-location]");
+  if (location) {
+    encounterLocations.set(location.dataset.encounterLocation, location.value);
+    return;
+  }
   const input = event.target.closest("[data-encounter-character]");
   if (!input) return;
   if (input.checked) selectedEncounterCharacters.add(input.dataset.encounterCharacter);
@@ -2102,6 +2132,13 @@ dom.bannerVisibilityToggle?.addEventListener("click", (event) => {
   renderGmBannerVisibility();
   const messages = { show: "Interface banner and Room Code shown.", "hide-code": "Interface banner shown with the Room Code hidden on this device.", hidden: "Interface banner hidden on this device." };
   showMessage(dom.message, messages[interfaceBannerMode], "success");
+});
+
+dom.encounterNpcList.addEventListener("change", (event) => {
+  const location = event.target.closest("[data-staged-location]");
+  if (!location) return;
+  const npc = stagedNpcs.find((entry) => entry.id === location.dataset.stagedLocation);
+  if (npc) npc.locationStarshipId = location.value;
 });
 window.addEventListener("storage", (event) => {
   if (![BANNER_MODE_KEY, BANNER_VISIBILITY_KEY].includes(event.key)) return;
