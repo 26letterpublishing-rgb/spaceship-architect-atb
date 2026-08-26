@@ -3868,6 +3868,31 @@ body.embedded-gm .meter { margin-top: 6px; }
   line-height: 1.05;
 }
 
+.welcome-panel { position: relative; }
+.explore-features-link {
+  position: absolute;
+  right: 18px;
+  bottom: 15px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 18px;
+  border: 1px solid #b86cff;
+  border-radius: 999px;
+  color: #f8edff;
+  background: linear-gradient(180deg, #7743a1, #2a123d);
+  box-shadow: inset 0 1px rgba(255,255,255,.3), 0 0 16px rgba(173,81,255,.34);
+  font-size: .78rem;
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+@media (max-width: 720px) {
+  .explore-features-link { position: static; margin: 8px auto 2px; }
+}
+
 /* A GM turn prompt may be compact, but it may never trap its resolve controls. */
 .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) {
   overflow-x: hidden !important;

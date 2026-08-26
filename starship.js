@@ -442,6 +442,7 @@ function renderGridCells() {
       cell.classList.toggle("is-selected", hull.has(index));
       cell.classList.toggle("has-engine", definition?.category === "engine");
       cell.classList.toggle("has-sic", Boolean(placement));
+      cell.classList.toggle("sic-origin", Boolean(placement && placement.cell === index));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
       cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");

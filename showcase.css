@@ -1,0 +1,23 @@
+:root { color-scheme: dark; font-family: Arial, sans-serif; background: #02070d; color: #edf8ff; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { display: grid; grid-template-rows: auto 1fr; background: #02070d; }
+.showcase-toolbar { z-index: 2; display: grid; grid-template-columns: auto minmax(150px, 1fr) minmax(0, auto) auto; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 3px solid #7644a8; background: linear-gradient(180deg, #142438, #07101b); box-shadow: 0 5px 18px #000; }
+.showcase-back, .showcase-toolbar button, .showcase-toolbar nav button { min-height: 38px; padding: 8px 14px; border: 1px solid #61d8ee; border-radius: 999px; color: #effcff; background: linear-gradient(180deg, #215067, #092330); font-weight: 800; text-decoration: none; text-align: center; cursor: pointer; }
+.showcase-title { min-width: 0; }
+.showcase-title strong { display: block; color: #64e5ff; font-size: 1rem; text-transform: uppercase; }
+.showcase-title small { color: #8da2b5; }
+.showcase-toolbar nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+.showcase-toolbar nav button { flex: 0 0 auto; border-radius: 4px; border-color: #405a73; background: #0a1623; }
+.showcase-toolbar nav button.active { border-color: #ffe07a; color: #171103; background: linear-gradient(180deg, #ffe99b, #c99d28); box-shadow: 0 0 12px rgba(255, 211, 79, .5); }
+#resetShowcase { border-color: #c785ff; background: linear-gradient(180deg, #63358a, #271338); }
+.showcase-status { display: grid; place-items: center; padding: 20px; color: #9fc4d7; font-weight: 800; text-align: center; }
+.showcase-status.error { color: #ff8e9d; }
+#showcaseFrame { width: 100%; height: 100%; border: 0; background: #030911; }
+@media (max-width: 760px) {
+  .showcase-toolbar { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; padding: 6px; }
+  .showcase-title small { display: none; }
+  .showcase-toolbar nav { grid-column: 1 / -1; grid-row: 2; order: 5; }
+  .showcase-back, .showcase-toolbar button, .showcase-toolbar nav button { min-height: 34px; padding: 6px 10px; font-size: .72rem; }
+}

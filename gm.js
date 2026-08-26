@@ -2305,7 +2305,13 @@ if (initialCode) {
     code = initialCode;
     token = savedToken;
     refreshCampaign().then(() => {
-      if (campaign?.role === "gm") openWorkspace(campaign, token);
+      if (campaign?.role === "gm") {
+        openWorkspace(campaign, token);
+        if (new URLSearchParams(location.search).get("showcase") === "1") {
+          selectGmTab("atb");
+          showEncounterLive();
+        }
+      }
     }).catch(() => {});
   }
 }

@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama-card-data.js");
+const SHOWCASE_NPCS = require("./data/npc-templates.json");
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SCRIPT_LENGTH = 250000;
@@ -8,6 +9,7 @@ const GM_INBOX_LIMIT = 50;
 const DRAMA_CARD_BY_ID = new Map(DRAMA_CARDS.map((card) => [card.id, card]));
 const DRAMA_CARD_IDS = DRAMA_CARDS.map((card) => card.id);
 const REWARD_RESOURCES = ["experience", "credits", "reverence", "dramaCards", "attributePoints", "skillPoints", "shipCredits", "rest"];
+const SHOWCASE_LIFETIME_MS = 1000 * 60 * 60 * 6;
 
 function uid(prefix = "id") {
   return `${prefix}-${crypto.randomBytes(9).toString("base64url")}`;
@@ -15,6 +17,78 @@ function uid(prefix = "id") {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function showcaseSkills(ratings = {}) {
+  return Object.fromEntries(Object.entries(ratings).map(([name, value]) => [name, {
+    tenths: Math.max(0, Math.round(Number(value) * 10)),
+    creationDecimal: Math.max(0, Math.round((Number(value) * 10) % 10)),
+  }]));
+}
+
+function showcaseCharacter({ id, playerName, characterName, color, speed, commandWindow, moveSpeed, hp, damageReduction = 0, attributes, skills, weaponId }) {
+  const now = new Date().toISOString();
+  const character = {
+    id,
+    version: 7,
+    phase: "finalized",
+    advancementOpen: false,
+    identity: { playerName, characterName, race: "Human", raceId: "human", raceKind: "preset", raceType: "", classId: "", className: "No Class", homePlanet: "Earth", homePlanetKind: "preset", sex: "", age: "", height: "", weight: "", hair: "", eyes: "", description: "Explore Features sample character." },
+    experience: { available: 12, spent: 0, totalGained: 12 },
+    attributes,
+    skills: showcaseSkills(skills),
+    customSkills: [],
+    creation: { skillPurchaseOrder: [], finalizationQueue: [], classGrantsApplied: true, raceGrantsApplied: true, manualInput: true },
+    fubs: { status: "not-activated", rolls: [], rerollUsed: false },
+    health: { current: hp, permanentBonus: 0 },
+    gmAdjustments: { maximumHp: 0, exertionMax: 0, moveSpeed: 0, speed: 0, command: 0, damageReduction: 0 },
+    resources: { exertionCurrent: 2, exertionMax: 2, reverence: 4, creditsBase: 500, mechanicalExperience: 0, dramaCards: 0, attributePoints: 0, skillPoints: 0 },
+    presentation: { atbColor: color },
+    access: { pcCode: `TEST-${id.slice(-1)}` },
+    campaignLink: { roomCode: "", campaignName: "Explore Features", status: "linked", requestId: "", message: "" },
+    localInbox: [],
+    session: { number: 0, freeRerollsUsed: {}, marineHealingUsed: false, psychopathAwardsUsed: 0, tacticianReverenceGiven: 0, peacekeeperDramaCardsEarned: 0 },
+    crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
+    weapons: [{ id: `${id}-weapon`, weaponId, held: true }],
+    items: [],
+    storedItems: [],
+    statuses: { intoxicated: false },
+    advantagesNotes: "",
+    notes: "",
+    computed: { speed, commandWindow, maximumHp: hp, moveSpeed, damageReduction, skills },
+    updatedAt: now,
+  };
+  return { id, pcCode: character.access.pcCode, approved: true, imported: false, createdAt: now, updatedAt: now, character };
+}
+
+function showcaseShip(id, title, controlType, crewCharacterIds, startCell) {
+  const row = Math.floor(startCell / 20);
+  const column = startCell % 20;
+  const gridCells = [];
+  for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) gridCells.push((row + y) * 20 + column + x);
+  const engineCell = (row + 1) * 20 + column + 1;
+  const engineId = `${id}-engine-1`;
+  return normalizeStarshipRecord({
+    id,
+    title,
+    controlType,
+    crewCharacterIds,
+    ship: {
+      id,
+      title,
+      affiliation: controlType === "pc" ? "Exploration Crew" : "Unknown Contact",
+      class: "3x3 Test Craft",
+      confirmedOnce: true,
+      gridCells,
+      placements: [{ sicId: engineId, cell: engineCell }],
+      sicInventory: [{ id: engineId, type: "en-engine-1", status: "installed" }],
+      doorStates: {},
+    },
+  });
+}
+
+function showcaseLocation(starshipId, square, sicId = "") {
+  return { environment: "starship", starshipId, square, mesh: 4, sicId, stationed: false, stationSlot: null };
 }
 
 function shuffle(values) {
@@ -705,6 +779,7 @@ class CampaignApi {
     this.campaignCache = new Map();
     this.campaignLoads = new Map();
     this.saveQueues = new Map();
+    this.showcases = new Map();
   }
 
   newSession(code, role, characterId = null) {
@@ -755,6 +830,13 @@ class CampaignApi {
   async campaign(code) {
     const normalizedCode = String(code || "").trim().toUpperCase();
     if (!normalizedCode) return null;
+    const showcase = this.showcases.get(normalizedCode);
+    if (showcase) {
+      if (showcase.expiresAt > Date.now()) return showcase.campaign;
+      this.showcases.delete(normalizedCode);
+      this.campaignCache.delete(normalizedCode);
+      this.deleteEncounter(normalizedCode);
+    }
     if (this.campaignCache.has(normalizedCode)) return this.campaignCache.get(normalizedCode);
     if (!this.campaignLoads.has(normalizedCode)) {
       this.campaignLoads.set(normalizedCode, this.store.get(normalizedCode).then((stored) => {
@@ -771,6 +853,16 @@ class CampaignApi {
     trimPrivateNotes(campaign);
     if (incrementRevision) campaign.revision = Math.max(1, Math.round(Number(campaign.revision) || 1)) + 1;
     this.campaignCache.set(campaign.code, campaign);
+    if (campaign.showcase) {
+      const record = this.showcases.get(campaign.code);
+      if (record) {
+        campaign.updatedAt = new Date().toISOString();
+        record.campaign = campaign;
+        record.expiresAt = Date.now() + SHOWCASE_LIFETIME_MS;
+      }
+      if (broadcast) await this.broadcast(campaign.code, campaign);
+      return;
+    }
     const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
     const queued = previous.catch(() => {}).then(async () => {
       campaign.updatedAt = new Date().toISOString();
@@ -999,6 +1091,72 @@ class CampaignApi {
     }
     const code = String(body.code || url.searchParams.get("code") || "").trim().toUpperCase();
     const token = String(body.token || url.searchParams.get("token") || "");
+
+    if (path === "/api/campaign/showcase/start" && req.method === "POST") {
+      for (const [expiredCode, record] of this.showcases) {
+        if (record.expiresAt <= Date.now()) {
+          this.showcases.delete(expiredCode);
+          this.campaignCache.delete(expiredCode);
+          this.deleteEncounter(expiredCode);
+        }
+      }
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let showcaseCode = "";
+      do {
+        showcaseCode = Array.from({ length: 4 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
+      } while (this.showcases.has(showcaseCode) || await this.store.get(showcaseCode));
+
+      const pcDefinitions = [
+        { id: "showcase-nova", playerName: "Player One", characterName: "Nova Vale", color: "#35c9ff", speed: 6.2, commandWindow: 44, moveSpeed: 4, hp: 36, damageReduction: 1, weaponId: "standard-sidearm", attributes: { strength: [0, 0, -1, -1], health: [1, 0, -1, -1], perception: [1, 1, -1, -1], dexterity: [2, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [1, 0, -1, -1], intellect: [1, 1, -1, -1], willpower: [1, 0, -1, -1] }, skills: { Initiative: 2.2, Awareness: 2, Projectile: 2.4, "Dodge/Block": 1.8, Melee: 0.8, "Weapon Mechanics": 1.2 } },
+        { id: "showcase-rex", playerName: "Player Two", characterName: "Rex Calder", color: "#ff5b58", speed: 4.8, commandWindow: 32, moveSpeed: 3, hp: 52, damageReduction: 3, weaponId: "murasama-blade", attributes: { strength: [2, 2, -1, -1], health: [2, 1, -1, -1], perception: [0, 0, -1, -1], dexterity: [1, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [0, 0, -1, -1], intellect: [0, 0, -1, -1], willpower: [2, 0, -1, -1] }, skills: { Initiative: 1.8, Awareness: 1.2, Projectile: 0.8, "Dodge/Block": 2.1, Melee: 2.6, "Weapon Mechanics": 0.7 } },
+        { id: "showcase-mira", playerName: "Player Three", characterName: "Mira Quill", color: "#a86cff", speed: 5.4, commandWindow: 40, moveSpeed: 3, hp: 40, damageReduction: 1, weaponId: "phazor", attributes: { strength: [0, 0, -1, -1], health: [1, 1, -1, -1], perception: [1, 0, -1, -1], dexterity: [1, 0, -1, -1], luck: [1, 0, -1, -1], charisma: [1, 1, -1, -1], intellect: [2, 2, -1, -1], willpower: [1, 1, -1, -1] }, skills: { Initiative: 2.4, Awareness: 2, Projectile: 1.6, "Dodge/Block": 1.5, Melee: 0.5, "Weapon Mechanics": 2.8, Engineering: 2.7, "Anatomy/First Aid": 2.2 } },
+      ];
+      const characters = pcDefinitions.map(showcaseCharacter);
+      for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
+      const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
+      const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 152);
+      const campaign = defaultCampaign({ code: showcaseCode, name: "Explore Features", gmCode: uid("showcase") });
+      campaign.showcase = true;
+      campaign.characters = characters;
+      campaign.starships = [pcShip, npcShip];
+      campaign.shipCredits = 25000;
+      campaign.settings.hideRoomCode = true;
+      const selectedNpcs = shuffle(SHOWCASE_NPCS).slice(0, 5);
+      const pcSquares = [146, 147, 166];
+      const npcSquares = [152, 153, 172, 173, 192];
+      const units = pcDefinitions.map((entry, index) => ({
+        id: `unit-${entry.id}`, playerName: entry.playerName, characterName: entry.characterName, speed: entry.speed,
+        commandWindow: entry.commandWindow, atb: [72, 46, 18][index], encounterSpeedBonus: 0, regenerationRate: 0,
+        regenerationProgress: 0, recurringHealingProgress: 0, delay: null, delayTimer: null, delayedAction: null, queuedEffects: [],
+        controlledBy: "player", team: "pc", allyNpc: false, actorType: "character", color: entry.color, tieSeed: index / 10,
+        characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: 4, highestPerceptionDie: 8,
+        weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: [8, 8, 6], strengthDice: index === 1 ? [8, 8, 6] : [6, 4],
+        projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
+        damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
+        weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
+        location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],
+      }));
+      units.push(...selectedNpcs.map((npc, index) => ({
+        id: `unit-showcase-npc-${index}`, playerName: "GM", characterName: npc.name, speed: npc.speed, commandWindow: null,
+        atb: [88, 61, 37, 24, 8][index], encounterSpeedBonus: 0, regenerationRate: 0, regenerationProgress: 0,
+        recurringHealingProgress: 0, delay: null, delayTimer: null, delayedAction: null, queuedEffects: [], controlledBy: "gm",
+        team: "npc", allyNpc: false, actorType: "character", color: npc.color, tieSeed: .5 + index / 10, characterId: "", playerConnected: false,
+        moveSpeed: npc.moveSpeed, physicalAttribute: npc.physicalAttribute, mentalAttribute: npc.mentalAttribute,
+        physicalSkill: npc.physicalSkill, mentalSkill: npc.mentalSkill, damageReduction: 0, maximumHp: npc.maximumHp, currentHp: npc.maximumHp,
+        weapons: [{ inventoryId: `showcase-npc-${index}-weapon`, weaponId: npc.heldWeaponId }], heldWeaponId: `showcase-npc-${index}-weapon`, items: [],
+        location: showcaseLocation(npcShip.id, npcSquares[index]), travelRoute: [],
+      })));
+      campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: true, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared and paused." }] };
+      const normalized = normalizeCampaign(campaign);
+      normalized.showcase = true;
+      this.showcases.set(showcaseCode, { campaign: normalized, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
+      this.campaignCache.set(showcaseCode, normalized);
+      this.restoreEncounter(showcaseCode, normalized.encounter);
+      const gmToken = this.newSession(showcaseCode, "gm");
+      const players = normalized.characters.map((record) => ({ id: record.id, name: safeCharacterName(record), token: this.newSession(showcaseCode, "character", record.id), color: record.character?.presentation?.atbColor || "#39e58f" }));
+      sendJson(res, 200, { code: showcaseCode, gmToken, players });
+      return true;
+    }
 
     if (path === "/api/campaign/create" && req.method === "POST") {
       const name = String(body.name || "").trim();

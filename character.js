@@ -675,6 +675,13 @@ let knownDramaPlayIds = new Set();
 let dramaAlertQueue = [];
 let activeDramaAlert = null;
 let selectedDramaCard = null;
+let advancementAttributePurchases = [];
+
+function mayReceiveGearForFree() {
+  return GM_ADJUSTMENT_MODE
+    || (manualInputMode() && character.phase === "draft")
+    || Boolean(campaignCode && campaignCharacterId && campaignEditable);
+}
 
 function renderSyncIndicator(state = "local") {
   if (!dom.syncIndicator) return;
@@ -2160,14 +2167,14 @@ function snapshotRecovery(reason) {
   localStorage.setItem(RECOVERY_KEY, JSON.stringify(recoveries));
 }
 
-function notice(message, type = "") {
+function notice(message, type = "", duration = 4800) {
   dom.creatorNotice.textContent = message;
   dom.creatorNotice.className = `creator-notice ${type}`.trim();
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => {
     dom.creatorNotice.textContent = "";
     dom.creatorNotice.className = "creator-notice";
-  }, 4800);
+  }, duration);
 }
 
 function dramaCardMiniMarkup(card) {
@@ -3115,13 +3122,15 @@ function renderAttributes() {
           && !(character.identity.raceId === "tamalori" && definition.key === "strength" && column === 4);
         const advancementFunds = mechanicalSpiddixAttribute(definition.key) ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
         const useAwardedPoints = awardedPoints >= cost;
-        const allowedAdvancement = advancement && next && (useAwardedPoints || advancementFunds >= cost) && !raceBlocked;
+        const refundableAdvancement = advancement && purchased && Boolean(lastRefundableAttributePurchase(definition.key, row, column));
+        const allowedAdvancement = advancement && ((next && (useAwardedPoints || advancementFunds >= cost) && !raceBlocked) || refundableAdvancement);
         const disabled = !interactive || (!GM_ADJUSTMENT_MODE && !(allowedDraft || allowedAdvancement));
         let title = purchased ? `${dieName} purchased` : `Purchase ${dieName} for ${cost}`;
         if (lockedFree) title = `${dieName} is a free starting die`;
         else if (manualDraft && next) title = `Set this row to ${dieName}`;
         else if (manualDraft && column === current) title = `Remove ${dieName} from this row`;
         else if (character.phase === "draft" && column === current) title = `Refund ${cost} Attribute Points`;
+        else if (refundableAdvancement) title = "Undo the most recent Attribute purchase";
         else if (advancement && next) title = `Spend ${cost} ${useAwardedPoints ? "Attribute Points" : mechanicalSpiddixAttribute(definition.key) ? "mechanical XP" : "XP"} to upgrade to ${dieName}`;
         return `<button class="attribute-die ${purchased ? "purchased" : ""} ${next ? "next" : ""}" type="button" data-attribute="${definition.key}" data-row="${row}" data-column="${column}" title="${escapeAttribute(title)}" ${disabled ? "disabled" : ""}>${dieSvg(column, cost, purchased)}</button>`;
       }).join("");
@@ -4558,6 +4567,7 @@ function weaponCreditCost(weapon) {
 
 function requestWeaponMode(weapon) {
   if (GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft")) return Promise.resolve("receive");
+  const canReceive = mayReceiveGearForFree();
   return new Promise((resolve) => {
     const shell = document.createElement("div");
     shell.className = "modal-shell weapon-acquire-modal";
@@ -4565,8 +4575,8 @@ function requestWeaponMode(weapon) {
     shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true">
       <span class="dialog-kicker">Add Weapon</span>
       <h2>${escapeHtml(weapon.name)}</h2>
-      <p>Was this weapon purchased for ${cost.toLocaleString()} Credits, or received without spending Credits?</p>
-      <div class="weapon-acquire-actions"><button type="button" data-weapon-mode="cancel">Cancel</button><button type="button" class="receive" data-weapon-mode="receive">Receive</button><button type="button" class="purchase" data-weapon-mode="purchase">Purchase</button></div>
+      <p>${canReceive ? `Was this weapon purchased for ${cost.toLocaleString()} Credits, or received with GM oversight?` : `This unlinked character must purchase the weapon for ${cost.toLocaleString()} Credits.`}</p>
+      <div class="weapon-acquire-actions"><button type="button" data-weapon-mode="cancel">Cancel</button>${canReceive ? '<button type="button" class="receive" data-weapon-mode="receive">Receive</button>' : ""}<button type="button" class="purchase" data-weapon-mode="purchase">Purchase</button></div>
     </section>`;
     document.body.append(shell);
     const close = (value) => { shell.remove(); resolve(value); };
@@ -4581,6 +4591,10 @@ function requestWeaponMode(weapon) {
 
 async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
+  if (mode === "receive" && !mayReceiveGearForFree()) {
+    notice("Link this character to a campaign before receiving weapons for free.", "error");
+    return false;
+  }
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
   if (cost > Number(character.resources.creditsBase || 0)) {
     const accepted = await askConfirmation({
@@ -4650,7 +4664,9 @@ function gearDraftFromCatalog(catalog) {
 function updateGearPickerActions() {
   const valid = Boolean(gearDraft?.name.trim());
   const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
+  const canReceive = mayReceiveGearForFree();
   dom.gearPickerPurchase.hidden = manualReceive;
+  dom.gearPickerReceive.hidden = !canReceive;
   dom.gearPickerReceive.textContent = manualReceive ? "Add Received Item" : "Receive";
   dom.gearPickerPurchase.disabled = !valid;
   dom.gearPickerReceive.disabled = !valid;
@@ -4712,6 +4728,7 @@ function renderGear() {
   dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
   const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
+  const canReceive = mayReceiveGearForFree();
   const rows = character.items.map((entry) => {
     const pending = pendingGearAdds.has(entry.id);
     const charge = itemChargeLabel(entry);
@@ -4721,7 +4738,7 @@ function renderGear() {
       <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
       <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
       <div class="gear-actions">${pending
-        ? `${manualReceive ? "" : `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button>`}<button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button><button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
+        ? `${manualReceive ? "" : `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button>`}${canReceive ? `<button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button>` : ""}<button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
         : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
     </div>`;
   });
@@ -4779,6 +4796,10 @@ function requestStorageRecipient(item) {
 
 async function addGearItem(item, mode) {
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
+  if (mode === "receive" && !mayReceiveGearForFree()) {
+    notice("Link this character to a campaign before receiving items for free.", "error");
+    return false;
+  }
   const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
   if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
   if (mode === "purchase" && cost > 0 && cost > Number(character.resources.creditsBase || 0)) {
@@ -4936,11 +4957,11 @@ function availableFreeReroll() {
     if ((used[key] || 0) < 2) return { key, maximum: 2, count: 1, label: `Free ${skillCheckAttribute().label} Reroll (${2 - (used[key] || 0)} left)` };
   }
   if (skillCheck.freeRerollUsed) return null;
-  if (profile.raceId === "bruggle" && ["strength", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
-  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && ["charisma", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
-  if (profile.raceId === "epoc" && ["luck", "charisma", "willpower", "intellect"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
-  if (profile.raceId === "pattanilia" && ["perception", "intellect", "willpower"].includes(profile.attributeKey)) return { count: 2, label: "Reroll Two Lowest Dice" };
-  if (profile.raceId === "slyn-tanni" && ["dexterity", "charisma"].includes(profile.attributeKey)) return { count: 1, label: "Reroll Lowest Die" };
+  if (profile.raceId === "bruggle" && ["strength", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Bruggle: Reroll Two Lowest Dice" };
+  if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && ["charisma", "dexterity"].includes(profile.attributeKey)) return { count: 2, label: "Fluffy Antropic: Reroll Two Lowest Dice" };
+  if (profile.raceId === "epoc" && ["luck", "charisma", "willpower", "intellect"].includes(profile.attributeKey)) return { count: 2, label: "Epoc: Reroll Two Lowest Dice" };
+  if (profile.raceId === "pattanilia" && ["perception", "intellect", "willpower"].includes(profile.attributeKey)) return { count: 2, label: "Pattanilia: Reroll Two Lowest Dice" };
+  if (profile.raceId === "slyn-tanni" && ["dexterity", "charisma"].includes(profile.attributeKey)) return { count: 1, label: "Slyn Tanni: Reroll Lowest Die" };
   return null;
 }
 
@@ -5021,7 +5042,43 @@ function renderWithoutViewportJump() {
   setTimeout(restore, 80);
 }
 
-function purchaseAttribute(attributeKey, row, column) {
+function lastRefundableAttributePurchase(attributeKey, row, column) {
+  const transaction = advancementAttributePurchases.at(-1);
+  if (!transaction) return null;
+  return transaction.changes.some((change) => change.attributeKey === attributeKey && change.row === row && change.after === column)
+    ? transaction
+    : null;
+}
+
+async function applyAmbassadorFreeAttribute(paidCost, transaction) {
+  if (character.identity.classId !== "ambassador-spy") return true;
+  const options = ["charisma", "luck"].flatMap((attributeKey) => character.attributes[attributeKey].flatMap((current, row) => {
+    const column = current + 1;
+    if (column > 4 || attributeStepCost(attributeKey, row, column) > paidCost) return [];
+    const label = ATTRIBUTE_DEFS.find((entry) => entry.key === attributeKey)?.label || attributeKey;
+    return [{ value: `${attributeKey}:${row}`, label: `${label} row ${row + 1}: ${current < 0 ? "None" : DICE_NAMES[current]} to ${DICE_NAMES[column]}` }];
+  }));
+  if (!options.length) {
+    notice("Ambassador / Spy: no equal-or-lower Charisma or Luck die upgrade is currently available.", "success");
+    return true;
+  }
+  const values = await requestRuleChoices({
+    title: "Ambassador / Spy Free Die",
+    message: "Your paid Charisma or Luck die grants one free equal-or-lower die in Charisma or Luck.",
+    options,
+  });
+  if (!values?.[0]) return false;
+  const [attributeKey, rowText] = values[0].split(":");
+  const row = Number(rowText);
+  const before = character.attributes[attributeKey][row];
+  character.attributes[attributeKey][row] = before + 1;
+  transaction.changes.push({ attributeKey, row, before, after: before + 1, free: true });
+  playPurchaseSound(attributeKey);
+  notice(`Ambassador / Spy granted a free ${DICE_NAMES[before + 1]} die.`, "success");
+  return true;
+}
+
+async function purchaseAttribute(attributeKey, row, column) {
   if (!canPurchaseAttributes() || character.pendingRoll) return;
   const current = character.attributes[attributeKey][row];
   const definition = ATTRIBUTE_DEFS.find((entry) => entry.key === attributeKey);
@@ -5060,6 +5117,22 @@ function purchaseAttribute(attributeKey, row, column) {
     } else {
       return;
     }
+  } else if (character.phase === "finalized" && character.advancementOpen && column === current) {
+    const transaction = lastRefundableAttributePurchase(attributeKey, row, column);
+    if (!transaction) return;
+    [...transaction.changes].reverse().forEach((change) => {
+      character.attributes[change.attributeKey][change.row] = change.before;
+    });
+    if (transaction.currency === "attributePoints") character.resources.attributePoints += transaction.cost;
+    else if (transaction.currency === "mechanical") {
+      character.resources.mechanicalExperience += transaction.cost;
+      character.experience.spent = Math.max(0, character.experience.spent - transaction.cost);
+    } else {
+      character.experience.available += transaction.cost;
+      character.experience.spent = Math.max(0, character.experience.spent - transaction.cost);
+    }
+    advancementAttributePurchases.pop();
+    notice(`${transaction.cost} ${transaction.currency === "attributePoints" ? "Attribute Points" : "XP"} refunded.`, "success");
   } else if (character.phase === "finalized" && character.advancementOpen && column === current + 1) {
     if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
       notice("TaMalori cannot purchase D12 Strength dice.", "error");
@@ -5072,8 +5145,30 @@ function purchaseAttribute(attributeKey, row, column) {
     if (usingAwardedPoints) character.resources.attributePoints = awardedPoints - cost;
     else if (!(mechanical ? spendMechanicalXp(cost, `${definition.label} ${DICE_NAMES[column]}`) : spendXp(cost, `${definition.label} ${DICE_NAMES[column]}`))) return;
     character.attributes[attributeKey][row] = column;
+    const transaction = {
+      cost,
+      currency: usingAwardedPoints ? "attributePoints" : mechanical ? "mechanical" : "xp",
+      changes: [{ attributeKey, row, before: current, after: column, free: false }],
+    };
+    advancementAttributePurchases.push(transaction);
     playPurchaseSound(attributeKey);
     notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} ${usingAwardedPoints ? "Attribute Points" : mechanical ? "mechanical XP" : "XP"}.`, "success");
+    if (["charisma", "luck"].includes(attributeKey)) {
+      const freeDieApplied = await applyAmbassadorFreeAttribute(cost, transaction);
+      if (!freeDieApplied) {
+        character.attributes[attributeKey][row] = current;
+        advancementAttributePurchases.pop();
+        if (usingAwardedPoints) character.resources.attributePoints += cost;
+        else if (mechanical) {
+          character.resources.mechanicalExperience += cost;
+          character.experience.spent = Math.max(0, character.experience.spent - cost);
+        } else {
+          character.experience.available += cost;
+          character.experience.spent = Math.max(0, character.experience.spent - cost);
+        }
+        notice("Attribute purchase canceled because the Ambassador / Spy free die was not selected.", "error");
+      }
+    }
   } else {
     return;
   }
@@ -6292,14 +6387,27 @@ dom.grantXp.addEventListener("click", () => {
 
 dom.finalizeCharacter.addEventListener("click", beginFinalization);
 dom.nextRequirement.addEventListener("click", (event) => {
-  const task = event.target.closest("[data-workflow-target]");
+  const task = event.target.closest("[data-workflow-key]");
   if (!task) return;
-  scrollToWorkflowTarget(task.dataset.workflowTarget);
+  const tutorials = {
+    race: "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules.",
+    class: "Now pick your Class. It establishes your primary party role and what your character is naturally good at.",
+    attributes: "Spend Attribute Points on dice. More dice improve consistency; larger dice raise the maximum result you can roll.",
+    skills: "Spend Skill Points after Attributes are complete. Skill ratings are added to the top two dice of an associated Attribute roll.",
+    backstory: "Write a short Character Background before using the optional FUBS prompt.",
+    fubs: "FUBS is an optional one-time backstory complication. Read the result and incorporate it into your character's history.",
+    identity: "Fill in the Identity fields so the finished sheet clearly identifies the player and character.",
+    "home-planet": "Choose a Home Planet. It personalizes the sheet and may support future setting rules.",
+    compatibility: "This Race and Class combination conflicts with a listed rule. Change one selection before finalizing.",
+  };
+  if (tutorials[task.dataset.workflowKey]) notice(tutorials[task.dataset.workflowKey], "success", 6500);
+  if (task.dataset.workflowTarget) scrollToWorkflowTarget(task.dataset.workflowTarget);
 });
 
 dom.spendExperience.addEventListener("click", () => {
   if (character.phase !== "finalized" || character.pendingRoll) return;
   character.advancementOpen = !character.advancementOpen;
+  if (!character.advancementOpen) advancementAttributePurchases = [];
   queueSave();
   renderAll();
   notice(character.advancementOpen ? "Advancement purchasing opened." : "Advancement purchasing closed.", "success");
@@ -7538,6 +7646,7 @@ async function initializeCharacterApp() {
         enableGmAdjustmentMode();
         if (editable && character.phase === "finalizing") window.setTimeout(processFinalization, 120);
         else if (editable && character.pendingRoll) window.setTimeout(rollPending, 120);
+        else if (params.get("showcase") === "1") window.setTimeout(() => showCharacterPanel("atb"), 120);
         return;
       }
     } catch (error) {
