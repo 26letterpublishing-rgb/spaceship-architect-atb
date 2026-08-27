@@ -801,6 +801,7 @@ function applyDraftToUi() {
   popularityInputs.forEach((input) => { input.value = String(draft.popularity || 0); });
   selectedSicId = null; mobilePreviewCell = null; undoState = null;
   renderReputationSelections(); renderSavedStarships(); renderAll(); renderCampaignLink();
+  if (draft.confirmedOnce) requestAnimationFrame(fitShipToViewport);
 }
 function renderSavedStarships() {
   if (!savedStarshipSelect) return;
@@ -1003,7 +1004,11 @@ async function initializeStarshipPage() {
   const parameters = new URLSearchParams(location.search);
   const requestedShipId = parameters.get("ship") || "";
   const campaignCode = (parameters.get("campaign") || "").toUpperCase();
-  if (requestedShipId && campaignCode) {
+  if (parameters.get("new") === "1") {
+    localStorage.removeItem(ACTIVE_STARSHIP_KEY);
+    draft = defaultDraft();
+    saveDraft();
+  } else if (requestedShipId && campaignCode) {
     const credentials = activeCampaignCredentials(campaignCode);
     try {
       const state = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(credentials.token)}`, null, "GET");

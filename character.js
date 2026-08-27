@@ -33,6 +33,7 @@ const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
 const RECOVERY_KEY = "sa2e-character-recovery-v1";
 const ACTIVE_DRAFT_KEY = "sa2e-active-draft-v1";
+const SHOWCASE_MODE = new URLSearchParams(location.search).get("showcase") === "1";
 const LAYOUT_MODE_KEY = "sa2e-character-layout-v1";
 const HUD_VISIBILITY_KEY = "sa2e-character-hud-visible-v1";
 const PLAYER_BANNER_MODE_KEY = "sa-player-banner-mode-v1";
@@ -2615,9 +2616,7 @@ function backgroundComplete() {
 
 function identityComplete() {
   const fields = ["playerName", "characterName", "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description"];
-  return Boolean(character.identity.classId)
-    && raceSelectionComplete()
-    && fields.every((field) => String(character.identity[field] ?? "").trim());
+  return fields.every((field) => String(character.identity[field] ?? "").trim());
 }
 
 let previousWorkflowRequirements = new Map();
@@ -2960,7 +2959,6 @@ function renderWorkflow() {
   }
   if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classPicker" });
   if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#racePicker" });
-  if (!validation.homePlanetComplete) requirements.push({ key: "home-planet", label: "Choose Home Planet", target: "#homePlanetPicker" });
   if (!validation.attributesComplete) {
     const difference = validation.attributeBudget - validation.attributeSpent;
     requirements.push({
@@ -2978,9 +2976,9 @@ function renderWorkflow() {
       target: ".skills-panel",
     });
   }
+  if (!identityComplete()) requirements.push({ key: "identity", label: "Fill in Identity", target: !validation.homePlanetComplete ? "#homePlanetPicker" : firstIncompleteIdentityTarget() });
   if (!backgroundComplete()) requirements.push({ key: "backstory", label: "Write Backstory", target: ".notes-panel" });
   else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ key: "fubs", label: "Roll on FUBS Chart", target: "#fubsButton" });
-  if (!identityComplete()) requirements.push({ key: "identity", label: "Fill in Identity", target: firstIncompleteIdentityTarget() });
   dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
   dom.workflowDetail.textContent = validation.ready && requirements.length === 0
@@ -5338,6 +5336,44 @@ async function beginNewCharacter() {
   });
   renderCharacterNavigation();
   notice("Fresh Character Draft created. The previous character remains saved.", "success");
+  showDraftIntroduction();
+}
+
+const WORKFLOW_TUTORIALS = {
+  race: ["Choose Your Race", "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules."],
+  class: ["Choose Your Class", "Now pick your Class. It establishes your primary party role and what your character is naturally good at."],
+  attributes: ["Build Your Attributes", "Spend all 195 Attribute Points on dice. More dice improve consistency; larger dice raise the maximum result you can roll."],
+  skills: ["Choose Your Skills", "After Attributes are complete, spend every Skill Point. Skill ratings are added to the top two dice of an associated Attribute roll."],
+  identity: ["Fill In Identity", "Complete the Identity section, including Home Planet. These details identify the player and give the finished character a place in the setting."],
+  backstory: ["Write A Backstory", "Write a Character Background before using the optional FUBS prompt. A few useful sentences are enough to begin."],
+  fubs: ["Roll On FUBS", "FUBS is an optional, one-time complication for the backstory you already wrote. Read the result and incorporate it into the character's history."],
+  compatibility: ["Resolve The Conflict", "This Race and Class combination conflicts with a listed rule. Change one selection before finalizing."],
+};
+
+function showWorkflowTutorial(key, target = "") {
+  const copy = WORKFLOW_TUTORIALS[key];
+  if (!copy) return;
+  const shell = document.createElement("div");
+  shell.className = "modal-shell workflow-tutorial-modal";
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Character Creation</span><h2>${escapeHtml(copy[0])}</h2><p>${escapeHtml(copy[1])}</p><div class="dialog-actions"><button type="button" class="primary-action">Got It</button></div></section>`;
+  document.body.append(shell);
+  shell.querySelector("button").addEventListener("click", () => { shell.remove(); if (target) scrollToWorkflowTarget(target); });
+}
+
+function activateNextDraftTask() {
+  const task = dom.nextRequirement.querySelector("[data-workflow-key]");
+  if (!task) return;
+  showWorkflowTutorial(task.dataset.workflowKey, task.dataset.workflowTarget || "");
+}
+
+function showDraftIntroduction() {
+  if (character.phase !== "draft" || manualInputMode()) return;
+  const shell = document.createElement("div");
+  shell.className = "modal-shell draft-introduction-modal";
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-arrow" aria-hidden="true">&#8593;</div><h2>Click Draft</h2><p>Click this button to know what you need to do next!</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
+  document.body.append(shell);
+  dom.phaseBadge.classList.add("draft-guide-target");
+  shell.querySelector("button").addEventListener("click", () => { shell.remove(); dom.phaseBadge.classList.remove("draft-guide-target"); dom.phaseBadge.focus({ preventScroll: true }); });
 }
 
 function requestRuleChoices({ title, message, options, count = 1 }) {
@@ -6389,19 +6425,15 @@ dom.finalizeCharacter.addEventListener("click", beginFinalization);
 dom.nextRequirement.addEventListener("click", (event) => {
   const task = event.target.closest("[data-workflow-key]");
   if (!task) return;
-  const tutorials = {
-    race: "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules.",
-    class: "Now pick your Class. It establishes your primary party role and what your character is naturally good at.",
-    attributes: "Spend Attribute Points on dice. More dice improve consistency; larger dice raise the maximum result you can roll.",
-    skills: "Spend Skill Points after Attributes are complete. Skill ratings are added to the top two dice of an associated Attribute roll.",
-    backstory: "Write a short Character Background before using the optional FUBS prompt.",
-    fubs: "FUBS is an optional one-time backstory complication. Read the result and incorporate it into your character's history.",
-    identity: "Fill in the Identity fields so the finished sheet clearly identifies the player and character.",
-    "home-planet": "Choose a Home Planet. It personalizes the sheet and may support future setting rules.",
-    compatibility: "This Race and Class combination conflicts with a listed rule. Change one selection before finalizing.",
-  };
-  if (tutorials[task.dataset.workflowKey]) notice(tutorials[task.dataset.workflowKey], "success", 6500);
-  if (task.dataset.workflowTarget) scrollToWorkflowTarget(task.dataset.workflowTarget);
+  showWorkflowTutorial(task.dataset.workflowKey, task.dataset.workflowTarget || "");
+});
+dom.phaseBadge.addEventListener("click", activateNextDraftTask);
+dom.phaseBadge.setAttribute("role", "button");
+dom.phaseBadge.setAttribute("tabindex", "0");
+dom.phaseBadge.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  activateNextDraftTask();
 });
 
 dom.spendExperience.addEventListener("click", () => {
@@ -7622,7 +7654,7 @@ async function initializeCharacterApp() {
   dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {
     let token = gmAccess
-      ? localStorage.getItem(`sa-gm-token-${requestedCode}`) || ""
+      ? (SHOWCASE_MODE ? sessionStorage : localStorage).getItem(`sa-gm-token-${requestedCode}`) || ""
       : localStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
     try {
       let state = await loadCampaign(requestedCode, token);
@@ -7635,7 +7667,7 @@ async function initializeCharacterApp() {
             body: JSON.stringify({ code: requestedCode, characterId: requestedCharacter, pcCode }),
           });
           token = unlocked.token;
-          localStorage.setItem(campaignTokenKey(requestedCode, requestedCharacter), token);
+          (SHOWCASE_MODE ? sessionStorage : localStorage).setItem(campaignTokenKey(requestedCode, requestedCharacter), token);
           state = await loadCampaign(requestedCode, token);
         }
       }
@@ -7695,5 +7727,9 @@ if (CAMPAIGN_READ_ONLY_VIEW && "ResizeObserver" in window) {
 renderAll();
 if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 initializeCharacterApp();
+if (!CAMPAIGN_READ_ONLY_VIEW && character.phase === "draft" && !draftHasProgress(character) && sessionStorage.getItem(`sa-draft-guide-${character.id}`) !== "shown") {
+  sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
+  window.setTimeout(showDraftIntroduction, 250);
+}
 
 

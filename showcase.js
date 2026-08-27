@@ -2,7 +2,19 @@ const statusNode = document.querySelector("#showcaseStatus");
 const frame = document.querySelector("#showcaseFrame");
 const perspectives = document.querySelector("#showcasePerspectives");
 const resetButton = document.querySelector("#resetShowcase");
+const backButton = document.querySelector("#showcaseBack");
 let room = null;
+
+function clearShowcaseSession() {
+  if (!room) return;
+  sessionStorage.removeItem(`sa-gm-token-${room.code}`);
+  room.players?.forEach((player) => sessionStorage.removeItem(`sa-character-token-${room.code}-${player.id}`));
+}
+
+function leaveShowcase() {
+  clearShowcaseSession();
+  window.top.location.href = "index.html";
+}
 
 function showPerspective(kind, player = null) {
   if (!room) return;
@@ -47,9 +59,8 @@ async function startShowcase() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "The playtest room could not be created.");
     room = payload;
-    localStorage.setItem(`sa-gm-token-${room.code}`, room.gmToken);
-    localStorage.setItem("sa-current-campaign-code", room.code);
-    room.players.forEach((player) => localStorage.setItem(`sa-character-token-${room.code}-${player.id}`, player.token));
+    sessionStorage.setItem(`sa-gm-token-${room.code}`, room.gmToken);
+    room.players.forEach((player) => sessionStorage.setItem(`sa-character-token-${room.code}-${player.id}`, player.token));
     renderPerspectives();
     showPerspective("gm");
   } catch (error) {
@@ -61,4 +72,10 @@ async function startShowcase() {
 }
 
 resetButton.addEventListener("click", startShowcase);
+backButton.addEventListener("click", (event) => { event.preventDefault(); leaveShowcase(); });
+frame.addEventListener("load", () => {
+  try {
+    if (new URL(frame.contentWindow.location.href).pathname.endsWith("/index.html")) leaveShowcase();
+  } catch {}
+});
 startShowcase();

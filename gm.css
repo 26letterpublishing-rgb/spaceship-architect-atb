@@ -194,3 +194,5 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .encounter-deployment{min-height:34px;padding:5px 8px;font-size:.62rem}
 .staged-npc-summary{grid-template-columns:minmax(160px,1fr) auto minmax(130px,.65fr) auto}
 @media(max-width:720px){.encounter-character-option{grid-template-columns:auto 1fr auto auto}.encounter-character-option .encounter-deployment{grid-column:2/-1}.staged-npc-summary{grid-template-columns:1fr auto}.staged-npc-summary .encounter-deployment{grid-column:1/-1}}
+
+.fleet-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.showcase-npc-fleet{margin:10px 0;padding:10px;border:1px solid #6d59b3;background:#0b1220}.showcase-npc-fleet-list,#showcaseNpcFleetList{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px}.showcase-npc-location{display:grid;grid-template-columns:1fr minmax(120px,.8fr);gap:8px;align-items:center;padding:7px;border:1px solid #293d52}.showcase-npc-location span{display:flex;align-items:center;gap:7px}.showcase-npc-location i{width:10px;height:10px;border-radius:50%;background:var(--npc-color)}.showcase-npc-location select{width:100%;margin:0}

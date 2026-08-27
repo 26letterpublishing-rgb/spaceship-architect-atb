@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260817-weapon-slots" />
+  <link rel="stylesheet" href="gm.css?v=20260826-explore-polish" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -156,10 +156,11 @@
         <section id="starshipsTab" class="gm-tab" data-tab-panel="starships" hidden>
           <div class="tab-heading">
             <div><span>CAMPAIGN FLEET</span><h2>Starships</h2></div>
-            <strong id="starshipCount">0 Starships</strong>
+              <div class="fleet-heading-actions"><strong id="starshipCount">0 Starships</strong><button id="createCampaignStarship" type="button">Create New Starship</button></div>
           </div>
-          <p class="fleet-note">PC-controlled ships are visible to players. GM-controlled ships remain hidden.</p>
-          <div id="gmStarshipList" class="gm-starship-list"></div>
+            <p class="fleet-note">PC-controlled ships are visible to players. GM-controlled ships remain hidden.</p>
+            <section id="showcaseNpcFleet" class="showcase-npc-fleet" hidden><div class="section-title"><div><h3>Explore NPC Locations</h3><small>Move each premade NPC between either ship or the exterior.</small></div></div><div id="showcaseNpcFleetList"></div></section>
+            <div id="gmStarshipList" class="gm-starship-list"></div>
         </section>
 
         <section id="promptTab" class="gm-tab" data-tab-panel="prompt" hidden>
@@ -341,6 +342,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260825-starship-control"></script>
+  <script type="module" src="gm.js?v=20260826-explore-polish"></script>
   </body>
 </html>

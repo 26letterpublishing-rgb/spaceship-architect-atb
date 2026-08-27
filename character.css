@@ -1607,6 +1607,7 @@ body.dice-input-flicker::before{animation:dice-input-flicker .72s steps(2,end)}
 @keyframes dice-input-flicker{0%,100%{opacity:.16}20%,55%{opacity:.03}35%,72%{opacity:.31}}
 @media(max-width:430px){.skill-equipment-choices{grid-template-columns:1fr}.sync-indicator{font-size:.37rem}}
 @media(prefers-reduced-motion:reduce){.hud-health.half-heart-emergency,.hud-health.zero-heart-emergency,.sync-indicator.saving i,.workflow-completion-ghost,.workflow-target-pulse,.workflow-actions #finalizeCharacter.finalize-spectrum{animation:none!important}}
+.phase-badge.draft{cursor:pointer}.draft-introduction-modal .confirm-dialog{text-align:center;border-color:#4aff9b;box-shadow:0 0 32px rgba(74,255,155,.4)}.draft-guide-arrow{color:#45f391;font-size:5rem;line-height:.8;filter:drop-shadow(0 0 10px #45f391);animation:draftGuideBounce .75s ease-in-out infinite alternate}.draft-guide-target{animation:draftGuideTarget .7s ease-in-out infinite alternate!important}.workflow-tutorial-modal .confirm-dialog{max-width:520px}.workflow-tutorial-modal p{font-size:1rem;line-height:1.5}@keyframes draftGuideBounce{to{transform:translateY(-12px)}}@keyframes draftGuideTarget{to{box-shadow:0 0 24px #48f39a;background:#1f8c55;color:#fff}}
 @media(max-width:1080px){.crew-panel{grid-column:1/-1}}
 /* Per-device compact header preference. */
 .interface-banner-hidden .creator-header {

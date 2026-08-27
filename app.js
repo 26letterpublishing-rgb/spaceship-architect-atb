@@ -259,6 +259,7 @@ const gmCommandWindowWrap = document.querySelector("#gmCommandWindowWrap");
 const gmColor = document.querySelector("#gmColor");
 const gmTeam = document.querySelector("#gmTeam");
 const unitList = document.querySelector("#unitList");
+const starshipStatusList = document.querySelector("#starshipStatusList");
 const initiativePanel = document.querySelector("#initiativePanel");
 const logPanel = document.querySelector("#logPanel");
 const readyCount = document.querySelector("#readyCount");
@@ -1798,7 +1799,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                 <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini damage" data-action="damage" data-id="${unit.id}">Damage</button>
-                <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
+                ${state.showcase && unit.team === "pc" ? "" : `<button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>`}
               </div>`
             : ""
         }
@@ -1825,6 +1826,28 @@ function unitCard(unit, { gm = false, player = false } = {}) {
       <button type="button" class="meter color-trigger" data-action="barColor" data-id="${escapeHtml(unit.id)}" title="Change ${escapeHtml(unit.characterName)}'s ATB color"><span class="fill" style="width:${pct(unit)}%"></span></button>
     </article>
   `;
+}
+
+function shipSegmentStates(current, maximum) {
+  const max = Math.max(0, Number(maximum) || 0);
+  const value = Math.max(0, Math.min(max, Number(current) || 0));
+  if (!max) return ["empty", "empty", "empty"];
+  const halfSegments = Math.round((value / max) * 6);
+  return [0, 1, 2].map((index) => halfSegments >= (index + 1) * 2 ? "full" : halfSegments === index * 2 + 1 ? "half" : "empty");
+}
+
+function renderStarshipStatuses() {
+  const ships = state?.starships || [];
+  starshipStatusList.hidden = !ships.length;
+  starshipStatusList.innerHTML = ships.map((record) => {
+    const ship = record.ship || {};
+    const hullMax = Math.max(0, Number(record.maximumHullHp || ship.maximumHullHp || ship.confirmed?.gridCells?.length || ship.gridCells?.length) || 0);
+    const hull = Math.max(0, Number(record.currentHullHp ?? ship.currentHullHp ?? hullMax) || 0);
+    const shieldMax = Math.max(0, Number(record.maximumShieldHp ?? ship.maximumShieldHp) || 0);
+    const shield = Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? shieldMax) || 0);
+    const icons = (states, kind) => states.map((value) => `<i class="ship-status-icon ${kind} ${value}" aria-hidden="true"></i>`).join("");
+    return `<article class="starship-status-card"><div><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-status-track" title="Hull ${hull}/${hullMax}">${icons(shipSegmentStates(hull, hullMax), "hull")}</span><span class="ship-status-track" title="Shields ${shield}/${shieldMax}">${icons(shipSegmentStates(shield, shieldMax), "shield")}</span></article>`;
+  }).join("");
 }
 
 function unitSignature(unit, { gm = false, player = false } = {}) {
@@ -2894,6 +2917,7 @@ function render() {
   }
 
   renderAreaEffects();
+  renderStarshipStatuses();
   const sorted = [...state.units].sort((a, b) => {
     if (mode === "player") {
       if (a.id === myUnitId && b.id !== myUnitId) return -1;

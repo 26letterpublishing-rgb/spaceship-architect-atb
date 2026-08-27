@@ -139,7 +139,8 @@
   }
 
   function doorMarkup(ship, footprints, square) {
-    const directions = [[-20, "top", "horizontal"], [20, "bottom", "horizontal"], [-1, "left", "vertical"], [1, "right", "vertical"]];
+    // Each shared doorway has one control; duplicate controls blocked map clicks.
+    const directions = [[20, "bottom", "horizontal"], [1, "right", "vertical"]];
     return directions.flatMap(([delta, side, axis]) => {
       const other = square + delta;
       if (!ship.ship.gridCells.includes(other)) return [];
@@ -211,13 +212,22 @@
     status.textContent = interaction === "move" ? "Choose a destination." : mode === "gm" ? "Select a combatant, then choose a square to relocate them." : "View current locations and operate accessible doors.";
     dialog.classList.remove("hidden");
     render();
-    const loc = locationFor(unit);
-    if (loc) {
-      const target = grid.children[loc.square];
-      const viewport = grid.parentElement;
-      viewport.scrollLeft = Math.max(0, target.offsetLeft - viewport.clientWidth / 2 + target.clientWidth / 2);
-      viewport.scrollTop = Math.max(0, target.offsetTop - viewport.clientHeight / 2 + target.clientHeight / 2);
-    }
+    requestAnimationFrame(fitShip);
+  }
+
+  function fitShip() {
+    const ship = selectedShip();
+    const viewport = grid.parentElement;
+    const cells = ship?.ship?.gridCells || [];
+    if (!viewport || !cells.length) return;
+    const rows = cells.map((cell) => Math.floor(cell / 20));
+    const cols = cells.map((cell) => cell % 20);
+    const minRow = Math.min(...rows), maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols), maxCol = Math.max(...cols);
+    const cellSize = Math.max(20, Math.min(72, Math.floor(Math.min((viewport.clientWidth - 36) / (maxCol - minCol + 1), (viewport.clientHeight - 36) / (maxRow - minRow + 1)))));
+    grid.style.setProperty("--cell-size", `${cellSize}px`);
+    viewport.scrollLeft = Math.max(0, minCol * cellSize - (viewport.clientWidth - (maxCol - minCol + 1) * cellSize) / 2 + 20);
+    viewport.scrollTop = Math.max(0, minRow * cellSize - (viewport.clientHeight - (maxRow - minRow + 1) * cellSize) / 2 + 20);
   }
 
   function close() { dialog.classList.add("hidden"); preview = null; }
@@ -233,7 +243,7 @@
     chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh));
   });
   roster.addEventListener("click", (event) => { const button = event.target.closest("[data-map-unit]"); if (button) { selectedUnitId = button.dataset.mapUnit; preview = null; confirm.disabled = true; render(); } });
-  shipSelect.addEventListener("change", () => { selectedShipId = shipSelect.value; preview = null; confirm.disabled = true; render(); });
+  shipSelect.addEventListener("change", () => { selectedShipId = shipSelect.value; preview = null; confirm.disabled = true; render(); requestAnimationFrame(fitShip); });
   confirm.addEventListener("click", async () => {
     const ship = selectedShip();
     const unit = selectedUnit();

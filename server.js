@@ -221,7 +221,18 @@ function publicState(room) {
     units: room.units,
     log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
+    showcase: Boolean(room.showcase || campaignApi?.isShowcase(room.roomCode)),
   };
+}
+
+function resetShowcaseRoom(room) {
+  const template = campaignApi?.showcaseEncounter(room.roomCode);
+  if (!template) return false;
+  const roomCode = room.roomCode;
+  Object.assign(room, template, { roomCode, showcase: true, lastTick: Date.now(), encounterEndedAt: null });
+  room.log = clone(template.log || []);
+  pushLog(room, "Explore Features encounter restored and paused.");
+  return true;
 }
 
 function pushLog(room, text) {
@@ -2022,6 +2033,10 @@ async function handleAction(req, res) {
 
   if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if (campaignApi?.isShowcase(room.roomCode) && unit?.team === "pc") {
+      sendJson(res, 409, { error: "Explore Features PCs remain available so every perspective can keep being tested." });
+      return;
+    }
     if (room.attackResolution && [room.attackResolution.attackerId, room.attackResolution.defenderId].includes(body.id)) {
       const interruptedAttack = room.attackResolution;
       room.attackResolution = null;
@@ -2255,6 +2270,9 @@ async function handleAction(req, res) {
   }
 
   if (action === "clearEncounter") {
+    if (resetShowcaseRoom(room)) {
+      room.undoSnapshot = null;
+    } else {
     room.attackResolution = null;
     room.itemResolution = null;
     room.vehicles = [];
@@ -2274,6 +2292,7 @@ async function handleAction(req, res) {
     room.hasEngagedClock = false;
     room.encounterEndedAt = null;
     pushLog(room, "Encounter cleared.");
+    }
   }
 
   if (action === "characterSpeedBoost") {
@@ -2288,6 +2307,9 @@ async function handleAction(req, res) {
   }
 
   if (action === "exitEncounter") {
+    if (resetShowcaseRoom(room)) {
+      room.undoSnapshot = null;
+    } else {
     room.attackResolution = null;
     room.itemResolution = null;
     room.vehicles = [];
@@ -2307,6 +2329,7 @@ async function handleAction(req, res) {
     room.hasEngagedClock = false;
     room.encounterEndedAt = Date.now();
     pushLog(room, "The GM ended the encounter.");
+    }
   }
 
   if (action === "completeTurn") {

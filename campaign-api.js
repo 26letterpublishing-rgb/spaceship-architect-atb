@@ -808,6 +808,15 @@ class CampaignApi {
     return session?.role === "gm" ? session : null;
   }
 
+  isShowcase(code) {
+    return Boolean(this.showcases.get(String(code || "").trim().toUpperCase())?.campaign?.showcase);
+  }
+
+  showcaseEncounter(code) {
+    const record = this.showcases.get(String(code || "").trim().toUpperCase());
+    return record?.encounterTemplate ? clone(record.encounterTemplate) : null;
+  }
+
   characterSession(token, code, characterId) {
     const session = this.session(token, code);
     if (session?.role === "gm") return session;
@@ -1149,7 +1158,9 @@ class CampaignApi {
       campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: true, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared and paused." }] };
       const normalized = normalizeCampaign(campaign);
       normalized.showcase = true;
-      this.showcases.set(showcaseCode, { campaign: normalized, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
+      normalized.encounter.showcase = true;
+      const encounterTemplate = clone(normalized.encounter);
+      this.showcases.set(showcaseCode, { campaign: normalized, encounterTemplate, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
       this.campaignCache.set(showcaseCode, normalized);
       this.restoreEncounter(showcaseCode, normalized.encounter);
       const gmToken = this.newSession(showcaseCode, "gm");

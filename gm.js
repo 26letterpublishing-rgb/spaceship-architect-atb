@@ -2,6 +2,7 @@ import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS, raceById
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 
 const $ = (selector) => document.querySelector(selector);
+const SHOWCASE_MODE = new URLSearchParams(location.search).get("showcase") === "1";
 const dom = {
   gateway: $("#campaignGateway"),
   workspace: $("#gmWorkspace"),
@@ -64,6 +65,9 @@ const dom = {
   characterCount: $("#characterCount"),
   starshipCount: $("#starshipCount"),
   starshipList: $("#gmStarshipList"),
+  createCampaignStarship: $("#createCampaignStarship"),
+  showcaseNpcFleet: $("#showcaseNpcFleet"),
+  showcaseNpcFleetList: $("#showcaseNpcFleetList"),
   premadeNpcSelect: $("#premadeNpcSelect"),
   premadeNpcEditor: $("#premadeNpcEditor"),
   newPremadeNpc: $("#newPremadeNpc"),
@@ -691,6 +695,11 @@ function renderStarships() {
       <div class="gm-starship-actions"><button type="button" data-open-starship>Open / Edit</button><button type="button" data-save-starship-crew>Save Crew</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
     </article>`;
   }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>";
+  if (dom.showcaseNpcFleet) {
+    const npcs = encounterState?.units?.filter((unit) => unit.team === "npc") || [];
+    dom.showcaseNpcFleet.hidden = !SHOWCASE_MODE;
+    dom.showcaseNpcFleetList.innerHTML = npcs.map((unit) => `<label class="showcase-npc-location"><span><i style="--npc-color:${escapeHtml(unit.color || "#999")}"></i><strong>${escapeHtml(unit.characterName)}</strong></span><select data-showcase-npc-location="${escapeHtml(unit.id)}">${deploymentOptions(unit.location?.starshipId || "")}</select></label>`).join("");
+  }
 }
 
 function renderRollResults() {
@@ -1025,6 +1034,7 @@ async function refreshEncounterState() {
   if (!code) return null;
   encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
   renderEncounterStatus();
+  if (SHOWCASE_MODE) renderStarships();
   return encounterState;
 }
 
@@ -1279,8 +1289,8 @@ function openWorkspace(nextCampaign, nextToken) {
   campaign = nextCampaign;
   code = campaign.code;
   token = nextToken;
-  localStorage.setItem(tokenKey(code), token);
-  localStorage.setItem("sa-current-campaign-code", code);
+  (SHOWCASE_MODE ? sessionStorage : localStorage).setItem(tokenKey(code), token);
+  if (!SHOWCASE_MODE) localStorage.setItem("sa-current-campaign-code", code);
   dom.gateway.hidden = true;
   dom.workspace.hidden = false;
   dom.heading.hidden = false;
@@ -1842,6 +1852,22 @@ dom.starshipList?.addEventListener("click", async (event) => {
   }
 });
 
+dom.createCampaignStarship?.addEventListener("click", () => {
+  window.location.href = "starship.html?new=1";
+});
+
+dom.showcaseNpcFleetList?.addEventListener("change", async (event) => {
+  const select = event.target.closest("[data-showcase-npc-location]");
+  if (!select) return;
+  select.disabled = true;
+  try {
+    await encounterAction("setCombatLocation", { id: select.dataset.showcaseNpcLocation, location: combatLocation(select.value) });
+    await refreshEncounterState();
+    renderStarships();
+  } catch (error) { showMessage(dom.message, error.message, "error"); }
+  finally { select.disabled = false; }
+});
+
 dom.reshuffleDramaCards?.addEventListener("click", async () => {
   if (dom.reshuffleDramaCards.disabled) return;
   dom.reshuffleDramaCards.disabled = true;
@@ -2297,9 +2323,9 @@ dom.deleteCampaign.addEventListener("click", async () => {
 builtinNpcTemplates = await fetch("data/npc-templates.json", { cache: "no-store" }).then((response) => response.json()).catch(() => [NPC_BLANK]);
 populateRulesControls();
 renderScriptEditor("");
-const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || localStorage.getItem("sa-current-campaign-code") || "";
+const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || (!SHOWCASE_MODE ? localStorage.getItem("sa-current-campaign-code") : "") || "";
 if (initialCode) {
-  const savedToken = localStorage.getItem(tokenKey(initialCode)) || "";
+  const savedToken = (SHOWCASE_MODE ? sessionStorage : localStorage).getItem(tokenKey(initialCode)) || "";
   if (savedToken) {
     dom.code.value = initialCode;
     code = initialCode;
