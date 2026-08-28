@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260825-ships2" />
+    <link rel="stylesheet" href="starship.css?v=20260828-mobile-systems-engines" />
   </head>
   <body>
     <header class="starship-header">
@@ -159,13 +159,25 @@
           </svg>
         </article>
         <section class="mobile-compact-systems" aria-label="Detection and digital security">
-          <article class="mobile-blueprint detection-mobile"><svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
-          <article class="mobile-blueprint security-mobile"><svg viewBox="115 105 82 59" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
-          <article class="mobile-blueprint break-lock-mobile"><svg viewBox="115 154 82 55" aria-label="Break Lock-On"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
+          <article class="mobile-system-card detection-mobile">
+            <strong>Detection</strong>
+            <dl><div><dt>Sensor Range</dt><dd>0</dd></div><div><dt>Sensor Dice</dt><dd>0D0</dd></div><div><dt>Lock-On Dice</dt><dd>0D0</dd></div></dl>
+          </article>
+          <article class="mobile-system-card security-mobile">
+            <strong>Digital Security</strong>
+            <dl><div><dt>Firewall Level</dt><dd>0</dd></div></dl>
+          </article>
+          <article class="mobile-system-card break-lock-mobile">
+            <strong>Break Lock-On</strong>
+            <output>0D0</output>
+          </article>
         </section>
-        <article class="mobile-blueprint power-mobile">
-          <h2>Power</h2>
-          <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" data-en-part="available" x="446" y="185">0</text><text data-live-stat="en" data-en-part="max" x="478" y="185">0</text></g></svg>
+        <article class="mobile-system-card power-mobile">
+          <strong>Power</strong>
+          <dl>
+            <div class="mobile-power-en"><dt>EN</dt><dd><span data-live-stat="en" data-en-part="available">0</span><i aria-hidden="true">/</i><span data-live-stat="en" data-en-part="max">0</span></dd></div>
+            <div class="mobile-power-au"><dt>AU</dt><dd>0</dd></div>
+          </dl>
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
@@ -279,7 +291,7 @@
 
       <section class="starship-panel sic-market" data-starship-panel="sics" hidden>
         <header class="sic-market-header">
-          <div><span>Series A Systems</span><h2>Ship Integrated Components</h2></div>
+          <div><span>Series A &amp; B Systems</span><h2>Ship Integrated Components</h2></div>
           <strong>Group Credits <span data-group-credits>999,999</span></strong>
         </header>
         <div class="sic-card-gallery">
@@ -299,6 +311,38 @@
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>17</span></footer>
           </article>
           <button class="sic-purchase-button" data-purchase-sic="en-engine-2" type="button">Purchase EN Engine 2 - 4,550</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-3" tabindex="0" aria-label="EN Engine 3 details">
+            <header class="sic-poker-heading"><span>Engine <small>A-9</small></span><div><h3>EN Engine 3</h3><strong>Price: 10,150</strong></div></header>
+            <img class="sic-poker-art" src="en-engine-3-graphic.png" alt="EN Engine 3" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>3×3</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Necronium, 1 day</dd></div></dl>
+            <section class="sic-poker-rules"><p>Basic Engine that produces a large amount of EN.</p><p>Minimum distance away from another Engine is 3 squares.</p><strong>Outputs 29 EN</strong><p>Stations 2<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
+            <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>25</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-3" type="button">Purchase EN Engine 3 - 10,150</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-4" tabindex="0" aria-label="EN Engine 4 details">
+            <header class="sic-poker-heading"><span>Engine <small>A-10</small></span><div><h3>EN Engine 4</h3><strong>Price: 17,500</strong></div></header>
+            <img class="sic-poker-art" src="en-engine-4-graphic.png" alt="EN Engine 4" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>4×4</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Endernium, 2 days</dd></div></dl>
+            <section class="sic-poker-rules"><p>Basic Engine that produces a large amount of EN.</p><p>Minimum distance away from another Engine is 4 squares.</p><strong>Outputs 50 EN</strong><p>Stations 3<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
+            <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>33</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-4" type="button">Purchase EN Engine 4 - 17,500</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-5" tabindex="0" aria-label="EN Engine 5 details">
+            <header class="sic-poker-heading"><span>Engine <small>B-5</small></span><div><h3>EN Engine 5</h3><strong>Price: 26,950</strong></div></header>
+            <img class="sic-poker-art" src="en-engine-5-graphic.png" alt="EN Engine 5" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>5×5</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Dark Phazon, 3 days</dd></div></dl>
+            <section class="sic-poker-rules"><p>Powerful Engine for large starships.</p><p>Minimum distance away from another Engine is 5 squares.</p><strong>Outputs 77 EN</strong><p>Stations 3<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
+            <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>43</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-5" type="button">Purchase EN Engine 5 - 26,950</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-6" tabindex="0" aria-label="EN Engine 6 details">
+            <header class="sic-poker-heading"><span>Engine <small>B-6</small></span><div><h3>EN Engine 6</h3><strong>Price: 38,500</strong></div></header>
+            <img class="sic-poker-art" src="en-engine-6-graphic.png" alt="EN Engine 6" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>6×6</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Carmot, 3 days</dd></div></dl>
+            <section class="sic-poker-rules"><p>Massive Engine for capital-scale energy needs.</p><p>Minimum distance away from another Engine is 6 squares.</p><strong>Outputs 110 EN</strong><p>Stations 4<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
+            <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>53</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="en-engine-6" type="button">Purchase EN Engine 6 - 38,500</button></section>
           <section class="sic-market-item"><article class="sic-poker-card life-support-card" data-sic-card="life-support" tabindex="0" aria-label="Life Support details">
             <header class="sic-poker-heading"><span>Utility <small>A-29</small></span><div><h3>Life Support</h3><strong>Price: 1,500</strong></div></header>
             <img class="sic-poker-art" src="life-support-graphic.png" alt="Life Support system" />
@@ -311,6 +355,6 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260826-explore-polish"></script>
+    <script src="starship.js?v=20260828-mobile-systems-engines"></script>
   </body>
 </html>

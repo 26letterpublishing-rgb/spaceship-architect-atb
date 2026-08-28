@@ -8,6 +8,10 @@ const GRID_SIZE = 20;
 const SIC_CATALOG = {
   "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png" },
   "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png" },
+  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, floorplan: "en-engine-3-floor-plan.png" },
+  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png" },
+  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png" },
+  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png" },
   "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png" },
 };
 

@@ -16,6 +16,10 @@
   const SIC = {
     "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png" },
     "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png" },
+    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png" },
+    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png" },
+    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png" },
+    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png" },
     "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png" },
   };
   let combatState = null;
