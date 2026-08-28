@@ -687,11 +687,16 @@ function renderStarships() {
     const hull = record.ship?.confirmed?.gridCells?.length ?? record.ship?.gridCells?.length ?? 0;
     const engines = record.ship?.confirmed?.placements?.length ?? record.ship?.placements?.length ?? 0;
     const crew = new Set(record.crewCharacterIds || []);
+    const npcCrew = new Set(record.crewNpcUnitIds || []);
+    const npcUnits = (encounterState?.units || []).filter((unit) => unit.team === "npc");
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}">
       <header><div><h3>${escapeHtml(record.title || "Untitled Starship")}</h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
-      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${engines * 5}</dd></div><div><dt>Crew</dt><dd>${crew.size}</dd></div></dl>
+      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${engines * 5}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Control<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled</option></select></label>
-      <div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> ${escapeHtml(characterName(character))}</label>`).join("") : "<small>No campaign characters available.</small>"}</div>
+      <div class="gm-starship-crew-groups">
+        <section><h4>PC Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
+        <section><h4>NPC Crew</h4><div class="gm-starship-crew npc-crew">${npcUnits.length ? npcUnits.map((unit) => `<label><input type="checkbox" data-starship-npc-crew="${escapeHtml(unit.id)}" ${npcCrew.has(unit.id) ? "checked" : ""}/> ${unit.allyNpc ? '<img src="SMILE.png" alt="Ally" />' : ""}<span>${escapeHtml(unit.characterName)}</span></label>`).join("") : "<small>Add NPCs to Combat before assigning them to a ship.</small>"}</div></section>
+      </div>
       <div class="gm-starship-actions"><button type="button" data-open-starship>Open / Edit</button><button type="button" data-save-starship-crew>Save Crew</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
     </article>`;
   }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>";
@@ -1825,7 +1830,20 @@ dom.starshipList?.addEventListener("click", async (event) => {
     saveCrew.disabled = true;
     try {
       const crewCharacterIds = [...card.querySelectorAll("[data-starship-crew]:checked")].map((input) => input.dataset.starshipCrew);
-      await api("/api/campaign/starship/crew", { code, token, starshipId, crewCharacterIds });
+      const crewNpcUnitIds = [...card.querySelectorAll("[data-starship-npc-crew]:checked")].map((input) => input.dataset.starshipNpcCrew);
+      await api("/api/campaign/starship/crew", { code, token, starshipId, crewCharacterIds, crewNpcUnitIds });
+      const selectedCharacterIds = new Set(crewCharacterIds);
+      const selectedNpcIds = new Set(crewNpcUnitIds);
+      for (const unit of encounterState?.units || []) {
+        const selected = unit.team === "npc" ? selectedNpcIds.has(unit.id) : selectedCharacterIds.has(unit.characterId);
+        const currentlyHere = unit.location?.starshipId === starshipId;
+        if (!selected && currentlyHere) await encounterAction("setCombatLocation", { id: unit.id, location: combatLocation("") });
+      }
+      for (const characterId of crewCharacterIds) {
+        const unit = encounterState?.units?.find((entry) => entry.characterId === characterId);
+        if (unit) await encounterAction("setCombatLocation", { id: unit.id, location: combatLocation(starshipId) });
+      }
+      for (const unitId of crewNpcUnitIds) await encounterAction("setCombatLocation", { id: unitId, location: combatLocation(starshipId) });
       await refreshCampaign();
       showMessage(dom.message, "Starship crew assignments saved.", "success");
     } catch (error) { showMessage(dom.message, error.message, "error"); }
@@ -2237,9 +2255,34 @@ dom.dramaDiscardList?.addEventListener("click", (event) => {
   const card = campaign?.dramaDeck?.discard?.find((entry) => entry.id === button.dataset.discardCard);
   if (card) openGmDramaCard(card, { byline: `Discard pile: ${card.name}` });
 });
+let atbFrameResizeObserver = null;
+
+function syncMobileAtbFrameHeight() {
+  if (!dom.atbFrame || !matchMedia("(max-width: 650px)").matches) {
+    if (dom.atbFrame) dom.atbFrame.style.removeProperty("height");
+    return;
+  }
+  const frameDocument = dom.atbFrame.contentDocument;
+  if (!frameDocument) return;
+  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, 560);
+  dom.atbFrame.style.height = `${height}px`;
+}
+
+function watchMobileAtbFrameHeight() {
+  atbFrameResizeObserver?.disconnect();
+  const frameDocument = dom.atbFrame.contentDocument;
+  if (!frameDocument) return;
+  atbFrameResizeObserver = new ResizeObserver(syncMobileAtbFrameHeight);
+  atbFrameResizeObserver.observe(frameDocument.documentElement);
+  if (frameDocument.body) atbFrameResizeObserver.observe(frameDocument.body);
+  syncMobileAtbFrameHeight();
+}
+
 dom.atbFrame.addEventListener("load", () => {
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
+  requestAnimationFrame(watchMobileAtbFrameHeight);
 });
+window.addEventListener("resize", syncMobileAtbFrameHeight);
 window.addEventListener("message", async (event) => {
   if (event.origin !== location.origin || event.source !== dom.atbFrame.contentWindow) return;
   if (event.data?.type !== "sa-combat-ended") return;

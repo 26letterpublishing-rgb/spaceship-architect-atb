@@ -61,7 +61,7 @@ function showcaseCharacter({ id, playerName, characterName, color, speed, comman
   return { id, pcCode: character.access.pcCode, approved: true, imported: false, createdAt: now, updatedAt: now, character };
 }
 
-function showcaseShip(id, title, controlType, crewCharacterIds, startCell) {
+function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewNpcUnitIds = []) {
   const row = Math.floor(startCell / 20);
   const column = startCell % 20;
   const gridCells = [];
@@ -73,6 +73,7 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell) {
     title,
     controlType,
     crewCharacterIds,
+    crewNpcUnitIds,
     ship: {
       id,
       title,
@@ -492,6 +493,7 @@ function normalizeStarshipRecord(raw) {
     controlType: source.controlType === "gm" ? "gm" : "pc",
     accessKey: String(source.accessKey || "").slice(0, 160),
     crewCharacterIds: [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100),
+    crewNpcUnitIds: [...new Set((Array.isArray(source.crewNpcUnitIds) ? source.crewNpcUnitIds : ship.crewNpcUnitIds || []).map(String))].slice(0, 100),
     createdAt: source.createdAt || new Date().toISOString(),
     updatedAt: source.updatedAt || new Date().toISOString(),
     ship,
@@ -1123,7 +1125,8 @@ class CampaignApi {
       const characters = pcDefinitions.map(showcaseCharacter);
       for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
       const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
-      const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 152);
+      const showcaseNpcUnitIds = Array.from({ length: 5 }, (_, index) => `unit-showcase-npc-${index}`);
+      const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 152, showcaseNpcUnitIds);
       const campaign = defaultCampaign({ code: showcaseCode, name: "Explore Features", gmCode: uid("showcase") });
       campaign.showcase = true;
       campaign.characters = characters;
@@ -1334,6 +1337,7 @@ class CampaignApi {
       const updated = normalizeStarshipRecord({ ...record, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;
+      updated.crewNpcUnitIds = record.crewNpcUnitIds || [];
       updated.createdAt = record.createdAt;
       updated.updatedAt = new Date().toISOString();
       campaign.starships[campaign.starships.indexOf(record)] = updated;
@@ -1353,7 +1357,10 @@ class CampaignApi {
       }
       const validIds = new Set(campaign.characters.map((entry) => entry.id));
       record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
+      const encounterNpcIds = new Set((campaign.encounter?.units || []).filter((unit) => unit.team === "npc").map((unit) => String(unit.id)));
+      record.crewNpcUnitIds = [...new Set((Array.isArray(body.crewNpcUnitIds) ? body.crewNpcUnitIds : []).map(String))].filter((id) => encounterNpcIds.has(id));
       record.ship.crewCharacterIds = clone(record.crewCharacterIds);
+      record.ship.crewNpcUnitIds = clone(record.crewNpcUnitIds);
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
       sendJson(res, 200, { starship: publicStarship(record) });

@@ -550,11 +550,11 @@ function locateInstalledSic(item) {
   if (!placement) return;
   shipGrids.forEach((grid) => {
     if (grid.offsetParent === null) return;
-    const cell = grid.querySelector(`[data-grid-index="${placement.cell}"]`);
-    if (!cell) return;
-    cell.classList.add("located-sic");
-    cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    setTimeout(() => cell.classList.remove("located-sic"), 1800);
+    const cells = placementCells(placement).map((index) => grid.querySelector(`[data-grid-index="${index}"]`)).filter(Boolean);
+    if (!cells.length) return;
+    cells.forEach((cell) => cell.classList.add("located-sic"));
+    if (!window.matchMedia("(max-width: 820px)").matches) cells[0].scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    setTimeout(() => cells.forEach((cell) => cell.classList.remove("located-sic")), 1800);
   });
 }
 
@@ -712,9 +712,19 @@ gridZoomButtons.forEach((button) => button.addEventListener("click", () => {
   if (mapView.zoom <= 1) { mapView.panX = 0; mapView.panY = 0; }
   saveMapView(); applyGridTransform();
 }));
+document.querySelectorAll("[data-grid-pan]").forEach((button) => button.addEventListener("click", () => {
+  const step = 8 / Math.max(0.5, mapView.zoom);
+  const direction = button.dataset.gridPan;
+  if (direction === "left") mapView.panX += step;
+  if (direction === "right") mapView.panX -= step;
+  if (direction === "up") mapView.panY += step;
+  if (direction === "down") mapView.panY -= step;
+  saveMapView(); applyGridTransform();
+}));
 shipGrids.forEach((grid) => {
   let panGesture = null;
   grid.addEventListener("pointerdown", (event) => {
+    if (window.matchMedia("(max-width: 820px)").matches) return;
     if (mapView.mode !== "explore" || event.target.closest(".sic-door")) return;
     panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY };
     grid.setPointerCapture?.(event.pointerId);

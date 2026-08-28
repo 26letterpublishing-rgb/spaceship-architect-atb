@@ -158,14 +158,11 @@
             <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
         </article>
-        <article class="mobile-blueprint detection-mobile">
-          <h2>Detection</h2>
-          <svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
-        </article>
-        <article class="mobile-blueprint security-mobile">
-          <h2>Digital Security</h2>
-          <svg viewBox="115 105 82 104" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
-        </article>
+        <section class="mobile-compact-systems" aria-label="Detection and digital security">
+          <article class="mobile-blueprint detection-mobile"><svg viewBox="8 105 110 103" aria-label="Detection"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
+          <article class="mobile-blueprint security-mobile"><svg viewBox="115 105 82 59" aria-label="Digital Security"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
+          <article class="mobile-blueprint break-lock-mobile"><svg viewBox="115 154 82 55" aria-label="Break Lock-On"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
+        </section>
         <article class="mobile-blueprint power-mobile">
           <h2>Power</h2>
           <svg viewBox="380 158 214 50" aria-label="Power"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="en" data-en-part="available" x="446" y="185">0</text><text data-live-stat="en" data-en-part="max" x="478" y="185">0</text></g></svg>
@@ -183,10 +180,6 @@
           </svg>
         </article>
 
-        <article class="mobile-blueprint minerals-mobile">
-          <h2>Minerals</h2>
-          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
-        </article>
         <section class="construction-sidebar mobile-construction-sidebar" data-construction-sidebar aria-label="Shipyard construction inventory">
           <header class="construction-sidebar-header">
             <div><span>Shipyard</span><h2>Construction Bay</h2></div>
@@ -239,8 +232,6 @@
         </section>
         <section class="mobile-grid-panel">
           <h2>SIC Construction Grid</h2>
-          <div class="mobile-grid-viewport" data-grid-viewport><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div></div>
-          <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
           <div class="grid-toolbar" aria-label="Starship map controls">
             <div class="grid-zoom-controls" role="group" aria-label="Map zoom">
               <button type="button" data-grid-zoom="out" aria-label="Zoom out">−</button>
@@ -248,7 +239,15 @@
               <button type="button" data-grid-zoom="in" aria-label="Zoom in">+</button>
               <button type="button" data-grid-zoom="fit">Fit Ship</button>
             </div>
+            <div class="grid-pan-controls" role="group" aria-label="Move around ship map">
+              <button type="button" data-grid-pan="up" aria-label="Pan up">↑</button>
+              <button type="button" data-grid-pan="left" aria-label="Pan left">←</button>
+              <button type="button" data-grid-pan="down" aria-label="Pan down">↓</button>
+              <button type="button" data-grid-pan="right" aria-label="Pan right">→</button>
+            </div>
           </div>
+          <div class="mobile-grid-viewport" data-grid-viewport><div class="mobile-grid ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div></div>
+          <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
           <footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer>
         </section>
         <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
@@ -270,6 +269,10 @@
               <text x="268" y="273" fill="#10141a" font-size="23" text-anchor="end">%</text>
             </g>
           </svg>
+        </article>
+        <article class="mobile-blueprint minerals-mobile">
+          <h2>Minerals</h2>
+          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
       </section>
       </section>

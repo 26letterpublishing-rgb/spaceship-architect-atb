@@ -162,7 +162,8 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-drama-card-mini[data-category="Social Change"],.gm-drama-card-mini-face[data-category="Social Change"]{--card-accent:#ed58c3}.gm-drama-card-mini[data-category="Deus Ex Machina"],.gm-drama-card-mini-face[data-category="Deus Ex Machina"]{--card-accent:#f3c64f}.gm-drama-card-mini[data-category="Spotlight"],.gm-drama-card-mini-face[data-category="Spotlight"]{--card-accent:#48e194}.gm-drama-card-mini[data-category="Jackpot"],.gm-drama-card-mini-face[data-category="Jackpot"]{--card-accent:#ff844e}.gm-drama-card-mini[data-category="Fate"],.gm-drama-card-mini-face[data-category="Fate"]{--card-accent:#a77cff}
 @media(max-width:760px){.gm-drama-deck-status{order:-1;min-width:128px}.gm-drama-alert-dialog{padding:10px}.gm-drama-card{width:min(310px,88vw)}}
 @media(max-width:650px){
-  .atb-live:not([hidden]){height:calc(100dvh - 128px);min-height:560px}
+  .atb-live:not([hidden]){height:auto;min-height:560px;overflow:visible}
+  .atb-live:not([hidden]) iframe{height:560px;min-height:560px}
   .interface-banner-hidden .gm-header{grid-template-columns:minmax(0,1fr) auto}
   .interface-banner-hidden .campaign-heading{grid-column:1;order:1}
   .interface-banner-hidden .gm-header-actions{grid-column:2;order:1}
@@ -196,3 +197,5 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 @media(max-width:720px){.encounter-character-option{grid-template-columns:auto 1fr auto auto}.encounter-character-option .encounter-deployment{grid-column:2/-1}.staged-npc-summary{grid-template-columns:1fr auto}.staged-npc-summary .encounter-deployment{grid-column:1/-1}}
 
 .fleet-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.showcase-npc-fleet{margin:10px 0;padding:10px;border:1px solid #6d59b3;background:#0b1220}.showcase-npc-fleet-list,#showcaseNpcFleetList{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px}.showcase-npc-location{display:grid;grid-template-columns:1fr minmax(120px,.8fr);gap:8px;align-items:center;padding:7px;border:1px solid #293d52}.showcase-npc-location span{display:flex;align-items:center;gap:7px}.showcase-npc-location i{width:10px;height:10px;border-radius:50%;background:var(--npc-color)}.showcase-npc-location select{width:100%;margin:0}
+.gm-starship-crew-groups{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}.gm-starship-crew-groups section{min-width:0;padding:8px;border:1px solid #2c4256;background:#07121d}.gm-starship-crew-groups h4{margin:0 0 7px;color:#a9bac8;font-size:.62rem;text-transform:uppercase}.gm-starship-crew{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:5px}.gm-starship-crew label{display:flex;align-items:center;gap:7px;min-width:0;padding:6px;border:1px solid #263c4f}.gm-starship-crew input{flex:0 0 auto;width:18px;min-height:18px}.gm-starship-crew span{min-width:0;overflow:hidden;text-overflow:ellipsis}.gm-starship-crew img{width:18px;height:18px;object-fit:contain}.npc-crew label{color:#b8c1ca}
+@media(max-width:650px){.gm-starship-crew-groups{grid-template-columns:1fr}}

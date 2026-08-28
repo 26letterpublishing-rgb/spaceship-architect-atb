@@ -1850,6 +1850,21 @@ function renderStarshipStatuses() {
   }).join("");
 }
 
+function groupedUnitMarkup(units, options) {
+  const ships = state?.starships || [];
+  if (!ships.length) return units.map((unit) => unitCard(unit, options)).join("");
+  const groups = ships.map((ship) => ({
+    id: ship.id,
+    title: ship.title || ship.ship?.title || "Unnamed Starship",
+    controlType: ship.controlType,
+    units: units.filter((unit) => unit.location?.starshipId === ship.id),
+  }));
+  const assigned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
+  const other = units.filter((unit) => !assigned.has(unit.id));
+  if (other.length) groups.push({ id: "other", title: "Other", controlType: "other", units: other });
+  return `<div class="combat-location-groups ${groups.length === 2 ? "two-columns" : ""}">${groups.map((group) => `<section class="combat-location-group" data-location-group="${escapeHtml(group.id)}"><header><strong>${escapeHtml(group.title)}</strong><small>${group.controlType === "gm" ? "GM SHIP" : group.controlType === "pc" ? "PC SHIP" : "EXTERIOR / SURFACE"}</small></header><div class="combat-location-units">${group.units.length ? group.units.map((unit) => `${unitCard(unit, options)}${unit.location?.stationed ? '<span class="stationed-marker">STATIONED</span>' : ""}`).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div></section>`).join("")}</div>`;
+}
+
 function unitSignature(unit, { gm = false, player = false } = {}) {
   const command = commandFor(unit);
   const setupMissing = !unit.speed || (unit.team === "pc" && !unit.commandWindow);
@@ -1859,6 +1874,8 @@ function unitSignature(unit, { gm = false, player = false } = {}) {
     unit.id,
     unit.playerName,
     unit.characterName,
+    unit.location?.starshipId || "other",
+    unit.location?.stationed ? "stationed" : "mobile",
     unit.speed || "",
     unit.commandWindow || "",
     unit.color || "",
@@ -2008,7 +2025,7 @@ function renderUnitList(sorted) {
     }),
   );
 
-  unitList.innerHTML = sorted.map((unit) => unitCard(unit, { gm, player })).join("");
+  unitList.innerHTML = groupedUnitMarkup(sorted, { gm, player });
 
   const cards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   for (const card of cards) {

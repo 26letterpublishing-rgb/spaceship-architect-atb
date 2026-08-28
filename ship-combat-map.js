@@ -12,6 +12,7 @@
   const stop = document.querySelector("#stopCombatTravel");
   const enterStation = document.querySelector("#enterCombatStation");
   const leaveStation = document.querySelector("#leaveCombatStation");
+  const panButtons = [...document.querySelectorAll("[data-combat-map-pan]")];
   const SIC = {
     "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png" },
     "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png" },
@@ -244,6 +245,12 @@
   });
   roster.addEventListener("click", (event) => { const button = event.target.closest("[data-map-unit]"); if (button) { selectedUnitId = button.dataset.mapUnit; preview = null; confirm.disabled = true; render(); } });
   shipSelect.addEventListener("change", () => { selectedShipId = shipSelect.value; preview = null; confirm.disabled = true; render(); requestAnimationFrame(fitShip); });
+  panButtons.forEach((button) => button.addEventListener("click", () => {
+    const viewport = grid.parentElement;
+    const amount = Math.max(70, Math.round(Math.min(viewport.clientWidth, viewport.clientHeight) * .42));
+    const direction = button.dataset.combatMapPan;
+    viewport.scrollBy({ left: direction === "left" ? -amount : direction === "right" ? amount : 0, top: direction === "up" ? -amount : direction === "down" ? amount : 0, behavior: "smooth" });
+  }));
   confirm.addEventListener("click", async () => {
     const ship = selectedShip();
     const unit = selectedUnit();

@@ -24,3 +24,12 @@
 .combat-door{position:absolute;z-index:8;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;border:1px solid #10151b!important;border-radius:0!important;line-height:0;background:#7f8a93;box-shadow:none!important;transition:transform .32s ease,opacity .32s ease}.combat-door.open{opacity:.28}.combat-door.horizontal{left:34%;right:34%;height:5px}.combat-door.vertical{top:34%;bottom:34%;width:5px}.combat-door.top{top:-3px}.combat-door.bottom{bottom:-3px}.combat-door.left{left:-3px}.combat-door.right{right:-3px}.combat-door.open.horizontal{transform:scaleX(.15)}.combat-door.open.vertical{transform:scaleY(.15)}
 .combat-map-legend{font-size:.58rem;color:#a8bbc9}.combat-map-legend i{width:10px;height:10px;border-radius:50%}.combat-map-legend .green{background:#42ef9c}.combat-map-legend .yellow{background:#ffd34d}.combat-map-legend .red{background:#ff496d}
 @media(max-width:720px){.combat-map-dialog{padding:0}.combat-map-panel{width:100vw;height:100dvh}.combat-map-panel header,.combat-map-panel footer{align-items:flex-start;flex-direction:column}.combat-map-header-actions{width:100%}.combat-map-header-actions select{flex:1;min-width:0}.combat-map-layout{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.combat-map-roster{display:flex;gap:5px;overflow-x:auto;border-right:0;border-bottom:1px solid #29445a}.combat-map-person{min-width:150px;margin:0}.combat-map-grid{--cell-size:58px;margin:12px}.combat-map-panel footer{max-height:154px;overflow:auto}.combat-map-actions{width:100%}.combat-map-actions button{flex:1;min-width:110px}}
+
+.combat-map-pan{display:none;grid-template-columns:repeat(4,40px);gap:4px}
+.combat-mesh button.route-node::after{content:"";display:block;width:7px;height:7px;margin:auto;border-radius:50%;background:#ffd34d;box-shadow:0 0 8px #ffd34d}
+@media(max-width:720px){
+  .combat-map-pan{display:grid;width:100%}
+  .combat-map-pan button{width:auto!important;min-height:44px!important}
+  .combat-map-viewport{overflow:hidden;touch-action:manipulation}
+  .combat-map-panel footer{max-height:none;overflow:visible}
+}

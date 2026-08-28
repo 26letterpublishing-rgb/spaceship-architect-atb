@@ -5370,7 +5370,7 @@ function showDraftIntroduction() {
   if (character.phase !== "draft" || manualInputMode()) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
-  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-arrow" aria-hidden="true">&#8593;</div><h2>Click Draft</h2><p>Click this button to know what you need to do next!</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Draft</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Draft</h2><p>Click this button to know what you need to do next! The Draft button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
   document.body.append(shell);
   dom.phaseBadge.classList.add("draft-guide-target");
   shell.querySelector("button").addEventListener("click", () => { shell.remove(); dom.phaseBadge.classList.remove("draft-guide-target"); dom.phaseBadge.focus({ preventScroll: true }); });
@@ -7283,10 +7283,35 @@ window.addEventListener("message", (event) => {
       : "Defense Command Window: " + Math.ceil(remaining) + " seconds remaining.";
   }
 });
+let playerAtbResizeObserver = null;
+
+function syncMobilePlayerAtbHeight() {
+  if (!dom.playerAtbFrame || !matchMedia("(max-width: 650px)").matches) {
+    dom.playerAtbFrame?.style.removeProperty("height");
+    return;
+  }
+  const frameDocument = dom.playerAtbFrame.contentDocument;
+  if (!frameDocument) return;
+  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, 540);
+  dom.playerAtbFrame.style.height = `${height}px`;
+}
+
+function watchMobilePlayerAtbHeight() {
+  playerAtbResizeObserver?.disconnect();
+  const frameDocument = dom.playerAtbFrame?.contentDocument;
+  if (!frameDocument) return;
+  playerAtbResizeObserver = new ResizeObserver(syncMobilePlayerAtbHeight);
+  playerAtbResizeObserver.observe(frameDocument.documentElement);
+  if (frameDocument.body) playerAtbResizeObserver.observe(frameDocument.body);
+  syncMobilePlayerAtbHeight();
+}
+
 dom.playerAtbFrame?.addEventListener("load", () => {
   dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
   dom.playerAtbFrame.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
+  requestAnimationFrame(watchMobilePlayerAtbHeight);
 });
+window.addEventListener("resize", syncMobilePlayerAtbHeight);
 
 dom.launchPlayerAtb?.addEventListener("click", () => {
   void loadPlayerAtb({ reload: true });
@@ -7653,9 +7678,10 @@ async function initializeCharacterApp() {
   dom.campaignGate.hidden = true;
   dom.characterWorkspace.hidden = false;
   if (requestedCode && requestedCharacter) {
+    const tokenStorage = SHOWCASE_MODE ? sessionStorage : localStorage;
     let token = gmAccess
       ? (SHOWCASE_MODE ? sessionStorage : localStorage).getItem(`sa-gm-token-${requestedCode}`) || ""
-      : localStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
+      : tokenStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
     try {
       let state = await loadCampaign(requestedCode, token);
       if (!gmAccess && state.role !== "character") {
