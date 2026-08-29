@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260826-explore-polish" />
+  <link rel="stylesheet" href="character.css?v=20260829-race-cards" />
   <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -152,10 +152,11 @@
           <div class="identity-grid">
             <label>Player Name<input data-field="identity.playerName" autocomplete="name" /></label>
             <label>Character Name<input data-field="identity.characterName" /></label>
-            <label>Race
-              <select id="racePicker" aria-label="Character race"></select>
+            <div class="identity-choice-field race-choice-field"><span>Race</span>
+              <button id="raceCardPickerButton" class="identity-choice-button" type="button">Choose Race</button>
+              <select id="racePicker" aria-label="Character race" hidden></select>
               <input id="raceCustom" type="text" placeholder="Enter your custom race" aria-label="Custom race" hidden />
-            </label>
+            </div>
             <label id="raceTypeField" hidden>Race Type
               <select id="raceTypePicker" aria-label="Race type"></select>
             </label>
@@ -719,8 +720,39 @@
         </div>
       </section>
     </div>
+    <div id="raceGalleryModal" class="modal-shell race-gallery-modal" hidden>
+      <section class="race-gallery-shell" role="dialog" aria-modal="true" aria-labelledby="raceGalleryTitle">
+        <div id="raceGalleryChooser" class="race-gallery-chooser">
+          <header class="race-gallery-header">
+            <div><span class="dialog-kicker">Character Origin</span><h2 id="raceGalleryTitle">Choose Race</h2></div>
+            <button id="closeRaceGallery" class="race-gallery-close" type="button" aria-label="Close race selection">X</button>
+          </header>
+          <p class="race-gallery-intro">Choose a race to inspect its appearance, history, advantages, and disadvantages before committing.</p>
+          <div id="raceGalleryGrid" class="race-gallery-grid"></div>
+          <div class="race-gallery-legacy">
+            <label>More Races<select id="raceGalleryFallback" aria-label="Choose another race"></select></label>
+            <small>Bruggle and Grey use the new illustrated card format in this preview. The remaining race cards will arrive in later passes.</small>
+          </div>
+        </div>
+        <article id="raceCardDetail" class="race-card-detail" hidden>
+          <div class="race-card-art"><img id="raceCardDetailImage" alt="" /></div>
+          <div class="race-card-copy">
+            <header><span class="dialog-kicker">Race Profile</span><h2 id="raceCardDetailName">Race</h2></header>
+            <p id="raceCardDetailDescription" class="race-card-description"></p>
+            <div class="race-card-rules">
+              <section><h3>Advantages</h3><ul id="raceCardAdvantages"></ul></section>
+              <section><h3>Disadvantages</h3><ul id="raceCardDisadvantages"></ul></section>
+            </div>
+            <div class="race-card-actions">
+              <button id="backToRaceGallery" type="button">Back</button>
+              <button id="chooseRaceCard" class="primary-action" type="button">Choose Race</button>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script type="module" src="character.js?v=20260826-explore-polish"></script>
+    <script type="module" src="character.js?v=20260829-race-cards"></script>
   </body>
 </html>

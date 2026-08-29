@@ -272,6 +272,9 @@ label { display:grid; gap:4px; color:var(--muted); font-size:.68rem; font-weight
 .notes-panel { grid-column:1 / -1; grid-row:6; }
 
 .identity-grid { padding:8px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; }
+.identity-choice-field{min-width:0;display:grid;align-content:start;gap:4px;color:var(--muted);font-size:.58rem;font-weight:850;text-transform:uppercase}
+.identity-choice-button{width:100%;min-height:38px;justify-content:flex-start;overflow:hidden;border:1px solid #35506a;border-radius:3px;color:#aab9c8;background:#07111d;text-align:left;text-overflow:ellipsis;white-space:nowrap}
+.identity-choice-button.has-selection{border-color:#38cce9;color:#ecfbff;box-shadow:inset 3px 0 #35d8f1}
 .description-field { grid-column:span 2; }
 .identity-panel { transition:border-color 180ms ease,box-shadow 180ms ease,background 180ms ease; }
 .identity-panel.identity-male { border-color:#3e8cff; background:linear-gradient(135deg,rgba(15,63,133,.92),rgba(17,168,224,.48) 55%,rgba(5,15,30,.96)); box-shadow:0 0 22px rgba(62,140,255,.32); }
@@ -1608,6 +1611,52 @@ body.dice-input-flicker::before{animation:dice-input-flicker .72s steps(2,end)}
 @keyframes dice-input-flicker{0%,100%{opacity:.16}20%,55%{opacity:.03}35%,72%{opacity:.31}}
 @media(max-width:430px){.skill-equipment-choices{grid-template-columns:1fr}.sync-indicator{font-size:.37rem}}
 @media(prefers-reduced-motion:reduce){.hud-health.half-heart-emergency,.hud-health.zero-heart-emergency,.sync-indicator.saving i,.workflow-completion-ghost,.workflow-target-pulse,.workflow-actions #finalizeCharacter.finalize-spectrum{animation:none!important}}
+
+/* Illustrated race selection prototype. */
+body.race-gallery-open{overflow:hidden}
+.race-gallery-modal{z-index:1800;padding:0;background:rgba(1,4,8,.96);backdrop-filter:blur(10px)}
+.race-gallery-shell{width:100%;min-height:100dvh;color:#eaf6ff;background:radial-gradient(circle at 50% 0,rgba(28,118,150,.2),transparent 42%),linear-gradient(180deg,#07121d,#02060b)}
+.race-gallery-chooser{width:min(1180px,100%);min-height:100dvh;margin:auto;padding:clamp(18px,3vw,42px)}
+.race-gallery-header{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:2px solid #37cde9;padding-bottom:14px}
+.race-gallery-header h2,.race-card-copy h2{margin:2px 0 0;font-size:clamp(2rem,5vw,4.2rem);line-height:.92;text-transform:uppercase}
+.race-gallery-close{width:46px;height:46px;padding:0;border-radius:50%;font-size:1.1rem}
+.race-gallery-intro{max-width:720px;margin:18px 0 24px;color:#a8bbca;line-height:1.5}
+.race-gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,340px));justify-content:center;gap:clamp(16px,3vw,32px)}
+.race-preview-card{position:relative;aspect-ratio:1;min-height:0;padding:0;overflow:hidden;border:2px solid #345166;border-radius:14px;color:#fff;background:#06101a;box-shadow:0 18px 38px rgba(0,0,0,.5);text-align:left;isolation:isolate;transition:transform 180ms ease,border-color 180ms ease,box-shadow 180ms ease}
+.race-preview-card:hover,.race-preview-card:focus-visible{transform:translateY(-6px) scale(1.015);border-color:#52dff5;box-shadow:0 22px 48px rgba(0,0,0,.62),0 0 24px rgba(57,208,235,.25)}
+.race-preview-card.selected{border-color:#54e69f;box-shadow:0 0 24px rgba(74,230,155,.32)}
+.race-preview-card img{position:absolute;z-index:-2;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+.race-preview-shade{position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,transparent 30%,rgba(2,7,12,.58) 55%,#02070c 92%)}
+.race-preview-card strong,.race-preview-card small,.race-preview-card b{position:absolute;left:18px;right:18px;display:block}
+.race-preview-card strong{bottom:74px;font-size:clamp(1.45rem,3vw,2rem);text-transform:uppercase;text-shadow:0 2px 4px #000}
+.race-preview-card small{bottom:34px;min-height:34px;color:#c9d8e3;font:600 .73rem/1.3 Arial,sans-serif;text-transform:none}
+.race-preview-card b{top:14px;right:auto;padding:5px 8px;border:1px solid rgba(255,255,255,.35);border-radius:3px;color:#061018;background:#67e5f7;font-size:.58rem;text-transform:uppercase}
+.race-gallery-legacy{max-width:720px;margin:30px auto 0;padding-top:18px;border-top:1px solid #294559}
+.race-gallery-legacy label{display:grid;grid-template-columns:auto minmax(260px,1fr);align-items:center;gap:12px}
+.race-gallery-legacy small{display:block;margin-top:8px;color:#70889b;font:600 .66rem/1.4 Arial,sans-serif;text-transform:none}
+.race-card-detail{min-height:100dvh;display:grid;grid-template-columns:minmax(360px,.88fr) minmax(480px,1.12fr);background:#03080d;transform-origin:center}
+.race-card-detail.race-card-entering{animation:raceCardEnter 380ms cubic-bezier(.2,.75,.2,1) both}
+.race-card-art{position:relative;min-height:100dvh;overflow:hidden;background:#03070b}
+.race-card-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 62%,#03080d),linear-gradient(0deg,rgba(3,8,13,.8),transparent 30%)}
+.race-card-art img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.race-card-copy{min-width:0;display:flex;flex-direction:column;padding:clamp(24px,5vw,70px);background:linear-gradient(135deg,rgba(10,24,35,.98),#03080d 70%)}
+.race-card-copy header{padding-bottom:18px;border-bottom:2px solid #3ad3ed}
+.race-card-description{margin:22px 0;color:#c3d2dd;font:600 clamp(.88rem,1.4vw,1.08rem)/1.65 Arial,sans-serif}
+.race-card-rules{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.race-card-rules section{padding:16px;border:1px solid #2c465a;background:rgba(5,14,22,.76)}
+.race-card-rules section:first-child{border-top:3px solid #43e59b}.race-card-rules section:last-child{border-top:3px solid #ff6279}
+.race-card-rules h3{margin:0 0 10px;color:#fff;font-size:.88rem;text-transform:uppercase}
+.race-card-rules ul{margin:0;padding-left:19px;display:grid;gap:8px}
+.race-card-rules li{color:#c6d5df;font:600 .76rem/1.45 Arial,sans-serif}
+.race-card-rules section:first-child li::marker{color:#43e59b}.race-card-rules section:last-child li::marker{color:#ff6279}
+.race-card-actions{position:sticky;bottom:0;margin-top:auto;padding-top:22px;display:grid;grid-template-columns:minmax(120px,.45fr) minmax(220px,1fr);gap:10px;background:linear-gradient(transparent,#03080d 24%)}
+.race-card-actions button{min-height:50px}
+@keyframes raceCardEnter{from{opacity:.25;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
+@media(max-width:760px){
+  .race-gallery-chooser{padding:14px}.race-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.race-preview-card{border-radius:9px}.race-preview-card strong{left:10px;right:10px;bottom:52px;font-size:1rem}.race-preview-card small{display:none}.race-preview-card b{left:8px;top:8px;font-size:.48rem}.race-gallery-legacy label{grid-template-columns:1fr}
+  .race-card-detail{grid-template-columns:1fr;grid-template-rows:minmax(42dvh,52dvh) auto}.race-card-art{min-height:0}.race-card-art::after{background:linear-gradient(0deg,#03080d,transparent 38%)}.race-card-copy{padding:18px}.race-card-rules{grid-template-columns:1fr}.race-card-actions{grid-template-columns:1fr 1.4fr}
+}
+@media(prefers-reduced-motion:reduce){.race-card-detail.race-card-entering{animation:none}.race-preview-card{transition:none}}
 .phase-badge.draft{cursor:pointer;animation:draftSpectrumReminder 10s linear infinite}.draft-introduction-modal .confirm-dialog{text-align:center;border-color:#4aff9b;box-shadow:0 0 32px rgba(74,255,155,.4)}.draft-guide-demo{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px}.draft-guide-copy{min-width:110px;padding:10px 18px;border:1px solid #70ffc1;border-radius:999px;color:#fff;background:linear-gradient(180deg,#258f5d,#0c5235);box-shadow:inset 0 1px rgba(255,255,255,.35),0 0 18px rgba(74,255,155,.5);font-weight:950;text-transform:uppercase}.draft-guide-arrow{color:#45f391;font-size:5rem;line-height:.8;filter:drop-shadow(0 0 10px #45f391);animation:draftGuideBounce .75s ease-in-out infinite alternate}.draft-guide-target{animation:draftGuideTarget .7s ease-in-out infinite alternate!important}.workflow-tutorial-modal .confirm-dialog{max-width:520px}.workflow-tutorial-modal p{font-size:1rem;line-height:1.5}@keyframes draftGuideBounce{to{transform:translateX(-12px)}}@keyframes draftGuideTarget{to{box-shadow:0 0 24px #48f39a;background:#1f8c55;color:#fff}}@keyframes draftSpectrumReminder{0%{color:#071018;background:linear-gradient(90deg,#ff355d,#ffad32,#ffef58,#42e88d,#35cfff,#8f6cff,#f347c5,#ff355d);background-size:300% 100%;background-position:0 0;box-shadow:0 0 18px rgba(255,90,210,.8)}15%{color:#071018;background:linear-gradient(90deg,#ff355d,#ffad32,#ffef58,#42e88d,#35cfff,#8f6cff,#f347c5,#ff355d);background-size:300% 100%;background-position:100% 0;box-shadow:0 0 18px rgba(255,90,210,.8)}15.1%,100%{color:inherit;background:inherit;box-shadow:inherit}}
 @media(max-width:1080px){.crew-panel{grid-column:1/-1}}
 /* Per-device compact header preference. */

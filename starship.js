@@ -6,12 +6,12 @@ const BUILD_VERSION = 3;
 const HULL_COST = 1000;
 const GRID_SIZE = 20;
 const SIC_CATALOG = {
-  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png" },
-  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png" },
-  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, floorplan: "en-engine-3-floor-plan.png" },
-  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png" },
-  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png" },
-  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png" },
+  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png", tint: "linear-gradient(rgba(28,165,255,.28),rgba(28,165,255,.28))" },
+  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png", tint: "linear-gradient(rgba(255,55,154,.38),rgba(255,55,154,.38))" },
+  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, floorplan: "en-engine-3-floor-plan.png", tint: "linear-gradient(135deg,rgba(29,102,255,.42),rgba(23,210,143,.34) 50%,rgba(140,55,215,.42))" },
+  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png", tint: "linear-gradient(rgba(0,211,201,.4),rgba(0,211,201,.4))" },
+  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png", tint: "linear-gradient(rgba(221,35,42,.44),rgba(221,35,42,.44))" },
+  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png", tint: "radial-gradient(circle at 50% 50%,rgba(10,0,18,.2),rgba(52,12,89,.64) 58%,rgba(5,0,12,.78))" },
   "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png" },
 };
 
@@ -225,10 +225,16 @@ function makeWall(side, segment = "full") {
   const wall = document.createElement("span");
   wall.className = `sic-wall sic-wall-${side} sic-wall-${segment}`;
   wall.setAttribute("aria-hidden", "true");
+  wall.style.backgroundColor = "#f8fbff";
+  wall.style.boxShadow = "0 0 0 1px #000, inset 0 0 0 1px #000, 0 0 3px rgba(255,255,255,.88)";
   return wall;
 }
 
 function toggleDoor(key) {
+  if (mapView.mode !== "explore") {
+    showMessage("Switch to Explore to operate doors.", "error");
+    return;
+  }
   if (!canOperateDoors()) {
     showMessage("Only a listed crewmember can operate this door.", "error");
     return;
@@ -252,10 +258,11 @@ function makeDoor(index, adjacent, side) {
   button.type = "button";
   button.className = `sic-door sic-door-${side}${open ? " is-open" : ""}`;
   button.dataset.doorKey = key;
-  button.disabled = mapView.mode !== "explore" || !canOperateDoors();
+  const unavailable = mapView.mode !== "explore" || !canOperateDoors();
+  button.setAttribute("aria-disabled", String(unavailable));
   button.title = mapView.mode !== "explore"
     ? "Switch to Explore to operate doors"
-    : button.disabled
+    : unavailable
       ? "Only a listed crewmember can operate this door"
       : `${open ? "Close" : "Open"} door`;
   button.setAttribute("aria-label", button.title);
@@ -264,9 +271,25 @@ function makeDoor(index, adjacent, side) {
   const second = document.createElement("span");
   first.className = "door-panel door-panel-first";
   second.className = "door-panel door-panel-second";
+  [first, second].forEach((panel) => {
+    panel.style.backgroundColor = "#7f8b95";
+    panel.style.borderColor = "#050709";
+    panel.style.boxShadow = "inset 0 0 0 1px #b8c2ca";
+  });
   button.append(first, second);
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
-  button.addEventListener("click", (event) => { event.stopPropagation(); toggleDoor(key); });
+  let touchHandled = false;
+  button.addEventListener("pointerup", (event) => {
+    event.stopPropagation();
+    if (event.pointerType !== "touch") return;
+    touchHandled = true;
+    toggleDoor(key);
+    setTimeout(() => { touchHandled = false; }, 450);
+  });
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!touchHandled) toggleDoor(key);
+  });
   return button;
 }
 
@@ -449,10 +472,11 @@ function renderGridCells() {
       cell.classList.toggle("sic-origin", Boolean(placement && placement.cell === index));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
-      cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
+      cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-tint"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
       if (placement) {
         const x = occupied.offset % definition.width; const y = Math.floor(occupied.offset / definition.width);
         cell.style.setProperty("--sic-floorplan", `url('${definition.floorplan}')`);
+        cell.style.setProperty("--sic-tint", definition.tint || "linear-gradient(transparent,transparent)");
         cell.style.setProperty("--sic-bg-size", `${definition.width * 100}% ${definition.height * 100}%`);
         cell.style.setProperty("--sic-bg-x", definition.width === 1 ? "50%" : `${x / (definition.width - 1) * 100}%`);
         cell.style.setProperty("--sic-bg-y", definition.height === 1 ? "50%" : `${y / (definition.height - 1) * 100}%`);

@@ -28,6 +28,18 @@ const {
 } = globalThis.SA_DRAMA_CARDS || {};
 
 const STORAGE_KEY = "sa2e-character-library-v1";
+const RACE_CARD_PROFILES = {
+  bruggle: {
+    image: "race-bruggle.png",
+    preview: "Powerful amphibious socialites built for rough climates and rougher company.",
+    description: "Bruggles are towering, powerfully built amphibians descended from Antropic Fins on Tarinian Volkmire. Their dense muscles developed under intense gravity, while their patterned hides range from swamp greens and earth browns to rare yellows and oranges. Bruggle culture is loud, social, and fiercely physical. Friendly arguments can become contests of strength, taverns are natural gathering places, and a hard fight is often remembered as fondly as a good meal. They are carnivorous, comfortable in punishing heat or cold, and equally at home on land or underwater.",
+  },
+  grey: {
+    image: "race-grey.png",
+    preview: "Ancient, observant telepaths who study developing civilizations from the dark.",
+    description: "Greys are short, slender humanoids recognized by smooth gray skin, oversized heads, narrow mouths, nose slits, and enormous black eyes. Their civilization has observed younger species for ages, recording discoveries and enforcing a strict principle of noninterference until a world develops warp travel. Greys favor simple, close-fitting clothing and quiet efficiency. Their intelligence and telekinetic gifts make them formidable observers, while their fragile bodies and unfamiliar relationship with physical force shape the way they survive direct conflict.",
+  },
+};
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
 const ACTIVE_KEY = "sa2e-active-character-v1";
@@ -158,6 +170,20 @@ const dom = {
   identityPanel: $(".identity-panel"),
   identityCallsign: $("#identityCallsign"),
   racePicker: $("#racePicker"),
+  raceCardPickerButton: $("#raceCardPickerButton"),
+  raceGalleryModal: $("#raceGalleryModal"),
+  raceGalleryChooser: $("#raceGalleryChooser"),
+  raceGalleryGrid: $("#raceGalleryGrid"),
+  raceGalleryFallback: $("#raceGalleryFallback"),
+  closeRaceGallery: $("#closeRaceGallery"),
+  raceCardDetail: $("#raceCardDetail"),
+  raceCardDetailImage: $("#raceCardDetailImage"),
+  raceCardDetailName: $("#raceCardDetailName"),
+  raceCardDetailDescription: $("#raceCardDetailDescription"),
+  raceCardAdvantages: $("#raceCardAdvantages"),
+  raceCardDisadvantages: $("#raceCardDisadvantages"),
+  backToRaceGallery: $("#backToRaceGallery"),
+  chooseRaceCard: $("#chooseRaceCard"),
   raceCustom: $("#raceCustom"),
   raceTypeField: $("#raceTypeField"),
   raceTypePicker: $("#raceTypePicker"),
@@ -2768,6 +2794,9 @@ function renderRace() {
   const custom = character.identity.raceKind === "other";
   dom.racePicker.value = custom ? "__other__" : character.identity.raceId;
   dom.racePicker.disabled = character.phase !== "draft";
+  dom.raceCardPickerButton.disabled = character.phase !== "draft";
+  dom.raceCardPickerButton.textContent = character.identity.race.trim() || "Choose Race";
+  dom.raceCardPickerButton.classList.toggle("has-selection", Boolean(character.identity.race.trim()));
   dom.raceCustom.hidden = !custom;
   dom.raceCustom.disabled = character.phase !== "draft";
   dom.raceCustom.value = custom ? character.identity.race : "";
@@ -2785,6 +2814,95 @@ function renderRace() {
     ? character.identity.raceType
     : "";
   dom.raceTypePicker.disabled = character.phase !== "draft" || types.length === 0;
+}
+
+let activeRaceCardId = "";
+
+function applyRaceSelection(value) {
+  if (character.phase !== "draft") return;
+  const previousMaxHp = maximumHp();
+  character.identity.raceType = "";
+  character.creation.raceSkillChoices = [];
+  character.creation.raceAttributeChoice = "";
+  character.creation.racialSkillGrants = {};
+  if (value === "__other__") {
+    character.identity.raceKind = "other";
+    character.identity.raceId = "";
+    character.identity.race = "";
+  } else {
+    const definition = raceById(value);
+    character.identity.raceKind = "preset";
+    character.identity.raceId = definition?.id || "";
+    character.identity.race = definition?.name || "";
+  }
+  syncDerivedResources(previousMaxHp);
+  queueSave();
+  renderAll();
+  if (character.identity.raceKind === "other") dom.raceCustom.focus();
+  else if (character.identity.race.trim()) scrollToCreationModifiers();
+  else if (selectedRace()?.types?.length) dom.raceTypePicker.focus();
+}
+
+function raceRuleList(items) {
+  return (items?.length ? items : ["None listed."])
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+}
+
+function renderRaceGallery() {
+  dom.raceGalleryGrid.innerHTML = Object.entries(RACE_CARD_PROFILES).map(([id, profile]) => {
+    const definition = raceById(id);
+    const selected = character.identity.raceId === id;
+    return `<button class="race-preview-card${selected ? " selected" : ""}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
+      <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
+      <span class="race-preview-shade"></span>
+      <strong>${escapeHtml(definition.name)}</strong>
+      <small>${escapeHtml(profile.preview)}</small>
+      <b>${selected ? "Selected" : "View Race"}</b>
+    </button>`;
+  }).join("");
+  dom.raceGalleryFallback.innerHTML = [
+    '<option value="">Choose from the complete race list</option>',
+    ...RACE_DEFS.map((definition) => `<option value="${definition.id}">${escapeHtml(definition.name)}</option>`),
+    '<option value="__other__">(Other)</option>',
+  ].join("");
+  dom.raceGalleryFallback.value = RACE_CARD_PROFILES[character.identity.raceId] ? "" : character.identity.raceKind === "other" ? "__other__" : character.identity.raceId;
+}
+
+function showRaceCardDetail(raceId) {
+  const definition = raceById(raceId);
+  const profile = RACE_CARD_PROFILES[raceId];
+  if (!definition || !profile) return;
+  activeRaceCardId = raceId;
+  dom.raceCardDetailImage.src = profile.image;
+  dom.raceCardDetailImage.alt = `${definition.name} full-body appearance`;
+  dom.raceCardDetailName.textContent = definition.name;
+  dom.raceCardDetailDescription.textContent = profile.description;
+  dom.raceCardAdvantages.innerHTML = raceRuleList(definition.advantages);
+  dom.raceCardDisadvantages.innerHTML = raceRuleList(definition.disadvantages);
+  dom.chooseRaceCard.textContent = `Choose ${definition.name}`;
+  dom.raceGalleryChooser.hidden = true;
+  dom.raceCardDetail.hidden = false;
+  dom.raceCardDetail.classList.remove("race-card-entering");
+  requestAnimationFrame(() => dom.raceCardDetail.classList.add("race-card-entering"));
+}
+
+function openRaceGallery() {
+  if (character.phase !== "draft") return;
+  activeRaceCardId = "";
+  renderRaceGallery();
+  dom.raceCardDetail.hidden = true;
+  dom.raceGalleryChooser.hidden = false;
+  dom.raceGalleryModal.hidden = false;
+  document.body.classList.add("race-gallery-open");
+  dom.closeRaceGallery.focus();
+}
+
+function closeRaceGallery() {
+  dom.raceGalleryModal.hidden = true;
+  document.body.classList.remove("race-gallery-open");
+  activeRaceCardId = "";
+  dom.raceCardPickerButton.focus({ preventScroll: true });
 }
 
 function renderBackgroundTheme() {
@@ -2952,13 +3070,13 @@ function renderWorkflow() {
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
   const requirements = [];
-  if (!character.identity.race.trim()) requirements.push({ key: "race", label: "Choose Race", target: "#racePicker" });
+  if (!character.identity.race.trim()) requirements.push({ key: "race", label: "Choose Race", target: "#raceCardPickerButton" });
   else if (!validation.raceComplete) {
     const race = selectedRace();
     requirements.push({ key: "race", label: `Choose ${race?.name || "Race"} Type`, target: "#raceTypePicker" });
   }
   if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classPicker" });
-  if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#racePicker" });
+  if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#raceCardPickerButton" });
   if (!validation.attributesComplete) {
     const difference = validation.attributeBudget - validation.attributeSpent;
     requirements.push({
@@ -6259,29 +6377,46 @@ document.addEventListener("change", async (event) => {
   }
 });
 
-dom.racePicker.addEventListener("change", () => {
-  if (character.phase !== "draft") return;
-  const previousMaxHp = maximumHp();
-  character.identity.raceType = "";
-  character.creation.raceSkillChoices = [];
-  character.creation.raceAttributeChoice = "";
-  character.creation.racialSkillGrants = {};
-  if (dom.racePicker.value === "__other__") {
-    character.identity.raceKind = "other";
-    character.identity.raceId = "";
-    character.identity.race = "";
-  } else {
-    const definition = raceById(dom.racePicker.value);
-    character.identity.raceKind = "preset";
-    character.identity.raceId = definition?.id || "";
-    character.identity.race = definition?.name || "";
+dom.racePicker.addEventListener("change", () => applyRaceSelection(dom.racePicker.value));
+dom.raceCardPickerButton.addEventListener("click", openRaceGallery);
+dom.closeRaceGallery.addEventListener("click", closeRaceGallery);
+dom.raceGalleryModal.addEventListener("click", (event) => {
+  if (event.target === dom.raceGalleryModal) closeRaceGallery();
+});
+dom.raceGalleryGrid.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-race-card]");
+  if (card) showRaceCardDetail(card.dataset.raceCard);
+});
+dom.raceGalleryFallback.addEventListener("change", () => {
+  const value = dom.raceGalleryFallback.value;
+  if (!value) return;
+  if (RACE_CARD_PROFILES[value]) showRaceCardDetail(value);
+  else {
+    applyRaceSelection(value);
+    closeRaceGallery();
   }
-  syncDerivedResources(previousMaxHp);
-  queueSave();
-  renderAll();
-  if (character.identity.raceKind === "other") dom.raceCustom.focus();
-  else if (character.identity.race.trim()) scrollToCreationModifiers();
-  else if (selectedRace()?.types?.length) dom.raceTypePicker.focus();
+});
+dom.backToRaceGallery.addEventListener("click", () => {
+  activeRaceCardId = "";
+  dom.raceCardDetail.hidden = true;
+  dom.raceGalleryChooser.hidden = false;
+  renderRaceGallery();
+});
+dom.chooseRaceCard.addEventListener("click", () => {
+  if (!activeRaceCardId) return;
+  applyRaceSelection(activeRaceCardId);
+  closeRaceGallery();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || dom.raceGalleryModal.hidden) return;
+  if (!dom.raceCardDetail.hidden) {
+    activeRaceCardId = "";
+    dom.raceCardDetail.hidden = true;
+    dom.raceGalleryChooser.hidden = false;
+    renderRaceGallery();
+    return;
+  }
+  closeRaceGallery();
 });
 
 dom.raceCustom.addEventListener("input", () => {
