@@ -1299,13 +1299,16 @@ function ringActionButtons(unit, midAngle) {
   `;
 }
 
-function tacticalRingMarkup(units) {
+function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "") {
   if (!units.length) {
     return `
-      <div class="tactical-ring-empty">
+      <section class="tactical-ring-group" data-ring-group="${escapeHtml(groupId)}">
+        ${groupTitle ? `<h3>${escapeHtml(groupTitle)}</h3>` : ""}
+        <div class="tactical-ring-empty">
         <strong>No combatants loaded.</strong>
-        <span>Add characters or NPCs to populate the tactical ring.</span>
-      </div>
+        <span>No combatants are currently aboard.</span>
+        </div>
+      </section>
     `;
   }
 
@@ -1367,10 +1370,12 @@ function tacticalRingMarkup(units) {
   });
 
   return `
-    <div class="tactical-ring-view" data-count="${ordered.length}">
+    <section class="tactical-ring-group" data-ring-group="${escapeHtml(groupId)}">
+      ${groupTitle ? `<h3>${escapeHtml(groupTitle)}</h3>` : ""}
+      <div class="tactical-ring-view" data-count="${ordered.length}">
       <div class="ring-instructions">${mode === "gm" ? "Long-hold any slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
       <div class="ring-stage">
-        <svg class="tactical-ring-svg" viewBox="0 0 320 320" role="img" aria-label="ATB tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <svg class="tactical-ring-svg" data-ring-group="${escapeHtml(groupId)}" viewBox="0 0 320 320" role="img" aria-label="${escapeHtml(groupTitle || "ATB")} tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
           <defs>
             <linearGradient id="ringLipGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stop-color="#5e0710" />
@@ -1398,8 +1403,24 @@ function tacticalRingMarkup(units) {
         <span><i class="timer-delay"></i>Reload/Recovery</span>
         <span><i class="action-delay"></i>Delayed Resolution</span>
       </div>
-    </div>
+      </div>
+    </section>
   `;
+}
+
+function tacticalRingMarkup(units) {
+  const ships = (state?.starships || []).slice(0, 6);
+  if (!ships.length) return tacticalRingSingleMarkup(units);
+  const assigned = new Set();
+  const groups = ships.map((ship) => {
+    const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
+    shipUnits.forEach((unit) => assigned.add(unit.id));
+    return { id: ship.id, title: ship.title || ship.ship?.title || "Unnamed Starship", units: shipUnits };
+  });
+  const other = units.filter((unit) => !assigned.has(unit.id));
+  const rings = groups.map((group) => tacticalRingSingleMarkup(group.units, group.id, group.title));
+  if (other.length) rings.push(tacticalRingSingleMarkup(other, "other", "Other"));
+  return `<div class="tactical-ring-fleet" data-ring-count="${rings.length}">${rings.join("")}</div>`;
 }
 
 function iconStore() {
@@ -1845,8 +1866,9 @@ function renderStarshipStatuses() {
     const hull = Math.max(0, Number(record.currentHullHp ?? ship.currentHullHp ?? hullMax) || 0);
     const shieldMax = Math.max(0, Number(record.maximumShieldHp ?? ship.maximumShieldHp) || 0);
     const shield = Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? shieldMax) || 0);
+    const peopleAboard = (state?.units || []).filter((unit) => unit.location?.starshipId === record.id && !unit.defeatedAt && Number(unit.currentHp ?? 1) > 0).length;
     const icons = (states, kind) => states.map((value) => `<i class="ship-status-icon ${kind} ${value}" aria-hidden="true"></i>`).join("");
-    return `<article class="starship-status-card"><div><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-status-track" title="Hull ${hull}/${hullMax}">${icons(shipSegmentStates(hull, hullMax), "hull")}</span><span class="ship-status-track" title="Shields ${shield}/${shieldMax}">${icons(shipSegmentStates(shield, shieldMax), "shield")}</span></article>`;
+    return `<article class="starship-status-card"><div class="ship-status-name"><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-people-count" title="${peopleAboard} ${peopleAboard === 1 ? "person" : "people"} aboard"><i aria-hidden="true"></i><strong>${peopleAboard}</strong></span><span class="ship-status-track" title="Hull ${hull}/${hullMax}">${icons(shipSegmentStates(hull, hullMax), "hull")}</span><span class="ship-status-track" title="Shields ${shield}/${shieldMax}">${icons(shipSegmentStates(shield, shieldMax), "shield")}</span>${mode === "gm" ? `<button type="button" class="mini ship-map-button" data-open-ship-map="${escapeHtml(record.id)}">Ship Map</button>` : ""}</article>`;
   }).join("");
 }
 
@@ -3104,25 +3126,38 @@ function queuePlayerActionLog(unit) {
   }, 1000);
 }
 
-function ringIndexFromPointer(event) {
-  const svg = unitList.querySelector(".tactical-ring-svg");
-  if (!svg || !state?.units?.length) return -1;
+function ringUnitsForGroup(groupId) {
+  if (!groupId) return state?.units || [];
+  if (groupId === "other") {
+    const shipIds = new Set((state?.starships || []).map((ship) => ship.id));
+    return (state?.units || []).filter((unit) => !shipIds.has(unit.location?.starshipId));
+  }
+  return (state?.units || []).filter((unit) => unit.location?.starshipId === groupId);
+}
+
+function ringIndexFromPointer(event, groupId = "") {
+  const svg = event.target?.closest?.(".tactical-ring-svg") || unitList.querySelector(`.tactical-ring-svg[data-ring-group="${CSS.escape(groupId)}"]`);
+  const groupUnits = ringUnitsForGroup(groupId);
+  if (!svg || !groupUnits.length) return -1;
   const rect = svg.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width) * 320;
   const y = ((event.clientY - rect.top) / rect.height) * 320;
   const degrees = (Math.atan2(y - 160, x - 160) * 180) / Math.PI + 90;
   const angle = (degrees + 360) % 360;
-  const units = ringOrderedUnits(state.units);
+  const units = ringOrderedUnits(groupUnits);
   return Math.max(0, Math.min(units.length - 1, Math.floor(angle / (360 / units.length))));
 }
 
-function moveRingUnit(id, targetIndex) {
-  const units = ringOrderedUnits(state.units);
+function moveRingUnit(id, targetIndex, groupId = "") {
+  const units = ringOrderedUnits(ringUnitsForGroup(groupId));
   const fromIndex = units.findIndex((unit) => unit.id === id);
   if (fromIndex < 0 || targetIndex < 0 || targetIndex === fromIndex) return;
   const [unit] = units.splice(fromIndex, 1);
   units.splice(targetIndex, 0, unit);
-  setRingOrderFromUnits(units);
+  const groupIds = new Set(units.map((entry) => entry.id));
+  let nextGroupIndex = 0;
+  const merged = ringOrderedUnits(state.units).map((entry) => groupIds.has(entry.id) ? units[nextGroupIndex++] : entry);
+  setRingOrderFromUnits(merged);
   ringMovedId = id;
   if (ringMovedTimeout) clearTimeout(ringMovedTimeout);
   ringMovedTimeout = setTimeout(() => {
@@ -3427,7 +3462,7 @@ campaignCharacterPin?.addEventListener("input", () => {
   campaignCharacterStatus.classList.remove("error");
 });
 
-function pressGmClockButton(event) {
+async function pressGmClockButton(event) {
   if (!state) return;
   event?.preventDefault();
   event?.stopPropagation();
@@ -3441,7 +3476,11 @@ function pressGmClockButton(event) {
     return;
   }
   if (clockAction === "resume") {
-    action({ action: "setHardPaused", paused: false }, "engage");
+    const wasStopped = !state.running;
+    await action({ action: "setHardPaused", paused: false }, "engage");
+    if (wasStopped && !state.running) {
+      await action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+    }
     return;
   }
   action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
@@ -3841,14 +3880,16 @@ unitList.addEventListener("pointerdown", (event) => {
   const control = event.target.closest(".ring-slice-control.draggable");
   if (!control) return;
   const id = control.dataset.unitId;
+  const groupId = control.closest(".tactical-ring-svg")?.dataset.ringGroup || "";
   const unit = state.units.find((entry) => entry.id === id);
   if (!unit) return;
   clearRingDrag();
   ringDrag = {
     id,
+    groupId,
     pointerId: event.pointerId,
     timer: setTimeout(() => {
-      ringDrag = { id, pointerId: event.pointerId, active: true };
+      ringDrag = { id, groupId, pointerId: event.pointerId, active: true };
       document.body.classList.add("ring-dragging");
       unitList.innerHTML = tacticalRingMarkup(state.units);
     }, 460),
@@ -3859,8 +3900,8 @@ unitList.addEventListener("pointerdown", (event) => {
 document.addEventListener("pointermove", (event) => {
   if (!ringDrag?.active || visualMode !== "ring") return;
   event.preventDefault();
-  const targetIndex = ringIndexFromPointer(event);
-  if (targetIndex >= 0) moveRingUnit(ringDrag.id, targetIndex);
+  const targetIndex = ringIndexFromPointer(event, ringDrag.groupId);
+  if (targetIndex >= 0) moveRingUnit(ringDrag.id, targetIndex, ringDrag.groupId);
 });
 
 document.addEventListener("pointerup", clearRingDrag);

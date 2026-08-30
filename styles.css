@@ -1213,6 +1213,34 @@ h2 {
   z-index: 4;
   animation: combatant-defeat-card 5.55s linear forwards;
 }
+
+.tactical-ring-fleet {
+  display: grid;
+  grid-template-columns: repeat(3, 540px);
+  justify-content: center;
+  align-items: start;
+  gap: 14px;
+  width: 100%;
+  overflow-x: auto;
+  padding: 4px 8px 12px;
+}
+
+.tactical-ring-group {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+.tactical-ring-group > h3 {
+  width: min(520px, 100%);
+  margin: 0 0 4px;
+  padding: 7px 10px;
+  border-bottom: 2px solid rgba(40, 215, 255, 0.46);
+  color: #e9f8ff;
+  font-size: 0.86rem;
+  text-align: center;
+  text-transform: uppercase;
+}
 .unit-card.combatant-defeated::after {
   content: "";
   position: absolute;
@@ -3925,6 +3953,14 @@ body.embedded-gm .meter { margin-top: 6px; }
   margin-block: auto;
   overflow: visible !important;
 }
-.starship-status-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:7px;margin:7px 0}.starship-status-card{display:grid;grid-template-columns:minmax(110px,1fr) auto auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid #40566b;background:#07131f}.starship-status-card strong,.starship-status-card small{display:block}.starship-status-card small{color:#839aab;font-size:.5rem}.ship-status-track{display:flex;gap:4px}.ship-status-icon{position:relative;width:18px;height:18px;overflow:hidden;background:transparent}.ship-status-icon::before{content:"";position:absolute;inset:1px;background:var(--icon-color);opacity:.18}.ship-status-icon.full::before{opacity:1}.ship-status-icon.half::before{opacity:1;clip-path:inset(0 50% 0 0)}.ship-status-icon.hull{--icon-color:#8d98a2;border:1px solid #d2d8de;border-radius:50%;background:radial-gradient(circle at 28% 25%,#f8fbfd 0 13%,transparent 15%),radial-gradient(circle at 72% 76%,#424b54 0 18%,transparent 20%),#8d98a2}.ship-status-icon.hull::before{border-radius:50%;mix-blend-mode:multiply}.ship-status-icon.shield{--icon-color:#37d880}.ship-status-icon.shield::before{inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%);box-shadow:none}.ship-status-icon.shield::after{content:"";position:absolute;inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%,50% 6%,87% 21%,78% 66%,50% 92%,22% 66%,13% 21%,50% 6%);background:#7ff0ad;opacity:.8}
+.starship-status-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:7px;margin:7px 0}.starship-status-card{display:grid;grid-template-columns:minmax(110px,1fr) auto auto auto auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid #40566b;background:#07131f}.starship-status-card strong,.starship-status-card small{display:block}.starship-status-card small{color:#839aab;font-size:.5rem}.ship-status-track{display:flex;gap:4px}.ship-people-count{display:inline-flex;align-items:center;gap:4px;min-width:34px;color:#dff8ff;font-size:.78rem}.ship-people-count i{position:relative;width:13px;height:17px;display:inline-block}.ship-people-count i::before{content:"";position:absolute;left:4px;top:0;width:6px;height:6px;border-radius:50%;background:#dff8ff}.ship-people-count i::after{content:"";position:absolute;left:2px;bottom:0;width:10px;height:10px;border-radius:6px 6px 2px 2px;background:#dff8ff}.ship-map-button{white-space:nowrap}.ship-status-icon{position:relative;width:18px;height:18px;overflow:hidden;background:transparent}.ship-status-icon::before{content:"";position:absolute;inset:1px;background:var(--icon-color);opacity:.18}.ship-status-icon.full::before{opacity:1}.ship-status-icon.half::before{opacity:1;clip-path:inset(0 50% 0 0)}.ship-status-icon.hull{--icon-color:#8d98a2;border:1px solid #d2d8de;border-radius:50%;background:radial-gradient(circle at 28% 25%,#f8fbfd 0 13%,transparent 15%),radial-gradient(circle at 72% 76%,#424b54 0 18%,transparent 20%),#8d98a2}.ship-status-icon.hull::before{border-radius:50%;mix-blend-mode:multiply}.ship-status-icon.shield{--icon-color:#37d880}.ship-status-icon.shield::before{inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%);box-shadow:none}.ship-status-icon.shield::after{content:"";position:absolute;inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%,50% 6%,87% 21%,78% 66%,50% 92%,22% 66%,13% 21%,50% 6%);background:#7ff0ad;opacity:.8}
+
+@media (max-width: 700px) {
+  .tactical-ring-fleet { grid-template-columns: 1fr; overflow-x: hidden; padding-inline: 0; }
+  .tactical-ring-group { width: 100%; }
+  .starship-status-card { grid-template-columns: minmax(95px,1fr) auto auto; gap: 6px; }
+  .ship-people-count { justify-self: center; }
+  .ship-map-button { grid-column: 1 / -1; justify-self: end; }
+}
 .combat-location-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px}.combat-location-group{min-width:0;padding:8px;border:1px solid #334b60;background:rgba(5,13,22,.72)}.combat-location-group>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;padding:5px 7px;border-bottom:2px solid #7653c5}.combat-location-group>header strong{text-transform:uppercase}.combat-location-group>header small{color:#95a8b7;font-size:.5rem}.combat-location-units{display:grid;gap:7px}.combat-location-units .unit-card{min-width:0}.empty-location-group{margin:8px;color:#667b8d;font-size:.68rem;text-align:center}.stationed-marker{display:block;margin:-5px 8px 3px;color:#69e9ff;font-size:.48rem;font-weight:900;text-align:right}.combat-location-groups.two-columns .unit-card{font-size:.92em}
 @media(max-width:700px){.combat-location-groups{grid-template-columns:1fr}.combat-location-group{padding:6px}.combat-location-groups.two-columns .unit-card{font-size:1em}}

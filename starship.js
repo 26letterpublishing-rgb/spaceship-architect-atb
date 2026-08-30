@@ -12,7 +12,7 @@ const SIC_CATALOG = {
   "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png", tint: "linear-gradient(rgba(0,211,201,.4),rgba(0,211,201,.4))" },
   "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png", tint: "linear-gradient(rgba(221,35,42,.44),rgba(221,35,42,.44))" },
   "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png", tint: "radial-gradient(circle at 50% 50%,rgba(10,0,18,.2),rgba(52,12,89,.64) 58%,rgba(5,0,12,.78))" },
-  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png" },
+  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png?v=20260829" },
 };
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -103,6 +103,8 @@ let undoState = null;
 let selectedSicId = null;
 let mobilePreviewCell = null;
 let validation = { errors: [], cells: new Set() };
+let hullPaint = null;
+let suppressGridClick = false;
 
 const SIDES = [
   { name: "top", offset: -GRID_SIZE, valid: (index) => index >= GRID_SIZE },
@@ -441,6 +443,38 @@ function toggleHullCell(index) {
   draft.gridCells = [...hull].sort((a, b) => a - b);
   saveDraft(); renderAll();
 }
+
+function paintHullCell(index) {
+  if (!hullPaint || hullPaint.visited.has(index) || placementAt(index)) return;
+  hullPaint.visited.add(index);
+  const hull = new Set(draft.gridCells);
+  if (hullPaint.mode === "add") hull.add(index); else hull.delete(index);
+  draft.gridCells = [...hull].sort((a, b) => a - b);
+  shipGrids.forEach((grid) => {
+    const cell = grid.querySelector(`[data-grid-index="${index}"]`);
+    cell?.classList.toggle("is-selected", hullPaint.mode === "add");
+    cell?.setAttribute("aria-pressed", String(hullPaint.mode === "add"));
+  });
+  totalSquareOutputs.forEach((output) => { output.value = String(hull.size); output.textContent = String(hull.size); });
+}
+
+function beginHullPaint(index, event) {
+  if (window.matchMedia("(max-width: 820px)").matches || mapView.mode !== "build" || selectedSic() || placementAt(index)) return;
+  event.preventDefault();
+  rememberForUndo();
+  hullPaint = { pointerId: event.pointerId, mode: draft.gridCells.includes(index) ? "remove" : "add", visited: new Set() };
+  suppressGridClick = true;
+  paintHullCell(index);
+}
+
+function finishHullPaint() {
+  if (!hullPaint) return;
+  hullPaint = null;
+  setTimeout(() => { suppressGridClick = false; }, 0);
+  validation = { errors: [], cells: new Set() };
+  saveDraft();
+  renderAll();
+}
 function handleGridClick(index, cell, mobile) {
   validation = { errors: [], cells: new Set() };
   if (mapView.mode !== "build") return;
@@ -666,7 +700,9 @@ function renderLiveStats() {
   const scale = shipScaleStats(hull);
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });
   document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
-    element.textContent = String(element.dataset.enPart === "max" ? enMax : enAvailable);
+    const value = String(element.dataset.enPart === "max" ? enMax : enAvailable);
+    element.textContent = value;
+    element.classList.toggle("is-long-value", value.length >= 3);
   });
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
   document.querySelectorAll('[data-live-stat="credits"], [data-group-credits]').forEach((element) => { element.textContent = formatCredits(confirmed.groupCredits); });
@@ -710,8 +746,15 @@ shipGrids.forEach((grid) => {
     cell.className = "ship-grid-cell"; cell.dataset.gridIndex = String(index); cell.tabIndex = 0;
     cell.setAttribute("role", "gridcell"); cell.setAttribute("aria-label", `Ship grid square ${index + 1}`);
     cell.addEventListener("pointerenter", () => { if (!mobile && selectedSic()) previewPlacement(index, cell); });
+    cell.addEventListener("pointerdown", (event) => beginHullPaint(index, event));
+    cell.addEventListener("pointerenter", (event) => {
+      if (!mobile && hullPaint && event.buttons === 1) paintHullCell(index);
+    });
     cell.addEventListener("pointerleave", () => { if (!mobile) clearPlacementPreview(); });
-    cell.addEventListener("click", () => handleGridClick(index, cell, mobile));
+    cell.addEventListener("click", () => {
+      if (suppressGridClick) { suppressGridClick = false; return; }
+      handleGridClick(index, cell, mobile);
+    });
     cell.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault(); handleGridClick(index, cell, mobile);
@@ -720,6 +763,8 @@ shipGrids.forEach((grid) => {
   }
   grid.append(fragment);
 });
+window.addEventListener("pointerup", finishHullPaint);
+window.addEventListener("pointercancel", finishHullPaint);
 document.querySelector("[data-mobile-place]")?.addEventListener("click", () => { if (mobilePreviewCell !== null) placeSelectedSic(mobilePreviewCell); });
 document.querySelectorAll("[data-cancel-placement]").forEach((button) => button.addEventListener("click", cancelPlacement));
 mapViewToggles.forEach((toggle) => toggle.addEventListener("change", () => {

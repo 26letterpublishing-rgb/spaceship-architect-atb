@@ -33,12 +33,73 @@ const RACE_CARD_PROFILES = {
     image: "race-bruggle.png",
     preview: "Powerful amphibious socialites built for rough climates and rougher company.",
     description: "Bruggles are towering, powerfully built amphibians descended from Antropic Fins on Tarinian Volkmire. Their dense muscles developed under intense gravity, while their patterned hides range from swamp greens and earth browns to rare yellows and oranges. Bruggle culture is loud, social, and fiercely physical. Friendly arguments can become contests of strength, taverns are natural gathering places, and a hard fight is often remembered as fondly as a good meal. They are carnivorous, comfortable in punishing heat or cold, and equally at home on land or underwater.",
+    focus: "center 7%",
   },
   grey: {
     image: "race-grey.png",
     preview: "Ancient, observant telepaths who study developing civilizations from the dark.",
     description: "Greys are short, slender humanoids recognized by smooth gray skin, oversized heads, narrow mouths, nose slits, and enormous black eyes. Their civilization has observed younger species for ages, recording discoveries and enforcing a strict principle of noninterference until a world develops warp travel. Greys favor simple, close-fitting clothing and quiet efficiency. Their intelligence and telekinetic gifts make them formidable observers, while their fragile bodies and unfamiliar relationship with physical force shape the way they survive direct conflict.",
+    focus: "center 6%",
   },
+  human: {
+    image: "race-human.png",
+    preview: "Adaptable newcomers whose flexibility becomes experience after creation.",
+    description: "Humans are ambitious, adaptable, and unusually quick to turn hard-won experience into practical skill. They lack the dramatic biological gifts of many starfaring species, but compensate with curiosity, cultural variety, and a stubborn talent for surviving unfamiliar situations. Human crews can be found in nearly every role, from explorers and diplomats to engineers and soldiers.",
+    focus: "center 15%",
+  },
+  android: {
+    image: "race-android.png",
+    preview: "Engineered synthetic people with tireless bodies and customizable forms.",
+    description: "Androids are constructed people whose bodies range from convincingly organic replicas to visibly mechanical robots. They do not age, breathe, eat, sleep, or suffer ordinary disease, but must periodically recharge and depend on Credits rather than Experience for personal development. Their chosen construction type defines how convincingly human or deliberately mechanical they appear.",
+    focus: "center 12%",
+  },
+  antropic: {
+    image: "race-antropic.png",
+    preview: "A diverse evolutionary family whose Fangs, Feathers, Fins, and Fluffy forms differ sharply.",
+    description: "Antropics are a broad family of related humanoids shaped by radically different environments. Fangs are nocturnal predators, Feathers are agile fliers, Fins are aquatic regenerators, and Fluffy Antropics are quick, expressive, and difficult to pin down. Choose a form to see the specific advantages and disadvantages carried by that branch of the species.",
+    focus: "center 13%",
+  },
+  garmoc: {
+    image: "race-garmoc.png",
+    preview: "Massive armored predators whose fused physical dice can awaken D20 power.",
+    description: "Garmocs are imposing reptilian predators protected by dense natural armor and formidable reserves of health. Their physical resilience makes them terrifying in direct conflict, and exceptional physical fusions can add independent D20 results to a roll. Their biology is less suited to delicate intellectual and social work, where very high results are limited and dice cannot fuse.",
+    focus: "center 13%",
+  },
+  pattanilia: {
+    image: "race-pattanilia.png",
+    preview: "Aquatic multispectrum observers with extraordinary technical intuition.",
+    description: "Pattanilia are graceful aquatic humanoids whose senses extend far beyond ordinary visible light. They can breathe underwater, perceive heat, radio, sound, radiation, and other spectra, and display an exceptional instinct for starship systems. Their slight frames are vulnerable in direct physical combat, but their perception, intellect, willpower, and technical adaptability make them remarkably capable explorers.",
+    focus: "center 12%",
+  },
+};
+
+const CLASS_CARD_PROFILES = {
+  "": { role: "Uncommitted", preview: "Finalize without a class and add one later if the story calls for it.", color: "#8293a2" },
+  "ambassador-spy": { role: "Social Specialist", preview: "Builds Charisma and Luck in tandem after creation.", color: "#e774c8" },
+  blessed: { role: "Fortune Bearer", preview: "Begins with full Reverence and a hand of Drama Cards.", color: "#f4d75d" },
+  "corporate-worker": { role: "Financier", preview: "Enters play with substantial additional personal Credits.", color: "#70dc9c" },
+  decker: { role: "Digital Intruder", preview: "Manipulates security and repeatedly rerolls Computer Systems.", color: "#4ed8ed" },
+  "demolition-specialist": { role: "Fire Expert", preview: "Pushes Fire Intensity beyond ordinary limits.", color: "#ff774f" },
+  engineer: { role: "Station Engineer", preview: "Turns Intellect into extra starship Action Units.", color: "#58d8aa" },
+  gunner: { role: "Weapons Expert", preview: "Borrows a key die for Weapon Systems and supercharges damage.", color: "#ff5c70" },
+  heavy: { role: "Juggernaut", preview: "Carries larger weapons and gains substantial Maximum HP.", color: "#b6a58b" },
+  informant: { role: "Network Builder", preview: "Maintains a growing web of useful NPC contacts.", color: "#9aa8ff" },
+  "marine-soldier": { role: "Combat Veteran", preview: "Fuses Projectile triples and can recover through Willpower.", color: "#83b777" },
+  mastermind: { role: "Tactical Planner", preview: "Accelerates Initiative and greatly expands Command Windows.", color: "#b783ff" },
+  "medical-officer": { role: "Trauma Specialist", preview: "Triples healing and can rescue characters below zero HP.", color: "#62e2b3" },
+  "navigator-sensor-tech": { role: "Flight Specialist", preview: "Combines paired navigation, awareness, and sensor skills.", color: "#5bc7ff" },
+  ninja: { role: "Infiltrator", preview: "Turns Exertion into exceptional Stealth and precise combat.", color: "#8d7ed2" },
+  peacekeeper: { role: "Mediator", preview: "Strengthens negotiation and earns Drama Cards by preventing combat.", color: "#7ee0d9" },
+  pirate: { role: "Raider", preview: "Excels against vulnerable targets and salvages defeated ships.", color: "#d59a61" },
+  "playboy-minx": { role: "Social Chameleon", preview: "Blends persuasion and deception while courting chaos.", color: "#ff73b6" },
+  psychopath: { role: "Killer", preview: "Earns limited Experience through lethal encounters.", color: "#df5268" },
+  "robotics-worker": { role: "Synthetic Specialist", preview: "Improves Android and Spiddix advancement efficiency.", color: "#69c8d8" },
+  "rogue-drifter": { role: "Quick Starter", preview: "Begins every combat only a heartbeat away from acting.", color: "#d0b278" },
+  "science-officer": { role: "Researcher", preview: "Adds Intellect to perception and develops knowledge each session.", color: "#62b4ff" },
+  "scout-sniper": { role: "Recon Marksman", preview: "Improves tracking and awareness, then aims without losing momentum.", color: "#92c66f" },
+  smuggler: { role: "Resourceful Operator", preview: "Shares Charisma and Intellect dice across a broad skill set.", color: "#e1a65c" },
+  tactician: { role: "Team Coordinator", preview: "Distributes Reverence and Drama Cards across the crew.", color: "#8fa8ff" },
+  other: { role: "Custom Path", preview: "Chooses a special Attribute method and gains post-creation XP.", color: "#d27ee8" },
 };
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
@@ -182,12 +243,28 @@ const dom = {
   raceCardDetailDescription: $("#raceCardDetailDescription"),
   raceCardAdvantages: $("#raceCardAdvantages"),
   raceCardDisadvantages: $("#raceCardDisadvantages"),
+  raceSubtypeControls: $("#raceSubtypeControls"),
+  previousRaceSubtype: $("#previousRaceSubtype"),
+  nextRaceSubtype: $("#nextRaceSubtype"),
+  raceSubtypeName: $("#raceSubtypeName"),
   backToRaceGallery: $("#backToRaceGallery"),
   chooseRaceCard: $("#chooseRaceCard"),
   raceCustom: $("#raceCustom"),
   raceTypeField: $("#raceTypeField"),
   raceTypePicker: $("#raceTypePicker"),
   classPicker: $("#classPicker"),
+  classCardPickerButton: $("#classCardPickerButton"),
+  classGalleryModal: $("#classGalleryModal"),
+  classGalleryGrid: $("#classGalleryGrid"),
+  closeClassGallery: $("#closeClassGallery"),
+  classGalleryChooser: $("#classGalleryChooser"),
+  classCardDetail: $("#classCardDetail"),
+  classCardDetailName: $("#classCardDetailName"),
+  classCardDetailRole: $("#classCardDetailRole"),
+  classCardDetailSummary: $("#classCardDetailSummary"),
+  classCardDetailNotes: $("#classCardDetailNotes"),
+  backToClassGallery: $("#backToClassGallery"),
+  chooseClassCard: $("#chooseClassCard"),
   automaticModifiers: $("#automaticModifiers"),
   phaseBadge: $("#phaseBadge"),
   nextRequirement: $("#nextRequirement"),
@@ -2817,8 +2894,10 @@ function renderRace() {
 }
 
 let activeRaceCardId = "";
+let activeRaceSubtypeIndex = 0;
+let activeClassCardId = "";
 
-function applyRaceSelection(value) {
+function applyRaceSelection(value, raceType = "") {
   if (character.phase !== "draft") return;
   const previousMaxHp = maximumHp();
   character.identity.raceType = "";
@@ -2834,6 +2913,7 @@ function applyRaceSelection(value) {
     character.identity.raceKind = "preset";
     character.identity.raceId = definition?.id || "";
     character.identity.race = definition?.name || "";
+    character.identity.raceType = definition?.types?.some((type) => type.id === raceType) ? raceType : "";
   }
   syncDerivedResources(previousMaxHp);
   queueSave();
@@ -2853,7 +2933,7 @@ function renderRaceGallery() {
   dom.raceGalleryGrid.innerHTML = Object.entries(RACE_CARD_PROFILES).map(([id, profile]) => {
     const definition = raceById(id);
     const selected = character.identity.raceId === id;
-    return `<button class="race-preview-card${selected ? " selected" : ""}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
+    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center 10%")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
       <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
       <span class="race-preview-shade"></span>
       <strong>${escapeHtml(definition.name)}</strong>
@@ -2869,18 +2949,38 @@ function renderRaceGallery() {
   dom.raceGalleryFallback.value = RACE_CARD_PROFILES[character.identity.raceId] ? "" : character.identity.raceKind === "other" ? "__other__" : character.identity.raceId;
 }
 
+function renderRaceCardRules(direction = 0) {
+  const definition = raceById(activeRaceCardId);
+  const profile = RACE_CARD_PROFILES[activeRaceCardId];
+  if (!definition || !profile) return;
+  const subtype = definition.types?.[activeRaceSubtypeIndex] || null;
+  const advantages = [...(definition.advantages || []), ...(subtype?.advantages || [])];
+  const disadvantages = [...(definition.disadvantages || []), ...(subtype?.disadvantages || [])];
+  dom.raceSubtypeControls.hidden = !definition.types?.length;
+  dom.raceSubtypeName.textContent = subtype?.name || "";
+  dom.raceCardAdvantages.innerHTML = raceRuleList(advantages);
+  dom.raceCardDisadvantages.innerHTML = raceRuleList(disadvantages);
+  dom.chooseRaceCard.textContent = `Choose ${definition.name}${subtype ? ` - ${subtype.name}` : ""}`;
+  if (direction) {
+    const copy = dom.raceCardDetail.querySelector(".race-card-rules");
+    copy.classList.remove("subtype-slide-left", "subtype-slide-right");
+    void copy.offsetWidth;
+    copy.classList.add(direction > 0 ? "subtype-slide-left" : "subtype-slide-right");
+  }
+}
+
 function showRaceCardDetail(raceId) {
   const definition = raceById(raceId);
   const profile = RACE_CARD_PROFILES[raceId];
   if (!definition || !profile) return;
   activeRaceCardId = raceId;
+  const selectedIndex = definition.types?.findIndex((type) => type.id === character.identity.raceType) ?? -1;
+  activeRaceSubtypeIndex = selectedIndex >= 0 ? selectedIndex : 0;
   dom.raceCardDetailImage.src = profile.image;
   dom.raceCardDetailImage.alt = `${definition.name} full-body appearance`;
   dom.raceCardDetailName.textContent = definition.name;
   dom.raceCardDetailDescription.textContent = profile.description;
-  dom.raceCardAdvantages.innerHTML = raceRuleList(definition.advantages);
-  dom.raceCardDisadvantages.innerHTML = raceRuleList(definition.disadvantages);
-  dom.chooseRaceCard.textContent = `Choose ${definition.name}`;
+  renderRaceCardRules();
   dom.raceGalleryChooser.hidden = true;
   dom.raceCardDetail.hidden = false;
   dom.raceCardDetail.classList.remove("race-card-entering");
@@ -2903,6 +3003,72 @@ function closeRaceGallery() {
   document.body.classList.remove("race-gallery-open");
   activeRaceCardId = "";
   dom.raceCardPickerButton.focus({ preventScroll: true });
+}
+
+function changeRaceSubtype(direction) {
+  const definition = raceById(activeRaceCardId);
+  const count = definition?.types?.length || 0;
+  if (count < 2) return;
+  activeRaceSubtypeIndex = (activeRaceSubtypeIndex + direction + count) % count;
+  renderRaceCardRules(direction);
+}
+
+function applyClassSelection(value) {
+  if (character.phase !== "draft") return;
+  const previousMaxHp = maximumHp();
+  character.identity.classId = value;
+  character.identity.className = classById(value).name;
+  character.creation.classAttributeChoice = "";
+  syncDerivedResources(previousMaxHp);
+  queueSave();
+  renderAll();
+  if (character.identity.classId) scrollToCreationModifiers();
+  notice(`${character.identity.className} selected. Class effects will apply during finalization.`, "success");
+}
+
+function renderClassGallery() {
+  dom.classGalleryGrid.innerHTML = CLASS_DEFS.map((definition) => {
+    const profile = CLASS_CARD_PROFILES[definition.id] || CLASS_CARD_PROFILES[""];
+    const selected = character.identity.classId === definition.id;
+    return `<button class="class-preview-card${selected ? " selected" : ""}" style="--class-accent:${escapeAttribute(profile.color)}" type="button" data-class-card="${escapeAttribute(definition.id)}">
+      <span>${escapeHtml(profile.role)}</span><strong>${escapeHtml(definition.name)}</strong><small>${escapeHtml(profile.preview)}</small><b>${selected ? "Selected" : "View Class"}</b>
+    </button>`;
+  }).join("");
+}
+
+function showClassCardDetail(classId) {
+  const definition = classById(classId);
+  const profile = CLASS_CARD_PROFILES[definition.id] || CLASS_CARD_PROFILES[""];
+  activeClassCardId = definition.id;
+  dom.classCardDetail.style.setProperty("--class-accent", profile.color);
+  dom.classCardDetailName.textContent = definition.name;
+  dom.classCardDetailRole.textContent = profile.role;
+  dom.classCardDetailSummary.textContent = definition.summary;
+  const notes = [definition.manual, definition.pendingAtb ? "Some dedicated ATB prompts are still resolved at the table until their station or combat interface is added." : ""].filter(Boolean);
+  dom.classCardDetailNotes.innerHTML = notes.length ? notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("") : "<li>All currently automated effects apply during finalization.</li>";
+  dom.chooseClassCard.textContent = definition.id ? `Choose ${definition.name}` : "Choose No Class";
+  dom.classGalleryChooser.hidden = true;
+  dom.classCardDetail.hidden = false;
+  dom.classCardDetail.classList.remove("class-card-entering");
+  requestAnimationFrame(() => dom.classCardDetail.classList.add("class-card-entering"));
+}
+
+function openClassGallery() {
+  if (character.phase !== "draft") return;
+  activeClassCardId = "";
+  renderClassGallery();
+  dom.classCardDetail.hidden = true;
+  dom.classGalleryChooser.hidden = false;
+  dom.classGalleryModal.hidden = false;
+  document.body.classList.add("class-gallery-open");
+  dom.closeClassGallery.focus();
+}
+
+function closeClassGallery() {
+  dom.classGalleryModal.hidden = true;
+  document.body.classList.remove("class-gallery-open");
+  activeClassCardId = "";
+  dom.classCardPickerButton.focus({ preventScroll: true });
 }
 
 function renderBackgroundTheme() {
@@ -2967,6 +3133,9 @@ function renderClass() {
   dom.classPicker.value = character.identity.classId;
   dom.classPicker.disabled = character.phase !== "draft";
   const classDefinition = classById(character.identity.classId);
+  dom.classCardPickerButton.disabled = character.phase !== "draft";
+  dom.classCardPickerButton.textContent = character.identity.classId ? classDefinition.name : "Choose Class";
+  dom.classCardPickerButton.classList.toggle("has-selection", Boolean(character.identity.classId));
   const raceDefinition = selectedRace();
   const raceType = selectedRaceType();
   const customRace = character.identity.raceKind === "other";
@@ -3075,7 +3244,7 @@ function renderWorkflow() {
     const race = selectedRace();
     requirements.push({ key: "race", label: `Choose ${race?.name || "Race"} Type`, target: "#raceTypePicker" });
   }
-  if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classPicker" });
+  if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classCardPickerButton" });
   if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#raceCardPickerButton" });
   if (!validation.attributesComplete) {
     const difference = validation.attributeBudget - validation.attributeSpent;
@@ -6402,9 +6571,12 @@ dom.backToRaceGallery.addEventListener("click", () => {
   dom.raceGalleryChooser.hidden = false;
   renderRaceGallery();
 });
+dom.previousRaceSubtype.addEventListener("click", () => changeRaceSubtype(-1));
+dom.nextRaceSubtype.addEventListener("click", () => changeRaceSubtype(1));
 dom.chooseRaceCard.addEventListener("click", () => {
   if (!activeRaceCardId) return;
-  applyRaceSelection(activeRaceCardId);
+  const subtype = raceById(activeRaceCardId)?.types?.[activeRaceSubtypeIndex]?.id || "";
+  applyRaceSelection(activeRaceCardId, subtype);
   closeRaceGallery();
 });
 document.addEventListener("keydown", (event) => {
@@ -6417,6 +6589,17 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   closeRaceGallery();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || dom.classGalleryModal.hidden) return;
+  if (!dom.classCardDetail.hidden) {
+    activeClassCardId = "";
+    dom.classCardDetail.hidden = true;
+    dom.classGalleryChooser.hidden = false;
+    renderClassGallery();
+    return;
+  }
+  closeClassGallery();
 });
 
 dom.raceCustom.addEventListener("input", () => {
@@ -6440,17 +6623,25 @@ dom.raceTypePicker.addEventListener("change", () => {
   if (character.identity.raceType) scrollToCreationModifiers();
 });
 
-dom.classPicker.addEventListener("change", () => {
-  if (character.phase !== "draft") return;
-  const previousMaxHp = maximumHp();
-  character.identity.classId = dom.classPicker.value;
-  character.identity.className = classById(dom.classPicker.value).name;
-  character.creation.classAttributeChoice = "";
-  syncDerivedResources(previousMaxHp);
-  queueSave();
-  renderAll();
-  if (character.identity.classId) scrollToCreationModifiers();
-  notice(`${character.identity.className} selected. Class effects will apply during finalization.`, "success");
+dom.classPicker.addEventListener("change", () => applyClassSelection(dom.classPicker.value));
+dom.classCardPickerButton.addEventListener("click", openClassGallery);
+dom.closeClassGallery.addEventListener("click", closeClassGallery);
+dom.classGalleryModal.addEventListener("click", (event) => {
+  if (event.target === dom.classGalleryModal) closeClassGallery();
+});
+dom.classGalleryGrid.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-class-card]");
+  if (card) showClassCardDetail(card.dataset.classCard || "");
+});
+dom.backToClassGallery.addEventListener("click", () => {
+  activeClassCardId = "";
+  dom.classCardDetail.hidden = true;
+  dom.classGalleryChooser.hidden = false;
+  renderClassGallery();
+});
+dom.chooseClassCard.addEventListener("click", () => {
+  applyClassSelection(activeClassCardId);
+  closeClassGallery();
 });
 
 dom.homePlanetPicker.addEventListener("change", () => {

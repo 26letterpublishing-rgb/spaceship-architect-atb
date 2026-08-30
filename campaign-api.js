@@ -1138,7 +1138,7 @@ class CampaignApi {
       const npcSquares = [152, 153, 172, 173, 192];
       const units = pcDefinitions.map((entry, index) => ({
         id: `unit-${entry.id}`, playerName: entry.playerName, characterName: entry.characterName, speed: entry.speed,
-        commandWindow: entry.commandWindow, atb: [72, 46, 18][index], encounterSpeedBonus: 0, regenerationRate: 0,
+        commandWindow: entry.commandWindow, atb: 0, encounterSpeedBonus: 0, regenerationRate: 0,
         regenerationProgress: 0, recurringHealingProgress: 0, delay: null, delayTimer: null, delayedAction: null, queuedEffects: [],
         controlledBy: "player", team: "pc", allyNpc: false, actorType: "character", color: entry.color, tieSeed: index / 10,
         characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: 4, highestPerceptionDie: 8,
@@ -1150,7 +1150,7 @@ class CampaignApi {
       }));
       units.push(...selectedNpcs.map((npc, index) => ({
         id: `unit-showcase-npc-${index}`, playerName: "GM", characterName: npc.name, speed: npc.speed, commandWindow: null,
-        atb: [88, 61, 37, 24, 8][index], encounterSpeedBonus: 0, regenerationRate: 0, regenerationProgress: 0,
+        atb: 0, encounterSpeedBonus: 0, regenerationRate: 0, regenerationProgress: 0,
         recurringHealingProgress: 0, delay: null, delayTimer: null, delayedAction: null, queuedEffects: [], controlledBy: "gm",
         team: "npc", allyNpc: false, actorType: "character", color: npc.color, tieSeed: .5 + index / 10, characterId: "", playerConnected: false,
         moveSpeed: npc.moveSpeed, physicalAttribute: npc.physicalAttribute, mentalAttribute: npc.mentalAttribute,
@@ -1158,7 +1158,7 @@ class CampaignApi {
         weapons: [{ inventoryId: `showcase-npc-${index}-weapon`, weaponId: npc.heldWeaponId }], heldWeaponId: `showcase-npc-${index}-weapon`, items: [],
         location: showcaseLocation(npcShip.id, npcSquares[index]), travelRoute: [],
       })));
-      campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: true, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared and paused." }] };
+      campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: false, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared. Engage the clock when ready." }] };
       const normalized = normalizeCampaign(campaign);
       normalized.showcase = true;
       normalized.encounter.showcase = true;

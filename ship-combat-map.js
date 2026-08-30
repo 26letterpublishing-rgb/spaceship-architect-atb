@@ -267,6 +267,11 @@
   enterStation.addEventListener("click", async () => { const unit = selectedUnit(); await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "enterStation", stationName: footprint(selectedShip()).get(Number(unit.location.square))?.label || "SIC" }); close(); });
   leaveStation.addEventListener("click", async () => { await bridge()?.action({ action: "playerCombatAction", id: selectedUnitId, kind: "getUp" }); close(); });
   openButton?.addEventListener("click", () => open()); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-ship-map]");
+    if (!button) return;
+    open({ starshipId: button.dataset.openShipMap, interaction: mode === "gm" ? "relocate" : "view" });
+  });
   window.addEventListener("sa-combat-state", (event) => { combatState = event.detail.state; mode = event.detail.mode; myUnitId = event.detail.myUnitId; if (!selectedUnitId) selectedUnitId = mode === "player" ? myUnitId : combatState?.activeId || ""; render(); });
   window.SACombatMap = { open, openMove(unit) { open({ interaction: "move", unitId: unit.id, starshipId: unit.location?.starshipId }); }, render };
 })();

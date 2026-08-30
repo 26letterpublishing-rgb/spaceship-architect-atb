@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260829-race-cards" />
+  <link rel="stylesheet" href="character.css?v=20260830-galleries-fleet" />
   <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -160,7 +160,10 @@
             <label id="raceTypeField" hidden>Race Type
               <select id="raceTypePicker" aria-label="Race type"></select>
             </label>
-            <label>Class<select id="classPicker"></select></label>
+            <div class="identity-choice-field class-choice-field"><span>Class</span>
+              <button id="classCardPickerButton" class="identity-choice-button" type="button">Choose Class</button>
+              <select id="classPicker" aria-label="Character class" hidden></select>
+            </div>
             <label>Home Planet
               <select id="homePlanetPicker" aria-label="Home planet"></select>
               <input id="homePlanetCustom" type="text" placeholder="Enter your home planet" aria-label="Custom home planet" hidden />
@@ -731,7 +734,7 @@
           <div id="raceGalleryGrid" class="race-gallery-grid"></div>
           <div class="race-gallery-legacy">
             <label>More Races<select id="raceGalleryFallback" aria-label="Choose another race"></select></label>
-            <small>Bruggle and Grey use the new illustrated card format in this preview. The remaining race cards will arrive in later passes.</small>
+            <small>Additional races remain available here while their illustrated cards are prepared.</small>
           </div>
         </div>
         <article id="raceCardDetail" class="race-card-detail" hidden>
@@ -739,6 +742,11 @@
           <div class="race-card-copy">
             <header><span class="dialog-kicker">Race Profile</span><h2 id="raceCardDetailName">Race</h2></header>
             <p id="raceCardDetailDescription" class="race-card-description"></p>
+            <div id="raceSubtypeControls" class="race-subtype-controls" hidden>
+              <button id="previousRaceSubtype" type="button" aria-label="Previous race type">&lt;</button>
+              <strong id="raceSubtypeName"></strong>
+              <button id="nextRaceSubtype" type="button" aria-label="Next race type">&gt;</button>
+            </div>
             <div class="race-card-rules">
               <section><h3>Advantages</h3><ul id="raceCardAdvantages"></ul></section>
               <section><h3>Disadvantages</h3><ul id="raceCardDisadvantages"></ul></section>
@@ -751,8 +759,35 @@
         </article>
       </section>
     </div>
+    <div id="classGalleryModal" class="modal-shell class-gallery-modal" hidden>
+      <section class="class-gallery-shell" role="dialog" aria-modal="true" aria-labelledby="classGalleryTitle">
+        <div id="classGalleryChooser" class="class-gallery-chooser">
+          <header class="race-gallery-header">
+            <div><span class="dialog-kicker">Character Role</span><h2 id="classGalleryTitle">Choose Class</h2></div>
+            <button id="closeClassGallery" class="race-gallery-close" type="button" aria-label="Close class selection">X</button>
+          </header>
+          <p class="race-gallery-intro">Inspect every class before choosing the role and special rules that best fit your character.</p>
+          <div id="classGalleryGrid" class="class-gallery-grid"></div>
+        </div>
+        <article id="classCardDetail" class="class-card-detail" hidden>
+          <header>
+            <span id="classCardDetailRole" class="class-detail-role"></span>
+            <h2 id="classCardDetailName">Class</h2>
+          </header>
+          <section class="class-detail-core">
+            <span class="dialog-kicker">Complete Class Rules</span>
+            <p id="classCardDetailSummary"></p>
+            <div class="class-detail-notes"><h3>Implementation Notes</h3><ul id="classCardDetailNotes"></ul></div>
+          </section>
+          <div class="race-card-actions">
+            <button id="backToClassGallery" type="button">Back</button>
+            <button id="chooseClassCard" class="primary-action" type="button">Choose Class</button>
+          </div>
+        </article>
+      </section>
+    </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script type="module" src="character.js?v=20260829-race-cards"></script>
+    <script type="module" src="character.js?v=20260830-galleries-fleet"></script>
   </body>
 </html>
