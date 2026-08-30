@@ -33,73 +33,127 @@ const RACE_CARD_PROFILES = {
     image: "race-bruggle.png",
     preview: "Powerful amphibious socialites built for rough climates and rougher company.",
     description: "Bruggles are towering, powerfully built amphibians descended from Antropic Fins on Tarinian Volkmire. Their dense muscles developed under intense gravity, while their patterned hides range from swamp greens and earth browns to rare yellows and oranges. Bruggle culture is loud, social, and fiercely physical. Friendly arguments can become contests of strength, taverns are natural gathering places, and a hard fight is often remembered as fondly as a good meal. They are carnivorous, comfortable in punishing heat or cold, and equally at home on land or underwater.",
-    focus: "center 7%",
+    focus: "center top",
   },
   grey: {
     image: "race-grey.png",
     preview: "Ancient, observant telepaths who study developing civilizations from the dark.",
     description: "Greys are short, slender humanoids recognized by smooth gray skin, oversized heads, narrow mouths, nose slits, and enormous black eyes. Their civilization has observed younger species for ages, recording discoveries and enforcing a strict principle of noninterference until a world develops warp travel. Greys favor simple, close-fitting clothing and quiet efficiency. Their intelligence and telekinetic gifts make them formidable observers, while their fragile bodies and unfamiliar relationship with physical force shape the way they survive direct conflict.",
-    focus: "center 6%",
+    focus: "center top",
   },
   human: {
     image: "race-human.png",
     preview: "Adaptable newcomers whose flexibility becomes experience after creation.",
     description: "Humans are ambitious, adaptable, and unusually quick to turn hard-won experience into practical skill. They lack the dramatic biological gifts of many starfaring species, but compensate with curiosity, cultural variety, and a stubborn talent for surviving unfamiliar situations. Human crews can be found in nearly every role, from explorers and diplomats to engineers and soldiers.",
-    focus: "center 15%",
+    focus: "center top",
   },
   android: {
     image: "race-android.png",
     preview: "Engineered synthetic people with tireless bodies and customizable forms.",
     description: "Androids are constructed people whose bodies range from convincingly organic replicas to visibly mechanical robots. They do not age, breathe, eat, sleep, or suffer ordinary disease, but must periodically recharge and depend on Credits rather than Experience for personal development. Their chosen construction type defines how convincingly human or deliberately mechanical they appear.",
-    focus: "center 12%",
+    focus: "center top",
+    subtypes: {
+      "perfect-android": {
+        image: "race-android-perfect-android.webp",
+        description: "Perfect Androids are synthetic people built to pass as organic humans. Artificial skin, hair, expression, and movement conceal a precision-engineered body beneath the surface. Their human appearance makes them natural infiltrators and diplomats, although medical scans and physical damage can reveal the machinery within.",
+      },
+      "imperfect-android": {
+        image: "race-android-imperfect-android.webp",
+        description: "Imperfect Androids resemble humans without attempting to hide their construction. Visible seams, mechanical joints, synthetic eyes, and exposed components make their nature obvious. Many embrace that identity, combining an approachable humanoid silhouette with the durability and adaptability of a machine.",
+      },
+      "perfect-robot": {
+        image: "race-android-perfect-robot.webp",
+        description: "Perfect Robots are openly mechanical people housed in pristine, purpose-built bodies. They make no attempt to imitate organic life. Their elegant frames are designed for efficiency, durability, and specialized work, often appearing more like advanced spacecraft technology than a conventional humanoid.",
+      },
+      "imperfect-robot": {
+        image: "race-android-imperfect-robot.webp",
+        description: "Imperfect Robots inhabit practical machine bodies assembled for function rather than beauty. Industrial plating, replacement parts, repair seams, and mismatched components are common. Their rugged construction makes them easy to maintain and gives every Imperfect Robot a visibly unique history.",
+      },
+    },
   },
   antropic: {
     image: "race-antropic.png",
     preview: "A diverse evolutionary family whose Fangs, Feathers, Fins, and Fluffy forms differ sharply.",
     description: "Antropics are a broad family of related humanoids shaped by radically different environments. Fangs are nocturnal predators, Feathers are agile fliers, Fins are aquatic regenerators, and Fluffy Antropics are quick, expressive, and difficult to pin down. Choose a form to see the specific advantages and disadvantages carried by that branch of the species.",
-    focus: "center 13%",
+    focus: "center top",
+    subtypes: {
+      fangs: {
+        image: "race-antropic-fangs.webp",
+        description: "Antropic Fangs are nocturnal hunters distinguished by large ears, predatory teeth, and senses adapted to darkness. Their bodies are built for stalking prey and sudden close-range violence. Some enter long hibernation cycles, but when awake they are alert, patient, and exceptionally dangerous without a weapon.",
+      },
+      feather: {
+        image: "race-antropic-feather.webp",
+        description: "Antropic Feathers are lightweight avian humanoids with broad wings, plumage, and hollow bones. They are agile in the air and unusually quick on the ground, but their delicate frames cannot absorb punishment like heavier species. Armor and sealed spaces can limit the freedom their wings normally provide.",
+      },
+      fins: {
+        image: "race-antropic-fins.webp",
+        description: "Antropic Fins are aquatic humanoids with gills, webbed hands, and bodies adapted to life beneath the surface. Their remarkable regenerative biology slowly restores injuries, and they move through water with effortless speed. Away from water they remain capable, but their unusual senses and anatomy mark them immediately.",
+      },
+      fluffy: {
+        image: "race-antropic-fluffy.webp",
+        description: "Fluffy Antropics are fur-covered mammalian humanoids known for quick movement, expressive behavior, and deceptive resilience. Their insulating coats protect them from harsh climates, while their reflexes make them difficult to catch or restrain. Their appearance varies widely, but their energy rarely does.",
+      },
+    },
   },
   garmoc: {
     image: "race-garmoc.png",
     preview: "Massive armored predators whose fused physical dice can awaken D20 power.",
     description: "Garmocs are imposing reptilian predators protected by dense natural armor and formidable reserves of health. Their physical resilience makes them terrifying in direct conflict, and exceptional physical fusions can add independent D20 results to a roll. Their biology is less suited to delicate intellectual and social work, where very high results are limited and dice cannot fuse.",
-    focus: "center 13%",
+    focus: "center top",
   },
   pattanilia: {
     image: "race-pattanilia.png",
     preview: "Aquatic multispectrum observers with extraordinary technical intuition.",
     description: "Pattanilia are graceful aquatic humanoids whose senses extend far beyond ordinary visible light. They can breathe underwater, perceive heat, radio, sound, radiation, and other spectra, and display an exceptional instinct for starship systems. Their slight frames are vulnerable in direct physical combat, but their perception, intellect, willpower, and technical adaptability make them remarkably capable explorers.",
-    focus: "center 12%",
+    focus: "center top",
+  },
+  angiluros: {
+    image: "race-angiluros.webp",
+    preview: "Proud feline warriors who craft their own path, their own weapons, and their own honor.",
+    description: "Angiluros are tall feline humanoids whose patterned fur, handmade jewelry, and tribal garments reflect a culture shaped by a devastated homeworld. They prize honor, self-reliance, spiritual discipline, and craftsmanship. An Angiluros is expected to make their own weapons rather than trust metalwork produced by outsiders, and many carry that conviction into space with fierce pride.",
+    focus: "center top",
+  },
+  spiddix: {
+    image: "race-spiddix.webp",
+    preview: "Brilliant living brains who rely on customizable mechanical bodies to navigate the galaxy.",
+    description: "Spiddix are enormous living brains with eyes, mouths, and small vestigial appendages. To interact with the physical world they inhabit mechanical cradles ranging from humanoid frames to many-legged industrial bodies. Their machines can be rebuilt and improved, but separation leaves the organic Spiddix almost immobile and dangerously vulnerable.",
+    focus: "center top",
+  },
+  "yetuak-zune": {
+    image: "race-yetuak-zune.webp",
+    preview: "Long-lived ice mystics who balance ritual, logic, and an intimate understanding of the cold.",
+    description: "Ye'tuak Zune are long-lived, elf-like beings from a frozen world. Their skin ranges through blue, violet, and near-black hues, and their pointed ears and dark ceremonial robes reflect an ancient spiritual culture. They approach unfamiliar problems with ritual precision and cool logic, endure extreme cold without fear, and see clearly through darkness and heat.",
+    focus: "center top",
   },
 };
 
 const CLASS_CARD_PROFILES = {
-  "": { role: "Uncommitted", preview: "Finalize without a class and add one later if the story calls for it.", color: "#8293a2" },
-  "ambassador-spy": { role: "Social Specialist", preview: "Builds Charisma and Luck in tandem after creation.", color: "#e774c8" },
-  blessed: { role: "Fortune Bearer", preview: "Begins with full Reverence and a hand of Drama Cards.", color: "#f4d75d" },
-  "corporate-worker": { role: "Financier", preview: "Enters play with substantial additional personal Credits.", color: "#70dc9c" },
-  decker: { role: "Digital Intruder", preview: "Manipulates security and repeatedly rerolls Computer Systems.", color: "#4ed8ed" },
-  "demolition-specialist": { role: "Fire Expert", preview: "Pushes Fire Intensity beyond ordinary limits.", color: "#ff774f" },
-  engineer: { role: "Station Engineer", preview: "Turns Intellect into extra starship Action Units.", color: "#58d8aa" },
-  gunner: { role: "Weapons Expert", preview: "Borrows a key die for Weapon Systems and supercharges damage.", color: "#ff5c70" },
-  heavy: { role: "Juggernaut", preview: "Carries larger weapons and gains substantial Maximum HP.", color: "#b6a58b" },
-  informant: { role: "Network Builder", preview: "Maintains a growing web of useful NPC contacts.", color: "#9aa8ff" },
-  "marine-soldier": { role: "Combat Veteran", preview: "Fuses Projectile triples and can recover through Willpower.", color: "#83b777" },
-  mastermind: { role: "Tactical Planner", preview: "Accelerates Initiative and greatly expands Command Windows.", color: "#b783ff" },
-  "medical-officer": { role: "Trauma Specialist", preview: "Triples healing and can rescue characters below zero HP.", color: "#62e2b3" },
-  "navigator-sensor-tech": { role: "Flight Specialist", preview: "Combines paired navigation, awareness, and sensor skills.", color: "#5bc7ff" },
-  ninja: { role: "Infiltrator", preview: "Turns Exertion into exceptional Stealth and precise combat.", color: "#8d7ed2" },
-  peacekeeper: { role: "Mediator", preview: "Strengthens negotiation and earns Drama Cards by preventing combat.", color: "#7ee0d9" },
-  pirate: { role: "Raider", preview: "Excels against vulnerable targets and salvages defeated ships.", color: "#d59a61" },
-  "playboy-minx": { role: "Social Chameleon", preview: "Blends persuasion and deception while courting chaos.", color: "#ff73b6" },
-  psychopath: { role: "Killer", preview: "Earns limited Experience through lethal encounters.", color: "#df5268" },
-  "robotics-worker": { role: "Synthetic Specialist", preview: "Improves Android and Spiddix advancement efficiency.", color: "#69c8d8" },
-  "rogue-drifter": { role: "Quick Starter", preview: "Begins every combat only a heartbeat away from acting.", color: "#d0b278" },
-  "science-officer": { role: "Researcher", preview: "Adds Intellect to perception and develops knowledge each session.", color: "#62b4ff" },
-  "scout-sniper": { role: "Recon Marksman", preview: "Improves tracking and awareness, then aims without losing momentum.", color: "#92c66f" },
-  smuggler: { role: "Resourceful Operator", preview: "Shares Charisma and Intellect dice across a broad skill set.", color: "#e1a65c" },
-  tactician: { role: "Team Coordinator", preview: "Distributes Reverence and Drama Cards across the crew.", color: "#8fa8ff" },
-  other: { role: "Custom Path", preview: "Chooses a special Attribute method and gains post-creation XP.", color: "#d27ee8" },
+  "": { icon: "?", preview: "Still deciding what kind of trouble suits you.", color: "#8293a2" },
+  "ambassador-spy": { icon: "&#9678;", preview: "Always knows what to say, and what not to say.", color: "#e774c8" },
+  blessed: { icon: "&#10022;", preview: "Seems luck is on your side.", color: "#f4d75d" },
+  "corporate-worker": { icon: "$", preview: "Everything has a price, especially loyalty.", color: "#70dc9c" },
+  decker: { icon: "&lt;/&gt;", preview: "Treats locked systems as personal invitations.", color: "#4ed8ed" },
+  "demolition-specialist": { icon: "&#10038;", preview: "Used to play with lighters as a kid.", color: "#ff774f" },
+  engineer: { icon: "&#128295;", preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
+  gunner: { icon: "&#8853;", preview: "Good with guns and weapon stations.", color: "#ff5c70" },
+  heavy: { icon: "&#9646;", preview: "Carries the weapon everyone else called impractical.", color: "#b6a58b" },
+  informant: { icon: "&#8981;", preview: "Knows somebody everywhere.", color: "#9aa8ff" },
+  "marine-soldier": { icon: "&#9733;", preview: "Trained to keep fighting when everyone else stops.", color: "#83b777" },
+  mastermind: { icon: "&#9004;", preview: "Already planned for this three problems ago.", color: "#b783ff" },
+  "medical-officer": { icon: "+", preview: "Keeps the crew breathing despite their best efforts.", color: "#62e2b3" },
+  "navigator-sensor-tech": { icon: "&#8982;", preview: "Finds the path and sees trouble coming.", color: "#5bc7ff" },
+  ninja: { icon: "&#9670;", preview: "Was never there. Definitely did not touch anything.", color: "#8d7ed2" },
+  peacekeeper: { icon: "&#9774;", preview: "Prefers words, but came prepared.", color: "#7ee0d9" },
+  pirate: { icon: "&#9760;", preview: "Finders keepers is a professional philosophy.", color: "#d59a61" },
+  "playboy-minx": { icon: "&#128139;", preview: "Charm first. Consequences later.", color: "#ff73b6" },
+  psychopath: { icon: "!", preview: "Violence is rarely the first answer.", color: "#df5268" },
+  "robotics-worker": { icon: "&#9881;", preview: "Understands machines better than most people.", color: "#69c8d8" },
+  "rogue-drifter": { icon: "&#8605;", preview: "Never stays anywhere long enough to be blamed.", color: "#d0b278" },
+  "science-officer": { icon: "&#9879;", preview: "Has a hypothesis and very little fear.", color: "#62b4ff" },
+  "scout-sniper": { icon: "&#9673;", preview: "Sees the danger before it sees the crew.", color: "#92c66f" },
+  smuggler: { icon: "&#9671;", preview: "Can get almost anything past almost anyone.", color: "#e1a65c" },
+  tactician: { icon: "&#9823;", preview: "Turns a group of individuals into a plan.", color: "#8fa8ff" },
+  other: { icon: "?", preview: "Does not fit cleanly into anyone else's category.", color: "#d27ee8" },
 };
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
@@ -260,7 +314,7 @@ const dom = {
   classGalleryChooser: $("#classGalleryChooser"),
   classCardDetail: $("#classCardDetail"),
   classCardDetailName: $("#classCardDetailName"),
-  classCardDetailRole: $("#classCardDetailRole"),
+  classCardDetailIcon: $("#classCardDetailIcon"),
   classCardDetailSummary: $("#classCardDetailSummary"),
   classCardDetailNotes: $("#classCardDetailNotes"),
   backToClassGallery: $("#backToClassGallery"),
@@ -2895,6 +2949,7 @@ function renderRace() {
 
 let activeRaceCardId = "";
 let activeRaceSubtypeIndex = 0;
+let raceSubtypeTransitioning = false;
 let activeClassCardId = "";
 
 function applyRaceSelection(value, raceType = "") {
@@ -2933,7 +2988,7 @@ function renderRaceGallery() {
   dom.raceGalleryGrid.innerHTML = Object.entries(RACE_CARD_PROFILES).map(([id, profile]) => {
     const definition = raceById(id);
     const selected = character.identity.raceId === id;
-    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center 10%")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
+    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
       <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
       <span class="race-preview-shade"></span>
       <strong>${escapeHtml(definition.name)}</strong>
@@ -2949,24 +3004,25 @@ function renderRaceGallery() {
   dom.raceGalleryFallback.value = RACE_CARD_PROFILES[character.identity.raceId] ? "" : character.identity.raceKind === "other" ? "__other__" : character.identity.raceId;
 }
 
-function renderRaceCardRules(direction = 0) {
+function renderRaceCardRules() {
   const definition = raceById(activeRaceCardId);
   const profile = RACE_CARD_PROFILES[activeRaceCardId];
   if (!definition || !profile) return;
   const subtype = definition.types?.[activeRaceSubtypeIndex] || null;
+  const subtypeProfile = subtype ? profile.subtypes?.[subtype.id] : null;
   const advantages = [...(definition.advantages || []), ...(subtype?.advantages || [])];
   const disadvantages = [...(definition.disadvantages || []), ...(subtype?.disadvantages || [])];
   dom.raceSubtypeControls.hidden = !definition.types?.length;
+  dom.previousRaceSubtype.hidden = !definition.types?.length;
+  dom.nextRaceSubtype.hidden = !definition.types?.length;
   dom.raceSubtypeName.textContent = subtype?.name || "";
+  dom.raceCardDetailImage.src = subtypeProfile?.image || profile.image;
+  dom.raceCardDetailImage.alt = `${definition.name}${subtype ? ` ${subtype.name}` : ""} full-body appearance`;
+  dom.raceCardDetailName.textContent = definition.name;
+  dom.raceCardDetailDescription.textContent = subtypeProfile?.description || profile.description;
   dom.raceCardAdvantages.innerHTML = raceRuleList(advantages);
   dom.raceCardDisadvantages.innerHTML = raceRuleList(disadvantages);
   dom.chooseRaceCard.textContent = `Choose ${definition.name}${subtype ? ` - ${subtype.name}` : ""}`;
-  if (direction) {
-    const copy = dom.raceCardDetail.querySelector(".race-card-rules");
-    copy.classList.remove("subtype-slide-left", "subtype-slide-right");
-    void copy.offsetWidth;
-    copy.classList.add(direction > 0 ? "subtype-slide-left" : "subtype-slide-right");
-  }
 }
 
 function showRaceCardDetail(raceId) {
@@ -2976,10 +3032,6 @@ function showRaceCardDetail(raceId) {
   activeRaceCardId = raceId;
   const selectedIndex = definition.types?.findIndex((type) => type.id === character.identity.raceType) ?? -1;
   activeRaceSubtypeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-  dom.raceCardDetailImage.src = profile.image;
-  dom.raceCardDetailImage.alt = `${definition.name} full-body appearance`;
-  dom.raceCardDetailName.textContent = definition.name;
-  dom.raceCardDetailDescription.textContent = profile.description;
   renderRaceCardRules();
   dom.raceGalleryChooser.hidden = true;
   dom.raceCardDetail.hidden = false;
@@ -3008,9 +3060,32 @@ function closeRaceGallery() {
 function changeRaceSubtype(direction) {
   const definition = raceById(activeRaceCardId);
   const count = definition?.types?.length || 0;
-  if (count < 2) return;
-  activeRaceSubtypeIndex = (activeRaceSubtypeIndex + direction + count) % count;
-  renderRaceCardRules(direction);
+  if (count < 2 || raceSubtypeTransitioning) return;
+  const panels = dom.raceCardDetail.querySelectorAll(".race-card-art, .race-card-copy");
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const updateProfile = () => {
+    activeRaceSubtypeIndex = (activeRaceSubtypeIndex + direction + count) % count;
+    renderRaceCardRules();
+  };
+  if (reducedMotion) {
+    updateProfile();
+    return;
+  }
+  raceSubtypeTransitioning = true;
+  const outClass = direction > 0 ? "subtype-profile-out-left" : "subtype-profile-out-right";
+  const inClass = direction > 0 ? "subtype-profile-in-right" : "subtype-profile-in-left";
+  panels.forEach((panel) => panel.classList.add(outClass));
+  setTimeout(() => {
+    updateProfile();
+    panels.forEach((panel) => {
+      panel.classList.remove(outClass);
+      panel.classList.add(inClass);
+    });
+    setTimeout(() => {
+      panels.forEach((panel) => panel.classList.remove(inClass));
+      raceSubtypeTransitioning = false;
+    }, 330);
+  }, 220);
 }
 
 function applyClassSelection(value) {
@@ -3031,7 +3106,7 @@ function renderClassGallery() {
     const profile = CLASS_CARD_PROFILES[definition.id] || CLASS_CARD_PROFILES[""];
     const selected = character.identity.classId === definition.id;
     return `<button class="class-preview-card${selected ? " selected" : ""}" style="--class-accent:${escapeAttribute(profile.color)}" type="button" data-class-card="${escapeAttribute(definition.id)}">
-      <span>${escapeHtml(profile.role)}</span><strong>${escapeHtml(definition.name)}</strong><small>${escapeHtml(profile.preview)}</small><b>${selected ? "Selected" : "View Class"}</b>
+      <span class="class-card-icon" aria-hidden="true">${profile.icon}</span><strong>${escapeHtml(definition.name)}</strong><small>${escapeHtml(profile.preview)}</small><b>${selected ? "Selected" : "View Class"}</b>
     </button>`;
   }).join("");
 }
@@ -3042,7 +3117,7 @@ function showClassCardDetail(classId) {
   activeClassCardId = definition.id;
   dom.classCardDetail.style.setProperty("--class-accent", profile.color);
   dom.classCardDetailName.textContent = definition.name;
-  dom.classCardDetailRole.textContent = profile.role;
+  dom.classCardDetailIcon.innerHTML = profile.icon;
   dom.classCardDetailSummary.textContent = definition.summary;
   const notes = [definition.manual, definition.pendingAtb ? "Some dedicated ATB prompts are still resolved at the table until their station or combat interface is added." : ""].filter(Boolean);
   dom.classCardDetailNotes.innerHTML = notes.length ? notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("") : "<li>All currently automated effects apply during finalization.</li>";

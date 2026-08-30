@@ -738,14 +738,14 @@
           </div>
         </div>
         <article id="raceCardDetail" class="race-card-detail" hidden>
+          <button id="previousRaceSubtype" class="race-subtype-edge race-subtype-edge-previous" type="button" aria-label="Previous race type" hidden>&lt;</button>
+          <button id="nextRaceSubtype" class="race-subtype-edge race-subtype-edge-next" type="button" aria-label="Next race type" hidden>&gt;</button>
           <div class="race-card-art"><img id="raceCardDetailImage" alt="" /></div>
           <div class="race-card-copy">
             <header><span class="dialog-kicker">Race Profile</span><h2 id="raceCardDetailName">Race</h2></header>
             <p id="raceCardDetailDescription" class="race-card-description"></p>
             <div id="raceSubtypeControls" class="race-subtype-controls" hidden>
-              <button id="previousRaceSubtype" type="button" aria-label="Previous race type">&lt;</button>
               <strong id="raceSubtypeName"></strong>
-              <button id="nextRaceSubtype" type="button" aria-label="Next race type">&gt;</button>
             </div>
             <div class="race-card-rules">
               <section><h3>Advantages</h3><ul id="raceCardAdvantages"></ul></section>
@@ -771,7 +771,7 @@
         </div>
         <article id="classCardDetail" class="class-card-detail" hidden>
           <header>
-            <span id="classCardDetailRole" class="class-detail-role"></span>
+            <span id="classCardDetailIcon" class="class-detail-icon" aria-hidden="true"></span>
             <h2 id="classCardDetailName">Class</h2>
           </header>
           <section class="class-detail-core">
@@ -788,6 +788,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script type="module" src="character.js?v=20260830-galleries-fleet"></script>
+    <script type="module" src="character.js?v=20260830-race-subtypes-classes"></script>
   </body>
 </html>
