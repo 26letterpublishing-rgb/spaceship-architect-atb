@@ -127,20 +127,20 @@ const RACE_CARD_PROFILES = {
     description: "Ye'tuak Zune are long-lived, elf-like beings from a frozen world. Their skin ranges through blue, violet, and near-black hues, and their pointed ears and dark ceremonial robes reflect an ancient spiritual culture. They approach unfamiliar problems with ritual precision and cool logic, endure extreme cold without fear, and see clearly through darkness and heat.",
     focus: "center top",
   },
-  "butchers-of-hellmouth": { image: "race-butchers-of-hellmouth-v2.png", preview: "Eyeless horrors whose strength and endurance border on the impossible.", description: "The Butchers of Hellmouth are immense, eyeless beings shaped by a brutal world of heat, smoke, and close-range violence. They survive injuries that would end most species and approach strength as both a necessity and a cultural language.", focus: "center top" },
+  "butchers-of-hellmouth": { image: "race-butchers-of-hellmouth-v3.png", preview: "Eyeless horrors whose strength and endurance border on the impossible.", description: "The Butchers of Hellmouth are immense, eyeless beings shaped by a brutal world of heat, smoke, and close-range violence. They survive injuries that would end most species and approach strength as both a necessity and a cultural language.", focus: "center top" },
   "draco-prime": { image: "race-draco-prime.png", preview: "Cold-blooded shapeshifters who hide in plain sight without leaving heat behind.", description: "Draco Prime are reptilian infiltrators able to reshape themselves into the rough appearance of other humanoid species. Their disguises are convincing at a glance, though their eyes and tongue can betray them during moments of distraction.", focus: "center top" },
   epoc: { image: "race-epoc.png", preview: "Empathic artists whose presence keeps a crew poised and inspired.", description: "Epoc are graceful, emotionally perceptive beings whose societies elevate art, faith, expression, and social understanding. Their instinctive optimism can steady an entire crew even when physical adversity works against them.", focus: "center top" },
   "everliving-brethren": { image: "race-everliving-brethren.png", preview: "Regenerating horrors assembled from adaptable flesh and borrowed limbs.", description: "The Everliving Brethren are organless, regenerative beings whose bodies can survive catastrophic damage and accept replacement limbs. Their strange anatomy is tremendously resilient, though fire remains a terrifying weakness.", focus: "center top" },
   flavilin: { image: "race-flavilin.png", preview: "Nocturnal technicians who see machinery and darkness with equal clarity.", description: "Flavilin are darkness-adapted observers with an extraordinary affinity for engineering, technology, and awareness. Bright light can overwhelm them, but in dim environments their senses and technical intuition flourish.", focus: "center top" },
   horus: { image: "race-horus.png", preview: "Far-seeing observers whose compound perception notices almost everything.", description: "Horus possess remarkable eyes, broad fields of vision, and a talent for learning skills through unusually favorable advancement rolls. Their perception can combine matching results in ways other species cannot reproduce.", focus: "center top" },
-  kabuto: { image: "race-kabuto-v2.png", preview: "Tiny beetle-like gliders who refuse to let pain slow them down.", description: "Kabuto are one-foot-tall beetle-like beings capable of gliding and surviving dangerous falls. Their unusual bodies cannot handle bulky equipment, but their speed, defense, and complete disregard for pain make them difficult opponents.", focus: "center top" },
+  kabuto: { image: "race-kabuto-v2.png", preview: "Tiny beetle-like gliders who refuse to let pain slow them down.", description: "Kabuto are one-foot-tall beetle-like beings capable of gliding and surviving dangerous falls. Their unusual bodies cannot handle bulky equipment, but their speed, defense, and complete disregard for pain make them difficult opponents.", focus: "center top", previewY: "-15%" },
   "krax-gny-vtek": { image: "race-krax-gny-vtek.png", preview: "Vacuum-hardened nocturnal predators built for sudden, decisive violence.", description: "Krax G'ny V'Tek are stealthy reptilian hunters with natural weapons, dark-adapted senses, and a body able to endure brief exposure to space. Injury can hinder their agility, but an unarmed Krax remains lethally dangerous.", focus: "center top" },
   "nordic-flaxen": { image: "race-nordic-flaxen.png", preview: "Radiant wanderers whose improbable luck becomes effortless charm.", description: "Nordic Flaxen are striking, durable humanoids whose good fortune naturally strengthens their social presence. Their bodies withstand remarkable punishment, though Dark energy cuts through them with unusual severity.", focus: "center top" },
   skeder: { image: "race-skeder-v2.png", preview: "Mantis-limbed specialists protected by formidable natural armor.", description: "Sked'er are alien arthropods with reverse-jointed legs and small mantis-like arms. Their bodies, equipment, and language demand extensive customization. They struggle with conventional social interaction, but their natural protection, wide vision, and technical independence make them exceptional survivors.", focus: "center top" },
   "slyn-tanni": { image: "race-slyn-tanni.png", preview: "Aquatic fliers who turn grace, speed, and warmth into survival.", description: "Slyn Tanni are amphibious beings capable of controlled flight and extraordinary movement through water. They are expressive and agile, but cold environments slow their bodies and Ice is especially dangerous to them.", focus: "center top" },
   tamalori: { image: "race-tamalori.png", preview: "Lightning-fast hunters whose fragility makes every mistake dangerous.", description: "TaMalori are extraordinarily agile beings whose reflexes effectively multiply their Dexterity. Their bodies cannot develop the greatest physical strength, and critical injuries are devastating, so survival depends on never being where the blow lands.", focus: "center top" },
   "vinolio-paxton": { image: "race-vinolio-paxton.png", preview: "Telekinetic fliers who trade stubborn resolve for impossible mobility.", description: "Vinolio Paxton are light-bodied humanoids capable of short bursts of flight and telekinetic manipulation. Their powers demand exertion and developing Willpower is costly, but few species match their freedom of movement.", focus: "center top" },
-  xithx: { image: "race-xithx-v2.png", preview: "Two-armed, water-walking insectoids armored by instinct and patient endurance.", description: "Xithx are two-armed, many-eyed insectoids linked by a faint racial telepathy. Their natural armor and complete field of vision make them difficult to surprise, while their light bodies can cross liquid surfaces without sinking.", focus: "center top" },
+  xithx: { image: "race-xithx-v2.png", preview: "Water-walking insectoids armored by instinct and patient endurance.", description: "Xithx are many-eyed insectoids linked by a faint racial telepathy. Their natural armor and complete field of vision make them difficult to surprise, while their light bodies can cross liquid surfaces without sinking.", focus: "center top" },
   "yuhorn-symitron": {
     image: "race-yuhorn-rock.png",
     preview: "Elemental colossi shaped from ice, lava, stone, or living wood.",
@@ -155,16 +155,30 @@ const RACE_CARD_PROFILES = {
   },
 };
 
+function classIconSvg(kind) {
+  const icons = {
+    x: '<path d="M5 5l14 14M19 5L5 19"/>',
+    wrench: '<path d="M14.5 6.5a5 5 0 0 0-6.2 6.2L3 18l3 3 5.3-5.3a5 5 0 0 0 6.2-6.2l-3 3-3-3 3-3Z"/>',
+    lips: '<path d="M3 12c3-1 5-5 9-2 4-3 6 1 9 2-3 6-15 6-18 0Zm0 0c5 1 13 1 18 0"/>',
+    beaker: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M7 16h10"/>',
+    weights: '<path d="M2 9v6M5 7v10M8 10h8M16 7v10M19 9v6M22 10v4"/>',
+    knife: '<path d="M4 20l6-6m0 0 8-11c2 5 1 9-3 12l-5-1Zm-2 2-4-4"/><path class="icon-blood" d="M17 17c0 2-3 2-3 0 0-1 1.5-3 1.5-3s1.5 2 1.5 3Z"/>',
+    bag: '<path d="M5 9h14l1 12H4L5 9Zm4 0c0-5 6-5 6 0"/>',
+    robot: '<rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6M3 11v5M21 11v5"/>',
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[kind] || icons.x}</svg>`;
+}
+
 const CLASS_CARD_PROFILES = {
-  "": { icon: "?", preview: "Still deciding what kind of trouble suits you.", color: "#8293a2" },
+  "": { icon: classIconSvg("x"), preview: "Still deciding what kind of trouble suits you.", color: "#8293a2" },
   "ambassador-spy": { icon: "&#9678;", preview: "Always knows what to say, and what not to say.", color: "#e774c8" },
   blessed: { icon: "&#10022;", preview: "Seems luck is on your side.", color: "#f4d75d" },
   "corporate-worker": { icon: "$", preview: "Everything has a price, especially loyalty.", color: "#70dc9c" },
   decker: { icon: "&lt;/&gt;", preview: "Treats locked systems as personal invitations.", color: "#4ed8ed" },
   "demolition-specialist": { icon: "&#10038;", preview: "Used to play with lighters as a kid.", color: "#ff774f" },
-  engineer: { icon: "W", preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
+  engineer: { icon: classIconSvg("wrench"), preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
   gunner: { icon: "&#8853;", preview: "Good with guns and weapon stations.", color: "#ff5c70" },
-  heavy: { icon: "&#9646;", preview: "Carries the weapon everyone else called impractical.", color: "#b6a58b" },
+  heavy: { icon: classIconSvg("weights"), preview: "Carries the weapon everyone else called impractical.", color: "#b6a58b" },
   informant: { icon: "&#8981;", preview: "Knows somebody everywhere.", color: "#9aa8ff" },
   "marine-soldier": { icon: "&#9733;", preview: "Trained to keep fighting when everyone else stops.", color: "#83b777" },
   mastermind: { icon: "&#9004;", preview: "Already planned for this three problems ago.", color: "#b783ff" },
@@ -173,13 +187,13 @@ const CLASS_CARD_PROFILES = {
   ninja: { icon: "&#9670;", preview: "Was never there. Definitely did not touch anything.", color: "#8d7ed2" },
   peacekeeper: { icon: "&#9774;", preview: "Prefers words, but came prepared.", color: "#7ee0d9" },
   pirate: { icon: "&#9760;", preview: "Finders keepers is a professional philosophy.", color: "#d59a61" },
-  "playboy-minx": { icon: "XO", preview: "Charm first. Consequences later.", color: "#ff73b6" },
-  psychopath: { icon: "!", preview: "Violence is rarely the first answer.", color: "#df5268" },
-  "robotics-worker": { icon: "&#9881;", preview: "Understands machines better than most people.", color: "#69c8d8" },
+  "playboy-minx": { icon: classIconSvg("lips"), preview: "Charm first. Consequences later.", color: "#ff73b6" },
+  psychopath: { icon: classIconSvg("knife"), preview: "Violence is rarely the first answer.", color: "#df5268" },
+  "robotics-worker": { icon: classIconSvg("robot"), preview: "Understands machines better than most people.", color: "#69c8d8" },
   "rogue-drifter": { icon: "&#8605;", preview: "Never stays anywhere long enough to be blamed.", color: "#d0b278" },
-  "science-officer": { icon: "&#9879;", preview: "Has a hypothesis and very little fear.", color: "#62b4ff" },
+  "science-officer": { icon: classIconSvg("beaker"), preview: "Has a hypothesis and very little fear.", color: "#62b4ff" },
   "scout-sniper": { icon: "&#9673;", preview: "Sees the danger before it sees the crew.", color: "#92c66f" },
-  smuggler: { icon: "&#9671;", preview: "Can get almost anything past almost anyone.", color: "#e1a65c" },
+  smuggler: { icon: classIconSvg("bag"), preview: "Can get almost anything past almost anyone.", color: "#e1a65c" },
   tactician: { icon: "&#9823;", preview: "Turns a group of individuals into a plan.", color: "#8fa8ff" },
   other: { icon: "?", preview: "Does not fit cleanly into anyone else's category.", color: "#d27ee8" },
 };
@@ -329,6 +343,8 @@ const dom = {
   raceSubtypeControls: $("#raceSubtypeControls"),
   previousRaceSubtype: $("#previousRaceSubtype"),
   nextRaceSubtype: $("#nextRaceSubtype"),
+  previousRaceCard: $("#previousRaceCard"),
+  nextRaceCard: $("#nextRaceCard"),
   raceSubtypeName: $("#raceSubtypeName"),
   backToRaceGallery: $("#backToRaceGallery"),
   chooseRaceCard: $("#chooseRaceCard"),
@@ -644,6 +660,7 @@ const dom = {
 let characterAudioContext = null;
 let diceRollNoiseBuffer = null;
 let starshipMoveDraft = null;
+const playerShipMapView = { labels: true, highResolution: false, combatMesh: false, walls: true };
 
 function ensureCharacterAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
@@ -1999,6 +2016,12 @@ const PLAYER_SHIP_SICS = {
   "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3],
   "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2],
 };
+const PLAYER_SHIP_SIC_META = {
+  "en-engine-1": ["EN 1", "en-engine-1-floor-plan.png"], "en-engine-2": ["EN 2", "en-engine-2-floor-plan.png"],
+  "en-engine-3": ["EN 3", "en-engine-3-floor-plan.png"], "en-engine-4": ["EN 4", "en-engine-4-floor-plan.png"],
+  "en-engine-5": ["EN 5", "en-engine-5-floor-plan.png"], "en-engine-6": ["EN 6", "en-engine-6-floor-plan.png"],
+  "life-support": ["LIFE", "life-support-floor-plan.png?v=20260830"],
+};
 
 function playerShipFootprint(record) {
   const ship = record.ship || {};
@@ -2072,12 +2095,21 @@ function renderPlayerStarships() {
     const cells = visibleSquares.map((square) => {
       const occupants = crew.filter((entry) => Number(visualLocations.get(entry.id)?.square) === square);
       const tokens = occupants.slice(0, 2).map((entry, index) => `<i class="player-ship-token slot-${index}" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`).join("");
+      const sicId = footprint.get(square) || "";
+      const placement = (ship.placements || []).find((entry) => entry.sicId === sicId);
+      const item = (ship.sicInventory || []).find((entry) => entry.id === sicId);
+      const [sicWidth, sicHeight] = PLAYER_SHIP_SICS[item?.type] || [1, 1];
+      const [sicLabel, sicImage] = PLAYER_SHIP_SIC_META[item?.type] || ["", ""];
+      const cellRow = Math.floor(square / 20); const cellCol = square % 20;
+      const originRow = Math.floor(Number(placement?.cell || 0) / 20); const originCol = Number(placement?.cell || 0) % 20;
+      const style = playerShipMapView.highResolution && sicImage ? `background-image:url('${sicImage}');background-size:${sicWidth * 100}% ${sicHeight * 100}%;background-position:${sicWidth > 1 ? ((cellCol - originCol) / (sicWidth - 1)) * 100 : 50}% ${sicHeight > 1 ? ((cellRow - originRow) / (sicHeight - 1)) * 100 : 50}%` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
-      return `<div class="${classes}">${hull.has(square) ? `<button type="button" data-player-ship-destination="${square}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>` : ""}${tokens}</div>`;
+      return `<div class="${classes}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${hull.has(square) ? `<button type="button" data-player-ship-destination="${square}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>` : ""}${tokens}</div>`;
     }).join("");
     const people = crew.map((entry) => `<div class="player-starship-person" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}"><i></i><strong>${escapeHtml(campaignCharacterName(entry))}</strong></div>`).join("");
     const active = starshipMoveDraft?.starshipId === record.id;
-      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div><a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&character=${encodeURIComponent(ownId)}">Open Full Ship</a></header><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${cells}</div></div><aside class="player-starship-sidebar">${people}<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${active && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length ? "" : "disabled"}>Confirm</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a destination aboard the ship."}</p></aside></div></article>`;
+      const viewClasses = [playerShipMapView.highResolution ? "high-resolution" : "", playerShipMapView.combatMesh ? "combat-mesh" : "", playerShipMapView.walls ? "show-walls" : ""].filter(Boolean).join(" ");
+      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div><a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&character=${encodeURIComponent(ownId)}&view=1">Open Full Ship</a></header><div class="player-starship-view-controls"><label><input type="checkbox" data-player-ship-view="labels" ${playerShipMapView.labels ? "checked" : ""}/> Labels</label><label><input type="checkbox" data-player-ship-view="highResolution" ${playerShipMapView.highResolution ? "checked" : ""}/> High Resolution</label><label><input type="checkbox" data-player-ship-view="combatMesh" ${playerShipMapView.combatMesh ? "checked" : ""}/> Combat Mesh</label><label><input type="checkbox" data-player-ship-view="walls" ${playerShipMapView.walls ? "checked" : ""}/> Walls &amp; Doors</label></div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${cells}</div></div><aside class="player-starship-sidebar">${people}<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${active && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length ? "" : "disabled"}>Confirm</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a destination aboard the ship."}</p></aside></div></article>`;
   }).join("");
 }
 
@@ -3087,8 +3119,26 @@ let activeRaceSubtypeIndex = 0;
 let raceSubtypeTransitioning = false;
 let activeClassCardId = "";
 
+function resetWeaponsForAngilurosRaceChange(previousRaceId, nextRaceId) {
+  if ((previousRaceId === "angiluros") === (nextRaceId === "angiluros")) return;
+  const hadWeapons = (character.weapons || []).some((entry) => Boolean(entry.weaponId));
+  const refund = (character.weapons || []).reduce((total, entry) => {
+    const weapon = weaponById(entry.weaponId);
+    if (!weapon || weapon.angilurosOnly || entry.acquisitionMode === "receive") return total;
+    return total + Number(entry.purchaseCost ?? weaponCreditCost(weapon));
+  }, 0);
+  character.resources.creditsBase = Number(character.resources.creditsBase || 0) + refund;
+  character.weapons = (character.weapons?.length ? character.weapons : [{ id: uid() }])
+    .map((entry) => ({ id: entry.id || uid(), weaponId: "", held: false }));
+  character.creation.angilurosFreeWeaponsUsed = 0;
+  if (refund) notice(`${refund.toLocaleString()} Credits refunded and weapons reset for the race change.`, "success");
+  else if (hadWeapons) notice("Weapons reset for the race change.", "success");
+}
+
 function applyRaceSelection(value, raceType = "") {
   if (character.phase !== "draft") return;
+  const nextRaceId = value === "__other__" ? "" : (raceById(value)?.id || "");
+  resetWeaponsForAngilurosRaceChange(character.identity.raceId, nextRaceId);
   const previousMaxHp = maximumHp();
   character.identity.raceType = "";
   character.creation.raceSkillChoices = [];
@@ -3124,7 +3174,7 @@ function renderRaceGallery() {
   dom.raceGalleryGrid.innerHTML = Object.entries(RACE_CARD_PROFILES).map(([id, profile]) => {
     const definition = raceById(id);
     const selected = character.identity.raceId === id;
-    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")};--race-scale:${Number(profile.previewScale) || 1.42}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
+    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")};--race-scale:${Number(profile.previewScale) || 1.42};--race-y:${escapeAttribute(profile.previewY || "0%")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
       <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
       <span class="race-preview-shade"></span>
       <strong>${escapeHtml(definition.name)}</strong>
@@ -3160,6 +3210,21 @@ function renderRaceCardRules() {
   dom.raceCardAdvantages.innerHTML = raceRuleList(advantages);
   dom.raceCardDisadvantages.innerHTML = raceRuleList(disadvantages);
   dom.chooseRaceCard.textContent = `Choose ${definition.name}${subtype ? ` - ${subtype.name}` : ""}`;
+  const raceIds = Object.keys(RACE_CARD_PROFILES);
+  const index = raceIds.indexOf(activeRaceCardId);
+  const previous = raceById(raceIds[(index - 1 + raceIds.length) % raceIds.length]);
+  const next = raceById(raceIds[(index + 1) % raceIds.length]);
+  dom.previousRaceCard.textContent = `< ${previous.name}`;
+  dom.previousRaceCard.setAttribute("aria-label", `View previous race: ${previous.name}`);
+  dom.nextRaceCard.textContent = `${next.name} >`;
+  dom.nextRaceCard.setAttribute("aria-label", `View next race: ${next.name}`);
+}
+
+function scrollRaceDetailToTop() {
+  dom.raceGalleryModal.scrollTop = 0;
+  dom.raceCardDetail.scrollTop = 0;
+  const copy = dom.raceCardDetail.querySelector(".race-card-copy");
+  if (copy) copy.scrollTop = 0;
 }
 
 function showRaceCardDetail(raceId) {
@@ -3174,6 +3239,7 @@ function showRaceCardDetail(raceId) {
   dom.raceCardDetail.hidden = false;
   dom.raceCardDetail.classList.remove("race-card-entering");
   requestAnimationFrame(() => dom.raceCardDetail.classList.add("race-card-entering"));
+  requestAnimationFrame(scrollRaceDetailToTop);
 }
 
 function openRaceGallery() {
@@ -3218,6 +3284,35 @@ function changeRaceSubtype(direction) {
       panel.classList.remove(outClass);
       panel.classList.add(inClass);
     });
+    setTimeout(() => {
+      panels.forEach((panel) => panel.classList.remove(inClass));
+      raceSubtypeTransitioning = false;
+    }, 330);
+  }, 220);
+}
+
+function changeRaceCard(direction) {
+  if (raceSubtypeTransitioning) return;
+  const raceIds = Object.keys(RACE_CARD_PROFILES);
+  const index = raceIds.indexOf(activeRaceCardId);
+  const nextId = raceIds[(index + direction + raceIds.length) % raceIds.length];
+  const panels = dom.raceCardDetail.querySelectorAll(".race-card-art, .race-card-copy");
+  const updateProfile = () => {
+    activeRaceCardId = nextId;
+    const definition = raceById(nextId);
+    const selectedIndex = definition.types?.findIndex((type) => type.id === character.identity.raceType) ?? -1;
+    activeRaceSubtypeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    renderRaceCardRules();
+    scrollRaceDetailToTop();
+  };
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { updateProfile(); return; }
+  raceSubtypeTransitioning = true;
+  const outClass = direction > 0 ? "subtype-profile-out-left" : "subtype-profile-out-right";
+  const inClass = direction > 0 ? "subtype-profile-in-right" : "subtype-profile-in-left";
+  panels.forEach((panel) => panel.classList.add(outClass));
+  setTimeout(() => {
+    updateProfile();
+    panels.forEach((panel) => { panel.classList.remove(outClass); panel.classList.add(inClass); });
     setTimeout(() => {
       panels.forEach((panel) => panel.classList.remove(inClass));
       raceSubtypeTransitioning = false;
@@ -5104,6 +5199,8 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
   if (mode === "angiluros-free") {
     entry.weaponId = weapon.id;
     entry.held = false;
+    entry.acquisitionMode = mode;
+    entry.purchaseCost = 0;
     character.creation.angilurosFreeWeaponsUsed = character.weapons.filter((candidate) => weaponById(candidate.weaponId)?.angilurosOnly).length;
     queueSave();
     return true;
@@ -5157,6 +5254,8 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
   } else {
     entry.weaponId = weapon.id;
     entry.held = false;
+    entry.acquisitionMode = mode;
+    entry.purchaseCost = cost;
     if (mode === "purchase") character.resources.creditsBase -= cost;
     queueSave();
   }
@@ -6826,6 +6925,8 @@ dom.backToRaceGallery.addEventListener("click", () => {
 });
 dom.previousRaceSubtype.addEventListener("click", () => changeRaceSubtype(-1));
 dom.nextRaceSubtype.addEventListener("click", () => changeRaceSubtype(1));
+dom.previousRaceCard.addEventListener("click", () => changeRaceCard(-1));
+dom.nextRaceCard.addEventListener("click", () => changeRaceCard(1));
 dom.chooseRaceCard.addEventListener("click", () => {
   if (!activeRaceCardId) return;
   const subtype = raceById(activeRaceCardId)?.types?.[activeRaceSubtypeIndex]?.id || "";
@@ -7936,6 +8037,12 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
       renderPlayerStarships();
     }
   }
+});
+dom.playerStarshipList?.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-player-ship-view]");
+  if (!input) return;
+  playerShipMapView[input.dataset.playerShipView] = input.checked;
+  renderPlayerStarships();
 });
 window.addEventListener("resize", syncMobilePlayerAtbHeight);
 

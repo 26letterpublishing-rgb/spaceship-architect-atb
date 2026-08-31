@@ -697,7 +697,7 @@ function renderStarships() {
         <section><h4>PC Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
         <section><h4>NPC Crew</h4><div class="gm-starship-crew npc-crew">${npcUnits.length ? npcUnits.map((unit) => `<label><input type="checkbox" data-starship-npc-crew="${escapeHtml(unit.id)}" ${npcCrew.has(unit.id) ? "checked" : ""}/> ${unit.allyNpc ? '<img src="SMILE.png" alt="Ally" />' : ""}<span>${escapeHtml(unit.characterName)}</span></label>`).join("") : "<small>Add NPCs to Combat before assigning them to a ship.</small>"}</div></section>
       </div>
-      <div class="gm-starship-actions"><button type="button" data-open-starship>Open / Edit</button><button type="button" data-save-starship-crew>Save Crew</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
+      <div class="gm-starship-actions"><button type="button" data-view-starship>View</button><button type="button" data-edit-starship>Edit Ship</button><button type="button" data-save-starship-crew>Save Crew</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
     </article>`;
   }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>";
   if (dom.showcaseNpcFleet) {
@@ -1835,7 +1835,11 @@ dom.starshipList?.addEventListener("click", async (event) => {
   const card = event.target.closest("[data-starship-id]");
   if (!card) return;
   const starshipId = card.dataset.starshipId;
-  if (event.target.closest("[data-open-starship]")) {
+  if (event.target.closest("[data-view-starship]")) {
+    location.href = `starship.html?campaign=${encodeURIComponent(code)}&ship=${encodeURIComponent(starshipId)}&view=1`;
+    return;
+  }
+  if (event.target.closest("[data-edit-starship]")) {
     location.href = `starship.html?campaign=${encodeURIComponent(code)}&ship=${encodeURIComponent(starshipId)}`;
     return;
   }

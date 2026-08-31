@@ -99,6 +99,9 @@ function loadDraft() {
 
 let draft = loadDraft();
 let mapView = loadMapView();
+const VIEW_ONLY_MODE = new URLSearchParams(location.search).get("view") === "1";
+if (VIEW_ONLY_MODE) mapView.mode = "explore";
+document.body.classList.toggle("view-only-starship", VIEW_ONLY_MODE);
 let undoState = null;
 let selectedSicId = null;
 let mobilePreviewCell = null;

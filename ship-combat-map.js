@@ -13,13 +13,15 @@
   const enterStation = document.querySelector("#enterCombatStation");
   const leaveStation = document.querySelector("#leaveCombatStation");
   const panButtons = [...document.querySelectorAll("[data-combat-map-pan]")];
+  const viewInputs = [...document.querySelectorAll("[data-combat-map-view]")];
+  const stats = document.querySelector("#combatMapStats");
   const SIC = {
-    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png" },
-    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png" },
-    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png" },
-    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png" },
-    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png" },
-    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png" },
+    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png", output: 5 },
+    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png", output: 13 },
+    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png", output: 29 },
+    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png", output: 50 },
+    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png", output: 77 },
+    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png", output: 110 },
     "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png?v=20260830" },
   };
   let combatState = null;
@@ -29,6 +31,7 @@
   let selectedShipId = "";
   let interaction = "view";
   let preview = null;
+  const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true };
 
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const bridge = () => window.SACombatBridge;
@@ -175,10 +178,14 @@
     const footprints = footprint(ship);
     const routeNodes = new Set((preview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === ship.id);
+    grid.classList.toggle("show-labels", mapView.labels);
+    grid.classList.toggle("high-resolution", mapView.highResolution);
+    grid.classList.toggle("show-combat-mesh", mapView.combatMesh);
+    grid.classList.toggle("show-walls", mapView.walls);
     grid.innerHTML = Array.from({ length: 400 }, (_, square) => {
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
-      const style = sic?.image ? `background-image:url('${sic.image}');background-size:${sic.width * 100}% ${sic.height * 100}%;background-position:${sic.width > 1 ? (sic.col / (sic.width - 1)) * 100 : 50}% ${sic.height > 1 ? (sic.row / (sic.height - 1)) * 100 : 50}%` : "";
+      const style = mapView.highResolution && sic?.image ? `background-image:url('${sic.image}');background-size:${sic.width * 100}% ${sic.height * 100}%;background-position:${sic.width > 1 ? (sic.col / (sic.width - 1)) * 100 : 50}% ${sic.height > 1 ? (sic.row / (sic.height - 1)) * 100 : 50}%` : "";
       const tokens = units.filter((unit) => Number(unit.location.square) === square).map((unit) => {
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
@@ -187,8 +194,34 @@
       }).join("");
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${doorMarkup(ship, footprints, square)}${tokens}${destination}</div>`;
+      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? doorMarkup(ship, footprints, square) : ""}${tokens}${destination}</div>`;
     }).join("");
+  }
+
+  function statValue(ship, ...keys) {
+    for (const key of keys) {
+      const value = ship?.[key] ?? ship?.ship?.[key] ?? ship?.ship?.confirmed?.[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return 0;
+  }
+
+  function renderStats() {
+    const record = selectedShip();
+    if (!stats || !record) { if (stats) stats.innerHTML = ""; return; }
+    const ship = record.ship || {};
+    const hullMax = Number(statValue(record, "maximumHullHp")) || ship.gridCells?.length || 0;
+    const hull = Number(statValue(record, "currentHullHp")) || hullMax;
+    const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
+    const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
+    const en = (ship.placements || []).reduce((total, placement) => total + Number(SIC[inventoryType(record, placement.sicId)]?.output || 0), 0);
+    const fields = [
+      ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
+      ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
+      ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
+      ["EN", en], ["AU", statValue(record, "availableAu", "au")], ["Scale", statValue(record, "scaleRank", "scale")],
+    ];
+    stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
   }
 
   function renderRoster() {
@@ -206,6 +239,7 @@
     title.textContent = ship?.title || "Starship Interior";
     renderRoster();
     renderGrid();
+    renderStats();
     stop.hidden = unit?.timedAction?.kind !== "move";
     leaveStation.hidden = !unit?.location?.stationed || combatState?.activeId !== unit?.id;
     enterStation.hidden = Boolean(unit?.location?.stationed || !unit?.location?.sicId || combatState?.activeId !== unit?.id);
@@ -263,6 +297,10 @@
     const amount = Math.max(70, Math.round(Math.min(viewport.clientWidth, viewport.clientHeight) * .42));
     const direction = button.dataset.combatMapPan;
     viewport.scrollBy({ left: direction === "left" ? -amount : direction === "right" ? amount : 0, top: direction === "up" ? -amount : direction === "down" ? amount : 0, behavior: "smooth" });
+  }));
+  viewInputs.forEach((input) => input.addEventListener("change", () => {
+    mapView[input.dataset.combatMapView] = input.checked;
+    renderGrid();
   }));
   confirm.addEventListener("click", async () => {
     const ship = selectedShip();
