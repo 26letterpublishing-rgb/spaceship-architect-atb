@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260830-galleries-fleet" />
+  <link rel="stylesheet" href="character.css?v=20260830-race-lore-1" />
   <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -536,6 +536,15 @@
         </div>
       </section>
     </div>
+
+    <div id="xithxGenderNotice" class="modal-shell xithx-gender-modal" hidden>
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="xithxGenderTitle">
+        <span class="dialog-kicker">Xithx Culture</span>
+        <h2 id="xithxGenderTitle">Gender Presentation</h2>
+        <p>Xithx gender presentation reverses the customary human expectation: males are generally feminine, while females are generally masculine.</p>
+        <div class="dialog-actions"><button id="closeXithxGenderNotice" class="primary-action" type="button">Understood</button></div>
+      </section>
+    </div>
     <div id="wipeOverlay" class="wipe-overlay" hidden aria-hidden="true"><span></span></div>
     <div id="diceRoller" class="dice-roller" hidden>
       <section class="dice-stage" aria-live="polite">
@@ -757,6 +766,10 @@
               <section><h3>Advantages</h3><ul id="raceCardAdvantages"></ul></section>
               <section><h3>Disadvantages</h3><ul id="raceCardDisadvantages"></ul></section>
             </div>
+            <section class="race-card-lore">
+              <span class="dialog-kicker">From the Core Rulebook</span>
+              <div id="raceCardLore"></div>
+            </section>
             <div class="race-card-actions">
               <button id="backToRaceGallery" type="button">Back</button>
               <button id="chooseRaceCard" class="primary-action" type="button">Choose Race</button>
@@ -794,6 +807,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script type="module" src="character.js?v=20260830-race-subtypes-classes"></script>
+    <script type="module" src="character.js?v=20260830-race-lore-1"></script>
   </body>
 </html>

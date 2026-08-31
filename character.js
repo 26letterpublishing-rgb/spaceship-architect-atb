@@ -21,6 +21,7 @@ import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
+import { RACE_LORE } from "./race-lore-data.js?v=20260830-race-lore-1";
 
 const {
   DRAMA_CARD_COST = 4,
@@ -117,7 +118,8 @@ const RACE_CARD_PROFILES = {
     image: "race-spiddix.webp",
     preview: "Brilliant living brains who rely on customizable mechanical bodies to navigate the galaxy.",
     description: "Spiddix are enormous living brains with eyes, mouths, and small vestigial appendages. To interact with the physical world they inhabit mechanical cradles ranging from humanoid frames to many-legged industrial bodies. Their machines can be rebuilt and improved, but separation leaves the organic Spiddix almost immobile and dangerously vulnerable.",
-    focus: "center -18%",
+    focus: "center top",
+    previewScale: 0.94,
   },
   "yetuak-zune": {
     image: "race-yetuak-zune.webp",
@@ -125,21 +127,32 @@ const RACE_CARD_PROFILES = {
     description: "Ye'tuak Zune are long-lived, elf-like beings from a frozen world. Their skin ranges through blue, violet, and near-black hues, and their pointed ears and dark ceremonial robes reflect an ancient spiritual culture. They approach unfamiliar problems with ritual precision and cool logic, endure extreme cold without fear, and see clearly through darkness and heat.",
     focus: "center top",
   },
-  "butchers-of-hellmouth": { image: "race-butchers-of-hellmouth.png", preview: "Fire-born giants whose strength and endurance border on the impossible.", description: "The Butchers of Hellmouth are immense, sight-limited beings shaped by a brutal world of heat, smoke, and close-range violence. They survive injuries that would end most species and approach strength as both a necessity and a cultural language.", focus: "center top" },
+  "butchers-of-hellmouth": { image: "race-butchers-of-hellmouth-v2.png", preview: "Eyeless horrors whose strength and endurance border on the impossible.", description: "The Butchers of Hellmouth are immense, eyeless beings shaped by a brutal world of heat, smoke, and close-range violence. They survive injuries that would end most species and approach strength as both a necessity and a cultural language.", focus: "center top" },
   "draco-prime": { image: "race-draco-prime.png", preview: "Cold-blooded shapeshifters who hide in plain sight without leaving heat behind.", description: "Draco Prime are reptilian infiltrators able to reshape themselves into the rough appearance of other humanoid species. Their disguises are convincing at a glance, though their eyes and tongue can betray them during moments of distraction.", focus: "center top" },
   epoc: { image: "race-epoc.png", preview: "Empathic artists whose presence keeps a crew poised and inspired.", description: "Epoc are graceful, emotionally perceptive beings whose societies elevate art, faith, expression, and social understanding. Their instinctive optimism can steady an entire crew even when physical adversity works against them.", focus: "center top" },
   "everliving-brethren": { image: "race-everliving-brethren.png", preview: "Regenerating horrors assembled from adaptable flesh and borrowed limbs.", description: "The Everliving Brethren are organless, regenerative beings whose bodies can survive catastrophic damage and accept replacement limbs. Their strange anatomy is tremendously resilient, though fire remains a terrifying weakness.", focus: "center top" },
   flavilin: { image: "race-flavilin.png", preview: "Nocturnal technicians who see machinery and darkness with equal clarity.", description: "Flavilin are darkness-adapted observers with an extraordinary affinity for engineering, technology, and awareness. Bright light can overwhelm them, but in dim environments their senses and technical intuition flourish.", focus: "center top" },
   horus: { image: "race-horus.png", preview: "Far-seeing observers whose compound perception notices almost everything.", description: "Horus possess remarkable eyes, broad fields of vision, and a talent for learning skills through unusually favorable advancement rolls. Their perception can combine matching results in ways other species cannot reproduce.", focus: "center top" },
-  kabuto: { image: "race-kabuto.png", preview: "Small armored gliders who refuse to let pain slow them down.", description: "Kabuto are compact, naturally armored beings capable of gliding and surviving dangerous falls. Their unusual bodies cannot handle bulky equipment, but their speed, defense, and complete disregard for pain make them difficult opponents.", focus: "center top" },
+  kabuto: { image: "race-kabuto-v2.png", preview: "Tiny beetle-like gliders who refuse to let pain slow them down.", description: "Kabuto are one-foot-tall beetle-like beings capable of gliding and surviving dangerous falls. Their unusual bodies cannot handle bulky equipment, but their speed, defense, and complete disregard for pain make them difficult opponents.", focus: "center top" },
   "krax-gny-vtek": { image: "race-krax-gny-vtek.png", preview: "Vacuum-hardened nocturnal predators built for sudden, decisive violence.", description: "Krax G'ny V'Tek are stealthy reptilian hunters with natural weapons, dark-adapted senses, and a body able to endure brief exposure to space. Injury can hinder their agility, but an unarmed Krax remains lethally dangerous.", focus: "center top" },
   "nordic-flaxen": { image: "race-nordic-flaxen.png", preview: "Radiant wanderers whose improbable luck becomes effortless charm.", description: "Nordic Flaxen are striking, durable humanoids whose good fortune naturally strengthens their social presence. Their bodies withstand remarkable punishment, though Dark energy cuts through them with unusual severity.", focus: "center top" },
-  skeder: { image: "race-skeder.png", preview: "Many-limbed specialists protected by formidable natural armor.", description: "Sked'er are alien arthropods whose bodies, equipment, and language demand extensive customization. They struggle with conventional social interaction, but their natural protection, wide vision, and technical independence make them exceptional survivors.", focus: "center top" },
+  skeder: { image: "race-skeder-v2.png", preview: "Mantis-limbed specialists protected by formidable natural armor.", description: "Sked'er are alien arthropods with reverse-jointed legs and small mantis-like arms. Their bodies, equipment, and language demand extensive customization. They struggle with conventional social interaction, but their natural protection, wide vision, and technical independence make them exceptional survivors.", focus: "center top" },
   "slyn-tanni": { image: "race-slyn-tanni.png", preview: "Aquatic fliers who turn grace, speed, and warmth into survival.", description: "Slyn Tanni are amphibious beings capable of controlled flight and extraordinary movement through water. They are expressive and agile, but cold environments slow their bodies and Ice is especially dangerous to them.", focus: "center top" },
   tamalori: { image: "race-tamalori.png", preview: "Lightning-fast hunters whose fragility makes every mistake dangerous.", description: "TaMalori are extraordinarily agile beings whose reflexes effectively multiply their Dexterity. Their bodies cannot develop the greatest physical strength, and critical injuries are devastating, so survival depends on never being where the blow lands.", focus: "center top" },
   "vinolio-paxton": { image: "race-vinolio-paxton.png", preview: "Telekinetic fliers who trade stubborn resolve for impossible mobility.", description: "Vinolio Paxton are light-bodied humanoids capable of short bursts of flight and telekinetic manipulation. Their powers demand exertion and developing Willpower is costly, but few species match their freedom of movement.", focus: "center top" },
-  xithx: { image: "race-xithx.png", preview: "Water-walking insectoids armored by instinct and patient endurance.", description: "Xithx are many-eyed insectoids linked by a faint racial telepathy. Their natural armor and complete field of vision make them difficult to surprise, while their light bodies can cross liquid surfaces without sinking.", focus: "center top" },
-  "yuhorn-symitron": { image: "race-yuhorn-symitron.png", preview: "Elemental colossi shaped from ice, lava, stone, or living wood.", description: "Yuhorn Symitrons are massive elemental people whose biology and abilities depend on their material form. Ice, Lava, Rock, and Wood variants each endure the universe differently and require a subtype before creation is complete.", focus: "center top" },
+  xithx: { image: "race-xithx-v2.png", preview: "Two-armed, water-walking insectoids armored by instinct and patient endurance.", description: "Xithx are two-armed, many-eyed insectoids linked by a faint racial telepathy. Their natural armor and complete field of vision make them difficult to surprise, while their light bodies can cross liquid surfaces without sinking.", focus: "center top" },
+  "yuhorn-symitron": {
+    image: "race-yuhorn-rock.png",
+    preview: "Elemental colossi shaped from ice, lava, stone, or living wood.",
+    description: "Yuhorn Symitrons are massive elemental people whose biology and abilities depend on their material form. Ice, Lava, Rock, and Wood variants each endure the universe differently and require a subtype before creation is complete.",
+    focus: "center top",
+    subtypes: {
+      ice: { image: "race-yuhorn-ice.png", description: "Ice Symitrons are towering crystalline beings formed from living frost and translucent blue ice. Their bodies endure terrible punishment and hostile cold, but heat and fire threaten the structure that keeps them alive." },
+      lava: { image: "race-yuhorn-lava.png", description: "Lava Symitrons are walking masses of volcanic stone split by glowing molten seams. Their immense heat and raw physical force make them terrifying at close range, though their ponderous bodies sacrifice mobility." },
+      rock: { image: "race-yuhorn-rock.png", description: "Rock Symitrons are colossal beings of dense stone whose bodies resemble mountains given motion. They are durable, patient, and difficult to move, embodying the steady resilience of their homeworld." },
+      wood: { image: "race-yuhorn-wood.png", description: "Wood Symitrons are living giants of bark, roots, and luminous plant life. Their bodies draw strength from organic growth and can flourish into forms as varied as the forests that shaped them." },
+    },
+  },
 };
 
 const CLASS_CARD_PROFILES = {
@@ -310,6 +323,7 @@ const dom = {
   raceCardDetailImage: $("#raceCardDetailImage"),
   raceCardDetailName: $("#raceCardDetailName"),
   raceCardDetailDescription: $("#raceCardDetailDescription"),
+  raceCardLore: $("#raceCardLore"),
   raceCardAdvantages: $("#raceCardAdvantages"),
   raceCardDisadvantages: $("#raceCardDisadvantages"),
   raceSubtypeControls: $("#raceSubtypeControls"),
@@ -318,6 +332,8 @@ const dom = {
   raceSubtypeName: $("#raceSubtypeName"),
   backToRaceGallery: $("#backToRaceGallery"),
   chooseRaceCard: $("#chooseRaceCard"),
+  xithxGenderNotice: $("#xithxGenderNotice"),
+  closeXithxGenderNotice: $("#closeXithxGenderNotice"),
   raceCustom: $("#raceCustom"),
   raceTypeField: $("#raceTypeField"),
   raceTypePicker: $("#raceTypePicker"),
@@ -974,6 +990,7 @@ function blankCharacter(name = "") {
       raceSkillChoices: [],
       raceAttributeChoice: "",
       racialSkillGrants: {},
+      xithxGenderNoticeShown: false,
       freeAttributeUpgradeApplied: false,
       angilurosFreeWeaponsUsed: 0,
       manualInput: false,
@@ -1178,6 +1195,7 @@ function normalizeCharacter(raw) {
   normalized.creation.classGrantsApplied = Boolean(source.creation?.classGrantsApplied);
   normalized.creation.raceGrantsApplied = Boolean(source.creation?.raceGrantsApplied);
   normalized.creation.manualInput = Boolean(source.creation?.manualInput);
+  normalized.creation.xithxGenderNoticeShown = Boolean(source.creation?.xithxGenderNoticeShown);
   for (const key of Object.keys(base.gmAdjustments)) normalized.gmAdjustments[key] = Math.round(clamp(normalized.gmAdjustments[key], -999999, 999999) * 10) / 10;
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
@@ -2970,10 +2988,20 @@ function renderCharacterPicker() {
 function renderIdentityTheme() {
   const panel = $(".identity-panel");
   const value = String(character.identity.sex || "").trim().toLowerCase();
+  const reversesHumanPresentation = character.identity.raceId === "xithx";
   panel.classList.remove("identity-male", "identity-female", "identity-other");
-  if (value === "m" || value === "male") panel.classList.add("identity-male");
-  else if (value === "f" || value === "female") panel.classList.add("identity-female");
+  if (value === "m" || value === "male") panel.classList.add(reversesHumanPresentation ? "identity-female" : "identity-male");
+  else if (value === "f" || value === "female") panel.classList.add(reversesHumanPresentation ? "identity-male" : "identity-female");
   else if (value) panel.classList.add("identity-other");
+}
+
+function maybeShowXithxGenderNotice() {
+  const value = String(character.identity.sex || "").trim().toLowerCase();
+  if (character.identity.raceId !== "xithx" || !["m", "male", "f", "female"].includes(value) || character.creation.xithxGenderNoticeShown) return;
+  character.creation.xithxGenderNoticeShown = true;
+  queueSave();
+  dom.xithxGenderNotice.hidden = false;
+  dom.closeXithxGenderNotice.focus({ preventScroll: true });
 }
 
 function stableHash(value) {
@@ -3080,6 +3108,7 @@ function applyRaceSelection(value, raceType = "") {
   syncDerivedResources(previousMaxHp);
   queueSave();
   renderAll();
+  maybeShowXithxGenderNotice();
   if (character.identity.raceKind === "other") dom.raceCustom.focus();
   else if (character.identity.race.trim()) scrollToCreationModifiers();
   else if (selectedRace()?.types?.length) dom.raceTypePicker.focus();
@@ -3095,7 +3124,7 @@ function renderRaceGallery() {
   dom.raceGalleryGrid.innerHTML = Object.entries(RACE_CARD_PROFILES).map(([id, profile]) => {
     const definition = raceById(id);
     const selected = character.identity.raceId === id;
-    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
+    return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")};--race-scale:${Number(profile.previewScale) || 1.42}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
       <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
       <span class="race-preview-shade"></span>
       <strong>${escapeHtml(definition.name)}</strong>
@@ -3127,6 +3156,7 @@ function renderRaceCardRules() {
   dom.raceCardDetailImage.alt = `${definition.name}${subtype ? ` ${subtype.name}` : ""} full-body appearance`;
   dom.raceCardDetailName.textContent = definition.name;
   dom.raceCardDetailDescription.textContent = subtypeProfile?.description || profile.description;
+  dom.raceCardLore.textContent = RACE_LORE[activeRaceCardId] || profile.description;
   dom.raceCardAdvantages.innerHTML = raceRuleList(advantages);
   dom.raceCardDisadvantages.innerHTML = raceRuleList(disadvantages);
   dom.chooseRaceCard.textContent = `Choose ${definition.name}${subtype ? ` - ${subtype.name}` : ""}`;
@@ -6520,7 +6550,10 @@ document.addEventListener("input", (event) => {
       dom.identityCallsign.textContent = character.phase === "finalized" ? name.toUpperCase() : name;
       renderCharacterPicker();
     }
-    if (field.dataset.field === "identity.sex") renderIdentityTheme();
+    if (field.dataset.field === "identity.sex") {
+      renderIdentityTheme();
+      maybeShowXithxGenderNotice();
+    }
     if (field.dataset.field === "identity.race") renderClass();
     queueSave();
     renderWorkflow();
@@ -6798,6 +6831,9 @@ dom.chooseRaceCard.addEventListener("click", () => {
   const subtype = raceById(activeRaceCardId)?.types?.[activeRaceSubtypeIndex]?.id || "";
   applyRaceSelection(activeRaceCardId, subtype);
   closeRaceGallery();
+});
+dom.closeXithxGenderNotice.addEventListener("click", () => {
+  dom.xithxGenderNotice.hidden = true;
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || dom.raceGalleryModal.hidden) return;
