@@ -1637,6 +1637,9 @@ async function handleAction(req, res) {
   if (action === "setCombatLocation") {
     const unit = room.units.find((entry) => entry.id === String(body.id || ""));
     if (!unit) { sendJson(res, 404, { error: "Combatant not found." }); return; }
+    const destination = body.location || {};
+    const occupied = room.units.filter((entry) => entry.id !== unit.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
+    if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
     syncUnitCombat(unit, { location: body.location });
     unit.travelRoute = [];
     unit.timedAction = null;
@@ -1804,6 +1807,11 @@ async function handleAction(req, res) {
   }
 
   if (action === "playerCombatAction") {
+    if (body.kind === "move" && Array.isArray(body.route) && body.route.length) {
+      const destination = body.route.at(-1) || {};
+      const occupied = room.units.filter((entry) => entry.id !== playerUnit?.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
+      if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
+    }
     const result = resolvePlayerCombatAction(room, playerUnit, body, {
       id,
       clearActiveCommand,

@@ -31,6 +31,7 @@
     <nav id="characterTabs" class="character-tabs" aria-label="Character sections" hidden>
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
       <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
+      <button type="button" data-character-tab="starships" hidden>Starships</button>
       <button type="button" data-character-tab="atb" hidden>Combat</button>
       <button type="button" data-character-tab="settings">Settings</button>
     </nav>
@@ -130,7 +131,7 @@
       </section>
       <section class="workflow-bar" aria-label="Character creation progress">
         <div class="workflow-copy">
-          <span id="phaseBadge" class="phase-badge">Draft</span>
+          <span id="phaseBadge" class="phase-badge">Next Step</span>
           <div id="nextRequirement" class="workflow-requirements" role="list" aria-label="Available character creation steps"></div>
           <small id="workflowDetail">All currently available creation steps are shown.</small>
         </div>
@@ -457,6 +458,11 @@
         <section><h2>Leave Campaign</h2><p>Break this character's campaign link so it may request entry into another campaign.</p><button id="settingsLeaveCampaign" class="danger" type="button">Leave Campaign</button></section>
         <section><h2>Session</h2><p>Log out on this browser without removing the character from its campaign.</p><button id="settingsLogout" type="button">Log Out</button></section>
       </div>
+    </section>
+
+    <section id="playerStarshipsPanel" class="character-page-panel character-tool-page player-starships-panel" data-character-panel="starships" hidden>
+      <header class="character-tool-heading"><span>ASSIGNED VESSELS</span><h1>Starships</h1><p>Your position and everyone currently aboard update with the campaign.</p></header>
+      <div id="playerStarshipList" class="player-starship-list"></div>
     </section>
 
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>

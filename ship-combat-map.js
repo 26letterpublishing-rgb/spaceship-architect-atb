@@ -20,7 +20,7 @@
     "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png" },
     "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png" },
     "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png" },
-    "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png" },
+    "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png?v=20260830" },
   };
   let combatState = null;
   let mode = "welcome";
@@ -128,6 +128,11 @@
     const unit = selectedUnit();
     const ship = selectedShip();
     if (!unit || !ship) return;
+    const occupied = (combatState?.units || []).filter((entry) => entry.id !== unit.id && entry.location?.starshipId === ship.id && Number(entry.location.square) === square && Number(entry.location.mesh) === mesh).length;
+    if (occupied >= 2) {
+      preview = { square, mesh, path: [], color: "red" }; confirm.disabled = true;
+      status.textContent = "That location already holds two characters."; renderGrid(); return;
+    }
     if (mode === "gm" && interaction === "relocate") {
       preview = { square, mesh, path: [{ square, mesh }], color: "green" };
       confirm.disabled = false;
@@ -153,6 +158,10 @@
       const a = footprints.get(square)?.sicId || "";
       const b = footprints.get(other)?.sicId || "";
       if (a === b || (!a && !b)) return [];
+      const first = footprints.get(square); const second = footprints.get(other);
+      const firstCentered = !first || (axis === "horizontal" ? first.col === Math.floor((first.width - 1) / 2) : first.row === Math.floor((first.height - 1) / 2));
+      const secondCentered = !second || (axis === "horizontal" ? second.col === Math.floor((second.width - 1) / 2) : second.row === Math.floor((second.height - 1) / 2));
+      if (!firstCentered || !secondCentered) return [];
       const key = doorKey(square, other);
       const open = ship.ship.doorStates?.[key] === "open";
       return [`<button type="button" class="combat-door ${side} ${axis} ${open ? "open" : ""}" data-combat-door="${key}" aria-label="${open ? "Close" : "Open"} door"></button>`];

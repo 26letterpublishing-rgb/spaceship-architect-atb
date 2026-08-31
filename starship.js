@@ -12,7 +12,7 @@ const SIC_CATALOG = {
   "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png", tint: "linear-gradient(rgba(0,211,201,.4),rgba(0,211,201,.4))" },
   "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png", tint: "linear-gradient(rgba(221,35,42,.44),rgba(221,35,42,.44))" },
   "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png", tint: "radial-gradient(circle at 50% 50%,rgba(10,0,18,.2),rgba(52,12,89,.64) 58%,rgba(5,0,12,.78))" },
-  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png?v=20260829" },
+  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png?v=20260830" },
 };
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -302,10 +302,18 @@ function renderCellBoundaries(cell, index, hull, placement) {
       cell.append(makeWall(side.name));
       return;
     }
-    if (placement && placementAt(adjacent)?.sicId !== placement.sicId) {
+    if (placement && placementAt(adjacent)?.sicId !== placement.sicId && centeredSicDoor(placement, index, side.name)) {
       cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
     }
   });
+}
+
+function centeredSicDoor(placement, index, side) {
+  const definition = sicDefinition(draft.sicInventory.find((entry) => entry.id === placement.sicId));
+  const originRow = Math.floor(placement.cell / GRID_SIZE); const originColumn = placement.cell % GRID_SIZE;
+  const localRow = Math.floor(index / GRID_SIZE) - originRow; const localColumn = index % GRID_SIZE - originColumn;
+  if (side === "top" || side === "bottom") return localColumn === Math.floor((definition.width - 1) / 2);
+  return localRow === Math.floor((definition.height - 1) / 2);
 }
 
 function shipScaleStats(squareCount) {

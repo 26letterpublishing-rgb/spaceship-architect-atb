@@ -778,6 +778,9 @@ function scriptSource() {
 }
 
 function inboxItemActions(note) {
+  if (note.kind === "angiluros-craft-request" && note.requestStatus === "pending") {
+    return `<div class="inbox-actions"><button class="danger" type="button" data-angiluros-craft-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-angiluros-craft-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve Weapon</button></div>`;
+  }
   if (note.kind === "reverence-gift-request" && note.requestStatus === "pending") {
     return `<div class="inbox-actions"><button class="danger" type="button" data-reverence-gift-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-reverence-gift-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve</button></div>`;
   }
@@ -806,7 +809,7 @@ function renderInbox() {
     </article>`;
   }).join("");
   const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
-    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "angiluros-craft-request" ? "ANCESTRAL CRAFTING" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
     ${inboxItemActions(note)}
   </article>`).join("");
@@ -1608,6 +1611,17 @@ dom.selectConnectedTargets.addEventListener("click", () => { targetSelectionTouc
 dom.clearTargets.addEventListener("click", () => { targetSelectionTouched = true; selectedTargets.clear(); renderTargets(); });
 
 dom.inboxList.addEventListener("click", async (event) => {
+  const craftDecision = event.target.closest("[data-angiluros-craft-decision]");
+  if (craftDecision) {
+    event.stopPropagation();
+    craftDecision.disabled = true;
+    try {
+      const payload = await api("/api/campaign/angiluros/craft", { code, token, action: "respond", noteId: craftDecision.dataset.noteId, decision: craftDecision.dataset.angilurosCraftDecision });
+      receiveCampaign(payload.campaign);
+      showMessage(dom.message, payload.decision === "approved" ? "The ancestral weapon was approved and added to the character." : "Crafting request denied.", "success");
+    } catch (error) { craftDecision.disabled = false; showMessage(dom.message, error.message, "error"); }
+    return;
+  }
   const restDecision = event.target.closest("[data-rest-decision]");
   if (restDecision) {
     event.stopPropagation();

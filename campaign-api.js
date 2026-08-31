@@ -487,13 +487,21 @@ function normalizeStarshipRecord(raw) {
   ship.affiliation = String(ship.affiliation || "").slice(0, 100);
   ship.class = String(ship.class || "").slice(0, 100);
   ship.confirmedOnce = true;
+  const validCrew = [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100);
+  const characterLocations = {};
+  for (const [characterId, location] of Object.entries(source.characterLocations && typeof source.characterLocations === "object" ? source.characterLocations : ship.characterLocations || {})) {
+    const square = Number(location?.square);
+    const mesh = Number(location?.mesh);
+    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4 };
+  }
   return {
     id: String(source.id || ship.id || uid("starship")).slice(0, 120),
     title: ship.title,
     controlType: source.controlType === "gm" ? "gm" : "pc",
     accessKey: String(source.accessKey || "").slice(0, 160),
-    crewCharacterIds: [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100),
+    crewCharacterIds: validCrew,
     crewNpcUnitIds: [...new Set((Array.isArray(source.crewNpcUnitIds) ? source.crewNpcUnitIds : ship.crewNpcUnitIds || []).map(String))].slice(0, 100),
+    characterLocations,
     createdAt: source.createdAt || new Date().toISOString(),
     updatedAt: source.updatedAt || new Date().toISOString(),
     ship,
@@ -618,7 +626,7 @@ function normalizeCampaign(raw) {
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request"].includes(note?.kind) ? note.kind : "message",
+    kind: ["system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -633,6 +641,10 @@ function normalizeCampaign(raw) {
     requestedAmount: Math.max(0, Math.min(10, Math.round(Number(note?.requestedAmount) || 0))),
     requestResolvedAt: note?.requestResolvedAt || null,
     grantedAmount: Math.max(0, Math.round(Number(note?.grantedAmount) || 0)),
+    requestedWeaponId: String(note?.requestedWeaponId || "").slice(0, 100),
+    requestedWeaponName: String(note?.requestedWeaponName || "").slice(0, 120),
+    requestedInventoryId: String(note?.requestedInventoryId || "").slice(0, 100),
+    craftHours: Math.max(0, Math.round(Number(note?.craftHours) || 0)),
     transactionId: String(note?.transactionId || ""),
     deficit: Math.max(0, Number(note?.deficit) || 0),
     reversible: Boolean(note?.reversible),
@@ -1359,11 +1371,33 @@ class CampaignApi {
       record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
       const encounterNpcIds = new Set((campaign.encounter?.units || []).filter((unit) => unit.team === "npc").map((unit) => String(unit.id)));
       record.crewNpcUnitIds = [...new Set((Array.isArray(body.crewNpcUnitIds) ? body.crewNpcUnitIds : []).map(String))].filter((id) => encounterNpcIds.has(id));
+      record.characterLocations ||= {};
+      for (const id of Object.keys(record.characterLocations)) if (!record.crewCharacterIds.includes(id)) delete record.characterLocations[id];
       record.ship.crewCharacterIds = clone(record.crewCharacterIds);
       record.ship.crewNpcUnitIds = clone(record.crewNpcUnitIds);
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
       sendJson(res, 200, { starship: publicStarship(record) });
+      return true;
+    }
+
+    if (path === "/api/campaign/starship/move-character" && req.method === "POST") {
+      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      const characterId = String(body.characterId || "");
+      const square = Number(body.square);
+      const mesh = Math.max(0, Math.min(8, Number(body.mesh) || 4));
+      const gmAccess = Boolean(this.gmSession(token, code));
+      const selfAccess = Boolean(characterId && this.characterSession(token, code, characterId));
+      if (!record || !record.crewCharacterIds.includes(characterId)) { sendJson(res, 404, { error: "That character is not assigned to this starship." }); return true; }
+      if (!gmAccess && !selfAccess) { sendJson(res, 403, { error: "You may only move your own character." }); return true; }
+      if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
+      record.characterLocations ||= {};
+      const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
+      if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
+      record.characterLocations[characterId] = { square, mesh };
+      record.updatedAt = new Date().toISOString();
+      await this.save(campaign);
+      sendJson(res, 200, { moved: true, starship: publicStarship(record), campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -2595,6 +2629,58 @@ class CampaignApi {
       trimPrivateNotes(campaign);
       await this.save(campaign);
       sendJson(res, 200, { recorded: true, campaign: this.state(campaign, token) });
+      return true;
+    }
+
+    if (path === "/api/campaign/angiluros/craft" && req.method === "POST") {
+      const action = String(body.action || "request");
+      if (action === "request") {
+        const session = this.session(token, code);
+        const record = session?.role === "character" ? campaign.characters.find((entry) => entry.id === session.characterId) : null;
+        const weaponId = String(body.weaponId || "").slice(0, 100);
+        if (!record || record.id !== String(body.characterId || "")) { sendJson(res, 403, { error: "Character authorization is required." }); return true; }
+        if (record.character?.identity?.raceId !== "angiluros" || !weaponId.startsWith("angiluros-")) { sendJson(res, 400, { error: "That is not an Angiluros ancestral weapon." }); return true; }
+        const names = {
+          "angiluros-wooden-shield": "Wooden Shield", "angiluros-stone-knife": "Stone Knife", "angiluros-slingshot": "Slingshot",
+          "angiluros-wooden-staff": "Wooden Staff", "angiluros-blowgun": "Blowgun", "angiluros-whip": "Whip",
+          "angiluros-wooden-bow": "Wooden Bow", "angiluros-stone-hammer": "Stone Hammer", "angiluros-stone-axe": "Stone Axe",
+        };
+        if (!names[weaponId]) { sendJson(res, 400, { error: "Unknown ancestral weapon." }); return true; }
+        const note = {
+          id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm",
+          kind: "angiluros-craft-request", requestStatus: "pending", requestedWeaponId: weaponId,
+          requestedWeaponName: names[weaponId], requestedInventoryId: String(body.inventoryId || uid("weaponrow")).slice(0, 100),
+          craftHours: Math.max(1, Math.min(999, Math.round(Number(body.craftHours) || 1))),
+          message: `${safeCharacterName(record)} spent ${Math.max(1, Math.round(Number(body.craftHours) || 1))} fictional hours crafting ${names[weaponId]} and requests GM approval.`,
+          createdAt: new Date().toISOString(), readAt: null,
+        };
+        campaign.privateNotes.push(note);
+        trimPrivateNotes(campaign);
+        await this.save(campaign);
+        sendJson(res, 201, { requested: true, campaign: this.state(campaign, token) });
+        return true;
+      }
+      if (!this.gmSession(token, code)) { sendJson(res, 403, { error: "GM authorization is required." }); return true; }
+      const note = campaign.privateNotes.find((entry) => entry.id === String(body.noteId || "") && entry.kind === "angiluros-craft-request");
+      const decision = body.decision === "approve" ? "approved" : body.decision === "deny" ? "denied" : "";
+      if (!note || !decision) { sendJson(res, 400, { error: "Choose a pending crafting request." }); return true; }
+      if (note.requestStatus !== "pending") { sendJson(res, 200, { alreadyResolved: true, campaign: this.state(campaign, token) }); return true; }
+      const record = campaign.characters.find((entry) => entry.id === note.characterId);
+      if (!record) { sendJson(res, 404, { error: "That character is no longer in the campaign." }); return true; }
+      note.requestStatus = decision;
+      note.requestResolvedAt = new Date().toISOString();
+      note.readAt ||= note.requestResolvedAt;
+      if (decision === "approved") {
+        applyWeaponTransaction(record.character, { id: note.requestedInventoryId, weaponId: note.requestedWeaponId });
+        note.message = `Approved: ${safeCharacterName(record)} crafted ${note.requestedWeaponName} in ${note.craftHours} fictional hours.`;
+        campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: `Crafting approved: ${note.requestedWeaponName} has been added to your weapons.`, createdAt: note.requestResolvedAt, readAt: null });
+      } else {
+        note.message = `Denied: ${safeCharacterName(record)}'s request to craft ${note.requestedWeaponName}.`;
+        campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: `The GM denied your ${note.requestedWeaponName} crafting request.`, createdAt: note.requestResolvedAt, readAt: null });
+      }
+      trimPrivateNotes(campaign);
+      await this.save(campaign);
+      sendJson(res, 200, { decision, campaign: this.state(campaign, token) });
       return true;
     }
 

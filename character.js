@@ -72,7 +72,7 @@ const RACE_CARD_PROFILES = {
     },
   },
   antropic: {
-    image: "race-antropic.png",
+    image: "race-antropic-fluffy.webp",
     preview: "A diverse evolutionary family whose Fangs, Feathers, Fins, and Fluffy forms differ sharply.",
     description: "Antropics are a broad family of related humanoids shaped by radically different environments. Fangs are nocturnal predators, Feathers are agile fliers, Fins are aquatic regenerators, and Fluffy Antropics are quick, expressive, and difficult to pin down. Choose a form to see the specific advantages and disadvantages carried by that branch of the species.",
     focus: "center top",
@@ -117,7 +117,7 @@ const RACE_CARD_PROFILES = {
     image: "race-spiddix.webp",
     preview: "Brilliant living brains who rely on customizable mechanical bodies to navigate the galaxy.",
     description: "Spiddix are enormous living brains with eyes, mouths, and small vestigial appendages. To interact with the physical world they inhabit mechanical cradles ranging from humanoid frames to many-legged industrial bodies. Their machines can be rebuilt and improved, but separation leaves the organic Spiddix almost immobile and dangerously vulnerable.",
-    focus: "center top",
+    focus: "center -18%",
   },
   "yetuak-zune": {
     image: "race-yetuak-zune.webp",
@@ -125,6 +125,21 @@ const RACE_CARD_PROFILES = {
     description: "Ye'tuak Zune are long-lived, elf-like beings from a frozen world. Their skin ranges through blue, violet, and near-black hues, and their pointed ears and dark ceremonial robes reflect an ancient spiritual culture. They approach unfamiliar problems with ritual precision and cool logic, endure extreme cold without fear, and see clearly through darkness and heat.",
     focus: "center top",
   },
+  "butchers-of-hellmouth": { image: "race-butchers-of-hellmouth.png", preview: "Fire-born giants whose strength and endurance border on the impossible.", description: "The Butchers of Hellmouth are immense, sight-limited beings shaped by a brutal world of heat, smoke, and close-range violence. They survive injuries that would end most species and approach strength as both a necessity and a cultural language.", focus: "center top" },
+  "draco-prime": { image: "race-draco-prime.png", preview: "Cold-blooded shapeshifters who hide in plain sight without leaving heat behind.", description: "Draco Prime are reptilian infiltrators able to reshape themselves into the rough appearance of other humanoid species. Their disguises are convincing at a glance, though their eyes and tongue can betray them during moments of distraction.", focus: "center top" },
+  epoc: { image: "race-epoc.png", preview: "Empathic artists whose presence keeps a crew poised and inspired.", description: "Epoc are graceful, emotionally perceptive beings whose societies elevate art, faith, expression, and social understanding. Their instinctive optimism can steady an entire crew even when physical adversity works against them.", focus: "center top" },
+  "everliving-brethren": { image: "race-everliving-brethren.png", preview: "Regenerating horrors assembled from adaptable flesh and borrowed limbs.", description: "The Everliving Brethren are organless, regenerative beings whose bodies can survive catastrophic damage and accept replacement limbs. Their strange anatomy is tremendously resilient, though fire remains a terrifying weakness.", focus: "center top" },
+  flavilin: { image: "race-flavilin.png", preview: "Nocturnal technicians who see machinery and darkness with equal clarity.", description: "Flavilin are darkness-adapted observers with an extraordinary affinity for engineering, technology, and awareness. Bright light can overwhelm them, but in dim environments their senses and technical intuition flourish.", focus: "center top" },
+  horus: { image: "race-horus.png", preview: "Far-seeing observers whose compound perception notices almost everything.", description: "Horus possess remarkable eyes, broad fields of vision, and a talent for learning skills through unusually favorable advancement rolls. Their perception can combine matching results in ways other species cannot reproduce.", focus: "center top" },
+  kabuto: { image: "race-kabuto.png", preview: "Small armored gliders who refuse to let pain slow them down.", description: "Kabuto are compact, naturally armored beings capable of gliding and surviving dangerous falls. Their unusual bodies cannot handle bulky equipment, but their speed, defense, and complete disregard for pain make them difficult opponents.", focus: "center top" },
+  "krax-gny-vtek": { image: "race-krax-gny-vtek.png", preview: "Vacuum-hardened nocturnal predators built for sudden, decisive violence.", description: "Krax G'ny V'Tek are stealthy reptilian hunters with natural weapons, dark-adapted senses, and a body able to endure brief exposure to space. Injury can hinder their agility, but an unarmed Krax remains lethally dangerous.", focus: "center top" },
+  "nordic-flaxen": { image: "race-nordic-flaxen.png", preview: "Radiant wanderers whose improbable luck becomes effortless charm.", description: "Nordic Flaxen are striking, durable humanoids whose good fortune naturally strengthens their social presence. Their bodies withstand remarkable punishment, though Dark energy cuts through them with unusual severity.", focus: "center top" },
+  skeder: { image: "race-skeder.png", preview: "Many-limbed specialists protected by formidable natural armor.", description: "Sked'er are alien arthropods whose bodies, equipment, and language demand extensive customization. They struggle with conventional social interaction, but their natural protection, wide vision, and technical independence make them exceptional survivors.", focus: "center top" },
+  "slyn-tanni": { image: "race-slyn-tanni.png", preview: "Aquatic fliers who turn grace, speed, and warmth into survival.", description: "Slyn Tanni are amphibious beings capable of controlled flight and extraordinary movement through water. They are expressive and agile, but cold environments slow their bodies and Ice is especially dangerous to them.", focus: "center top" },
+  tamalori: { image: "race-tamalori.png", preview: "Lightning-fast hunters whose fragility makes every mistake dangerous.", description: "TaMalori are extraordinarily agile beings whose reflexes effectively multiply their Dexterity. Their bodies cannot develop the greatest physical strength, and critical injuries are devastating, so survival depends on never being where the blow lands.", focus: "center top" },
+  "vinolio-paxton": { image: "race-vinolio-paxton.png", preview: "Telekinetic fliers who trade stubborn resolve for impossible mobility.", description: "Vinolio Paxton are light-bodied humanoids capable of short bursts of flight and telekinetic manipulation. Their powers demand exertion and developing Willpower is costly, but few species match their freedom of movement.", focus: "center top" },
+  xithx: { image: "race-xithx.png", preview: "Water-walking insectoids armored by instinct and patient endurance.", description: "Xithx are many-eyed insectoids linked by a faint racial telepathy. Their natural armor and complete field of vision make them difficult to surprise, while their light bodies can cross liquid surfaces without sinking.", focus: "center top" },
+  "yuhorn-symitron": { image: "race-yuhorn-symitron.png", preview: "Elemental colossi shaped from ice, lava, stone, or living wood.", description: "Yuhorn Symitrons are massive elemental people whose biology and abilities depend on their material form. Ice, Lava, Rock, and Wood variants each endure the universe differently and require a subtype before creation is complete.", focus: "center top" },
 };
 
 const CLASS_CARD_PROFILES = {
@@ -134,7 +149,7 @@ const CLASS_CARD_PROFILES = {
   "corporate-worker": { icon: "$", preview: "Everything has a price, especially loyalty.", color: "#70dc9c" },
   decker: { icon: "&lt;/&gt;", preview: "Treats locked systems as personal invitations.", color: "#4ed8ed" },
   "demolition-specialist": { icon: "&#10038;", preview: "Used to play with lighters as a kid.", color: "#ff774f" },
-  engineer: { icon: "&#128295;", preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
+  engineer: { icon: "W", preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
   gunner: { icon: "&#8853;", preview: "Good with guns and weapon stations.", color: "#ff5c70" },
   heavy: { icon: "&#9646;", preview: "Carries the weapon everyone else called impractical.", color: "#b6a58b" },
   informant: { icon: "&#8981;", preview: "Knows somebody everywhere.", color: "#9aa8ff" },
@@ -145,7 +160,7 @@ const CLASS_CARD_PROFILES = {
   ninja: { icon: "&#9670;", preview: "Was never there. Definitely did not touch anything.", color: "#8d7ed2" },
   peacekeeper: { icon: "&#9774;", preview: "Prefers words, but came prepared.", color: "#7ee0d9" },
   pirate: { icon: "&#9760;", preview: "Finders keepers is a professional philosophy.", color: "#d59a61" },
-  "playboy-minx": { icon: "&#128139;", preview: "Charm first. Consequences later.", color: "#ff73b6" },
+  "playboy-minx": { icon: "XO", preview: "Charm first. Consequences later.", color: "#ff73b6" },
   psychopath: { icon: "!", preview: "Violence is rarely the first answer.", color: "#df5268" },
   "robotics-worker": { icon: "&#9881;", preview: "Understands machines better than most people.", color: "#69c8d8" },
   "rogue-drifter": { icon: "&#8605;", preview: "Never stays anywhere long enough to be blamed.", color: "#d0b278" },
@@ -508,6 +523,8 @@ const dom = {
   campaignRosterCards: $("#campaignRosterCards"),
   campaignStarshipRoster: $("#campaignStarshipRoster"),
   campaignStarshipCards: $("#campaignStarshipCards"),
+  playerStarshipsPanel: $("#playerStarshipsPanel"),
+  playerStarshipList: $("#playerStarshipList"),
   campaignSheetViewer: $("#campaignSheetViewer"),
   campaignSheetViewerName: $("#campaignSheetViewerName"),
   campaignSheetViewerPosition: $("#campaignSheetViewerPosition"),
@@ -610,6 +627,7 @@ const dom = {
 
 let characterAudioContext = null;
 let diceRollNoiseBuffer = null;
+let starshipMoveDraft = null;
 
 function ensureCharacterAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
@@ -957,6 +975,7 @@ function blankCharacter(name = "") {
       raceAttributeChoice: "",
       racialSkillGrants: {},
       freeAttributeUpgradeApplied: false,
+      angilurosFreeWeaponsUsed: 0,
       manualInput: false,
     },
     fubs: {
@@ -1738,6 +1757,7 @@ function showCharacterPanel(tab = "sheet") {
   dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
   if (activeCharacterTab === "sheet") renderCharacterLayout();
   if (activeCharacterTab === "roster") renderCampaignRoster();
+  if (activeCharacterTab === "starships") renderPlayerStarships();
   if (activeCharacterTab === "atb") void loadPlayerAtb();
   renderTabbedStatus();
   updateLibraryVisibility();
@@ -1752,7 +1772,7 @@ function renderCharacterNavigation() {
   for (const button of dom.tabs.querySelectorAll("[data-character-tab]")) {
     const tab = button.dataset.characterTab;
     if (tab === "sheet" || tab === "settings") button.hidden = false;
-    if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
+    if (tab === "roster" || tab === "atb" || tab === "starships") button.hidden = !linked || gmView;
   }
   dom.joinCampaignPanel.hidden = gmView || (!mayJoin && !pending);
   dom.joinCampaignForm.hidden = pending;
@@ -1957,6 +1977,92 @@ function privateNoteActions(note) {
   return `<div class="private-note-actions">${note.choices.map((skill) => `<button type="button" data-science-choice="${escapeAttribute(skill)}" data-note-id="${escapeAttribute(note.id)}">+0.1 ${escapeHtml(skill)}</button>`).join("")}</div>`;
 }
 
+const PLAYER_SHIP_SICS = {
+  "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3],
+  "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2],
+};
+
+function playerShipFootprint(record) {
+  const ship = record.ship || {};
+  const result = new Map();
+  for (const placement of ship.placements || []) {
+    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId);
+    const [width, height] = PLAYER_SHIP_SICS[item?.type] || [1, 1];
+    const originRow = Math.floor(Number(placement.cell) / 20);
+    const originColumn = Number(placement.cell) % 20;
+    for (let row = 0; row < height; row += 1) for (let column = 0; column < width; column += 1) {
+      result.set((originRow + row) * 20 + originColumn + column, placement.sicId);
+    }
+  }
+  return result;
+}
+
+function playerShipPath(record, start, destination) {
+  const ship = record.ship || {};
+  const hull = new Set(ship.gridCells || []);
+  if (!hull.has(destination)) return null;
+  if (!Number.isInteger(start) || !hull.has(start)) return [destination];
+  if (start === destination) return [];
+  const footprint = playerShipFootprint(record);
+  const queue = [start];
+  const parent = new Map([[start, null]]);
+  while (queue.length) {
+    const square = queue.shift();
+    const row = Math.floor(square / 20); const column = square % 20;
+    for (const next of [square - 20, square + 20, square - 1, square + 1]) {
+      if (!hull.has(next) || parent.has(next)) continue;
+      if (Math.abs(next - square) === 1 && Math.floor(next / 20) !== row) continue;
+      const firstSic = footprint.get(square) || ""; const secondSic = footprint.get(next) || "";
+      if (firstSic !== secondSic && (firstSic || secondSic)) {
+        const key = [square, next].sort((a, b) => a - b).join(":");
+        if (ship.doorStates?.[key] !== "open") continue;
+      }
+      parent.set(next, square); queue.push(next);
+    }
+  }
+  if (!parent.has(destination)) return null;
+  const path = [];
+  for (let square = destination; square !== start; square = parent.get(square)) path.push(square);
+  return path.reverse();
+}
+
+function renderPlayerStarships() {
+  if (!dom.playerStarshipList) return;
+  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  const ships = (campaignState?.starships || []).filter((record) => record.crewCharacterIds?.includes(ownId));
+  if (!ships.length) {
+    dom.playerStarshipList.innerHTML = '<p class="player-starship-empty">This character is not assigned to a starship yet.</p>';
+    return;
+  }
+  dom.playerStarshipList.innerHTML = ships.map((record) => {
+    const ship = record.ship || {}; const hull = new Set(ship.gridCells || []); const footprint = playerShipFootprint(record);
+    const crew = (record.crewCharacterIds || []).map((id) => campaignState.characters.find((entry) => entry.id === id)).filter(Boolean);
+    const hullSquares = [...hull];
+    const hullRows = hullSquares.map((square) => Math.floor(square / 20));
+    const hullCols = hullSquares.map((square) => square % 20);
+    const minRow = hullRows.length ? Math.min(...hullRows) : 0;
+    const maxRow = hullRows.length ? Math.max(...hullRows) : 0;
+    const minCol = hullCols.length ? Math.min(...hullCols) : 0;
+    const maxCol = hullCols.length ? Math.max(...hullCols) : 0;
+    const visibleSquares = [];
+    for (let row = minRow; row <= maxRow; row += 1) for (let col = minCol; col <= maxCol; col += 1) visibleSquares.push(row * 20 + col);
+    const visualLocations = new Map(crew.map((entry, index) => {
+      const saved = record.characterLocations?.[entry.id];
+      return [entry.id, saved || { square: hullSquares[Math.min(Math.floor(index / 2), Math.max(0, hullSquares.length - 1))], mesh: 4 }];
+    }));
+    const route = starshipMoveDraft?.starshipId === record.id ? new Set(starshipMoveDraft.path || []) : new Set();
+    const cells = visibleSquares.map((square) => {
+      const occupants = crew.filter((entry) => Number(visualLocations.get(entry.id)?.square) === square);
+      const tokens = occupants.slice(0, 2).map((entry, index) => `<i class="player-ship-token slot-${index}" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`).join("");
+      const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
+      return `<div class="${classes}">${hull.has(square) ? `<button type="button" data-player-ship-destination="${square}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>` : ""}${tokens}</div>`;
+    }).join("");
+    const people = crew.map((entry) => `<div class="player-starship-person" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}"><i></i><strong>${escapeHtml(campaignCharacterName(entry))}</strong></div>`).join("");
+    const active = starshipMoveDraft?.starshipId === record.id;
+      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div><a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&character=${encodeURIComponent(ownId)}">Open Full Ship</a></header><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${cells}</div></div><aside class="player-starship-sidebar">${people}<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${active && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length ? "" : "disabled"}>Confirm</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a destination aboard the ship."}</p></aside></div></article>`;
+  }).join("");
+}
+
 function refreshPrivateNotes() {
   const noteCharacterId = campaignState?.ownCharacterId || campaignCharacterId;
   const record = campaignState?.characters?.find((entry) => entry.id === noteCharacterId);
@@ -2097,6 +2203,7 @@ function receiveCampaignState(nextState) {
   refreshCampaignRollPrompt();
   updateCampaignCharacterNavigation();
   renderCharacterNavigation();
+  if (activeCharacterTab === "starships") renderPlayerStarships();
 }
 
 function connectCampaignState() {
@@ -3310,7 +3417,7 @@ function renderWorkflow() {
     return;
   }
 
-  dom.phaseBadge.textContent = character.importedDraft ? "Imported Draft" : "Draft";
+  dom.phaseBadge.textContent = character.importedDraft ? "Imported Draft" : "Next Step";
   dom.finalizeCharacter.textContent = "Finalize Character";
   dom.finalizeCharacter.disabled = !validation.ready || fubsRollInProgress;
   const requirements = [];
@@ -4824,9 +4931,13 @@ async function handleGmDirectEdit(element) {
 }
 
 function weaponOptions(selectedId) {
+  const angiluros = character.identity.raceId === "angiluros";
+  const selected = weaponById(selectedId);
+  const available = WEAPONS.filter((weapon) => angiluros ? weapon.angilurosOnly : !weapon.angilurosOnly);
+  if (selected && !available.some((weapon) => weapon.id === selected.id)) available.push(selected);
   return [
     `<option value="">Choose a weapon</option>`,
-    ...WEAPONS.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)} - ${weaponCreditCost(weapon).toLocaleString()} Credits</option>`),
+    ...available.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}${weapon.angilurosOnly ? " - Ancestral" : ` - ${weaponCreditCost(weapon).toLocaleString()} Credits`}</option>`),
   ].join("");
 }
 
@@ -4925,8 +5036,13 @@ function weaponCreditCost(weapon) {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
-function requestWeaponMode(weapon) {
+function requestWeaponMode(weapon, entry) {
   if (GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft")) return Promise.resolve("receive");
+  if (weapon.angilurosOnly && character.identity.raceId === "angiluros") {
+    const otherFreeChoices = character.weapons.filter((candidate) => candidate.id !== entry?.id && weaponById(candidate.weaponId)?.angilurosOnly).length;
+    if (character.phase === "draft" && otherFreeChoices < 3) return Promise.resolve("angiluros-free");
+    return Promise.resolve("angiluros-craft");
+  }
   const canReceive = mayReceiveGearForFree();
   return new Promise((resolve) => {
     const shell = document.createElement("div");
@@ -4953,6 +5069,35 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (mode === "receive" && !mayReceiveGearForFree()) {
     notice("Link this character to a campaign before receiving weapons for free.", "error");
+    return false;
+  }
+  if (mode === "angiluros-free") {
+    entry.weaponId = weapon.id;
+    entry.held = false;
+    character.creation.angilurosFreeWeaponsUsed = character.weapons.filter((candidate) => weaponById(candidate.weaponId)?.angilurosOnly).length;
+    queueSave();
+    return true;
+  }
+  if (mode === "angiluros-craft") {
+    if (!campaignCode || !campaignCharacterId || !campaignEditable) {
+      notice("Link this character to a campaign before requesting a crafted ancestral weapon.", "error");
+      return false;
+    }
+    const results = await new Promise((resolve, reject) => {
+      diceRoller.rollPool({
+        sides: weapon.craftDice || [6], fusion: false,
+        title: `Craft ${weapon.name}`,
+        subtitle: `${weapon.craftRequirements || "Ancestral crafting"} - the total is the number of fictional hours`,
+        onSettled: (values) => { diceRoller.celebrate(500).then(() => { diceRoller.stop(); resolve(values); }); },
+      }).catch(reject);
+    });
+    const craftHours = results.reduce((total, value) => total + value, 0);
+    const payload = await campaignRequest("/api/campaign/angiluros/craft", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, weaponId: weapon.id, inventoryId: entry.id, craftHours }),
+    });
+    if (payload.campaign) receiveCampaignState(payload.campaign);
+    notice(`${weapon.name} requires ${craftHours} fictional hour${craftHours === 1 ? "" : "s"}. Approval sent to the GM.`, "success");
     return false;
   }
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
@@ -5732,7 +5877,7 @@ function showDraftIntroduction() {
   if (character.phase !== "draft" || manualInputMode()) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
-  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Draft</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Draft</h2><p>Click this button to know what you need to do next! The Draft button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Next Step</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
   document.body.append(shell);
   dom.phaseBadge.classList.add("draft-guide-target");
   shell.querySelector("button").addEventListener("click", () => { shell.remove(); dom.phaseBadge.classList.remove("draft-guide-target"); dom.phaseBadge.focus({ preventScroll: true }); });
@@ -6608,12 +6753,12 @@ document.addEventListener("change", async (event) => {
     return;
   }
   if (weapon.id === previousWeaponId) return;
-  const mode = await requestWeaponMode(weapon);
+  const mode = await requestWeaponMode(weapon, entry);
   if (!mode) { renderWeapons(); return; }
   try {
     if (await acquireWeapon(entry, weapon, mode, previousWeaponId)) {
       renderAll();
-      notice(`${weapon.name} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
+      notice(`${weapon.name} ${mode === "purchase" ? "purchased" : mode === "angiluros-free" ? "chosen as a free ancestral weapon" : "received"}.`, "success");
     } else renderWeapons();
   } catch (error) {
     renderWeapons();
@@ -7711,6 +7856,50 @@ dom.playerAtbFrame?.addEventListener("load", () => {
   dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
   dom.playerAtbFrame.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
   requestAnimationFrame(watchMobilePlayerAtbHeight);
+});
+
+dom.playerStarshipList?.addEventListener("click", async (event) => {
+  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  const begin = event.target.closest("[data-player-ship-begin]");
+  const destination = event.target.closest("[data-player-ship-destination]");
+  const confirm = event.target.closest("[data-player-ship-confirm]");
+  const cancel = event.target.closest("[data-player-ship-cancel]");
+  const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel;
+  const record = (campaignState?.starships || []).find((entry) => entry.id === starshipId);
+  if (!record || !ownId) return;
+  if (begin) {
+    const firstHull = record.ship?.gridCells?.[0];
+    const start = Number(record.characterLocations?.[ownId]?.square);
+    starshipMoveDraft = { starshipId, start: Number.isInteger(start) ? start : firstHull, destination: null, path: [], message: "Choose a destination aboard the ship." };
+    renderPlayerStarships();
+    return;
+  }
+  if (cancel) { starshipMoveDraft = null; renderPlayerStarships(); return; }
+  if (destination) {
+    if (starshipMoveDraft?.starshipId !== starshipId) return;
+    const square = Number(destination.dataset.playerShipDestination);
+    const path = playerShipPath(record, starshipMoveDraft.start, square);
+    const occupants = Object.entries(record.characterLocations || {}).filter(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === 4).length;
+    starshipMoveDraft = { ...starshipMoveDraft, destination: square, path: path || [], message: path === null ? "No open route reaches that location." : occupants >= 2 ? "That location already holds two characters." : path.length ? `${path.length} unit route ready. Confirm to move.` : "You are already at that location.", invalid: path === null || occupants >= 2 || !path.length };
+    renderPlayerStarships();
+    return;
+  }
+  if (confirm && starshipMoveDraft?.starshipId === starshipId && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length) {
+    const button = confirm; button.disabled = true; button.textContent = "Moving...";
+    try {
+      const payload = await campaignRequest("/api/campaign/starship/move-character", {
+        method: "POST",
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, square: starshipMoveDraft.destination, mesh: 4 }),
+      });
+      starshipMoveDraft = null;
+      if (payload.campaign) receiveCampaignState(payload.campaign);
+      notice("Character moved aboard the starship.", "success");
+    } catch (error) {
+      starshipMoveDraft.message = error.message;
+      starshipMoveDraft.invalid = true;
+      renderPlayerStarships();
+    }
+  }
 });
 window.addEventListener("resize", syncMobilePlayerAtbHeight);
 
