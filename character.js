@@ -660,7 +660,7 @@ const dom = {
 let characterAudioContext = null;
 let diceRollNoiseBuffer = null;
 let starshipMoveDraft = null;
-const playerShipMapView = { labels: true, highResolution: false, combatMesh: false, walls: true };
+const playerShipMapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false };
 
 function ensureCharacterAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
@@ -2014,13 +2014,22 @@ function privateNoteActions(note) {
 
 const PLAYER_SHIP_SICS = {
   "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3],
-  "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2],
+  "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2], "nutritional-supplement": [1, 1],
 };
 const PLAYER_SHIP_SIC_META = {
   "en-engine-1": ["EN 1", "en-engine-1-floor-plan.png"], "en-engine-2": ["EN 2", "en-engine-2-floor-plan.png"],
   "en-engine-3": ["EN 3", "en-engine-3-floor-plan.png"], "en-engine-4": ["EN 4", "en-engine-4-floor-plan.png"],
   "en-engine-5": ["EN 5", "en-engine-5-floor-plan.png"], "en-engine-6": ["EN 6", "en-engine-6-floor-plan.png"],
-  "life-support": ["LIFE", "life-support-floor-plan.png?v=20260830"],
+  "life-support": ["LIFE", "life-support-floor-plan.png?v=20260831"],
+  "nutritional-supplement": ["NUT.", "nutritional-supplement-floor-plan.png?v=20260831"],
+};
+const PLAYER_SHIP_STATIONS = {
+  "en-engine-1": [{ x: 0, y: 0, mesh: 1 }],
+  "en-engine-2": [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }],
+  "en-engine-3": [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }],
+  "en-engine-4": [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }],
+  "en-engine-5": [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }],
+  "en-engine-6": [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }],
 };
 
 function playerShipFootprint(record) {
@@ -2094,7 +2103,11 @@ function renderPlayerStarships() {
     const route = starshipMoveDraft?.starshipId === record.id ? new Set(starshipMoveDraft.path || []) : new Set();
     const cells = visibleSquares.map((square) => {
       const occupants = crew.filter((entry) => Number(visualLocations.get(entry.id)?.square) === square);
-      const tokens = occupants.slice(0, 2).map((entry, index) => `<i class="player-ship-token slot-${index}" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`).join("");
+      const tokens = occupants.slice(0, 2).map((entry, index) => {
+        const mesh = Math.max(0, Math.min(8, Number(visualLocations.get(entry.id)?.mesh) || 4));
+        const left = ((mesh % 3) + .5) / 3 * 100 + (index ? 5 : -5); const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
+        return `<i class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
+      }).join("");
       const sicId = footprint.get(square) || "";
       const placement = (ship.placements || []).find((entry) => entry.sicId === sicId);
       const item = (ship.sicInventory || []).find((entry) => entry.id === sicId);
@@ -2102,14 +2115,17 @@ function renderPlayerStarships() {
       const [sicLabel, sicImage] = PLAYER_SHIP_SIC_META[item?.type] || ["", ""];
       const cellRow = Math.floor(square / 20); const cellCol = square % 20;
       const originRow = Math.floor(Number(placement?.cell || 0) / 20); const originCol = Number(placement?.cell || 0) % 20;
+      const stationMarkers = playerShipMapView.stations ? (PLAYER_SHIP_STATIONS[item?.type] || []).filter((station) => station.x === cellCol - originCol && station.y === cellRow - originRow).map((station) => `<i class="player-ship-station" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%"></i>`).join("") : "";
       const style = playerShipMapView.highResolution && sicImage ? `background-image:url('${sicImage}');background-size:${sicWidth * 100}% ${sicHeight * 100}%;background-position:${sicWidth > 1 ? ((cellCol - originCol) / (sicWidth - 1)) * 100 : 50}% ${sicHeight > 1 ? ((cellRow - originRow) / (sicHeight - 1)) * 100 : 50}%` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
-      return `<div class="${classes}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${hull.has(square) ? `<button type="button" data-player-ship-destination="${square}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>` : ""}${tokens}</div>`;
+      const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose precise ship location"></button>`).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
+      return `<div class="${classes}" data-player-ship-square="${square}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${destinationButtons}${stationMarkers}${tokens}</div>`;
     }).join("");
     const people = crew.map((entry) => `<div class="player-starship-person" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}"><i></i><strong>${escapeHtml(campaignCharacterName(entry))}</strong></div>`).join("");
     const active = starshipMoveDraft?.starshipId === record.id;
-      const viewClasses = [playerShipMapView.highResolution ? "high-resolution" : "", playerShipMapView.combatMesh ? "combat-mesh" : "", playerShipMapView.walls ? "show-walls" : ""].filter(Boolean).join(" ");
-      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div><a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&character=${encodeURIComponent(ownId)}&view=1">Open Full Ship</a></header><div class="player-starship-view-controls"><label><input type="checkbox" data-player-ship-view="labels" ${playerShipMapView.labels ? "checked" : ""}/> Labels</label><label><input type="checkbox" data-player-ship-view="highResolution" ${playerShipMapView.highResolution ? "checked" : ""}/> High Resolution</label><label><input type="checkbox" data-player-ship-view="combatMesh" ${playerShipMapView.combatMesh ? "checked" : ""}/> Combat Mesh</label><label><input type="checkbox" data-player-ship-view="walls" ${playerShipMapView.walls ? "checked" : ""}/> Walls &amp; Doors</label></div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${cells}</div></div><aside class="player-starship-sidebar">${people}<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${active && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length ? "" : "disabled"}>Confirm</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a destination aboard the ship."}</p></aside></div></article>`;
+      const viewClasses = [playerShipMapView.highResolution ? "high-resolution" : "", playerShipMapView.combatMesh ? "combat-mesh" : "", playerShipMapView.walls ? "show-walls" : "", playerShipMapView.stations ? "show-stations" : ""].filter(Boolean).join(" ");
+      const routePoints = active && starshipMoveDraft.path?.length ? [starshipMoveDraft.start, ...starshipMoveDraft.path].map((square, index, points) => { const mesh = index === points.length - 1 ? Number(starshipMoveDraft.destinationMesh ?? 4) : 4; return `${square % 20 - minCol + ((mesh % 3) + .5) / 3},${Math.floor(square / 20) - minRow + (Math.floor(mesh / 3) + .5) / 3}`; }).join(" ") : "";
+      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div><a href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&character=${encodeURIComponent(ownId)}&view=1">Open Full Ship</a></header><div class="player-starship-view-controls"><label><input type="checkbox" data-player-ship-view="labels" ${playerShipMapView.labels ? "checked" : ""}/> Labels</label><label><input type="checkbox" data-player-ship-view="highResolution" ${playerShipMapView.highResolution ? "checked" : ""}/> High Resolution</label><label><input type="checkbox" data-player-ship-view="combatMesh" ${playerShipMapView.combatMesh ? "checked" : ""}/> Combat Mesh</label><label><input type="checkbox" data-player-ship-view="walls" ${playerShipMapView.walls ? "checked" : ""}/> Walls &amp; Doors</label><label><input type="checkbox" data-player-ship-view="stations" ${playerShipMapView.stations ? "checked" : ""}/> Stations</label></div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${active && !starshipMoveDraft.invalid && (starshipMoveDraft.path?.length || starshipMoveDraft.sameSquareMove) ? "" : "disabled"}>Confirm</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p></aside></div></article>`;
   }).join("");
 }
 
@@ -3117,6 +3133,7 @@ function renderRace() {
 let activeRaceCardId = "";
 let activeRaceSubtypeIndex = 0;
 let raceSubtypeTransitioning = false;
+let raceProfileNavigationMode = "direct";
 let activeClassCardId = "";
 
 function resetWeaponsForAngilurosRaceChange(previousRaceId, nextRaceId) {
@@ -3199,8 +3216,8 @@ function renderRaceCardRules() {
   const advantages = [...(definition.advantages || []), ...(subtype?.advantages || [])];
   const disadvantages = [...(definition.disadvantages || []), ...(subtype?.disadvantages || [])];
   dom.raceSubtypeControls.hidden = !definition.types?.length;
-  dom.previousRaceSubtype.hidden = !definition.types?.length;
-  dom.nextRaceSubtype.hidden = !definition.types?.length;
+  dom.previousRaceSubtype.hidden = true;
+  dom.nextRaceSubtype.hidden = true;
   dom.raceSubtypeName.textContent = subtype?.name || "";
   dom.raceCardDetailImage.src = subtypeProfile?.image || profile.image;
   dom.raceCardDetailImage.alt = `${definition.name}${subtype ? ` ${subtype.name}` : ""} full-body appearance`;
@@ -3210,14 +3227,18 @@ function renderRaceCardRules() {
   dom.raceCardAdvantages.innerHTML = raceRuleList(advantages);
   dom.raceCardDisadvantages.innerHTML = raceRuleList(disadvantages);
   dom.chooseRaceCard.textContent = `Choose ${definition.name}${subtype ? ` - ${subtype.name}` : ""}`;
-  const raceIds = Object.keys(RACE_CARD_PROFILES);
-  const index = raceIds.indexOf(activeRaceCardId);
-  const previous = raceById(raceIds[(index - 1 + raceIds.length) % raceIds.length]);
-  const next = raceById(raceIds[(index + 1) % raceIds.length]);
-  dom.previousRaceCard.textContent = `< ${previous.name}`;
-  dom.previousRaceCard.setAttribute("aria-label", `View previous race: ${previous.name}`);
-  dom.nextRaceCard.textContent = `${next.name} >`;
-  dom.nextRaceCard.setAttribute("aria-label", `View next race: ${next.name}`);
+  const raceIds = Object.keys(RACE_CARD_PROFILES); const index = raceIds.indexOf(activeRaceCardId); const subtypeCount = definition.types?.length || 0;
+  const adjacentLabel = (direction) => {
+    if (raceProfileNavigationMode === "direct" && subtypeCount > 1) return definition.types[(activeRaceSubtypeIndex + direction + subtypeCount) % subtypeCount].name;
+    const subtypeIndex = activeRaceSubtypeIndex + direction;
+    if (raceProfileNavigationMode === "browse" && subtypeIndex >= 0 && subtypeIndex < subtypeCount) return definition.types[subtypeIndex].name;
+    const adjacentRace = raceById(raceIds[(index + direction + raceIds.length) % raceIds.length]);
+    if (raceProfileNavigationMode === "browse" && adjacentRace?.types?.length) return direction > 0 ? adjacentRace.types[0].name : adjacentRace.types.at(-1).name;
+    return adjacentRace?.name || "Race";
+  };
+  const previousLabel = adjacentLabel(-1); const nextLabel = adjacentLabel(1);
+  dom.previousRaceCard.textContent = `< ${previousLabel}`; dom.previousRaceCard.setAttribute("aria-label", `View previous profile: ${previousLabel}`);
+  dom.nextRaceCard.textContent = `${nextLabel} >`; dom.nextRaceCard.setAttribute("aria-label", `View next profile: ${nextLabel}`);
 }
 
 function scrollRaceDetailToTop() {
@@ -3232,6 +3253,7 @@ function showRaceCardDetail(raceId) {
   const profile = RACE_CARD_PROFILES[raceId];
   if (!definition || !profile) return;
   activeRaceCardId = raceId;
+  raceProfileNavigationMode = "direct";
   const selectedIndex = definition.types?.findIndex((type) => type.id === character.identity.raceType) ?? -1;
   activeRaceSubtypeIndex = selectedIndex >= 0 ? selectedIndex : 0;
   renderRaceCardRules();
@@ -3291,7 +3313,7 @@ function changeRaceSubtype(direction) {
   }, 220);
 }
 
-function changeRaceCard(direction) {
+function changeRaceCard(direction, forcedSubtypeIndex = null) {
   if (raceSubtypeTransitioning) return;
   const raceIds = Object.keys(RACE_CARD_PROFILES);
   const index = raceIds.indexOf(activeRaceCardId);
@@ -3301,7 +3323,7 @@ function changeRaceCard(direction) {
     activeRaceCardId = nextId;
     const definition = raceById(nextId);
     const selectedIndex = definition.types?.findIndex((type) => type.id === character.identity.raceType) ?? -1;
-    activeRaceSubtypeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    activeRaceSubtypeIndex = forcedSubtypeIndex === null ? (selectedIndex >= 0 ? selectedIndex : 0) : forcedSubtypeIndex;
     renderRaceCardRules();
     scrollRaceDetailToTop();
   };
@@ -3318,6 +3340,20 @@ function changeRaceCard(direction) {
       raceSubtypeTransitioning = false;
     }, 330);
   }, 220);
+}
+
+function navigateRaceProfile(direction) {
+  if (raceSubtypeTransitioning) return;
+  const definition = raceById(activeRaceCardId); const subtypeCount = definition?.types?.length || 0;
+  if (raceProfileNavigationMode === "direct" && subtypeCount > 1) { changeRaceSubtype(direction); return; }
+  if (raceProfileNavigationMode === "browse" && subtypeCount) {
+    const target = activeRaceSubtypeIndex + direction;
+    if (target >= 0 && target < subtypeCount) { changeRaceSubtype(direction); return; }
+  }
+  raceProfileNavigationMode = "browse";
+  const raceIds = Object.keys(RACE_CARD_PROFILES); const nextId = raceIds[(raceIds.indexOf(activeRaceCardId) + direction + raceIds.length) % raceIds.length];
+  const nextCount = raceById(nextId)?.types?.length || 0;
+  changeRaceCard(direction, direction < 0 && nextCount ? nextCount - 1 : 0);
 }
 
 function applyClassSelection(value) {
@@ -6925,8 +6961,8 @@ dom.backToRaceGallery.addEventListener("click", () => {
 });
 dom.previousRaceSubtype.addEventListener("click", () => changeRaceSubtype(-1));
 dom.nextRaceSubtype.addEventListener("click", () => changeRaceSubtype(1));
-dom.previousRaceCard.addEventListener("click", () => changeRaceCard(-1));
-dom.nextRaceCard.addEventListener("click", () => changeRaceCard(1));
+dom.previousRaceCard.addEventListener("click", () => navigateRaceProfile(-1));
+dom.nextRaceCard.addEventListener("click", () => navigateRaceProfile(1));
 dom.chooseRaceCard.addEventListener("click", () => {
   if (!activeRaceCardId) return;
   const subtype = raceById(activeRaceCardId)?.types?.[activeRaceSubtypeIndex]?.id || "";
@@ -7995,6 +8031,23 @@ dom.playerAtbFrame?.addEventListener("load", () => {
   requestAnimationFrame(watchMobilePlayerAtbHeight);
 });
 
+async function animatePlayerShipMove(card, route, destinationMesh) {
+  const viewport = card?.querySelector(".player-starship-map-viewport"); const token = card?.querySelector(".player-ship-token.is-self");
+  if (!viewport || !token || !route?.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const viewportRect = viewport.getBoundingClientRect(); const tokenRect = token.getBoundingClientRect();
+  const ghost = token.cloneNode(true); ghost.classList.add("player-ship-moving-token"); ghost.style.left = `${tokenRect.left - viewportRect.left + tokenRect.width / 2}px`; ghost.style.top = `${tokenRect.top - viewportRect.top + tokenRect.height / 2}px`; viewport.append(ghost); token.style.opacity = "0";
+  const keyframes = [{ transform: "translate(-50%,-50%)" }];
+  route.forEach((square, index) => {
+    const cell = card.querySelector(`[data-player-ship-square="${square}"]`); if (!cell) return;
+    const rect = cell.getBoundingClientRect(); const mesh = index === route.length - 1 ? destinationMesh : 4;
+    const x = rect.left - tokenRect.left + rect.width * (((mesh % 3) + .5) / 3) - tokenRect.width / 2;
+    const y = rect.top - tokenRect.top + rect.height * ((Math.floor(mesh / 3) + .5) / 3) - tokenRect.height / 2;
+    keyframes.push({ transform: `translate(calc(-50% + ${x}px),calc(-50% + ${y}px))` });
+  });
+  await ghost.animate(keyframes, { duration: Math.max(260, route.length * 260), easing: "linear", fill: "forwards" }).finished.catch(() => {});
+  ghost.remove(); token.style.opacity = "";
+}
+
 dom.playerStarshipList?.addEventListener("click", async (event) => {
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const begin = event.target.closest("[data-player-ship-begin]");
@@ -8006,8 +8059,9 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   if (!record || !ownId) return;
   if (begin) {
     const firstHull = record.ship?.gridCells?.[0];
-    const start = Number(record.characterLocations?.[ownId]?.square);
-    starshipMoveDraft = { starshipId, start: Number.isInteger(start) ? start : firstHull, destination: null, path: [], message: "Choose a destination aboard the ship." };
+    const currentLocation = record.characterLocations?.[ownId] || {};
+    const start = Number(currentLocation.square);
+    starshipMoveDraft = { starshipId, start: Number.isInteger(start) ? start : firstHull, startMesh: Math.max(0, Math.min(8, Number(currentLocation.mesh) || 4)), destination: null, destinationMesh: null, path: [], message: "Choose a precise destination aboard the ship." };
     renderPlayerStarships();
     return;
   }
@@ -8015,18 +8069,23 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   if (destination) {
     if (starshipMoveDraft?.starshipId !== starshipId) return;
     const square = Number(destination.dataset.playerShipDestination);
+    const mesh = Math.max(0, Math.min(8, Number(destination.dataset.playerShipMesh) || 0));
     const path = playerShipPath(record, starshipMoveDraft.start, square);
-    const occupants = Object.entries(record.characterLocations || {}).filter(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === 4).length;
-    starshipMoveDraft = { ...starshipMoveDraft, destination: square, path: path || [], message: path === null ? "No open route reaches that location." : occupants >= 2 ? "That location already holds two characters." : path.length ? `${path.length} unit route ready. Confirm to move.` : "You are already at that location.", invalid: path === null || occupants >= 2 || !path.length };
+    const occupants = Object.entries(record.characterLocations || {}).filter(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === mesh).length;
+    const sameSquareMove = square === starshipMoveDraft.start && mesh !== starshipMoveDraft.startMesh;
+    const distance = path === null ? 0 : Math.max(path.length, sameSquareMove ? Math.abs(Math.floor(mesh / 3) - Math.floor(starshipMoveDraft.startMesh / 3)) + Math.abs(mesh % 3 - starshipMoveDraft.startMesh % 3) : 0);
+    starshipMoveDraft = { ...starshipMoveDraft, destination: square, destinationMesh: mesh, path: path || [], sameSquareMove, message: path === null ? "No open route reaches that location." : occupants >= 2 ? "That precise location already holds two characters." : distance ? `${distance} unit route ready. Confirm to move.` : "You are already at that location.", invalid: path === null || occupants >= 2 || !distance };
     renderPlayerStarships();
     return;
   }
-  if (confirm && starshipMoveDraft?.starshipId === starshipId && !starshipMoveDraft.invalid && starshipMoveDraft.path?.length) {
+  if (confirm && starshipMoveDraft?.starshipId === starshipId && !starshipMoveDraft.invalid && (starshipMoveDraft.path?.length || starshipMoveDraft.sameSquareMove)) {
     const button = confirm; button.disabled = true; button.textContent = "Moving...";
     try {
+      const animationRoute = starshipMoveDraft.path?.length ? starshipMoveDraft.path : [starshipMoveDraft.destination];
+      await animatePlayerShipMove(confirm.closest(".player-starship-card"), animationRoute, starshipMoveDraft.destinationMesh);
       const payload = await campaignRequest("/api/campaign/starship/move-character", {
         method: "POST",
-        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, square: starshipMoveDraft.destination, mesh: 4 }),
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, square: starshipMoveDraft.destination, mesh: starshipMoveDraft.destinationMesh }),
       });
       starshipMoveDraft = null;
       if (payload.campaign) receiveCampaignState(payload.campaign);
@@ -8037,6 +8096,11 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
       renderPlayerStarships();
     }
   }
+});
+dom.playerStarshipList?.addEventListener("pointerover", (event) => {
+  if (event.pointerType === "touch" || !starshipMoveDraft) return;
+  const destination = event.target.closest("[data-player-ship-destination]");
+  if (destination && destination.dataset.playerShipId === starshipMoveDraft.starshipId) destination.click();
 });
 dom.playerStarshipList?.addEventListener("change", (event) => {
   const input = event.target.closest("[data-player-ship-view]");

@@ -6,13 +6,14 @@ const BUILD_VERSION = 3;
 const HULL_COST = 1000;
 const GRID_SIZE = 20;
 const SIC_CATALOG = {
-  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png", tint: "linear-gradient(rgba(28,165,255,.28),rgba(28,165,255,.28))" },
-  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png", tint: "linear-gradient(rgba(255,55,154,.38),rgba(255,55,154,.38))" },
-  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, floorplan: "en-engine-3-floor-plan.png", tint: "linear-gradient(135deg,rgba(29,102,255,.42),rgba(23,210,143,.34) 50%,rgba(140,55,215,.42))" },
-  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png", tint: "linear-gradient(rgba(0,211,201,.4),rgba(0,211,201,.4))" },
-  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png", tint: "linear-gradient(rgba(221,35,42,.44),rgba(221,35,42,.44))" },
-  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png", tint: "radial-gradient(circle at 50% 50%,rgba(10,0,18,.2),rgba(52,12,89,.64) 58%,rgba(5,0,12,.78))" },
-  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png?v=20260830" },
+  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, floorplan: "en-engine-1-floor-plan.png", stations: [{ x: 0, y: 0, mesh: 1 }] },
+  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, floorplan: "en-engine-2-floor-plan.png", stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
+  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, floorplan: "en-engine-3-floor-plan.png", stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
+  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, floorplan: "en-engine-4-floor-plan.png", stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
+  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, floorplan: "en-engine-5-floor-plan.png", stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
+  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, floorplan: "en-engine-6-floor-plan.png", stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
+  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, floorplan: "life-support-floor-plan.png?v=20260831" },
+  "nutritional-supplement": { name: "Nut. Supplement", shortLabel: "NUT.", category: "utility", price: 850, width: 1, height: 1, enOutput: 0, energyCost: 3, clearance: 0, floorplan: "nutritional-supplement-floor-plan.png?v=20260831" },
 };
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -27,12 +28,13 @@ function loadMapView() {
       highResolution: Boolean(saved.highResolution),
       combatMesh: Boolean(saved.combatMesh),
       walls: saved.walls !== false,
+      stations: Boolean(saved.stations),
       mode: saved.mode === "explore" ? "explore" : "build",
       zoom: Math.max(0.5, Math.min(4, Number(saved.zoom) || 1)),
       panX: Number(saved.panX) || 0,
       panY: Number(saved.panY) || 0,
     };
-  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true, mode: "build", zoom: 1, panX: 0, panY: 0 }; }
+  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false, mode: "build", zoom: 1, panX: 0, panY: 0 }; }
 }
 
 function constructionState(source) {
@@ -403,6 +405,11 @@ function inspectConstruction() {
     if (!result.legal) errors.push(result.reason);
     result.cells.forEach((cell) => { if (!draft.gridCells.includes(cell) || seenCells.has(cell)) cells.add(cell); seenCells.add(cell); });
   });
+  const installedTypes = new Set(draft.placements.map((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type).filter(Boolean));
+  if (installedTypes.has("nutritional-supplement") && !installedTypes.has("life-support")) {
+    errors.push("Nutritional Supplement requires an installed Life Support SIC.");
+    draft.placements.filter((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type === "nutritional-supplement").forEach((placement) => placementCells(placement).forEach((cell) => cells.add(cell)));
+  }
   if (pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
   return { errors: [...new Set(errors)], cells };
 }
@@ -535,6 +542,18 @@ function renderGridCells() {
         label.style.setProperty("--sic-width", String(definition.width));
         label.style.setProperty("--sic-height", String(definition.height));
         cell.append(label);
+      }
+      if (placement && mapView.stations && definition?.stations?.length) {
+        const originRow = Math.floor(placement.cell / GRID_SIZE); const originColumn = placement.cell % GRID_SIZE;
+        const localX = index % GRID_SIZE - originColumn; const localY = Math.floor(index / GRID_SIZE) - originRow;
+        definition.stations.filter((station) => station.x === localX && station.y === localY).forEach((station, stationIndex) => {
+          const marker = document.createElement("span");
+          marker.className = "sic-station-marker";
+          marker.dataset.mesh = String(station.mesh);
+          marker.title = `${definition.name} station ${stationIndex + 1}`;
+          marker.setAttribute("aria-label", marker.title);
+          cell.append(marker);
+        });
       }
       cell.setAttribute("aria-pressed", String(hull.has(index)));
       cell.setAttribute("aria-label", placement ? `Ship grid square ${index + 1}, ${definition.name}` : `Ship grid square ${index + 1}`);
@@ -701,6 +720,21 @@ function markSicDisposition(item, disposition) {
 
 function renderInventory() {
   document.querySelectorAll("[data-sic-list]").forEach((container) => renderInventoryList(container, container.dataset.sicList));
+  const purchased = draft.sicInventory.filter((item) => !item.pendingDisposition);
+  document.querySelectorAll("[data-purchased-sic-gallery]").forEach((gallery) => {
+    gallery.replaceChildren();
+    if (!purchased.length) {
+      const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "No SICs purchased yet."; gallery.append(empty); return;
+    }
+    purchased.forEach((item) => {
+      const definition = sicDefinition(item);
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "purchased-sic-thumbnail"; button.dataset.openSicType = item.type;
+      button.innerHTML = `<img src="${escapeHtml(definition.floorplan.split("?")[0])}" alt="" /><span>${escapeHtml(definition.shortLabel)}</span>`;
+      button.title = `Open ${definition.name} card`;
+      gallery.append(button);
+    });
+  });
 }
 function renderLiveStats() {
   const confirmed = constructionState(draft.confirmed);
@@ -1044,6 +1078,11 @@ function openSicCard(sicCard) {
 sicCards.forEach((sicCard) => {
   sicCard.addEventListener("click", () => openSicCard(sicCard));
   sicCard.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSicCard(sicCard); } });
+});
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-open-sic-type]");
+  if (!trigger) return;
+  openSicCard(document.querySelector(`[data-sic-card="${CSS.escape(trigger.dataset.openSicType)}"]`));
 });
 document.querySelector("[data-close-sic-card]")?.addEventListener("click", () => sicCardDialog?.close());
 sicCardDialog?.addEventListener("click", (event) => { if (event.target === sicCardDialog) sicCardDialog.close(); });

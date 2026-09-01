@@ -16,13 +16,14 @@
   const viewInputs = [...document.querySelectorAll("[data-combat-map-view]")];
   const stats = document.querySelector("#combatMapStats");
   const SIC = {
-    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png", output: 5 },
-    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png", output: 13 },
-    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png", output: 29 },
-    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png", output: 50 },
-    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png", output: 77 },
-    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png", output: 110 },
-    "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png?v=20260830" },
+    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png", output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
+    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png", output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
+    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png", output: 29, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
+    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png", output: 50, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
+    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png", output: 77, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
+    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png", output: 110, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
+    "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png?v=20260831" },
+    "nutritional-supplement": { width: 1, height: 1, label: "NUT.", image: "nutritional-supplement-floor-plan.png?v=20260831" },
   };
   let combatState = null;
   let mode = "welcome";
@@ -31,7 +32,12 @@
   let selectedShipId = "";
   let interaction = "view";
   let preview = null;
-  const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true };
+  const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false };
+
+  function stationAt(ship, square, mesh) {
+    const sic = footprint(ship).get(Number(square));
+    return sic?.stations?.find((station) => station.x === sic.col && station.y === sic.row && station.mesh === Number(mesh)) || null;
+  }
 
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const bridge = () => window.SACombatBridge;
@@ -182,6 +188,7 @@
     grid.classList.toggle("high-resolution", mapView.highResolution);
     grid.classList.toggle("show-combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls);
+    grid.classList.toggle("show-stations", mapView.stations);
     grid.innerHTML = Array.from({ length: 400 }, (_, square) => {
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
@@ -190,12 +197,21 @@
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""}" style="left:${left}%;top:${top}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+        return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
       }).join("");
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
+      const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.col && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? doorMarkup(ship, footprints, square) : ""}${tokens}${destination}</div>`;
+      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? doorMarkup(ship, footprints, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
+    if (preview?.path?.length) {
+      const start = locationFor(selectedUnit(), ship);
+      const points = [start, ...preview.path].filter(Boolean).map((point) => {
+        const column = point.square % 20; const row = Math.floor(point.square / 20);
+        return `${column + ((point.mesh % 3) + .5) / 3},${row + (Math.floor(point.mesh / 3) + .5) / 3}`;
+      }).join(" ");
+      grid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 20 20" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
+    }
   }
 
   function statValue(ship, ...keys) {
@@ -242,7 +258,8 @@
     renderStats();
     stop.hidden = unit?.timedAction?.kind !== "move";
     leaveStation.hidden = !unit?.location?.stationed || combatState?.activeId !== unit?.id;
-    enterStation.hidden = Boolean(unit?.location?.stationed || !unit?.location?.sicId || combatState?.activeId !== unit?.id);
+    const station = unit?.location ? stationAt(ship, unit.location.square, unit.location.mesh) : null;
+    enterStation.hidden = Boolean(unit?.location?.stationed || !station || combatState?.activeId !== unit?.id);
     confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : "Confirm Move";
   }
 
@@ -311,7 +328,11 @@
     close();
   });
   stop.addEventListener("click", async () => { await bridge()?.action({ action: "stopTravel", id: selectedUnitId }); close(); });
-  enterStation.addEventListener("click", async () => { const unit = selectedUnit(); await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "enterStation", stationName: footprint(selectedShip()).get(Number(unit.location.square))?.label || "SIC" }); close(); });
+  enterStation.addEventListener("click", async () => {
+    const unit = selectedUnit(); const ship = selectedShip(); const station = stationAt(ship, unit?.location?.square, unit?.location?.mesh);
+    if (!unit || !station) return;
+    await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "enterStation", stationName: footprint(ship).get(Number(unit.location.square))?.label || "SIC", stationSlot: unit.location.mesh }); close();
+  });
   leaveStation.addEventListener("click", async () => { await bridge()?.action({ action: "playerCombatAction", id: selectedUnitId, kind: "getUp" }); close(); });
   openButton?.addEventListener("click", () => open()); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
   document.addEventListener("click", (event) => {

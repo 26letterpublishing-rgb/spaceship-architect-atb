@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260831-sic-market-view-1" />
+    <link rel="stylesheet" href="starship.css?v=20260831-stations-nutrition-1" />
   </head>
   <body>
     <header class="starship-header">
@@ -94,6 +94,7 @@
             <label><input type="checkbox" data-map-toggle="highResolution" /><span>High Resolution</span></label>
             <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
             <label><input type="checkbox" data-map-toggle="walls" checked /><span>Walls</span></label>
+            <label><input type="checkbox" data-map-toggle="stations" /><span>Stations</span></label>
           </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
@@ -147,13 +148,12 @@
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
             <image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" />
             <g class="mobile-thruster-overlay" aria-hidden="true">
-              <rect class="mobile-thruster-label-mask" x="268" y="124" width="37" height="18" rx="2" />
-              <g class="mobile-thruster-needle">
+              <rect class="mobile-thruster-label-mask" x="246" y="122" width="55" height="22" rx="2" />
+              <g class="mobile-thruster-needle" transform="translate(-25 0)">
                 <path d="M286 145L257 107M286 145L266 127M286 145L276 149M286 145L286 170M286 145L278 177" />
                 <circle cx="286" cy="145" r="2.3" />
               </g>
-              <text x="286" y="133"># OF</text>
-              <text x="286" y="139">THRUSTERS</text>
+              <g transform="translate(-25 0)"><text x="286" y="133"># OF</text><text x="286" y="139">THRUSTERS</text></g>
             </g>
             <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
@@ -214,6 +214,7 @@
             <label><input type="checkbox" data-map-toggle="highResolution" /><span>High Resolution</span></label>
             <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
             <label><input type="checkbox" data-map-toggle="walls" checked /><span>Walls</span></label>
+            <label><input type="checkbox" data-map-toggle="stations" /><span>Stations</span></label>
           </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
@@ -287,6 +288,10 @@
           <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
         </article>
       </section>
+      <section class="purchased-sic-shelf" aria-label="Purchased SIC cards">
+        <header><span>Installed, queued, and stored components</span><h2>Purchased SICs</h2></header>
+        <div class="purchased-sic-grid" data-purchased-sic-gallery></div>
+      </section>
       </section>
 
       <section class="starship-panel sic-market" data-starship-panel="sics" hidden>
@@ -347,14 +352,22 @@
             <header class="sic-poker-heading"><span>Utility <small>A-29</small></span><div><h3>Life Support</h3><strong>Price: 1,500</strong></div></header>
             <img class="sic-poker-art" src="life-support-graphic.png" alt="Life Support system" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>2</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>2×2</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Mirium, 6 hrs</dd></div></dl>
-            <section class="sic-poker-rules"><p>Provides temperature control, breathable air, a water system, and gravity.</p><p>Loss of gravity is immediate if impaired. Total oxygen loss follows after a Delay Timer equal to 15 minus HSM.</p></section>
-            <footer><span><small>If Impaired</small>Gravity and oxygen endangered</span><span><small>Damage Threshold</small>18</span></footer>
+            <section class="sic-poker-rules"><p>Provides temperature control, breathable air, a water system, and gravity.</p></section>
+            <footer><span><small>If Impaired</small>Immediate loss of gravity. Total loss of Oxygen occurs after 45 seconds.</span><span><small>Damage Threshold</small>18</span></footer>
           </article>
           <button class="sic-purchase-button" data-purchase-sic="life-support" type="button">Purchase</button></section>
+          <section class="sic-market-item"><article class="sic-poker-card nutritional-supplement-card" data-sic-card="nutritional-supplement" tabindex="0" aria-label="Nutritional Supplement details">
+            <header class="sic-poker-heading"><span>Utility <small>A-30</small></span><div><h3>Nut. Supplement</h3><strong>Price: 850</strong></div></header>
+            <img class="sic-poker-art" src="nutritional-supplement-graphic.png" alt="Nutritional Supplement paste dispenser advertising over 20 flavors" />
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>3</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradom, 5 hrs</dd></div></dl>
+            <section class="sic-poker-rules"><p>Dispenses thick paste that contains all the nutrients required to survive.</p><strong>OVER 20 AVAILABLE FLAVORS!</strong><p>Requires Life Support.</p></section>
+            <footer><span><small>If Impaired</small>One random flavor is available only.</span><span><small>Damage Threshold</small>10</span></footer>
+          </article>
+          <button class="sic-purchase-button" data-purchase-sic="nutritional-supplement" type="button">Purchase</button></section>
         </div>
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260831-sic-market-view-1"></script>
+    <script src="starship.js?v=20260831-stations-nutrition-1"></script>
   </body>
 </html>

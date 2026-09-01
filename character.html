@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="character.css?v=20260831-race-ship-view-1" />
+  <link rel="stylesheet" href="character.css?v=20260831-stations-nutrition-1" />
   <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
@@ -743,7 +743,7 @@
         <div id="raceGalleryChooser" class="race-gallery-chooser">
           <header class="race-gallery-header">
             <div><span class="dialog-kicker">Character Origin</span><h2 id="raceGalleryTitle">Choose Race</h2></div>
-            <button id="closeRaceGallery" class="race-gallery-close" type="button" aria-label="Close race selection">X</button>
+            <button id="closeRaceGallery" class="race-gallery-close" type="button" aria-label="Back from race selection">Back</button>
           </header>
           <p class="race-gallery-intro">Choose a race to inspect its appearance, history, advantages, and disadvantages before committing.</p>
           <div id="raceGalleryGrid" class="race-gallery-grid"></div>
@@ -757,7 +757,7 @@
           <button id="nextRaceSubtype" class="race-subtype-edge race-subtype-edge-next" type="button" aria-label="Next race type" hidden>&gt;</button>
           <div class="race-card-art"><img id="raceCardDetailImage" alt="" /></div>
           <div class="race-card-copy">
-            <header><span class="dialog-kicker">Race Profile</span><h2 id="raceCardDetailName">Race</h2></header>
+            <header class="race-profile-header"><div><span class="dialog-kicker">Race Profile</span><h2 id="raceCardDetailName">Race</h2></div><div class="race-profile-header-nav"><button id="previousRaceCard" class="race-profile-nav" type="button">&lt; Previous</button><button id="nextRaceCard" class="race-profile-nav" type="button">Next &gt;</button></div></header>
             <p id="raceCardDetailDescription" class="race-card-description"></p>
             <div id="raceSubtypeControls" class="race-subtype-controls" hidden>
               <strong id="raceSubtypeName"></strong>
@@ -771,10 +771,8 @@
               <div id="raceCardLore"></div>
             </section>
             <div class="race-card-actions">
-              <button id="previousRaceCard" class="race-profile-nav" type="button">&lt; Previous Race</button>
               <button id="backToRaceGallery" type="button">Back</button>
               <button id="chooseRaceCard" class="primary-action" type="button">Choose Race</button>
-              <button id="nextRaceCard" class="race-profile-nav" type="button">Next Race &gt;</button>
             </div>
           </div>
         </article>
@@ -809,6 +807,6 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script type="module" src="character.js?v=20260831-race-ship-view-1"></script>
+    <script type="module" src="character.js?v=20260831-stations-nutrition-1"></script>
   </body>
 </html>

@@ -1629,7 +1629,7 @@ body.race-gallery-open{overflow:hidden}
 .race-gallery-chooser{width:min(1180px,100%);min-height:100dvh;margin:auto;padding:clamp(18px,3vw,42px)}
 .race-gallery-header{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:2px solid #37cde9;padding-bottom:14px}
 .race-gallery-header h2,.race-card-copy h2{margin:2px 0 0;font-size:clamp(2rem,5vw,4.2rem);line-height:.92;text-transform:uppercase}
-.race-gallery-close{width:46px;height:46px;padding:0;border-radius:50%;font-size:1.1rem}
+.race-gallery-close{width:auto;min-width:86px;height:42px;padding:7px 16px;border:1px solid #fff;border-radius:4px;color:#fff;background:#020407;font-size:.72rem}
 .race-gallery-intro{max-width:720px;margin:18px 0 24px;color:#a8bbca;line-height:1.5}
 .race-gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,340px));justify-content:center;gap:clamp(16px,3vw,32px)}
 .race-preview-card{position:relative;aspect-ratio:1;min-height:0;padding:0;overflow:hidden;border:2px solid #345166;border-radius:14px;color:#fff;background:#06101a;box-shadow:0 18px 38px rgba(0,0,0,.5);text-align:left;isolation:isolate;transition:transform 180ms ease,border-color 180ms ease,box-shadow 180ms ease}
@@ -1650,7 +1650,7 @@ body.race-gallery-open{overflow:hidden}
 .race-card-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 62%,#03080d),linear-gradient(0deg,rgba(3,8,13,.8),transparent 30%)}
 .race-card-art img{width:100%;height:100%;object-fit:cover;object-position:center top}
 .race-card-copy{min-width:0;display:flex;flex-direction:column;padding:clamp(24px,5vw,70px);background:linear-gradient(135deg,rgba(10,24,35,.98),#03080d 70%)}
-.race-card-copy header{padding-bottom:18px;border-bottom:2px solid #3ad3ed}
+.race-card-copy header{padding-bottom:18px;border-bottom:2px solid #3ad3ed}.race-profile-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.race-profile-header>div:first-child{min-width:0}.race-profile-header-nav{display:flex;justify-content:flex-end;gap:7px;max-width:48%}.race-profile-header-nav button{min-height:42px;padding:7px 11px;border-color:#aeb8c0;color:#10151a;background:#cbd1d6;box-shadow:none}
 .race-card-description{margin:22px 0;color:#c3d2dd;font:600 clamp(.88rem,1.4vw,1.08rem)/1.65 Arial,sans-serif}
 .race-card-rules{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .race-card-rules section{padding:16px;border:1px solid #2c465a;background:rgba(5,14,22,.76)}
@@ -1662,13 +1662,13 @@ body.race-gallery-open{overflow:hidden}
 .race-card-lore{margin-top:20px;padding:20px;border:1px solid #294458;border-left:4px solid #9d72d8;background:rgba(1,7,12,.72)}
 .race-card-lore .dialog-kicker{color:#caa8f5}
 .race-card-lore div{margin-top:12px;color:#b9c9d4;font:600 .79rem/1.7 Arial,sans-serif;white-space:pre-line}
-.race-card-actions{position:sticky;bottom:0;margin-top:auto;padding-top:22px;display:grid;grid-template-columns:minmax(120px,.7fr) minmax(90px,.35fr) minmax(190px,1fr) minmax(120px,.7fr);gap:10px;background:linear-gradient(transparent,#03080d 24%)}
+.race-card-actions{position:sticky;bottom:0;margin-top:auto;padding-top:22px;display:grid;grid-template-columns:minmax(110px,.45fr) minmax(190px,1fr);gap:10px;background:linear-gradient(transparent,#03080d 24%)}
 .race-card-actions button{min-height:50px}
-.race-profile-nav{font-size:.68rem;white-space:normal}
+.race-profile-nav{font-size:.68rem;white-space:normal}.race-card-actions #backToRaceGallery{border-color:#fff;color:#fff;background:#020407}
 @keyframes raceCardEnter{from{opacity:.25;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
 @media(max-width:760px){
   .race-gallery-chooser{padding:14px}.race-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.race-preview-card{border-radius:9px}.race-preview-card strong{left:10px;right:10px;bottom:52px;font-size:1rem}.race-preview-card small{display:none}.race-preview-card b{left:8px;top:8px;font-size:.48rem}.race-gallery-legacy label{grid-template-columns:1fr}
-  .race-card-detail{grid-template-columns:1fr;grid-template-rows:minmax(42dvh,52dvh) auto}.race-card-art{min-height:0}.race-card-art::after{background:linear-gradient(0deg,#03080d,transparent 38%)}.race-card-copy{padding:18px}.race-card-rules{grid-template-columns:1fr}.race-card-actions{grid-template-columns:1fr 1fr}
+  .race-card-detail{grid-template-columns:1fr;grid-template-rows:minmax(42dvh,52dvh) auto}.race-card-art{min-height:0}.race-card-art::after{background:linear-gradient(0deg,#03080d,transparent 38%)}.race-card-copy{padding:18px}.race-profile-header{align-items:center}.race-profile-header-nav{max-width:56%;flex-direction:column}.race-profile-header-nav button{min-height:36px;font-size:.58rem}.race-card-rules{grid-template-columns:1fr}.race-card-actions{grid-template-columns:1fr 1fr}
 }
 
 /* Keep the resting Draft control metallic between its brief reminder sweeps. */
@@ -1876,3 +1876,8 @@ body.class-gallery-open{overflow:hidden}.class-gallery-modal{z-index:1800;paddin
 .drama-card-core{min-height:0;overflow:auto}
 .drama-card-dialog-actions{width:min(300px,82vw)}
 @media(max-width:560px){.drama-card-dialog{padding:8px;gap:8px}.drama-card-display{width:min(290px,88vw,calc((100dvh - 112px) * .7142857));max-height:calc(100dvh - 112px)}.drama-card-dialog-actions{width:min(290px,88vw)}}
+
+/* Precise player ship movement and explicit station markers. */
+.player-starship-map-viewport{position:relative}.player-starship-map{position:relative}.player-ship-cell>button{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;padding:0;z-index:2}.player-ship-mesh{position:absolute;z-index:5;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}.player-ship-mesh button{position:static;min-width:0;min-height:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.player-ship-mesh button:hover{background:rgba(255,216,91,.28)}
+.player-ship-token{z-index:7}.player-ship-token.is-self::after{content:"";position:absolute;inset:-8px;border:3px solid var(--token-color);border-radius:50%;box-shadow:0 0 12px var(--token-color);animation:player-self-pulse 2s ease-out infinite}.player-ship-moving-token{position:absolute!important;z-index:30!important;margin:0;pointer-events:none}.player-ship-station{position:absolute;z-index:4;width:18%;aspect-ratio:1;border:1px solid #fff;background:#101820;box-shadow:0 0 0 1px #000,0 0 6px #56eaff;transform:translate(-50%,-50%);pointer-events:none}.player-ship-move-line{position:absolute;z-index:6;inset:18px;width:calc(100% - 36px);height:calc(100% - 36px);pointer-events:none;overflow:visible}.player-ship-move-line polyline{fill:none;stroke:#ffd85b;stroke-width:.08;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 .08px #000)}
+@keyframes player-self-pulse{0%,35%{opacity:.95;transform:scale(.72)}75%,100%{opacity:0;transform:scale(1.35)}}
