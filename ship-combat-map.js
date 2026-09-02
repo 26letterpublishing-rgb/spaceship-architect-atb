@@ -26,8 +26,8 @@
   const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false };
 
   function stationAt(ship, square, mesh) {
-    const sic = footprint(ship).get(Number(square));
-    return sic?.stations?.find((station) => station.x === sic.col && station.y === sic.row && station.mesh === Number(mesh)) || null;
+    const sic = window.SAShipMap.buildLayout(ship?.ship || {}).footprint.get(Number(square));
+    return sic?.stations?.find((station) => station.x === sic.column && station.y === sic.row && station.mesh === Number(mesh)) || null;
   }
 
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
@@ -35,7 +35,6 @@
   const ships = () => combatState?.starships || [];
   const selectedShip = () => ships().find((entry) => entry.id === selectedShipId) || null;
   const selectedUnit = () => combatState?.units?.find((entry) => entry.id === selectedUnitId) || null;
-  const doorKey = (a, b) => [Number(a), Number(b)].sort((x, y) => x - y).join(":");
   const nodeId = (square, mesh) => Number(square) * 9 + Number(mesh);
   const decodeNode = (id) => ({ square: Math.floor(id / 9), mesh: id % 9 });
 
@@ -67,19 +66,14 @@
     return Boolean(unit?.characterId && ship?.crewCharacterIds?.includes(unit.characterId));
   }
 
-  function crossingAllowed(ship, footprints, unit, fromSquare, toSquare, fromMesh, toMesh) {
-    const fromSic = footprints.get(fromSquare)?.sicId || "";
-    const toSic = footprints.get(toSquare)?.sicId || "";
-    if (fromSic === toSic) return true;
-    if (!fromSic && !toSic) return true;
-    const delta = toSquare - fromSquare;
-    const row = Math.floor(fromMesh / 3);
-    const col = fromMesh % 3;
-    const centered = Math.abs(delta) === 20 ? col === 1 : row === 1;
-    return centered && (ship.ship.doorStates?.[doorKey(fromSquare, toSquare)] === "open" || unitIsCrew(unit, ship) || mode === "gm");
+  function crossingAllowed(ship, layout, unit, fromSquare, toSquare) {
+    const edge = layout.edge(fromSquare, toSquare);
+    if (edge.kind === "none") return true;
+    if (edge.kind !== "door") return false;
+    return ship.ship.doorStates?.[edge.key] === "open" || unitIsCrew(unit, ship) || mode === "gm";
   }
 
-  function neighbors(ship, footprints, unit, node) {
+  function neighbors(ship, layout, unit, node) {
     const { square, mesh } = decodeNode(node);
     const row = Math.floor(mesh / 3);
     const col = mesh % 3;
@@ -97,7 +91,7 @@
       const nextSquare = nextRow * 20 + nextCol;
       if (!ship.ship.gridCells.includes(nextSquare)) continue;
       const nextMesh = (nr < 0 ? 2 : nr > 2 ? 0 : nr) * 3 + (nc < 0 ? 2 : nc > 2 ? 0 : nc);
-      if (crossingAllowed(ship, footprints, unit, square, nextSquare, mesh, nextMesh)) result.push(nodeId(nextSquare, nextMesh));
+      if (crossingAllowed(ship, layout, unit, square, nextSquare)) result.push(nodeId(nextSquare, nextMesh));
     }
     return result;
   }
@@ -109,13 +103,13 @@
     const startNode = nodeId(start.square, start.mesh);
     const endNode = nodeId(destination.square, destination.mesh);
     if (startNode === endNode) return [];
-    const footprints = footprint(ship);
+    const layout = window.SAShipMap.buildLayout(ship.ship);
     const queue = [startNode];
     const parent = new Map([[startNode, null]]);
     while (queue.length) {
       const node = queue.shift();
       if (node === endNode) break;
-      for (const next of neighbors(ship, footprints, unit, node)) if (!parent.has(next)) { parent.set(next, node); queue.push(next); }
+      for (const next of neighbors(ship, layout, unit, node)) if (!parent.has(next)) { parent.set(next, node); queue.push(next); }
     }
     if (!parent.has(endNode)) return null;
     const path = [];
@@ -123,15 +117,15 @@
     path.reverse();
     let previous = start;
     return path.map((point) => {
-      const crossing = point.square !== previous.square; const key = crossing ? doorKey(previous.square, point.square) : "";
-      const requiresDoor = crossing && (footprints.get(previous.square)?.sicId || "") !== (footprints.get(point.square)?.sicId || "") && ship.ship.doorStates?.[key] !== "open";
+      const crossing = point.square !== previous.square; const edge = crossing ? layout.edge(previous.square, point.square) : { kind: "none", key: "" };
+      const requiresDoor = edge.kind === "door" && ship.ship.doorStates?.[edge.key] !== "open";
       previous = point;
-      return requiresDoor ? { ...point, doorKey: key } : point;
+      return requiresDoor ? { ...point, doorKey: edge.key } : point;
     });
   }
 
   function completeLocation(ship, point) {
-    const sic = footprint(ship).get(point.square);
+    const sic = window.SAShipMap.buildLayout(ship?.ship || {}).footprint.get(point.square);
     return { environment: "starship", starshipId: ship.id, square: point.square, mesh: point.mesh, sicId: sic?.sicId || "", stationed: false, stationSlot: null, doorKey: point.doorKey || "" };
   }
 
@@ -161,24 +155,15 @@
     renderGrid();
   }
 
-  function doorMarkup(ship, footprints, square) {
-    // Each shared doorway has one control; duplicate controls blocked map clicks.
-    const directions = [[20, "bottom", "horizontal"], [1, "right", "vertical"]];
-    return directions.flatMap(([delta, side, axis]) => {
-      const other = square + delta;
-      if (!ship.ship.gridCells.includes(other)) return [];
-      if (Math.abs(delta) === 1 && Math.floor(square / 20) !== Math.floor(other / 20)) return [];
-      const a = footprints.get(square)?.sicId || "";
-      const b = footprints.get(other)?.sicId || "";
-      if (a === b || (!a && !b)) return [];
-      const first = footprints.get(square); const second = footprints.get(other);
-      const firstCentered = !first || (axis === "horizontal" ? first.col === Math.floor((first.width - 1) / 2) : first.row === Math.floor((first.height - 1) / 2));
-      const secondCentered = !second || (axis === "horizontal" ? second.col === Math.floor((second.width - 1) / 2) : second.row === Math.floor((second.height - 1) / 2));
-      if (!firstCentered || !secondCentered) return [];
-      const key = doorKey(square, other);
-      const autoOpen = (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(key));
-      const open = ship.ship.doorStates?.[key] === "open" || autoOpen;
-      return [`<button type="button" class="combat-door ${side} ${axis} ${open ? "open" : ""}" data-combat-door="${key}" aria-label="${open ? "Close" : "Open"} door"></button>`];
+  function boundaryMarkup(ship, layout, square) {
+    return window.SAShipMap.SIDES.map((side) => {
+      const boundary = layout.boundary(square, side.name);
+      const axis = side.name === "top" || side.name === "bottom" ? "horizontal" : "vertical";
+      if (boundary.kind === "wall") return `<i class="combat-wall ${side.name} ${axis}"></i>`;
+      if (boundary.kind !== "door") return "";
+      const autoOpen = (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(boundary.key));
+      const open = ship.ship.doorStates?.[boundary.key] === "open" || autoOpen;
+      return `<i class="combat-wall ${side.name} ${axis} start"></i><i class="combat-wall ${side.name} ${axis} end"></i><button type="button" class="combat-door ${side.name} ${axis} ${open ? "open" : ""}" data-combat-door="${boundary.key}" aria-label="${open ? "Close" : "Open"} door"><i></i><i></i></button>`;
     }).join("");
   }
 
@@ -210,6 +195,7 @@
     if (!ship) { grid.innerHTML = ""; return; }
     const hull = new Set(ship.ship.gridCells || []);
     const footprints = footprint(ship);
+    const layout = window.SAShipMap.buildLayout(ship.ship);
     const routeNodes = new Set((preview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === ship.id);
     grid.classList.toggle("show-labels", mapView.labels);
@@ -230,7 +216,7 @@
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
       const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.col && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? doorMarkup(ship, footprints, square) : ""}${stations}${tokens}${destination}</div>`;
+      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
     const movingMarkup = units.map((unit) => {
       const moving = movementPresentation(unit); if (!moving) return "";

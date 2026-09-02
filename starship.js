@@ -118,13 +118,6 @@ let validation = { errors: [], cells: new Set() };
 let hullPaint = null;
 let suppressGridClick = false;
 
-const SIDES = [
-  { name: "top", offset: -GRID_SIZE, valid: (index) => index >= GRID_SIZE },
-  { name: "right", offset: 1, valid: (index) => index % GRID_SIZE < GRID_SIZE - 1 },
-  { name: "bottom", offset: GRID_SIZE, valid: (index) => index < GRID_SIZE * (GRID_SIZE - 1) },
-  { name: "left", offset: -1, valid: (index) => index % GRID_SIZE > 0 },
-];
-
 const shipFields = [...document.querySelectorAll("[data-ship-field]")];
 const shipGrids = [...document.querySelectorAll(".ship-grid")];
 const totalSquareOutputs = [...document.querySelectorAll("[data-total-squares]")];
@@ -307,25 +300,12 @@ function makeDoor(index, adjacent, side) {
   return button;
 }
 
-function renderCellBoundaries(cell, index, hull, placement) {
-  SIDES.forEach((side) => {
-    const adjacent = index + side.offset;
-    if (!side.valid(index) || !hull.has(adjacent)) {
-      cell.append(makeWall(side.name));
-      return;
-    }
-    if (placement && placementAt(adjacent)?.sicId !== placement.sicId && centeredSicDoor(placement, index, side.name)) {
-      cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, adjacent, side.name));
-    }
+function renderCellBoundaries(cell, index, layout) {
+  window.SAShipMap.SIDES.forEach((side) => {
+    const boundary = layout.boundary(index, side.name);
+    if (boundary.kind === "wall") cell.append(makeWall(side.name));
+    if (boundary.kind === "door") cell.append(makeWall(side.name, "start"), makeWall(side.name, "end"), makeDoor(index, index + side.offset, side.name));
   });
-}
-
-function centeredSicDoor(placement, index, side) {
-  const definition = sicDefinition(draft.sicInventory.find((entry) => entry.id === placement.sicId));
-  const originRow = Math.floor(placement.cell / GRID_SIZE); const originColumn = placement.cell % GRID_SIZE;
-  const localRow = Math.floor(index / GRID_SIZE) - originRow; const localColumn = index % GRID_SIZE - originColumn;
-  if (side === "top" || side === "bottom") return localColumn === Math.floor((definition.width - 1) / 2);
-  return localRow === Math.floor((definition.height - 1) / 2);
 }
 
 function shipScaleStats(squareCount) {
@@ -509,8 +489,8 @@ function handleGridClick(index, cell, mobile) {
 }
 function renderGridCells() {
   const hull = new Set(draft.gridCells);
-  const placementMap = new Map();
-  draft.placements.forEach((placement) => placementCells(placement).forEach((cell, offset) => placementMap.set(cell, { placement, offset })));
+  const layout = window.SAShipMap.buildLayout(draft);
+  const placementMap = layout.footprint;
   const placementActive = Boolean(selectedSic());
   shipGrids.forEach((grid) => {
     grid.classList.toggle("show-sic-labels", mapView.labels);
@@ -541,7 +521,7 @@ function renderGridCells() {
         cell.style.setProperty("--sic-bg-y", definition.height === 1 ? "50%" : `${y / (definition.height - 1) * 100}%`);
         cell.dataset.sicType = item.type;
       } else delete cell.dataset.sicType;
-      if (hull.has(index) && mapView.walls && !placementActive) renderCellBoundaries(cell, index, hull, placement);
+      if (hull.has(index) && mapView.walls && !placementActive) renderCellBoundaries(cell, index, layout);
       if (placement && placement.cell === index && mapView.labels) {
         const label = document.createElement("span");
         label.className = "sic-grid-label";

@@ -2039,10 +2039,6 @@ function playerShipFootprint(record) {
   return result;
 }
 
-function playerShipDoorKey(first, second) {
-  return [Number(first), Number(second)].sort((a, b) => a - b).join(":");
-}
-
 function playerShipSicDetail(record, footprint, square) {
   const sicId = footprint.get(square) || "";
   if (!sicId) return null;
@@ -2055,14 +2051,9 @@ function playerShipSicDetail(record, footprint, square) {
   return { sicId, type: item.type, width, height, row: Math.floor(square / 20) - originRow, column: square % 20 - originColumn };
 }
 
-function playerShipDoorBetween(record, footprint, firstSquare, secondSquare) {
-  const firstId = footprint.get(firstSquare) || ""; const secondId = footprint.get(secondSquare) || "";
-  if (firstId === secondId || (!firstId && !secondId)) return "";
-  const verticalTravel = Math.abs(secondSquare - firstSquare) === 20;
-  const first = playerShipSicDetail(record, footprint, firstSquare); const second = playerShipSicDetail(record, footprint, secondSquare);
-  const firstCentered = !first || (verticalTravel ? first.column === Math.floor((first.width - 1) / 2) : first.row === Math.floor((first.height - 1) / 2));
-  const secondCentered = !second || (verticalTravel ? second.column === Math.floor((second.width - 1) / 2) : second.row === Math.floor((second.height - 1) / 2));
-  return firstCentered && secondCentered ? playerShipDoorKey(firstSquare, secondSquare) : null;
+function playerShipDoorBetween(layout, firstSquare, secondSquare) {
+  const edge = layout.edge(firstSquare, secondSquare);
+  return edge.kind === "door" ? edge.key : edge.kind === "wall" ? null : "";
 }
 
 function playerShipStationAt(record, square, mesh) {
@@ -2072,15 +2063,15 @@ function playerShipStationAt(record, square, mesh) {
   return station ? { ...station, sicId: detail.sicId, type: detail.type } : null;
 }
 
-function playerShipDoorMarkup(record, footprint, square) {
-  const ship = record.ship || {}; const hull = new Set(ship.gridCells || []);
-  return [[1, "right", "vertical"], [20, "bottom", "horizontal"]].map(([delta, side, axis]) => {
-    const other = square + delta;
-    if (!hull.has(other) || (delta === 1 && Math.floor(square / 20) !== Math.floor(other / 20))) return "";
-    const key = playerShipDoorBetween(record, footprint, square, other);
-    if (!key) return "";
-    const open = ship.doorStates?.[key] === "open";
-    return `<button type="button" class="player-ship-door ${side} ${axis} ${open ? "open" : ""}" data-player-ship-door="${key}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="${open ? "Close" : "Open"} door"><i></i><i></i></button>`;
+function playerShipBoundaryMarkup(record, layout, square) {
+  const ship = record.ship || {};
+  return window.SAShipMap.SIDES.map((side) => {
+    const boundary = layout.boundary(square, side.name);
+    const axis = side.name === "top" || side.name === "bottom" ? "horizontal" : "vertical";
+    if (boundary.kind === "wall") return `<i class="player-ship-wall ${side.name} ${axis}"></i>`;
+    if (boundary.kind !== "door") return "";
+    const open = ship.doorStates?.[boundary.key] === "open";
+    return `<i class="player-ship-wall ${side.name} ${axis} start"></i><i class="player-ship-wall ${side.name} ${axis} end"></i><button type="button" class="player-ship-door ${side.name} ${axis} ${open ? "open" : ""}" data-player-ship-door="${boundary.key}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="${open ? "Close" : "Open"} door"><i></i><i></i></button>`;
   }).join("");
 }
 
@@ -2091,6 +2082,7 @@ function playerShipPath(record, start, destination) {
   if (!Number.isInteger(start) || !hull.has(start)) return [destination];
   if (start === destination) return [];
   const footprint = playerShipFootprint(record);
+  const layout = window.SAShipMap.buildLayout(ship);
   const queue = [start];
   const parent = new Map([[start, null]]);
   while (queue.length) {
@@ -2100,7 +2092,7 @@ function playerShipPath(record, start, destination) {
       if (!hull.has(next) || parent.has(next)) continue;
       if (Math.abs(next - square) === 1 && Math.floor(next / 20) !== row) continue;
       const firstSic = footprint.get(square) || ""; const secondSic = footprint.get(next) || "";
-      if (firstSic !== secondSic && (firstSic || secondSic) && playerShipDoorBetween(record, footprint, square, next) === null) continue;
+      if (firstSic !== secondSic && (firstSic || secondSic) && playerShipDoorBetween(layout, square, next) === null) continue;
       parent.set(next, square); queue.push(next);
     }
   }
@@ -2120,7 +2112,7 @@ function renderPlayerStarships() {
     return;
   }
   dom.playerStarshipList.innerHTML = ships.map((record) => {
-    const ship = record.ship || {}; const hull = new Set(ship.gridCells || []); const footprint = playerShipFootprint(record);
+    const ship = record.ship || {}; const hull = new Set(ship.gridCells || []); const footprint = playerShipFootprint(record); const layout = window.SAShipMap.buildLayout(ship);
     const crew = (record.crewCharacterIds || []).map((id) => campaignState.characters.find((entry) => entry.id === id)).filter(Boolean);
     const hullSquares = [...hull];
     const hullRows = hullSquares.map((square) => Math.floor(square / 20));
@@ -2154,7 +2146,7 @@ function renderPlayerStarships() {
       const style = playerShipMapView.highResolution && sicImage ? window.SAShipMap.floorplanStyle(item?.type, cellCol - originCol, cellRow - originRow) : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
       const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose precise ship location"></button>`).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
-      const doors = playerShipMapView.walls && hull.has(square) ? playerShipDoorMarkup(record, footprint, square) : "";
+      const doors = playerShipMapView.walls && hull.has(square) ? playerShipBoundaryMarkup(record, layout, square) : "";
       return `<div class="${classes}" data-player-ship-square="${square}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${destinationButtons}${stationMarkers}${tokens}${doors}</div>`;
     }).join("");
     const people = crew.map((entry) => `<div class="player-starship-person" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}"><i></i><strong>${escapeHtml(campaignCharacterName(entry))}</strong></div>`).join("");
@@ -8093,14 +8085,14 @@ async function animatePlayerShipMove(card, record, startSquare, startMesh, route
   const viewportRect = viewport.getBoundingClientRect(); const tokenRect = token.getBoundingClientRect();
   const startX = tokenRect.left - viewportRect.left + viewport.scrollLeft + tokenRect.width / 2; const startY = tokenRect.top - viewportRect.top + viewport.scrollTop + tokenRect.height / 2;
   const ghost = token.cloneNode(true); ghost.classList.add("player-ship-moving-token"); ghost.style.left = `${startX}px`; ghost.style.top = `${startY}px`; viewport.append(ghost); token.style.opacity = "0";
-  const footprint = playerShipFootprint(record); let previousSquare = startSquare;
+  const layout = window.SAShipMap.buildLayout(record.ship || {}); let previousSquare = startSquare;
   for (let index = 0; index < route.length; index += 1) {
     const square = route[index];
     const cell = card.querySelector(`[data-player-ship-square="${square}"]`); if (!cell) return;
     const rect = cell.getBoundingClientRect(); const mesh = index === route.length - 1 ? destinationMesh : 4;
     const x = rect.left - viewportRect.left + viewport.scrollLeft + rect.width * (((mesh % 3) + .5) / 3);
     const y = rect.top - viewportRect.top + viewport.scrollTop + rect.height * ((Math.floor(mesh / 3) + .5) / 3);
-    const doorKey = playerShipDoorBetween(record, footprint, previousSquare, square);
+    const doorKey = playerShipDoorBetween(layout, previousSquare, square);
     const door = doorKey ? card.querySelector(`[data-player-ship-door="${doorKey}"]`) : null;
     const autoDoor = door && record.ship?.doorStates?.[doorKey] !== "open";
     if (autoDoor) {

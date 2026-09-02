@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama-card-data.js");
+const SHIP_MAP = require("./ship-map-core.js");
 const SHOWCASE_NPCS = require("./data/npc-templates.json");
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
@@ -508,24 +509,14 @@ function normalizeStarshipRecord(raw) {
   };
 }
 
-const STARSHIP_STATIONS = {
-  "en-engine-1": [{ x: 0, y: 0, mesh: 1 }],
-  "en-engine-2": [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }],
-  "en-engine-3": [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }],
-  "en-engine-4": [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }],
-  "en-engine-5": [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }],
-  "en-engine-6": [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }],
-};
-const STARSHIP_SIC_SIZE = { "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3], "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2], "nutritional-supplement": [1, 1] };
-
 function starshipStationAt(record, square, mesh) {
   const ship = record?.ship || {}; const targetRow = Math.floor(Number(square) / 20); const targetColumn = Number(square) % 20;
   for (const placement of ship.placements || []) {
-    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const [width, height] = STARSHIP_SIC_SIZE[item?.type] || [1, 1];
+    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const definition = SHIP_MAP.definition(item?.type);
     const originRow = Math.floor(Number(placement.cell) / 20); const originColumn = Number(placement.cell) % 20;
     const x = targetColumn - originColumn; const y = targetRow - originRow;
-    if (x < 0 || y < 0 || x >= width || y >= height) continue;
-    const station = (STARSHIP_STATIONS[item?.type] || []).find((entry) => entry.x === x && entry.y === y && Number(entry.mesh) === Number(mesh));
+    if (x < 0 || y < 0 || x >= definition.width || y >= definition.height) continue;
+    const station = (definition.stations || []).find((entry) => entry.x === x && entry.y === y && Number(entry.mesh) === Number(mesh));
     return station ? { ...station, sicId: placement.sicId, type: item.type } : null;
   }
   return null;
