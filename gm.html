@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260826-explore-polish" />
+  <link rel="stylesheet" href="gm.css?v=20260901-shared-map-2" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -17,6 +17,7 @@
         </div>
         <div class="gm-header-actions">
           <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
+          <button id="gmSettingsToggle" class="gm-settings-toggle" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
         </div>
       </header>
@@ -60,7 +61,6 @@
           <button type="button" data-tab="prompt">Prompt / Give</button>
           <button type="button" data-tab="inbox">Inbox <strong id="gmInboxCount">0</strong></button>
           <button type="button" data-tab="atb">Combat</button>
-          <button type="button" data-tab="settings">Settings</button>
         </nav>
 
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
@@ -330,6 +330,10 @@
         <iframe id="gmAdjustmentFrame" title="GM Character Adjustment"></iframe>
       </div>
     </section>
+    <section id="gmStarshipViewer" class="gm-starship-viewer" hidden>
+      <button id="closeGmStarshipViewer" class="gm-starship-viewer-close" type="button">Back to Campaign</button>
+      <iframe id="gmStarshipViewerFrame" title="Campaign Starship View"></iframe>
+    </section>
     <div id="gmDramaCardAlert" class="gm-modal-shell gm-drama-alert-shell" hidden>
       <section class="gm-drama-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="gmDramaCardName">
         <p id="gmDramaPlayedBy" class="gm-drama-played-by"></p>
@@ -342,6 +346,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260831-starship-view-1"></script>
+  <script type="module" src="gm.js?v=20260901-shared-map-2"></script>
   </body>
 </html>

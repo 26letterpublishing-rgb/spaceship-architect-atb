@@ -60,7 +60,7 @@ let gmCampaignToken = "";
 if (embeddedGm && /^[A-Z0-9]{4}$/.test(requestedCampaignCode)) {
   mode = "gm";
   currentRoomCode = requestedCampaignCode;
-  gmCampaignToken = localStorage.getItem(`sa-gm-token-${requestedCampaignCode}`) || "";
+  gmCampaignToken = sessionStorage.getItem(`sa-gm-token-${requestedCampaignCode}`) || localStorage.getItem(`sa-gm-token-${requestedCampaignCode}`) || "";
 }
 const KEEP_ALIVE_MS = 30000;
 const ACTION_LOG_TIMEOUT_MS = 300000;
@@ -478,7 +478,7 @@ if (embeddedPlayer && /^[A-Z0-9]{4}$/.test(requestedCampaignCode) && requestedCa
   mode = "player";
   currentRoomCode = requestedCampaignCode;
   campaignCharacterId = requestedCampaignCharacter;
-  campaignCharacterToken = localStorage.getItem(campaignTokenKey(requestedCampaignCode, requestedCampaignCharacter)) || "";
+  campaignCharacterToken = sessionStorage.getItem(campaignTokenKey(requestedCampaignCode, requestedCampaignCharacter)) || localStorage.getItem(campaignTokenKey(requestedCampaignCode, requestedCampaignCharacter)) || "";
 }
 
 function campaignTokenKey(code, characterId) {
@@ -1884,7 +1884,10 @@ function groupedUnitMarkup(units, options) {
   const assigned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
   const other = units.filter((unit) => !assigned.has(unit.id));
   if (other.length) groups.push({ id: "other", title: "Other", controlType: "other", units: other });
-  return `<div class="combat-location-groups ${groups.length === 2 ? "two-columns" : ""}">${groups.map((group) => `<section class="combat-location-group" data-location-group="${escapeHtml(group.id)}"><header><strong>${escapeHtml(group.title)}</strong><small>${group.controlType === "gm" ? "GM SHIP" : group.controlType === "pc" ? "PC SHIP" : "EXTERIOR / SURFACE"}</small></header><div class="combat-location-units">${group.units.length ? group.units.map((unit) => `${unitCard(unit, options)}${unit.location?.stationed ? '<span class="stationed-marker">STATIONED</span>' : ""}`).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div></section>`).join("")}</div>`;
+  return `<div class="combat-location-groups ${groups.length === 2 ? "two-columns" : ""}">${groups.map((group) => `<section class="combat-location-group" data-location-group="${escapeHtml(group.id)}"><header><strong>${escapeHtml(group.title)}</strong><small>${group.controlType === "gm" ? "GM SHIP" : group.controlType === "pc" ? "PC SHIP" : "EXTERIOR / SURFACE"}</small></header><div class="combat-location-units">${group.units.length ? group.units.map((unit) => {
+    const benefits = (unit.stationBenefits || []).map((benefit) => benefit.auBonus ? `${benefit.label} +${benefit.auBonus} AU` : benefit.label).join(" | ");
+    return `${unitCard(unit, options)}${unit.location?.stationed ? `<span class="stationed-marker">STATIONED${benefits ? ` | ${escapeHtml(benefits)}` : ""}</span>` : ""}`;
+  }).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div></section>`).join("")}</div>`;
 }
 
 function unitSignature(unit, { gm = false, player = false } = {}) {

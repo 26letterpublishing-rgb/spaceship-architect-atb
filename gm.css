@@ -83,6 +83,7 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-sound-toggle.muted .sound-wave{display:none}
 .gm-sound-toggle.muted .mute-slash{display:block;stroke:#ff7a89}
 .gm-sound-toggle span,.gm-sound-toggle span::before,.gm-sound-toggle span::after{display:none}
+.gm-settings-toggle{width:38px;min-width:38px;height:38px;min-height:38px;padding:0;border-radius:50%}.gm-settings-toggle svg{display:block;width:22px;height:22px;margin:auto;fill:none;stroke:#dff8ff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.gm-settings-toggle:hover,.gm-settings-toggle.active{border-color:#8aa8c4;background:linear-gradient(180deg,#334b60,#132331)}
 .script-chapter-console{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;border-bottom:1px solid #385169}
 .script-chapter-tabs{min-width:0;display:flex;gap:3px;overflow-x:auto}
 .script-chapter-tabs button{min-height:38px;padding:0 15px;border-radius:5px 5px 0 0;border-bottom:0;background:#08131f;white-space:nowrap}
@@ -172,6 +173,7 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 /* Campaign privacy and the GM-only banner crop. */
 .gm-brand img{object-position:center calc(50% + 10px)}
 .gm-adjustment-modal{position:fixed;z-index:15000;inset:0;background:#02060b}.gm-adjustment-frame-shell,.gm-adjustment-frame-shell iframe{width:100%;height:100%}.gm-adjustment-frame-shell iframe{display:block;border:0;background:#030912}
+.gm-starship-viewer{position:fixed;z-index:14900;inset:0;padding-top:54px;background:#02060b}.gm-starship-viewer iframe{display:block;width:100%;height:calc(100% - 54px);border:0;background:#030912}.gm-starship-viewer-close{position:absolute;z-index:2;left:18px;top:9px;min-height:38px;padding:8px 18px;border:1px solid #70d9ef;color:#eafaff;background:#102331}
 .settings-room-code{display:grid;grid-template-columns:auto 1fr 38px;align-items:center;gap:9px;margin-top:10px;padding:9px;border:1px solid #334c61;background:#06101a}.settings-room-code>span{color:var(--muted);font-size:.58rem}.settings-room-code>strong{color:#f5fbff;font-size:1rem;letter-spacing:2px}.settings-room-code button{position:relative;width:36px;min-width:36px;min-height:32px;padding:0;border-radius:5px}.settings-room-code button::before{content:"";position:absolute;inset:0;background:no-repeat center/20px 20px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9d5e7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='m3 3 18 18'/%3E%3C/svg%3E")}.settings-room-code button.revealed::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2339e5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E")}
 
 /* Primary GM navigation colors. Character sheet sub-navigation is intentionally untouched. */

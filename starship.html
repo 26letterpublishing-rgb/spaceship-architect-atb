@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260831-stations-nutrition-1" />
+    <link rel="stylesheet" href="starship.css?v=20260901-shared-map-2" />
   </head>
   <body>
     <header class="starship-header">
@@ -52,7 +52,7 @@
           <text data-live-stat="en" data-en-part="available" x="446" y="185">0</text>
           <text data-live-stat="en" data-en-part="max" x="478" y="185">0</text>
           <text data-live-stat="credits" x="511" y="27">999,999</text>
-          <path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" />
+          <path class="hsm-charge-glow" transform="translate(-22 0)" d="M330 27 L355 25 L355 48 L330 46 Z" />
           <text data-live-stat="hsm" x="374" y="37.5">--</text>
         </svg>
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -155,7 +155,7 @@
               </g>
               <g transform="translate(-25 0)"><text x="286" y="133"># OF</text><text x="286" y="139">THRUSTERS</text></g>
             </g>
-            <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
+            <g class="mobile-live-stats"><path class="hsm-charge-glow" transform="translate(-22 0)" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
         </article>
         <section class="mobile-compact-systems" aria-label="Detection and digital security">
@@ -368,6 +368,7 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="starship.js?v=20260831-stations-nutrition-1"></script>
+    <script src="ship-map-core.js?v=20260901-shared-map-2"></script>
+    <script src="starship.js?v=20260901-shared-map-2"></script>
   </body>
 </html>

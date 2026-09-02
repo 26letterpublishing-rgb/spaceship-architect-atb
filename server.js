@@ -1239,7 +1239,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   for (const unit of room.units) {
     if (unit.id === skipId || unit.defeatedAt || !unit.speed) continue;
     const wasTimed = hasTimedAction(unit);
-    for (const event of tickCombatTimers(unit, seconds, multiplier)) {
+    for (const event of tickCombatTimers(unit, seconds, multiplier, room)) {
       if (event.type === "timed") {
         if (event.timedAction.kind === "firstAid") {
           completedEvents.push(event);

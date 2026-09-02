@@ -15,16 +15,7 @@
   const panButtons = [...document.querySelectorAll("[data-combat-map-pan]")];
   const viewInputs = [...document.querySelectorAll("[data-combat-map-view]")];
   const stats = document.querySelector("#combatMapStats");
-  const SIC = {
-    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: "en-engine-1-floor-plan.png", output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
-    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: "en-engine-2-floor-plan.png", output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
-    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: "en-engine-3-floor-plan.png", output: 29, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
-    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: "en-engine-4-floor-plan.png", output: 50, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
-    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: "en-engine-5-floor-plan.png", output: 77, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
-    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: "en-engine-6-floor-plan.png", output: 110, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
-    "life-support": { width: 2, height: 2, label: "LIFE", image: "life-support-floor-plan.png?v=20260831" },
-    "nutritional-supplement": { width: 1, height: 1, label: "NUT.", image: "nutritional-supplement-floor-plan.png?v=20260831" },
-  };
+  const SIC = window.SAShipMap.catalog;
   let combatState = null;
   let mode = "welcome";
   let myUnitId = "";
@@ -72,7 +63,11 @@
     return { square: Number(unit.location.square), mesh: Math.max(0, Math.min(8, Number(unit.location.mesh) || 0)) };
   }
 
-  function crossingAllowed(ship, footprints, fromSquare, toSquare, fromMesh, toMesh) {
+  function unitIsCrew(unit, ship) {
+    return Boolean(unit?.characterId && ship?.crewCharacterIds?.includes(unit.characterId));
+  }
+
+  function crossingAllowed(ship, footprints, unit, fromSquare, toSquare, fromMesh, toMesh) {
     const fromSic = footprints.get(fromSquare)?.sicId || "";
     const toSic = footprints.get(toSquare)?.sicId || "";
     if (fromSic === toSic) return true;
@@ -81,10 +76,10 @@
     const row = Math.floor(fromMesh / 3);
     const col = fromMesh % 3;
     const centered = Math.abs(delta) === 20 ? col === 1 : row === 1;
-    return centered && ship.ship.doorStates?.[doorKey(fromSquare, toSquare)] === "open";
+    return centered && (ship.ship.doorStates?.[doorKey(fromSquare, toSquare)] === "open" || unitIsCrew(unit, ship) || mode === "gm");
   }
 
-  function neighbors(ship, footprints, node) {
+  function neighbors(ship, footprints, unit, node) {
     const { square, mesh } = decodeNode(node);
     const row = Math.floor(mesh / 3);
     const col = mesh % 3;
@@ -102,7 +97,7 @@
       const nextSquare = nextRow * 20 + nextCol;
       if (!ship.ship.gridCells.includes(nextSquare)) continue;
       const nextMesh = (nr < 0 ? 2 : nr > 2 ? 0 : nr) * 3 + (nc < 0 ? 2 : nc > 2 ? 0 : nc);
-      if (crossingAllowed(ship, footprints, square, nextSquare, mesh, nextMesh)) result.push(nodeId(nextSquare, nextMesh));
+      if (crossingAllowed(ship, footprints, unit, square, nextSquare, mesh, nextMesh)) result.push(nodeId(nextSquare, nextMesh));
     }
     return result;
   }
@@ -120,40 +115,49 @@
     while (queue.length) {
       const node = queue.shift();
       if (node === endNode) break;
-      for (const next of neighbors(ship, footprints, node)) if (!parent.has(next)) { parent.set(next, node); queue.push(next); }
+      for (const next of neighbors(ship, footprints, unit, node)) if (!parent.has(next)) { parent.set(next, node); queue.push(next); }
     }
     if (!parent.has(endNode)) return null;
     const path = [];
     for (let node = endNode; node !== startNode; node = parent.get(node)) path.push(decodeNode(node));
-    return path.reverse();
+    path.reverse();
+    let previous = start;
+    return path.map((point) => {
+      const crossing = point.square !== previous.square; const key = crossing ? doorKey(previous.square, point.square) : "";
+      const requiresDoor = crossing && (footprints.get(previous.square)?.sicId || "") !== (footprints.get(point.square)?.sicId || "") && ship.ship.doorStates?.[key] !== "open";
+      previous = point;
+      return requiresDoor ? { ...point, doorKey: key } : point;
+    });
   }
 
   function completeLocation(ship, point) {
     const sic = footprint(ship).get(point.square);
-    return { environment: "starship", starshipId: ship.id, square: point.square, mesh: point.mesh, sicId: sic?.sicId || "", stationed: false, stationSlot: null };
+    return { environment: "starship", starshipId: ship.id, square: point.square, mesh: point.mesh, sicId: sic?.sicId || "", stationed: false, stationSlot: null, doorKey: point.doorKey || "" };
   }
 
-  function chooseDestination(square, mesh) {
+  function chooseDestination(square, mesh, locked = false) {
     const unit = selectedUnit();
     const ship = selectedShip();
     if (!unit || !ship) return;
     const occupied = (combatState?.units || []).filter((entry) => entry.id !== unit.id && entry.location?.starshipId === ship.id && Number(entry.location.square) === square && Number(entry.location.mesh) === mesh).length;
     if (occupied >= 2) {
-      preview = { square, mesh, path: [], color: "red" }; confirm.disabled = true;
+      preview = { square, mesh, path: [], color: "red", locked }; confirm.disabled = true;
       status.textContent = "That location already holds two characters."; renderGrid(); return;
     }
     if (mode === "gm" && interaction === "relocate") {
-      preview = { square, mesh, path: [{ square, mesh }], color: "green" };
-      confirm.disabled = false;
+      preview = { square, mesh, path: [{ square, mesh }], color: "green", locked };
+      confirm.disabled = !locked;
       status.textContent = `Relocate ${unit.characterName || "combatant"} to this location.`;
       renderGrid();
       return;
     }
     const path = findPath(unit, { square, mesh });
     const moveSpeed = Math.max(1, Number(unit.moveSpeed) || 1);
-    preview = { square, mesh, path, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
-    confirm.disabled = path === null || !path.length;
-    status.textContent = path === null ? "No legal path reaches that location." : !path.length ? "That character is already there." : path.length <= moveSpeed ? `${path.length} unit${path.length === 1 ? "" : "s"}: one Move action.` : `${path.length} units: ${Math.ceil(path.length / moveSpeed)} automatic Move actions.`;
+    const station = stationAt(ship, square, mesh);
+    preview = { square, mesh, path, station, locked, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
+    confirm.disabled = !locked || path === null || !path.length;
+    confirm.textContent = station ? "Station" : "Confirm Move";
+    status.textContent = path === null ? "No legal path reaches that location." : !path.length ? "That character is already there." : locked ? station ? `${path.length} unit route selected. Station here.` : `${path.length} unit route selected. Confirm the move.` : path.length <= moveSpeed ? `${path.length} unit${path.length === 1 ? "" : "s"}: click to select.` : `${path.length} units: click to select ${Math.ceil(path.length / moveSpeed)} automatic Move actions.`;
     renderGrid();
   }
 
@@ -172,9 +176,33 @@
       const secondCentered = !second || (axis === "horizontal" ? second.col === Math.floor((second.width - 1) / 2) : second.row === Math.floor((second.height - 1) / 2));
       if (!firstCentered || !secondCentered) return [];
       const key = doorKey(square, other);
-      const open = ship.ship.doorStates?.[key] === "open";
+      const autoOpen = (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(key));
+      const open = ship.ship.doorStates?.[key] === "open" || autoOpen;
       return [`<button type="button" class="combat-door ${side} ${axis} ${open ? "open" : ""}" data-combat-door="${key}" aria-label="${open ? "Close" : "Open"} door"></button>`];
     }).join("");
+  }
+
+  function pointCoordinates(point) {
+    return { x: point.square % 20 + ((point.mesh % 3) + .5) / 3, y: Math.floor(point.square / 20) + (Math.floor(point.mesh / 3) + .5) / 3 };
+  }
+
+  function movementPresentation(unit) {
+    const action = unit?.timedAction; const route = action?.kind === "move" && Array.isArray(action.routeSegment) ? action.routeSegment : [];
+    if (!route.length || !action.startLocation) return null;
+    const moveTotal = Math.max(.001, Number(action.total) - (Number(action.doorDelay) || 0)); const moveStep = moveTotal / route.length;
+    let elapsed = Math.max(0, Number(action.total) - Number(action.remaining)); let current = action.startLocation; const openDoorKeys = new Set();
+    for (const point of route) {
+      if (point.doorKey) {
+        if (elapsed <= .6) { openDoorKeys.add(point.doorKey); return { ...pointCoordinates(current), openDoorKeys }; }
+        elapsed -= .6; openDoorKeys.add(point.doorKey);
+      }
+      if (elapsed <= moveStep) {
+        const start = pointCoordinates(current); const end = pointCoordinates(point); const ratio = Math.max(0, Math.min(1, elapsed / moveStep));
+        return { x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio, openDoorKeys };
+      }
+      elapsed -= moveStep; current = point; openDoorKeys.clear();
+    }
+    return { ...pointCoordinates(route.at(-1)), openDoorKeys };
   }
 
   function renderGrid() {
@@ -189,11 +217,11 @@
     grid.classList.toggle("show-combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls);
     grid.classList.toggle("show-stations", mapView.stations);
-    grid.innerHTML = Array.from({ length: 400 }, (_, square) => {
+    const cellMarkup = Array.from({ length: 400 }, (_, square) => {
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
-      const style = mapView.highResolution && sic?.image ? `background-image:url('${sic.image}');background-size:${sic.width * 100}% ${sic.height * 100}%;background-position:${sic.width > 1 ? (sic.col / (sic.width - 1)) * 100 : 50}% ${sic.height > 1 ? (sic.row / (sic.height - 1)) * 100 : 50}%` : "";
-      const tokens = units.filter((unit) => Number(unit.location.square) === square).map((unit) => {
+      const style = mapView.highResolution && sic?.image ? window.SAShipMap.floorplanStyle(sic.type, sic.col, sic.row) : "";
+      const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
@@ -204,6 +232,11 @@
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
       return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? doorMarkup(ship, footprints, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
+    const movingMarkup = units.map((unit) => {
+      const moving = movementPresentation(unit); if (!moving) return "";
+      return `<i class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" style="left:${moving.x * 5}%;top:${moving.y * 5}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+    }).join("");
+    grid.innerHTML = cellMarkup + movingMarkup;
     if (preview?.path?.length) {
       const start = locationFor(selectedUnit(), ship);
       const points = [start, ...preview.path].filter(Boolean).map((point) => {
@@ -260,7 +293,7 @@
     leaveStation.hidden = !unit?.location?.stationed || combatState?.activeId !== unit?.id;
     const station = unit?.location ? stationAt(ship, unit.location.square, unit.location.mesh) : null;
     enterStation.hidden = Boolean(unit?.location?.stationed || !station || combatState?.activeId !== unit?.id);
-    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : "Confirm Move";
+    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : preview?.station ? "Station" : "Confirm Move";
   }
 
   function open(options = {}) {
@@ -305,7 +338,12 @@
     }
     const cell = event.target.closest("[data-map-square]");
     if (!cell || interaction === "view") return;
-    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh));
+    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
+  });
+  grid.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch" || interaction === "view" || preview?.locked) return;
+    const cell = event.target.closest("[data-map-square]");
+    if (cell) chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), false);
   });
   roster.addEventListener("click", (event) => { const button = event.target.closest("[data-map-unit]"); if (button) { selectedUnitId = button.dataset.mapUnit; preview = null; confirm.disabled = true; render(); } });
   shipSelect.addEventListener("change", () => { selectedShipId = shipSelect.value; preview = null; confirm.disabled = true; render(); requestAnimationFrame(fitShip); });
@@ -322,9 +360,9 @@
   confirm.addEventListener("click", async () => {
     const ship = selectedShip();
     const unit = selectedUnit();
-    if (!ship || !unit || !preview?.path?.length) return;
+    if (!ship || !unit || !preview?.locked || !preview?.path?.length) return;
     if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: completeLocation(ship, preview) });
-    else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)) });
+    else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
     close();
   });
   stop.addEventListener("click", async () => { await bridge()?.action({ action: "stopTravel", id: selectedUnitId }); close(); });
@@ -334,7 +372,17 @@
     await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "enterStation", stationName: footprint(ship).get(Number(unit.location.square))?.label || "SIC", stationSlot: unit.location.mesh }); close();
   });
   leaveStation.addEventListener("click", async () => { await bridge()?.action({ action: "playerCombatAction", id: selectedUnitId, kind: "getUp" }); close(); });
-  openButton?.addEventListener("click", () => open()); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
+  openButton?.addEventListener("click", () => {
+    if (mode === "player") {
+      const unit = combatState?.units?.find((entry) => entry.id === myUnitId); const characterId = unit?.characterId || "";
+      if (combatState?.roomCode && characterId) {
+        if (window.parent !== window) window.parent.postMessage({ type: "sa-open-character-tab", tab: "starships" }, location.origin);
+        else location.href = `character.html?campaign=${encodeURIComponent(combatState.roomCode)}&character=${encodeURIComponent(characterId)}&tab=starships`;
+        return;
+      }
+    }
+    open();
+  }); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-open-ship-map]");
     if (!button) return;

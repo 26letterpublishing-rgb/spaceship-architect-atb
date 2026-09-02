@@ -21,6 +21,7 @@ const ACTION_KINDS = new Set([
   "getUp",
   "actionResolved",
 ]);
+const DOOR_OPEN_SECONDS = 0.6;
 
 function normalizeCombatLocation(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -35,7 +36,24 @@ function normalizeCombatLocation(value) {
     sicId: starshipId ? safeText(source.sicId, "", 120) : "",
     stationed: Boolean(starshipId && source.stationed),
     stationSlot: starshipId && source.stationed ? Math.max(0, Math.round(Number(source.stationSlot) || 0)) : null,
+    doorKey: starshipId ? safeText(source.doorKey, "", 20) : "",
   };
+}
+
+function applyStationBenefits(unit) {
+  if (!unit?.location?.stationed) { unit.stationBenefits = null; return; }
+  const benefits = [];
+  if (unit.classId === "engineer") benefits.push({ id: "engineer-au", label: "Engineer", auBonus: Math.max(0, ...unit.intellectDice) });
+  if (unit.classId === "gunner") benefits.push({ id: "gunner-weapon-die", label: "Gunner", weaponSystemsBonusDie: true });
+  if (unit.classId === "navigator-sensor-tech") benefits.push({ id: "navigator-sensor", label: "Navigator / Sensor Tech", combineNavigationSkills: true });
+  unit.stationBenefits = benefits;
+}
+
+function routeDoorDelay(room, route) {
+  const keys = new Set((route || []).map((point) => point.doorKey).filter(Boolean));
+  if (!keys.size) return 0;
+  const shipId = route.find((point) => point.starshipId)?.starshipId; const ship = (room.starships || []).find((entry) => entry.id === shipId);
+  return [...keys].filter((key) => ship?.ship?.doorStates?.[key] !== "open").length * DOOR_OPEN_SECONDS;
 }
 
 function safeText(value, fallback = "", limit = 80) {
@@ -171,6 +189,7 @@ function syncUnitCombat(unit, source = {}) {
   unit.travelRoute = Array.isArray(unit.travelRoute)
     ? unit.travelRoute.slice(0, 600).map(normalizeCombatLocation).filter((entry) => entry.starshipId)
     : [];
+  applyStationBenefits(unit);
 
   if (unit.weaponCharge && !weapons.some((weapon) => weapon.inventoryId === unit.weaponCharge.inventoryId)) {
     unit.weaponCharge = null;
@@ -268,7 +287,7 @@ function hasCombatCountdown(unit) {
     || Boolean(unit?.weaponCharge);
 }
 
-function tickCombatTimers(unit, seconds, multiplier = 1) {
+function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
   const completed = [];
   const elapsed = Math.max(0, Number(seconds) || 0) * Math.max(0, Number(multiplier) || 0);
   if (!elapsed) return completed;
@@ -302,12 +321,13 @@ function tickCombatTimers(unit, seconds, multiplier = 1) {
       unit.timedAction = null;
       if (completedAction.kind === "move" && completedAction.destination) {
         unit.location = normalizeCombatLocation(completedAction.destination);
+        applyStationBenefits(unit);
         if (Array.isArray(unit.travelRoute) && unit.travelRoute.length) {
           const moveSpeed = Math.max(1, Number(completedAction.moveSpeed) || Number(unit.moveSpeed) || 1);
           const segment = unit.travelRoute.splice(0, moveSpeed);
           const destination = segment[segment.length - 1];
           if (destination) {
-            const duration = Math.max(0.1, ceilTenth((3 * segment.length) / moveSpeed));
+            const doorDelay = room ? routeDoorDelay(room, segment) : 0; const duration = Math.max(0.1, ceilTenth((3 * segment.length) / moveSpeed + doorDelay));
             unit.timedAction = {
               id: `${completedAction.id}-next-${unit.travelRoute.length}`,
               kind: "move",
@@ -318,8 +338,17 @@ function tickCombatTimers(unit, seconds, multiplier = 1) {
               moveSpeed,
               destination,
               routed: true,
+              routeSegment: segment,
+              startLocation: normalizeCombatLocation(completedAction.destination),
+              doorDelay,
+              startedAt: Date.now(),
+              stationOnArrival: Boolean(completedAction.stationOnArrival),
+              stationName: completedAction.stationName,
+              stationSlot: completedAction.stationSlot,
             };
           }
+        } else if (completedAction.stationOnArrival) {
+          unit.location.stationed = true; unit.location.stationSlot = Math.max(0, Number(completedAction.stationSlot) || 0); applyStationBenefits(unit);
         }
       }
       if (completedAction.kind === "wait") {
@@ -436,14 +465,14 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       ? body.route.slice(0, 600).map(normalizeCombatLocation).filter((entry) => entry.starshipId && entry.starshipId === unit.location?.starshipId)
       : [];
     const units = requestedRoute.length ? Math.min(maxUnits, requestedRoute.length) : clamp(body.units, 1, maxUnits, 1);
-    const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits));
+    const routeSegment = requestedRoute.slice(0, units);
+    const doorDelay = routeDoorDelay(room, routeSegment); const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits + doorDelay));
     clearAim(unit);
     unit.movementChargeUnits = Math.min(maxUnits, units);
     if (useJetPack) spendItemCharge(unit, "jet-pack", 1);
     if (mounted?.driverId === unit.id) {
       mounted.currentMoveSpeed = Math.min(mounted.maximumMoveSpeed, mounted.currentMoveSpeed + mounted.acceleration);
     }
-    const routeSegment = requestedRoute.slice(0, units);
     unit.travelRoute = requestedRoute.slice(units);
     beginTimedAction(room, unit, {
       id: helpers.id(),
@@ -455,6 +484,13 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       moveSpeed: maxUnits,
       destination: routeSegment[routeSegment.length - 1] || null,
       routed: Boolean(requestedRoute.length),
+      routeSegment,
+      startLocation: normalizeCombatLocation(unit.location),
+      doorDelay,
+      startedAt: Date.now(),
+      stationOnArrival: Boolean(body.stationOnArrival),
+      stationName: safeText(body.stationName, "SIC", 80),
+      stationSlot: Math.max(0, Number(body.stationSlot) || 0),
     }, `${unit.characterName} moved ${units} unit${units === 1 ? "" : "s"} (${duration.toFixed(1)} sec).`, helpers);
     setCombatBrief(unit, kind, `Moved ${units} unit${units === 1 ? "" : "s"}`, [`Immediate action in ${duration.toFixed(1)} sec`, `${units} melee movement Charge${units === 1 ? "" : "s"}`]);
     return { ok: true };
@@ -469,6 +505,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (occupied) return { ok: false, error: "That SIC station is currently occupied." };
     unit.location.stationed = true;
     unit.location.stationSlot = 0;
+    applyStationBenefits(unit);
     unit.travelRoute = [];
     setCombatBrief(unit, kind, `Stationed at ${safeText(body.stationName, "SIC", 80)}`, ["Starship actions available"]);
     finishTurn(room, unit, `entered the ${safeText(body.stationName, "SIC", 80)} station`, helpers);
@@ -479,6 +516,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (!unit.location?.stationed) return { ok: false, error: "This character is not currently stationed." };
     unit.location.stationed = false;
     unit.location.stationSlot = null;
+    applyStationBenefits(unit);
     setCombatBrief(unit, kind, "Left station", ["Personal combat actions restored"]);
     finishTurn(room, unit, "got up from their station", helpers);
     return { ok: true };

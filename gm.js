@@ -145,6 +145,9 @@ const dom = {
   adjustCharacterButton: $("#adjustCharacterButton"),
   adjustmentModal: $("#gmAdjustmentModal"),
   adjustmentFrame: $("#gmAdjustmentFrame"),
+  starshipViewer: $("#gmStarshipViewer"),
+  starshipViewerFrame: $("#gmStarshipViewerFrame"),
+  closeStarshipViewer: $("#closeGmStarshipViewer"),
   commandWindowSettingsForm: $("#commandWindowSettingsForm"),
   universalCommandWindowBonus: $("#universalCommandWindowBonus"),
   commandWindowSettingsMessage: $("#commandWindowSettingsMessage"),
@@ -521,6 +524,7 @@ function encounterRuleFields(record) {
     highestPerceptionDie: highestAttributeDie(record, "perception"),
     moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
     dexterityDice: (record?.character?.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
+    intellectDice: (record?.character?.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     strengthDice: (record?.character?.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
@@ -1027,14 +1031,17 @@ function combatLocation(starshipId) {
 }
 
 function selectGmTab(tabName = "script") {
-  const selected = document.querySelector(`.gm-tabs [data-tab="${tabName}"]`) || document.querySelector('.gm-tabs [data-tab="script"]');
+  const requestedPanel = document.querySelector(`[data-tab-panel="${tabName}"]`);
+  const activeTab = requestedPanel ? tabName : "script";
+  const selected = document.querySelector(`.gm-tabs [data-tab="${activeTab}"]`);
   document.querySelectorAll(".gm-tabs [data-tab]").forEach((entry) => entry.classList.toggle("active", entry === selected));
   document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
-    const active = panel.dataset.tabPanel === selected?.dataset.tab;
+    const active = panel.dataset.tabPanel === activeTab;
     panel.hidden = !active;
     panel.classList.toggle("active", active);
   });
-  if (selected?.dataset.tab === "atb") showEncounterSetup();
+  document.querySelector("#gmSettingsToggle")?.classList.toggle("active", activeTab === "settings");
+  if (activeTab === "atb") showEncounterSetup();
   updateExitEncounterVisibility();
 }
 
@@ -1836,7 +1843,8 @@ dom.starshipList?.addEventListener("click", async (event) => {
   if (!card) return;
   const starshipId = card.dataset.starshipId;
   if (event.target.closest("[data-view-starship]")) {
-    location.href = `starship.html?campaign=${encodeURIComponent(code)}&ship=${encodeURIComponent(starshipId)}&view=1`;
+    dom.starshipViewerFrame.src = `character.html?campaign=${encodeURIComponent(code)}&gm=1&embedded=1&tab=starships&ship=${encodeURIComponent(starshipId)}${SHOWCASE_MODE ? "&showcase=1" : ""}`;
+    dom.starshipViewer.hidden = false;
     return;
   }
   if (event.target.closest("[data-edit-starship]")) {
@@ -2230,6 +2238,11 @@ dom.soundToggle.addEventListener("click", () => {
   else gmDramaAudioContext?.resume().catch(() => {});
   updateSoundButton();
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
+});
+document.querySelector("#gmSettingsToggle")?.addEventListener("click", () => selectGmTab("settings"));
+dom.closeStarshipViewer?.addEventListener("click", () => {
+  dom.starshipViewer.hidden = true;
+  dom.starshipViewerFrame.removeAttribute("src");
 });
 
 dom.revealSettingsRoomCode?.addEventListener("click", () => {

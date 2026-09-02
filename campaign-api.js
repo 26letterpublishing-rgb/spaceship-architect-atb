@@ -492,7 +492,7 @@ function normalizeStarshipRecord(raw) {
   for (const [characterId, location] of Object.entries(source.characterLocations && typeof source.characterLocations === "object" ? source.characterLocations : ship.characterLocations || {})) {
     const square = Number(location?.square);
     const mesh = Number(location?.mesh);
-    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4 };
+    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
   }
   return {
     id: String(source.id || ship.id || uid("starship")).slice(0, 120),
@@ -506,6 +506,29 @@ function normalizeStarshipRecord(raw) {
     updatedAt: source.updatedAt || new Date().toISOString(),
     ship,
   };
+}
+
+const STARSHIP_STATIONS = {
+  "en-engine-1": [{ x: 0, y: 0, mesh: 1 }],
+  "en-engine-2": [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }],
+  "en-engine-3": [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }],
+  "en-engine-4": [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }],
+  "en-engine-5": [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }],
+  "en-engine-6": [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }],
+};
+const STARSHIP_SIC_SIZE = { "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3], "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2], "nutritional-supplement": [1, 1] };
+
+function starshipStationAt(record, square, mesh) {
+  const ship = record?.ship || {}; const targetRow = Math.floor(Number(square) / 20); const targetColumn = Number(square) % 20;
+  for (const placement of ship.placements || []) {
+    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const [width, height] = STARSHIP_SIC_SIZE[item?.type] || [1, 1];
+    const originRow = Math.floor(Number(placement.cell) / 20); const originColumn = Number(placement.cell) % 20;
+    const x = targetColumn - originColumn; const y = targetRow - originRow;
+    if (x < 0 || y < 0 || x >= width || y >= height) continue;
+    const station = (STARSHIP_STATIONS[item?.type] || []).find((entry) => entry.x === x && entry.y === y && Number(entry.mesh) === Number(mesh));
+    return station ? { ...station, sicId: placement.sicId, type: item.type } : null;
+  }
+  return null;
 }
 
 function publicStarship(record) {
@@ -1381,6 +1404,16 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/starship/door" && req.method === "POST") {
+      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      const characterId = String(body.characterId || ""); const key = String(body.doorKey || ""); const cells = key.split(":").map(Number);
+      const gmAccess = Boolean(this.gmSession(token, code)); const crewAccess = Boolean(characterId && record?.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
+      const adjacent = cells.length === 2 && cells.every((cell) => Number.isInteger(cell) && record?.ship?.gridCells?.includes(cell)) && (Math.abs(cells[0] - cells[1]) === 20 || (Math.abs(cells[0] - cells[1]) === 1 && Math.floor(cells[0] / 20) === Math.floor(cells[1] / 20)));
+      if (!record || !adjacent || (!gmAccess && !crewAccess)) { sendJson(res, 403, { error: "Only assigned crew or the GM may operate that door." }); return true; }
+      record.ship.doorStates ||= {}; record.ship.doorStates[key] = record.ship.doorStates[key] === "open" ? "closed" : "open"; record.updatedAt = new Date().toISOString();
+      await this.save(campaign); sendJson(res, 200, { open: record.ship.doorStates[key] === "open", starship: publicStarship(record), campaign: this.state(campaign, token) }); return true;
+    }
+
     if (path === "/api/campaign/starship/move-character" && req.method === "POST") {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
       const characterId = String(body.characterId || "");
@@ -1394,7 +1427,8 @@ class CampaignApi {
       record.characterLocations ||= {};
       const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
-      record.characterLocations[characterId] = { square, mesh };
+      const station = body.stationed ? starshipStationAt(record, square, mesh) : null;
+      record.characterLocations[characterId] = { square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
       sendJson(res, 200, { moved: true, starship: publicStarship(record), campaign: this.state(campaign, token) });
