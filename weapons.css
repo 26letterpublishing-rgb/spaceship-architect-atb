@@ -61,7 +61,7 @@
 .weapon-table-head,
 .weapon-table-row {
   display:grid;
-  grid-template-columns:220px 66px 172px 108px 158px 54px 86px 112px 70px 52px minmax(250px,1fr) 28px;
+  grid-template-columns:220px 66px 172px 108px 158px 54px 86px 112px 70px 52px minmax(250px,1fr) 92px;
   align-items:stretch;
 }
 .weapon-table-head {
@@ -131,6 +131,8 @@
   background:#260b12;
   box-shadow:none;
 }
+.weapon-row-actions{display:grid;grid-template-columns:1fr 28px;border-right:0}.weapon-row-store{min-width:0;padding:4px;border:0;border-radius:0;color:#bfffe8;background:#0a382b;box-shadow:none;font-size:.5rem;text-transform:uppercase}.weapon-row-actions .weapon-row-remove{border:0;border-left:1px solid #71303c}
+.stored-weapons-panel{margin:8px 10px 10px;padding:8px;border:1px solid #29465d;background:#07131e}.stored-weapons-panel h3{margin:0 0 7px;color:#90aabd;font-size:.58rem;text-transform:uppercase}.stored-weapon-inventory{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px}.stored-weapon-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:7px;border:1px solid #284156;background:#0a1b29}.stored-weapon-row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stored-weapon-row span{color:#8ca5b8;font-size:.55rem}.stored-weapon-row button{min-height:30px;padding:5px 9px}
 .weapon-table-note { margin:0; padding:7px 10px; color:#7991a3; font-size:.55rem; }
 .weapon-empty-stat { color:#526a7d; }
 
@@ -182,16 +184,19 @@
     border:1px solid #40586a;
     border-radius:999px;
   }
-  .weapon-row-remove {
+  .weapon-row-actions {
     position:absolute;
     z-index:2;
     top:11px;
-    right:10px;
-    width:24px;
+    right:8px;
+    width:96px;
     min-height:34px;
-    border:1px solid #71303c;
     border-radius:999px;
+    overflow:hidden;
   }
+  .weapon-held-button{right:110px}
+  .weapon-row-actions .weapon-row-remove{position:static;width:28px;min-height:34px;border-radius:0}
+  .weapon-row-store{border-radius:0}
   .weapon-stat {
     position:relative;
     min-height:48px;

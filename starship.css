@@ -256,3 +256,41 @@ button,input{font:inherit}input{width:100%;min-width:0;border:0;border-bottom:1p
   .sic-wall-top.sic-wall-start,.sic-wall-bottom.sic-wall-start{width:30%!important}.sic-wall-top.sic-wall-end,.sic-wall-bottom.sic-wall-end{width:30%!important}
   .sic-wall-left.sic-wall-start,.sic-wall-right.sic-wall-start{height:30%!important}.sic-wall-left.sic-wall-end,.sic-wall-right.sic-wall-end{height:30%!important}
 }
+
+/* Shared flat map theme and corner-safe boundary geometry. */
+.ship-grid-cell{
+  min-height:0;
+  border-radius:0;
+  background-image:none;
+  box-shadow:inset 0 0 0 2px #000;
+}
+.ship-grid-cell.is-selected{background:#f3f0df}
+.ship-grid-cell.has-sic{background:var(--sic-basic-color,#197a6f)!important}
+.ship-grid.high-resolution .ship-grid-cell.has-sic{
+  background-color:#1d252b!important;
+  background-image:var(--sic-floorplan)!important;
+  background-size:var(--sic-bg-size)!important;
+  background-position:var(--sic-bg-x) var(--sic-bg-y)!important;
+  background-repeat:no-repeat!important;
+}
+.sic-wall{
+  border:1px solid #000;
+  box-shadow:none!important;
+}
+.sic-wall-top,.sic-wall-bottom{left:4.5%!important;right:auto!important;width:91%!important;height:9%!important}
+.sic-wall-left,.sic-wall-right{top:4.5%!important;bottom:auto!important;width:9%!important;height:91%!important}
+.sic-wall-top{top:-4.5%!important}.sic-wall-bottom{bottom:-4.5%!important}
+.sic-wall-left{left:-4.5%!important}.sic-wall-right{right:-4.5%!important}
+.sic-wall-top.sic-wall-start,.sic-wall-bottom.sic-wall-start{left:4.5%!important;right:auto!important;width:25.5%!important}
+.sic-wall-top.sic-wall-end,.sic-wall-bottom.sic-wall-end{left:auto!important;right:4.5%!important;width:25.5%!important}
+.sic-wall-left.sic-wall-start,.sic-wall-right.sic-wall-start{top:4.5%!important;bottom:auto!important;height:25.5%!important}
+.sic-wall-left.sic-wall-end,.sic-wall-right.sic-wall-end{top:auto!important;bottom:4.5%!important;height:25.5%!important}
+.sic-door-top,.sic-door-bottom{left:30%!important;width:40%!important;height:18%!important}
+.sic-door-left,.sic-door-right{top:30%!important;width:18%!important;height:40%!important}
+.sic-door-top{top:-9%!important}.sic-door-bottom{bottom:-9%!important}
+.sic-door-left{left:-9%!important}.sic-door-right{right:-9%!important}
+.sic-door-top .door-panel,.sic-door-bottom .door-panel{top:25%!important;height:50%!important}
+.sic-door-left .door-panel,.sic-door-right .door-panel{left:25%!important;width:50%!important}
+body.embedded-gm-starship .starship-header,
+body.embedded-gm-starship .prototype-notice{display:none}
+body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;padding:8px 12px 30px}

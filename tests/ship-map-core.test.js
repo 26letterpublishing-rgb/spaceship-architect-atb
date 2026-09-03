@@ -27,6 +27,30 @@ test("utility SIC floorplans use their own versioned artwork", () => {
   assert.doesNotMatch(shipMap.floorplanStyle("nutritional-supplement", 0, 0), /hallway/i);
 });
 
+test("basic SIC colors travel with shared footprint metadata", () => {
+  const layout = shipMap.buildLayout(adjacentFixture());
+  assert.equal(layout.footprint.get(105).color, "#2d873b");
+  assert.equal(layout.footprint.get(108).color, "#16788a");
+  assert.equal(layout.footprint.get(148).color, "#197a6f");
+});
+
+test("large engine cores block their center square or squares", () => {
+  const odd = shipMap.buildLayout({
+    gridCells: Array.from({ length: 9 }, (_, index) => Math.floor(index / 3) * 20 + index % 3),
+    sicInventory: [{ id: "engine-3", type: "en-engine-3" }],
+    placements: [{ sicId: "engine-3", cell: 0 }],
+  });
+  assert.equal(odd.footprint.get(21).blocked, true);
+  assert.equal(odd.footprint.get(20).blocked, false);
+
+  const even = shipMap.buildLayout({
+    gridCells: Array.from({ length: 16 }, (_, index) => Math.floor(index / 4) * 20 + index % 4),
+    sicInventory: [{ id: "engine-4", type: "en-engine-4" }],
+    placements: [{ sicId: "engine-4", cell: 0 }],
+  });
+  assert.deepEqual([21, 22, 41, 42].map((square) => even.footprint.get(square).blocked), [true, true, true, true]);
+});
+
 test("every exposed Life Support edge resolves to a wall or one shared door", () => {
   const layout = shipMap.buildLayout(adjacentFixture());
   const lifeSquares = [108, 109, 128, 129];

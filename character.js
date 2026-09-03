@@ -161,8 +161,8 @@ function classIconSvg(kind) {
     wrench: '<path d="M14.5 6.5a5 5 0 0 0-6.2 6.2L3 18l3 3 5.3-5.3a5 5 0 0 0 6.2-6.2l-3 3-3-3 3-3Z"/>',
     lips: '<path d="M3 12c3-1 5-5 9-2 4-3 6 1 9 2-3 6-15 6-18 0Zm0 0c5 1 13 1 18 0"/>',
     beaker: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M7 16h10"/>',
-    weights: '<path d="M2 9v6M5 7v10M8 10h8M16 7v10M19 9v6M22 10v4"/>',
-    knife: '<path d="M4 20l6-6m0 0 8-11c2 5 1 9-3 12l-5-1Zm-2 2-4-4"/><path class="icon-blood" d="M17 17c0 2-3 2-3 0 0-1 1.5-3 1.5-3s1.5 2 1.5 3Z"/>',
+    weights: '<path d="M7 12h10"/><rect x="1.5" y="9" width="2.5" height="6" rx=".5"/><rect x="4.5" y="7" width="2.5" height="10" rx=".5"/><rect x="17" y="7" width="2.5" height="10" rx=".5"/><rect x="20" y="9" width="2.5" height="6" rx=".5"/>',
+    knife: '<path class="icon-knife-blade" d="M8.5 15.5 19 3.5h2v4c0 4.5-2.7 8-8 10l-4.5-2Z"/><path d="m9 15-6 6h5l4.5-4.5"/><path class="icon-blood" d="M19 19c0 2-3 2-3 0 0-1 1.5-3 1.5-3s1.5 2 1.5 3Z"/>',
     bag: '<path d="M5 9h14l1 12H4L5 9Zm4 0c0-5 6-5 6 0"/>',
     robot: '<rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6M3 11v5M21 11v5"/>',
   };
@@ -452,6 +452,8 @@ const dom = {
   crewRoster: $("#crewRoster"),
   addCrewRow: $("#addCrewRow"),
   weaponInventory: $("#weaponInventory"),
+  storedWeaponInventory: $("#storedWeaponInventory"),
+  storedWeaponEmpty: $("#storedWeaponEmpty"),
   addWeaponRow: $("#addWeaponRow"),
   weaponSlotPyramid: $("#weaponSlotPyramid"),
   weaponSlotAssignments: $("#weaponSlotAssignments"),
@@ -1044,6 +1046,7 @@ function blankCharacter(name = "") {
     },
     crew: Array.from({ length: 3 }, () => ({ name: "", title: "" })),
     weapons: [{ id: uid(), weaponId: "", held: false }],
+    storedWeapons: [],
     items: [],
     storedItems: [],
     statuses: { intoxicated: false },
@@ -1179,6 +1182,7 @@ function normalizeCharacter(raw) {
     },
     crew: Array.isArray(source.crew) ? source.crew.slice(0, 24) : base.crew,
     weapons: Array.isArray(source.weapons) ? source.weapons.slice(0, 24) : base.weapons,
+    storedWeapons: Array.isArray(source.storedWeapons) ? source.storedWeapons.slice(0, 100) : base.storedWeapons,
     items: Array.isArray(source.items) ? source.items.slice(0, 200) : base.items,
     storedItems: Array.isArray(source.storedItems) ? source.storedItems.slice(0, 200) : base.storedItems,
     statuses: { ...base.statuses, ...(source.statuses || {}) },
@@ -1249,6 +1253,11 @@ function normalizeCharacter(raw) {
       held,
     };
   });
+  normalized.storedWeapons = normalized.storedWeapons.map((entry) => ({
+    id: String(entry?.id || uid()),
+    weaponId: weaponById(entry?.weaponId) ? String(entry.weaponId) : "",
+    held: false,
+  })).filter((entry) => entry.weaponId);
   const normalizeItem = (entry) => {
     const catalog = gearById(entry?.catalogId);
     const chargesMax = Number.isFinite(Number(entry?.chargesMax)) ? Math.max(0, Number(entry.chargesMax)) : Number(catalog?.chargesMax) || null;
@@ -2013,42 +2022,12 @@ function privateNoteActions(note) {
   return `<div class="private-note-actions">${note.choices.map((skill) => `<button type="button" data-science-choice="${escapeAttribute(skill)}" data-note-id="${escapeAttribute(note.id)}">+0.1 ${escapeHtml(skill)}</button>`).join("")}</div>`;
 }
 
-const PLAYER_SHIP_SICS = {
-  "en-engine-1": [1, 1], "en-engine-2": [2, 2], "en-engine-3": [3, 3],
-  "en-engine-4": [4, 4], "en-engine-5": [5, 5], "en-engine-6": [6, 6], "life-support": [2, 2], "nutritional-supplement": [1, 1],
-};
-const PLAYER_SHIP_SIC_META = {
-  ...Object.fromEntries(Object.entries(window.SAShipMap.catalog).map(([type, entry]) => [type, [entry.label, entry.image]])),
-};
-const PLAYER_SHIP_STATIONS = {
-  ...Object.fromEntries(Object.entries(window.SAShipMap.catalog).map(([type, entry]) => [type, entry.stations || []])),
-};
-
 function playerShipFootprint(record) {
-  const ship = record.ship || {};
-  const result = new Map();
-  for (const placement of ship.placements || []) {
-    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId);
-    const [width, height] = PLAYER_SHIP_SICS[item?.type] || [1, 1];
-    const originRow = Math.floor(Number(placement.cell) / 20);
-    const originColumn = Number(placement.cell) % 20;
-    for (let row = 0; row < height; row += 1) for (let column = 0; column < width; column += 1) {
-      result.set((originRow + row) * 20 + originColumn + column, placement.sicId);
-    }
-  }
-  return result;
+  return new Map([...window.SAShipMap.buildLayout(record.ship || {}).footprint].map(([square, entry]) => [square, entry.sicId]));
 }
 
-function playerShipSicDetail(record, footprint, square) {
-  const sicId = footprint.get(square) || "";
-  if (!sicId) return null;
-  const ship = record.ship || {};
-  const placement = (ship.placements || []).find((entry) => entry.sicId === sicId);
-  const item = (ship.sicInventory || []).find((entry) => entry.id === sicId);
-  if (!placement || !item) return null;
-  const [width, height] = PLAYER_SHIP_SICS[item.type] || [1, 1];
-  const originRow = Math.floor(Number(placement.cell) / 20); const originColumn = Number(placement.cell) % 20;
-  return { sicId, type: item.type, width, height, row: Math.floor(square / 20) - originRow, column: square % 20 - originColumn };
+function playerShipSicDetail(record, square) {
+  return window.SAShipMap.buildLayout(record.ship || {}).footprint.get(Number(square)) || null;
 }
 
 function playerShipDoorBetween(layout, firstSquare, secondSquare) {
@@ -2057,9 +2036,9 @@ function playerShipDoorBetween(layout, firstSquare, secondSquare) {
 }
 
 function playerShipStationAt(record, square, mesh) {
-  const footprint = playerShipFootprint(record); const detail = playerShipSicDetail(record, footprint, square);
+  const detail = playerShipSicDetail(record, square);
   if (!detail) return null;
-  const station = (PLAYER_SHIP_STATIONS[detail.type] || []).find((entry) => entry.x === detail.column && entry.y === detail.row && Number(entry.mesh) === Number(mesh));
+  const station = (detail.stations || []).find((entry) => entry.x === detail.column && entry.y === detail.row && Number(entry.mesh) === Number(mesh));
   return station ? { ...station, sicId: detail.sicId, type: detail.type } : null;
 }
 
@@ -2078,11 +2057,11 @@ function playerShipBoundaryMarkup(record, layout, square) {
 function playerShipPath(record, start, destination) {
   const ship = record.ship || {};
   const hull = new Set(ship.gridCells || []);
-  if (!hull.has(destination)) return null;
+  const layout = window.SAShipMap.buildLayout(ship);
+  if (!hull.has(destination) || layout.footprint.get(Number(destination))?.blocked) return null;
   if (!Number.isInteger(start) || !hull.has(start)) return [destination];
   if (start === destination) return [];
   const footprint = playerShipFootprint(record);
-  const layout = window.SAShipMap.buildLayout(ship);
   const queue = [start];
   const parent = new Map([[start, null]]);
   while (queue.length) {
@@ -2090,6 +2069,7 @@ function playerShipPath(record, start, destination) {
     const row = Math.floor(square / 20); const column = square % 20;
     for (const next of [square - 20, square + 20, square - 1, square + 1]) {
       if (!hull.has(next) || parent.has(next)) continue;
+      if (layout.footprint.get(next)?.blocked) continue;
       if (Math.abs(next - square) === 1 && Math.floor(next / 20) !== row) continue;
       const firstSic = footprint.get(square) || ""; const secondSic = footprint.get(next) || "";
       if (firstSic !== secondSic && (firstSic || secondSic) && playerShipDoorBetween(layout, square, next) === null) continue;
@@ -2135,15 +2115,10 @@ function renderPlayerStarships() {
         const left = ((mesh % 3) + .5) / 3 * 100 + (index ? 5 : -5); const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
         return `<i class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
       }).join("");
-      const sicId = footprint.get(square) || "";
-      const placement = (ship.placements || []).find((entry) => entry.sicId === sicId);
-      const item = (ship.sicInventory || []).find((entry) => entry.id === sicId);
-      const [sicWidth, sicHeight] = PLAYER_SHIP_SICS[item?.type] || [1, 1];
-      const [sicLabel, sicImage] = PLAYER_SHIP_SIC_META[item?.type] || ["", ""];
-      const cellRow = Math.floor(square / 20); const cellCol = square % 20;
-      const originRow = Math.floor(Number(placement?.cell || 0) / 20); const originCol = Number(placement?.cell || 0) % 20;
-      const stationMarkers = playerShipMapView.stations ? (PLAYER_SHIP_STATIONS[item?.type] || []).filter((station) => station.x === cellCol - originCol && station.y === cellRow - originRow).map((station) => `<i class="player-ship-station" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%"></i>`).join("") : "";
-      const style = playerShipMapView.highResolution && sicImage ? window.SAShipMap.floorplanStyle(item?.type, cellCol - originCol, cellRow - originRow) : "";
+      const occupied = layout.footprint.get(square);
+      const sicLabel = occupied?.label || "";
+      const stationMarkers = playerShipMapView.stations && occupied ? (occupied.stations || []).filter((station) => station.x === occupied.column && station.y === occupied.row).map((station) => `<i class="player-ship-station" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%"></i>`).join("") : "";
+      const style = occupied ? `--sic-basic-color:${occupied.color || "#197a6f"};${playerShipMapView.highResolution && occupied.image ? window.SAShipMap.floorplanStyle(occupied.type, occupied.column, occupied.row) : ""}` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
       const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose precise ship location"></button>`).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
       const doors = playerShipMapView.walls && hull.has(square) ? playerShipBoundaryMarkup(record, layout, square) : "";
@@ -5224,9 +5199,14 @@ function renderWeapons() {
       <span class="weapon-stat${emptyClass}" data-label="Range">${escapeHtml(weaponStat(weapon?.range))}</span>
       <span class="weapon-stat${emptyClass}" data-label="Size">${escapeHtml(weaponStat(weapon?.sizeClass))}</span>
       <span class="weapon-stat special${emptyClass}" data-label="Special">${escapeHtml(weaponStat(weapon?.special))}</span>
-      <button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow || !editable ? "disabled" : ""} aria-label="Remove weapon">-</button>
+      <div class="weapon-row-actions"><button type="button" class="weapon-row-store" data-store-weapon="${escapeAttribute(entry.id)}" ${weapon && editable ? "" : "disabled"}>Store</button><button type="button" class="weapon-row-remove" data-remove-weapon="${escapeAttribute(entry.id)}" ${onlyRow || !editable ? "disabled" : ""} aria-label="Remove weapon">-</button></div>
     </div>`;
   }).join("");
+  dom.storedWeaponInventory.innerHTML = character.storedWeapons.map((entry) => {
+    const weapon = weaponById(entry.weaponId);
+    return `<div class="stored-weapon-row"><strong>${escapeHtml(weapon?.name || "Weapon")}</strong><span>${escapeHtml(weapon?.sizeClass || "-")} Class</span><button type="button" data-return-weapon="${escapeAttribute(entry.id)}" ${editable && character.weapons.length < 24 ? "" : "disabled"}>Return</button></div>`;
+  }).join("");
+  dom.storedWeaponEmpty.hidden = Boolean(character.storedWeapons.length);
   renderWeaponSlots();
 }
 
@@ -6800,7 +6780,7 @@ document.addEventListener("input", (event) => {
   }
 });
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const gmDirectEdit = event.target.closest("[data-gm-direct-edit]");
   if (gmDirectEdit && GM_ADJUSTMENT_MODE) {
     event.preventDefault();
@@ -6902,12 +6882,49 @@ document.addEventListener("click", (event) => {
     if (character.weapons.length <= 1) return;
     const entry = character.weapons.find((weapon) => weapon.id === removeWeapon.dataset.removeWeapon);
     const name = weaponById(entry?.weaponId)?.name || "Weapon";
+    if (entry?.weaponId && !await askConfirmation({
+      title: "Remove Weapon?",
+      message: `${name} will be permanently removed without a refund. Store it instead if you want to keep it.`,
+      acceptLabel: "Remove Without Refund",
+      danger: true,
+    })) return;
     character.weapons = character.weapons.filter((weapon) => weapon.id !== removeWeapon.dataset.removeWeapon);
     queueSave();
     renderWeapons();
     renderGear();
     renderDerived();
     notice(`${name} removed from Supplies.`, "success");
+    return;
+  }
+
+  const storeWeapon = event.target.closest("[data-store-weapon]");
+  if (storeWeapon && (!campaignCode || campaignEditable)) {
+    const entry = character.weapons.find((weapon) => weapon.id === storeWeapon.dataset.storeWeapon);
+    const weapon = weaponById(entry?.weaponId);
+    if (!entry || !weapon) return;
+    character.storedWeapons.push({ id: uid(), weaponId: entry.weaponId, held: false });
+    character.weapons = character.weapons.filter((candidate) => candidate.id !== entry.id);
+    if (!character.weapons.length) character.weapons.push({ id: uid(), weaponId: "", held: false });
+    queueSave();
+    await saveCampaignCharacter({ force: true });
+    renderAll();
+    notice(`${weapon.name} moved to storage.`, "success");
+    return;
+  }
+
+  const returnWeapon = event.target.closest("[data-return-weapon]");
+  if (returnWeapon && (!campaignCode || campaignEditable) && character.weapons.length < 24) {
+    const entry = character.storedWeapons.find((weapon) => weapon.id === returnWeapon.dataset.returnWeapon);
+    const weapon = weaponById(entry?.weaponId);
+    if (!entry || !weapon) return;
+    const empty = character.weapons.find((candidate) => !candidate.weaponId);
+    if (empty) empty.weaponId = entry.weaponId;
+    else character.weapons.push({ id: uid(), weaponId: entry.weaponId, held: false });
+    character.storedWeapons = character.storedWeapons.filter((candidate) => candidate.id !== entry.id);
+    queueSave();
+    await saveCampaignCharacter({ force: true });
+    renderAll();
+    notice(`${weapon.name} returned to carried weapons.`, "success");
     return;
   }
 
@@ -7019,6 +7036,7 @@ document.addEventListener("keydown", (event) => {
     renderRaceGallery();
     return;
   }
+
   closeRaceGallery();
 });
 document.addEventListener("keydown", (event) => {
@@ -8108,9 +8126,10 @@ async function animatePlayerShipMove(card, record, startSquare, startMesh, route
   ghost.remove(); token.style.opacity = "";
 }
 
-function previewPlayerShipDestination(record, ownId, destination, locked) {
-  if (!starshipMoveDraft || destination.dataset.playerShipId !== starshipMoveDraft.starshipId) return;
-  const square = Number(destination.dataset.playerShipDestination); const mesh = Math.max(0, Math.min(8, Number(destination.dataset.playerShipMesh) || 0));
+function previewPlayerShipDestination(record, ownId, square, mesh, locked) {
+  if (!starshipMoveDraft || record.id !== starshipMoveDraft.starshipId) return;
+  square = Number(square);
+  mesh = Math.max(0, Math.min(8, Number(mesh) || 0));
   const path = playerShipPath(record, starshipMoveDraft.start, square);
   const occupants = Object.entries(record.characterLocations || {}).filter(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === mesh).length;
   const sameSquareMove = square === starshipMoveDraft.start && mesh !== starshipMoveDraft.startMesh;
@@ -8128,7 +8147,8 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   const door = event.target.closest("[data-player-ship-door]");
   const confirm = event.target.closest("[data-player-ship-confirm]");
   const cancel = event.target.closest("[data-player-ship-cancel]");
-  const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || door?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel;
+  const card = event.target.closest("[data-player-starship]");
+  const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || door?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel || card?.dataset.playerStarship;
   const record = (campaignState?.starships || []).find((entry) => entry.id === starshipId);
   if (!record || (!ownId && campaignState?.role !== "gm")) return;
   if (door) {
@@ -8147,9 +8167,16 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
     return;
   }
   if (cancel) { starshipMoveDraft = null; renderPlayerStarships(); return; }
-  if (destination) {
-    if (starshipMoveDraft?.starshipId !== starshipId) return;
-    previewPlayerShipDestination(record, ownId, destination, true);
+  const destinationCell = event.target.closest("[data-player-ship-square]");
+  if (starshipMoveDraft?.starshipId === starshipId && destinationCell) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = destinationCell.getBoundingClientRect();
+    const column = Math.max(0, Math.min(2, Math.floor(((event.clientX - rect.left) / Math.max(1, rect.width)) * 3)));
+    const row = Math.max(0, Math.min(2, Math.floor(((event.clientY - rect.top) / Math.max(1, rect.height)) * 3)));
+    const square = Number(destinationCell.dataset.playerShipSquare);
+    const mesh = destination ? Number(destination.dataset.playerShipMesh) : row * 3 + column;
+    previewPlayerShipDestination(record, ownId, square, mesh, true);
     return;
   }
   if (confirm && starshipMoveDraft?.starshipId === starshipId && starshipMoveDraft.locked && !starshipMoveDraft.invalid && (starshipMoveDraft.path?.length || starshipMoveDraft.sameSquareMove)) {
@@ -8176,7 +8203,7 @@ dom.playerStarshipList?.addEventListener("pointerover", (event) => {
   const destination = event.target.closest("[data-player-ship-destination]");
   if (!destination || destination.dataset.playerShipId !== starshipMoveDraft.starshipId) return;
   const record = (campaignState?.starships || []).find((entry) => entry.id === starshipMoveDraft.starshipId); const ownId = campaignState?.ownCharacterId || campaignCharacterId;
-  if (record && ownId) previewPlayerShipDestination(record, ownId, destination, false);
+  if (record && ownId) previewPlayerShipDestination(record, ownId, Number(destination.dataset.playerShipDestination), Number(destination.dataset.playerShipMesh), false);
 });
 dom.playerStarshipList?.addEventListener("change", (event) => {
   const input = event.target.closest("[data-player-ship-view]");

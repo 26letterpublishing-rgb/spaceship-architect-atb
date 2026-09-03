@@ -3,9 +3,40 @@ const assert = require("node:assert/strict");
 const {
   cancelTimedActionForForcedDelay,
   resolvePlayerCombatAction,
+  sameCombatLocation,
   syncUnitCombat,
   tickCombatTimers,
 } = require("../combat-engine");
+
+test("personal combat targets stay within the same starship", () => {
+  const wayfinder = { location: { starshipId: "wayfinder" } };
+  const crewmate = { location: { starshipId: "wayfinder" } };
+  const redHorizon = { location: { starshipId: "red-horizon" } };
+  const exterior = { location: { starshipId: "" } };
+  assert.equal(sameCombatLocation(wayfinder, crewmate), true);
+  assert.equal(sameCombatLocation(wayfinder, redHorizon), false);
+  assert.equal(sameCombatLocation(wayfinder, exterior), false);
+  assert.equal(sameCombatLocation(exterior, { location: { starshipId: "" } }), true);
+});
+
+test("the combat engine rejects a handgun target aboard another starship", () => {
+  const source = {
+    id: "nova",
+    characterName: "Nova Vale",
+    atb: 100,
+    location: { ...location(147, 4), starshipId: "wayfinder" },
+    weapons: [{ inventoryId: "nova-sidearm", weaponId: "standard-sidearm" }],
+    heldWeaponId: "nova-sidearm",
+  };
+  const nova = syncUnitCombat({ ...source }, source);
+  const thugSource = { id: "thug", characterName: "Thug", location: { ...location(153, 4), starshipId: "red-horizon" } };
+  const thug = syncUnitCombat({ ...thugSource }, thugSource);
+  const room = { units: [nova, thug], vehicles: [], activeId: nova.id, threshold: 100, pausedForTurn: true };
+  const helpers = { id: () => "attack-1", clearActiveCommand: () => {}, pushLog: () => {}, moveToNextTurnOrClock: () => {} };
+  const result = resolvePlayerCombatAction(room, nova, { kind: "fire", targetId: thug.id, distance: 1 }, helpers);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "Choose a valid target.");
+});
 
 function location(square, mesh) {
   return { environment: "starship", starshipId: "ship-1", square, mesh, sicId: "", stationed: false };

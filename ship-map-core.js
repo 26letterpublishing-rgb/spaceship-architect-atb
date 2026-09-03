@@ -13,18 +13,18 @@
   ]);
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
   const catalog = {
-    "en-engine-1": { width: 1, height: 1, label: "EN 1", image: image("en-engine-1-floor-plan.png"), output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
-    "en-engine-2": { width: 2, height: 2, label: "EN 2", image: image("en-engine-2-floor-plan.png"), output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
-    "en-engine-3": { width: 3, height: 3, label: "EN 3", image: image("en-engine-3-floor-plan.png"), output: 29, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
-    "en-engine-4": { width: 4, height: 4, label: "EN 4", image: image("en-engine-4-floor-plan.png"), output: 50, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
-    "en-engine-5": { width: 5, height: 5, label: "EN 5", image: image("en-engine-5-floor-plan.png"), output: 77, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
-    "en-engine-6": { width: 6, height: 6, label: "EN 6", image: image("en-engine-6-floor-plan.png"), output: 110, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
-    "life-support": { width: 2, height: 2, label: "LIFE", image: image("life-support-floor-plan.png"), output: 0, stations: [] },
-    "nutritional-supplement": { width: 1, height: 1, label: "NUT.", image: image("nutritional-supplement-floor-plan.png"), output: 0, stations: [] },
+    "en-engine-1": { width: 1, height: 1, label: "EN 1", color: "#2d873b", image: image("en-engine-1-floor-plan.png"), output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
+    "en-engine-2": { width: 2, height: 2, label: "EN 2", color: "#2d873b", image: image("en-engine-2-floor-plan.png"), output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
+    "en-engine-3": { width: 3, height: 3, label: "EN 3", color: "#2d873b", image: image("en-engine-3-floor-plan.png"), output: 29, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
+    "en-engine-4": { width: 4, height: 4, label: "EN 4", color: "#2d873b", image: image("en-engine-4-floor-plan.png"), output: 50, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
+    "en-engine-5": { width: 5, height: 5, label: "EN 5", color: "#2d873b", image: image("en-engine-5-floor-plan.png"), output: 77, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
+    "en-engine-6": { width: 6, height: 6, label: "EN 6", color: "#2d873b", image: image("en-engine-6-floor-plan.png"), output: 110, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
+    "life-support": { width: 2, height: 2, label: "LIFE", color: "#16788a", image: image("life-support-floor-plan.png"), output: 0, stations: [] },
+    "nutritional-supplement": { width: 1, height: 1, label: "NUT.", color: "#197a6f", image: image("nutritional-supplement-floor-plan.png"), output: 0, stations: [] },
   };
 
   function definition(type) {
-    return catalog[type] || { width: 1, height: 1, label: type || "SIC", image: "", output: 0, stations: [] };
+    return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
 
   function floorplanStyle(type, column = 0, row = 0) {
@@ -37,6 +37,13 @@
 
   function doorKey(first, second) {
     return [Number(first), Number(second)].sort((a, b) => a - b).join(":");
+  }
+
+  function blocksMovement(type, width, height, column, row) {
+    if (!String(type).startsWith("en-engine-") || width < 3 || height < 3) return false;
+    const centerColumns = width % 2 ? [Math.floor(width / 2)] : [width / 2 - 1, width / 2];
+    const centerRows = height % 2 ? [Math.floor(height / 2)] : [height / 2 - 1, height / 2];
+    return centerColumns.includes(column) && centerRows.includes(row);
   }
 
   function buildLayout(ship = {}) {
@@ -52,7 +59,7 @@
       const originColumn = origin % GRID_SIZE;
       for (let row = 0; row < entry.height; row += 1) for (let column = 0; column < entry.width; column += 1) {
         const square = (originRow + row) * GRID_SIZE + originColumn + column;
-        footprint.set(square, { placement, item, sicId: placement.sicId, type, width: entry.width, height: entry.height, label: entry.label, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column });
+        footprint.set(square, { placement, item, sicId: placement.sicId, type, width: entry.width, height: entry.height, label: entry.label, color: entry.color, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column, blocked: blocksMovement(type, entry.width, entry.height, column, row) });
       }
     }
 
@@ -113,5 +120,5 @@
     return Object.freeze({ hull, footprint, connectionDoors, boundary, edge });
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, buildLayout, image });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, image });
 }));

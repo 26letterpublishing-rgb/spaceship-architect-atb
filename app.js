@@ -1677,7 +1677,12 @@ async function keepRoomAwake() {
 function openGmNpcAttackDialog() {
   const attacker = activeUnit();
   if (mode !== "gm" || !attacker || attacker.team !== "npc" || state?.attackResolution) return;
-  const targets = state.units.filter((entry) => entry.id !== attacker.id);
+  const attackerShip = String(attacker.location?.starshipId || "");
+  const targets = state.units.filter((entry) => {
+    if (entry.id === attacker.id) return false;
+    const targetShip = String(entry.location?.starshipId || "");
+    return attackerShip || targetShip ? Boolean(attackerShip && attackerShip === targetShip) : true;
+  });
   if (!targets.length) { alert("Add a target to the encounter first."); return; }
   gmNpcAttackActor.textContent = attacker.characterName;
   gmNpcAttackTarget.innerHTML = targets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`).join("");

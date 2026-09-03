@@ -38,3 +38,16 @@
   .combat-map-viewport{overflow:hidden;touch-action:manipulation}
   .combat-map-panel footer{max-height:none;overflow:visible}
 }
+
+/* Match every basic ship map to the flat Construction Bay palette. */
+.combat-map-square{border-radius:0;background-image:none}
+.combat-map-square.hull{background:#f3f0df;border-color:#000}
+.combat-map-square.sic{background:var(--sic-basic-color,#197a6f)}
+.combat-map-grid.high-resolution .combat-map-square.sic{background-color:#1d252b}
+.combat-wall{border:1px solid #000;box-shadow:none}
+.combat-wall.horizontal{left:3px;right:3px}
+.combat-wall.vertical{top:3px;bottom:3px}
+.combat-wall.horizontal.start{right:auto;width:calc(30% - 3px)}
+.combat-wall.horizontal.end{left:auto;width:calc(30% - 3px)}
+.combat-wall.vertical.start{bottom:auto;height:calc(30% - 3px)}
+.combat-wall.vertical.end{top:auto;height:calc(30% - 3px)}

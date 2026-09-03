@@ -1870,7 +1870,12 @@ async function handleAction(req, res) {
 
   if (action === "gmBeginNpcAttack") {
     const attacker = room.units.find((entry) => entry.id === String(body.attackerId || "") && entry.team === "npc");
-    const defender = room.units.find((entry) => entry.id === String(body.defenderId || "") && entry.id !== attacker?.id);
+    const attackerShip = String(attacker?.location?.starshipId || "");
+    const defender = room.units.find((entry) => {
+      if (entry.id !== String(body.defenderId || "") || entry.id === attacker?.id) return false;
+      const defenderShip = String(entry.location?.starshipId || "");
+      return attackerShip || defenderShip ? Boolean(attackerShip && attackerShip === defenderShip) : true;
+    });
     if (!attacker || !defender || room.activeId !== attacker.id || room.attackResolution) {
       sendJson(res, 409, { error: "Choose the active NPC and a valid target." });
       return;

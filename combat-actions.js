@@ -97,11 +97,17 @@
     return seconds >= 10 ? `${Math.ceil(seconds)} sec` : `${seconds.toFixed(1)} sec`;
   }
 
+  function sameCombatLocation(first, second) {
+    const firstShip = String(first?.location?.starshipId || "");
+    const secondShip = String(second?.location?.starshipId || "");
+    return firstShip || secondShip ? Boolean(firstShip && firstShip === secondShip) : true;
+  }
+
   function targetOptions({ includeLocation = false, includeSelf = false } = {}) {
     const options = [];
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
-      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt)
+      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry))
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
@@ -153,7 +159,7 @@
     consume.checked = usingItem && ["intoxicating-liquid", "smoke-grenade"].includes(item?.catalogId);
     shieldWrap.hidden = !(usingItem && item?.catalogId === "power-shields" && !currentUnit?.powerShield?.active);
     if (!shieldWrap.hidden) {
-      shieldTargets.innerHTML = (currentState?.units || []).filter((entry) => !entry.defeatedAt).map((entry) =>
+      shieldTargets.innerHTML = (currentState?.units || []).filter((entry) => !entry.defeatedAt && sameCombatLocation(currentUnit, entry)).map((entry) =>
         `<label><input type="checkbox" value="${esc(entry.id)}" ${entry.id === currentUnit.id ? "checked disabled" : ""} /> ${esc(entry.characterName)}</label>`).join("");
     }
     if (usingItem) {

@@ -6,6 +6,8 @@ const BUILD_VERSION = 3;
 const HULL_COST = 1000;
 const GRID_SIZE = 20;
 const pageParameters = new URLSearchParams(location.search);
+const EMBEDDED_GM_MODE = pageParameters.get("embedded") === "gm";
+if (EMBEDDED_GM_MODE) document.body.classList.add("embedded-gm-starship");
 const backLink = document.querySelector(".back-link");
 if (backLink && pageParameters.get("campaign") && pageParameters.get("ship")) {
   backLink.textContent = "Back to Campaign";
@@ -511,9 +513,10 @@ function renderGridCells() {
       cell.classList.toggle("sic-origin", Boolean(placement && placement.cell === index));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
-      cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-tint"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
+      cell.style.removeProperty("--sic-basic-color"); cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-tint"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
       if (placement) {
         const x = occupied.offset % definition.width; const y = Math.floor(occupied.offset / definition.width);
+        cell.style.setProperty("--sic-basic-color", definition.color || "#197a6f");
         cell.style.setProperty("--sic-floorplan", `url('${definition.floorplan}')`);
         cell.style.setProperty("--sic-tint", definition.tint || "linear-gradient(transparent,transparent)");
         cell.style.setProperty("--sic-bg-size", `${definition.width * 100}% ${definition.height * 100}%`);
@@ -1004,7 +1007,7 @@ function renderCampaignLink() {
   document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
   document.querySelectorAll("[data-save-starship-crew]").forEach((button) => { button.hidden = !linked; });
   if (!linked) {
-    document.querySelectorAll("[data-link-starship]").forEach((button) => { button.disabled = !draft.confirmedOnce; button.title = draft.confirmedOnce ? "" : "Confirm construction at least once before linking this starship."; });
+    document.querySelectorAll("[data-link-starship]").forEach((button) => { button.disabled = false; button.title = draft.confirmedOnce ? "" : "Confirm Ship First"; });
     document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = '<span class="empty-inventory">Link this ship to assign crew.</span>'; });
     return;
   }
@@ -1016,7 +1019,7 @@ function renderCampaignLink() {
 }
 async function linkStarship(event) {
   event.preventDefault();
-  if (!draft.confirmedOnce) { campaignMessage("Confirm construction at least once before linking this starship.", "error"); return; }
+  if (!draft.confirmedOnce || !statesMatch(draft, draft.confirmed)) { campaignMessage("Confirm Ship First", "error"); return; }
   const form = event.currentTarget; const code = form.querySelector("[data-starship-campaign-code]").value.trim().toUpperCase();
   try {
     const result = await campaignApi("/api/campaign/starship/link", { code, controlType: form.querySelector("[data-starship-control-type]").value, starship: draft });
@@ -1039,8 +1042,10 @@ document.querySelector("#deleteStarship")?.addEventListener("click", deleteStars
 importStarshipFile?.addEventListener("change", () => importStarship(importStarshipFile.files?.[0]));
 linkStarshipForms.forEach((form) => form.addEventListener("submit", linkStarship));
 document.querySelectorAll("[data-unlink-starship]").forEach((button) => button.addEventListener("click", async () => {
+  if (!draft.confirmedOnce || !statesMatch(draft, draft.confirmed)) { campaignMessage("Confirm Ship First", "error"); return; }
   if (!draft.campaignLink || !window.confirm("Unlink this starship? It will remain saved on this device and campaign crew assignments will be cleared.")) return;
-  try { await campaignApi("/api/campaign/starship/unlink", { code: draft.campaignLink.roomCode, accessKey: draft.campaignLink.accessKey, starshipId: draft.id }); }
+  const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
+  try { await campaignApi("/api/campaign/starship/unlink", { code: draft.campaignLink.roomCode, token: credentials.token, accessKey: draft.campaignLink.accessKey, starshipId: draft.id }); }
   catch (error) { campaignMessage(error.message, "error"); return; }
   draft.campaignLink = null; draft.crewCharacterIds = []; draft.crewmemberNames = []; linkedCampaignState = null; saveDraft(); renderCampaignLink();
 }));
@@ -1127,6 +1132,7 @@ async function initializeStarshipPage() {
   if (parameters.get("new") === "1") {
     localStorage.removeItem(ACTIVE_STARSHIP_KEY);
     draft = defaultDraft();
+    if (campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
     saveDraft();
   } else if (requestedShipId && campaignCode) {
     const credentials = activeCampaignCredentials(campaignCode);
@@ -1144,6 +1150,7 @@ async function initializeStarshipPage() {
     } catch (error) { campaignMessage(error.message, "error"); }
   }
   applyDraftToUi();
+  if (!draft.campaignLink && campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
   if (draft.campaignLink) await refreshLinkedCampaign();
 }
 initializeStarshipPage();

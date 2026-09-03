@@ -387,8 +387,15 @@ function completedCharges(unit) {
   return Math.min(segments, Math.floor(((Number(unit.weaponCharge.progress) || 0) + 0.00001) / (100 / segments)));
 }
 
+function sameCombatLocation(first, second) {
+  const firstShip = safeText(first?.location?.starshipId, "", 120);
+  const secondShip = safeText(second?.location?.starshipId, "", 120);
+  if (firstShip || secondShip) return Boolean(firstShip && firstShip === secondShip);
+  return true;
+}
+
 function targetUnit(room, unit, targetId) {
-  return room.units.find((entry) => entry.id === targetId && entry.id !== unit.id) || null;
+  return room.units.find((entry) => entry.id === targetId && entry.id !== unit.id && sameCombatLocation(unit, entry)) || null;
 }
 
 function setCombatBrief(unit, kind, label, details = []) {
@@ -909,6 +916,7 @@ module.exports = {
   effectiveMoveSpeed,
   cancelTimedActionForForcedDelay,
   resolvePlayerCombatAction,
+  sameCombatLocation,
   syncUnitCombat,
   tickCombatTimers,
 };

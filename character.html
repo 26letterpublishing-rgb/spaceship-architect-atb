@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260902-sic-layout-3" />
-  <link rel="stylesheet" href="weapons.css?v=20260818-qol-pass" />
+    <link rel="stylesheet" href="character.css?v=20260902-movement-weapons-2" />
+  <link rel="stylesheet" href="weapons.css?v=20260902-weapon-storage-1" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
@@ -364,6 +364,11 @@
             </div>
           </div>
           <p class="weapon-table-note">Choose Purchase or Receive when adding a weapon. Only the held weapon is available during Combat.</p>
+          <section class="stored-weapons-panel" aria-label="Weapons in storage">
+            <h3>Weapons in Storage</h3>
+            <div id="storedWeaponInventory" class="stored-weapon-inventory"></div>
+            <p id="storedWeaponEmpty" class="gear-empty">No weapons are currently in storage.</p>
+          </section>
         </section>
 
         <section class="sheet-panel gear-panel" data-sheet-section="supplies">
@@ -807,7 +812,7 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script src="ship-map-core.js?v=20260902-sic-layout-3"></script>
-    <script type="module" src="character.js?v=20260902-sic-layout-3"></script>
+    <script src="ship-map-core.js?v=20260902-movement-1"></script>
+    <script type="module" src="character.js?v=20260902-movement-weapons-4"></script>
   </body>
 </html>

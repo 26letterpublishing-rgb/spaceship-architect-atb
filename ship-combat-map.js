@@ -15,7 +15,6 @@
   const panButtons = [...document.querySelectorAll("[data-combat-map-pan]")];
   const viewInputs = [...document.querySelectorAll("[data-combat-map-view]")];
   const stats = document.querySelector("#combatMapStats");
-  const SIC = window.SAShipMap.catalog;
   let combatState = null;
   let mode = "welcome";
   let myUnitId = "";
@@ -38,23 +37,8 @@
   const nodeId = (square, mesh) => Number(square) * 9 + Number(mesh);
   const decodeNode = (id) => ({ square: Math.floor(id / 9), mesh: id % 9 });
 
-  function inventoryType(ship, sicId) {
-    return ship?.ship?.sicInventory?.find((entry) => entry.id === sicId)?.type || "";
-  }
-
   function footprint(ship) {
-    const map = new Map();
-    for (const placement of ship?.ship?.placements || []) {
-      const type = inventoryType(ship, placement.sicId);
-      const def = SIC[type] || { width: 1, height: 1, label: type || "SIC", image: "" };
-      const originRow = Math.floor(Number(placement.cell) / 20);
-      const originCol = Number(placement.cell) % 20;
-      for (let row = 0; row < def.height; row += 1) for (let col = 0; col < def.width; col += 1) {
-        const cell = (originRow + row) * 20 + originCol + col;
-        map.set(cell, { ...def, sicId: placement.sicId, type, origin: Number(placement.cell), row, col });
-      }
-    }
-    return map;
+    return window.SAShipMap.buildLayout(ship?.ship || {}).footprint;
   }
 
   function locationFor(unit, ship = selectedShip()) {
@@ -75,6 +59,7 @@
 
   function neighbors(ship, layout, unit, node) {
     const { square, mesh } = decodeNode(node);
+    if (layout.footprint.get(square)?.blocked) return [];
     const row = Math.floor(mesh / 3);
     const col = mesh % 3;
     const result = [];
@@ -90,6 +75,7 @@
       if (nextRow < 0 || nextRow >= 20 || nextCol < 0 || nextCol >= 20) continue;
       const nextSquare = nextRow * 20 + nextCol;
       if (!ship.ship.gridCells.includes(nextSquare)) continue;
+      if (layout.footprint.get(nextSquare)?.blocked) continue;
       const nextMesh = (nr < 0 ? 2 : nr > 2 ? 0 : nr) * 3 + (nc < 0 ? 2 : nc > 2 ? 0 : nc);
       if (crossingAllowed(ship, layout, unit, square, nextSquare)) result.push(nodeId(nextSquare, nextMesh));
     }
@@ -133,6 +119,13 @@
     const unit = selectedUnit();
     const ship = selectedShip();
     if (!unit || !ship) return;
+    if (window.SAShipMap.buildLayout(ship.ship).footprint.get(Number(square))?.blocked) {
+      preview = { square, mesh, path: [], color: "red", locked };
+      confirm.disabled = true;
+      status.textContent = "The engine core blocks movement through that square.";
+      renderGrid();
+      return;
+    }
     const occupied = (combatState?.units || []).filter((entry) => entry.id !== unit.id && entry.location?.starshipId === ship.id && Number(entry.location.square) === square && Number(entry.location.mesh) === mesh).length;
     if (occupied >= 2) {
       preview = { square, mesh, path: [], color: "red", locked }; confirm.disabled = true;
@@ -206,7 +199,7 @@
     const cellMarkup = Array.from({ length: 400 }, (_, square) => {
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
-      const style = mapView.highResolution && sic?.image ? window.SAShipMap.floorplanStyle(sic.type, sic.col, sic.row) : "";
+      const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
       const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
@@ -214,7 +207,7 @@
         return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
       }).join("");
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
-      const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.col && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
+      const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
       return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");

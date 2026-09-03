@@ -66,6 +66,11 @@ const dom = {
   starshipCount: $("#starshipCount"),
   starshipList: $("#gmStarshipList"),
   createCampaignStarship: $("#createCampaignStarship"),
+  starshipFleet: $("#gmStarshipFleet"),
+  starshipEditor: $("#gmStarshipEditor"),
+  starshipEditorFrame: $("#gmStarshipEditorFrame"),
+  starshipEditorTitle: $("#gmStarshipEditorTitle"),
+  closeStarshipEditor: $("#closeGmStarshipEditor"),
   showcaseNpcFleet: $("#showcaseNpcFleet"),
   showcaseNpcFleetList: $("#showcaseNpcFleetList"),
   premadeNpcSelect: $("#premadeNpcSelect"),
@@ -709,6 +714,24 @@ function renderStarships() {
     dom.showcaseNpcFleet.hidden = !SHOWCASE_MODE;
     dom.showcaseNpcFleetList.innerHTML = npcs.map((unit) => `<label class="showcase-npc-location"><span><i style="--npc-color:${escapeHtml(unit.color || "#999")}"></i><strong>${escapeHtml(unit.characterName)}</strong></span><select data-showcase-npc-location="${escapeHtml(unit.id)}">${deploymentOptions(unit.location?.starshipId || "")}</select></label>`).join("");
   }
+}
+
+function openCampaignStarshipEditor(starshipId = "") {
+  const parameters = new URLSearchParams({ campaign: code, embedded: "gm" });
+  if (starshipId) parameters.set("ship", starshipId);
+  else parameters.set("new", "1");
+  dom.starshipEditorTitle.textContent = starshipId ? "Edit Starship" : "Create New Starship";
+  dom.starshipEditorFrame.src = `starship.html?${parameters.toString()}`;
+  dom.starshipFleet.hidden = true;
+  dom.starshipEditor.hidden = false;
+  dom.starshipEditor.scrollIntoView({ block: "start" });
+}
+
+async function closeCampaignStarshipEditor() {
+  dom.starshipEditor.hidden = true;
+  dom.starshipEditorFrame.removeAttribute("src");
+  dom.starshipFleet.hidden = false;
+  await refreshCampaign().catch((error) => showMessage(dom.message, error.message, "error"));
 }
 
 function renderRollResults() {
@@ -1848,7 +1871,7 @@ dom.starshipList?.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("[data-edit-starship]")) {
-    location.href = `starship.html?campaign=${encodeURIComponent(code)}&ship=${encodeURIComponent(starshipId)}`;
+    openCampaignStarshipEditor(starshipId);
     return;
   }
   const saveCrew = event.target.closest("[data-save-starship-crew]");
@@ -1897,8 +1920,9 @@ dom.starshipList?.addEventListener("click", async (event) => {
 });
 
 dom.createCampaignStarship?.addEventListener("click", () => {
-  window.location.href = "starship.html?new=1";
+  openCampaignStarshipEditor();
 });
+dom.closeStarshipEditor?.addEventListener("click", closeCampaignStarshipEditor);
 
 dom.showcaseNpcFleetList?.addEventListener("change", async (event) => {
   const select = event.target.closest("[data-showcase-npc-location]");
