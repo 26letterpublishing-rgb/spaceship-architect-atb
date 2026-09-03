@@ -22,7 +22,7 @@
   let selectedShipId = "";
   let interaction = "view";
   let preview = null;
-  const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false };
+  const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: true };
 
   function stationAt(ship, square, mesh) {
     const sic = window.SAShipMap.buildLayout(ship?.ship || {}).footprint.get(Number(square));
@@ -119,6 +119,7 @@
     const unit = selectedUnit();
     const ship = selectedShip();
     if (!unit || !ship) return;
+    if (!locked && preview && preview.square === square && preview.mesh === mesh) return;
     if (window.SAShipMap.buildLayout(ship.ship).footprint.get(Number(square))?.blocked) {
       preview = { square, mesh, path: [], color: "red", locked };
       confirm.disabled = true;
@@ -242,7 +243,8 @@
     const hull = Number(statValue(record, "currentHullHp")) || hullMax;
     const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
     const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
-    const en = (ship.placements || []).reduce((total, placement) => total + Number(SIC[inventoryType(record, placement.sicId)]?.output || 0), 0);
+    const inventory = new Map((ship.sicInventory || []).map((item) => [item.id, item]));
+    const en = (ship.placements || []).reduce((total, placement) => total + Number(window.SAShipMap.definition(inventory.get(placement.sicId)?.type).output || 0), 0);
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
       ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
@@ -317,6 +319,13 @@
     }
     const cell = event.target.closest("[data-map-square]");
     if (!cell || interaction === "view") return;
+    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
+  });
+  grid.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("[data-combat-door]") || interaction === "view") return;
+    const cell = event.target.closest("[data-map-square]");
+    if (!cell) return;
+    event.preventDefault();
     chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
   });
   grid.addEventListener("pointerover", (event) => {

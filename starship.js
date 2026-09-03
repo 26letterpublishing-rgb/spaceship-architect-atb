@@ -37,13 +37,13 @@ function loadMapView() {
       highResolution: Boolean(saved.highResolution),
       combatMesh: Boolean(saved.combatMesh),
       walls: saved.walls !== false,
-      stations: Boolean(saved.stations),
+      stations: saved.stations !== false,
       mode: saved.mode === "explore" ? "explore" : "build",
       zoom: Math.max(0.5, Math.min(4, Number(saved.zoom) || 1)),
       panX: Number(saved.panX) || 0,
       panY: Number(saved.panY) || 0,
     };
-  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false, mode: "build", zoom: 1, panX: 0, panY: 0 }; }
+  } catch { return { labels: true, highResolution: false, combatMesh: false, walls: true, stations: true, mode: "build", zoom: 1, panX: 0, panY: 0 }; }
 }
 
 function constructionState(source) {

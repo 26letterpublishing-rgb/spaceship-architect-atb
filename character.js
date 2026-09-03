@@ -662,7 +662,7 @@ const dom = {
 let characterAudioContext = null;
 let diceRollNoiseBuffer = null;
 let starshipMoveDraft = null;
-const playerShipMapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: false };
+const playerShipMapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: true };
 
 function ensureCharacterAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
