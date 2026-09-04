@@ -254,6 +254,91 @@
     stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
   }
 
+  function statsMarkup(record) {
+    const ship = record?.ship || {};
+    const hullMax = Number(statValue(record, "maximumHullHp")) || ship.gridCells?.length || 0;
+    const hull = Number(statValue(record, "currentHullHp")) || hullMax;
+    const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
+    const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
+    const inventory = new Map((ship.sicInventory || []).map((item) => [item.id, item]));
+    const en = (ship.placements || []).reduce((total, placement) => total + Number(window.SAShipMap.definition(inventory.get(placement.sicId)?.type).output || 0), 0);
+    const fields = [
+      ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
+      ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
+      ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
+      ["EN", en], ["AU", statValue(record, "availableAu", "au")], ["Scale", statValue(record, "scaleRank", "scale")],
+    ];
+    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
+  }
+
+  function inlineMapMarkup(record) {
+    const ship = record.ship || {};
+    const cells = ship.gridCells || [];
+    if (!cells.length) return '<p class="inline-map-empty">This starship has no confirmed floorplan.</p>';
+    const rows = cells.map((cell) => Math.floor(cell / 20));
+    const cols = cells.map((cell) => cell % 20);
+    const minRow = Math.min(...rows), maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols), maxCol = Math.max(...cols);
+    const rowCount = maxRow - minRow + 1;
+    const colCount = maxCol - minCol + 1;
+    const hull = new Set(cells);
+    const footprints = footprint(record);
+    const layout = window.SAShipMap.buildLayout(ship);
+    const activePreview = selectedShipId === record.id ? preview : null;
+    const routeNodes = new Set((activePreview?.path || []).map((point) => `${point.square}:${point.mesh}`));
+    const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === record.id);
+    const classes = ["combat-map-grid", "inline-combat-map-grid", mapView.labels ? "show-labels" : "", mapView.highResolution ? "high-resolution" : "", mapView.combatMesh ? "show-combat-mesh" : "", mapView.walls ? "show-walls" : "", mapView.stations ? "show-stations" : ""].filter(Boolean).join(" ");
+    const squares = [];
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minCol; column <= maxCol; column += 1) {
+        const square = row * 20 + column;
+        const sic = footprints.get(square);
+        const cellClasses = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", activePreview?.square === square ? `preview-${activePreview.color}` : ""].filter(Boolean).join(" ");
+        const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
+        const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
+          const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
+          return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+        }).join("");
+        const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
+        const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
+        const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
+        squares.push(`<div class="${cellClasses}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
+      }
+    }
+    const moving = units.map((unit) => {
+      const point = movementPresentation(unit);
+      if (!point) return "";
+      const left = ((point.x - minCol) / colCount) * 100;
+      const top = ((point.y - minRow) / rowCount) * 100;
+      return `<i class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+    }).join("");
+    let line = "";
+    if (activePreview?.path?.length) {
+      const start = locationFor(selectedUnit(), record);
+      const points = [start, ...activePreview.path].filter(Boolean).map((point) => {
+        const x = point.square % 20 - minCol + ((point.mesh % 3) + .5) / 3;
+        const y = Math.floor(point.square / 20) - minRow + (Math.floor(point.mesh / 3) + .5) / 3;
+        return `${x},${y}`;
+      }).join(" ");
+      line = `<svg class="combat-move-line" viewBox="0 0 ${colCount} ${rowCount}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`;
+    }
+    const isSelected = selectedShipId === record.id;
+    const selected = selectedUnit();
+    const movingUnit = selected?.timedAction?.kind === "move" && selected.location?.starshipId === record.id;
+    const station = activePreview?.station;
+    const prompt = isSelected && interaction === "move" ? activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination." : "Live interior view";
+    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${Object.entries({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations" }).map(([key, label]) => `<label><input type="checkbox" data-inline-map-view="${key}" ${mapView[key] ? "checked" : ""}> ${label}</label>`).join("")}</div></div>
+      <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount}">${squares.join("")}${moving}${line}</div></div>
+      <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length ? "" : "disabled"}>${station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
+  }
+
+  function renderInlineMaps(root = document) {
+    root.querySelectorAll?.("[data-inline-ship-map]").forEach((host) => {
+      const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
+      if (record) host.innerHTML = inlineMapMarkup(record);
+    });
+  }
+
   function renderRoster() {
     const ship = selectedShip();
     const units = (combatState?.units || []).filter((unit) => mode === "gm" || unit.id === myUnitId || unit.location?.starshipId === ship?.id);
@@ -263,6 +348,7 @@
   function render() {
     const available = ships().length > 0;
     openButton?.classList.toggle("hidden", !available || !["gm", "player"].includes(mode));
+    renderInlineMaps();
     if (dialog.classList.contains("hidden")) return;
     const unit = selectedUnit();
     const ship = selectedShip();
@@ -309,7 +395,20 @@
     viewport.scrollTop = Math.max(0, minRow * cellSize - (viewport.clientHeight - (maxRow - minRow + 1) * cellSize) / 2 + 20);
   }
 
-  function close() { dialog.classList.add("hidden"); preview = null; }
+  function close() { dialog.classList.add("hidden"); preview = null; document.body.classList.remove("inline-ship-move-selecting"); }
+
+  async function submitSelectedMove({ closeAfter = false } = {}) {
+    const ship = selectedShip();
+    const unit = selectedUnit();
+    if (!ship || !unit || !preview?.locked || !preview?.path?.length) return;
+    if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: completeLocation(ship, preview) });
+    else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
+    preview = null;
+    interaction = "view";
+    document.body.classList.remove("inline-ship-move-selecting");
+    if (closeAfter) close();
+    else renderInlineMaps();
+  }
 
   grid.addEventListener("click", async (event) => {
     const door = event.target.closest("[data-combat-door]");
@@ -346,12 +445,7 @@
     renderGrid();
   }));
   confirm.addEventListener("click", async () => {
-    const ship = selectedShip();
-    const unit = selectedUnit();
-    if (!ship || !unit || !preview?.locked || !preview?.path?.length) return;
-    if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: completeLocation(ship, preview) });
-    else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
-    close();
+    await submitSelectedMove({ closeAfter: true });
   });
   stop.addEventListener("click", async () => { await bridge()?.action({ action: "stopTravel", id: selectedUnitId }); close(); });
   enterStation.addEventListener("click", async () => {
@@ -372,10 +466,53 @@
     open();
   }); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
   document.addEventListener("click", (event) => {
+    const inlineHost = event.target.closest?.("[data-inline-ship-map]");
+    if (inlineHost) {
+      const view = event.target.closest("[data-inline-map-view]");
+      if (view) { mapView[view.dataset.inlineMapView] = view.checked; renderInlineMaps(); return; }
+      const door = event.target.closest("[data-combat-door]");
+      if (door) {
+        const unit = mode === "player" ? combatState?.units?.find((entry) => entry.id === myUnitId) : selectedUnit();
+        void bridge()?.action({ action: "operateCombatDoor", id: unit?.id || "", starshipId: inlineHost.dataset.inlineShipMap, doorKey: door.dataset.combatDoor });
+        return;
+      }
+      if (event.target.closest("[data-inline-cancel-move]")) {
+        preview = null; interaction = "view"; document.body.classList.remove("inline-ship-move-selecting"); renderInlineMaps(); return;
+      }
+      if (event.target.closest("[data-inline-confirm-move]")) { void submitSelectedMove(); return; }
+      const cell = event.target.closest("[data-map-square]");
+      if (cell && interaction === "move" && selectedShipId === inlineHost.dataset.inlineShipMap) {
+        chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
+        renderInlineMaps();
+      }
+      return;
+    }
     const button = event.target.closest("[data-open-ship-map]");
     if (!button) return;
     open({ starshipId: button.dataset.openShipMap, interaction: mode === "gm" ? "relocate" : "view" });
   });
+  document.addEventListener("pointerover", (event) => {
+    const host = event.target.closest?.("[data-inline-ship-map]");
+    const cell = event.target.closest?.("[data-map-square]");
+    if (!host || !cell || event.pointerType === "touch" || interaction !== "move" || preview?.locked || selectedShipId !== host.dataset.inlineShipMap) return;
+    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), false);
+    renderInlineMaps();
+  });
   window.addEventListener("sa-combat-state", (event) => { combatState = event.detail.state; mode = event.detail.mode; myUnitId = event.detail.myUnitId; if (!selectedUnitId) selectedUnitId = mode === "player" ? myUnitId : combatState?.activeId || ""; render(); });
-  window.SACombatMap = { open, openMove(unit) { open({ interaction: "move", unitId: unit.id, starshipId: unit.location?.starshipId }); }, render };
+  window.SACombatMap = {
+    open,
+    openMove(unit) {
+      selectedUnitId = unit.id;
+      selectedShipId = unit.location?.starshipId || "";
+      interaction = "move";
+      preview = null;
+      const host = document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`);
+      if (!host) { open({ interaction: "move", unitId: unit.id, starshipId: selectedShipId }); return; }
+      document.body.classList.add("inline-ship-move-selecting");
+      renderInlineMaps();
+      requestAnimationFrame(() => host.scrollIntoView({ behavior: "smooth", block: "center" }));
+    },
+    render,
+    renderInlineMaps,
+  };
 })();

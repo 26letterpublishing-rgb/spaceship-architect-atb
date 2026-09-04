@@ -1676,6 +1676,14 @@ async function handleAction(req, res) {
     const existingCampaignUnit = action === "join" && body.characterId
       ? room.units.find((entry) => entry.characterId === String(body.characterId))
       : null;
+    if ((room.starships || []).length && !existingCampaignUnit) {
+      const destinationShip = room.starships.find((entry) => entry.id === String(body.location?.starshipId || ""));
+      const destinationSquare = Number(body.location?.square);
+      if (!destinationShip || !destinationShip.ship?.gridCells?.includes(destinationSquare)) {
+        sendJson(res, 400, { error: "Every combatant in a starship encounter must begin aboard a selected starship." });
+        return;
+      }
+    }
     if (existingCampaignUnit) {
       existingCampaignUnit.playerName = playerName;
       existingCampaignUnit.characterName = characterName;

@@ -1241,6 +1241,62 @@ h2 {
   text-align: center;
   text-transform: uppercase;
 }
+
+.ship-combat-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ship-combat-lane {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #344e63;
+  background: rgba(3, 11, 19, 0.88);
+  box-shadow: inset 0 0 30px rgba(80, 142, 170, 0.05);
+}
+
+.ship-combat-title {
+  margin: 0;
+  padding: 12px 10px 9px;
+  border-bottom: 2px solid #59cfe5;
+  color: #d7dde1;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.15rem, 2vw, 1.75rem);
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 1px #fff, 0 3px 2px #151a1e, 0 0 12px rgba(174, 211, 226, 0.35);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.ship-lane-atb { min-height: 355px; padding: 4px 6px; }
+.ship-lane-atb .tactical-ring-view { width: min(100%, 540px); }
+.ship-lane-atb .ring-stage { margin-inline: auto; }
+.ship-lane-atb .tactical-ring-svg { width: min(492px, calc(100% - 30px)); }
+.ship-lane-atb .ring-action-cluster { left: clamp(32px, var(--ring-action-x), calc(100% - 32px)); }
+.ship-lane-bars { display: grid; gap: 6px; }
+
+.ship-lane-log { margin: 0 9px 10px; border: 1px solid #29445a; background: #050e17; }
+.ship-lane-log > header { display: flex; align-items: baseline; gap: 8px; padding: 7px 9px; border-bottom: 1px solid #29445a; }
+.ship-lane-log > header span { color: #5edff5; font-size: .48rem; }
+.ship-lane-log > header strong { color: #dce9f1; font-size: .72rem; text-transform: uppercase; }
+.ship-lane-log > div { min-height: 70px; max-height: 145px; overflow: auto; padding: 4px 9px; }
+.ship-lane-log p { margin: 0; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.06); color: #91a6b6; font-size: .64rem; }
+.ship-lane-log b { color: #d8e5ec; }
+.ship-lane-map { margin: 0 9px 10px; }
+
+.starship-combat-mode #initiativePanel > .section-head .eyebrow,
+.starship-combat-mode #initiativePanel > .section-head h2,
+.starship-combat-mode #openCombatMap { display: none; }
+
+@media (max-width: 900px) {
+  .ship-combat-columns { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 1400px) {
+  .ship-lane-atb .tactical-ring-svg { width: min(540px, calc(100% - 24px)); }
+}
 .unit-card.combatant-defeated::after {
   content: "";
   position: absolute;

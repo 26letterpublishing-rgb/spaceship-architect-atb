@@ -18,6 +18,7 @@ let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
 let visualMode = "bars";
+let lastStarshipEncounterKey = "";
 let selectedCharacterIcon = "";
 let actionLogTimeout = null;
 let pendingActionLog = null;
@@ -258,6 +259,8 @@ const gmCommandWindow = document.querySelector("#gmCommandWindow");
 const gmCommandWindowWrap = document.querySelector("#gmCommandWindowWrap");
 const gmColor = document.querySelector("#gmColor");
 const gmTeam = document.querySelector("#gmTeam");
+const gmCombatShipWrap = document.querySelector("#gmCombatShipWrap");
+const gmCombatShip = document.querySelector("#gmCombatShip");
 const unitList = document.querySelector("#unitList");
 const starshipStatusList = document.querySelector("#starshipStatusList");
 const initiativePanel = document.querySelector("#initiativePanel");
@@ -516,6 +519,32 @@ function renderCampaignCharacterPicker() {
   const preferred = available.some((entry) => entry.id === campaignCharacterId) ? campaignCharacterId : available[0]?.id || "";
   campaignCharacterPicker.value = preferred;
   syncCampaignCharacterSelection();
+}
+
+function renderGmCampaignPcPicker() {
+  const wrap = document.querySelector("#gmCampaignPcWrap");
+  const select = document.querySelector("#gmCampaignPc");
+  const button = document.querySelector("#gmAddCampaignPc");
+  if (!wrap || !select || !button) return;
+  const activeIds = new Set((state?.units || []).map((unit) => unit.characterId).filter(Boolean));
+  const activeShipIds = new Set((state?.starships || []).map((ship) => ship.id));
+  const starshipCombat = activeShipIds.size > 0;
+  const available = (campaignState?.characters || []).filter((record) => {
+    if (record.approved === false || activeIds.has(record.id)) return false;
+    if (!starshipCombat) return true;
+    return (campaignState?.starships || []).some((ship) => activeShipIds.has(ship.id) && ship.crewCharacterIds?.includes(record.id));
+  });
+  wrap.classList.toggle("hidden", mode !== "gm");
+  button.classList.toggle("hidden", mode !== "gm");
+  select.innerHTML = `<option value="">${available.length ? "Choose a PC" : "No eligible PCs"}</option>${available.map((record) => `<option value="${escapeHtml(record.id)}">${escapeHtml(characterDisplayName(record))}</option>`).join("")}`;
+  button.disabled = !available.length;
+  if (gmCombatShipWrap && gmCombatShip) {
+    gmCombatShipWrap.classList.toggle("hidden", !starshipCombat || mode !== "gm");
+    const previous = gmCombatShip.value;
+    gmCombatShip.innerHTML = `<option value="">Choose Ship</option>${(state?.starships || []).map((ship) => `<option value="${escapeHtml(ship.id)}">${escapeHtml(ship.title || ship.ship?.title || "Starship")}</option>`).join("")}`;
+    gmCombatShip.value = activeShipIds.has(previous) ? previous : state?.starships?.[0]?.id || "";
+    gmAddUnit.disabled = starshipCombat && !gmCombatShip.value;
+  }
 }
 
 function syncCampaignCharacterSelection() {
@@ -1421,6 +1450,33 @@ function tacticalRingMarkup(units) {
   const rings = groups.map((group) => tacticalRingSingleMarkup(group.units, group.id, group.title));
   if (other.length) rings.push(tacticalRingSingleMarkup(other, "other", "Other"));
   return `<div class="tactical-ring-fleet" data-ring-count="${rings.length}">${rings.join("")}</div>`;
+}
+
+function shipScopedLogEntries(shipId, units) {
+  const names = units.map((unit) => String(unit.characterName || "").trim().toLowerCase()).filter(Boolean);
+  return (state?.log || []).filter((entry) => {
+    if (entry.starshipId === shipId || entry.starshipIds?.includes?.(shipId)) return true;
+    const text = String(entry.text || "").toLowerCase();
+    return names.some((name) => text.includes(name));
+  });
+}
+
+function shipCombatColumnsMarkup(units) {
+  const ships = (state?.starships || []).slice(0, 6);
+  return `<div class="ship-combat-columns" data-ship-count="${ships.length}">${ships.map((ship) => {
+    const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
+    const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
+    const title = ship.title || ship.ship?.title || "Unnamed Starship";
+    const atb = visualMode === "ring"
+      ? tacticalRingSingleMarkup(shipUnits, ship.id)
+      : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
+    return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
+      <h2 class="ship-combat-title">${escapeHtml(title)}</h2>
+      <div class="ship-lane-atb">${atb}</div>
+      <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(entry.text)}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
+      <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
+    </article>`;
+  }).join("")}</div>`;
 }
 
 function iconStore() {
@@ -2888,6 +2944,7 @@ function render() {
   document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused && !state?.attackResolution && !state?.itemResolution);
   document.body.classList.toggle("hard-paused", Boolean(state?.hardPaused));
   renderPcBuilder();
+  renderGmCampaignPcPicker();
 
   if (!state) {
     delayModalState = null;
@@ -2913,6 +2970,13 @@ function render() {
     clearPostedCombatPrompt();
     return;
   }
+
+  const starshipCombat = Boolean(state.starships?.length);
+  const starshipEncounterKey = starshipCombat ? state.starships.map((ship) => ship.id).join("|") : "";
+  if (state.starships?.length >= 2 && starshipEncounterKey !== lastStarshipEncounterKey) visualMode = "ring";
+  lastStarshipEncounterKey = starshipEncounterKey;
+  document.body.classList.toggle("starship-combat-mode", starshipCombat);
+  logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || starshipCombat);
 
   roomCode.textContent = state.roomCode;
   playerRoomCode.textContent = state.roomCode;
@@ -2948,7 +3012,8 @@ function render() {
   }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
   const waitingThree = mine?.timedAction?.kind === "wait";
-  const showMineOverlay = mode === "player" && !playerDeathSequence && Boolean(mine) && !waitingThree && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  const movingThroughShip = mine?.timedAction?.kind === "move" && Boolean(mine.location?.starshipId);
+  const showMineOverlay = mode === "player" && !playerDeathSequence && Boolean(mine) && !waitingThree && !movingThroughShip && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && !playerDeathSequence && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
@@ -2964,7 +3029,12 @@ function render() {
   }
 
   renderAreaEffects();
-  renderStarshipStatuses();
+  if (starshipCombat) {
+    starshipStatusList.hidden = true;
+    starshipStatusList.innerHTML = "";
+  } else {
+    renderStarshipStatuses();
+  }
   const sorted = [...state.units].sort((a, b) => {
     if (mode === "player") {
       if (a.id === myUnitId && b.id !== myUnitId) return -1;
@@ -2976,8 +3046,14 @@ function render() {
     renderPlayerCombatPreview(playerPreviewRecord);
   } else {
     stopPlayerPreviewAnimation();
-    if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) unitList.innerHTML = tacticalRingMarkup(state.units);
-    else renderUnitList(sorted);
+    if (starshipCombat) {
+      unitList.innerHTML = shipCombatColumnsMarkup(state.units);
+      window.SACombatMap?.renderInlineMaps?.(unitList);
+    } else if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
+      unitList.innerHTML = tacticalRingMarkup(state.units);
+    } else {
+      renderUnitList(sorted);
+    }
   }
   syncGmCommandWindowVisibility();
 
@@ -3172,7 +3248,8 @@ function moveRingUnit(id, targetIndex, groupId = "") {
     ringMovedId = "";
     if (visualMode === "ring") render();
   }, 1000);
-  unitList.innerHTML = tacticalRingMarkup(state.units);
+  unitList.innerHTML = state?.starships?.length ? shipCombatColumnsMarkup(state.units) : tacticalRingMarkup(state.units);
+  window.SACombatMap?.renderInlineMaps?.(unitList);
 }
 
 function clearRingDrag() {
@@ -3759,6 +3836,9 @@ gmAddUnit.addEventListener("click", () => {
   const npcTemplate = usingNpcDefault
     ? npcDefaults.find((entry) => entry.characterName === gmCharacterName.value && Number(entry.speed) === Number(gmSpeedRating.value))
     : null;
+  const combatShip = state?.starships?.find((ship) => ship.id === gmCombatShip?.value);
+  const firstSquare = Number(combatShip?.ship?.gridCells?.[0]);
+  if (state?.starships?.length && (!combatShip || !Number.isInteger(firstSquare))) return;
   action({
     action: "addUnit",
     playerName: gmPlayerName.value || "GM",
@@ -3771,6 +3851,7 @@ gmAddUnit.addEventListener("click", () => {
     actorType: "character",
     maximumHp: npcTemplate?.hp,
     currentHp: npcTemplate?.hp,
+    location: combatShip ? { environment: "starship", starshipId: combatShip.id, square: firstSquare, mesh: 4, sicId: "", stationed: false } : { environment: "exterior", starshipId: "", square: null, mesh: 4, sicId: "", stationed: false },
   });
   if (usingNpcDefault) {
     nextNpcDefault();
@@ -3778,6 +3859,31 @@ gmAddUnit.addEventListener("click", () => {
   } else {
     gmCharacterName.value = "";
   }
+});
+
+document.querySelector("#gmAddCampaignPc")?.addEventListener("click", () => {
+  const characterId = document.querySelector("#gmCampaignPc")?.value;
+  const record = campaignState?.characters?.find((entry) => entry.id === characterId);
+  if (!record) return;
+  const ship = (campaignState.starships || []).find((entry) => state?.starships?.some((activeShip) => activeShip.id === entry.id) && entry.crewCharacterIds?.includes(record.id));
+  const firstSquare = Number(ship?.ship?.gridCells?.[0]);
+  const computed = record.character?.computed || {};
+  action({
+    action: "addUnit",
+    playerName: characterPlayerName(record),
+    characterName: characterDisplayName(record),
+    speed: Number(computed.speed) || 5,
+    commandWindow: Number(computed.commandWindow) || 30,
+    color: record.character?.presentation?.atbColor || "#39e58f",
+    controlledBy: "player",
+    team: "pc",
+    actorType: "character",
+    characterId: record.id,
+    moveSpeed: Math.max(1, Number(computed.moveSpeed) || 1),
+    maximumHp: Math.max(1, Number(computed.maximumHp) || 1),
+    currentHp: Math.max(0, Number(record.character?.health?.current ?? computed.maximumHp) || 1),
+    location: ship && Number.isInteger(firstSquare) ? { environment: "starship", starshipId: ship.id, square: firstSquare, mesh: 4, sicId: "", stationed: false } : { environment: "exterior", starshipId: "", square: null, mesh: 4, sicId: "", stationed: false },
+  });
 });
 
 gmTeam.addEventListener("change", () => {
@@ -3899,7 +4005,8 @@ unitList.addEventListener("pointerdown", (event) => {
     timer: setTimeout(() => {
       ringDrag = { id, groupId, pointerId: event.pointerId, active: true };
       document.body.classList.add("ring-dragging");
-      unitList.innerHTML = tacticalRingMarkup(state.units);
+      unitList.innerHTML = state?.starships?.length ? shipCombatColumnsMarkup(state.units) : tacticalRingMarkup(state.units);
+      window.SACombatMap?.renderInlineMaps?.(unitList);
     }, 460),
   };
   control.setPointerCapture?.(event.pointerId);
@@ -4042,7 +4149,9 @@ if (embeddedGm && currentRoomCode) {
       setRoom(nextState);
       visualMode = "bars";
       setMode("gm");
+      return campaignRequest(`/api/campaign/state?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(gmCampaignToken)}`);
     })
+    .then((nextCampaign) => { if (nextCampaign) { campaignState = nextCampaign; render(); } })
     .catch(() => setConnected(false, "Open this campaign again from the GM Control Panel."));
 }
 

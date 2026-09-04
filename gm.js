@@ -195,6 +195,8 @@ let encounterNpcDraft = null;
 let premadeNpcDraft = null;
 let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
+let selectedEncounterStarships = new Set();
+let encounterMode = "surface";
 const encounterLocations = new Map();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
 const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false };
@@ -986,8 +988,6 @@ function renderPremadeNpcConsole() {
 }
 
 function ensureEncounterDefaults() {
-  const approved = (campaign?.characters || []).filter((record) => record.approved !== false);
-  if (!selectedEncounterCharacters.size) selectedEncounterCharacters = new Set(approved.map((record) => record.id));
   if (!encounterNpcDraft) encounterNpcDraft = randomBuiltinNpc();
 }
 
@@ -995,28 +995,59 @@ function renderEncounterBuilder() {
   if (!campaign) return;
   ensureEncounterDefaults();
   const approved = campaign.characters.filter((record) => record.approved !== false);
-  dom.encounterCharacterList.innerHTML = approved.length ? approved.map((record) => {
+  const characterMarkup = (record, deployment = "", nested = false) => {
     const color = record.character?.presentation?.atbColor || "#39e58f";
-    const deployment = encounterLocations.has(record.id) ? encounterLocations.get(record.id) : defaultDeployment(record);
-    encounterLocations.set(record.id, deployment);
+    if (!encounterLocations.has(record.id)) encounterLocations.set(record.id, deployment);
     return `<label class="encounter-character-option" style="--character-color:${escapeHtml(color)}">
       <input type="checkbox" data-encounter-character="${record.id}" ${selectedEncounterCharacters.has(record.id) ? "checked" : ""} />
       <span><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))}</small></span>
       <span class="encounter-stat">SPD ${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</span>
       <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
-      <select class="encounter-deployment" data-encounter-location="${record.id}" aria-label="Starting location for ${escapeHtml(characterName(record))}">${deploymentOptions(deployment)}</select>
+      ${encounterMode === "starship" && !nested ? `<select class="encounter-deployment" data-encounter-location="${record.id}" aria-label="Starting ship for ${escapeHtml(characterName(record))}">${encounterDeploymentOptions(deployment)}</select>` : ""}
     </label>`;
-  }).join("") : '<p>No approved campaign characters are available yet.</p>';
+  };
+  const rosterTitle = document.querySelector("#encounterRosterTitle");
+  const rosterHint = document.querySelector("#encounterRosterHint");
+  if (encounterMode === "starship") {
+    if (rosterTitle) rosterTitle.textContent = "Starships and Crew";
+    if (rosterHint) rosterHint.textContent = "Selecting a ship selects its assigned crew. Uncheck anyone who is elsewhere.";
+    const assigned = new Set();
+    const shipGroups = (campaign.starships || []).map((ship) => {
+      const crew = approved.filter((record) => ship.crewCharacterIds?.includes(record.id));
+      crew.forEach((record) => assigned.add(record.id));
+      const checked = selectedEncounterStarships.has(ship.id);
+      return `<section class="encounter-ship-option ${checked ? "selected" : ""}">
+        <label class="encounter-ship-heading"><input type="checkbox" data-encounter-starship="${escapeHtml(ship.id)}" ${checked ? "checked" : ""}><span><strong>${escapeHtml(ship.title || ship.ship?.title || "Unnamed Starship")}</strong><small>${ship.controlType === "gm" ? "GM CONTROLLED" : "PC CONTROLLED"}</small></span><b>${crew.length} CREW</b></label>
+        <div class="encounter-ship-crew">${crew.length ? crew.map((record) => characterMarkup(record, ship.id, true)).join("") : '<p>No assigned crew.</p>'}</div>
+      </section>`;
+    }).join("");
+    const unassigned = approved.filter((record) => !assigned.has(record.id));
+    dom.encounterCharacterList.innerHTML = `${shipGroups || '<p>No confirmed campaign starships are available.</p>'}${unassigned.length ? `<section class="encounter-unassigned"><h4>Unassigned Characters</h4>${unassigned.map((record) => characterMarkup(record, encounterLocations.get(record.id) || "")).join("")}</section>` : ""}`;
+  } else {
+    if (rosterTitle) rosterTitle.textContent = "Campaign Characters";
+    if (rosterHint) rosterHint.textContent = "Selected characters enter before their phones connect.";
+    dom.encounterCharacterList.innerHTML = approved.length ? approved.map((record) => characterMarkup(record, "")).join("") : '<p>No approved campaign characters are available yet.</p>';
+  }
+  document.querySelectorAll("[data-encounter-mode]").forEach((button) => {
+    const active = button.dataset.encounterMode === encounterMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   dom.encounterNpcTemplate.innerHTML = npcTemplateOptions();
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   dom.encounterNpcEditor.innerHTML = npcEditorMarkup(encounterNpcDraft);
   dom.encounterNpcList.innerHTML = stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="staged-npc-summary" data-staged-npc="${npc.id}" style="--npc-color:${escapeHtml(npc.color)}">
     <div><strong>${npc.allyNpc ? '<img class="npc-ally-badge" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
-    <select class="encounter-deployment" data-staged-location="${npc.id}" aria-label="Starting location for ${escapeHtml(npc.name)}">${deploymentOptions(npc.locationStarshipId || "")}</select>
+    ${encounterMode === "starship" ? `<select class="encounter-deployment" data-staged-location="${npc.id}" aria-label="Starting ship for ${escapeHtml(npc.name)}">${encounterDeploymentOptions(npc.locationStarshipId || "")}</select>` : ""}
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>';
-  dom.beginEncounter.disabled = !selectedEncounterCharacters.size && !stagedNpcs.length;
+  dom.beginEncounter.disabled = (!selectedEncounterCharacters.size && !stagedNpcs.length) || (encounterMode === "starship" && !selectedEncounterStarships.size);
+}
+
+function encounterDeploymentOptions(selected = "") {
+  const ships = (campaign?.starships || []).filter((record) => selectedEncounterStarships.has(record.id));
+  return `<option value="">Choose Ship</option>${ships.map((record) => `<option value="${escapeHtml(record.id)}" ${record.id === selected ? "selected" : ""}>${escapeHtml(record.title || record.ship?.title || "Starship")}</option>`).join("")}`;
 }
 
 function renderEncounterStatus() {
@@ -1166,11 +1197,24 @@ async function beginEncounter() {
     showMessage(dom.message, "Select at least one character or add an NPC.", "error");
     return;
   }
+  if (encounterMode === "starship" && !selectedEncounterStarships.size) {
+    showMessage(dom.message, "Select at least one starship.", "error");
+    return;
+  }
+  if (encounterMode === "starship") {
+    const missingCharacters = selected.filter((record) => !selectedEncounterStarships.has(encounterLocations.get(record.id) || defaultDeployment(record)));
+    const missingNpcs = stagedNpcs.filter((npc) => !selectedEncounterStarships.has(npc.locationStarshipId));
+    if (missingCharacters.length || missingNpcs.length) {
+      showMessage(dom.message, "Every selected character and NPC must be aboard a selected starship.", "error");
+      return;
+    }
+  }
   dom.beginEncounter.disabled = true;
   dom.beginEncounter.textContent = "Preparing Combat...";
   try {
     await encounterAction("clearEncounter");
-    await encounterAction("syncEncounterStarships", { starships: campaign.starships || [] });
+    const combatStarships = encounterMode === "starship" ? (campaign.starships || []).filter((ship) => selectedEncounterStarships.has(ship.id)) : [];
+    await encounterAction("syncEncounterStarships", { starships: combatStarships });
     for (const record of selected) {
       await encounterAction("addUnit", {
         playerName: playerName(record),
@@ -1182,7 +1226,7 @@ async function beginEncounter() {
         team: "pc",
         actorType: "character",
         characterId: record.id,
-        location: combatLocation(encounterLocations.get(record.id) || defaultDeployment(record)),
+        location: combatLocation(encounterMode === "starship" ? encounterLocations.get(record.id) || defaultDeployment(record) : ""),
         ...encounterRuleFields(record),
       });
     }
@@ -1208,7 +1252,7 @@ async function beginEncounter() {
         weapons: weapon ? [{ inventoryId: `npc-${npc.id}-weapon`, weaponId: weapon.id }] : [],
         heldWeaponId: weapon ? `npc-${npc.id}-weapon` : "",
         allyNpc: Boolean(npc.allyNpc),
-        location: combatLocation(npc.locationStarshipId || ""),
+        location: combatLocation(encounterMode === "starship" ? npc.locationStarshipId || "" : ""),
       });
     }
     encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
@@ -1337,6 +1381,8 @@ function openWorkspace(nextCampaign, nextToken) {
   targetSelectionTouched = false;
   selectedTargets = campaign.characters.length === 1 ? new Set([campaign.characters[0].id]) : new Set();
   selectedEncounterCharacters = new Set(campaign.characters.filter((record) => record.approved !== false).map((record) => record.id));
+  selectedEncounterStarships = new Set();
+  encounterMode = "surface";
   encounterLocations.clear();
   npcSequence = 0;
   stagedNpcs = [];
@@ -2135,6 +2181,26 @@ dom.rollResults.addEventListener("click", async (event) => {
 });
 
 dom.encounterCharacterList.addEventListener("change", (event) => {
+  const ship = event.target.closest("[data-encounter-starship]");
+  if (ship) {
+    const record = (campaign?.starships || []).find((entry) => entry.id === ship.dataset.encounterStarship);
+    if (!record) return;
+    if (ship.checked) {
+      selectedEncounterStarships.add(record.id);
+      for (const characterId of record.crewCharacterIds || []) {
+        selectedEncounterCharacters.add(characterId);
+        encounterLocations.set(characterId, record.id);
+      }
+    } else {
+      selectedEncounterStarships.delete(record.id);
+      for (const characterId of record.crewCharacterIds || []) {
+        selectedEncounterCharacters.delete(characterId);
+        if (encounterLocations.get(characterId) === record.id) encounterLocations.delete(characterId);
+      }
+    }
+    renderEncounterBuilder();
+    return;
+  }
   const location = event.target.closest("[data-encounter-location]");
   if (location) {
     encounterLocations.set(location.dataset.encounterLocation, location.value);
@@ -2144,6 +2210,17 @@ dom.encounterCharacterList.addEventListener("change", (event) => {
   if (!input) return;
   if (input.checked) selectedEncounterCharacters.add(input.dataset.encounterCharacter);
   else selectedEncounterCharacters.delete(input.dataset.encounterCharacter);
+  renderEncounterBuilder();
+});
+
+document.querySelector("#encounterBuilder")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-encounter-mode]");
+  if (!button || button.dataset.encounterMode === encounterMode) return;
+  encounterMode = button.dataset.encounterMode;
+  selectedEncounterCharacters.clear();
+  selectedEncounterStarships.clear();
+  encounterLocations.clear();
+  for (const npc of stagedNpcs) npc.locationStarshipId = "";
   renderEncounterBuilder();
 });
 

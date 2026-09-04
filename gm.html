@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260902-campaign-ship-editor-1" />
+  <link rel="stylesheet" href="gm.css?v=20260903-ship-columns-1" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -227,8 +227,12 @@
               <button id="prepareNewEncounter" class="danger" type="button">Start New Encounter</button>
             </div>
             <div id="encounterBuilder" class="encounter-builder">
+              <div class="encounter-mode-selector" role="radiogroup" aria-label="Encounter type">
+                <button type="button" class="active" data-encounter-mode="surface" aria-pressed="true"><strong>Surface Combat</strong><span>Characters fight without starships.</span></button>
+                <button type="button" data-encounter-mode="starship" aria-pressed="false"><strong>Starship Combat</strong><span>Everyone fights aboard a selected ship.</span></button>
+              </div>
               <section class="encounter-roster">
-                <div class="section-title"><h3>Campaign Characters</h3><small>Selected characters enter before their phones connect.</small></div>
+                <div class="section-title"><h3 id="encounterRosterTitle">Campaign Characters</h3><small id="encounterRosterHint">Selected characters enter before their phones connect.</small></div>
                 <div id="encounterCharacterList" class="encounter-character-list"></div>
               </section>
               <section class="encounter-npcs">
@@ -352,6 +356,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260902-campaign-ship-editor-1"></script>
+  <script type="module" src="gm.js?v=20260903-ship-columns-1"></script>
   </body>
 </html>

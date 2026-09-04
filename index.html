@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260829-galleries-fleet" />
+  <link rel="stylesheet" href="styles.css?v=20260903-ship-columns-1" />
   <link rel="stylesheet" href="combat-actions.css?v=20260818-qol-pass" />
-  <link rel="stylesheet" href="ship-combat-map.css?v=20260902-movement-targets-1" />
+  <link rel="stylesheet" href="ship-combat-map.css?v=20260903-ship-columns-1" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -153,50 +153,6 @@
         </div>
       </section>
 
-      <section id="gmPanel" class="panel hidden">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">GM Console</p>
-            <h2>Encounter Control</h2>
-          </div>
-          <div class="clock" id="clockState">Paused</div>
-        </div>
-        <div class="add-grid">
-          <label>
-            Player
-            <input id="gmPlayerName" placeholder="GM" value="GM" />
-          </label>
-          <label>
-            Character / NPC
-            <input id="gmCharacterName" placeholder="Security Guard" />
-          </label>
-          <label>
-            Speed % / Sec
-            <input id="gmSpeedRating" type="number" min="1" max="100" step="0.5" value="5" />
-          </label>
-          <label id="gmCommandWindowWrap">
-            Command Window
-            <input id="gmCommandWindow" type="number" min="1" max="999" step="1" value="30" />
-          </label>
-          <label>
-            ATB Color
-            <input id="gmColor" type="color" value="#39e58f" />
-          </label>
-          <label>
-            Side
-            <select id="gmTeam">
-              <option value="npc" selected>NPC</option>
-              <option value="pc">PC</option>
-            </select>
-          </label>
-          <button id="gmAddUnit">Add</button>
-        </div>
-        <div class="controls gm-timing-controls">
-          <button id="undoLastTiming" class="control-square undo">Undo</button>
-          <button id="stepTick" class="control-square">Step<br />1 Sec</button>
-        </div>
-      </section>
-
       <section id="playerPanel" class="panel hidden">
         <div id="myTurnBanner" class="turn-banner hidden">
           <div id="playerCommandDial" class="command-dial hidden" aria-hidden="true">
@@ -277,6 +233,59 @@
           </label>
         </div>
         <div id="logList" class="log-list"></div>
+      </section>
+
+      <section id="gmPanel" class="panel hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">GM Console</p>
+            <h2>Encounter Control</h2>
+          </div>
+          <div class="clock" id="clockState">Paused</div>
+        </div>
+        <div class="add-grid">
+          <label id="gmCampaignPcWrap" class="hidden">
+            Campaign PC
+            <select id="gmCampaignPc"><option value="">Choose a PC</option></select>
+          </label>
+          <button id="gmAddCampaignPc" class="hidden" type="button">Add PC</button>
+          <label id="gmCombatShipWrap" class="hidden">
+            Aboard Ship
+            <select id="gmCombatShip"><option value="">Choose Ship</option></select>
+          </label>
+          <label>
+            Player
+            <input id="gmPlayerName" placeholder="GM" value="GM" />
+          </label>
+          <label>
+            Character / NPC
+            <input id="gmCharacterName" placeholder="Security Guard" />
+          </label>
+          <label>
+            Speed % / Sec
+            <input id="gmSpeedRating" type="number" min="1" max="100" step="0.5" value="5" />
+          </label>
+          <label id="gmCommandWindowWrap">
+            Command Window
+            <input id="gmCommandWindow" type="number" min="1" max="999" step="1" value="30" />
+          </label>
+          <label>
+            ATB Color
+            <input id="gmColor" type="color" value="#39e58f" />
+          </label>
+          <label>
+            Side
+            <select id="gmTeam">
+              <option value="npc" selected>NPC</option>
+              <option value="pc">PC</option>
+            </select>
+          </label>
+          <button id="gmAddUnit">Add</button>
+        </div>
+        <div class="controls gm-timing-controls">
+          <button id="undoLastTiming" class="control-square undo">Undo</button>
+          <button id="stepTick" class="control-square">Step<br />1 Sec</button>
+        </div>
       </section>
     </main>
 
@@ -588,9 +597,9 @@
 
 
   <script src="combat-rules.js?v=20260821-melee-export-pass"></script>
-  <script src="app.js?v=20260902-movement-targets-1"></script>
+  <script src="app.js?v=20260903-ship-columns-1"></script>
   <script src="ship-map-core.js?v=20260902-movement-1"></script>
-  <script src="ship-combat-map.js?v=20260903-station-lock-1"></script>
+  <script src="ship-combat-map.js?v=20260903-ship-columns-1"></script>
   <script src="combat-actions.js?v=20260902-movement-targets-1"></script>
   <script type="module" src="npc-combat-dice.js?v=20260816-storage-give"></script>
   </body>
