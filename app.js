@@ -2348,6 +2348,10 @@ function notifyTurnIfNeeded() {
     gmNpcTurnActions.hidden = !npcTurn;
     gmNpcHeldWeaponReadout.hidden = !npcTurn;
     if (!turnPanelOpen()) showTurnPanel();
+    if (lastNotifiedActiveId !== active.id) {
+      lastNotifiedActiveId = active.id;
+      playGmSound(active.team === "pc" ? "playerTurn" : "turn");
+    }
   }
 
   if (mode === "player" && active.id === myUnitId && alertsEnabled && lastNotifiedActiveId !== active.id) {
@@ -2471,6 +2475,17 @@ function playGmSound(name = "tap") {
     if (name === "resolve") {
       tone(520, 0, 0.06, 0.035, "triangle");
       tone(760, 0.06, 0.08, 0.035, "triangle");
+      return;
+    }
+    if (name === "playerTurn") {
+      tone(520, 0, 0.1, 0.045, "triangle");
+      tone(780, 0.12, 0.12, 0.05, "triangle");
+      tone(1040, 0.27, 0.16, 0.045, "sine");
+      return;
+    }
+    if (name === "turn") {
+      tone(420, 0, 0.08, 0.035, "square");
+      tone(630, 0.09, 0.1, 0.038, "triangle");
       return;
     }
     tone(680, 0, 0.045, 0.025, "square");
@@ -3005,7 +3020,10 @@ function render() {
   renderActivePanel();
   renderRejoinOptions();
   const active = activeUnit();
-  const mine = state.units.find((unit) => unit.id === myUnitId);
+  // A GM iframe shares origin storage with player perspectives in Explore
+  // Features. Never let a remembered player id overwrite the active NPC's
+  // action controls when the GM view renders.
+  const mine = mode === "player" ? state.units.find((unit) => unit.id === myUnitId) : null;
   const playerDeathSequence = mode === "player" && defeatSequenceActive();
   if (mode === "gm" && active?.team === "npc" && !state.attackResolution) {
     window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
