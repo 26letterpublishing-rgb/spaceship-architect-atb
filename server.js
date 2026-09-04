@@ -2115,7 +2115,20 @@ async function handleAction(req, res) {
 
   if (action === "toggleClock") {
     if (room.hardPaused) {
+      const shouldEngageDormantClock = !room.running
+        && !room.pausedForTurn
+        && !room.holdPaused
+        && !room.activeAction
+        && !hasActiveDelayCountdown(room)
+        && canStartClock(room);
       hardResumeRoom(room);
+      if (shouldEngageDormantClock) {
+        room.running = true;
+        room.resumeAfterTurn = true;
+        room.hasEngagedClock = true;
+        room.lastTick = Date.now();
+        pushLog(room, "Clock started.");
+      }
     } else if (room.running || room.pausedForTurn || room.holdPaused || room.activeAction) {
       hardPauseRoom(room);
     } else if (!canStartClock(room)) {

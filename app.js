@@ -1654,6 +1654,7 @@ window.SACombatBridge = {
   state: () => state,
   mode: () => mode,
   myUnitId: () => myUnitId,
+  requestRender: render,
 };
 
 function setMode(next) {
@@ -3065,8 +3066,12 @@ function render() {
   } else {
     stopPlayerPreviewAnimation();
     if (starshipCombat) {
-      unitList.innerHTML = shipCombatColumnsMarkup(state.units);
-      window.SACombatMap?.renderInlineMaps?.(unitList);
+      const preserveMoveSession = window.SACombatMap?.isInlineMoveSelecting?.()
+        && unitList.querySelector("[data-inline-ship-map]");
+      if (!preserveMoveSession) {
+        unitList.innerHTML = shipCombatColumnsMarkup(state.units);
+        window.SACombatMap?.renderInlineMaps?.(unitList);
+      }
     } else if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
       unitList.innerHTML = tacticalRingMarkup(state.units);
     } else {

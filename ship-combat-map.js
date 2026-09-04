@@ -18,6 +18,7 @@
   const initiativePanel = document.querySelector("#initiativePanel");
   const playerPanel = document.querySelector("#playerPanel");
   const activePanel = document.querySelector("#activePanel");
+  const turnDialog = document.querySelector("#turnDialog");
   let combatState = null;
   let mode = "welcome";
   let myUnitId = "";
@@ -25,6 +26,8 @@
   let selectedShipId = "";
   let interaction = "view";
   let preview = null;
+  let moveSubmitting = false;
+  let moveError = "";
   const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: true };
 
   function stationAt(ship, square, mesh) {
@@ -46,6 +49,7 @@
     if (enabled) {
       setImportant(playerPanel, "display", "none");
       setImportant(activePanel, "display", "none");
+      setImportant(turnDialog, "display", "none");
       setImportant(initiativePanel, "display", "block");
       setImportant(initiativePanel, "position", "static");
       setImportant(initiativePanel, "width", "100%");
@@ -54,7 +58,7 @@
       setImportant(initiativePanel, "overflow", "visible");
       setImportant(initiativePanel, "transform", "none");
     } else {
-      [playerPanel, activePanel].forEach((node) => node?.style.removeProperty("display"));
+      [playerPanel, activePanel, turnDialog].forEach((node) => node?.style.removeProperty("display"));
       ["display", "position", "width", "max-height", "margin", "overflow", "transform"].forEach((property) => initiativePanel?.style.removeProperty(property));
     }
     if (!enabled) {
@@ -67,8 +71,14 @@
 
   function clearMoveSelection() {
     preview = null;
+    moveSubmitting = false;
+    moveError = "";
     interaction = "view";
     setInlineMoveSelecting(false);
+  }
+
+  function requestAppRender() {
+    bridge()?.requestRender?.();
   }
 
   function footprint(ship) {
@@ -360,10 +370,12 @@
     const selected = selectedUnit();
     const movingUnit = selected?.timedAction?.kind === "move" && selected.location?.starshipId === record.id;
     const station = activePreview?.station;
-    const prompt = isSelected && interaction === "move" ? activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination." : "Live interior view";
+    const prompt = isSelected && interaction === "move"
+      ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.")
+      : "Live interior view";
     return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${Object.entries({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations" }).map(([key, label]) => `<label><input type="checkbox" data-inline-map-view="${key}" ${mapView[key] ? "checked" : ""}> ${label}</label>`).join("")}</div></div>
       <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount}">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length ? "" : "disabled"}>${station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
+      <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
   }
 
   function renderInlineMaps(root = document) {
@@ -409,11 +421,12 @@
       mapGrid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 ${maxCol - minCol + 1} ${maxRow - minRow + 1}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
     }
     const prompt = host.querySelector(".inline-map-toolbar>span");
-    if (prompt) prompt.textContent = preview?.locked ? `${preview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.";
+    if (prompt) prompt.textContent = moveSubmitting ? "Starting movement..." : moveError || (preview?.locked ? `${preview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.");
     const submit = host.querySelector("[data-inline-confirm-move]");
     if (submit) {
-      submit.disabled = !(preview?.locked && preview?.path?.length);
-      submit.textContent = preview?.station ? "Station" : "Confirm Move";
+      submit.disabled = moveSubmitting || !(preview?.locked && preview?.path?.length);
+      submit.setAttribute("aria-busy", String(moveSubmitting));
+      submit.textContent = moveSubmitting ? "Starting..." : preview?.station ? "Station" : "Confirm Move";
     }
   }
 
@@ -426,7 +439,7 @@
   function render() {
     const available = ships().length > 0;
     openButton?.classList.toggle("hidden", !available || !["gm", "player"].includes(mode));
-    renderInlineMaps();
+    if (interaction !== "move" || !document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`)) renderInlineMaps();
     if (dialog.classList.contains("hidden")) return;
     const unit = selectedUnit();
     const ship = selectedShip();
@@ -478,12 +491,33 @@
   async function submitSelectedMove({ closeAfter = false } = {}) {
     const ship = selectedShip();
     const unit = selectedUnit();
-    if (!ship || !unit || !preview?.locked || !preview?.path?.length) return;
-    if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: completeLocation(ship, preview) });
+    if (moveSubmitting || !ship || !unit || !preview?.locked || !preview?.path?.length) return;
+    moveSubmitting = true;
+    moveError = "";
+    const submittedDestination = completeLocation(ship, preview);
+    refreshInlinePreview(document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`));
+    if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: submittedDestination });
     else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
-    clearMoveSelection();
-    if (closeAfter) close();
-    else renderInlineMaps();
+    const nextUnit = bridge()?.state?.()?.units?.find((entry) => entry.id === unit.id);
+    const relocationAccepted = mode === "gm" && interaction === "relocate"
+      && nextUnit?.location?.starshipId === submittedDestination.starshipId
+      && Number(nextUnit?.location?.square) === submittedDestination.square
+      && Number(nextUnit?.location?.mesh) === submittedDestination.mesh;
+    const moveAccepted = interaction === "move" && nextUnit?.timedAction?.kind === "move";
+    moveSubmitting = false;
+    if (relocationAccepted || moveAccepted) {
+      clearMoveSelection();
+      if (closeAfter) dialog.classList.add("hidden");
+      requestAppRender();
+      return;
+    }
+    if (!nextUnit) {
+      clearMoveSelection();
+      requestAppRender();
+      return;
+    }
+    moveError = "Movement did not start. The destination is still selected; try Confirm Move again.";
+    refreshInlinePreview(document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`));
   }
 
   grid.addEventListener("click", async (event) => {
@@ -553,11 +587,17 @@
         return;
       }
       if (event.target.closest("[data-inline-cancel-move]")) {
-        clearMoveSelection(); renderInlineMaps(); return;
+        if (moveSubmitting) return;
+        clearMoveSelection(); requestAppRender(); return;
       }
       if (event.target.closest("[data-inline-confirm-move]")) { void submitSelectedMove(); return; }
-      // Destination cells lock on pointerdown. Hover redraws the route, so relying
-      // on click here can lose the click when that redraw replaces the cell.
+      const cell = event.target.closest("[data-map-square]");
+      if (cell && interaction === "move" && selectedShipId === inlineHost.dataset.inlineShipMap) {
+        chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
+        refreshInlinePreview(inlineHost);
+      }
+      // Pointerdown remains the primary mouse path because hover redraws can
+      // replace a cell before click. This fallback also supports synthetic clicks.
       return;
     }
     const button = event.target.closest("[data-open-ship-map]");
@@ -592,7 +632,12 @@
         && unit.id === combatState?.activeId
         && unit.location?.starshipId === selectedShipId
         && unit.timedAction?.kind !== "move";
-      if (!stillSelectable) clearMoveSelection();
+      if (!stillSelectable && !moveSubmitting) {
+        clearMoveSelection();
+        requestAppRender();
+        return;
+      }
+      if (stillSelectable || moveSubmitting) return;
     }
     render();
   });
@@ -603,12 +648,15 @@
       selectedShipId = unit.location?.starshipId || "";
       interaction = "move";
       preview = null;
+      moveSubmitting = false;
+      moveError = "";
       const host = document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`);
       if (!host) { open({ interaction: "move", unitId: unit.id, starshipId: selectedShipId }); return; }
       setInlineMoveSelecting(true);
       renderInlineMaps();
-      requestAnimationFrame(() => host.scrollIntoView({ behavior: "smooth", block: "center" }));
+      requestAnimationFrame(() => host.scrollIntoView({ behavior: "auto", block: "start" }));
     },
+    isInlineMoveSelecting: () => interaction === "move",
     render,
     renderInlineMaps,
   };
