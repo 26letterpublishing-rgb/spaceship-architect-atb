@@ -8568,8 +8568,11 @@ async function initializeCharacterApp() {
   const explicitNewCharacter = params.get("new") === "1";
   document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
   const requestedCode = String(params.get("campaign") || (explicitNewCharacter ? "" : localStorage.getItem("sa-character-campaign-code")) || "").trim().toUpperCase();
-  const requestedCharacter = String(params.get("character") || "");
   const gmAccess = params.get("gm") === "1";
+  const rememberedCharacter = !gmAccess && requestedCode
+    ? library.find((entry) => entry.id === activeId && entry.campaignLink?.roomCode === requestedCode)?.id || ""
+    : "";
+  const requestedCharacter = String(params.get("character") || rememberedCharacter);
   if (explicitNewCharacter && !requestedCode && !requestedCharacter) {
     const next = blankCharacter();
     library.push(next);
