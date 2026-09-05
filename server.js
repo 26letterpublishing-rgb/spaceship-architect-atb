@@ -894,7 +894,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !(unit.team === "pc" && !unit.playerConnected) && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -1818,6 +1818,16 @@ async function handleAction(req, res) {
     if (body.kind === "move" && Array.isArray(body.route) && body.route.length) {
       const destination = body.route.at(-1) || {};
       const occupied = room.units.filter((entry) => entry.id !== playerUnit?.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
+      const stationReserved = Boolean(body.stationOnArrival) && room.units.some((entry) => {
+        if (entry.id === playerUnit?.id || entry.timedAction?.kind !== "move" || !entry.timedAction.stationOnArrival) return false;
+        const finalDestination = Array.isArray(entry.travelRoute) && entry.travelRoute.length
+          ? entry.travelRoute.at(-1)
+          : entry.timedAction.destination;
+        return finalDestination?.starshipId === destination.starshipId
+          && Number(finalDestination?.square) === Number(destination.square)
+          && Number(finalDestination?.mesh) === Number(destination.mesh);
+      });
+      if (body.stationOnArrival && (occupied >= 1 || stationReserved)) { sendJson(res, 409, { error: "That station is already occupied." }); return; }
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
     }
     const result = resolvePlayerCombatAction(room, playerUnit, body, {

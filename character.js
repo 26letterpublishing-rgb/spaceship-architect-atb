@@ -2110,9 +2110,11 @@ function renderPlayerStarships() {
     const route = starshipMoveDraft?.starshipId === record.id ? new Set(starshipMoveDraft.path || []) : new Set();
     const cells = visibleSquares.map((square) => {
       const occupants = crew.filter((entry) => Number(visualLocations.get(entry.id)?.square) === square);
-      const tokens = occupants.slice(0, 2).map((entry, index) => {
+      const tokens = occupants.map((entry) => {
         const mesh = Math.max(0, Math.min(8, Number(visualLocations.get(entry.id)?.mesh) || 4));
-        const left = ((mesh % 3) + .5) / 3 * 100 + (index ? 5 : -5); const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
+        const sameLocation = occupants.filter((occupant) => Number(visualLocations.get(occupant.id)?.mesh ?? 4) === mesh).sort((left, right) => String(left.id).localeCompare(String(right.id)));
+        const offset = sameLocation.length > 1 ? sameLocation.findIndex((occupant) => occupant.id === entry.id) === 0 ? -5 : 5 : 0;
+        const left = ((mesh % 3) + .5) / 3 * 100 + offset; const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
         return `<i class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
       }).join("");
       const occupied = layout.footprint.get(square);
@@ -2120,7 +2122,10 @@ function renderPlayerStarships() {
       const stationMarkers = playerShipMapView.stations && occupied ? (occupied.stations || []).filter((station) => station.x === occupied.column && station.y === occupied.row).map((station) => `<i class="player-ship-station" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%"></i>`).join("") : "";
       const style = occupied ? `--sic-basic-color:${occupied.color || "#197a6f"};${playerShipMapView.highResolution && occupied.image ? window.SAShipMap.floorplanStyle(occupied.type, occupied.column, occupied.row) : ""}` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
-      const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose precise ship location"></button>`).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
+      const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => {
+        const occupiedStation = playerShipStationAt(record, square, mesh) && [...visualLocations.entries()].some(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === mesh);
+        return `<button type="button" class="${occupiedStation ? "station-occupied" : ""}" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="${occupiedStation ? "Station occupied" : "Choose precise ship location"}"></button>`;
+      }).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
       const doors = playerShipMapView.walls && hull.has(square) ? playerShipBoundaryMarkup(record, layout, square) : "";
       return `<div class="${classes}" data-player-ship-square="${square}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${destinationButtons}${stationMarkers}${tokens}${doors}</div>`;
     }).join("");
@@ -8136,7 +8141,8 @@ function previewPlayerShipDestination(record, ownId, square, mesh, locked) {
   const distance = path === null ? 0 : Math.max(path.length, sameSquareMove ? Math.abs(Math.floor(mesh / 3) - Math.floor(starshipMoveDraft.startMesh / 3)) + Math.abs(mesh % 3 - starshipMoveDraft.startMesh % 3) : 0);
   const station = playerShipStationAt(record, square, mesh);
   const action = station ? "Station" : "Confirm";
-  starshipMoveDraft = { ...starshipMoveDraft, destination: square, destinationMesh: mesh, path: path || [], sameSquareMove, locked: Boolean(locked), station, message: path === null ? "No legal route reaches that location." : occupants >= 2 ? "That precise location already holds two characters." : distance ? locked ? `${distance} unit route selected. Press ${action}.` : `${distance} unit route preview. Click to select it.` : "You are already at that location.", invalid: path === null || occupants >= 2 || !distance };
+  const stationOccupied = Boolean(station && occupants >= 1);
+  starshipMoveDraft = { ...starshipMoveDraft, destination: square, destinationMesh: mesh, path: path || [], sameSquareMove, locked: Boolean(locked), station, message: path === null ? "No legal route reaches that location." : stationOccupied ? "That station is already occupied." : occupants >= 2 ? "That precise location already holds two characters." : distance ? locked ? `${distance} unit route selected. Press ${action}.` : `${distance} unit route preview. Click to select it.` : "You are already at that location.", invalid: path === null || stationOccupied || occupants >= 2 || !distance };
   renderPlayerStarships();
 }
 

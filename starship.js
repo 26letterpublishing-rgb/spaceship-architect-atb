@@ -720,8 +720,19 @@ function renderInventory() {
       const definition = sicDefinition(item);
       const button = document.createElement("button");
       button.type = "button"; button.className = "purchased-sic-thumbnail"; button.dataset.openSicType = item.type;
-      button.innerHTML = `<img src="${escapeHtml(definition.floorplan)}" alt="" /><span>${escapeHtml(definition.shortLabel)}</span>`;
+      const sourceCard = document.querySelector(`[data-sic-card="${CSS.escape(item.type)}"]`);
+      if (sourceCard) {
+        const previewCard = sourceCard.cloneNode(true);
+        previewCard.classList.add("purchased-sic-card-preview");
+        previewCard.removeAttribute("data-sic-card");
+        previewCard.removeAttribute("tabindex");
+        previewCard.setAttribute("aria-hidden", "true");
+        button.replaceChildren(previewCard);
+      } else {
+        button.innerHTML = `<strong>${escapeHtml(definition.shortLabel)}</strong><span>${escapeHtml(definition.name)}</span>`;
+      }
       button.title = `Open ${definition.name} card`;
+      button.setAttribute("aria-label", `Open ${definition.name} card`);
       gallery.append(button);
     });
   });

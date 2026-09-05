@@ -112,6 +112,42 @@ test("closed ship doors delay movement and station destinations seat the charact
   assert.equal(unit.location.stationSlot, 1);
 });
 
+test("a station rejects a second character at its exact location", () => {
+  const { unit, room, helpers } = fixture();
+  unit.location = { ...location(1, 1), sicId: "engine-1" };
+  room.units.push({
+    id: "pc-2",
+    location: { ...location(1, 1), sicId: "engine-1", stationed: true, stationSlot: 1 },
+  });
+
+  const result = resolvePlayerCombatAction(room, unit, {
+    kind: "enterStation",
+    stationName: "EN Engine 1",
+  }, helpers);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "That station is currently occupied.");
+  assert.equal(unit.location.stationed, false);
+});
+
+test("different station locations in the same SIC may each hold one character", () => {
+  const { unit, room, helpers } = fixture();
+  unit.location = { ...location(1, 5), sicId: "engine-1" };
+  room.units.push({
+    id: "pc-2",
+    location: { ...location(1, 1), sicId: "engine-1", stationed: true, stationSlot: 1 },
+  });
+
+  const result = resolvePlayerCombatAction(room, unit, {
+    kind: "enterStation",
+    stationName: "EN Engine 1",
+  }, helpers);
+
+  assert.equal(result.ok, true);
+  assert.equal(unit.location.stationed, true);
+  assert.equal(unit.location.stationSlot, 5);
+});
+
 test("a forced delay cancels travel at the last completed location", () => {
   const { unit, room, helpers } = fixture();
   const route = [location(0, 1), location(0, 2), location(0, 5), location(0, 8)];

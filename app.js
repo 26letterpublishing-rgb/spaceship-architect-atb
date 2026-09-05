@@ -2345,9 +2345,12 @@ function notifyTurnIfNeeded() {
     gmDelay.classList.toggle("delay-blocked", !delayConsoleAllowed());
     gmDelay.title = delayConsoleAllowed() ? "Open Delay Console" : "Pause Everything before opening Delay";
     gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span>`;
-    const npcTurn = active.team === "npc" && !state.attackResolution;
-    gmNpcTurnActions.hidden = !npcTurn;
-    gmNpcHeldWeaponReadout.hidden = !npcTurn;
+    const controllableTurn = !state.attackResolution;
+    gmNpcTurnActions.hidden = !controllableTurn;
+    gmNpcHeldWeaponReadout.hidden = !controllableTurn;
+    activeOwner.textContent = active.team === "pc"
+      ? `${active.playerName}${active.playerConnected ? "" : " - DISCONNECTED"} - GM may act for this player`
+      : active.playerName;
     if (!turnPanelOpen()) showTurnPanel();
     if (lastNotifiedActiveId !== active.id) {
       lastNotifiedActiveId = active.id;
@@ -3026,7 +3029,7 @@ function render() {
   // action controls when the GM view renders.
   const mine = mode === "player" ? state.units.find((unit) => unit.id === myUnitId) : null;
   const playerDeathSequence = mode === "player" && defeatSequenceActive();
-  if (mode === "gm" && active?.team === "npc" && !state.attackResolution) {
+  if (mode === "gm" && active && !state.attackResolution) {
     window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
   }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;

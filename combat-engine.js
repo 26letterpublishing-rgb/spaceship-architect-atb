@@ -56,6 +56,28 @@ function routeDoorDelay(room, route) {
   return [...keys].filter((key) => ship?.ship?.doorStates?.[key] !== "open").length * DOOR_OPEN_SECONDS;
 }
 
+function reservedStationDestination(unit) {
+  if (unit?.timedAction?.kind !== "move" || !unit.timedAction.stationOnArrival) return null;
+  if (Array.isArray(unit.travelRoute) && unit.travelRoute.length) return unit.travelRoute.at(-1);
+  return unit.timedAction.destination || null;
+}
+
+function stationOccupied(room, unit, location) {
+  const mesh = Number(location?.mesh);
+  return room.units.some((entry) => {
+    if (entry.id === unit.id) return false;
+    const reserved = reservedStationDestination(entry);
+    if (reserved) {
+      return reserved.starshipId === location.starshipId
+        && Number(reserved.square) === Number(location.square)
+        && Number(reserved.mesh) === mesh;
+    }
+    return entry.location?.starshipId === location.starshipId
+      && Number(entry.location.square) === Number(location.square)
+      && Number(entry.location.stationSlot ?? entry.location.mesh) === mesh;
+  });
+}
+
 function safeText(value, fallback = "", limit = 80) {
   return String(value || fallback).trim().replace(/\s+/g, " ").slice(0, limit);
 }
@@ -505,13 +527,9 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
   if (kind === "enterStation") {
     if (!unit.location?.starshipId || !unit.location?.sicId) return { ok: false, error: "Move into an SIC before entering its station." };
-    const occupied = room.units.some((entry) => entry.id !== unit.id
-      && entry.location?.starshipId === unit.location.starshipId
-      && entry.location?.sicId === unit.location.sicId
-      && entry.location?.stationed);
-    if (occupied) return { ok: false, error: "That SIC station is currently occupied." };
+    if (stationOccupied(room, unit, unit.location)) return { ok: false, error: "That station is currently occupied." };
     unit.location.stationed = true;
-    unit.location.stationSlot = 0;
+    unit.location.stationSlot = Number(unit.location.mesh) || 0;
     applyStationBenefits(unit);
     unit.travelRoute = [];
     setCombatBrief(unit, kind, `Stationed at ${safeText(body.stationName, "SIC", 80)}`, ["Starship actions available"]);

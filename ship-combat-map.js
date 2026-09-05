@@ -35,6 +35,36 @@
     return sic?.stations?.find((station) => station.x === sic.column && station.y === sic.row && station.mesh === Number(mesh)) || null;
   }
 
+  function reservedStationDestination(unit) {
+    if (unit?.timedAction?.kind !== "move" || !unit.timedAction.stationOnArrival) return null;
+    if (Array.isArray(unit.travelRoute) && unit.travelRoute.length) return unit.travelRoute.at(-1);
+    return unit.timedAction.destination || null;
+  }
+
+  function stationDestinationOccupied(ship, square, mesh, unitId = selectedUnitId) {
+    return (combatState?.units || []).some((entry) => {
+      if (entry.id === unitId) return false;
+      const reserved = reservedStationDestination(entry);
+      if (reserved) {
+        return reserved.starshipId === ship?.id
+          && Number(reserved.square) === Number(square)
+          && Number(reserved.mesh) === Number(mesh);
+      }
+      return entry.location?.starshipId === ship?.id
+        && Number(entry.location.square) === Number(square)
+        && Number(entry.location.mesh) === Number(mesh);
+    });
+  }
+
+  function tokenShift(units, unit) {
+    const occupants = units.filter((entry) => !movementPresentation(entry)
+      && Number(entry.location?.square) === Number(unit.location?.square)
+      && Number(entry.location?.mesh) === Number(unit.location?.mesh))
+      .sort((left, right) => String(left.id).localeCompare(String(right.id)));
+    if (occupants.length < 2) return 0;
+    return occupants.findIndex((entry) => entry.id === unit.id) === 0 ? -7 : 7;
+  }
+
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const bridge = () => window.SACombatBridge;
   const ships = () => combatState?.starships || [];
@@ -171,7 +201,15 @@
       renderGrid();
       return;
     }
+    const station = stationAt(ship, square, mesh);
     const occupied = (combatState?.units || []).filter((entry) => entry.id !== unit.id && entry.location?.starshipId === ship.id && Number(entry.location.square) === square && Number(entry.location.mesh) === mesh).length;
+    if (station && stationDestinationOccupied(ship, square, mesh, unit.id)) {
+      preview = { square, mesh, path: [], station, color: "red", locked };
+      confirm.disabled = true;
+      status.textContent = "That station is already occupied.";
+      renderGrid();
+      return;
+    }
     if (occupied >= 2) {
       preview = { square, mesh, path: [], color: "red", locked }; confirm.disabled = true;
       status.textContent = "That location already holds two characters."; renderGrid(); return;
@@ -185,7 +223,6 @@
     }
     const path = findPath(unit, { square, mesh });
     const moveSpeed = Math.max(1, Number(unit.moveSpeed) || 1);
-    const station = stationAt(ship, square, mesh);
     preview = { square, mesh, path, station, locked, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
     confirm.disabled = !locked || path === null || !path.length;
     confirm.textContent = station ? "Station" : "Confirm Move";
@@ -249,9 +286,12 @@
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+        return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
       }).join("");
-      const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
+      const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
+        const occupiedStation = stationAt(ship, square, index) && stationDestinationOccupied(ship, square, index);
+        return `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node " : ""}${occupiedStation ? "station-occupied" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="${occupiedStation ? "Station occupied" : "Map location"}"></button>`;
+      }).join("")}</div>` : "";
       const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
       return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
@@ -341,9 +381,12 @@
         const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
         const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
           const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
-          return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+          return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
         }).join("");
-        const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="Map location"></button>`).join("")}</div>` : "";
+        const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
+          const occupiedStation = stationAt(record, square, index) && stationDestinationOccupied(record, square, index);
+          return `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node " : ""}${occupiedStation ? "station-occupied" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="${occupiedStation ? "Station occupied" : "Map location"}"></button>`;
+        }).join("")}</div>` : "";
         const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
         const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
         squares.push(`<div class="${cellClasses}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);

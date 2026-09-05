@@ -1417,8 +1417,9 @@ class CampaignApi {
       if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
       record.characterLocations ||= {};
       const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
-      if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
       const station = body.stationed ? starshipStationAt(record, square, mesh) : null;
+      if (station && occupied >= 1) { sendJson(res, 409, { error: "That station is already occupied." }); return true; }
+      if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
       record.characterLocations[characterId] = { square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
