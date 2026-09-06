@@ -291,6 +291,9 @@ body:not(.embedded-gm-starship) .construction-crew-campaign>header,body:not(.emb
 .sic-door-left{left:-9%!important}.sic-door-right{right:-9%!important}
 .sic-door-top .door-panel,.sic-door-bottom .door-panel{top:25%!important;height:50%!important}
 .sic-door-left .door-panel,.sic-door-right .door-panel{left:25%!important;width:50%!important}
+
+/* Keep walls bright and clean in every ship view without a heavy black outline. */
+.ship-grid.show-walls .sic-wall{border:0!important;box-shadow:none!important}
 body.embedded-gm-starship .starship-header,
 body.embedded-gm-starship .prototype-notice{display:none}
 body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;padding:8px 12px 30px}

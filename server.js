@@ -2535,7 +2535,12 @@ const server = http.createServer(async (req, res) => {
     const heartbeat = setInterval(() => {
       res.write(`: keep-alive ${Date.now()}\n\n`);
     }, HEARTBEAT_MS);
-    sendEvent(res, "state", publicState(room));
+    if (liveUnit) {
+      broadcast(room);
+      void campaignApi?.broadcast(room.roomCode).catch(() => {});
+    } else {
+      sendEvent(res, "state", publicState(room));
+    }
     req.on("close", () => {
       clearInterval(heartbeat);
       roomClients.delete(res);
@@ -2553,6 +2558,7 @@ const server = http.createServer(async (req, res) => {
           moveToNextTurnOrClock(room, previousSource);
         }
         broadcast(room);
+        void campaignApi?.broadcast(room.roomCode).catch(() => {});
         scheduleRoomPersist(room);
       }, 3000);
     });

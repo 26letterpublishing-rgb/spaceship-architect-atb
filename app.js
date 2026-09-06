@@ -33,11 +33,12 @@ let gmForcedDefenseEntry = false;
 let gmNpcPromptSignature = "";
 let npcAutoRollBusy = false;
 let collapsedNpcTurnId = "";
+let collapsedPlayerTurnId = "";
 const activeGmAudioNodes = new Set();
 let damageAlertTimer = null;
 let audioContext = null;
 let events = null;
-let lastGmClockClickAt = 0;
+let gmClockActionPending = false;
 let lastRingActionPressAt = 0;
 let ringDrag = null;
 let ringMovedId = "";
@@ -58,6 +59,7 @@ let campaignEvents = null;
 let campaignCharacterId = combatSessionGet("sa-atb-campaign-character-id") || "";
 let campaignCharacterToken = "";
 let gmCampaignToken = "";
+let playerEndTurnPending = false;
 if (embeddedGm && /^[A-Z0-9]{4}$/.test(requestedCampaignCode)) {
   mode = "gm";
   currentRoomCode = requestedCampaignCode;
@@ -291,6 +293,8 @@ const turnDialog = document.querySelector("#turnDialog");
 const turnDialogKicker = document.querySelector("#turnDialogKicker");
 const collapseNpcTurn = document.querySelector("#collapseNpcTurn");
 const restoreNpcTurn = document.querySelector("#restoreNpcTurn");
+const collapsePlayerTurn = document.querySelector("#collapsePlayerTurn");
+const restorePlayerTurn = document.querySelector("#restorePlayerTurn");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
@@ -1654,6 +1658,11 @@ window.SACombatBridge = {
   state: () => state,
   mode: () => mode,
   myUnitId: () => myUnitId,
+  confirmGmPlayerAction: (unit, kind) => {
+    if (mode !== "gm" || unit?.team !== "pc") return true;
+    const label = String(kind || "action").replace(/([A-Z])/g, " $1").toLowerCase();
+    return confirm(`Act for ${unit.characterName || unit.playerName || "this player"}?\n\nThis will use ${label} on the player's turn.`);
+  },
   requestRender: render,
 };
 
@@ -2182,19 +2191,32 @@ function showTurnPanel() {
 
 function syncNpcTurnPanelControls() {
   const active = activeUnit();
-  const npcTurn = mode === "gm" && active?.team === "npc" && !state?.activeAction && !state?.attackResolution;
-  if (!npcTurn || (collapsedNpcTurnId && collapsedNpcTurnId !== active.id)) {
+  const gmTurn = mode === "gm" && active && !state?.activeAction && !state?.attackResolution;
+  if (!gmTurn || (collapsedNpcTurnId && collapsedNpcTurnId !== active.id)) {
     collapsedNpcTurnId = "";
   }
-  const collapsed = npcTurn && collapsedNpcTurnId === active.id;
-  collapseNpcTurn?.classList.toggle("hidden", !npcTurn || collapsed);
+  const collapsed = gmTurn && collapsedNpcTurnId === active.id;
+  const npcTurn = gmTurn && active.team === "npc";
+  collapseNpcTurn?.classList.toggle("hidden", !gmTurn || collapsed);
   restoreNpcTurn?.classList.toggle("hidden", !collapsed);
   turnDialog.classList.toggle("npc-collapsed", collapsed);
+  turnDialog.classList.toggle("collapse-right", collapsed && npcTurn);
+  turnDialog.classList.toggle("collapse-left", collapsed && !npcTurn);
+  turnDialog.classList.toggle("pc-turn-dialog", gmTurn && !npcTurn);
+  turnDialog.classList.toggle("gm-player-turn", gmTurn && !npcTurn);
+  if (collapseNpcTurn) {
+    collapseNpcTurn.textContent = npcTurn ? ">" : "<";
+    collapseNpcTurn.classList.toggle("collapse-left-control", !npcTurn);
+  }
+  if (restoreNpcTurn) {
+    restoreNpcTurn.textContent = npcTurn ? "<" : ">";
+    restoreNpcTurn.classList.toggle("restore-right", npcTurn);
+  }
 }
 
 function setNpcTurnPanelCollapsed(collapsed) {
   const active = activeUnit();
-  if (mode !== "gm" || active?.team !== "npc" || state?.activeAction || state?.attackResolution) {
+  if (mode !== "gm" || !active || state?.activeAction || state?.attackResolution) {
     collapsedNpcTurnId = "";
     syncNpcTurnPanelControls();
     return;
@@ -2335,8 +2357,10 @@ function notifyTurnIfNeeded() {
   }
 
   if (mode === "gm") {
-    turnDialogKicker.textContent = "Turn Ready";
+    const command = commandFor(active);
+    turnDialogKicker.textContent = active.team === "pc" ? `Player ${active.playerName}'s turn` : "Turn Ready";
     activeName.textContent = active.characterName;
+    turnDialog.style.setProperty("--active-turn-color", active.color || "#40dcff");
     activeOwner.textContent = active.playerName;
     completeTurn.textContent = "Action Resolved";
     gmDelay.classList.remove("hidden");
@@ -2349,7 +2373,7 @@ function notifyTurnIfNeeded() {
     gmNpcTurnActions.hidden = !controllableTurn;
     gmNpcHeldWeaponReadout.hidden = !controllableTurn;
     activeOwner.textContent = active.team === "pc"
-      ? `${active.playerName}${active.playerConnected ? "" : " - DISCONNECTED"} - GM may act for this player`
+      ? `${command ? `${command.expired ? "Command Window expired" : `${formatSeconds(command.remaining)} Command Window`} - ` : ""}${active.playerConnected ? "Player connected" : "PLAYER DISCONNECTED"} - GM may act`
       : active.playerName;
     if (!turnPanelOpen()) showTurnPanel();
     if (lastNotifiedActiveId !== active.id) {
@@ -3126,6 +3150,11 @@ function renderPlayerCommand(mine) {
   const delay = activeDelayFor(mine);
   const timed = mine?.timedAction || null;
   const hasPendingDelayRequest = Boolean(state.delayRequest && state.delayRequest.unitId === mine?.id);
+  if (!isMyTurn || (collapsedPlayerTurnId && collapsedPlayerTurnId !== mine?.id)) collapsedPlayerTurnId = "";
+  const playerTurnCollapsed = isMyTurn && collapsedPlayerTurnId === mine?.id;
+  myTurnBanner.classList.toggle("player-turn-collapsed", playerTurnCollapsed);
+  collapsePlayerTurn?.classList.toggle("hidden", !isMyTurn || playerTurnCollapsed);
+  restorePlayerTurn?.classList.toggle("hidden", !playerTurnCollapsed);
   window.SACombatActions?.syncCampaignLoadout(playerPreviewRecord, mine);
   window.SACombatActions?.render({ mine, state, isMyTurn, hasPendingDelayRequest });
 
@@ -3135,7 +3164,8 @@ function renderPlayerCommand(mine) {
   playerTurnActions.classList.toggle("hidden", !isMyTurn || Boolean(delay) || Boolean(timed));
   playerDelay.disabled = hasPendingDelayRequest;
   playerDelay.title = "Request Delay";
-  playerEndTurn.disabled = hasPendingDelayRequest;
+  playerEndTurn.disabled = hasPendingDelayRequest || playerEndTurnPending;
+  playerEndTurn.textContent = playerEndTurnPending ? "Resolving..." : "Action Resolved";
 
   if (timed && !isMyTurn) {
     const percent = Math.max(0, Math.min(100, (Number(timed.remaining) / Math.max(0.1, Number(timed.total))) * 100));
@@ -3574,30 +3604,31 @@ campaignCharacterPin?.addEventListener("input", () => {
 });
 
 async function pressGmClockButton(event) {
-  if (!state) return;
+  if (!state || gmClockActionPending) return;
   event?.preventDefault();
   event?.stopPropagation();
-  const now = Date.now();
-  if (now - lastGmClockClickAt < 650) return;
-  lastGmClockClickAt = now;
   const clockAction = gmPanicPause.dataset.clockAction || (state.hardPaused ? "resume" : shouldShowEngageClock() ? "start" : "pause");
   if (clockAction === "npc") return;
-  if (clockAction === "pause") {
-    action({ action: "setHardPaused", paused: true }, "pause");
-    return;
-  }
-  if (clockAction === "resume") {
-    const wasStopped = !state.running;
-    await action({ action: "setHardPaused", paused: false }, "engage");
-    if (wasStopped && !state.running) {
-      await action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+  gmClockActionPending = true;
+  gmPanicPause.disabled = true;
+  try {
+    if (clockAction === "pause") {
+      await action({ action: "setHardPaused", paused: true }, "pause");
+      return;
     }
-    return;
+    if (clockAction === "resume") {
+      const wasStopped = !state.running;
+      await action({ action: "setHardPaused", paused: false }, "engage");
+      if (wasStopped && !state.running) await action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+      return;
+    }
+    await action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
+  } finally {
+    gmClockActionPending = false;
+    updateGmClockButton();
   }
-  action({ action: "setRunning", running: true }, state.hasEngagedClock ? "engage" : "firstStart");
 }
 
-gmPanicPause.addEventListener("pointerdown", pressGmClockButton);
 gmPanicPause.addEventListener("click", pressGmClockButton);
 visualModeToggle.addEventListener("click", () => {
   setVisualMode(visualMode === "ring" ? "bars" : "ring");
@@ -3624,6 +3655,15 @@ undoLastTiming.addEventListener("click", () => {
 });
 collapseNpcTurn?.addEventListener("click", () => setNpcTurnPanelCollapsed(true));
 restoreNpcTurn?.addEventListener("click", () => setNpcTurnPanelCollapsed(false));
+collapsePlayerTurn?.addEventListener("click", () => {
+  if (!state || state.activeId !== myUnitId) return;
+  collapsedPlayerTurnId = myUnitId;
+  renderPlayerCommand(state.units.find((entry) => entry.id === myUnitId) || null);
+});
+restorePlayerTurn?.addEventListener("click", () => {
+  collapsedPlayerTurnId = "";
+  renderPlayerCommand(state?.units.find((entry) => entry.id === myUnitId) || null);
+});
 clearEncounter.addEventListener("click", () => {
   if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
 });
@@ -3636,6 +3676,8 @@ exitCombat.addEventListener("click", () => {
 });
 completeTurn.addEventListener("click", () => {
   const active = activeUnit();
+  if (mode === "gm" && active?.team === "pc" && !state?.activeAction && !state?.attackResolution
+    && !window.SACombatBridge.confirmGmPlayerAction(active, "action resolved")) return;
   if (active?.team === "npc" && !state?.activeAction && !state?.attackResolution) {
     action({ action: "playerCombatAction", id: active.id, kind: "actionResolved" }, "resolve");
     return;
@@ -3767,8 +3809,18 @@ gmDelay.addEventListener("click", () => {
   const active = activeUnit();
   if (active) openDelayForUnit(active.id, "timer");
 });
-playerEndTurn.addEventListener("click", () => {
-  if (state && state.activeId === myUnitId) action({ action: "playerCombatAction", id: myUnitId, kind: "actionResolved" }, "resolve");
+playerEndTurn.addEventListener("click", async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (playerEndTurnPending || !state || state.activeId !== myUnitId) return;
+  playerEndTurnPending = true;
+  renderPlayerCommand(state.units.find((entry) => entry.id === myUnitId) || null);
+  try {
+    await action({ action: "playerCombatAction", id: myUnitId, kind: "actionResolved" }, "resolve");
+  } finally {
+    playerEndTurnPending = false;
+    renderPlayerCommand(state?.units.find((entry) => entry.id === myUnitId) || null);
+  }
 });
 playerDelay.addEventListener("click", () => {
   if (state && state.activeId === myUnitId) action({ action: "requestDelay", id: myUnitId, kind: "action" }, "tap");
@@ -4158,6 +4210,7 @@ async function initializeEmbeddedPlayer() {
     myUnitId = unit?.id || "";
     if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
     else removeCombatSessionKey("sa-atb-unit-id");
+    connectEvents();
 
     visualMode = "bars";
     setMode("player");

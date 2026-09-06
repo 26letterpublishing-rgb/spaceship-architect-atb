@@ -319,6 +319,7 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
         window.SACombatMap.openMove(currentUnit);
         return;

@@ -659,6 +659,7 @@
 .player-mode.own-turn-active #logPanel,
 .player-mode.own-turn-active #initiativePanel,
 .player-mode.own-turn-active #activePanel { display: none !important; }
+.player-mode.own-turn-active:has(#myTurnBanner.player-turn-collapsed) #initiativePanel { display:block !important; }
 .player-mode.own-turn-active #myTurnBanner.turn-banner {
   position: fixed !important;
   inset: 0 !important;

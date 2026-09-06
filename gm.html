@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect GM Control Panel</title>
-  <link rel="stylesheet" href="gm.css?v=20260903-ship-columns-1" />
+  <link rel="stylesheet" href="gm.css?v=20260906-inline-ship-view-2" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -166,6 +166,10 @@
           <section id="gmStarshipEditor" class="gm-starship-editor" hidden>
             <div class="gm-starship-editor-toolbar"><button id="closeGmStarshipEditor" type="button">Back to Fleet</button><strong id="gmStarshipEditorTitle">Starship Creator</strong></div>
             <iframe id="gmStarshipEditorFrame" title="Campaign Starship Creator"></iframe>
+          </section>
+          <section id="gmStarshipViewer" class="gm-starship-viewer" hidden>
+            <div class="gm-starship-viewer-toolbar"><button id="closeGmStarshipViewer" class="gm-starship-viewer-close" type="button">Back to Fleet</button><strong>Ship View</strong></div>
+            <iframe id="gmStarshipViewerFrame" title="Campaign Starship View"></iframe>
           </section>
         </section>
 
@@ -340,10 +344,6 @@
         <iframe id="gmAdjustmentFrame" title="GM Character Adjustment"></iframe>
       </div>
     </section>
-    <section id="gmStarshipViewer" class="gm-starship-viewer" hidden>
-      <button id="closeGmStarshipViewer" class="gm-starship-viewer-close" type="button">Back to Campaign</button>
-      <iframe id="gmStarshipViewerFrame" title="Campaign Starship View"></iframe>
-    </section>
     <div id="gmDramaCardAlert" class="gm-modal-shell gm-drama-alert-shell" hidden>
       <section class="gm-drama-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="gmDramaCardName">
         <p id="gmDramaPlayedBy" class="gm-drama-played-by"></p>
@@ -356,6 +356,6 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script type="module" src="gm.js?v=20260903-ship-columns-1"></script>
+  <script type="module" src="gm.js?v=20260906-inline-ship-view-2"></script>
   </body>
 </html>

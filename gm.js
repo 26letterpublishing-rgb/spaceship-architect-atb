@@ -1913,7 +1913,10 @@ dom.starshipList?.addEventListener("click", async (event) => {
   const starshipId = card.dataset.starshipId;
   if (event.target.closest("[data-view-starship]")) {
     dom.starshipViewerFrame.src = `character.html?campaign=${encodeURIComponent(code)}&gm=1&embedded=1&tab=starships&ship=${encodeURIComponent(starshipId)}${SHOWCASE_MODE ? "&showcase=1" : ""}`;
+    dom.starshipFleet.hidden = true;
+    dom.starshipEditor.hidden = true;
     dom.starshipViewer.hidden = false;
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
     return;
   }
   if (event.target.closest("[data-edit-starship]")) {
@@ -2344,6 +2347,7 @@ document.querySelector("#gmSettingsToggle")?.addEventListener("click", () => sel
 dom.closeStarshipViewer?.addEventListener("click", () => {
   dom.starshipViewer.hidden = true;
   dom.starshipViewerFrame.removeAttribute("src");
+  dom.starshipFleet.hidden = false;
 });
 
 dom.revealSettingsRoomCode?.addEventListener("click", () => {
@@ -2389,32 +2393,30 @@ dom.dramaDiscardList?.addEventListener("click", (event) => {
 });
 let atbFrameResizeObserver = null;
 
-function syncMobileAtbFrameHeight() {
-  if (!dom.atbFrame || !matchMedia("(max-width: 650px)").matches) {
-    if (dom.atbFrame) dom.atbFrame.style.removeProperty("height");
-    return;
-  }
+function syncAtbFrameHeight() {
+  if (!dom.atbFrame || dom.atbFrame.hidden || !dom.atbFrame.getAttribute("src")) return;
   const frameDocument = dom.atbFrame.contentDocument;
   if (!frameDocument) return;
-  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, 560);
+  const minimum = matchMedia("(max-width: 650px)").matches ? 560 : 700;
+  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, minimum);
   dom.atbFrame.style.height = `${height}px`;
 }
 
-function watchMobileAtbFrameHeight() {
+function watchAtbFrameHeight() {
   atbFrameResizeObserver?.disconnect();
   const frameDocument = dom.atbFrame.contentDocument;
   if (!frameDocument) return;
-  atbFrameResizeObserver = new ResizeObserver(syncMobileAtbFrameHeight);
+  atbFrameResizeObserver = new ResizeObserver(syncAtbFrameHeight);
   atbFrameResizeObserver.observe(frameDocument.documentElement);
   if (frameDocument.body) atbFrameResizeObserver.observe(frameDocument.body);
-  syncMobileAtbFrameHeight();
+  syncAtbFrameHeight();
 }
 
 dom.atbFrame.addEventListener("load", () => {
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
-  requestAnimationFrame(watchMobileAtbFrameHeight);
+  requestAnimationFrame(watchAtbFrameHeight);
 });
-window.addEventListener("resize", syncMobileAtbFrameHeight);
+window.addEventListener("resize", syncAtbFrameHeight);
 window.addEventListener("message", async (event) => {
   if (event.origin !== location.origin || event.source !== dom.atbFrame.contentWindow) return;
   if (event.data?.type !== "sa-combat-ended") return;

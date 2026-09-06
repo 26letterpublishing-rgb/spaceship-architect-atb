@@ -3482,7 +3482,11 @@ body.embedded-gm .unit-card.has-avatar .unit-top {
 .join-panel #campaignCharacterPicker,.join-panel #campaignCharacterPin{font-size:16px}
 body.embedded-gm .welcome-panel,body.embedded-gm .room-join-panel,body.embedded-gm .join-panel{display:none!important}
 body.embedded-gm .shell{width:100%;max-width:none;margin:0;padding:6px}
-body.embedded-gm .topbar{margin-top:0}
+body.embedded-gm .topbar{min-height:48px;margin-top:0;padding:4px 8px;justify-content:flex-end;background:#07111d}
+body.embedded-gm .topbar-banner,body.embedded-gm .topbar .room{display:none!important}
+body.embedded-gm .topbar-title{width:auto;grid-template-columns:auto auto;justify-content:end}
+body.embedded-gm .gm-top-controls{gap:6px}
+body.embedded-gm .gm-top-controls button{min-height:34px;padding-inline:13px;font-size:.64rem}
 body.embedded-gm #exitCombat{display:inline-flex!important}
 
 /* Campaign access v2 */
@@ -3701,10 +3705,17 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
 }
 
 .turn-dialog.npc-collapsed {
-  transform: translateX(calc(-100vw - 560px));
   opacity: 0;
   pointer-events: none;
 }
+.turn-dialog.npc-collapsed.collapse-left { transform: translateX(calc(-100vw - 560px)); }
+.turn-dialog.npc-collapsed.collapse-right { transform: translateX(calc(100vw + 560px)); }
+.turn-dialog.pc-turn-dialog { left: 18px; right: auto; }
+.turn-dialog.gm-player-turn .eyebrow,
+.turn-dialog.gm-player-turn h2 { color:var(--active-turn-color,#40dcff);text-shadow:0 0 12px color-mix(in srgb,var(--active-turn-color,#40dcff) 55%,transparent); }
+.turn-dialog.gm-player-turn .gm-npc-turn-actions button { filter:saturate(.28); }
+.turn-dialog.gm-player-turn .gm-npc-turn-actions button:hover,
+.turn-dialog.gm-player-turn .gm-npc-turn-actions button:focus-visible { filter:saturate(.55); }
 
 .collapse-npc-turn {
   position: absolute;
@@ -3760,12 +3771,23 @@ body.embedded-player.player-combat-preview .combat-preview-card.ready .fill {
 .topbar{border-bottom:5px solid #7c42d4;box-shadow:0 6px 16px rgba(106,55,195,.25)}
 .collapse-npc-turn{position:fixed!important;right:10px!important;bottom:10px!important;z-index:10080!important;background:linear-gradient(90deg,#353d47,#737d87)!important;isolation:isolate}
 .restore-npc-turn{z-index:10080!important}
+.collapse-npc-turn.collapse-left-control{left:10px!important;right:auto!important}
+.restore-npc-turn.restore-right{left:auto;right:0;border-right:0;border-left:1px solid #7f91a2;border-radius:15px 0 0 15px;box-shadow:-5px 0 18px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.2)}
+.collapse-player-turn{position:fixed!important;left:10px;bottom:10px;z-index:142!important;width:40px;min-height:78px;padding:0;border:1px solid #7f91a2;border-radius:0 15px 15px 0;color:#fff;background:linear-gradient(90deg,#313944,#626d78);font-size:1.6rem}
+.player-mode .turn-banner.player-turn-collapsed{transform:translateX(calc(-100vw - 560px));opacity:0;pointer-events:none;transition:transform 260ms ease,opacity 180ms ease}
+.restore-player-turn{position:fixed;left:0;top:42%;z-index:10080;width:42px;min-height:94px;padding:0;border:1px solid #7f91a2;border-left:0;border-radius:0 15px 15px 0;color:#fff;background:linear-gradient(90deg,#313944,#626d78);box-shadow:5px 0 18px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.2);font-size:1.8rem}
+.player-mode.own-turn-active:has(.turn-banner.player-turn-collapsed) #initiativePanel{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:calc(100% - 24px);max-height:none;margin:10px auto 12px;padding:16px;transform:none;overflow:visible;opacity:1;filter:none}
+.player-mode.own-turn-active:has(.turn-banner.player-turn-collapsed) #initiativePanel .section-head{display:flex}
+.player-mode.own-turn-active:has(.turn-banner.player-turn-collapsed) #initiativePanel .unit-card{padding:12px;background:linear-gradient(180deg,rgba(25,39,56,.96),rgba(10,18,29,.96))}
 .turn-dialog:has(.gm-npc-turn-actions:not([hidden])){max-height:calc(100dvh - 18px)!important;overflow:hidden!important;padding:clamp(10px,1.8vh,18px)!important}
 .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .gm-npc-turn-actions{grid-template-columns:repeat(4,minmax(0,1fr));max-height:none;overflow:visible}
 .delay-dialog,.queued-effect-dialog{overflow:hidden!important;padding:8px!important}
 .delay-dialog-panel,.queued-effect-panel{max-height:calc(100dvh - 16px)!important;overflow:hidden!important;padding:clamp(10px,1.6vh,16px)!important}
-body.embedded-gm,body.embedded-player{min-height:100dvh;overflow-y:auto;overscroll-behavior-y:contain}
+body.embedded-gm{min-height:0;overflow:visible}
+body.embedded-player{min-height:0;overflow:visible}
 body.embedded-gm .shell,body.embedded-player .shell{padding-bottom:6px}
+body.embedded-gm .turn-dialog{top:12px;bottom:auto}
+body.embedded-player .collapse-player-turn{top:10px;bottom:auto}
 @media(max-width:700px){
  .turn-dialog:has(.gm-npc-turn-actions:not([hidden])){width:calc(100% - 10px)!important;right:5px!important;bottom:5px!important}
  .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .gm-npc-turn-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}

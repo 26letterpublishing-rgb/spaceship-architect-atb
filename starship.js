@@ -989,8 +989,8 @@ function deleteStarship() {
 }
 function activeCampaignCredentials(code) {
   const operator = currentDoorOperator();
-  const characterToken = operator?.id ? localStorage.getItem(`sa-character-token-${code}-${operator.id}`) || "" : "";
-  const gmToken = localStorage.getItem(`sa-gm-token-${code}`) || "";
+  const characterToken = operator?.id ? localStorage.getItem(`sa-character-token-${code}-${operator.id}`) || sessionStorage.getItem(`sa-character-token-${code}-${operator.id}`) || "" : "";
+  const gmToken = localStorage.getItem(`sa-gm-token-${code}`) || sessionStorage.getItem(`sa-gm-token-${code}`) || "";
   return { token: gmToken || characterToken, characterId: gmToken ? "" : operator?.id || "" };
 }
 async function campaignApi(path, body = null, method = "POST") {
@@ -1025,7 +1025,7 @@ function renderCampaignLink() {
   document.querySelectorAll("[data-linked-campaign-name]").forEach((node) => { node.textContent = linkedCampaignState?.name || linked.campaignName || "Campaign"; });
   document.querySelectorAll("[data-linked-campaign-code]").forEach((node) => { node.textContent = linked.roomCode; });
   document.querySelectorAll("[data-linked-control-type]").forEach((node) => { node.textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled"; });
-  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Open this campaign as a player or GM to manage its crew.</p>";
+  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
   document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = markup; });
 }
 async function linkStarship(event) {

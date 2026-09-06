@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect ATB Sync</title>
     <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=20260903-ship-movement-6" />
-  <link rel="stylesheet" href="combat-actions.css?v=20260903-ship-movement-6" />
-  <link rel="stylesheet" href="ship-combat-map.css?v=20260903-ship-movement-6" />
+  <link rel="stylesheet" href="styles.css?v=20260905-player-monitor-6" />
+  <link rel="stylesheet" href="combat-actions.css?v=20260906-player-monitor-7" />
+  <link rel="stylesheet" href="ship-combat-map.css?v=20260906-clean-walls-8" />
   <script src="data-reset.js?v=20260816-storage-give"></script>
   </head>
   <body>
@@ -155,6 +155,7 @@
 
       <section id="playerPanel" class="panel hidden">
         <div id="myTurnBanner" class="turn-banner hidden">
+          <button id="collapsePlayerTurn" class="collapse-player-turn" type="button" aria-label="Slide your action panel left">&lt;</button>
           <div id="playerCommandDial" class="command-dial hidden" aria-hidden="true">
             <div class="command-dial-ring">
               <span id="playerCommandTime">--:--</span>
@@ -190,6 +191,8 @@
 
         <div id="myUnitCard"></div>
       </section>
+
+      <button id="restorePlayerTurn" class="restore-player-turn hidden" type="button" aria-label="Restore your action panel">&gt;</button>
 
       <section id="activePanel" class="active-panel">
         <div>
@@ -597,10 +600,10 @@
 
 
   <script src="combat-rules.js?v=20260821-melee-export-pass"></script>
-  <script src="app.js?v=20260903-ship-movement-6"></script>
+    <script src="app.js?v=20260905-turn-panels-4"></script>
   <script src="ship-map-core.js?v=20260902-movement-1"></script>
   <script src="ship-combat-map.js?v=20260903-ship-movement-6"></script>
-  <script src="combat-actions.js?v=20260902-movement-targets-1"></script>
+  <script src="combat-actions.js?v=20260905-gm-player-confirm-2"></script>
   <script type="module" src="npc-combat-dice.js?v=20260816-storage-give"></script>
   </body>
 </html>

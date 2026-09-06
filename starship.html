@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260902-campaign-ship-editor-1" />
+    <link rel="stylesheet" href="starship.css?v=20260905-clean-walls-1" />
   </head>
   <body>
     <header class="starship-header">
@@ -100,10 +100,16 @@
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
           <div class="sic-state-list" data-sic-list="storage"></div>
+          <div class="construction-actions">
+            <button type="button" data-construction-action="undo">Undo</button>
+            <button type="button" data-construction-action="discard">Discard All Changes</button>
+            <button type="button" class="confirm-construction" data-construction-action="confirm">Confirm Changes</button>
+          </div>
+          <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
           <section class="construction-crew-campaign" data-crew-campaign-tools>
-            <header><strong>PC Assignment / Crew</strong><small>After linking, check each PC assigned to this ship. PC-controlled ships appear in those characters' Starships tabs.</small></header>
+            <header><strong>Crew</strong><small>Select any character linked to this campaign to assign them to this starship.</small></header>
             <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
-            <button type="button" data-save-starship-crew hidden>Save PC Assignments</button>
+            <button type="button" data-save-starship-crew hidden>Save Crew</button>
             <form class="compact-starship-link" data-link-starship-form>
               <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
               <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
@@ -116,12 +122,6 @@
             </div>
             <p class="starship-campaign-message" data-starship-campaign-message role="status"></p>
           </section>
-          <div class="construction-actions">
-            <button type="button" data-construction-action="undo">Undo</button>
-            <button type="button" data-construction-action="discard">Discard All Changes</button>
-            <button type="button" class="confirm-construction" data-construction-action="confirm">Confirm Changes</button>
-          </div>
-          <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
         </section>
         <div class="desktop-grid-viewport" data-grid-viewport>
           <div class="desktop-grid-overlay ship-grid" role="grid" aria-label="20 by 20 SIC construction grid"></div>
@@ -220,10 +220,16 @@
           <div class="sic-state-list" data-sic-list="queue"></div>
           <div class="sic-state-list" data-sic-list="installed"></div>
           <div class="sic-state-list" data-sic-list="storage"></div>
+          <div class="construction-actions">
+            <button type="button" data-construction-action="undo">Undo</button>
+            <button type="button" data-construction-action="discard">Discard All Changes</button>
+            <button type="button" class="confirm-construction" data-construction-action="confirm">Confirm Changes</button>
+          </div>
+          <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
           <section class="construction-crew-campaign" data-crew-campaign-tools>
-            <header><strong>PC Assignment / Crew</strong><small>After linking, check each PC assigned to this ship. PC-controlled ships appear in those characters' Starships tabs.</small></header>
+            <header><strong>Crew</strong><small>Select any character linked to this campaign to assign them to this starship.</small></header>
             <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
-            <button type="button" data-save-starship-crew hidden>Save PC Assignments</button>
+            <button type="button" data-save-starship-crew hidden>Save Crew</button>
             <form class="compact-starship-link" data-link-starship-form>
               <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
               <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
@@ -236,12 +242,6 @@
             </div>
             <p class="starship-campaign-message" data-starship-campaign-message role="status"></p>
           </section>
-          <div class="construction-actions">
-            <button type="button" data-construction-action="undo">Undo</button>
-            <button type="button" data-construction-action="discard">Discard All Changes</button>
-            <button type="button" class="confirm-construction" data-construction-action="confirm">Confirm Changes</button>
-          </div>
-          <div class="construction-message" data-construction-message role="status" aria-live="polite"></div>
         </section>
         <section class="mobile-grid-panel">
           <h2>SIC Construction Grid</h2>
@@ -369,6 +369,6 @@
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
     <script src="ship-map-core.js?v=20260902-movement-1"></script>
-    <script src="starship.js?v=20260903-stations-default-1"></script>
+    <script src="starship.js?v=20260905-embedded-crew-1"></script>
   </body>
 </html>

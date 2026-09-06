@@ -1717,8 +1717,9 @@ function renderCharacterHeader() {
   const title = linked ? String(campaignState?.name || character.campaignLink?.campaignName || "Campaign").toUpperCase() : "JOIN A GAME";
   dom.creatorRoleLabel.textContent = "";
   dom.creatorCampaignTitle.innerHTML = `${escapeHtml(title)} <small>${role}</small>`;
-  dom.creatorTitle.disabled = gm || linked;
-  dom.creatorTitle.title = !gm && !linked ? "Open Settings and join a campaign" : "";
+  const activeCampaignSession = linked && ["character", "gm"].includes(campaignState?.role);
+  dom.creatorTitle.disabled = gm || activeCampaignSession;
+  dom.creatorTitle.title = !gm && !activeCampaignSession ? "Open Settings and join or reopen a campaign" : "";
 }
 
 function renderPlayerSoundSetting() {
@@ -2086,7 +2087,11 @@ function renderPlayerStarships() {
   if (!dom.playerStarshipList) return;
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const gmViewing = campaignState?.role === "gm";
-  const ships = (campaignState?.starships || []).filter((record) => gmViewing || record.crewCharacterIds?.includes(ownId));
+  const requestedShipId = gmViewing ? String(PAGE_PARAMS.get("ship") || "") : "";
+  const ships = (campaignState?.starships || []).filter((record) => (
+    (gmViewing || record.crewCharacterIds?.includes(ownId))
+    && (!requestedShipId || record.id === requestedShipId)
+  ));
   if (!ships.length) {
     dom.playerStarshipList.innerHTML = '<p class="player-starship-empty">This character is not assigned to a starship yet.</p>';
     return;
@@ -2119,12 +2124,16 @@ function renderPlayerStarships() {
       }).join("");
       const occupied = layout.footprint.get(square);
       const sicLabel = occupied?.label || "";
-      const stationMarkers = playerShipMapView.stations && occupied ? (occupied.stations || []).filter((station) => station.x === occupied.column && station.y === occupied.row).map((station) => `<i class="player-ship-station" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%"></i>`).join("") : "";
+      const stationMarkers = playerShipMapView.stations && occupied ? (occupied.stations || []).filter((station) => station.x === occupied.column && station.y === occupied.row).map((station) => {
+        const stationOccupant = occupants.find((entry) => Number(visualLocations.get(entry.id)?.mesh ?? 4) === Number(station.mesh));
+        const occupantName = stationOccupant ? campaignCharacterName(stationOccupant) : "";
+        return `<i class="player-ship-station ${stationOccupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" ${stationOccupant ? `title="Occupied by ${escapeAttribute(occupantName)}" aria-label="Occupied by ${escapeAttribute(occupantName)}"` : ""}></i>`;
+      }).join("") : "";
       const style = occupied ? `--sic-basic-color:${occupied.color || "#197a6f"};${playerShipMapView.highResolution && occupied.image ? window.SAShipMap.floorplanStyle(occupied.type, occupied.column, occupied.row) : ""}` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
       const destinationButtons = hull.has(square) ? (starshipMoveDraft?.starshipId === record.id ? `<div class="player-ship-mesh">${Array.from({ length: 9 }, (_, mesh) => {
         const occupiedStation = playerShipStationAt(record, square, mesh) && [...visualLocations.entries()].some(([id, location]) => id !== ownId && Number(location.square) === square && Number(location.mesh ?? 4) === mesh);
-        return `<button type="button" class="${occupiedStation ? "station-occupied" : ""}" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="${occupiedStation ? "Station occupied" : "Choose precise ship location"}"></button>`;
+        return `<button type="button" class="${occupiedStation ? "station-occupied" : ""}" data-player-ship-destination="${square}" data-player-ship-mesh="${mesh}" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="${occupiedStation ? "Station occupied" : "Choose precise ship location"}" ${occupiedStation ? "disabled" : ""}></button>`;
       }).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
       const doors = playerShipMapView.walls && hull.has(square) ? playerShipBoundaryMarkup(record, layout, square) : "";
       return `<div class="${classes}" data-player-ship-square="${square}" style="${style}">${playerShipMapView.labels && sicLabel ? `<span class="player-ship-label">${escapeHtml(sicLabel)}</span>` : ""}${destinationButtons}${stationMarkers}${tokens}${doors}</div>`;
@@ -2234,6 +2243,7 @@ function receiveCampaignState(nextState) {
   cacheCampaign(nextState);
   if (!campaignCharacterId) {
     renderCampaignRoster();
+    if (activeCharacterTab === "starships") renderPlayerStarships();
     return;
   }
   const remote = nextState.characters.find((entry) => entry.id === campaignCharacterId);
@@ -8075,31 +8085,28 @@ window.addEventListener("message", (event) => {
 });
 let playerAtbResizeObserver = null;
 
-function syncMobilePlayerAtbHeight() {
-  if (!dom.playerAtbFrame || !matchMedia("(max-width: 650px)").matches) {
-    dom.playerAtbFrame?.style.removeProperty("height");
-    return;
-  }
+function syncPlayerAtbHeight() {
+  if (!dom.playerAtbFrame) return;
   const frameDocument = dom.playerAtbFrame.contentDocument;
   if (!frameDocument) return;
   const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, 540);
   dom.playerAtbFrame.style.height = `${height}px`;
 }
 
-function watchMobilePlayerAtbHeight() {
+function watchPlayerAtbHeight() {
   playerAtbResizeObserver?.disconnect();
   const frameDocument = dom.playerAtbFrame?.contentDocument;
   if (!frameDocument) return;
-  playerAtbResizeObserver = new ResizeObserver(syncMobilePlayerAtbHeight);
+  playerAtbResizeObserver = new ResizeObserver(syncPlayerAtbHeight);
   playerAtbResizeObserver.observe(frameDocument.documentElement);
   if (frameDocument.body) playerAtbResizeObserver.observe(frameDocument.body);
-  syncMobilePlayerAtbHeight();
+  syncPlayerAtbHeight();
 }
 
 dom.playerAtbFrame?.addEventListener("load", () => {
   dom.playerAtbStatus.textContent = "Live encounter connected. Use the tabs above at any time; combat will remain open here.";
   dom.playerAtbFrame.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
-  requestAnimationFrame(watchMobilePlayerAtbHeight);
+  requestAnimationFrame(watchPlayerAtbHeight);
 });
 
 async function animatePlayerShipMove(card, record, startSquare, startMesh, route, destinationMesh) {
@@ -8109,26 +8116,32 @@ async function animatePlayerShipMove(card, record, startSquare, startMesh, route
   const startX = tokenRect.left - viewportRect.left + viewport.scrollLeft + tokenRect.width / 2; const startY = tokenRect.top - viewportRect.top + viewport.scrollTop + tokenRect.height / 2;
   const ghost = token.cloneNode(true); ghost.classList.add("player-ship-moving-token"); ghost.style.left = `${startX}px`; ghost.style.top = `${startY}px`; viewport.append(ghost); token.style.opacity = "0";
   const layout = window.SAShipMap.buildLayout(record.ship || {}); let previousSquare = startSquare;
-  for (let index = 0; index < route.length; index += 1) {
-    const square = route[index];
-    const cell = card.querySelector(`[data-player-ship-square="${square}"]`); if (!cell) return;
-    const rect = cell.getBoundingClientRect(); const mesh = index === route.length - 1 ? destinationMesh : 4;
-    const x = rect.left - viewportRect.left + viewport.scrollLeft + rect.width * (((mesh % 3) + .5) / 3);
-    const y = rect.top - viewportRect.top + viewport.scrollTop + rect.height * ((Math.floor(mesh / 3) + .5) / 3);
-    const doorKey = playerShipDoorBetween(layout, previousSquare, square);
-    const door = doorKey ? card.querySelector(`[data-player-ship-door="${doorKey}"]`) : null;
-    const autoDoor = door && record.ship?.doorStates?.[doorKey] !== "open";
-    if (autoDoor) {
-      door.classList.add("auto-opening", "open");
-      await new Promise((resolve) => setTimeout(resolve, 600));
+  try {
+    for (let index = 0; index < route.length; index += 1) {
+      const square = route[index];
+      const cell = card.querySelector(`[data-player-ship-square="${square}"]`); if (!cell) break;
+      const rect = cell.getBoundingClientRect(); const mesh = index === route.length - 1 ? destinationMesh : 4;
+      const x = rect.left - viewportRect.left + viewport.scrollLeft + rect.width * (((mesh % 3) + .5) / 3);
+      const y = rect.top - viewportRect.top + viewport.scrollTop + rect.height * ((Math.floor(mesh / 3) + .5) / 3);
+      const doorKey = playerShipDoorBetween(layout, previousSquare, square);
+      const door = doorKey ? card.querySelector(`[data-player-ship-door="${doorKey}"]`) : null;
+      const autoDoor = door && record.ship?.doorStates?.[doorKey] !== "open";
+      if (autoDoor) {
+        door.classList.add("auto-opening", "open");
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      const animation = ghost.animate([{ left: ghost.style.left, top: ghost.style.top }, { left: `${x}px`, top: `${y}px` }], { duration: 280, easing: "linear", fill: "forwards" });
+      await Promise.race([animation.finished.catch(() => {}), new Promise((resolve) => setTimeout(resolve, 420))]);
+      animation.cancel();
+      ghost.style.left = `${x}px`;
+      ghost.style.top = `${y}px`;
+      if (autoDoor) door.classList.remove("auto-opening", "open");
+      previousSquare = square;
     }
-    await ghost.animate([{ left: ghost.style.left, top: ghost.style.top }, { left: `${x}px`, top: `${y}px` }], { duration: 280, easing: "linear", fill: "forwards" }).finished.catch(() => {});
-    ghost.style.left = `${x}px`;
-    ghost.style.top = `${y}px`;
-    if (autoDoor) door.classList.remove("auto-opening", "open");
-    previousSquare = square;
+  } finally {
+    ghost.remove();
+    token.style.opacity = "";
   }
-  ghost.remove(); token.style.opacity = "";
 }
 
 function previewPlayerShipDestination(record, ownId, square, mesh, locked) {
@@ -8146,24 +8159,58 @@ function previewPlayerShipDestination(record, ownId, square, mesh, locked) {
   renderPlayerStarships();
 }
 
+function setPlayerShipDoorVisual(card, doorKey, open) {
+  if (!card || !doorKey) return;
+  card.querySelectorAll(`[data-player-ship-door="${CSS.escape(doorKey)}"]`).forEach((button) => {
+    button.classList.toggle("open", open);
+    button.setAttribute("aria-label", `${open ? "Close" : "Open"} door`);
+  });
+}
+
+async function togglePlayerShipDoor(door) {
+  const card = door.closest("[data-player-starship]");
+  const starshipId = door.dataset.playerShipId || card?.dataset.playerStarship;
+  const doorKey = door.dataset.playerShipDoor;
+  const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  const record = (campaignState?.starships || []).find((entry) => entry.id === starshipId);
+  if (!card || !record || !doorKey || (!ownId && campaignState?.role !== "gm") || door.getAttribute("aria-busy") === "true") return;
+  const wasOpen = door.classList.contains("open");
+  card.querySelectorAll(`[data-player-ship-door="${CSS.escape(doorKey)}"]`).forEach((button) => button.setAttribute("aria-busy", "true"));
+  setPlayerShipDoorVisual(card, doorKey, !wasOpen);
+  try {
+    const payload = await campaignRequest("/api/campaign/starship/door", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId || "", doorKey }),
+    });
+    setPlayerShipDoorVisual(card, doorKey, Boolean(payload.open));
+    card.querySelectorAll(`[data-player-ship-door="${CSS.escape(doorKey)}"]`).forEach((button) => button.removeAttribute("aria-busy"));
+    if (payload.campaign) receiveCampaignState(payload.campaign);
+  } catch (error) {
+    setPlayerShipDoorVisual(card, doorKey, wasOpen);
+    card.querySelectorAll(`[data-player-ship-door="${CSS.escape(doorKey)}"]`).forEach((button) => button.removeAttribute("aria-busy"));
+    notice(error.message, "error");
+  }
+}
+
+// Door controls must win over the full-cell movement target layered beneath them.
+dom.playerStarshipList?.addEventListener("click", (event) => {
+  const door = event.target.closest("[data-player-ship-door]");
+  if (!door) return;
+  event.preventDefault();
+  event.stopPropagation();
+  void togglePlayerShipDoor(door);
+}, true);
+
 dom.playerStarshipList?.addEventListener("click", async (event) => {
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const begin = event.target.closest("[data-player-ship-begin]");
   const destination = event.target.closest("[data-player-ship-destination]");
-  const door = event.target.closest("[data-player-ship-door]");
   const confirm = event.target.closest("[data-player-ship-confirm]");
   const cancel = event.target.closest("[data-player-ship-cancel]");
   const card = event.target.closest("[data-player-starship]");
-  const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || door?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel || card?.dataset.playerStarship;
+  const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel || card?.dataset.playerStarship;
   const record = (campaignState?.starships || []).find((entry) => entry.id === starshipId);
   if (!record || (!ownId && campaignState?.role !== "gm")) return;
-  if (door) {
-    try {
-      const payload = await campaignRequest("/api/campaign/starship/door", { method: "POST", body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId || "", doorKey: door.dataset.playerShipDoor }) });
-      if (payload.campaign) receiveCampaignState(payload.campaign);
-    } catch (error) { notice(error.message, "error"); }
-    return;
-  }
   if (begin) {
     const firstHull = record.ship?.gridCells?.[0];
     const currentLocation = record.characterLocations?.[ownId] || {};
@@ -8217,7 +8264,7 @@ dom.playerStarshipList?.addEventListener("change", (event) => {
   playerShipMapView[input.dataset.playerShipView] = input.checked;
   renderPlayerStarships();
 });
-window.addEventListener("resize", syncMobilePlayerAtbHeight);
+window.addEventListener("resize", syncPlayerAtbHeight);
 
 dom.launchPlayerAtb?.addEventListener("click", () => {
   void loadPlayerAtb({ reload: true });
@@ -8638,10 +8685,6 @@ async function initializeCharacterApp() {
         renderAll();
         renderCharacterNavigation();
         showCharacterPanel(params.get("tab") === "starships" ? "starships" : "sheet");
-        requestAnimationFrame(() => {
-          const requestedShip = params.get("ship");
-          if (requestedShip) dom.playerStarshipList?.querySelector(`[data-player-starship="${CSS.escape(requestedShip)}"]`)?.scrollIntoView({ block: "start" });
-        });
         return;
       }
     } catch (error) {
@@ -8658,6 +8701,10 @@ async function initializeCharacterApp() {
 
 dom.creatorTitle?.addEventListener("click", () => {
   if (dom.creatorTitle.disabled) return;
+  if (campaignCode && character.campaignLink?.status === "linked" && !["character", "gm"].includes(campaignState?.role)) {
+    window.location.href = "index.html";
+    return;
+  }
   showCharacterPanel("settings");
   requestAnimationFrame(() => {
     dom.joinCampaignPanel.hidden = false;

@@ -161,3 +161,16 @@ test("a forced delay cancels travel at the last completed location", () => {
   assert.equal(unit.travelRoute.length, 0);
   assert.equal(unit.atb, 0);
 });
+
+test("a player can resolve an active turn after the Command Window expires", () => {
+  const { unit, room, helpers } = fixture();
+  room.commandDeadline = null;
+  room.commandExpired = true;
+  room.pausedForTurn = false;
+
+  const result = resolvePlayerCombatAction(room, unit, { kind: "actionResolved" }, helpers);
+
+  assert.equal(result.ok, true);
+  assert.equal(room.activeId, null);
+  assert.equal(unit.atb, 0);
+});
