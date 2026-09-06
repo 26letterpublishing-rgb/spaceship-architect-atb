@@ -356,6 +356,43 @@ const delayActionName = document.querySelector("#delayActionName");
 const cancelDelayDialog = document.querySelector("#cancelDelayDialog");
 const confirmDelayDialog = document.querySelector("#confirmDelayDialog");
 const queuedEffectDialog = document.querySelector("#queuedEffectDialog");
+
+const embeddedModalOverlays = [...document.querySelectorAll(".delay-dialog, .queued-effect-dialog, .combat-action-dialog, .combat-map-dialog, .backup-conflict-shell")];
+let embeddedModalViewportFrame = 0;
+
+function syncEmbeddedModalViewport() {
+  embeddedModalViewportFrame = 0;
+  if (window.parent === window || !window.frameElement) {
+    document.body.classList.remove("embedded-modal-host");
+    return;
+  }
+  try {
+    const frameRect = window.frameElement.getBoundingClientRect();
+    const visibleTop = Math.max(0, -frameRect.top);
+    const visibleBottom = Math.min(frameRect.height, window.parent.innerHeight - frameRect.top);
+    if (visibleBottom <= visibleTop) return;
+    document.body.classList.add("embedded-modal-host");
+    document.body.style.setProperty("--embedded-visible-top", `${visibleTop}px`);
+    document.body.style.setProperty("--embedded-modal-center", `${(visibleTop + visibleBottom) / 2}px`);
+    document.body.style.setProperty("--embedded-modal-max-height", `${Math.max(180, visibleBottom - visibleTop - 24)}px`);
+  } catch {
+    document.body.classList.remove("embedded-modal-host");
+  }
+}
+
+function scheduleEmbeddedModalViewportSync() {
+  if (embeddedModalViewportFrame) return;
+  embeddedModalViewportFrame = requestAnimationFrame(syncEmbeddedModalViewport);
+}
+
+if (window.parent !== window) {
+  window.parent.addEventListener("scroll", scheduleEmbeddedModalViewportSync, { passive: true });
+  window.parent.addEventListener("resize", scheduleEmbeddedModalViewportSync, { passive: true });
+  window.addEventListener("resize", scheduleEmbeddedModalViewportSync, { passive: true });
+  const embeddedModalObserver = new MutationObserver(scheduleEmbeddedModalViewportSync);
+  embeddedModalOverlays.forEach((overlay) => embeddedModalObserver.observe(overlay, { attributes: true, attributeFilter: ["class", "hidden"] }));
+  scheduleEmbeddedModalViewportSync();
+}
 const queuedEffectTarget = document.querySelector("#queuedEffectTarget");
 const queuedEffectRatePreview = document.querySelector("#queuedEffectRatePreview");
 const queuedEffectModifierPreview = document.querySelector("#queuedEffectModifierPreview");

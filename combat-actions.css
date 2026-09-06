@@ -856,6 +856,69 @@
  .player-mode.own-turn-active #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.combat-action-grid button{min-height:30px}
 }
 
+/* Desktop turns stay in a compact floating command window so the live ATB and
+   ship maps remain visible and usable behind it. */
+@media (min-width: 701px) {
+  .player-mode.own-turn-active #initiativePanel {
+    position: relative !important;
+    inset: auto !important;
+    width: calc(100% - 16px) !important;
+    max-height: none !important;
+    margin: 8px auto 12px !important;
+    padding: 10px !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .player-mode.own-turn-active #initiativePanel .section-head { display: flex !important; }
+  .player-mode.own-turn-active #myTurnBanner.turn-banner {
+    position: fixed !important;
+    inset: auto auto auto 12px !important;
+    top: calc(var(--embedded-visible-top, 0px) + 12px) !important;
+    width: min(920px, calc(100% - 24px)) !important;
+    min-height: 0 !important;
+    max-height: min(560px, var(--embedded-modal-max-height, calc(100dvh - 24px))) !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    grid-template-areas: "clock title" "clock status" "weapon weapon" "actions actions" !important;
+    align-content: start !important;
+    justify-content: stretch !important;
+    justify-items: stretch !important;
+    gap: 5px 10px !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    border: 1px solid #8b7c52 !important;
+    background: rgba(5, 10, 16, .97) !important;
+    box-shadow: 0 12px 34px rgba(0,0,0,.72), 0 0 18px rgba(255,208,90,.18) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    text-align: left !important;
+  }
+  .player-mode.own-turn-active #myTurnBanner > #playerTurnTitle { padding-right: 42px !important; }
+  .player-mode.own-turn-active #myTurnBanner > .player-turn-actions.combat-action-grid {
+    width: 100% !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+  .player-mode.own-turn-active #myTurnBanner .collapse-player-turn {
+    position: absolute !important;
+    inset: 8px 8px auto auto !important;
+    width: 34px !important;
+    min-height: 52px !important;
+    border-radius: 12px 0 0 12px !important;
+  }
+  .player-mode .turn-banner.player-turn-collapsed {
+    transform: translateX(calc(-100% - 24px)) !important;
+  }
+}
+@media (min-width: 1000px) {
+  .player-mode.own-turn-active #myTurnBanner.turn-banner {
+    width: min(720px, calc(62% - 24px)) !important;
+  }
+  .player-mode.own-turn-active .combat-action-grid button {
+    min-height: 38px;
+  }
+}
+
 /* Long action forms keep their confirmation controls reachable. */
 .combat-action-panel {
   overflow-x: hidden;

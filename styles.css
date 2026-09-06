@@ -4031,6 +4031,30 @@ body.embedded-gm .meter { margin-top: 6px; }
   margin-block: auto;
   overflow: visible !important;
 }
+
+/* Embedded combat frames can be taller than the visible browser window. Center
+   overlays on the portion of the frame the player can actually see. */
+body.embedded-modal-host .delay-dialog,
+body.embedded-modal-host .queued-effect-dialog,
+body.embedded-modal-host .combat-action-dialog,
+body.embedded-modal-host .combat-map-dialog,
+body.embedded-modal-host .backup-conflict-shell {
+  align-items: start !important;
+  justify-items: center !important;
+}
+body.embedded-modal-host .delay-dialog-panel,
+body.embedded-modal-host .queued-effect-panel,
+body.embedded-modal-host .combat-action-panel,
+body.embedded-modal-host .combat-map-panel,
+body.embedded-modal-host .backup-conflict-dialog {
+  max-height: var(--embedded-modal-max-height, calc(100dvh - 24px)) !important;
+  margin-block: 0 !important;
+  margin-top: var(--embedded-modal-center, 50dvh) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  transform: translateY(-50%) !important;
+}
+
 .starship-status-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:7px;margin:7px 0}.starship-status-card{display:grid;grid-template-columns:minmax(110px,1fr) auto auto auto auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid #40566b;background:#07131f}.starship-status-card strong,.starship-status-card small{display:block}.starship-status-card small{color:#839aab;font-size:.5rem}.ship-status-track{display:flex;gap:4px}.ship-people-count{display:inline-flex;align-items:center;gap:4px;min-width:34px;color:#dff8ff;font-size:.78rem}.ship-people-count i{position:relative;width:13px;height:17px;display:inline-block}.ship-people-count i::before{content:"";position:absolute;left:4px;top:0;width:6px;height:6px;border-radius:50%;background:#dff8ff}.ship-people-count i::after{content:"";position:absolute;left:2px;bottom:0;width:10px;height:10px;border-radius:6px 6px 2px 2px;background:#dff8ff}.ship-map-button{white-space:nowrap}.ship-status-icon{position:relative;width:18px;height:18px;overflow:hidden;background:transparent}.ship-status-icon::before{content:"";position:absolute;inset:1px;background:var(--icon-color);opacity:.18}.ship-status-icon.full::before{opacity:1}.ship-status-icon.half::before{opacity:1;clip-path:inset(0 50% 0 0)}.ship-status-icon.hull{--icon-color:#8d98a2;border:1px solid #d2d8de;border-radius:50%;background:radial-gradient(circle at 28% 25%,#f8fbfd 0 13%,transparent 15%),radial-gradient(circle at 72% 76%,#424b54 0 18%,transparent 20%),#8d98a2}.ship-status-icon.hull::before{border-radius:50%;mix-blend-mode:multiply}.ship-status-icon.shield{--icon-color:#37d880}.ship-status-icon.shield::before{inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%);box-shadow:none}.ship-status-icon.shield::after{content:"";position:absolute;inset:0;clip-path:polygon(50% 0,94% 18%,84% 70%,50% 100%,16% 70%,6% 18%,50% 6%,87% 21%,78% 66%,50% 92%,22% 66%,13% 21%,50% 6%);background:#7ff0ad;opacity:.8}
 
 @media (max-width: 700px) {

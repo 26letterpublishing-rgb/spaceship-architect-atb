@@ -56,6 +56,25 @@
     });
   }
 
+  function stationOccupant(ship, square, mesh) {
+    return (combatState?.units || []).find((entry) => entry.location?.starshipId === ship?.id
+      && Number(entry.location.square) === Number(square)
+      && Number(entry.location.mesh) === Number(mesh)) || null;
+  }
+
+  function stationMarkers(ship, sic, square) {
+    if (!sic?.stations?.length) return "";
+    return sic.stations
+      .filter((station) => station.x === sic.column && station.y === sic.row)
+      .map((station) => {
+        const occupant = stationOccupant(ship, square, station.mesh);
+        if (!mapView.stations && !occupant) return "";
+        const name = occupant?.characterName || "";
+        const label = occupant ? `${name} stationed at ${sic.label}` : `${sic.label} station`;
+        return `<i class="combat-station-marker ${occupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${occupant ? `--token-color:${esc(occupant.color || "#39e58f")}` : ""}" title="${esc(label)}" aria-label="${esc(label)}">${occupant ? `<span>${esc(name.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
+      }).join("");
+  }
+
   function tokenShift(units, unit) {
     const occupants = units.filter((entry) => !movementPresentation(entry)
       && Number(entry.location?.square) === Number(unit.location?.square)
@@ -282,7 +301,7 @@
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
       const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
-      const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
+      const tokens = units.filter((unit) => Number(unit.location.square) === square && !stationAt(ship, square, unit.location.mesh) && !movementPresentation(unit)).map((unit) => {
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
@@ -292,7 +311,7 @@
         const occupiedStation = stationAt(ship, square, index) && stationDestinationOccupied(ship, square, index);
         return `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node " : ""}${occupiedStation ? "station-occupied" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="${occupiedStation ? "Station occupied" : "Map location"}"></button>`;
       }).join("")}</div>` : "";
-      const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
+      const stations = stationMarkers(ship, sic, square);
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
       return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
@@ -379,7 +398,7 @@
         const sic = footprints.get(square);
         const cellClasses = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", activePreview?.square === square ? `preview-${activePreview.color}` : ""].filter(Boolean).join(" ");
         const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
-        const tokens = units.filter((unit) => Number(unit.location.square) === square && !movementPresentation(unit)).map((unit) => {
+        const tokens = units.filter((unit) => Number(unit.location.square) === square && !stationAt(record, square, unit.location.mesh) && !movementPresentation(unit)).map((unit) => {
           const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
           return `<i class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
         }).join("");
@@ -387,7 +406,7 @@
           const occupiedStation = stationAt(record, square, index) && stationDestinationOccupied(record, square, index);
           return `<button type="button" class="${routeNodes.has(`${square}:${index}`) ? "route-node " : ""}${occupiedStation ? "station-occupied" : ""}" data-map-square="${square}" data-map-mesh="${index}" aria-label="${occupiedStation ? "Station occupied" : "Map location"}"></button>`;
         }).join("")}</div>` : "";
-        const stations = mapView.stations && sic?.stations?.length ? sic.stations.filter((station) => station.x === sic.column && station.y === sic.row).map((station) => `<i class="combat-station-marker" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%" title="${esc(sic.label)} station"></i>`).join("") : "";
+        const stations = stationMarkers(record, sic, square);
         const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
         squares.push(`<div class="${cellClasses}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
       }
