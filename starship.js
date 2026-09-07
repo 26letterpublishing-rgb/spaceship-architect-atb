@@ -25,6 +25,22 @@ const SIC_CATALOG = {
   "nutritional-supplement": { name: "Nut. Supplement", shortLabel: "NUT.", category: "utility", price: 850, width: 1, height: 1, enOutput: 0, energyCost: 3, clearance: 0, ...window.SAShipMap.definition("nutritional-supplement"), floorplan: window.SAShipMap.definition("nutritional-supplement").image },
 };
 
+for (let tier = 1; tier <= 6; tier += 1) {
+  const type = `au-engine-${tier}`;
+  const data = window.SAShipMap.definition(type);
+  SIC_CATALOG[type] = { ...data, name: `AU Engine ${tier}`, shortLabel: `AU ${tier}`, category: "engine", enOutput: 0, energyCost: 0, clearance: tier, floorplan: data.image };
+  const card = document.createElement("section");
+  card.className = "sic-market-item";
+  card.innerHTML = `<article class="sic-poker-card au-engine-card" data-sic-card="${type}" tabindex="0" aria-label="AU Engine ${tier} details">
+    <header class="sic-poker-heading"><span>Engine <small>${data.cardNumber}</small></span><div><h3>AU Engine ${tier}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header>
+    <img class="sic-poker-art" src="au-engine-${tier}-graphic.png" alt="AU Engine ${tier} capacitor core" />
+    <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${tier}&times;${tier}</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl>
+    <section class="sic-poker-rules"><p>${tier <= 2 ? "Small" : tier <= 4 ? "Basic" : "Large"} Core system that exclusively outputs AU.</p><p>Minimum distance away from another Engine is ${tier} square${tier > 1 ? "s" : ""}.</p><strong>Outputs ${data.auOutput} AU</strong><p>Stations ${data.stations.length}<br />Passive Station Bonus: Each Character grants additional AU for each level of Engineering they have.</p></section>
+    <footer><span><small>If Impaired</small>No longer provides AU. Becomes unstable.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer>
+    </article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
+}
+
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function uid(prefix = "ship") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
@@ -734,8 +750,13 @@ function renderLiveStats() {
   const confirmed = constructionState(draft.confirmed);
   const hull = confirmed.gridCells.length;
   const installed = confirmed.placements.map((placement) => confirmed.sicInventory.find((item) => item.id === placement.sicId)).filter(Boolean);
-  const enMax = installed.reduce((total, item) => total + sicDefinition(item).enOutput, 0);
+  const linked = linkedCampaignState?.starships?.find(record => record.id === draft.id);
+  const powerRecord = { ...linked, id: draft.id, ship: confirmed };
+  const power = window.SAShipPower.output(powerRecord, window.SAShipPower.campaignUnits(powerRecord, linkedCampaignState?.characters));
+  const enMax = power.en;
   const enAvailable = enMax - installed.reduce((total, item) => total + sicDefinition(item).energyCost, 0);
+  const au = power.au;
+  document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(au); });
   const scale = shipScaleStats(hull);
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });
   document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
@@ -1004,6 +1025,7 @@ async function refreshLinkedCampaign() {
   try { linkedCampaignState = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(code)}&token=${encodeURIComponent(credentials.token)}`, null, "GET"); }
   catch { linkedCampaignState = null; }
   renderCampaignLink();
+  renderLiveStats();
 }
 function campaignMessage(message, tone = "") {
   document.querySelectorAll("[data-starship-campaign-message]").forEach((output) => { output.textContent = message; output.dataset.tone = tone; });

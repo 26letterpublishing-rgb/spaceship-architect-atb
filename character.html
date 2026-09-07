@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Character Creation</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="character.css?v=20260906-view-ship-doors-1" />
+    <link rel="stylesheet" href="character.css?v=20260907-au-class-1" />
   <link rel="stylesheet" href="weapons.css?v=20260902-weapon-storage-1" />
   <link rel="stylesheet" href="gear.css?v=20260816-storage-give" />
   <link rel="stylesheet" href="ship-map-presentation.css?v=20260907-shared-1" />
-  <link rel="stylesheet" href="combat-workspace.css?v=20260907-workspace-1" />
+  <link rel="stylesheet" href="combat-workspace.css?v=20260907-au-class-1" />
   <script src="data-reset.js?v=20260907-preserve-saves-1"></script>
   </head>
   <body>
@@ -790,7 +790,7 @@
         <div id="classGalleryChooser" class="class-gallery-chooser">
           <header class="race-gallery-header">
             <div><span class="dialog-kicker">Character Role</span><h2 id="classGalleryTitle">Choose Class</h2></div>
-            <button id="closeClassGallery" class="race-gallery-close" type="button" aria-label="Close class selection">X</button>
+            <button id="closeClassGallery" class="race-gallery-close" type="button" aria-label="Back from class selection">Back</button>
           </header>
           <p class="race-gallery-intro">Inspect every class before choosing the role and special rules that best fit your character.</p>
           <div id="classGalleryGrid" class="class-gallery-grid"></div>
@@ -814,7 +814,8 @@
     </div>
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-    <script src="ship-map-core.js?v=20260907-shared-1"></script>
-    <script type="module" src="character.js?v=20260907-shared-1"></script>
+    <script src="ship-map-core.js?v=20260907-au-1"></script>
+    <script src="ship-power.js?v=20260907-au-1"></script>
+    <script type="module" src="character.js?v=20260907-au-class-1"></script>
   </body>
 </html>

@@ -31,6 +31,26 @@ computer-driven ATB system. Do not restore initiative order, three-action turns,
 bonus-action phases, or alternating CvC/SvS rounds from the book. Translate their
 gameplay purpose into explicitly agreed digital rules.
 
+## Approved AU Recharge (September 7, 2026)
+
+AU Engines 1-6 (A-19 through A-22, B-11 and B-12) are implemented with
+outputs 3, 7, 15, 25, 40, and 60. Their footprints are 1x1 through 6x6;
+station counts are 1, 2, 2, 3, 3, and 4. These are not additional EN sources.
+
+The digital AU rating is both maximum stored AU and recharge percentage per
+combat second. At 25 AU, a 100% recharge restores one AU every four combat
+seconds. A new encounter starts full, stops charging at its cap, and follows
+the shared combat clock, including pauses and slowed time. Rate scaling is
+centralized in `ship-power.js` for future playtesting adjustments.
+
+Only actually occupied, online stations contribute Engineering bonuses.
+Engineer-class station benefits also affect AU. The resulting whole-AU
+rating sets both capacity and recharge speed. A reduced rating clamps stored
+AU; zero output stops recharge. Repairs and routine ship synchronization do
+not refill the reserve. A GM-only Spend 1 AU button supports manual playtesting
+until ship action SICs consume AU automatically. Do not restore printed
+once-per-SvS-round refreshes alongside this meter.
+
 ## Product Purpose
 
 The product is a multiplayer roleplaying companion, not only a ship builder or

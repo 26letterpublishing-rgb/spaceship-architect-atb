@@ -534,6 +534,7 @@ function encounterRuleFields(record) {
     intellectDice: (record?.character?.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     strengthDice: (record?.character?.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
+    engineeringSkill: Number(skillRating(record, "Engineering")) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
@@ -697,16 +698,13 @@ function renderStarships() {
   dom.starshipList.innerHTML = ships.length ? ships.map((record) => {
     const hull = record.ship?.confirmed?.gridCells?.length ?? record.ship?.gridCells?.length ?? 0;
     const ship = record.ship || {};
-    const energy = (ship.confirmed?.placements ?? ship.placements ?? []).reduce((total, placement) => {
-      const item = (ship.sicInventory || []).find(entry => entry.id === placement.sicId);
-      return total + Number(window.SAShipMap.definition(item?.type).output || 0);
-    }, 0);
+    const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaign.characters));
     const crew = new Set(record.crewCharacterIds || []);
     const npcCrew = new Set(record.crewNpcUnitIds || []);
     const npcUnits = (encounterState?.units || []).filter((unit) => unit.team === "npc");
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}">
       <header><div><h3>${escapeHtml(record.title || "Untitled Starship")}</h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
-      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${energy}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
+      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Who Controls This Ship?<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled - visible to assigned PCs</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled - hidden from players</option></select></label>
       <div class="gm-starship-crew-groups">
         <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>

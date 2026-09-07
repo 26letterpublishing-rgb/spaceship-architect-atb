@@ -166,6 +166,8 @@ function syncUnitCombat(unit, source = {}) {
   unit.weaponMechanics = Math.max(0, Number(source.weaponMechanics) || 0);
   unit.dexterityDice = Array.isArray(source.dexterityDice) ? source.dexterityDice.map(Number).filter((value) => value >= 4 && value <= 20).slice(0, 20) : [];
   unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
+  const engineering = source.engineeringSkill ?? unit.engineeringSkill;
+  unit.engineeringSkill = engineering == null ? null : Math.max(0, Number(engineering) || 0);
   unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
   unit.raceId = safeText(source.raceId, unit.raceId || "", 80);
@@ -231,6 +233,7 @@ function migrateUnitCombat(unit) {
     weaponMechanics: unit.weaponMechanics,
     dexterityDice: unit.dexterityDice,
     projectileSkill: unit.projectileSkill,
+    engineeringSkill: unit.engineeringSkill,
     meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
     raceId: unit.raceId,

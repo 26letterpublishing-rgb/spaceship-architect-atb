@@ -342,13 +342,12 @@
     const hull = Number(statValue(record, "currentHullHp")) || hullMax;
     const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
     const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
-    const inventory = new Map((ship.sicInventory || []).map((item) => [item.id, item]));
-    const en = (ship.placements || []).reduce((total, placement) => total + Number(window.SAShipMap.definition(inventory.get(placement.sicId)?.type).output || 0), 0);
+    const power = window.SAShipPower.output(record, combatState?.units || []);
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
       ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
       ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
-      ["EN", en], ["AU", statValue(record, "availableAu", "au")], ["Scale", statValue(record, "scaleRank", "scale")],
+      ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
     stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
   }
@@ -359,13 +358,12 @@
     const hull = Number(statValue(record, "currentHullHp")) || hullMax;
     const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
     const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
-    const inventory = new Map((ship.sicInventory || []).map((item) => [item.id, item]));
-    const en = (ship.placements || []).reduce((total, placement) => total + Number(window.SAShipMap.definition(inventory.get(placement.sicId)?.type).output || 0), 0);
+    const power = window.SAShipPower.output(record, combatState?.units || []);
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
       ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
       ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
-      ["EN", en], ["AU", statValue(record, "availableAu", "au")], ["Scale", statValue(record, "scaleRank", "scale")],
+      ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
     return fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
   }

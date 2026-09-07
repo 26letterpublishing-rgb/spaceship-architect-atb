@@ -66,7 +66,7 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewN
   const row = Math.floor(startCell / 20);
   const column = startCell % 20;
   const gridCells = [];
-  for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) gridCells.push((row + y) * 20 + column + x);
+  for (let y = 0; y < 3; y += 1) for (let x = 0; x < 5; x += 1) gridCells.push((row + y) * 20 + column + x);
   const engineCell = (row + 1) * 20 + column + 1;
   const engineId = `${id}-engine-1`;
   return normalizeStarshipRecord({
@@ -79,11 +79,11 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewN
       id,
       title,
       affiliation: controlType === "pc" ? "Exploration Crew" : "Unknown Contact",
-      class: "3x3 Test Craft",
+      class: "5x3 Test Craft",
       confirmedOnce: true,
       gridCells,
-      placements: [{ sicId: engineId, cell: engineCell }],
-      sicInventory: [{ id: engineId, type: "en-engine-1", status: "installed" }],
+      placements: [{ sicId: engineId, cell: engineCell }, { sicId: `${id}-au-engine-1`, cell: engineCell + 2 }],
+      sicInventory: [{ id: engineId, type: "en-engine-1", status: "installed" }, { id: `${id}-au-engine-1`, type: "au-engine-1", status: "installed" }],
       doorStates: {},
     },
   });
@@ -1170,6 +1170,7 @@ class CampaignApi {
         characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: 4, highestPerceptionDie: 8,
         weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: [8, 8, 6], strengthDice: index === 1 ? [8, 8, 6] : [6, 4],
         projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
+        engineeringSkill: entry.skills.Engineering || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
         location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],

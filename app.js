@@ -1539,6 +1539,7 @@ function shipCombatColumnsMarkup(units) {
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
       <h2 class="ship-combat-title">${escapeHtml(title)}</h2>
+      <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(entry.text)}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
@@ -1571,7 +1572,22 @@ function renderShipCombatColumns() {
       }
     });
   }
+  updateShipAuMeters();
   window.SACombatMap?.renderInlineMaps?.(unitList);
+}
+
+function updateShipAuMeters() {
+  for (const ship of state?.starships || []) {
+    const panel = unitList.querySelector(`[data-ship-combat-lane="${CSS.escape(ship.id)}"] .ship-au-panel`);
+    if (!panel) continue;
+    const meter = ship.auState || { current: 0, maximum: 0, rate: 0, progress: 0 };
+    panel.querySelector('[data-au-count]').textContent = `${meter.current} / ${meter.maximum}`;
+    const full = meter.current >= meter.maximum;
+    panel.querySelector('[data-au-rate]').textContent = meter.maximum ? `${meter.rate}%/sec · ${full ? "Full" : state.hardPaused || !state.running ? "Paused" : "Recharging"}` : "No AU output";
+    panel.querySelector('[data-au-meter]').value = full && meter.maximum ? 100 : meter.progress;
+    const spend = panel.querySelector('[data-spend-au]');
+    if (spend) spend.disabled = meter.current < 1 || spend.dataset.pending === "true";
+  }
 }
 
 function iconStore() {
@@ -4108,6 +4124,13 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.dataset.spendAu && mode === "gm") {
+    button.dataset.pending = "true";
+    button.disabled = true;
+    Promise.resolve(action({ action: "spendShipAu", starshipId: button.dataset.spendAu, amount: 1 }, "tap"))
+      .finally(() => { delete button.dataset.pending; updateShipAuMeters(); });
+    return;
+  }
   if (button.dataset.action === "barColor") {
     const unit = state?.units?.find((entry) => entry.id === button.dataset.id);
     const allowed = mode === "gm" || (mode === "player" && unit?.id === myUnitId);

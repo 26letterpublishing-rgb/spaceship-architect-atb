@@ -162,40 +162,57 @@ function classIconSvg(kind) {
     lips: '<path d="M3 12c3-1 5-5 9-2 4-3 6 1 9 2-3 6-15 6-18 0Zm0 0c5 1 13 1 18 0"/>',
     beaker: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M7 16h10"/>',
     weights: '<path d="M7 12h10"/><rect x="1.5" y="9" width="2.5" height="6" rx=".5"/><rect x="4.5" y="7" width="2.5" height="10" rx=".5"/><rect x="17" y="7" width="2.5" height="10" rx=".5"/><rect x="20" y="9" width="2.5" height="6" rx=".5"/>',
-    knife: '<path class="icon-knife-blade" d="M8.5 15.5 19 3.5h2v4c0 4.5-2.7 8-8 10l-4.5-2Z"/><path d="m9 15-6 6h5l4.5-4.5"/><path class="icon-blood" d="M19 19c0 2-3 2-3 0 0-1 1.5-3 1.5-3s1.5 2 1.5 3Z"/>',
+    knife: '<path class="icon-knife-blade" d="M8 14 21 3c0 8-4 12-10 14Z"/><path d="m9 15-7 5 2 2 7-6"/><path class="icon-blood" d="M20 21c-2 0-2-2 0-5 2 3 2 5 0 5Z"/>',
     bag: '<path d="M5 9h14l1 12H4L5 9Zm4 0c0-5 6-5 6 0"/>',
     robot: '<rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6M3 11v5M21 11v5"/>',
+    spy: '<path d="m5 10 3-7 4 2 4-2 3 7M2 10h20M3 21l5-4 4 3 4-3 5 4M10 13h4"/><circle cx="7" cy="13" r="3"/><circle cx="17" cy="13" r="3"/>',
+    star: '<path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z"/>',
+    dollar: '<path d="M12 2v20M18 6H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8H5" transform="translate(0 -2) scale(1 .95)"/>',
+    decker: '<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3M10 9l-2 3 2 3M14 9l2 3-2 3"/>',
+    bomb: '<circle cx="10" cy="14" r="7"/><path d="m14 8 2-3 3 1M18 2l1 1M22 5h-1M21 9l-1-1M6 12l2-2"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/>',
+    informant: '<path d="M5 3h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-9l-6 4v-4H3V5a2 2 0 0 1 2-2ZM12 10v5M12 7h.01"/>',
+    mastermind: '<path d="M12 4c-3-4-8-1-7 2-4 1-4 6-1 7-1 4 4 6 8 3 4 3 9 1 8-3 3-1 3-6-1-7 1-3-4-6-7-2Zm0 0v12M7 7l2 2M17 7l-2 2M7 13h2M15 13h2M12 17v3M5 22v-2h14v2"/>',
+    medic: '<path d="M8 2h8v6h6v8h-6v6H8v-6H2V8h6Z"/>',
+    compass: '<circle cx="12" cy="12" r="10"/><path d="m16 6-2 8-6 4 2-8Z"/>',
+    ninja: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/><circle cx="12" cy="12" r="2"/>',
+    peace: '<circle cx="12" cy="12" r="10"/><path d="M12 2v20M4 18l8-8 8 8"/>',
+    pirate: '<path d="M7 14v3h10v-3c7-8-2-15-5-11-3-4-12 3-5 11ZM4 19l16 3M4 22l16-3M10 14v3M14 14v3"/><circle cx="8" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',
+    rogue: '<path d="M12 2 3 9v7l9 6 9-6V9L12 2ZM3 9l9 3 9-3M7 14l2 1M17 14l-2 1M10 19h4"/>',
+    binoculars: '<path d="m3 16 2-10h4l1 10M14 16l1-10h4l2 10M10 12h4M7 6V3h3v5M17 6V3h-3v5"/><circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/>',
+    pawn: '<circle cx="12" cy="5" r="3"/><path d="M8 10h8M10 10c0 5-1 6-3 8h10c-2-2-3-3-3-8M6 18v3h12v-3"/>',
+    question: '<circle cx="12" cy="12" r="10"/><path d="M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4M12 18h.01"/>',
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[kind] || icons.x}</svg>`;
 }
 
 const CLASS_CARD_PROFILES = {
   "": { icon: classIconSvg("x"), preview: "Still deciding what kind of trouble suits you.", color: "#8293a2" },
-  "ambassador-spy": { icon: "&#9678;", preview: "Always knows what to say, and what not to say.", color: "#e774c8" },
-  blessed: { icon: "&#10022;", preview: "Seems luck is on your side.", color: "#f4d75d" },
-  "corporate-worker": { icon: "$", preview: "Everything has a price, especially loyalty.", color: "#70dc9c" },
-  decker: { icon: "&lt;/&gt;", preview: "Treats locked systems as personal invitations.", color: "#4ed8ed" },
-  "demolition-specialist": { icon: "&#10038;", preview: "Used to play with lighters as a kid.", color: "#ff774f" },
+  "ambassador-spy": { icon: classIconSvg("spy"), preview: "Always knows what to say, and what not to say.", color: "#e774c8" },
+  blessed: { icon: classIconSvg("star"), preview: "Seems luck is on your side.", color: "#f4d75d" },
+  "corporate-worker": { icon: classIconSvg("dollar"), preview: "Everything has a price, especially loyalty.", color: "#70dc9c" },
+  decker: { icon: classIconSvg("decker"), preview: "Treats locked systems as personal invitations.", color: "#4ed8ed" },
+  "demolition-specialist": { icon: classIconSvg("bomb"), preview: "Used to play with lighters as a kid.", color: "#ff774f" },
   engineer: { icon: classIconSvg("wrench"), preview: "Keeps machines alive through talent and stubbornness.", color: "#58d8aa" },
-  gunner: { icon: "&#8853;", preview: "Good with guns and weapon stations.", color: "#ff5c70" },
+  gunner: { icon: classIconSvg("target"), preview: "Good with guns and weapon stations.", color: "#ff5c70" },
   heavy: { icon: classIconSvg("weights"), preview: "Carries the weapon everyone else called impractical.", color: "#b6a58b" },
-  informant: { icon: "&#8981;", preview: "Knows somebody everywhere.", color: "#9aa8ff" },
-  "marine-soldier": { icon: "&#9733;", preview: "Trained to keep fighting when everyone else stops.", color: "#83b777" },
-  mastermind: { icon: "&#9004;", preview: "Already planned for this three problems ago.", color: "#b783ff" },
-  "medical-officer": { icon: "+", preview: "Keeps the crew breathing despite their best efforts.", color: "#62e2b3" },
-  "navigator-sensor-tech": { icon: "&#8982;", preview: "Finds the path and sees trouble coming.", color: "#5bc7ff" },
-  ninja: { icon: "&#9670;", preview: "Was never there. Definitely did not touch anything.", color: "#8d7ed2" },
-  peacekeeper: { icon: "&#9774;", preview: "Prefers words, but came prepared.", color: "#7ee0d9" },
-  pirate: { icon: "&#9760;", preview: "Finders keepers is a professional philosophy.", color: "#d59a61" },
+  informant: { icon: classIconSvg("informant"), preview: "Knows somebody everywhere.", color: "#9aa8ff" },
+  "marine-soldier": { icon: classIconSvg("star"), preview: "Trained to keep fighting when everyone else stops.", color: "#83b777" },
+  mastermind: { icon: classIconSvg("mastermind"), preview: "Already planned for this three problems ago.", color: "#b783ff" },
+  "medical-officer": { icon: classIconSvg("medic"), preview: "Keeps the crew breathing despite their best efforts.", color: "#62e2b3" },
+  "navigator-sensor-tech": { icon: classIconSvg("compass"), preview: "Finds the path and sees trouble coming.", color: "#5bc7ff" },
+  ninja: { icon: classIconSvg("ninja"), preview: "Was never there. Definitely did not touch anything.", color: "#8d7ed2" },
+  peacekeeper: { icon: classIconSvg("peace"), preview: "Prefers words, but came prepared.", color: "#7ee0d9" },
+  pirate: { icon: classIconSvg("pirate"), preview: "Finders keepers is a professional philosophy.", color: "#d59a61" },
   "playboy-minx": { icon: classIconSvg("lips"), preview: "Charm first. Consequences later.", color: "#ff73b6" },
   psychopath: { icon: classIconSvg("knife"), preview: "Violence is rarely the first answer.", color: "#df5268" },
   "robotics-worker": { icon: classIconSvg("robot"), preview: "Understands machines better than most people.", color: "#69c8d8" },
-  "rogue-drifter": { icon: "&#8605;", preview: "Never stays anywhere long enough to be blamed.", color: "#d0b278" },
+  "rogue-drifter": { icon: classIconSvg("rogue"), preview: "Never stays anywhere long enough to be blamed.", color: "#d0b278" },
   "science-officer": { icon: classIconSvg("beaker"), preview: "Has a hypothesis and very little fear.", color: "#62b4ff" },
-  "scout-sniper": { icon: "&#9673;", preview: "Sees the danger before it sees the crew.", color: "#92c66f" },
+  "scout-sniper": { icon: classIconSvg("binoculars"), preview: "Sees the danger before it sees the crew.", color: "#92c66f" },
   smuggler: { icon: classIconSvg("bag"), preview: "Can get almost anything past almost anyone.", color: "#e1a65c" },
-  tactician: { icon: "&#9823;", preview: "Turns a group of individuals into a plan.", color: "#8fa8ff" },
-  other: { icon: "?", preview: "Does not fit cleanly into anyone else's category.", color: "#d27ee8" },
+  tactician: { icon: classIconSvg("pawn"), preview: "Turns a group of individuals into a plan.", color: "#8fa8ff" },
+  other: { icon: classIconSvg("question"), preview: "Does not fit cleanly into anyone else's category.", color: "#d27ee8" },
 };
 const CAMPAIGN_CACHE_PREFIX = "sa-character-campaign-cache-v1-";
 const CAMPAIGN_CHARACTER_PREFIX = "sa-character-local-v1-";
@@ -2151,7 +2168,8 @@ function renderPlayerStarships(force = false) {
       const destinationStation = active && starshipMoveDraft.destination !== null ? playerShipStationAt(record, starshipMoveDraft.destination, starshipMoveDraft.destinationMesh) : null;
       const ready = active && starshipMoveDraft.locked && !starshipMoveDraft.invalid && (starshipMoveDraft.path?.length || starshipMoveDraft.sameSquareMove);
       const hullMax = Number(ship.maximumHullHp ?? ship.confirmed?.maximumHullHp) || hull.size; const hullCurrent = Number(ship.currentHullHp ?? ship.confirmed?.currentHullHp) || hullMax; const shieldMax = Number(ship.maximumShieldHp ?? ship.confirmed?.maximumShieldHp) || 0; const shieldCurrent = Number(ship.currentShieldHp ?? ship.confirmed?.currentShieldHp) || shieldMax; const en = (ship.placements || []).reduce((total, placement) => { const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); return total + Number(window.SAShipMap.definition(item?.type).output || 0); }, 0);
-      const stats = [["Hull", `${hullCurrent}/${hullMax}`], ["Shield", `${shieldCurrent}/${shieldMax}`], ["EN", en], ["AU", ship.availableAu ?? ship.au ?? 0], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", ship.moveSpeed ?? ship.movement ?? 0], ["Detection", ship.sensorRange ?? ship.detection ?? 0], ["Security", ship.firewallLevel ?? ship.security ?? 0], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${escapeHtml(value)}</strong></span>`).join("");
+      const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaignState.characters));
+      const stats = [["Hull", `${hullCurrent}/${hullMax}`], ["Shield", `${shieldCurrent}/${shieldMax}`], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", ship.moveSpeed ?? ship.movement ?? 0], ["Detection", ship.sensorRange ?? ship.detection ?? 0], ["Security", ship.firewallLevel ?? ship.security ?? 0], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${escapeHtml(value)}</strong></span>`).join("");
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : "";
       const movementActions = gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`;
       return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls"><label><input type="checkbox" data-player-ship-view="labels" ${playerShipMapView.labels ? "checked" : ""}/> Labels</label><label><input type="checkbox" data-player-ship-view="highResolution" ${playerShipMapView.highResolution ? "checked" : ""}/> High Resolution</label><label><input type="checkbox" data-player-ship-view="combatMesh" ${playerShipMapView.combatMesh ? "checked" : ""}/> Combat Mesh</label><label><input type="checkbox" data-player-ship-view="walls" ${playerShipMapView.walls ? "checked" : ""}/> Walls &amp; Doors</label><label><input type="checkbox" data-player-ship-view="stations" ${playerShipMapView.stations ? "checked" : ""}/> Stations</label></div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}</aside></div></article>`;

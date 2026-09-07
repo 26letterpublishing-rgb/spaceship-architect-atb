@@ -63,10 +63,41 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     assert.deepEqual(assigned.starship.crewCharacterIds, [owner]);
   }
   await post("starship/crew", { code, token: playerTokens[1], characterId: "http-bram", starshipId: "http-gm-ship", crewCharacterIds: ["http-bram"] }, 403);
+  const combat = async (payload, expected = 200) => {
+    const response = await fetch(`${base}/api/action`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: code, gmToken: token, ...payload }) });
+    const state = await response.json();
+    assert.equal(response.status, expected, JSON.stringify(state));
+    return state;
+  };
+  const auShip = { id: "http-gm-ship", title: "AU Test", crewCharacterIds: ["http-aster"], ship: {
+    gridCells: Array.from({ length: 16 }, (_, i) => Math.floor(i / 4) * 20 + i % 4),
+    placements: [{ sicId: "au", cell: 0 }], sicInventory: [{ id: "au", type: "au-engine-4" }],
+  } };
+  let encounter = await combat({ action: "syncEncounterStarships", starships: [auShip] });
+  assert.equal(encounter.starships[0].auState.current, 25);
+  await combat({ action: "addUnit", characterName: "AU Clock Test", playerName: "GM", team: "npc", speed: 1, commandWindow: 10,
+    location: { starshipId: auShip.id, square: 0, mesh: 4 } });
+  await combat({ action: "toggleClock" });
+  encounter = await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 2 });
+  assert.equal(encounter.starships[0].auState.current, 23);
+  assert.equal(encounter.log.at(-1).starshipId, auShip.id);
+  await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 1, gmToken: "", characterId: "http-aster", characterToken: playerTokens[0] }, 403);
+  // A normal ship sync must never restore spent AU from a stale client snapshot.
+  encounter = await combat({ action: "syncEncounterStarships", starships: [{ ...auShip, auState: { current: 25, progress: 0 } }] });
+  assert.equal(encounter.starships[0].auState.current, 23);
+  await new Promise(resolve => setTimeout(resolve, 4250));
+  encounter = await combat({ action: "setHardPaused", paused: true });
+  assert.equal(encounter.starships[0].auState.current, 24);
+  const paused = encounter.starships[0].auState.progress;
+  await new Promise(resolve => setTimeout(resolve, 250));
+  encounter = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  assert.equal(encounter.starships[0].auState.progress, paused);
+  await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 999 }, 409);
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }
-  for (const file of ["/", "/ship-map-presentation.css", "/ship-map-core.js", "/life-support-floor-plan.png", "/nutritional-supplement-floor-plan.png", "/data/weapons.json"]) {
+  for (const file of ["/", "/ship-map-presentation.css", "/ship-map-core.js", "/ship-power.js", "/au-engine-6-floor-plan.png", "/life-support-floor-plan.png", "/nutritional-supplement-floor-plan.png", "/data/weapons.json"]) {
     assert.equal((await fetch(base + file)).status, 200, file);
   }
 });

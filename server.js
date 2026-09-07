@@ -20,6 +20,7 @@ const {
   tickCombatTimers,
 } = require("./combat-engine");
 const combatRules = require("./combat-rules");
+const shipPower = require("./ship-power");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -72,6 +73,8 @@ function normalizeEncounterStarships(value) {
       id: String(entry?.id || "").slice(0, 120),
       type: String(entry?.type || "").slice(0, 80),
       status: String(entry?.status || "").slice(0, 40),
+      impaired: Boolean(entry?.impaired),
+      disabled: Boolean(entry?.disabled),
     }));
     const doorStates = {};
     for (const [key, state] of Object.entries(ship.doorStates && typeof ship.doorStates === "object" ? ship.doorStates : {})) {
@@ -83,6 +86,7 @@ function normalizeEncounterStarships(value) {
       controlType: record?.controlType === "gm" ? "gm" : "pc",
       crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
       ship: { gridCells, placements, sicInventory, doorStates },
+      auState: record?.auState ? { current: record.auState.current, progress: record.auState.progress } : null,
     };
   }).filter((record) => record.id);
 }
@@ -194,6 +198,7 @@ function scheduleRoomPersist(room, delay = 250) {
 }
 
 function publicState(room) {
+  shipPower.refresh(room);
   migrateRoomDelays(room);
   const command = commandState(room);
   return {
@@ -236,8 +241,8 @@ function resetShowcaseRoom(room) {
   return true;
 }
 
-function pushLog(room, text) {
-  room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text });
+function pushLog(room, text, context = {}) {
+  room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text, ...context });
   room.log = room.log.slice(-80);
 }
 
@@ -754,6 +759,7 @@ function restoreUndoSnapshot(room) {
 }
 
 const gmUndoableActions = new Set([
+  "spendShipAu",
   "addUnit",
   "removeUnit",
   "syncCampaignUnits",
@@ -1235,6 +1241,7 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
+  shipPower.advance(room, seconds * multiplier);
   const completedEvents = [];
   tickAreaEffects(room, seconds, multiplier);
   for (const unit of room.units) {
@@ -1629,7 +1636,10 @@ async function handleAction(req, res) {
   }
 
   if (action === "syncEncounterStarships") {
+    const previous = new Map((room.starships || []).map(ship => [ship.id, ship.auState]));
     room.starships = normalizeEncounterStarships(body.starships);
+    room.starships.forEach(ship => { ship.auState = previous.get(ship.id) || null; });
+    shipPower.refresh(room);
     pushLog(room, `${room.starships.length} starship${room.starships.length === 1 ? "" : "s"} synchronized for combat.`);
   }
 
@@ -1643,6 +1653,14 @@ async function handleAction(req, res) {
     unit.travelRoute = [];
     unit.timedAction = null;
     pushLog(room, `${unit.characterName} was relocated by the GM.`);
+  }
+
+  if (action === "spendShipAu") {
+    if (!shipPower.spend(room, String(body.starshipId || ""), Number(body.amount))) {
+      sendJson(res, 409, { error: "The ship does not have that much AU available." }); return;
+    }
+    const ship = room.starships.find(record => record.id === body.starshipId);
+    pushLog(room, `${ship.title} spent ${Number(body.amount)} AU.`, { starshipId: ship.id });
   }
 
   if (action === "stopTravel") {
@@ -2107,6 +2125,7 @@ async function handleAction(req, res) {
       } else {
         room.running = true;
         room.resumeAfterTurn = true;
+        if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
         room.hasEngagedClock = true;
         room.lastTick = Date.now();
         pushLog(room, "Clock started.");
@@ -2134,6 +2153,7 @@ async function handleAction(req, res) {
       if (shouldEngageDormantClock) {
         room.running = true;
         room.resumeAfterTurn = true;
+        if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
         room.hasEngagedClock = true;
         room.lastTick = Date.now();
         pushLog(room, "Clock started.");
@@ -2145,6 +2165,7 @@ async function handleAction(req, res) {
     } else {
       room.running = true;
       room.resumeAfterTurn = true;
+      if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
       room.hasEngagedClock = true;
       room.lastTick = Date.now();
       pushLog(room, "Clock started.");
@@ -2280,6 +2301,7 @@ async function handleAction(req, res) {
   }
 
   if (action === "reset") {
+    shipPower.refresh(room, { reset: true });
     room.attackResolution = null;
     room.itemResolution = null;
     room.vehicles = [];

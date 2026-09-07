@@ -39,6 +39,7 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Ship combat and surface combat are separate encounter modes. In ship combat, every combatant is aboard a ship.
 - A combatant may target only characters aboard the same ship. Future boarding rules may move invaders between ship columns, but do not infer those rules early.
 - GM and PC views must receive live turn updates without requiring a perspective switch or manual refresh.
+- `ship-power.js` owns shared EN/AU output and server-driven AU recharge. AU rating sets capacity and percent per combat second; stop at cap and obey the combat clock. Never refill spent AU during routine ship synchronization.
 - The GM must retain a visible notification, Command Window countdown, and confirmed ability to act for a disconnected player.
 - Turn controls should not hide the ATB rings or ship map. Desktop action panels are compact and collapsible.
 
@@ -82,5 +83,6 @@ Invoke-RestMethod -Method Post -Uri "https://ntfy.sh/SPACESHIPATB" -Headers @{ T
 - `character.js`: character creation, player campaign interface, and PC ship view
 - `starship.js`: Construction Bay and SIC placement
 - `ship-map-core.js`: shared ship topology, doors, floorplans, stations, and movement helpers
+- `ship-power.js`: installed engine output, occupied-station bonuses, and AU capacity/recharge
 - `ship-combat-map.js`: combat ship-map presentation and interaction
 - `tests/`: combat location, ship-map, and crew persistence regression tests

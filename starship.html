@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260907-compact-cards-1" />
+    <link rel="stylesheet" href="starship.css?v=20260907-au-class-1" />
     <link rel="stylesheet" href="ship-map-presentation.css?v=20260907-shared-1" />
   </head>
   <body>
@@ -46,14 +46,15 @@
 
       <section class="starship-panel is-active" data-starship-panel="sheet">
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
-        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260824-shipyard4" alt="Spaceship Architect starship sheet" />
+        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260907-au-class-1" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
           <text data-live-stat="hull" x="139" y="84">0</text>
           <text data-live-stat="hull" x="179.5" y="86">0</text>
           <text data-live-stat="en" data-en-part="available" x="446" y="185">0</text>
           <text data-live-stat="en" data-en-part="max" x="478" y="185">0</text>
+          <text data-live-stat="au" x="568" y="186" font-size="16">0</text>
           <text data-live-stat="credits" x="511" y="27">999,999</text>
-          <path class="hsm-charge-glow" transform="translate(-22 0)" d="M330 27 L355 25 L355 48 L330 46 Z" />
+          <path class="hsm-charge-glow" d="M319.92 28.289V46.542L355.503 48.877V25.954Z" />
           <text data-live-stat="hsm" x="374" y="37.5">--</text>
         </svg>
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -142,12 +143,12 @@
       <section class="mobile-sheet" aria-label="Mobile starship sheet">
         <article class="mobile-blueprint resistance-mobile">
           <h2>Resistance</h2>
-          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
+          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
         </article>
         <article class="mobile-blueprint mobility-mobile">
           <h2>Defense &amp; Mobility</h2>
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
-            <image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" />
+            <image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" />
             <g class="mobile-thruster-overlay" aria-hidden="true">
               <rect class="mobile-thruster-label-mask" x="246" y="122" width="55" height="22" rx="2" />
               <g class="mobile-thruster-needle" transform="translate(-25 0)">
@@ -156,7 +157,7 @@
               </g>
               <g transform="translate(-25 0)"><text x="286" y="133"># OF</text><text x="286" y="139">THRUSTERS</text></g>
             </g>
-            <g class="mobile-live-stats"><path class="hsm-charge-glow" transform="translate(-22 0)" d="M330 27 L355 25 L355 48 L330 46 Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
+            <g class="mobile-live-stats"><path class="hsm-charge-glow" d="M319.92 28.289V46.542L355.503 48.877V25.954Z" /><text data-live-stat="hsm" x="374" y="37.5">--</text></g>
           </svg>
         </article>
         <section class="mobile-compact-systems" aria-label="Detection and digital security">
@@ -177,12 +178,12 @@
           <strong>Power</strong>
           <dl>
             <div class="mobile-power-en"><dt>EN</dt><dd><span data-live-stat="en" data-en-part="available">0</span><i aria-hidden="true">/</i><span data-live-stat="en" data-en-part="max">0</span></dd></div>
-            <div class="mobile-power-au"><dt>AU</dt><dd>0</dd></div>
+            <div class="mobile-power-au"><dt>AU</dt><dd data-live-stat="au">0</dd></div>
           </dl>
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
-          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
+          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint credits-mobile">
           <h2>Group Credits</h2>
@@ -264,7 +265,7 @@
           <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
           <footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer>
         </section>
-        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg></article>
+        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg></article>
         <article class="mobile-blueprint reputation-mobile">
           <h2>Reputation</h2>
           <svg class="mobile-reputation-chart reputation-chart" viewBox="0 0 620 292" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -286,7 +287,7 @@
         </article>
         <article class="mobile-blueprint minerals-mobile">
           <h2>Minerals</h2>
-          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260824-shipyard4" width="612" height="792" /></svg>
+          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg>
         </article>
       </section>
       <section class="purchased-sic-shelf" aria-label="Purchased SIC cards">
@@ -369,7 +370,8 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="ship-map-core.js?v=20260907-shared-1"></script>
-    <script src="starship.js?v=20260907-shared-1"></script>
+    <script src="ship-map-core.js?v=20260907-au-1"></script>
+    <script src="ship-power.js?v=20260907-au-1"></script>
+    <script src="starship.js?v=20260907-au-class-1"></script>
   </body>
 </html>
