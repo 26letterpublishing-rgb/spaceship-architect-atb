@@ -49,6 +49,12 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Linked ships expose crew assignment to the GM. Any campaign character can be assigned, and assignments persist.
 - Player Starships shows every linked ship on which that character is crew.
 
+### Demo Isolation
+
+- Explore Features character storage is session-scoped through `character-storage.js`; never write demo characters, active-character pointers, or campaign selection into the personal library.
+- The main-menu Create/View Character link opens `character.html?library=1`, without automatically resuming a campaign. Keep New Character accessible there.
+- Opening a campaign character must preserve other saved characters in the personal library.
+
 ## Verification
 
 Run the focused checks appropriate to the change and always run the full test suite before publishing:

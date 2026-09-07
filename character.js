@@ -22,6 +22,10 @@ import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tab
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 import { RACE_LORE } from "./race-lore-data.js?v=20260830-race-lore-1";
+import "./character-storage.js?v=20260907-demo-isolation-1";
+
+// All character persistence in Explore Features stays out of the personal library.
+const localStorage = window.SACharacterStorage.selectStorage(window.localStorage, window.sessionStorage, location.search);
 
 const {
   DRAMA_CARD_COST = 4,
@@ -1977,7 +1981,8 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   if (CAMPAIGN_READ_ONLY_VIEW) {
     character = opened;
   } else {
-    library = [opened];
+    library = library.filter(entry => entry.id !== opened.id);
+    library.push(opened);
     activeId = opened.id;
     character = opened;
   }
@@ -8732,7 +8737,7 @@ async function initializeCharacterApp() {
   const explicitNewCharacter = params.get("new") === "1";
   document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
   document.body.classList.toggle("gm-ship-view", GM_SHIP_VIEW);
-  const requestedCode = String(params.get("campaign") || (explicitNewCharacter ? "" : localStorage.getItem("sa-character-campaign-code")) || "").trim().toUpperCase();
+  const requestedCode = String(params.get("campaign") || (explicitNewCharacter || params.get("library") === "1" ? "" : localStorage.getItem("sa-character-campaign-code")) || "").trim().toUpperCase();
   const gmAccess = params.get("gm") === "1";
   const rememberedCharacter = !gmAccess && requestedCode
     ? library.find((entry) => entry.id === activeId && entry.campaignLink?.roomCode === requestedCode)?.id || ""

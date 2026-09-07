@@ -5,7 +5,7 @@ const browserScripts = new Set([
   "combat-actions.js", "combat-engine.js", "combat-rules.js", "data-reset.js",
   "dice-roller.js", "drama-card-data.js", "fubs-data.js", "gear-data.js", "gm.js",
   "npc-combat-dice.js", "race-lore-data.js", "ship-map-core.js", "ship-combat-map.js",
-  "showcase.js", "starship.js", "weapon-data.js", "ship-power.js",
+  "showcase.js", "starship.js", "weapon-data.js", "ship-power.js", "character-storage.js",
 ]);
 const publicData = new Set(["data/weapons.json", "data/npc-templates.json"]);
 const vendorScripts = new Set(["vendor/three.module.min.js", "vendor/three.core.min.js", "vendor/cannon-es.js"]);
