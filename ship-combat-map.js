@@ -250,15 +250,11 @@
   }
 
   function boundaryMarkup(ship, layout, square) {
-    return window.SAShipMap.SIDES.map((side) => {
-      const boundary = layout.boundary(square, side.name);
-      const axis = side.name === "top" || side.name === "bottom" ? "horizontal" : "vertical";
-      if (boundary.kind === "wall") return `<i class="combat-wall ${side.name} ${axis}"></i>`;
-      if (boundary.kind !== "door") return "";
-      const autoOpen = (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(boundary.key));
-      const open = ship.ship.doorStates?.[boundary.key] === "open" || autoOpen;
-      return `<i class="combat-wall ${side.name} ${axis} start"></i><i class="combat-wall ${side.name} ${axis} end"></i><button type="button" class="combat-door ${side.name} ${axis} ${open ? "open" : ""}" data-combat-door="${boundary.key}" aria-label="${open ? "Close" : "Open"} door"><i></i><i></i></button>`;
-    }).join("");
+    return window.SAShipMap.boundaryMarkup(layout, square, {
+      isOpen: (key) => ship.ship.doorStates?.[key] === "open"
+        || (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(key)),
+      doorAttributes: (key) => ({ "data-combat-door": key }),
+    });
   }
 
   function pointCoordinates(point) {
@@ -440,15 +436,24 @@
       <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
   }
 
-  function renderInlineMaps(root = document) {
+  const inlineMarkupCache = new WeakMap();
+
+  function renderInlineMaps(root = document, force = false) {
     root.querySelectorAll?.("[data-inline-ship-map]").forEach((host) => {
       const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
       const lane = host.closest(".ship-combat-lane");
       const target = interaction === "move" && selectedShipId === record?.id;
       lane?.classList.toggle("inline-move-target", target);
-      if (interaction === "move") lane?.style.setProperty("display", target ? "grid" : "none", "important");
-      else lane?.style.removeProperty("display");
-      if (record) host.innerHTML = inlineMapMarkup(record);
+      if (!record) return;
+      if (target && !force && host.querySelector("[data-inline-confirm-move]")) {
+        refreshInlinePreview(host);
+        return;
+      }
+      const markup = inlineMapMarkup(record);
+      if (inlineMarkupCache.get(host) !== markup) {
+        host.innerHTML = markup;
+        inlineMarkupCache.set(host, markup);
+      }
     });
   }
 
@@ -641,7 +646,7 @@
     const inlineHost = event.target.closest?.("[data-inline-ship-map]");
     if (inlineHost) {
       const view = event.target.closest("[data-inline-map-view]");
-      if (view) { mapView[view.dataset.inlineMapView] = view.checked; renderInlineMaps(); return; }
+      if (view) { mapView[view.dataset.inlineMapView] = view.checked; renderInlineMaps(document, true); return; }
       const door = event.target.closest("[data-combat-door]");
       if (door) {
         const unit = mode === "player" ? combatState?.units?.find((entry) => entry.id === myUnitId) : selectedUnit();

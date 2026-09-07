@@ -696,13 +696,17 @@ function renderStarships() {
   dom.starshipCount.textContent = `${ships.length} Starship${ships.length === 1 ? "" : "s"}`;
   dom.starshipList.innerHTML = ships.length ? ships.map((record) => {
     const hull = record.ship?.confirmed?.gridCells?.length ?? record.ship?.gridCells?.length ?? 0;
-    const engines = record.ship?.confirmed?.placements?.length ?? record.ship?.placements?.length ?? 0;
+    const ship = record.ship || {};
+    const energy = (ship.confirmed?.placements ?? ship.placements ?? []).reduce((total, placement) => {
+      const item = (ship.sicInventory || []).find(entry => entry.id === placement.sicId);
+      return total + Number(window.SAShipMap.definition(item?.type).output || 0);
+    }, 0);
     const crew = new Set(record.crewCharacterIds || []);
     const npcCrew = new Set(record.crewNpcUnitIds || []);
     const npcUnits = (encounterState?.units || []).filter((unit) => unit.team === "npc");
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}">
       <header><div><h3>${escapeHtml(record.title || "Untitled Starship")}</h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
-      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${engines * 5}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
+      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${energy}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Who Controls This Ship?<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled - visible to assigned PCs</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled - hidden from players</option></select></label>
       <div class="gm-starship-crew-groups">
         <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
@@ -719,6 +723,8 @@ function renderStarships() {
 }
 
 function openCampaignStarshipEditor(starshipId = "") {
+  dom.starshipViewer.hidden = true;
+  dom.starshipViewerFrame.removeAttribute("src");
   const parameters = new URLSearchParams({ campaign: code, embedded: "gm" });
   if (starshipId) parameters.set("ship", starshipId);
   else parameters.set("new", "1");
@@ -2002,6 +2008,16 @@ dom.reshuffleDramaCards?.addEventListener("click", async () => {
 });
 
 window.addEventListener("message", async (event) => {
+  if (event.origin === location.origin && event.source === dom.starshipViewerFrame?.contentWindow && event.data?.type === "sa-character-sheet-height") {
+    const height = Number(event.data.height);
+    if (Number.isFinite(height) && height > 0) dom.starshipViewerFrame.style.height = `${Math.min(20000, Math.ceil(height))}px`;
+    return;
+  }
+  if (event.origin === location.origin && event.source === dom.starshipViewerFrame?.contentWindow && event.data?.type === "sa-edit-starship") {
+    const starshipId = event.data.starshipId;
+    if (campaign?.starships?.some((ship) => ship.id === starshipId)) openCampaignStarshipEditor(starshipId);
+    return;
+  }
   if (event.origin !== location.origin || event.source !== dom.adjustmentFrame.contentWindow) return;
   if (!["sa-gm-adjustment-saved", "sa-gm-adjustment-cancelled"].includes(event.data?.type)) return;
   dom.adjustmentModal.hidden = true;

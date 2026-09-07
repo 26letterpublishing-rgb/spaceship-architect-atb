@@ -4,6 +4,7 @@ const path = require("path");
 const os = require("os");
 const { CampaignStore } = require("./campaign-store");
 const { CampaignApi } = require("./campaign-api");
+const { resolvePublicAsset } = require("./public-assets");
 const {
   applyNpcSimplifiedStats,
   combatEventTimes,
@@ -1480,12 +1481,10 @@ function contentType(filePath) {
 
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  let filePath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-  filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
-  const absolute = path.join(PUBLIC_DIR, filePath);
-  if (!absolute.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403);
-    res.end("Forbidden");
+  const absolute = resolvePublicAsset(PUBLIC_DIR, url.pathname);
+  if (!absolute) {
+    res.writeHead(404);
+    res.end("Not found");
     return;
   }
   fs.readFile(absolute, (error, data) => {
@@ -2589,6 +2588,7 @@ async function startServer() {
     },
   });
   server.listen(PORT, HOST, () => {
+    const listeningPort = server.address().port;
     const addresses = [];
     for (const entries of Object.values(os.networkInterfaces())) {
       for (const entry of entries || []) {
@@ -2597,8 +2597,8 @@ async function startServer() {
     }
     console.log("Spaceship Architect campaign and ATB server running");
     console.log(`Campaign storage: ${campaignStore.mode}`);
-    console.log(`Local:   http://127.0.0.1:${PORT}`);
-    for (const address of addresses) console.log(`Phone:   http://${address}:${PORT}`);
+    console.log(`Local:   http://127.0.0.1:${listeningPort}`);
+    for (const address of addresses) console.log(`Phone:   http://${address}:${listeningPort}`);
   });
 }
 

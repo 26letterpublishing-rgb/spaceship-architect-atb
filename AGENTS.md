@@ -6,6 +6,10 @@ Spaceship Architect is a multiplayer tabletop RPG companion for campaign managem
 
 Treat the existing application as one shared product. Do not create separate desktop and mobile implementations unless the user explicitly requests that architecture.
 
+Gold Standard folders are frozen: do not edit, replace, or refresh them. Create a future Diamond Standard snapshot only after explicit user approval of a stable build. Wired Downgrade is retired; do not implement it. Connector Cable's future is undecided.
+
+Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansion. It summarizes the core rulebook and both SIC catalogs, records unresolved source discrepancies, and distinguishes printed rules from approved digital changes. Initiative and action timing are intentionally computer-driven; do not restore the book's tabletop turn order.
+
 ## How To Work
 
 - Read the relevant implementation and reproduce the reported behavior before changing it.
@@ -62,7 +66,13 @@ Do not edit or commit `data/campaigns.json`; it contains local playtest state.
 
 ## Publishing
 
-When the user says `#commit`, complete the requested work, verify it, commit it, and push `main` to `origin`. Report the commit hash and any checks that could not be run. Update or create a Gold Standard backup only when the user asks for one.
+When the user says `#commit`, complete the requested work, verify it, commit it, and push `main` to `origin`. Report the commit hash and any checks that could not be run. Gold Standard remains frozen; do not refresh it.
+
+After all task work, verification, publishing, and cleanup are complete, send the user's completion notification as the final tool action. Do not send intermediate or incomplete-task notifications:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "https://ntfy.sh/SPACESHIPATB" -Headers @{ Title = "Codex Finished" } -Body "Your Codex task is complete."
+```
 
 ## Code Map
 

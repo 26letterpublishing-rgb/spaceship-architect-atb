@@ -1,0 +1,141 @@
+/* Shared map geometry. Keep these classes independent of page button themes. */
+.desktop-grid-viewport,.mobile-grid-viewport {overflow:clip}
+.ship-grid .ship-grid-cell {
+  overflow:visible;
+  isolation:auto;
+  z-index:auto;
+}
+.sic-station-marker {border-width:.5px!important}
+.sa-map-wall,
+.sa-map-door {
+  box-sizing:border-box;
+  position:absolute;
+  inset:auto;
+  display:block;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  filter:none;
+  transform:none;
+}
+.sa-map-wall {
+  z-index:14;
+  background:#f8fbff;
+  pointer-events:none;
+}
+.sa-map-wall.horizontal {left:0;right:0;height:3%;width:auto}
+.sa-map-wall.vertical {top:0;bottom:0;width:3%;height:auto}
+.sa-map-wall.top {top:-1.5%}
+.sa-map-wall.bottom {bottom:-1.5%}
+.sa-map-wall.left {left:-1.5%}
+.sa-map-wall.right {right:-1.5%}
+.sa-map-wall.horizontal.start {right:70%}
+.sa-map-wall.horizontal.end {left:70%}
+.sa-map-wall.vertical.start {bottom:70%}
+.sa-map-wall.vertical.end {top:70%}
+
+/* Explicit dimensions prevent inherited full-cell buttons stretching doors. */
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door {
+  position:absolute;
+  inset:auto;
+  z-index:15;
+  display:block;
+  min-width:0;
+  min-height:0;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  filter:none;
+  transform:none;
+  transition:none;
+  overflow:hidden;
+  opacity:1;
+  touch-action:manipulation;
+  cursor:pointer;
+}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.horizontal {left:30%;width:40%;height:7%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.vertical {top:30%;width:7%;height:40%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.top {top:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.bottom {bottom:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.left {left:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.right {right:-3.5%}
+.sa-map-door::before,.sa-map-door::after {content:none!important}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door:is(:hover,:active,:focus) {
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  filter:none;
+  transform:none;
+}
+.sa-map-door > .sa-door-leaf {
+  box-sizing:border-box;
+  position:absolute;
+  display:block;
+  background:#7f8b95;
+  border:1px solid #bac8d2;
+  box-shadow:inset 0 0 0 1px #46535d;
+  transition:transform .36s cubic-bezier(.22,.72,.2,1);
+  pointer-events:none;
+}
+.sa-map-door.horizontal > .sa-door-leaf {top:0;width:50%;height:100%}
+.sa-map-door.horizontal > .sa-door-leaf:first-child {left:0}
+.sa-map-door.horizontal > .sa-door-leaf:last-child {right:0}
+.sa-map-door.vertical > .sa-door-leaf {left:0;width:100%;height:50%}
+.sa-map-door.vertical > .sa-door-leaf:first-child {top:0}
+.sa-map-door.vertical > .sa-door-leaf:last-child {bottom:0}
+.sa-map-door.is-open.horizontal > .sa-door-leaf:first-child {transform:translateX(-105%)}
+.sa-map-door.is-open.horizontal > .sa-door-leaf:last-child {transform:translateX(105%)}
+.sa-map-door.is-open.vertical > .sa-door-leaf:first-child {transform:translateY(-105%)}
+.sa-map-door.is-open.vertical > .sa-door-leaf:last-child {transform:translateY(105%)}
+.sa-map-door:focus-visible {outline:2px solid #58dff4;outline-offset:2px}
+.sa-map-door[aria-disabled="true"] {cursor:not-allowed}
+.sic-station-marker,.player-ship-station,.combat-station-marker {box-sizing:border-box;border:1px solid #b9d3da;box-shadow:none}
+.player-ship-station.occupied,.combat-station-marker.occupied {border-width:1px;z-index:20}
+
+/* A movement square is a hit target, not a themed application button. */
+:is(.combat-mesh,.player-ship-mesh) > button {
+  appearance:none;
+  position:relative;
+  inset:auto;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  padding:0;
+  margin:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  transform:none!important;
+  filter:none!important;
+  transition:none!important;
+}
+:is(.combat-mesh,.player-ship-mesh) > button::before,
+:is(.combat-mesh,.player-ship-mesh) > button::after,
+[data-player-ship-destination]::before,
+[data-player-ship-destination]::after {content:none!important}
+:is(.combat-mesh,.player-ship-mesh) > button:hover {border-radius:0;box-shadow:none}
+.combat-map-grid.show-combat-mesh .combat-mesh button {border:0}
+:is(.ship-grid,.player-starship-map,.combat-map-grid) {--mesh-ink:rgba(5,65,83,.65)}
+:is(.ship-grid,.player-starship-map,.combat-map-grid).high-resolution {--mesh-ink:rgba(226,244,250,.58)}
+.ship-grid.combat-mesh .ship-grid-cell.is-selected::after,
+.ship-grid.combat-mesh:not(.high-resolution) .ship-grid-cell.is-selected::after,
+.player-starship-map.combat-mesh .player-ship-cell.hull::after,
+.combat-map-grid.show-combat-mesh .combat-map-square.hull::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:4;
+  pointer-events:none;
+  background-image:linear-gradient(to right,transparent calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 + .5px),transparent calc(100% / 3 + .5px),transparent calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 + .5px),transparent calc(200% / 3 + .5px)),linear-gradient(to bottom,transparent calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 + .5px),transparent calc(100% / 3 + .5px),transparent calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 + .5px),transparent calc(200% / 3 + .5px));
+}
+.inline-map-toolbar input,.combat-map-view-controls input,.player-starship-view-controls input {min-height:0;min-width:0}

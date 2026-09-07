@@ -232,10 +232,8 @@ function canOperateDoors() {
 
 function makeWall(side, segment = "full") {
   const wall = document.createElement("span");
-  wall.className = `sic-wall sic-wall-${side} sic-wall-${segment}`;
+  wall.className = `sa-map-wall ${side} ${side === "top" || side === "bottom" ? "horizontal" : "vertical"} ${segment}`;
   wall.setAttribute("aria-hidden", "true");
-  wall.style.backgroundColor = "#f8fbff";
-  wall.style.boxShadow = "0 0 0 1px #000, inset 0 0 0 1px #000, 0 0 3px rgba(255,255,255,.88)";
   return wall;
 }
 
@@ -265,7 +263,7 @@ function makeDoor(index, adjacent, side) {
   const open = draft.doorStates?.[key] === "open";
   const button = document.createElement("button");
   button.type = "button";
-  button.className = `sic-door sic-door-${side}${open ? " is-open" : ""}`;
+  button.className = `sa-map-door ${side} ${side === "top" || side === "bottom" ? "horizontal" : "vertical"}${open ? " is-open" : ""}`;
   button.dataset.doorKey = key;
   const unavailable = mapView.mode !== "explore" || !canOperateDoors();
   button.setAttribute("aria-disabled", String(unavailable));
@@ -278,13 +276,8 @@ function makeDoor(index, adjacent, side) {
   button.setAttribute("aria-pressed", String(open));
   const first = document.createElement("span");
   const second = document.createElement("span");
-  first.className = "door-panel door-panel-first";
-  second.className = "door-panel door-panel-second";
-  [first, second].forEach((panel) => {
-    panel.style.backgroundColor = "#7f8b95";
-    panel.style.borderColor = "#050709";
-    panel.style.boxShadow = "inset 0 0 0 1px #b8c2ca";
-  });
+  first.className = "sa-door-leaf";
+  second.className = "sa-door-leaf";
   button.append(first, second);
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
   let touchHandled = false;
@@ -844,7 +837,7 @@ shipGrids.forEach((grid) => {
   let panGesture = null;
   grid.addEventListener("pointerdown", (event) => {
     if (window.matchMedia("(max-width: 820px)").matches) return;
-    if (mapView.mode !== "explore" || event.target.closest(".sic-door")) return;
+    if (mapView.mode !== "explore" || event.target.closest(".sa-map-door")) return;
     panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY };
     grid.setPointerCapture?.(event.pointerId);
     grid.classList.add("is-panning");
@@ -949,7 +942,12 @@ function renderSavedStarships() {
 function startNewStarship() {
   if (!window.confirm("Start a fresh starship? The current unconfirmed work will be replaced. Confirmed starships remain saved.")) return;
   localStorage.removeItem(ACTIVE_STARSHIP_KEY);
+  resetNewShipMapView();
   draft = defaultDraft(); saveDraft(); applyDraftToUi();
+}
+function resetNewShipMapView() {
+  Object.assign(mapView, { mode: "build", zoom: 1, panX: 0, panY: 0 });
+  saveMapView();
 }
 function loadSavedStarship(id) {
   const selected = loadStarshipLibrary().find((ship) => ship?.id === id);
@@ -1013,6 +1011,8 @@ function campaignMessage(message, tone = "") {
 function renderCampaignLink() {
   const linked = draft.campaignLink;
   const records = linkedCampaignState?.characters || [];
+  const credentials = linked ? activeCampaignCredentials(linked.roomCode) : null;
+  document.body.classList.toggle("has-linked-crew-access", Boolean(linked && credentials?.token));
   const selected = new Set(draft.crewCharacterIds || []);
   linkStarshipForms.forEach((form) => { form.hidden = Boolean(linked); });
   document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
@@ -1025,7 +1025,7 @@ function renderCampaignLink() {
   document.querySelectorAll("[data-linked-campaign-name]").forEach((node) => { node.textContent = linkedCampaignState?.name || linked.campaignName || "Campaign"; });
   document.querySelectorAll("[data-linked-campaign-code]").forEach((node) => { node.textContent = linked.roomCode; });
   document.querySelectorAll("[data-linked-control-type]").forEach((node) => { node.textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled"; });
-  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
+  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : linkedCampaignState ? "<p>No characters have joined this campaign yet.</p>" : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
   document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = markup; });
 }
 async function linkStarship(event) {
@@ -1142,6 +1142,7 @@ async function initializeStarshipPage() {
   const campaignCode = (parameters.get("campaign") || "").toUpperCase();
   if (parameters.get("new") === "1") {
     localStorage.removeItem(ACTIVE_STARSHIP_KEY);
+    resetNewShipMapView();
     draft = defaultDraft();
     if (campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
     saveDraft();

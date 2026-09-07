@@ -357,7 +357,7 @@ const cancelDelayDialog = document.querySelector("#cancelDelayDialog");
 const confirmDelayDialog = document.querySelector("#confirmDelayDialog");
 const queuedEffectDialog = document.querySelector("#queuedEffectDialog");
 
-const embeddedModalOverlays = [...document.querySelectorAll(".delay-dialog, .queued-effect-dialog, .combat-action-dialog, .combat-map-dialog, .backup-conflict-shell")];
+const embeddedModalOverlays = [...document.querySelectorAll(".delay-dialog, .queued-effect-dialog, .combat-action-dialog, .combat-map-dialog, .backup-conflict-shell, #turnDialog, #myTurnBanner")];
 let embeddedModalViewportFrame = 0;
 
 function syncEmbeddedModalViewport() {
@@ -367,9 +367,18 @@ function syncEmbeddedModalViewport() {
     return;
   }
   try {
-    const frameRect = window.frameElement.getBoundingClientRect();
-    const visibleTop = Math.max(0, -frameRect.top);
-    const visibleBottom = Math.min(frameRect.height, window.parent.innerHeight - frameRect.top);
+    let visibleTop = 0;
+    let visibleBottom = window.innerHeight;
+    let offset = 0;
+    let child = window;
+    // Intersect every containing viewport, including the Explore Features shell.
+    while (child.parent !== child && child.frameElement) {
+      offset += child.frameElement.getBoundingClientRect().top + child.frameElement.clientTop;
+      const parent = child.parent;
+      visibleTop = Math.max(visibleTop, -offset);
+      visibleBottom = Math.min(visibleBottom, parent.innerHeight - offset);
+      child = parent;
+    }
     if (visibleBottom <= visibleTop) return;
     document.body.classList.add("embedded-modal-host");
     document.body.style.setProperty("--embedded-visible-top", `${visibleTop}px`);
@@ -386,11 +395,28 @@ function scheduleEmbeddedModalViewportSync() {
 }
 
 if (window.parent !== window) {
-  window.parent.addEventListener("scroll", scheduleEmbeddedModalViewportSync, { passive: true });
-  window.parent.addEventListener("resize", scheduleEmbeddedModalViewportSync, { passive: true });
-  window.addEventListener("resize", scheduleEmbeddedModalViewportSync, { passive: true });
+  const viewportListeners = [];
+  let viewport = window;
+  while (viewport) {
+    viewport.addEventListener("scroll", scheduleEmbeddedModalViewportSync, { passive: true, capture: true });
+    viewport.addEventListener("resize", scheduleEmbeddedModalViewportSync, { passive: true });
+    viewportListeners.push(viewport);
+    try {
+      if (viewport.parent === viewport || !viewport.frameElement) break;
+      viewport = viewport.parent;
+    } catch { break; }
+  }
   const embeddedModalObserver = new MutationObserver(scheduleEmbeddedModalViewportSync);
   embeddedModalOverlays.forEach((overlay) => embeddedModalObserver.observe(overlay, { attributes: true, attributeFilter: ["class", "hidden"] }));
+  window.addEventListener("pagehide", (event) => {
+    if (event.persisted) return;
+    viewportListeners.forEach((host) => {
+      host.removeEventListener("scroll", scheduleEmbeddedModalViewportSync, true);
+      host.removeEventListener("resize", scheduleEmbeddedModalViewportSync);
+    });
+    embeddedModalObserver.disconnect();
+    cancelAnimationFrame(embeddedModalViewportFrame);
+  }, { once: true });
   scheduleEmbeddedModalViewportSync();
 }
 const queuedEffectTarget = document.querySelector("#queuedEffectTarget");
@@ -1518,6 +1544,34 @@ function shipCombatColumnsMarkup(units) {
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
   }).join("")}</div>`;
+}
+
+function renderShipCombatColumns() {
+  const template = document.createElement("template");
+  template.innerHTML = shipCombatColumnsMarkup(state.units);
+  const next = template.content.firstElementChild;
+  const current = unitList.querySelector(".ship-combat-columns");
+  const keys = (element) => [...element.children].map((lane) => lane.dataset.shipCombatLane).join("|");
+  if (!current || keys(current) !== keys(next)) {
+    unitList.replaceChildren(next);
+  } else {
+    // Keep map controls mounted while live ATB updates arrive.
+    [...current.children].forEach((lane, index) => {
+      const replacement = next.children[index];
+      for (const selector of [".ship-combat-title", ".ship-lane-atb", ".ship-lane-log"]) {
+        const target = lane.querySelector(selector);
+        const source = replacement.querySelector(selector);
+        if (target.innerHTML !== source.innerHTML) {
+          const scroller = target.querySelector(":scope > div");
+          const scrollTop = scroller?.scrollTop || 0;
+          target.innerHTML = source.innerHTML;
+          const updatedScroller = target.querySelector(":scope > div");
+          if (updatedScroller) updatedScroller.scrollTop = scrollTop;
+        }
+      }
+    });
+  }
+  window.SACombatMap?.renderInlineMaps?.(unitList);
 }
 
 function iconStore() {
@@ -3113,6 +3167,8 @@ function render() {
 
   renderAreaEffects();
   if (starshipCombat) {
+    const gmControls = document.getElementById("gmTopControls");
+    if (mode === "gm" && gmControls && gmPanicPause.parentElement !== gmControls) gmControls.append(gmPanicPause);
     starshipStatusList.hidden = true;
     starshipStatusList.innerHTML = "";
   } else {
@@ -3130,12 +3186,7 @@ function render() {
   } else {
     stopPlayerPreviewAnimation();
     if (starshipCombat) {
-      const preserveMoveSession = window.SACombatMap?.isInlineMoveSelecting?.()
-        && unitList.querySelector("[data-inline-ship-map]");
-      if (!preserveMoveSession) {
-        unitList.innerHTML = shipCombatColumnsMarkup(state.units);
-        window.SACombatMap?.renderInlineMaps?.(unitList);
-      }
+      renderShipCombatColumns();
     } else if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
       unitList.innerHTML = tacticalRingMarkup(state.units);
     } else {

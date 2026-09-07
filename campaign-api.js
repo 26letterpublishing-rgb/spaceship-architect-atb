@@ -1409,7 +1409,7 @@ class CampaignApi {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
       const characterId = String(body.characterId || "");
       const square = Number(body.square);
-      const mesh = Math.max(0, Math.min(8, Number(body.mesh) || 4));
+      const mesh = Math.max(0, Math.min(8, Number.isFinite(Number(body.mesh)) && body.mesh !== null ? Number(body.mesh) : 4));
       const gmAccess = Boolean(this.gmSession(token, code));
       const selfAccess = Boolean(characterId && this.characterSession(token, code, characterId));
       if (!record || !record.crewCharacterIds.includes(characterId)) { sendJson(res, 404, { error: "That character is not assigned to this starship." }); return true; }

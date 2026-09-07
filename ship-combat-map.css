@@ -51,12 +51,7 @@
 .inline-ship-move-selecting #playerPanel{display:none!important}
 .inline-ship-move-selecting #initiativePanel{display:block!important;position:static!important;inset:auto!important;width:100%!important;max-height:none!important;margin:0!important;padding:8px!important;overflow:visible!important;opacity:1!important;filter:none!important;pointer-events:auto!important;transform:none!important}
 .inline-ship-move-selecting .active-panel,.inline-ship-move-selecting #turnDialog{display:none!important}
-.inline-ship-move-selecting .ship-combat-columns{grid-template-columns:minmax(0,1fr)}
-.inline-ship-move-selecting .ship-combat-lane{display:none}
-.inline-ship-move-selecting .ship-combat-lane.inline-move-target{display:grid;grid-column:1/-1}
-.inline-ship-move-selecting .ship-combat-lane.inline-move-target>.ship-lane-atb,.inline-ship-move-selecting .ship-combat-lane.inline-move-target>.ship-lane-log{display:none}
-.inline-ship-move-selecting .inline-map-viewport{min-height:390px}
-.inline-ship-move-selecting .ship-combat-columns[data-ship-count] .inline-combat-map-grid{--cell-size:min(112px,calc((100vw - 96px)/var(--inline-cols)))}
+.inline-ship-move-selecting .ship-combat-lane.inline-move-target .ship-lane-map{outline:2px solid #54ddec;outline-offset:2px}
 .inline-ship-move-selecting .ship-lane-map{scroll-margin-top:12px}
 
 @media(min-width:901px){.ship-combat-columns[data-ship-count="2"] .inline-combat-map-grid{--cell-size:min(48px,calc((50vw - 95px)/var(--inline-cols)))}}

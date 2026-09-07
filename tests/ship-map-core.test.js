@@ -2,6 +2,33 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const shipMap = require("../ship-map-core.js");
 
+test("shared door presentation splits walls around the opening", () => {
+  const layout = { boundary: (_, side) => ({ kind: side === "top" ? "door" : "none", key: "1:2" }) };
+  const markup = shipMap.boundaryMarkup(layout, 1, {
+    isOpen: () => true,
+    doorAttributes: () => ({ "data-player-ship-id": 'ship"test', onclick: "unsafe" }),
+  });
+  assert.equal((markup.match(/sa-map-wall/g) || []).length, 2);
+  assert.match(markup, /horizontal start/);
+  assert.match(markup, /horizontal end/);
+  assert.doesNotMatch(markup, /horizontal full/);
+  assert.match(markup, /sa-map-door top horizontal is-open/);
+  assert.match(markup, /aria-pressed="true"/);
+  assert.match(markup, /ship&quot;test/);
+  assert.doesNotMatch(markup, /onclick/);
+  assert.equal((markup.match(/sa-door-leaf/g) || []).length, 2);
+});
+
+test("shared presentation has one door for each connected SIC pair", () => {
+  const layout = shipMap.buildLayout(adjacentFixture());
+  const html = [...layout.hull].map((square) => shipMap.boundaryMarkup(layout, square, {
+    doorAttributes: (key) => ({ "data-door-key": key }),
+  })).join("");
+  const keys = [...html.matchAll(/data-door-key="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(new Set(keys).size, keys.length);
+  for (const key of layout.connectionDoors) assert.ok(keys.includes(key));
+});
+
 function adjacentFixture() {
   const gridCells = [];
   for (let row = 4; row <= 8; row += 1) for (let column = 4; column <= 11; column += 1) gridCells.push(row * 20 + column);

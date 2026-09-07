@@ -120,5 +120,21 @@
     return Object.freeze({ hull, footprint, connectionDoors, boundary, edge });
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, image });
+  function boundaryMarkup(layout, square, options = {}) {
+    const escape = (value) => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    return SIDES.map(({ name }) => {
+      const boundary = layout.boundary(square, name);
+      if (boundary.kind === "none") return "";
+      const axis = name === "top" || name === "bottom" ? "horizontal" : "vertical";
+      const wall = (segment = "full") => `<i aria-hidden="true" class="sa-map-wall ${name} ${axis} ${segment}"></i>`;
+      if (boundary.kind === "wall") return wall();
+      const open = Boolean(options.isOpen?.(boundary.key));
+      const attributes = Object.entries(options.doorAttributes?.(boundary.key) || {})
+        .filter(([key]) => /^data-[a-z-]+$/.test(key))
+        .map(([key, value]) => `${key}="${escape(value)}"`).join(" ");
+      return `${wall("start")}${wall("end")}<button type="button" class="sa-map-door ${name} ${axis}${open ? " is-open" : ""}" ${attributes} aria-pressed="${open}" aria-label="${open ? "Close" : "Open"} door"><i class="sa-door-leaf"></i><i class="sa-door-leaf"></i></button>`;
+    }).join("");
+  }
+
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image });
 }));

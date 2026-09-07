@@ -1,0 +1,68 @@
+/* Desktop workspace: persistent ship controls, compact ATB, then local activity. */
+@media (min-width: 901px) {
+  .gm-header {min-height:52px;padding:5px 10px;grid-template-columns:minmax(180px,280px) minmax(0,1fr) auto}
+  .gm-brand img {max-height:40px;object-fit:contain}
+  .gm-tabs button {min-height:38px;padding:7px 10px}
+  .atb-live-toolbar {height:36px;padding:2px 8px}
+  .atb-live-toolbar button {min-height:30px}
+  .starship-combat-mode:not(.player-mode) .shell {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+  .starship-combat-mode:not(.player-mode) .shell > * {grid-column:1/-1}
+  .starship-combat-mode:not(.player-mode) .shell > .topbar {grid-column:2;grid-row:1;min-height:48px;padding:4px;border-bottom-width:1px;box-shadow:none}
+  .starship-combat-mode:not(.player-mode) .shell > .active-panel {grid-column:1;grid-row:1;margin:0}
+  .starship-combat-mode .gm-panic-pause {position:relative;inset:auto;min-width:130px;min-height:38px;padding:5px 10px;font-size:.75rem}
+  .starship-combat-mode .topbar-title {display:flex;gap:6px}
+  .starship-combat-mode .gm-top-controls {display:flex;gap:6px;align-items:center}
+  .starship-combat-mode #initiativePanel > .section-head {min-height:0;margin:0;height:20px}
+  .starship-combat-mode .ship-combat-lane {display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr;overflow:visible;box-shadow:none;align-items:start}
+  .starship-combat-mode .ship-combat-title {grid-column:1/-1;font-size:1.2rem;padding:8px}
+  .starship-combat-mode .ship-lane-atb {grid-column:1;grid-row:2;min-height:0;padding:0 4px}
+  .starship-combat-mode .ship-lane-map {grid-column:2;grid-row:2/4;margin:8px 8px 8px 0}
+  .starship-combat-mode .ship-lane-log {grid-column:1;grid-row:3;margin:0 8px 8px}
+  .starship-combat-mode .ship-lane-log > div {height:96px;min-height:0;max-height:96px}
+  .starship-combat-mode .ring-instructions {display:none}
+  .starship-combat-mode .tactical-ring-view {width:100%;gap:0;padding:0}
+  .starship-combat-mode .ring-stage {height:216px;width:100%;display:flex;align-items:center;justify-content:center}
+  .starship-combat-mode .tactical-ring-svg,
+  .starship-combat-mode.player-mode.ring-view-mode.own-turn-active .tactical-ring-svg {flex:none;width:min(330px,calc(100% - 32px));max-height:none}
+  .starship-combat-mode.player-mode.ring-view-mode.own-turn-active .ring-legend {display:flex}
+  .starship-combat-mode .ring-legend {font-size:.55rem}
+  .starship-combat-mode .active-panel {min-height:0;padding:8px 12px}
+  .starship-combat-mode .active-panel h2 {font-size:1.3rem;margin:2px 0}
+  .starship-combat-mode #initiativePanel {padding:8px}
+  .starship-combat-mode .inline-map-toolbar {padding:5px 8px}
+  .starship-combat-mode .inline-map-toolbar > span {display:none}
+  .starship-combat-mode .inline-map-viewport {container-type:inline-size;min-height:210px}
+  .starship-combat-mode .ship-combat-columns[data-ship-count] .inline-combat-map-grid {
+    --cell-size:min(76px,calc((100cqw - 24px)/var(--inline-cols)),calc(232px/var(--inline-rows)));
+  }
+  .starship-combat-mode .inline-map-footer .combat-map-stats {grid-template-columns:repeat(3,minmax(0,1fr))}
+  .starship-combat-mode .combat-map-stats span {min-height:34px;padding:3px 1px}
+  .starship-combat-mode .combat-map-stats small {font-size:.42rem}
+  .starship-combat-mode .inline-map-actions button {min-width:115px}
+  .starship-combat-mode .inline-map-actions {flex-wrap:wrap}
+  .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) {
+    width:min(540px,calc(50% - 18px));
+    top:calc(var(--embedded-visible-top,0px) + 10px);
+    bottom:auto;
+    max-height:var(--embedded-modal-max-height,calc(100dvh - 24px))!important;
+  }
+  body.embedded-gm .turn-dialog {top:calc(var(--embedded-visible-top,0px) + 10px)}
+  .turn-dialog:has(.gm-npc-turn-actions:not([hidden])) .gm-npc-turn-actions {grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .turn-dialog h2 {font-size:1.4rem;margin:4px 0}
+  .turn-dialog p:not(.eyebrow) {margin:4px 0}
+  .turn-dialog .gm-npc-turn-actions button {font-size:.65rem;min-height:34px;padding:6px;white-space:normal}
+  .turn-dialog .dialog-actions {grid-template-columns:1fr 1fr}
+  .turn-dialog .dialog-actions button {min-height:36px;font-size:.7rem}
+  .turn-dialog .collapse-npc-turn {position:absolute!important;top:8px!important;bottom:auto!important;width:30px;min-height:38px;font-size:1.1rem}
+  .turn-dialog.pc-turn-dialog > .eyebrow,.turn-dialog.pc-turn-dialog > h2 {padding-left:38px}
+  .turn-dialog:not(.pc-turn-dialog) > .eyebrow,.turn-dialog:not(.pc-turn-dialog) > h2 {padding-right:38px}
+  .embedded-modal-host .restore-npc-turn,.embedded-modal-host .restore-player-turn {top:calc(var(--embedded-modal-center,42vh) - 47px)}
+}
+
+.player-starship-map-viewport {container-type:inline-size}
+.gm-ship-view #globalCharacterHud,.gm-ship-view #playerStarshipsPanel > .character-tool-heading {display:none!important}
+.gm-ship-view .player-starship-card {margin-top:0}
+.player-ship-label {font-size:.75rem;font-weight:800}
+.player-starship-map {
+  --ship-cell:min(110px,calc((100cqw - 40px)/var(--ship-cols)),calc((58vh - 40px)/var(--ship-rows)));
+}
