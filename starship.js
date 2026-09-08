@@ -41,6 +41,32 @@ for (const family of ["au", "en-au", "au-en"]) for (let tier = 1; tier <= 6; tie
   document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
 }
 
+const thruster = window.SAShipMap.definition("exhaust-thruster-1");
+SIC_CATALOG["exhaust-thruster-1"] = { ...thruster, category: "thruster", shortLabel: thruster.label, enOutput: 0, floorplan: thruster.image };
+const thrusterCard = document.createElement("section");
+thrusterCard.className = "sic-market-item";
+thrusterCard.innerHTML = `<article class="sic-poker-card" data-sic-card="exhaust-thruster-1" tabindex="0" aria-label="Exhaust Thruster 1 details"><header class="sic-poker-heading"><span>Thruster <small>A-23</small></span><div><h3>Exhaust Thruster 1</h3><strong>Price: 200</strong></div></header><img class="sic-poker-art" src="exhaust-thruster-1-graphic.png" alt="Exhaust Thruster 1" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>2</dd></div><div><dt>Security Level</dt><dd>2</dd></div><div><dt>Size</dt><dd>1x1 EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Dianium, 2 hrs</dd></div></dl><section class="sic-poker-rules"><p>Exterior propulsion. Maximum four thrusters per ship.</p><strong>Impulse: 1 + HSM/2</strong><p>Round HSM/2 toward zero.<br>Exhaust: -2. Adds one Evade die.<br>4 AU: +1 Move Speed, once per thruster.</p></section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>10</span></footer></article><button class="sic-purchase-button" data-purchase-sic="exhaust-thruster-1" type="button">Purchase</button>`;
+document.querySelector(".sic-card-gallery").append(thrusterCard);
+
+// Move the real cards into collapsible families; previews and purchase handlers keep their identities.
+const market = document.querySelector(".sic-card-gallery");
+for (const overlay of document.querySelectorAll('.desktop-live-stats [data-propulsion-overlay]')) { const copy=overlay.cloneNode(true);copy.classList.add('mobile-live-stats');document.querySelector('.mobility-mobile svg')?.append(copy); }
+const families = new Map();
+for (const item of [...market.querySelectorAll(".sic-market-item")]) {
+  const type = item.querySelector("[data-sic-card]").dataset.sicCard;
+  const family = SIC_CATALOG[type]?.name?.replace(/ \d+$/, "") || item.querySelector("h3").textContent;
+  if (!families.has(family)) families.set(family, []);
+  families.get(family).push(item);
+}
+for (const [family, items] of families) {
+  const stack = document.createElement("details"); stack.className = "sic-family-stack";
+  const summary = document.createElement("summary");
+  summary.setAttribute("aria-label", `${family}: expand ${items.length} card${items.length === 1 ? "" : "s"}`);
+  summary.innerHTML = `<strong>${family}</strong><span class="sic-stack-strips">${items.map(item => `<span>${item.querySelector("h3").textContent}</span>`).join("")}</span>`;
+  const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
+  stack.append(summary, cards); market.append(stack);
+}
+
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function uid(prefix = "ship") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
@@ -362,7 +388,9 @@ function validateSicPlacement(sicId, cell) {
   if (!item) return { legal: false, reason: "That SIC is no longer available.", cells: [] };
   const definition = sicDefinition(item); const cells = candidateCells(sicId, cell);
   if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
-  if (cells.some((candidate) => !draft.gridCells.includes(candidate))) return { legal: false, reason: `Purchase all ${definition.width * definition.height} required hull squares first.`, cells };
+  if (definition.exterior) {
+    if (!window.SAShipMap.exteriorPlacement(draft, item.type, cell, sicId)) return { legal: false, reason: "Attach this exterior SIC to an outer hull wall, outside the ship and clear of other SICs.", cells };
+  } else if (cells.some((candidate) => !draft.gridCells.includes(candidate))) return { legal: false, reason: `Purchase all ${definition.width * definition.height} required hull squares first.`, cells };
   if (cells.some((candidate) => { const occupant = placementAt(candidate); return occupant && occupant.sicId !== sicId; })) return { legal: false, reason: "That area already contains a SIC.", cells };
   if (definition.category === "engine") {
     const tooClose = draft.placements.find((placement) => {
@@ -401,7 +429,7 @@ function inspectConstruction() {
   draft.placements.forEach((placement) => {
     const result = validateSicPlacement(placement.sicId, placement.cell);
     if (!result.legal) errors.push(result.reason);
-    result.cells.forEach((cell) => { if (!draft.gridCells.includes(cell) || seenCells.has(cell)) cells.add(cell); seenCells.add(cell); });
+    result.cells.forEach((cell) => { if (!result.legal || seenCells.has(cell)) cells.add(cell); seenCells.add(cell); });
   });
   const installedTypes = new Set(draft.placements.map((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type).filter(Boolean));
   if (installedTypes.has("nutritional-supplement") && !installedTypes.has("life-support")) {
@@ -409,6 +437,7 @@ function inspectConstruction() {
     draft.placements.filter((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type === "nutritional-supplement").forEach((placement) => placementCells(placement).forEach((cell) => cells.add(cell)));
   }
   if (pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
+  if (draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length > 4) errors.push("A ship may have at most four thrusters.");
   return { errors: [...new Set(errors)], cells };
 }
 
@@ -591,8 +620,9 @@ function fitShipToViewport() {
   if (!draft.gridCells.length) {
     mapView.zoom = 1; mapView.panX = 0; mapView.panY = 0;
   } else {
-    const rows = draft.gridCells.map((cell) => Math.floor(cell / GRID_SIZE));
-    const columns = draft.gridCells.map((cell) => cell % GRID_SIZE);
+    const visible = [...new Set([...draft.gridCells, ...window.SAShipMap.buildLayout(draft).footprint.keys()])];
+    const rows = visible.map((cell) => Math.floor(cell / GRID_SIZE));
+    const columns = visible.map((cell) => cell % GRID_SIZE);
     const minRow = Math.min(...rows); const maxRow = Math.max(...rows);
     const minColumn = Math.min(...columns); const maxColumn = Math.max(...columns);
     const span = Math.max(maxRow - minRow + 1, maxColumn - minColumn + 1);
@@ -758,6 +788,9 @@ function renderLiveStats() {
   const au = power.au;
   document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(au); });
   const scale = shipScaleStats(hull);
+  const propulsion = window.SAShipMap.propulsion(confirmed);
+  document.querySelectorAll('[data-propulsion]').forEach(element => { const key = element.dataset.propulsion; element.textContent = key.startsWith('impulse') ? String(propulsion.impulses[Number(key.slice(-1))] ?? 0) : String(propulsion[key] ?? 0); });
+  document.querySelectorAll("[data-propulsion-summary]").forEach(element => { element.textContent = `Impulse ${propulsion.impulses.join(" + ") || "0"} | Move ${propulsion.rawSpeed} | Evade ${propulsion.evadeCount}D${propulsion.evadeDie} | Exhaust ${propulsion.exhaust}`; });
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });
   document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
     const value = String(element.dataset.enPart === "max" ? enMax : enAvailable);
@@ -879,12 +912,13 @@ shipGrids.forEach((grid) => {
 });
 function purchaseSic(type) {
   const definition = SIC_CATALOG[type]; if (!definition) return;
+  if (definition.thruster && draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length >= 4) { showMessage("A ship may have at most four thrusters.", "error"); return; }
   rememberForUndo();
   const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   draft.sicInventory.push({ id, type, pendingPurchase: true, storage: false, pendingDisposition: "" });
   selectedSicId = id; mapView.mode = "build"; saveDraft(); saveMapView();
   document.querySelector('[data-starship-tab="sheet"]')?.click();
-  showMessage(`${definition.name} added to pending purchases. Select its ${definition.width}×${definition.height} hull area to install it.`, "success"); renderAll();
+  showMessage(definition.exterior ? `${definition.name}: select empty space attached to an outer hull wall.` : `${definition.name} added to pending purchases. Select its ${definition.width}×${definition.height} hull area to install it.`, "success"); renderAll();
 }
 document.querySelectorAll("[data-purchase-sic]").forEach((button) => button.addEventListener("click", () => purchaseSic(button.dataset.purchaseSic)));
 function undoConstruction() {

@@ -327,6 +327,7 @@
   }
 
   function statValue(ship, ...keys) {
+    if (keys.includes("moveSpeed")) return window.SAShipMap.propulsion(ship).moveSpeed;
     for (const key of keys) {
       const value = ship?.[key] ?? ship?.ship?.[key] ?? ship?.ship?.confirmed?.[key];
       if (value !== undefined && value !== null && value !== "") return value;
@@ -370,7 +371,7 @@
 
   function inlineMapMarkup(record) {
     const ship = record.ship || {};
-    const cells = ship.gridCells || [];
+    const cells = [...new Set([...(ship.gridCells || []), ...window.SAShipMap.buildLayout(ship).footprint.keys()])];
     if (!cells.length) return '<p class="inline-map-empty">This starship has no confirmed floorplan.</p>';
     const rows = cells.map((cell) => Math.floor(cell / 20));
     const cols = cells.map((cell) => cell % 20);
@@ -378,7 +379,7 @@
     const minCol = Math.min(...cols), maxCol = Math.max(...cols);
     const rowCount = maxRow - minRow + 1;
     const colCount = maxCol - minCol + 1;
-    const hull = new Set(cells);
+    const hull = new Set(ship.gridCells || []);
     const footprints = footprint(record);
     const layout = window.SAShipMap.buildLayout(ship);
     const activePreview = selectedShipId === record.id ? preview : null;
@@ -474,7 +475,7 @@
       targetCell?.insertAdjacentHTML("beforeend", `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>`);
     }
     if (preview?.path?.length) {
-      const cells = record.ship.gridCells || [];
+      const cells = [...new Set([...(record.ship.gridCells || []), ...window.SAShipMap.buildLayout(record.ship).footprint.keys()])];
       const rows = cells.map((cell) => Math.floor(cell / 20));
       const cols = cells.map((cell) => cell % 20);
       const minRow = Math.min(...rows), maxRow = Math.max(...rows), minCol = Math.min(...cols), maxCol = Math.max(...cols);

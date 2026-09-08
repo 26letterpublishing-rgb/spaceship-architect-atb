@@ -197,6 +197,7 @@ let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
 let selectedEncounterStarships = new Set();
 let encounterDistances = [];
+let encounterPositions = [];
 let encounterMode = "surface";
 let encounterPreparing = false;
 const encounterLocations = new Map();
@@ -1053,10 +1054,12 @@ function renderEncounterBuilder() {
   });
   if (encounterMode === "starship") {
     const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id));
-    encounterDistances = window.SAShipDistances.pairs(ships, encounterDistances);
-    rosterMarkup += `<section class="encounter-distances"><h4>Ship Distances (Units)</h4>${encounterDistances.map((pair, index) => `<label>${escapeHtml(ships.find(ship => ship.id === pair.a)?.title)} to ${escapeHtml(ships.find(ship => ship.id === pair.b)?.title)} <input type="number" min="0" step="any" required data-encounter-distance="${index}" value="${pair.units}" aria-label="Distance in Units"></label>`).join("")}</section>`;
+    encounterPositions = window.SAShipDistances.positions(ships, encounterPositions.length ? encounterPositions : encounterState?.shipPositions);
+    encounterDistances = window.SAShipDistances.fromPositions(ships, encounterPositions);
   }
   window.SALiveDOM.render(dom.encounterCharacterList, rosterMarkup);
+  const spaceEditor = document.querySelector('[data-encounter-space-map]');
+  if (spaceEditor) { spaceEditor.hidden = encounterMode !== 'starship'; const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id)); if (!spaceEditor.hidden) window.SASpaceMap.bindEditor(spaceEditor, ships, encounterPositions, points => { encounterPositions = points; encounterDistances = window.SAShipDistances.fromPositions(ships, points); }); }
   window.SALiveDOM.render(dom.encounterNpcTemplate, npcTemplateOptions());
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   window.SALiveDOM.render(dom.encounterNpcEditor, npcEditorMarkup(encounterNpcDraft));
@@ -1284,7 +1287,7 @@ async function beginEncounter() {
         location: combatLocation(encounterMode === "starship" ? npc.locationStarshipId || "" : ""),
       });
     }
-    const setup = { mode: encounterMode, starships: combatStarships, units, shipDistances: combatStarships.length ? preparedDistances : [] };
+    const setup = { mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
     const storageKey = `sa-encounter-preparation-${code}`;
     const fingerprint = JSON.stringify(setup);
     let pending;
@@ -2231,12 +2234,6 @@ dom.rollResults.addEventListener("click", async (event) => {
   }
 });
 
-dom.encounterCharacterList.addEventListener("input", event => {
-  if (!event.target.matches("[data-encounter-distance]")) return;
-  const value = Number(event.target.value);
-  if (event.target.value.trim() && Number.isFinite(value) && value >= 0) encounterDistances[Number(event.target.dataset.encounterDistance)].units = value;
-});
-
 document.querySelector("#passTime")?.addEventListener("click", async (event) => {
   const button = event.currentTarget;
   const amount = Number(document.querySelector("#passTimeAmount").value);
@@ -2262,11 +2259,6 @@ document.querySelector("#passTime")?.addEventListener("click", async (event) => 
   finally { button.disabled = false; }
 });
 dom.encounterCharacterList.addEventListener("change", (event) => {
-  if (event.target.matches("[data-encounter-distance]")) {
-    const value = Number(event.target.value);
-    if (!event.target.value.trim() || !Number.isFinite(value) || value < 0) { event.target.value = encounterDistances[Number(event.target.dataset.encounterDistance)].units; return; }
-    encounterDistances[Number(event.target.dataset.encounterDistance)].units = value; return;
-  }
   const npcInput = event.target.closest("[data-encounter-npc]");
   if (npcInput) {
     const unit = campaignNpcRoster().find(unit => unit.id === npcInput.dataset.encounterNpc);

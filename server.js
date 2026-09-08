@@ -22,6 +22,7 @@ const {
 const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
 const shipDistances = require("./ship-distances");
+const shipMapCore = require("./ship-map-core");
 const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
 
 const PORT = Number(process.env.PORT || 8787);
@@ -71,7 +72,8 @@ function normalizeEncounterStarships(value) {
       .map(Number).filter((cell) => Number.isInteger(cell) && cell >= 0 && cell < 400))];
     const placements = (Array.isArray(ship.placements) ? ship.placements : []).slice(0, 400).flatMap((entry) => {
       const cell = Number(entry?.cell);
-      if (!Number.isInteger(cell) || !gridCells.includes(cell)) return [];
+      const type = ship.sicInventory?.find(item => item.id === entry.sicId)?.type;
+      if (!Number.isInteger(cell) || (!gridCells.includes(cell) && !(shipMapCore.definition(type).exterior && shipMapCore.exteriorPlacement(ship,type,cell,entry.sicId)))) return [];
       return [{ sicId: String(entry.sicId || "").slice(0, 120), cell }];
     });
     const sicInventory = (Array.isArray(ship.sicInventory) ? ship.sicInventory : []).slice(0, 400).map((entry) => ({
@@ -167,7 +169,8 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
-    room.shipDistances = shipDistances.pairs(room.starships, snapshot.shipDistances);
+    room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
+    room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
     for (const unit of room.units) unit.playerConnected = Boolean(unit.playerConnected);
     room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
@@ -241,7 +244,8 @@ function publicState(room) {
     encounterEndedAt: room.encounterEndedAt,
     threshold: room.threshold,
     starships: room.starships,
-    shipDistances: shipDistances.pairs(room.starships || [], room.shipDistances),
+    shipPositions: shipDistances.positions(room.starships || [], room.shipPositions),
+    shipDistances: shipDistances.fromPositions(room.starships || [], room.shipPositions),
     units: room.units,
     log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
@@ -729,6 +733,7 @@ function snapshotRoom(room) {
     threshold: room.threshold,
     starships: clone(room.starships || []),
     shipDistances: clone(room.shipDistances || []),
+    shipPositions: clone(room.shipPositions || []),
     units: clone(room.units),
     log: clone(room.log),
     preparations: clone(room.preparations || []),
@@ -769,6 +774,7 @@ function restoreUndoSnapshot(room) {
   room.threshold = snapshot.threshold;
   room.starships = clone(snapshot.starships || []);
   room.shipDistances = clone(snapshot.shipDistances || []);
+  room.shipPositions = clone(snapshot.shipPositions || []);
   room.units = clone(snapshot.units);
   for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   room.log = clone(snapshot.log);
@@ -1595,6 +1601,7 @@ async function prepareEncounter(room, body) {
   candidate.showcase = room.showcase;
   candidate.starships = prepared.starships;
   candidate.shipDistances = prepared.shipDistances;
+  candidate.shipPositions = prepared.shipPositions;
   candidate.units = prepared.units.map(unit => preparedUnit(unit, candidate.threshold));
   for (const unit of candidate.units) {
     const previous = unit.characterId && room.units.find(entry => entry.characterId === unit.characterId);
@@ -1751,11 +1758,13 @@ async function handleRoomAction(body, res) {
 
   if (action === "syncEncounterStarships") {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
+    for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
     const previous = new Map((room.starships || []).map(ship => [ship.id, ship.auState]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { ship.auState = previous.get(ship.id) || null; });
     shipPower.refresh(room);
-    room.shipDistances = shipDistances.pairs(room.starships, room.shipDistances);
+    room.shipPositions = shipDistances.positions(room.starships, room.shipPositions);
+    room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
     pushLog(room, `${room.starships.length} starship${room.starships.length === 1 ? "" : "s"} synchronized for combat.`);
   }
 
@@ -1780,9 +1789,7 @@ async function handleRoomAction(body, res) {
   }
 
   if (action === "setShipDistances") {
-    try { room.shipDistances = shipDistances.update(room.starships || [], room.shipDistances, body.distances); }
-    catch (error) { sendJson(res, 400, { error: error.message }); return; }
-    pushLog(room, "GM updated starship distances.");
+    sendJson(res, 409, { error: "Distances are calculated from hex positions. Set positions in encounter preparation." }); return;
   }
 
   if (action === "stopTravel") {

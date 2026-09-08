@@ -481,7 +481,7 @@ function normalizeStarshipRecord(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const ship = source.ship && typeof source.ship === "object" ? clone(source.ship) : {};
   const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 400))].slice(0, 400) : [];
-  const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => entry?.sicId && cleanCells.includes(entry.cell)).slice(0, 400).map((entry) => ({ sicId: String(entry.sicId).slice(0, 120), cell: entry.cell })) : [];
+  const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => entry?.sicId && (cleanCells.includes(entry.cell) || (SHIP_MAP.definition(ship.sicInventory?.find(item => item.id === entry.sicId)?.type).exterior && SHIP_MAP.exteriorPlacement(ship, ship.sicInventory.find(item => item.id === entry.sicId).type, entry.cell, entry.sicId)))).slice(0, 400).map((entry) => ({ sicId: String(entry.sicId).slice(0, 120), cell: entry.cell })) : [];
   ship.gridCells = cleanCells;
   ship.placements = cleanPlacements;
   ship.sicInventory = Array.isArray(ship.sicInventory) ? ship.sicInventory.slice(0, 400) : [];
@@ -1345,6 +1345,8 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/starship/link" && req.method === "POST") {
+      const exteriorError = SHIP_MAP.exteriorError(body.starship);
+      if (exteriorError) { sendJson(res, 400, { error: exteriorError }); return true; }
       if (!body.starship?.confirmedOnce) {
         sendJson(res, 400, { error: "Confirm the starship's construction before linking it." });
         return true;
@@ -1379,6 +1381,8 @@ class CampaignApi {
       const crewAccess = Boolean(characterId && record.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
       const ownerAccess = Boolean(!record.crewCharacterIds.length && body.accessKey && body.accessKey === record.accessKey);
       if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
+      const exteriorError = SHIP_MAP.exteriorError(body.starship);
+      if (exteriorError) { sendJson(res, 400, { error: exteriorError }); return true; }
       const updated = normalizeStarshipRecord({ ...record, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;

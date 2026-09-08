@@ -25,6 +25,10 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 
 ### Starship Maps
 
+- Exterior SICs attach outside an outer hull wall, never inside a hull square or enclosed courtyard. `ship-map-core.js` owns exterior validation and propulsion. Preserve external placements through campaign and encounter normalization; include them in view bounds, but never in walkable hull, hull cost, HSM, stations, or door generation.
+- Exhaust Thruster 1 is the only implemented thruster. Maximum four purchased thrusters total. Impulse uses HSM/2 rounded toward zero. Impairment removes its AU boost and Evade die, not base Impulse. Ship movement and boosts await the future bridge/cockpit pass.
+- The SIC market groups persistent real cards into expandable family stacks. Do not duplicate purchase controls in collapsed strips.
+
 - Create Starship, GM View Ship, PC Starships, and combat maps must render the same ship topology and visual language.
 - Low resolution uses clean, flat room colors. Do not use the old white circles inside hull squares.
 - High resolution uses each SIC's floorplan artwork and the hallway texture.
@@ -57,7 +61,7 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Player Starships shows every linked ship on which that character is crew.
 - `campaign.npcRoster` preserves deployed NPC identities across encounters. Ship editing, fleet assignment, and preparation must all include these NPCs, not only PCs. Never erase NPC crew when a player saves PC assignments.
 - Crew assignment is not current location: `crew-overview.js` shows assigned ships, deployed location and station separately. Prefer live encounter locations over saved out-of-combat locations.
-- Combat supports at most six ships. `ship-distances.js` owns symmetric pairwise distances in Units (one Unit is a Lunar Distance), default 25. Only GM-selected pairs change; distances are currently informational, without automatic geometry or targeting effects.
+- Combat supports at most six ships. `ship-distances.js` owns axial hex positions and derived distances: one hex step equals one Unit (one Lunar Distance). The first two default positions are 25 Units apart. GM placement occurs in encounter preparation; ship movement is not implemented. `space-map.js` renders the shared auto-fitted map. Keep its editor mounted during live updates and preserve focused inputs; the enlarged map belongs in the outermost accessible viewport.
 
 ### Demo Isolation
 

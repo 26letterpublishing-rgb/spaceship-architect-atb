@@ -35,8 +35,8 @@ function deployUnits(units, ships) {
   });
 }
 
-function preparationFingerprint({ mode, starships, units, shipDistances = [] }) {
-  return createHash("sha256").update(JSON.stringify({ mode, starships, units, shipDistances })).digest("hex");
+function preparationFingerprint({ mode, starships, units, shipDistances = [], shipPositions }) {
+  return createHash("sha256").update(JSON.stringify({ mode, starships, units, shipDistances, ...(shipPositions ? {shipPositions} : {}) })).digest("hex");
 }
 
 function validatePreparation(body, campaign, normalizeShips) {
@@ -46,6 +46,7 @@ function validatePreparation(body, campaign, normalizeShips) {
   if (!Array.isArray(starships) || starships.length > 6 || new Set(starships.map(ship => ship?.id)).size !== starships.length) throw new Error("Choose up to six different starships.");
   if ((mode === "starship") !== Boolean(starships.length)) throw new Error("Starship combat needs ships; surface combat cannot include ships.");
   if (starships.some(ship => !campaign.starships.some(record => record.id === ship?.id))) throw new Error("Every selected ship must be linked to this campaign.");
+  for (const record of starships) { const error = shipMap.exteriorError(record.ship); if (error) throw new Error(error); }
   if (!Array.isArray(units) || !units.length || units.length > 200) throw new Error("Choose between one and 200 combatants.");
   const normalized = normalizeShips(starships);
   if (normalized.length !== starships.length) throw new Error("Invalid starship selection.");
@@ -63,9 +64,10 @@ function validatePreparation(body, campaign, normalizeShips) {
       if (!ship?.ship.gridCells.includes(unit.location?.square) || !Number.isInteger(unit.location?.mesh) || unit.location.mesh < 0 || unit.location.mesh > 8) throw new Error("Every combatant must begin on a valid square aboard a selected ship.");
     } else if (unit.location?.starshipId || unit.location?.stationed) throw new Error("Surface combatants cannot begin aboard a starship.");
   }
-  const pairs = distances.update(normalized, [], shipDistances);
-  if (shipDistances.length !== pairs.length) throw new Error("Set a distance for every pair of ships.");
-  return { starships: normalized, shipDistances: pairs, units: deployUnits(units, normalized),
+  const shipPositions = body.shipPositions ? distances.validatePositions(normalized,body.shipPositions) : distances.positions(normalized);
+  const pairs = body.shipPositions ? distances.fromPositions(normalized,shipPositions) : distances.update(normalized, [], shipDistances);
+  if (!body.shipPositions && shipDistances.length !== pairs.length) throw new Error("Set a distance for every pair of ships.");
+  return { starships: normalized, shipPositions, shipDistances: pairs, units: deployUnits(units, normalized),
     fingerprint: preparationFingerprint(body) };
 }
 

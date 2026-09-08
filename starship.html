@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260907-hybrid-time-2" />
+    <link rel="stylesheet" href="starship.css?v=20260908-thrusters-4" />
     <link rel="stylesheet" href="ship-map-presentation.css?v=20260907-shared-1" />
     <link rel="stylesheet" href="crew-overview.css?v=20260907-workspace-1" />
   </head>
@@ -49,6 +49,8 @@
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
         <img class="blueprint-source" src="ship-sheet-template.svg?v=20260907-au-class-1" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
+          <g data-propulsion-overlay fill="#000"><rect x="207" y="99" width="18" height="16"/><rect x="216" y="121" width="18" height="16"/><rect x="225" y="143" width="18" height="16"/><rect x="234" y="165" width="18" height="16"/><rect x="275" y="165" width="18" height="18"/><rect x="294" y="99" width="14" height="16"/><rect x="331" y="99" width="16" height="16"/><rect x="271" y="66" width="20" height="18"/></g>
+          <g data-propulsion-overlay font-size="9"><text data-propulsion="impulse0" x="216" y="107">0</text><text data-propulsion="impulse1" x="225" y="129">0</text><text data-propulsion="impulse2" x="234" y="151">0</text><text data-propulsion="impulse3" x="243" y="173">0</text><text data-propulsion="rawSpeed" x="284" y="175">0</text><text data-propulsion="evadeCount" x="301" y="108">0</text><text data-propulsion="evadeDie" x="339" y="108">4</text><text data-propulsion="exhaust" x="281" y="75">0</text></g>
           <text data-live-stat="hull" x="139" y="84">0</text>
           <text data-live-stat="hull" x="179.5" y="86">0</text>
           <text data-live-stat="en" data-en-part="available" x="446" y="185">0</text>
@@ -292,6 +294,7 @@
         </article>
       </section>
       <section class="purchased-sic-shelf" aria-label="Purchased SIC cards">
+        <output data-propulsion-summary aria-label="Confirmed propulsion statistics"></output>
         <header><span>Installed, queued, and stored components</span><h2>Purchased SICs</h2></header>
         <div class="purchased-sic-grid" data-purchased-sic-gallery></div>
       </section>
@@ -305,7 +308,7 @@
         <div class="sic-card-gallery">
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-1" tabindex="0" aria-label="Power Engine 1 details">
             <header class="sic-poker-heading"><span>Engine <small>A-7</small></span><div><h3>Power Engine 1</h3><strong>Price: 1,750</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-1-graphic.png" alt="Power Engine 1" />
+            <img class="sic-poker-art" src="power-engine-1-graphic.png" alt="Power Engine 1" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradon, 5 hrs</dd></div></dl>
             <section class="sic-poker-rules"><p>Small Engine for basic energy needs.</p><p>Minimum distance away from another Engine is 1 square.</p><strong>Outputs 5 EN</strong><p>Stations 1<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>10</span></footer>
@@ -313,7 +316,7 @@
           <button class="sic-purchase-button" data-purchase-sic="en-engine-1" type="button">Purchase</button></section>
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-2" tabindex="0" aria-label="Power Engine 2 details">
             <header class="sic-poker-heading"><span>Engine <small>A-8</small></span><div><h3>Power Engine 2</h3><strong>Price: 4,550</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-2-graphic.png" alt="Power Engine 2" />
+            <img class="sic-poker-art" src="power-engine-2-graphic.png" alt="Power Engine 2" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>3</dd></div><div><dt>Size</dt><dd>2×2</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Drakkonite, 10 hrs</dd></div></dl>
             <section class="sic-poker-rules"><p>Small Engine for basic energy needs.</p><p>Minimum distance away from another Engine is 2 squares.</p><strong>Outputs 13 EN</strong><p>Stations 2<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>17</span></footer>
@@ -321,7 +324,7 @@
           <button class="sic-purchase-button" data-purchase-sic="en-engine-2" type="button">Purchase</button></section>
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-3" tabindex="0" aria-label="Power Engine 3 details">
             <header class="sic-poker-heading"><span>Engine <small>A-9</small></span><div><h3>Power Engine 3</h3><strong>Price: 10,150</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-3-graphic.png" alt="Power Engine 3" />
+            <img class="sic-poker-art" src="power-engine-3-graphic.png" alt="Power Engine 3" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>3×3</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Necronium, 1 day</dd></div></dl>
             <section class="sic-poker-rules"><p>Basic Engine that produces a large amount of EN.</p><p>Minimum distance away from another Engine is 3 squares.</p><strong>Outputs 29 EN</strong><p>Stations 2<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>25</span></footer>
@@ -329,7 +332,7 @@
           <button class="sic-purchase-button" data-purchase-sic="en-engine-3" type="button">Purchase</button></section>
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-4" tabindex="0" aria-label="Power Engine 4 details">
             <header class="sic-poker-heading"><span>Engine <small>A-10</small></span><div><h3>Power Engine 4</h3><strong>Price: 17,500</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-4-graphic.png" alt="Power Engine 4" />
+            <img class="sic-poker-art" src="power-engine-4-graphic.png" alt="Power Engine 4" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>4×4</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Endernium, 2 days</dd></div></dl>
             <section class="sic-poker-rules"><p>Basic Engine that produces a large amount of EN.</p><p>Minimum distance away from another Engine is 4 squares.</p><strong>Outputs 50 EN</strong><p>Stations 3<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>33</span></footer>
@@ -337,7 +340,7 @@
           <button class="sic-purchase-button" data-purchase-sic="en-engine-4" type="button">Purchase</button></section>
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-5" tabindex="0" aria-label="Power Engine 5 details">
             <header class="sic-poker-heading"><span>Engine <small>B-5</small></span><div><h3>Power Engine 5</h3><strong>Price: 26,950</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-5-graphic.png" alt="Power Engine 5" />
+            <img class="sic-poker-art" src="power-engine-5-graphic.png" alt="Power Engine 5" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>5×5</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Dark Phazon, 3 days</dd></div></dl>
             <section class="sic-poker-rules"><p>Powerful Engine for large starships.</p><p>Minimum distance away from another Engine is 5 squares.</p><strong>Outputs 77 EN</strong><p>Stations 3<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>43</span></footer>
@@ -345,7 +348,7 @@
           <button class="sic-purchase-button" data-purchase-sic="en-engine-5" type="button">Purchase</button></section>
           <section class="sic-market-item"><article class="sic-poker-card en-engine-card" data-sic-card="en-engine-6" tabindex="0" aria-label="Power Engine 6 details">
             <header class="sic-poker-heading"><span>Engine <small>B-6</small></span><div><h3>Power Engine 6</h3><strong>Price: 38,500</strong></div></header>
-            <img class="sic-poker-art" src="en-engine-6-graphic.png" alt="Power Engine 6" />
+            <img class="sic-poker-art" src="power-engine-6-graphic.png" alt="Power Engine 6" />
             <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>6×6</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Carmot, 3 days</dd></div></dl>
             <section class="sic-poker-rules"><p>Massive Engine for capital-scale energy needs.</p><p>Minimum distance away from another Engine is 6 squares.</p><strong>Outputs 110 EN</strong><p>Stations 4<br />Passive Station Bonus: Each Character grants additional EN for each level of Engineering they have.</p></section>
             <footer><span><small>If Impaired</small>Becomes unstable</span><span><small>Damage Threshold</small>53</span></footer>
@@ -371,10 +374,10 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="ship-map-core.js?v=20260907-hybrid-time-2"></script>
+    <script src="ship-map-core.js?v=20260908-thrusters-4"></script>
     <script src="ship-power.js?v=20260907-hybrid-time-2"></script>
     <script src="live-dom.js?v=20260907-workspace-2"></script>
     <script src="crew-overview.js?v=20260907-workspace-1"></script>
-    <script src="starship.js?v=20260907-hybrid-time-2"></script>
+    <script src="starship.js?v=20260908-thrusters-4"></script>
   </body>
 </html>

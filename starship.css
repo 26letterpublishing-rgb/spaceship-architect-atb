@@ -303,3 +303,17 @@ body:not(.has-linked-crew-access) .construction-crew-campaign>header,body:not(.h
 body.embedded-gm-starship .starship-header,
 body.embedded-gm-starship .prototype-notice{display:none}
 body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;padding:8px 12px 30px}
+.sic-card-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start}
+.sic-family-stack{min-width:0;border-bottom:1px solid #53636d;padding-bottom:12px}
+.sic-family-stack>summary{cursor:pointer;list-style:none;padding:8px 0;color:#e8edf1}
+.sic-family-stack>summary::-webkit-details-marker{display:none}
+.sic-family-stack>summary>strong{display:flex;justify-content:space-between;font-size:1.05rem;margin-bottom:12px}
+.sic-family-stack>summary>strong:after{content:"+";font-size:1.3rem;color:#68debb}
+.sic-family-stack[open]>summary>strong:after{content:"-"}
+.sic-stack-strips{display:block;padding-right:15px}
+.sic-stack-strips>span{display:block;position:relative;height:38px;margin-top:-6px;padding:7px 12px;border:1px solid #748997;border-radius:4px 4px 0 0;background:#172a35;box-shadow:0 -2px 5px #0007;font-size:.88rem}
+.sic-stack-strips>span:nth-child(even){background:#243640;margin-left:5px}
+.sic-family-stack[open]{grid-column:1/-1}
+.sic-family-stack[open] .sic-stack-strips{display:none}
+.sic-family-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,340px));gap:18px;justify-content:start}
+[data-propulsion-summary]{display:block;padding:10px;color:#b8f0dd;text-align:center;font-size:.9rem}

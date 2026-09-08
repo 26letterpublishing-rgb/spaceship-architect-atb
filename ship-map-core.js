@@ -13,6 +13,7 @@
   ]);
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
   const catalog = {
+    "exhaust-thruster-1": { name: "Exhaust Thruster 1", width: 1, height: 1, label: "ET 1", color: "#568da4", image: image("exhaust-thruster-1-graphic.png"), exterior: true, thruster: true, impulseBonus: 1, exhaust: -2, energyCost: 2, price: 200, security: 2, crafting: "Dianium, 2 hrs", threshold: 10, cardNumber: "A-23", output: 0, stations: [] },
     "en-engine-1": { width: 1, height: 1, label: "EN 1", color: "#2d873b", image: image("en-engine-1-floor-plan.png"), output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
     "en-engine-2": { width: 2, height: 2, label: "EN 2", color: "#2d873b", image: image("en-engine-2-floor-plan.png"), output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
     "en-engine-3": { width: 3, height: 3, label: "EN 3", color: "#2d873b", image: image("en-engine-3-floor-plan.png"), output: 29, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 1, y: 2, mesh: 7 }] },
@@ -53,6 +54,49 @@
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
 
+  function exteriorPlacement(ship, type, origin, ignoreId = "") {
+    const entry = definition(type), hull = new Set(ship.gridCells || []), cells = [];
+    if (!Number.isInteger(origin) || origin < 0 || origin >= 400 || origin % 20 + entry.width > 20 || Math.floor(origin / 20) + entry.height > 20) return false;
+    for (let y = 0; y < entry.height; y++) for (let x = 0; x < entry.width; x++) cells.push(origin + y * 20 + x);
+    if (cells.some(cell => hull.has(cell))) return false;
+    // Flood from the construction boundary: enclosed holes are not outer space.
+    const outside = new Set(), queue = [];
+    for (let cell = 0; cell < 400; cell++) if ((cell < 20 || cell >= 380 || cell % 20 === 0 || cell % 20 === 19) && !hull.has(cell)) { outside.add(cell); queue.push(cell); }
+    for (let i = 0; i < queue.length; i++) for (const side of SIDES) {
+      const cell = queue[i], next = cell + side.offset;
+      if (side.valid(cell) && !hull.has(next) && !outside.has(next)) { outside.add(next); queue.push(next); }
+    }
+    if (cells.some(cell => !outside.has(cell))) return false;
+    if (!cells.some(cell => SIDES.some(side => side.valid(cell) && hull.has(cell + side.offset)))) return false;
+    const occupied = buildLayout(ship).footprint;
+    return !cells.some(cell => occupied.has(cell) && occupied.get(cell).sicId !== ignoreId);
+  }
+
+  function propulsion(record) {
+    const ship = record.ship || record, count = new Set(ship.gridCells || []).size;
+    const limits = [4,5,6,7,8,9,10,11,12,13,14,16,18,20,23,26,30,34,40,50,70,90,100,120,150,200,250,300,350,400];
+    const index = limits.findIndex(limit => count <= limit);
+    const hsm = count < 4 ? 0 : index < 0 ? -10 - Math.floor((count - 401) / 50) : 20 - index;
+    const inventory = new Map((ship.sicInventory || []).map(item => [item.id, item]));
+    const thrusters = (ship.placements || []).map(p => ({ item: inventory.get(p.sicId), p })).filter(({item,p}) => item && definition(item.type).thruster && !item.disabled && !["destroyed","offline","powered-down"].includes(item.status) && exteriorPlacement(ship,item.type,p.cell,item.id)).slice(0,4);
+    const impulses = thrusters.map(({item}) => Math.trunc(hsm / 2) + definition(item.type).impulseBonus);
+    const rawSpeed = impulses.reduce((a,b) => a+b,0), moveSpeed = Math.max(0,rawSpeed);
+    return { hsm, impulses, rawSpeed, moveSpeed, exhaust: thrusters.reduce((n,{item}) => n + definition(item.type).exhaust,0), evadeCount: thrusters.filter(({item}) => !item.impaired && item.status !== "impaired").length, evadeDie: moveSpeed < 4 ? 4 : moveSpeed < 8 ? 6 : moveSpeed < 12 ? 8 : moveSpeed < 16 ? 10 : 12 };
+  }
+
+  function exteriorError(ship = {}) {
+    ship ||= {};
+    if (['gridCells','sicInventory','placements'].some(key => ship[key] !== undefined && !Array.isArray(ship[key]))) return "Invalid starship construction data.";
+    if ((ship.sicInventory || []).some(item => !item || typeof item !== 'object') || (ship.placements || []).some(item => !item || typeof item !== 'object')) return "Invalid starship component data.";
+    const inventory = ship.sicInventory || [];
+    if (inventory.filter(item => !item.pendingDisposition && definition(item.type).thruster).length > 4) return "A ship may have at most four thrusters.";
+    for (const p of ship.placements || []) {
+      const item = inventory.find(item => item.id === p.sicId);
+      if (item && definition(item.type).exterior && !exteriorPlacement(ship, item.type, p.cell, item.id)) return "Exterior SICs must attach to an outer hull wall, outside the ship and clear of other SICs.";
+    }
+    return "";
+  }
+
   function floorplanStyle(type, column = 0, row = 0) {
     const entry = definition(type);
     if (!entry.image) return "";
@@ -85,7 +129,7 @@
       const originColumn = origin % GRID_SIZE;
       for (let row = 0; row < entry.height; row += 1) for (let column = 0; column < entry.width; column += 1) {
         const square = (originRow + row) * GRID_SIZE + originColumn + column;
-        footprint.set(square, { placement, item, sicId: placement.sicId, type, width: entry.width, height: entry.height, label: entry.label, color: entry.color, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column, blocked: blocksMovement(type, entry.width, entry.height, column, row) });
+        footprint.set(square, { placement, item, sicId: placement.sicId, type, exterior: Boolean(entry.exterior), width: entry.width, height: entry.height, label: entry.label, color: entry.color, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column, blocked: Boolean(entry.exterior) || blocksMovement(type, entry.width, entry.height, column, row) });
       }
     }
 
@@ -95,7 +139,7 @@
         if (!side.valid(square)) continue;
         const adjacent = square + side.offset;
         const other = footprint.get(adjacent);
-        if (!other || other.sicId === current.sicId) continue;
+        if (!other || current.exterior || other.exterior || other.sicId === current.sicId) continue;
         const currentCross = side.name === "right" ? current.row : current.column;
         const otherCross = side.name === "right" ? other.row : other.column;
         const currentSize = side.name === "right" ? current.height : current.width;
@@ -110,6 +154,7 @@
     const connectionDoors = new Set([...bestConnections.values()].map((entry) => entry.key));
 
     function boundary(square, sideName) {
+      if (!hull.has(Number(square))) return { kind: "none", side: sideName, key: "" };
       const side = SIDES.find((entry) => entry.name === sideName);
       if (!side) return { kind: "none", side: sideName, key: "" };
       const adjacent = Number(square) + side.offset;
@@ -162,5 +207,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion });
 }));

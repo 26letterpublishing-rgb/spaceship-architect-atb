@@ -1,5 +1,14 @@
 # Spaceship Architect: Source Understanding
 
+## September 8: Exterior Thrusters and Space Map
+
+- Exhaust Thruster 1, Series A card A-23 (PDF page 23): price 200, EN cost 2, security 2, 1x1 EXT, Engineering, Dianium/2 hours, damage threshold 10, no stations. Impulse = 1 + trunc(HSM/2); Exhaust -2; one Evade die. Four AU adds one Move Speed once per thruster. Impairment removes the AU option and one Evade die, retaining base Impulse.
+- Core PDF page 56 (printed L27 spread): total all Impulse, preserve negative totals but treat them as zero movement. Divide negative HSM toward zero. Maximum four thrusters total. Evade die: speed <=3 D4, 4-7 D6, 8-11 D8, 12-15 D10, >=16 D12. AU boosts do not increase Evade die type.
+- User explicitly requires EXT parts to attach outside an outer hull wall; they cannot be installed inside the ship. Exterior parts do not buy hull area, add HSM/HP, create stations, or connect interior doors.
+- Approved digital map: six ships maximum, one hex step per Unit. GM sets axial positions in encounter preparation, distances derive from positions. First two ships default 25 Units apart. Old arbitrary pair distances cannot generally define a consistent hex layout; existing encounters without positions receive defaults and should be prepared again when exact positioning matters.
+- Ship travel, AU movement boosts, inertia, and the book's once-per-SvS-round movement are NOT implemented in this pass. Timing must be approved for real-time ATB after cockpits/bridges are available.
+
+
 Reading brief, September 6, 2026. This is an orientation and implementation reference,
 not a replacement rulebook, an approved digital rules specification, or proof that
 the app implements the rules described here.

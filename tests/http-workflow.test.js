@@ -84,6 +84,13 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     assert.deepEqual(assigned.starship.crewCharacterIds, [owner]);
   }
   await post("starship/crew", { code, token: playerTokens[1], characterId: "http-bram", starshipId: "http-gm-ship", crewCharacterIds: ["http-bram"] }, 403);
+  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'exhaust-thruster-1'}],placements:[{sicId:'thruster',cell:20}]};
+  await post('starship/link',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:21}]}},400);
+  const exteriorLinked=await post('starship/link',{code,token,starship:exteriorShip},201);
+  assert.equal(exteriorLinked.starship.ship.placements[0].cell,20);
+  const exteriorSaved=await post('starship/save',{code,token,starship:exteriorShip});
+  assert.equal(exteriorSaved.starship.ship.placements[0].cell,20);
+  await post('starship/save',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:200}]}},400);
   const combat = async (payload, expected = 200) => {
     const response = await fetch(`${base}/api/action`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roomCode: code, gmToken: token, ...payload }) });
@@ -95,6 +102,9 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     gridCells: Array.from({ length: 16 }, (_, i) => Math.floor(i / 4) * 20 + i % 4),
     placements: [{ sicId: "au", cell: 0 }], sicInventory: [{ id: "au", type: "au-engine-4" }],
   } };
+  const exteriorEncounter=await combat({action:'syncEncounterStarships',starships:[{id:exteriorShip.id,ship:exteriorShip}]});
+  assert.equal(exteriorEncounter.starships[0].ship.placements[0].cell,20);
+  assert.equal(exteriorEncounter.starships[0].ship.gridCells.length,4);
   let encounter = await combat({ action: "syncEncounterStarships", starships: [auShip] });
   assert.equal(encounter.starships[0].auState.current, 25);
   await combat({ action: "addUnit", characterName: "AU Clock Test", playerName: "GM", team: "npc", speed: 1, commandWindow: 10,
@@ -129,9 +139,10 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const ships = Array.from({length:6}, (_, i) => ({...auShip, id:`pair-${i}`}));
   let fleet = await combat({action:"syncEncounterStarships", starships:ships});
   assert.equal(fleet.shipDistances.length, 15);
-  fleet = await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:40}]});
-  assert.equal(fleet.shipDistances.filter(pair => pair.units === 25).length, 14);
-  await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:-1}]}, 400);
+  assert.equal(fleet.shipPositions.length,6);
+  assert.deepEqual(fleet.shipDistances,require('../ship-distances').fromPositions(fleet.starships,fleet.shipPositions));
+  await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:40}]},409);
+  await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:-1}]}, 409);
   await combat({action:"setShipDistances", distances:[], gmToken:"", characterId:"http-aster", characterToken:playerTokens[0]}, 403);
   await combat({action:"syncEncounterStarships", starships:[...ships, {...auShip,id:"seventh"}]}, 400);
   const demo = await post("showcase/start", {});
@@ -143,6 +154,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   demoState = await demoAction({action:"clearEncounter",preparing:true});
   assert.equal(demoState.units.length, 0, "preparation must not restore the demo roster");
   const preparation = { action: "prepareEncounter", preparationId: "http-preparation-001", mode: "starship", starships: [auShip], shipDistances: [],
+    shipPositions:[{id:auShip.id,q:12,r:-9}],
     units: ["http-aster", "http-bram"].map(characterId => ({ characterId, characterName: characterId, team: "pc", speed: 4, commandWindow: 10, location: { starshipId: auShip.id, square: 0, mesh: 4 } })) };
   const beforeInvalid = await (await fetch(`${base}/api/state?room=${code}`)).json();
   await combat({ ...preparation, units: [...preparation.units, preparation.units[0]] }, 400);
@@ -155,6 +167,10 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(preparedA.units.length, 2);
   assert.equal(preparedA.starships.length, 1);
   assert.equal(preparedA.running, false);
+  assert.deepEqual(preparedA.shipPositions,preparation.shipPositions);
+  const shipSave=JSON.parse(fs.readFileSync(path.join(dataDir,'campaigns.json'),'utf8')).find(record=>record.code===code);
+  assert.deepEqual(shipSave.encounter.shipPositions,preparation.shipPositions);
+  assert.equal(shipSave.starships.find(record=>record.id==='http-exterior').ship.placements[0].cell,20);
   const connection = new AbortController();
   t.after(() => connection.abort());
   const stream = await fetch(`${base}/events?room=${code}&unit=${preparedA.units[0].id}`, { signal: connection.signal });
@@ -164,7 +180,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(retried.starships[0].auState.current, spent.starships[0].auState.current, "retry must not reset progress or refill AU");
   await combat({ ...preparation, units: preparation.units.slice(0, 1) }, 409);
   await combat({ ...preparation, preparationId: "http-preparation-002", mode: "surface" }, 400);
-  const surface = await combat({ ...preparation, preparationId: "http-preparation-003", mode: "surface", starships: [], units: preparation.units.map(unit => ({ ...unit, location: { environment: "exterior", starshipId: "", square: null, mesh: 4 } })) });
+  const surface = await combat({ ...preparation, preparationId: "http-preparation-003", mode: "surface", starships: [], shipPositions: [], units: preparation.units.map(unit => ({ ...unit, location: { environment: "exterior", starshipId: "", square: null, mesh: 4 } })) });
   assert.equal(surface.starships.length, 0);
   assert.equal(surface.units.length, 2);
   assert.deepEqual(surface.units.map(unit => unit.id), preparedA.units.map(unit => unit.id), "connected PCs retain their identity when the encounter is replaced");

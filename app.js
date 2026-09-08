@@ -1530,7 +1530,7 @@ function shipScopedLogEntries(shipId, units) {
 
 function shipCombatColumnsMarkup(units) {
   const ships = (state?.starships || []).slice(0, 6);
-  return `<div class="ship-combat-columns" data-ship-count="${ships.length}">${ships.map((ship) => {
+  return `<div class="ship-combat-columns" data-ship-count="${ships.length}"><div class="combat-space-map" style="grid-column:1/-1">${window.SASpaceMap.markup(ships,state.shipPositions)}</div>${ships.map((ship) => {
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
     const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
     const title = ship.title || ship.ship?.title || "Unnamed Starship";
@@ -1538,7 +1538,7 @@ function shipCombatColumnsMarkup(units) {
       ? tacticalRingSingleMarkup(shipUnits, ship.id)
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
-      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode === "gm" && ships.length > 1 ? `<button type="button" class="mini" data-edit-distances="${escapeHtml(ship.id)}">Update Distances</button>` : ""}</header>
+      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div></header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
@@ -1559,6 +1559,7 @@ function renderShipCombatColumns() {
     // Keep map controls mounted while live ATB updates arrive.
     [...current.children].forEach((lane, index) => {
       const replacement = next.children[index];
+      if (lane.classList.contains("combat-space-map")) { window.SALiveDOM.render(lane,replacement.innerHTML); return; }
       for (const selector of [".ship-lane-atb", ".ship-lane-log"]) {
         const target = lane.querySelector(selector);
         const source = replacement.querySelector(selector);
@@ -1605,31 +1606,6 @@ function updateShipHeaders() {
     const distances = unitList.querySelector(`[data-ship-distances="${CSS.escape(ship.id)}"]`);
     distances.textContent = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${pair.units} Units`).join(" · ");
   }
-}
-
-function editShipDistances(shipId) {
-  const ships = state.starships || [];
-  const pairs = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === shipId || pair.b === shipId);
-  const dialog = document.createElement("dialog");
-  dialog.className = "ship-distance-dialog";
-  dialog.innerHTML = `<form><h2>Update Ship Distances</h2>${pairs.map((pair, index) => `<label><input type="checkbox" data-distance-pair="${index}"><span>${escapeHtml(ships.find(ship => ship.id === (pair.a === shipId ? pair.b : pair.a))?.title)}</span><input type="number" min="0" step="any" required value="${pair.units}" aria-label="New distance in Units" disabled><span>Units</span></label>`).join("")}<p role="status"></p><footer><button type="button" data-cancel>Cancel</button><button type="submit">Apply Distances</button></footer></form>`;
-  dialog.addEventListener("change", event => { if (event.target.matches("[data-distance-pair]")) event.target.closest("label").querySelector('input[type="number"]').disabled = !event.target.checked; });
-  dialog.querySelector("[data-cancel]").onclick = () => dialog.close();
-  dialog.addEventListener("close", () => dialog.remove());
-  dialog.querySelector("form").onsubmit = async event => {
-    event.preventDefault();
-    const changes = [...dialog.querySelectorAll("[data-distance-pair]:checked")].map(input => ({ ...pairs[Number(input.dataset.distancePair)], units: Number(input.closest("label").querySelector('input[type="number"]').value) }));
-    if (!changes.length) { dialog.querySelector('[role="status"]').textContent = "Select at least one affected ship."; return; }
-    const submit = dialog.querySelector('[type="submit"]'); submit.disabled = true;
-    try {
-      await action({ action: "setShipDistances", distances: changes }, "tap");
-      const applied = changes.every(change => state.shipDistances?.some(pair => window.SAShipDistances.key(pair.a, pair.b) === window.SAShipDistances.key(change.a, change.b) && pair.units === change.units));
-      if (applied) dialog.close();
-      else dialog.querySelector('[role="status"]').textContent = "Distances were not saved. Check the connection and try again.";
-    }
-    finally { submit.disabled = false; }
-  };
-  document.body.append(dialog); dialog.showModal();
 }
 
 function iconStore() {
@@ -4145,6 +4121,7 @@ async function editNpcCombatStat(button) {
 
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
+  if (!["remove", "nudge", "delay", "damage", "npcHp", "npcStat", "impairQueuedEffect", "removeQueuedEffect"].includes(button.dataset.action)) return;
   if (button.disabled) return;
   event?.preventDefault();
   event?.stopPropagation();
@@ -4162,7 +4139,6 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
-  if (button.dataset.editDistances && mode === "gm") { editShipDistances(button.dataset.editDistances); return; }
   if (button.dataset.spendAu && mode === "gm") {
     button.dataset.pending = "true";
     button.disabled = true;
