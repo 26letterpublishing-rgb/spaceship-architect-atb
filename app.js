@@ -1538,7 +1538,7 @@ function shipCombatColumnsMarkup(units) {
       ? tacticalRingSingleMarkup(shipUnits, ship.id)
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
-      <h2 class="ship-combat-title">${escapeHtml(title)}</h2>
+      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode === "gm" && ships.length > 1 ? `<button type="button" class="mini" data-edit-distances="${escapeHtml(ship.id)}">Update Distances</button>` : ""}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(entry.text)}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
@@ -1559,7 +1559,7 @@ function renderShipCombatColumns() {
     // Keep map controls mounted while live ATB updates arrive.
     [...current.children].forEach((lane, index) => {
       const replacement = next.children[index];
-      for (const selector of [".ship-combat-title", ".ship-lane-atb", ".ship-lane-log"]) {
+      for (const selector of [".ship-lane-atb", ".ship-lane-log"]) {
         const target = lane.querySelector(selector);
         const source = replacement.querySelector(selector);
         if (target.innerHTML !== source.innerHTML) {
@@ -1573,6 +1573,7 @@ function renderShipCombatColumns() {
     });
   }
   updateShipAuMeters();
+  updateShipHeaders();
   window.SACombatMap?.renderInlineMaps?.(unitList);
 }
 
@@ -1588,6 +1589,47 @@ function updateShipAuMeters() {
     const spend = panel.querySelector('[data-spend-au]');
     if (spend) spend.disabled = meter.current < 1 || spend.dataset.pending === "true";
   }
+}
+
+function updateShipHeaders() {
+  const ships = state?.starships || [];
+  for (const ship of ships) {
+    const header = unitList.querySelector(`[data-ship-vitals="${CSS.escape(ship.id)}"]`);
+    if (!header) continue;
+    header.parentElement.querySelector("h2").textContent = ship.title || ship.ship?.title || "Unnamed Starship";
+    const hullMax = Number(ship.maximumHullHp ?? ship.ship?.maximumHullHp ?? ship.ship?.gridCells?.length) || 0;
+    const hull = Number(ship.currentHullHp ?? ship.ship?.currentHullHp ?? hullMax) || 0;
+    const shieldMax = Number(ship.maximumShieldHp ?? ship.ship?.maximumShieldHp) || 0;
+    const shield = Number(ship.currentShieldHp ?? ship.ship?.currentShieldHp ?? shieldMax) || 0;
+    header.innerHTML = [["hull", hull, hullMax], ["shield", shield, shieldMax]].map(([kind, value, max]) => `<span class="ship-status-track" title="${kind} ${value}/${max}" aria-label="${kind} ${value} of ${max}">${shipSegmentStates(value, max).map(fill => `<i class="ship-status-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}<small>${value}/${max}</small></span>`).join("");
+    const distances = unitList.querySelector(`[data-ship-distances="${CSS.escape(ship.id)}"]`);
+    distances.textContent = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${pair.units} Units`).join(" · ");
+  }
+}
+
+function editShipDistances(shipId) {
+  const ships = state.starships || [];
+  const pairs = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === shipId || pair.b === shipId);
+  const dialog = document.createElement("dialog");
+  dialog.className = "ship-distance-dialog";
+  dialog.innerHTML = `<form><h2>Update Ship Distances</h2>${pairs.map((pair, index) => `<label><input type="checkbox" data-distance-pair="${index}"><span>${escapeHtml(ships.find(ship => ship.id === (pair.a === shipId ? pair.b : pair.a))?.title)}</span><input type="number" min="0" step="any" required value="${pair.units}" aria-label="New distance in Units" disabled><span>Units</span></label>`).join("")}<p role="status"></p><footer><button type="button" data-cancel>Cancel</button><button type="submit">Apply Distances</button></footer></form>`;
+  dialog.addEventListener("change", event => { if (event.target.matches("[data-distance-pair]")) event.target.closest("label").querySelector('input[type="number"]').disabled = !event.target.checked; });
+  dialog.querySelector("[data-cancel]").onclick = () => dialog.close();
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.querySelector("form").onsubmit = async event => {
+    event.preventDefault();
+    const changes = [...dialog.querySelectorAll("[data-distance-pair]:checked")].map(input => ({ ...pairs[Number(input.dataset.distancePair)], units: Number(input.closest("label").querySelector('input[type="number"]').value) }));
+    if (!changes.length) { dialog.querySelector('[role="status"]').textContent = "Select at least one affected ship."; return; }
+    const submit = dialog.querySelector('[type="submit"]'); submit.disabled = true;
+    try {
+      await action({ action: "setShipDistances", distances: changes }, "tap");
+      const applied = changes.every(change => state.shipDistances?.some(pair => window.SAShipDistances.key(pair.a, pair.b) === window.SAShipDistances.key(change.a, change.b) && pair.units === change.units));
+      if (applied) dialog.close();
+      else dialog.querySelector('[role="status"]').textContent = "Distances were not saved. Check the connection and try again.";
+    }
+    finally { submit.disabled = false; }
+  };
+  document.body.append(dialog); dialog.showModal();
 }
 
 function iconStore() {
@@ -1998,7 +2040,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                 <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
                 <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
                 <button class="mini damage" data-action="damage" data-id="${unit.id}">Damage</button>
-                ${state.showcase && unit.team === "pc" ? "" : `<button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>`}
+                <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
             : ""
         }
@@ -4124,6 +4166,7 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.dataset.editDistances && mode === "gm") { editShipDistances(button.dataset.editDistances); return; }
   if (button.dataset.spendAu && mode === "gm") {
     button.dataset.pending = "true";
     button.disabled = true;

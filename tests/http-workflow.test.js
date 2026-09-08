@@ -94,6 +94,33 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   encounter = await (await fetch(`${base}/api/state?room=${code}`)).json();
   assert.equal(encounter.starships[0].auState.progress, paused);
   await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 999 }, 409);
+  const npcId = encounter.units.find(unit => unit.team === "npc").id;
+  const assignedNpc = await post("starship/crew", { code, token, starshipId: auShip.id, crewCharacterIds: ["http-aster"], crewNpcUnitIds: [npcId] });
+  assert.deepEqual(assignedNpc.starship.crewNpcUnitIds, [npcId]);
+  // A PC saving their crew must not silently erase the GM's NPC assignments.
+  const preservedNpc = await post("starship/crew", { code, token: playerTokens[0], characterId: "http-aster", starshipId: auShip.id, crewCharacterIds: ["http-aster"] });
+  assert.deepEqual(preservedNpc.starship.crewNpcUnitIds, [npcId]);
+  await combat({ action: "clearEncounter" });
+  await combat({ action: "addUnit", npcRosterId: npcId, characterName: "AU Clock Test", team: "npc", speed: 1, location: {starshipId:auShip.id,square:0,mesh:4} });
+  const restoredNpc = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  assert.equal(restoredNpc.units[0].id, npcId);
+  await combat({ action: "addUnit", npcRosterId: npcId, team: "npc", characterName: "Duplicate", speed: 1, location: {starshipId:auShip.id,square:0,mesh:4} }, 409);
+  const ships = Array.from({length:6}, (_, i) => ({...auShip, id:`pair-${i}`}));
+  let fleet = await combat({action:"syncEncounterStarships", starships:ships});
+  assert.equal(fleet.shipDistances.length, 15);
+  fleet = await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:40}]});
+  assert.equal(fleet.shipDistances.filter(pair => pair.units === 25).length, 14);
+  await combat({action:"setShipDistances", distances:[{a:"pair-0",b:"pair-1",units:-1}]}, 400);
+  await combat({action:"setShipDistances", distances:[], gmToken:"", characterId:"http-aster", characterToken:playerTokens[0]}, 403);
+  await combat({action:"syncEncounterStarships", starships:[...ships, {...auShip,id:"seventh"}]}, 400);
+  const demo = await post("showcase/start", {});
+  const demoAction = payload => combat({roomCode:demo.code,gmToken:demo.gmToken,...payload});
+  let demoState = await (await fetch(`${base}/api/state?room=${demo.code}`)).json();
+  const demoPc = demoState.units.find(unit => unit.team === "pc");
+  demoState = await demoAction({action:"removeUnit",id:demoPc.id});
+  assert.ok(!demoState.units.some(unit => unit.id === demoPc.id));
+  demoState = await demoAction({action:"clearEncounter",preparing:true});
+  assert.equal(demoState.units.length, 0, "preparation must not restore the demo roster");
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }

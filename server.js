@@ -21,6 +21,7 @@ const {
 } = require("./combat-engine");
 const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
+const shipDistances = require("./ship-distances");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -83,6 +84,10 @@ function normalizeEncounterStarships(value) {
     return {
       id: String(record?.id || ship.id || "").slice(0, 120),
       title: String(record?.title || ship.title || "Starship").slice(0, 100),
+      maximumHullHp: Math.max(0, Number(record.maximumHullHp ?? ship.maximumHullHp ?? gridCells.length) || 0),
+      currentHullHp: Math.max(0, Number(record.currentHullHp ?? ship.currentHullHp ?? record.maximumHullHp ?? ship.maximumHullHp ?? gridCells.length) || 0),
+      maximumShieldHp: Math.max(0, Number(record.maximumShieldHp ?? ship.maximumShieldHp) || 0),
+      currentShieldHp: Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? record.maximumShieldHp ?? ship.maximumShieldHp) || 0),
       controlType: record?.controlType === "gm" ? "gm" : "pc",
       crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
       ship: { gridCells, placements, sicInventory, doorStates },
@@ -157,6 +162,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
+    room.shipDistances = shipDistances.pairs(room.starships, snapshot.shipDistances);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
     for (const unit of room.units) unit.playerConnected = Boolean(unit.playerConnected);
     room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
@@ -224,6 +230,7 @@ function publicState(room) {
     encounterEndedAt: room.encounterEndedAt,
     threshold: room.threshold,
     starships: room.starships,
+    shipDistances: shipDistances.pairs(room.starships || [], room.shipDistances),
     units: room.units,
     log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
@@ -710,6 +717,7 @@ function snapshotRoom(room) {
     hasEngagedClock: room.hasEngagedClock,
     threshold: room.threshold,
     starships: clone(room.starships || []),
+    shipDistances: clone(room.shipDistances || []),
     units: clone(room.units),
     log: clone(room.log),
   };
@@ -748,6 +756,7 @@ function restoreUndoSnapshot(room) {
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.threshold = snapshot.threshold;
   room.starships = clone(snapshot.starships || []);
+  room.shipDistances = clone(snapshot.shipDistances || []);
   room.units = clone(snapshot.units);
   for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   room.log = clone(snapshot.log);
@@ -759,6 +768,7 @@ function restoreUndoSnapshot(room) {
 }
 
 const gmUndoableActions = new Set([
+  "setShipDistances",
   "spendShipAu",
   "addUnit",
   "removeUnit",
@@ -1636,10 +1646,12 @@ async function handleAction(req, res) {
   }
 
   if (action === "syncEncounterStarships") {
+    if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     const previous = new Map((room.starships || []).map(ship => [ship.id, ship.auState]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { ship.auState = previous.get(ship.id) || null; });
     shipPower.refresh(room);
+    room.shipDistances = shipDistances.pairs(room.starships, room.shipDistances);
     pushLog(room, `${room.starships.length} starship${room.starships.length === 1 ? "" : "s"} synchronized for combat.`);
   }
 
@@ -1661,6 +1673,12 @@ async function handleAction(req, res) {
     }
     const ship = room.starships.find(record => record.id === body.starshipId);
     pushLog(room, `${ship.title} spent ${Number(body.amount)} AU.`, { starshipId: ship.id });
+  }
+
+  if (action === "setShipDistances") {
+    try { room.shipDistances = shipDistances.update(room.starships || [], room.shipDistances, body.distances); }
+    catch (error) { sendJson(res, 400, { error: error.message }); return; }
+    pushLog(room, "GM updated starship distances.");
   }
 
   if (action === "stopTravel") {
@@ -1719,8 +1737,10 @@ async function handleAction(req, res) {
       campaignApi?.broadcast(room.roomCode).catch(() => {});
       return;
     }
+    const rosterNpc = action === "addUnit" && body.npcRosterId ? (await campaignApi.campaign(room.roomCode))?.npcRoster?.find(unit => unit.id === body.npcRosterId && unit.team === "npc") : null;
+    if (rosterNpc && room.units.some(unit => unit.id === rosterNpc.id)) { sendJson(res, 409, { error: "That NPC is already in combat." }); return; }
     const unit = {
-      id: id(),
+      id: rosterNpc?.id || id(),
       playerName,
       characterName,
       speed,
@@ -2081,10 +2101,6 @@ async function handleAction(req, res) {
 
   if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
-    if (campaignApi?.isShowcase(room.roomCode) && unit?.team === "pc") {
-      sendJson(res, 409, { error: "Explore Features PCs remain available so every perspective can keep being tested." });
-      return;
-    }
     if (room.attackResolution && [room.attackResolution.attackerId, room.attackResolution.defenderId].includes(body.id)) {
       const interruptedAttack = room.attackResolution;
       room.attackResolution = null;
@@ -2335,7 +2351,7 @@ async function handleAction(req, res) {
   }
 
   if (action === "clearEncounter") {
-    if (resetShowcaseRoom(room)) {
+    if (!body.preparing && resetShowcaseRoom(room)) {
       room.undoSnapshot = null;
     } else {
     room.attackResolution = null;

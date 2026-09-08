@@ -562,6 +562,7 @@ function defaultCampaign({ code, name, gmCode }) {
 function normalizeCampaign(raw) {
   const campaign = raw && typeof raw === "object" ? raw : {};
   campaign.version = 3;
+  campaign.npcRoster = [...new Map([...(campaign.npcRoster || []), ...(campaign.encounter?.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, unit])).values()].slice(-200);
   campaign.code = String(campaign.code || "").trim().toUpperCase();
   campaign.name = String(campaign.name || "Campaign").trim().slice(0, 80) || "Campaign";
   campaign.gmCode = campaign.gmCode || campaign.password || null;
@@ -727,6 +728,7 @@ function campaignBackup(campaign) {
       privateNotes: campaign.privateNotes,
       rollRequests: campaign.rollRequests,
       npcTemplates: campaign.npcTemplates,
+      npcRoster: campaign.npcRoster,
       dramaDeck: campaign.dramaDeck,
       encounter: campaign.encounter,
       sessionNumber: campaign.sessionNumber,
@@ -948,6 +950,7 @@ class CampaignApi {
       bankerCharacterId: campaign.bankerCharacterId,
       settings: clone(campaign.settings),
       npcTemplates: gm ? clone(campaign.npcTemplates) : undefined,
+      npcRoster: gm ? clone(campaign.npcRoster || []) : undefined,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       dramaDeck: gm
         ? {
@@ -994,6 +997,7 @@ class CampaignApi {
     const campaign = await this.campaign(code);
     if (!campaign) return false;
     campaign.encounter = encounter;
+    campaign.npcRoster = [...new Map([...(campaign.npcRoster || []), ...(encounter.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, clone(unit)])).values()].slice(-200);
     await this.save(campaign, { broadcast: false });
     return true;
   }
@@ -1384,8 +1388,8 @@ class CampaignApi {
       }
       const validIds = new Set(campaign.characters.map((entry) => entry.id));
       record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
-      const encounterNpcIds = new Set((campaign.encounter?.units || []).filter((unit) => unit.team === "npc").map((unit) => String(unit.id)));
-      record.crewNpcUnitIds = [...new Set((Array.isArray(body.crewNpcUnitIds) ? body.crewNpcUnitIds : []).map(String))].filter((id) => encounterNpcIds.has(id));
+      const encounterNpcIds = new Set([...(campaign.npcRoster || []), ...(campaign.encounter?.units || []).filter(unit => unit.team === "npc")].map(unit => String(unit.id)));
+      if (gmAccess && Array.isArray(body.crewNpcUnitIds)) record.crewNpcUnitIds = [...new Set(body.crewNpcUnitIds.map(String))].filter(id => encounterNpcIds.has(id));
       record.characterLocations ||= {};
       for (const id of Object.keys(record.characterLocations)) if (!record.crewCharacterIds.includes(id)) delete record.characterLocations[id];
       record.ship.crewCharacterIds = clone(record.crewCharacterIds);

@@ -13,6 +13,7 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 ## How To Work
 
 - Read the relevant implementation and reproduce the reported behavior before changing it.
+- Until the user says `#commit`, proposed changes are discussion only. After that authorization, implement, verify, push GitHub, stop task-owned processes, and send the completion notification last.
 - For visual or interaction bugs, verify the result in the running application with realistic mouse interaction. A passing unit test alone is not proof that a UI bug is fixed.
 - Use Explore Features for rapid checks, then use a fresh campaign when the change concerns persistence, linking, crew assignment, permissions, or GM/player synchronization.
 - Preserve user changes and unrelated work already present in the working tree.
@@ -48,6 +49,8 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Creating or editing a ship from a campaign stays inside the GM Starships tab.
 - Linked ships expose crew assignment to the GM. Any campaign character can be assigned, and assignments persist.
 - Player Starships shows every linked ship on which that character is crew.
+- `campaign.npcRoster` preserves deployed NPC identities across encounters. Ship editing, fleet assignment, and preparation must all include these NPCs, not only PCs. Never erase NPC crew when a player saves PC assignments.
+- Combat supports at most six ships. `ship-distances.js` owns symmetric pairwise distances in Units (one Unit is a Lunar Distance), default 25. Only GM-selected pairs change; distances are currently informational, without automatic geometry or targeting effects.
 
 ### Demo Isolation
 

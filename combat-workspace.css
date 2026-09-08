@@ -1,4 +1,19 @@
 /* Desktop workspace: persistent ship controls, compact ATB, then local activity. */
+.ship-combat-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+.ship-combat-title h2{font-size:1.2rem;margin:0;color:#dfe5e8;text-shadow:0 1px #68737a}
+.ship-combat-title button,.ship-distance-dialog button{transform:none!important;transition:background-color .15s,color .15s!important;min-width:0;min-height:28px;padding:5px 10px;font-size:.7rem}
+[data-ship-vitals]{display:flex;gap:12px;align-items:center}
+[data-ship-vitals] .ship-status-icon{display:inline-block;flex:none}
+[data-ship-vitals] small{font-size:.65rem;align-self:center;color:#e4ecf1}
+[data-ship-distances]{flex-basis:100%;font-size:.7rem;color:#c6d3db;font-weight:400;text-transform:none}
+.ship-distance-dialog{position:fixed;inset:0;margin:auto;width:min(540px,calc(100% - 32px));max-height:85vh;overflow:auto;background:#0c1820;color:#e8f3f8;border:1px solid #69818d;border-radius:6px;padding:20px}
+.ship-distance-dialog::backdrop{background:#0009}
+.ship-distance-dialog h2{font-size:1.2rem}
+.ship-distance-dialog label{display:grid;grid-template-columns:24px minmax(0,1fr) 90px auto;align-items:center;gap:10px;margin:12px 0}
+.ship-distance-dialog input[type=number]{width:100%;min-width:0}
+.ship-distance-dialog footer{display:flex;justify-content:flex-end;gap:12px}
+.encounter-distances label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0}
+.encounter-distances input{width:100px}
 .ship-au-panel{grid-column:1/-1;padding:6px 12px;background:#081018;border-bottom:1px solid #384755;min-height:54px}
 .ship-au-panel>div{display:flex;align-items:center;gap:10px;min-height:26px}
 .ship-au-panel strong{font-size:.85rem;color:#f2d774;white-space:nowrap}

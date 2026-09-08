@@ -196,6 +196,7 @@ let premadeNpcDraft = null;
 let builtinNpcTemplates = [];
 let selectedEncounterCharacters = new Set();
 let selectedEncounterStarships = new Set();
+let encounterDistances = [];
 let encounterMode = "surface";
 const encounterLocations = new Map();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
@@ -701,7 +702,7 @@ function renderStarships() {
     const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaign.characters));
     const crew = new Set(record.crewCharacterIds || []);
     const npcCrew = new Set(record.crewNpcUnitIds || []);
-    const npcUnits = (encounterState?.units || []).filter((unit) => unit.team === "npc");
+    const npcUnits = campaignNpcRoster();
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}">
       <header><div><h3>${escapeHtml(record.title || "Untitled Starship")}</h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
       <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
@@ -995,6 +996,15 @@ function ensureEncounterDefaults() {
   if (!encounterNpcDraft) encounterNpcDraft = randomBuiltinNpc();
 }
 
+function campaignNpcRoster() {
+  return [...new Map([...(campaign?.npcRoster || []), ...(encounterState?.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, unit])).values()];
+}
+function stageCrewNpc(unit, shipId) {
+  if (stagedNpcs.some(npc => npc.rosterId === unit.id)) return;
+  const held = unit.weapons?.find(weapon => weapon.inventoryId === unit.heldWeaponId);
+  stagedNpcs.push({ ...stagedNpc(unit), rosterId: unit.id, name: unit.characterName, heldWeaponId: held?.weaponId || "unarmed", locationStarshipId: shipId });
+}
+
 function renderEncounterBuilder() {
   if (!campaign) return;
   ensureEncounterDefaults();
@@ -1018,11 +1028,12 @@ function renderEncounterBuilder() {
     const assigned = new Set();
     const shipGroups = (campaign.starships || []).map((ship) => {
       const crew = approved.filter((record) => ship.crewCharacterIds?.includes(record.id));
+      const npcs = campaignNpcRoster().filter(unit => ship.crewNpcUnitIds?.includes(unit.id));
       crew.forEach((record) => assigned.add(record.id));
       const checked = selectedEncounterStarships.has(ship.id);
       return `<section class="encounter-ship-option ${checked ? "selected" : ""}">
-        <label class="encounter-ship-heading"><input type="checkbox" data-encounter-starship="${escapeHtml(ship.id)}" ${checked ? "checked" : ""}><span><strong>${escapeHtml(ship.title || ship.ship?.title || "Unnamed Starship")}</strong><small>${ship.controlType === "gm" ? "GM CONTROLLED" : "PC CONTROLLED"}</small></span><b>${crew.length} CREW</b></label>
-        <div class="encounter-ship-crew">${crew.length ? crew.map((record) => characterMarkup(record, ship.id, true)).join("") : '<p>No assigned crew.</p>'}</div>
+        <label class="encounter-ship-heading"><input type="checkbox" data-encounter-starship="${escapeHtml(ship.id)}" ${checked ? "checked" : ""}><span><strong>${escapeHtml(ship.title || ship.ship?.title || "Unnamed Starship")}</strong><small>${ship.controlType === "gm" ? "GM CONTROLLED" : "PC CONTROLLED"}</small></span><b>${crew.length + npcs.length} CREW</b></label>
+        <div class="encounter-ship-crew">${crew.map(record => characterMarkup(record, ship.id, true)).join("")}${npcs.map(unit => `<label class="encounter-character-option"><input type="checkbox" data-encounter-npc="${escapeHtml(unit.id)}" data-crew-ship="${escapeHtml(ship.id)}" ${stagedNpcs.some(npc => npc.rosterId === unit.id) ? "checked" : ""}><span>${escapeHtml(unit.characterName)} (NPC)</span></label>`).join("")}${!crew.length && !npcs.length ? '<p>No assigned crew.</p>' : ""}</div>
       </section>`;
     }).join("");
     const unassigned = approved.filter((record) => !assigned.has(record.id));
@@ -1037,6 +1048,11 @@ function renderEncounterBuilder() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  if (encounterMode === "starship") {
+    const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id));
+    encounterDistances = window.SAShipDistances.pairs(ships, encounterDistances);
+    dom.encounterCharacterList.insertAdjacentHTML("beforeend", `<section class="encounter-distances"><h4>Ship Distances (Units)</h4>${encounterDistances.map((pair, index) => `<label>${escapeHtml(ships.find(ship => ship.id === pair.a)?.title)} to ${escapeHtml(ships.find(ship => ship.id === pair.b)?.title)} <input type="number" min="0" step="any" required data-encounter-distance="${index}" value="${pair.units}" aria-label="Distance in Units"></label>`).join("")}</section>`);
+  }
   dom.encounterNpcTemplate.innerHTML = npcTemplateOptions();
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   dom.encounterNpcEditor.innerHTML = npcEditorMarkup(encounterNpcDraft);
@@ -1107,7 +1123,7 @@ async function refreshEncounterState() {
   if (!code) return null;
   encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
   renderEncounterStatus();
-  if (SHOWCASE_MODE) renderStarships();
+  renderStarships();
   return encounterState;
 }
 
@@ -1196,6 +1212,7 @@ async function exitCampaignEncounter() {
 }
 
 async function beginEncounter() {
+  const preparedDistances = structuredClone(encounterDistances);
   const selected = campaign.characters.filter((record) => selectedEncounterCharacters.has(record.id) && record.approved !== false);
   if (!selected.length && !stagedNpcs.length) {
     showMessage(dom.message, "Select at least one character or add an NPC.", "error");
@@ -1216,9 +1233,10 @@ async function beginEncounter() {
   dom.beginEncounter.disabled = true;
   dom.beginEncounter.textContent = "Preparing Combat...";
   try {
-    await encounterAction("clearEncounter");
+    await encounterAction("clearEncounter", { preparing: true });
     const combatStarships = encounterMode === "starship" ? (campaign.starships || []).filter((ship) => selectedEncounterStarships.has(ship.id)) : [];
     await encounterAction("syncEncounterStarships", { starships: combatStarships });
+    if (combatStarships.length) await encounterAction("setShipDistances", { distances: preparedDistances });
     for (const record of selected) {
       await encounterAction("addUnit", {
         playerName: playerName(record),
@@ -1245,6 +1263,7 @@ async function beginEncounter() {
         controlledBy: "gm",
         team: "npc",
         actorType: "character",
+        npcRosterId: npc.rosterId,
         moveSpeed: npc.moveSpeed,
         maximumHp: npc.maximumHp,
         currentHp: npc.maximumHp,
@@ -1945,7 +1964,7 @@ dom.starshipList?.addEventListener("click", async (event) => {
         const unit = encounterState?.units?.find((entry) => entry.characterId === characterId);
         if (unit) await encounterAction("setCombatLocation", { id: unit.id, location: combatLocation(starshipId) });
       }
-      for (const unitId of crewNpcUnitIds) await encounterAction("setCombatLocation", { id: unitId, location: combatLocation(starshipId) });
+      for (const unitId of crewNpcUnitIds) if (encounterState?.units?.some(unit => unit.id === unitId)) await encounterAction("setCombatLocation", { id: unitId, location: combatLocation(starshipId) });
       await refreshCampaign();
       showMessage(dom.message, "Starship crew assignments saved.", "success");
     } catch (error) { showMessage(dom.message, error.message, "error"); }
@@ -2197,19 +2216,39 @@ dom.rollResults.addEventListener("click", async (event) => {
   }
 });
 
+dom.encounterCharacterList.addEventListener("input", event => {
+  if (!event.target.matches("[data-encounter-distance]")) return;
+  const value = Number(event.target.value);
+  if (event.target.value.trim() && Number.isFinite(value) && value >= 0) encounterDistances[Number(event.target.dataset.encounterDistance)].units = value;
+});
 dom.encounterCharacterList.addEventListener("change", (event) => {
+  if (event.target.matches("[data-encounter-distance]")) {
+    const value = Number(event.target.value);
+    if (!event.target.value.trim() || !Number.isFinite(value) || value < 0) { event.target.value = encounterDistances[Number(event.target.dataset.encounterDistance)].units; return; }
+    encounterDistances[Number(event.target.dataset.encounterDistance)].units = value; return;
+  }
+  const npcInput = event.target.closest("[data-encounter-npc]");
+  if (npcInput) {
+    const unit = campaignNpcRoster().find(unit => unit.id === npcInput.dataset.encounterNpc);
+    if (npcInput.checked && unit) stageCrewNpc(unit, npcInput.dataset.crewShip);
+    else stagedNpcs = stagedNpcs.filter(npc => npc.rosterId !== npcInput.dataset.encounterNpc);
+    renderEncounterBuilder(); return;
+  }
   const ship = event.target.closest("[data-encounter-starship]");
   if (ship) {
     const record = (campaign?.starships || []).find((entry) => entry.id === ship.dataset.encounterStarship);
     if (!record) return;
     if (ship.checked) {
+      if (selectedEncounterStarships.size >= 6) { ship.checked = false; showMessage(dom.message, "Combat supports up to six starships.", "error"); return; }
       selectedEncounterStarships.add(record.id);
+      campaignNpcRoster().filter(unit => record.crewNpcUnitIds?.includes(unit.id)).forEach(unit => stageCrewNpc(unit, record.id));
       for (const characterId of record.crewCharacterIds || []) {
         selectedEncounterCharacters.add(characterId);
         encounterLocations.set(characterId, record.id);
       }
     } else {
       selectedEncounterStarships.delete(record.id);
+      stagedNpcs = stagedNpcs.filter(npc => npc.locationStarshipId !== record.id || !npc.rosterId);
       for (const characterId of record.crewCharacterIds || []) {
         selectedEncounterCharacters.delete(characterId);
         if (encounterLocations.get(characterId) === record.id) encounterLocations.delete(characterId);

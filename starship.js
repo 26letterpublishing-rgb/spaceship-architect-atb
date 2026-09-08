@@ -1036,6 +1036,7 @@ function renderCampaignLink() {
   const credentials = linked ? activeCampaignCredentials(linked.roomCode) : null;
   document.body.classList.toggle("has-linked-crew-access", Boolean(linked && credentials?.token));
   const selected = new Set(draft.crewCharacterIds || []);
+  const npcSelected = new Set(linkedCampaignState?.starships?.find(ship => ship.id === draft.id)?.crewNpcUnitIds || []);
   linkStarshipForms.forEach((form) => { form.hidden = Boolean(linked); });
   document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
   document.querySelectorAll("[data-save-starship-crew]").forEach((button) => { button.hidden = !linked; });
@@ -1048,7 +1049,8 @@ function renderCampaignLink() {
   document.querySelectorAll("[data-linked-campaign-code]").forEach((node) => { node.textContent = linked.roomCode; });
   document.querySelectorAll("[data-linked-control-type]").forEach((node) => { node.textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled"; });
   const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : linkedCampaignState ? "<p>No characters have joined this campaign yet.</p>" : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
-  document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = markup; });
+  const npcMarkup = linkedCampaignState?.role === "gm" ? `<h4>NPC Crew</h4>${(linkedCampaignState.npcRoster || []).map(unit => `<label class="starship-crew-option"><input type="checkbox" data-npc-crew value="${escapeHtml(unit.id)}" ${npcSelected.has(unit.id) ? "checked" : ""}/><span>${escapeHtml(unit.characterName)}</span></label>`).join("") || "<p>Add an NPC in Encounter Control to make it available here.</p>"}` : "";
+  document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = markup + npcMarkup; });
 }
 async function linkStarship(event) {
   event.preventDefault();
@@ -1084,10 +1086,12 @@ document.querySelectorAll("[data-unlink-starship]").forEach((button) => button.a
 }));
 document.querySelectorAll("[data-save-starship-crew]").forEach((button) => button.addEventListener("click", async () => {
   if (!draft.campaignLink) return;
-  const crewCharacterIds = [...button.closest("[data-crew-campaign-tools]").querySelectorAll("[data-starship-crew-list] input:checked")].map((input) => input.value);
+  const tools = button.closest("[data-crew-campaign-tools]");
+  const crewCharacterIds = [...tools.querySelectorAll("[data-starship-crew-list] input:checked:not([data-npc-crew])")].map(input => input.value);
+  const crewNpcUnitIds = [...tools.querySelectorAll("[data-npc-crew]:checked")].map(input => input.value);
   const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
   try {
-    const result = await campaignApi("/api/campaign/starship/crew", { code: draft.campaignLink.roomCode, token: credentials.token, characterId: credentials.characterId, starshipId: draft.id, crewCharacterIds });
+    const result = await campaignApi("/api/campaign/starship/crew", { code: draft.campaignLink.roomCode, token: credentials.token, characterId: credentials.characterId, starshipId: draft.id, crewCharacterIds, crewNpcUnitIds });
     draft.crewCharacterIds = result.starship.crewCharacterIds; saveDraft(); campaignMessage("Crew assignments saved."); await refreshLinkedCampaign();
   } catch (error) { campaignMessage(error.message, "error"); }
 }));
