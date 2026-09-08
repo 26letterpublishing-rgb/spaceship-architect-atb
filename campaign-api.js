@@ -951,6 +951,7 @@ class CampaignApi {
       settings: clone(campaign.settings),
       npcTemplates: gm ? clone(campaign.npcTemplates) : undefined,
       npcRoster: gm ? clone(campaign.npcRoster || []) : undefined,
+      crewLocations: gm ? (campaign.encounter?.units || []).map(unit => ({ id: unit.id, characterId: unit.characterId, location: clone(unit.location || null), timedAction: unit.timedAction?.kind === "move" ? { kind: "move" } : null })) : undefined,
       lastAward: gm ? campaign.awardHistory.at(-1) || null : undefined,
       dramaDeck: gm
         ? {
@@ -996,9 +997,19 @@ class CampaignApi {
   async saveEncounter(code, encounter) {
     const campaign = await this.campaign(code);
     if (!campaign) return false;
-    campaign.encounter = encounter;
-    campaign.npcRoster = [...new Map([...(campaign.npcRoster || []), ...(encounter.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, clone(unit)])).values()].slice(-200);
-    await this.save(campaign, { broadcast: false });
+    const previous = this.saveQueues.get(code) || Promise.resolve();
+    const queued = previous.catch(() => {}).then(async () => {
+      const npcRoster = [...new Map([...(campaign.npcRoster || []), ...(encounter.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, clone(unit)])).values()].slice(-200);
+      const updatedAt = new Date().toISOString();
+      const revision = (Number(campaign.revision) || 1) + 1;
+      const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
+      if (!campaign.showcase) await this.store.save(next);
+      // Publish to the cache only after durable storage succeeds.
+      Object.assign(campaign, { encounter: next.encounter, npcRoster, updatedAt, revision });
+    });
+    this.saveQueues.set(code, queued);
+    try { await queued; }
+    finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
     return true;
   }
 

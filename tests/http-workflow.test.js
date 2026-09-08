@@ -8,9 +8,10 @@ const { once } = require("node:events");
 
 test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflows", { timeout: 30000 }, async (t) => {
   const root = path.resolve(__dirname, "..");
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-http-workflow-"));
   const child = spawn(process.execPath, ["server.js"], {
     cwd: root,
-    env: { ...process.env, PORT: "0", DATABASE_URL: "", SA_LOCAL_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "sa-http-workflow-")) },
+    env: { ...process.env, PORT: "0", DATABASE_URL: "", SA_LOCAL_DATA_DIR: dataDir },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -121,6 +122,40 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.ok(!demoState.units.some(unit => unit.id === demoPc.id));
   demoState = await demoAction({action:"clearEncounter",preparing:true});
   assert.equal(demoState.units.length, 0, "preparation must not restore the demo roster");
+  const preparation = { action: "prepareEncounter", preparationId: "http-preparation-001", mode: "starship", starships: [auShip], shipDistances: [],
+    units: ["http-aster", "http-bram"].map(characterId => ({ characterId, characterName: characterId, team: "pc", speed: 4, commandWindow: 10, location: { starshipId: auShip.id, square: 0, mesh: 4 } })) };
+  const beforeInvalid = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  await combat({ ...preparation, units: [...preparation.units, preparation.units[0]] }, 400);
+  const afterInvalid = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  assert.deepEqual(afterInvalid.units, beforeInvalid.units, "invalid setup must preserve all old combatants");
+  assert.deepEqual(afterInvalid.starships, beforeInvalid.starships);
+  await combat({ ...preparation, gmToken: "", characterId: "http-aster", characterToken: playerTokens[0] }, 403);
+  const [preparedA, preparedB] = await Promise.all([combat(preparation), combat(preparation)]);
+  assert.deepEqual(preparedA.units.map(unit => unit.id), preparedB.units.map(unit => unit.id), "concurrent retries must not create twice");
+  assert.equal(preparedA.units.length, 2);
+  assert.equal(preparedA.starships.length, 1);
+  assert.equal(preparedA.running, false);
+  const connection = new AbortController();
+  t.after(() => connection.abort());
+  const stream = await fetch(`${base}/events?room=${code}&unit=${preparedA.units[0].id}`, { signal: connection.signal });
+  await stream.body.getReader().read();
+  const spent = await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 3 });
+  const retried = await combat(preparation);
+  assert.equal(retried.starships[0].auState.current, spent.starships[0].auState.current, "retry must not reset progress or refill AU");
+  await combat({ ...preparation, units: preparation.units.slice(0, 1) }, 409);
+  await combat({ ...preparation, preparationId: "http-preparation-002", mode: "surface" }, 400);
+  const surface = await combat({ ...preparation, preparationId: "http-preparation-003", mode: "surface", starships: [], units: preparation.units.map(unit => ({ ...unit, location: { environment: "exterior", starshipId: "", square: null, mesh: 4 } })) });
+  assert.equal(surface.starships.length, 0);
+  assert.equal(surface.units.length, 2);
+  assert.deepEqual(surface.units.map(unit => unit.id), preparedA.units.map(unit => unit.id), "connected PCs retain their identity when the encounter is replaced");
+  assert.equal(surface.units[0].playerConnected, true, "a connected player must not be marked offline during replacement");
+  const persisted = JSON.parse(fs.readFileSync(path.join(dataDir, "campaigns.json"), "utf8")).find(record => record.code === code);
+  assert.ok(persisted.encounter.preparations.some(entry => entry.id === preparation.preparationId), "retry receipts must be durable, not browser-only");
+  assert.equal(persisted.encounter.units.length, 2);
+  connection.abort();
+  await new Promise(resolve => setTimeout(resolve, 3250));
+  const disconnected = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  assert.equal(disconnected.units[0].playerConnected, false, "disconnect callbacks must update the replacement unit, not the discarded one");
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }

@@ -22,6 +22,7 @@ const {
 const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
 const shipDistances = require("./ship-distances");
+const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
@@ -30,6 +31,9 @@ const PUBLIC_DIR = __dirname;
 const rooms = new Map();
 const clients = new Map();
 const roomPersistTimers = new Map();
+const roomPersistWrites = new Map();
+const roomPreparations = new Map();
+const roomActionQueues = new Map();
 const npcDefeatTimers = new Map();
 const campaignStore = new CampaignStore();
 let campaignApi = null;
@@ -96,7 +100,7 @@ function normalizeEncounterStarships(value) {
   }).filter((record) => record.id);
 }
 
-function createRoom(requestedCode = "", snapshot = null) {
+function createRoom(requestedCode = "", snapshot = null, register = true) {
   let code = String(requestedCode || "").trim().toUpperCase() || roomCode();
   while (!requestedCode && rooms.has(code)) code = roomCode();
   const room = {
@@ -132,6 +136,7 @@ function createRoom(requestedCode = "", snapshot = null) {
     undoSnapshot: null,
     undoLabel: "",
     lastPersistRequestAt: 0,
+    preparations: [],
   };
   if (snapshot && typeof snapshot === "object") {
     room.running = Boolean(snapshot.running);
@@ -166,11 +171,14 @@ function createRoom(requestedCode = "", snapshot = null) {
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
     for (const unit of room.units) unit.playerConnected = Boolean(unit.playerConnected);
     room.log = Array.isArray(snapshot.log) ? clone(snapshot.log).slice(-80) : [];
+    room.preparations = clone(snapshot.preparations || []);
     room.running = false;
     room.hardPaused = true;
   }
-  rooms.set(code, room);
-  clients.set(code, new Set());
+  if (register) {
+    rooms.set(code, room);
+    clients.set(code, new Set());
+  }
   for (const unit of room.units) if (unit.defeatedAt) syncNpcDefeat(room, unit);
   pushLog(room, snapshot ? `Campaign encounter ${code} restored in a paused state.` : `Room ${code} created.`);
   return room;
@@ -191,12 +199,15 @@ async function ensureCampaignRoom(code) {
 }
 
 function scheduleRoomPersist(room, delay = 250) {
-  if (!campaignApi || !room?.roomCode) return;
+  if (!campaignApi || !room?.roomCode || roomPreparations.has(room.roomCode)) return;
   clearTimeout(roomPersistTimers.get(room.roomCode));
   roomPersistTimers.set(room.roomCode, setTimeout(async () => {
     roomPersistTimers.delete(room.roomCode);
     try {
-      await campaignApi.saveEncounter(room.roomCode, snapshotRoom(room));
+      const write = campaignApi.saveEncounter(room.roomCode, snapshotRoom(room));
+      roomPersistWrites.set(room.roomCode, write);
+      await write;
+      if (roomPersistWrites.get(room.roomCode) === write) roomPersistWrites.delete(room.roomCode);
     } catch (error) {
       console.error(`Could not persist encounter ${room.roomCode}:`, error.message);
     }
@@ -720,6 +731,7 @@ function snapshotRoom(room) {
     shipDistances: clone(room.shipDistances || []),
     units: clone(room.units),
     log: clone(room.log),
+    preparations: clone(room.preparations || []),
   };
 }
 
@@ -1432,6 +1444,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    if (roomPreparations.has(room.roomCode)) { room.lastTick = Date.now(); continue; }
     migrateRoomDelays(room);
     if (room.hardPaused) continue;
     const defenseCommand = attackCommandState(room);
@@ -1549,6 +1562,62 @@ async function handleCreateRoom(req, res) {
   broadcast(room);
 }
 
+function preparedUnit(body, threshold) {
+  const unit = {
+    id: body.team === "npc" && body.npcRosterId ? body.npcRosterId : id(),
+    playerName: String(body.playerName || "GM").trim().slice(0, 40),
+    characterName: String(body.characterName || "Character").trim().slice(0, 40),
+    speed: normalizeSpeed(body.speed), commandWindow: normalizeCommandWindow(body.commandWindow),
+    atb: Math.max(0, Math.min(threshold - 0.001, Number(body.initialAtb) || 0)),
+    encounterSpeedBonus: 0, regenerationRate: Math.max(0, Math.min(100, Number(body.regenerationRate) || 0)),
+    regenerationLabel: String(body.regenerationLabel || "").slice(0, 80),
+    regenerationProgress: 0, recurringHealingProgress: 0,
+    delay: null, delayTimer: null, delayedAction: null, queuedEffects: [],
+    controlledBy: body.team === "pc" ? "player" : "gm", team: body.team,
+    allyNpc: body.team === "npc" && Boolean(body.allyNpc), actorType: "character",
+    color: normalizeColor(body.color), tieSeed: Math.random(),
+    characterId: body.team === "pc" ? String(body.characterId) : "", playerConnected: false,
+  };
+  syncUnitCombat(unit, body);
+  ensureNpcHp(unit);
+  return unit;
+}
+
+async function prepareEncounter(room, body) {
+  const receipt = room.preparations?.find(entry => entry.id === body.preparationId);
+  if (receipt) {
+    if (receipt.fingerprint !== preparationFingerprint(body)) throw Object.assign(new Error("This preparation ID was already used for a different setup."), { status: 409 });
+    return;
+  }
+  const campaign = await campaignApi.campaign(room.roomCode);
+  const prepared = validatePreparation(body, campaign, normalizeEncounterStarships);
+  const candidate = createRoom(room.roomCode, null, false);
+  candidate.showcase = room.showcase;
+  candidate.starships = prepared.starships;
+  candidate.shipDistances = prepared.shipDistances;
+  candidate.units = prepared.units.map(unit => preparedUnit(unit, candidate.threshold));
+  for (const unit of candidate.units) {
+    const previous = unit.characterId && room.units.find(entry => entry.characterId === unit.characterId);
+    if (previous) {
+      unit.id = previous.id;
+      unit.liveConnections = previous.liveConnections || 0;
+      unit.playerConnected = Boolean(previous.playerConnected);
+    }
+  }
+  candidate.preparations = [...(room.preparations || []), { id: body.preparationId, fingerprint: prepared.fingerprint }].slice(-100);
+  shipPower.refresh(candidate);
+  pushLog(candidate, "Encounter prepared and paused. Engage the clock when ready.");
+  // Drain old writes before saving the replacement; never expose a partial roster.
+  clearTimeout(roomPersistTimers.get(room.roomCode));
+  roomPersistTimers.delete(room.roomCode);
+  await roomPersistWrites.get(room.roomCode)?.catch(() => {});
+  if (!await campaignApi.saveEncounter(room.roomCode, snapshotRoom(candidate))) throw new Error("Campaign could not be saved.");
+  cancelRoomNpcDefeats(room.roomCode);
+  Object.assign(room, candidate, { lastTick: Date.now() });
+  broadcast(room);
+  void campaignApi.broadcast(room.roomCode).catch(() => {});
+}
+
 async function handleAction(req, res) {
   let body;
   try {
@@ -1557,6 +1626,22 @@ async function handleAction(req, res) {
     sendJson(res, 400, { error: "Bad JSON" });
     return;
   }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) { sendJson(res, 400, { error: "An action object is required." }); return; }
+  const code = String(body.roomCode || "").trim().toUpperCase();
+  const previous = roomActionQueues.get(code) || Promise.resolve();
+  const pending = previous.catch(() => {}).then(() => handleRoomAction(body, res));
+  roomActionQueues.set(code, pending);
+  try { await pending; }
+  catch (error) {
+    console.error(`Encounter action failed in ${code}:`, error.message);
+    if (!res.writableEnded) sendJson(res, 500, { error: "The encounter action could not be completed. Please retry." });
+  } finally {
+    if (roomActionQueues.get(code) === pending) roomActionQueues.delete(code);
+  }
+}
+
+async function handleRoomAction(body, res) {
 
   const room = getRoom(body.roomCode) || await ensureCampaignRoom(body.roomCode);
   if (!room) {
@@ -1594,6 +1679,25 @@ async function handleAction(req, res) {
     }
   } else if (!gmAuthorized) {
     sendJson(res, 403, { error: "GM authorization is required for that encounter control." });
+    return;
+  }
+  if (action === "prepareEncounter") {
+    // Concurrent retries share the first transaction, then check its saved receipt.
+    while (roomPreparations.has(room.roomCode)) await roomPreparations.get(room.roomCode).catch(() => {});
+    const preparation = prepareEncounter(room, body);
+    roomPreparations.set(room.roomCode, preparation);
+    try {
+      await preparation;
+      sendJson(res, 200, publicState(room));
+    } catch (error) {
+      sendJson(res, error.status || 400, { error: error.message });
+    } finally {
+      roomPreparations.delete(room.roomCode);
+    }
+    return;
+  }
+  if (roomPreparations.has(room.roomCode)) {
+    sendJson(res, 409, { error: "Encounter preparation is being saved. Please try again in a moment." });
     return;
   }
   if (action === "undoLastAction" || action === "undoLastTiming") {
@@ -2582,16 +2686,18 @@ const server = http.createServer(async (req, res) => {
       clearInterval(heartbeat);
       roomClients.delete(res);
       if (liveUnit) setTimeout(() => {
-        liveUnit.liveConnections = Math.max(0, Number(liveUnit.liveConnections) || 0) - 1;
-        if (liveUnit.liveConnections > 0) return;
-        liveUnit.playerConnected = false;
-        if (room.activeId === liveUnit.id) {
-          liveUnit.commandCarrySeconds = room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : Math.max(0, Number(room.commandHeldRemaining) || Number(liveUnit.commandWindow) || 0);
+        const currentUnit = room.units.find(entry => entry.id === liveUnit.id);
+        if (!currentUnit) return;
+        currentUnit.liveConnections = Math.max(0, Number(currentUnit.liveConnections) || 0) - 1;
+        if (currentUnit.liveConnections > 0) return;
+        currentUnit.playerConnected = false;
+        if (room.activeId === currentUnit.id) {
+          currentUnit.commandCarrySeconds = room.commandDeadline ? Math.max(0, (room.commandDeadline - Date.now()) / 1000) : Math.max(0, Number(room.commandHeldRemaining) || Number(currentUnit.commandWindow) || 0);
           const previousSource = room.activeSource;
           room.activeId = null;
           room.pausedForTurn = false;
           clearActiveCommand(room);
-          pushLog(room, `${liveUnit.characterName} disconnected; their ready turn is preserved.`);
+          pushLog(room, `${currentUnit.characterName} disconnected; their ready turn is preserved.`);
           moveToNextTurnOrClock(room, previousSource);
         }
         broadcast(room);

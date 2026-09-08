@@ -1386,10 +1386,10 @@ function ringActionButtons(unit, midAngle) {
   const id = escapeHtml(unit.id);
   const delayDisabled = !delayConsoleAllowed();
   return `
-    <div class="ring-action-cluster" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
+    <div class="ring-action-cluster" data-unit-id="${id}" style="--ring-action-x:${x.toFixed(2)}%; --ring-action-y:${y.toFixed(2)}%;">
       <button class="ring-action-btn delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">DL</span><span class="delay-label-blocked">DL</span></button>
-      <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="Add 5% ATB">+5</button>
-      <button class="ring-action-btn damage" data-action="damage" data-id="${id}" title="Apply Damage">-HP</button>
+      <button class="ring-action-btn" data-action="nudge" data-id="${id}" title="${state.pausedForTurn ? "Resolve the active turn before adding ATB" : "Add 5% ATB"}" ${state.pausedForTurn ? "disabled" : ""}>+5</button>
+      <button class="ring-action-btn damage" data-action="damage" data-id="${id}" title="Apply Damage - ${Math.max(0, Number(unit.currentHp) || 0)}/${Math.max(1, Number(unit.maximumHp) || 1)} HP">-HP</button>
       <button class="ring-action-btn danger" data-action="remove" data-id="${id}" title="Remove">X</button>
     </div>
   `;
@@ -1541,7 +1541,7 @@ function shipCombatColumnsMarkup(units) {
       <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode === "gm" && ships.length > 1 ? `<button type="button" class="mini" data-edit-distances="${escapeHtml(ship.id)}">Update Distances</button>` : ""}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
-      <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(entry.text)}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
+      <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
   }).join("")}</div>`;
@@ -1565,7 +1565,7 @@ function renderShipCombatColumns() {
         if (target.innerHTML !== source.innerHTML) {
           const scroller = target.querySelector(":scope > div");
           const scrollTop = scroller?.scrollTop || 0;
-          target.innerHTML = source.innerHTML;
+          window.SALiveDOM.render(target, source.innerHTML);
           const updatedScroller = target.querySelector(":scope > div");
           if (updatedScroller) updatedScroller.scrollTop = scrollTop;
         }
@@ -1601,7 +1601,7 @@ function updateShipHeaders() {
     const hull = Number(ship.currentHullHp ?? ship.ship?.currentHullHp ?? hullMax) || 0;
     const shieldMax = Number(ship.maximumShieldHp ?? ship.ship?.maximumShieldHp) || 0;
     const shield = Number(ship.currentShieldHp ?? ship.ship?.currentShieldHp ?? shieldMax) || 0;
-    header.innerHTML = [["hull", hull, hullMax], ["shield", shield, shieldMax]].map(([kind, value, max]) => `<span class="ship-status-track" title="${kind} ${value}/${max}" aria-label="${kind} ${value} of ${max}">${shipSegmentStates(value, max).map(fill => `<i class="ship-status-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}<small>${value}/${max}</small></span>`).join("");
+    header.innerHTML = [["hull", hull, hullMax], ["shield", shield, shieldMax]].map(([kind, value, max]) => window.SAHealthDisplay.track(kind, value, max, mode === "gm")).join("");
     const distances = unitList.querySelector(`[data-ship-distances="${CSS.escape(ship.id)}"]`);
     distances.textContent = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${pair.units} Units`).join(" · ");
   }
@@ -1974,7 +1974,7 @@ function npcHealthMarkup(unit, { gm = false } = {}) {
     .join("");
   const exact = gm && unit.team === "npc"
     ? '<button class="npc-hp-exact" type="button" data-action="npcHp" data-id="' + escapeHtml(unit.id) + '" title="Edit Current and Maximum HP">' + Math.max(0, Number(unit.currentHp) || 0) + '/' + Math.max(1, Number(unit.maximumHp) || 1) + ' HP</button>'
-    : "";
+    : gm || unit.id === myUnitId ? `<small>${Math.max(0, Number(unit.currentHp) || 0)}/${Math.max(1, Number(unit.maximumHp) || 1)} HP</small>` : "";
   return '<span class="npc-health" aria-label="Combatant health">' + hearts + exact + '</span>';
 }
 
@@ -2038,7 +2038,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
                     : ""
                 }
                 <button class="mini delay-button ${delayDisabled ? "delay-blocked" : ""}" data-action="delay" data-id="${unit.id}" title="${delayDisabled ? "Pause Everything before opening Delay" : "Delay"}" aria-disabled="${delayDisabled ? "true" : "false"}"><span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span></button>
-                <button class="mini" data-action="nudge" data-id="${unit.id}">+5%</button>
+                <button class="mini" data-action="nudge" data-id="${unit.id}" title="${state.pausedForTurn ? "Resolve the active turn before adding ATB" : "Add 5% ATB"}" ${state.pausedForTurn ? "disabled" : ""}>+5%</button>
                 <button class="mini damage" data-action="damage" data-id="${unit.id}">Damage</button>
                 <button class="mini danger" data-action="remove" data-id="${unit.id}">Remove</button>
               </div>`
@@ -2062,19 +2062,11 @@ function unitCard(unit, { gm = false, player = false } = {}) {
         queuedEffectsMarkup(unit, { gm })
       }
       ${
-        window.SACombatActions?.statusMarkup(unit, { gm }) || ""
+        window.SACombatActions?.statusMarkup(unit, { gm, player }) || ""
       }
       <button type="button" class="meter color-trigger" data-action="barColor" data-id="${escapeHtml(unit.id)}" title="Change ${escapeHtml(unit.characterName)}'s ATB color"><span class="fill" style="width:${pct(unit)}%"></span></button>
     </article>
   `;
-}
-
-function shipSegmentStates(current, maximum) {
-  const max = Math.max(0, Number(maximum) || 0);
-  const value = Math.max(0, Math.min(max, Number(current) || 0));
-  if (!max) return ["empty", "empty", "empty"];
-  const halfSegments = Math.round((value / max) * 6);
-  return [0, 1, 2].map((index) => halfSegments >= (index + 1) * 2 ? "full" : halfSegments === index * 2 + 1 ? "half" : "empty");
 }
 
 function renderStarshipStatuses() {
@@ -2087,8 +2079,7 @@ function renderStarshipStatuses() {
     const shieldMax = Math.max(0, Number(record.maximumShieldHp ?? ship.maximumShieldHp) || 0);
     const shield = Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? shieldMax) || 0);
     const peopleAboard = (state?.units || []).filter((unit) => unit.location?.starshipId === record.id && !unit.defeatedAt && Number(unit.currentHp ?? 1) > 0).length;
-    const icons = (states, kind) => states.map((value) => `<i class="ship-status-icon ${kind} ${value}" aria-hidden="true"></i>`).join("");
-    return `<article class="starship-status-card"><div class="ship-status-name"><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-people-count" title="${peopleAboard} ${peopleAboard === 1 ? "person" : "people"} aboard"><i aria-hidden="true"></i><strong>${peopleAboard}</strong></span><span class="ship-status-track" title="Hull ${hull}/${hullMax}">${icons(shipSegmentStates(hull, hullMax), "hull")}</span><span class="ship-status-track" title="Shields ${shield}/${shieldMax}">${icons(shipSegmentStates(shield, shieldMax), "shield")}</span>${mode === "gm" ? `<button type="button" class="mini ship-map-button" data-open-ship-map="${escapeHtml(record.id)}">Ship Map</button>` : ""}</article>`;
+    return `<article class="starship-status-card"><div class="ship-status-name"><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-people-count" title="${peopleAboard} ${peopleAboard === 1 ? "person" : "people"} aboard"><i aria-hidden="true"></i><strong>${peopleAboard}</strong></span>${window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm")}${window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm")}${mode === "gm" ? `<button type="button" class="mini ship-map-button" data-open-ship-map="${escapeHtml(record.id)}">Ship Map</button>` : ""}</article>`;
   }).join("");
 }
 
@@ -2166,6 +2157,11 @@ function updateUnitCard(card, unit, { gm = false, player = false } = {}) {
   if (fill) fill.style.width = `${pct(unit)}%`;
 
   if (gm) {
+    const nudge = card.querySelector('[data-action="nudge"]');
+    if (nudge) {
+      nudge.disabled = Boolean(state.pausedForTurn);
+      nudge.title = state.pausedForTurn ? "Resolve the active turn before adding ATB" : "Add 5% ATB";
+    }
     const delayButtons = card.querySelectorAll('button[data-action="delay"]');
     const delayDisabled = !delayConsoleAllowed();
     delayButtons.forEach((button) => {
@@ -2270,7 +2266,7 @@ function renderUnitList(sorted) {
     }),
   );
 
-  unitList.innerHTML = groupedUnitMarkup(sorted, { gm, player });
+  window.SALiveDOM.render(unitList, groupedUnitMarkup(sorted, { gm, player }));
 
   const cards = [...unitList.querySelectorAll(".unit-card[data-unit-id]")];
   for (const card of cards) {
@@ -3246,7 +3242,7 @@ function render() {
     if (starshipCombat) {
       renderShipCombatColumns();
     } else if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
-      unitList.innerHTML = tacticalRingMarkup(state.units);
+      window.SALiveDOM.render(unitList, tacticalRingMarkup(state.units));
     } else {
       renderUnitList(sorted);
     }
@@ -3280,7 +3276,7 @@ function render() {
   logList.innerHTML = state.log
     .slice()
     .reverse()
-    .map((entry) => `<div><strong>${escapeHtml(entry.at)}</strong> ${escapeHtml(entry.text)}</div>`)
+    .map((entry) => `<div><strong>${escapeHtml(entry.at)}</strong> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</div>`)
     .join("");
 
   if (!state.pausedForTurn && turnPanelOpen()) closeTurnPanel();
@@ -4202,7 +4198,9 @@ unitList.addEventListener("click", (event) => {
   handleUnitActionButton(button, event);
 });
 
-unitList.addEventListener("change", (event) => {
+const pendingUnitEdits = new Map();
+const unitEditTimers = new Map();
+function commitUnitEdit(event) {
   const input = event.target.closest("input[data-action], select[data-action]");
   if (!input) return;
   if (mode === "player" && input.dataset.action === "playerColor" && input.dataset.id === myUnitId) {
@@ -4210,10 +4208,31 @@ unitList.addEventListener("change", (event) => {
     return;
   }
   if (mode !== "gm") return;
-  if (input.dataset.action === "speed") action({ action: "setSpeed", id: input.dataset.id, speed: input.value }, "tap");
-  if (input.dataset.action === "commandWindow") action({ action: "setCommandWindow", id: input.dataset.id, commandWindow: input.value }, "tap");
-  if (input.dataset.action === "npcWeapon") action({ action: "setNpcWeapon", id: input.dataset.id, weaponId: input.value }, "tap");
+  const field = input.dataset.action;
+  const commands = { speed: "setSpeed", commandWindow: "setCommandWindow", npcWeapon: "setNpcWeapon" };
+  if (!commands[field] || !input.checkValidity()) return;
+  const unit = state?.units.find(entry => entry.id === input.dataset.id);
+  const current = field === "npcWeapon" ? unit?.weapons?.find(weapon => weapon.inventoryId === unit.heldWeaponId)?.weaponId : unit?.[field];
+  if (String(current ?? "") === input.value) return;
+  const key = `${input.dataset.id}:${field}`;
+  if (pendingUnitEdits.get(key) === input.value) return;
+  pendingUnitEdits.set(key, input.value);
+  void action({ action: commands[field], id: input.dataset.id, [field === "npcWeapon" ? "weaponId" : field]: input.value }, "tap")
+    .finally(() => pendingUnitEdits.delete(key));
+}
+unitList.addEventListener("change", commitUnitEdit);
+unitList.addEventListener("focusout", commitUnitEdit);
+unitList.addEventListener("input", event => {
+  const input = event.target.closest('input[data-action="speed"], input[data-action="commandWindow"]');
+  if (!input) return;
+  const key = `${input.dataset.id}:${input.dataset.action}`;
+  clearTimeout(unitEditTimers.get(key));
+  unitEditTimers.set(key, setTimeout(() => {
+    unitEditTimers.delete(key);
+    if (input.isConnected) commitUnitEdit({ target: input });
+  }, 400));
 });
+unitList.addEventListener("keydown", event => { if (event.key === "Enter" && event.target.matches("input[data-action]")) { event.preventDefault(); commitUnitEdit(event); } });
 
 unitList.addEventListener("pointerdown", (event) => {
   if (visualMode !== "ring" || !state) return;

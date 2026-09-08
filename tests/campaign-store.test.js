@@ -49,3 +49,25 @@ test("unreadable campaign data fails startup without overwriting the file", () =
   assert.equal(result.status, 0);
   assert.equal(fs.readFileSync(file, "utf8"), "{broken json");
 });
+
+test("failed local writes preserve the old campaign and do not poison subsequent saves", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-store-failure-"));
+  const result = spawnSync(process.execPath, ["-e", `
+    const assert = require('node:assert/strict');
+    const fs = require('node:fs');
+    const { CampaignStore } = require('./campaign-store');
+    (async () => {
+      const store = new CampaignStore(); await store.init();
+      await store.save({code:'TEST',name:'original'});
+      const rename = fs.promises.rename;
+      fs.promises.rename = async () => { throw Error('disk unavailable'); };
+      await assert.rejects(store.save({code:'TEST',name:'failed'}));
+      assert.equal((await store.get('TEST')).name,'original');
+      fs.promises.rename = rename;
+      await store.save({code:'TEST',name:'recovered'});
+      assert.equal((await store.get('TEST')).name,'recovered');
+      await store.close();
+    })().catch(error => { console.error(error); process.exit(1); });
+  `], { cwd: path.resolve(__dirname, ".."), env: { ...process.env, SA_LOCAL_DATA_DIR: dir, DATABASE_URL: "" } });
+  assert.equal(result.status, 0, result.stderr.toString());
+});

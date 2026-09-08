@@ -1,0 +1,11 @@
+span.sa-health-track { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 0; padding: 0; border: 0; background: none; vertical-align: middle; }
+.sa-health-track > small { font-size: .7rem; color: #edf6fb; white-space: nowrap; }
+.sa-health-icon { position: relative; display: inline-block; flex: 0 0 15px; width: 15px; height: 15px; background: #9daab5; }
+.sa-health-icon::before { content: ""; position: absolute; inset: 2px; background: #101b23; }
+.sa-health-icon.hull, .sa-health-icon.hull::before { border-radius: 50%; }
+.sa-health-icon.hull.full::before { background: radial-gradient(circle at 30% 25%, #f5f9fc, #7b8793 65%, #35434e); }
+.sa-health-icon.hull.half::before { background: linear-gradient(90deg, #c4cfd7 50%, #101b23 50%); }
+.sa-health-icon.shield, .sa-health-icon.shield::before { clip-path: polygon(50% 0, 94% 18%, 84% 70%, 50% 100%, 16% 70%, 6% 18%); }
+.sa-health-icon.shield { background: #51856b; }
+.sa-health-icon.shield.full::before { background: #37d880; }
+.sa-health-icon.shield.half::before { background: linear-gradient(90deg, #37d880 50%, #101b23 50%); }

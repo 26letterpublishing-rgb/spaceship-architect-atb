@@ -339,9 +339,9 @@
     if (!stats || !record) { if (stats) stats.innerHTML = ""; return; }
     const ship = record.ship || {};
     const hullMax = Number(statValue(record, "maximumHullHp")) || ship.gridCells?.length || 0;
-    const hull = Number(statValue(record, "currentHullHp")) || hullMax;
+    const hull = Number(record.currentHullHp ?? ship.currentHullHp ?? ship.confirmed?.currentHullHp ?? hullMax);
     const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
-    const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
+    const shield = Number(record.currentShieldHp ?? ship.currentShieldHp ?? ship.confirmed?.currentShieldHp ?? shieldMax);
     const power = window.SAShipPower.output(record, combatState?.units || []);
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
@@ -349,15 +349,15 @@
       ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
-    stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
+    stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
   function statsMarkup(record) {
     const ship = record?.ship || {};
     const hullMax = Number(statValue(record, "maximumHullHp")) || ship.gridCells?.length || 0;
-    const hull = Number(statValue(record, "currentHullHp")) || hullMax;
+    const hull = Number(record.currentHullHp ?? ship.currentHullHp ?? ship.confirmed?.currentHullHp ?? hullMax);
     const shieldMax = Number(statValue(record, "maximumShieldHp")) || 0;
-    const shield = Number(statValue(record, "currentShieldHp")) || shieldMax;
+    const shield = Number(record.currentShieldHp ?? ship.currentShieldHp ?? ship.confirmed?.currentShieldHp ?? shieldMax);
     const power = window.SAShipPower.output(record, combatState?.units || []);
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
@@ -365,7 +365,7 @@
       ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
-    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${esc(value)}</strong></span>`).join("");
+    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
   function inlineMapMarkup(record) {

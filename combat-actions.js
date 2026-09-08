@@ -499,7 +499,12 @@
     action(payload).catch(() => {});
   }
 
-  function statusMarkup(unit) {
+  function powerShieldLabel(unit, gm = false, player = false) {
+    const exact = gm || (player && unit.id === window.SACombatBridge?.myUnitId?.());
+    return `POWER SHIELDS${exact ? ` - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP` : ""}${unit.powerShield.active ? "" : " (OFFLINE)"}`;
+  }
+
+  function statusMarkup(unit, { gm = false, player = false } = {}) {
     const current = held(unit);
     const timed = unit?.timedAction;
     const charge = unit?.weaponCharge && current?.inventoryId === unit.weaponCharge.inventoryId ? unit.weaponCharge : null;
@@ -510,7 +515,7 @@
     if (unit?.location?.starshipId) pieces.push(`<div class="combat-vehicle-state">${unit.location.stationed ? "STATIONED" : "ABOARD SHIP"} | SQUARE ${Number(unit.location.square) + 1}</div>`);
     if (unit?.powerShield) {
       const shieldPercent = Math.max(0, Math.min(100, (Number(unit.powerShield.hp) / Math.max(1, Number(unit.powerShield.maximumHp) || 30)) * 100));
-      pieces.push(`<div class="combat-submeter power-shield-meter ${unit.powerShield.active ? "active" : "inactive"} ${unit.powerShield.collapsedAt ? "collapsed" : ""}" data-combat-meter="shield"><div style="width:${shieldPercent}%"></div><span>POWER SHIELDS - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP${unit.powerShield.active ? "" : " (OFFLINE)"}</span></div>`);
+      pieces.push(`<div class="combat-submeter power-shield-meter ${unit.powerShield.active ? "active" : "inactive"} ${unit.powerShield.collapsedAt ? "collapsed" : ""}" data-combat-meter="shield"><div style="width:${shieldPercent}%"></div><span>${powerShieldLabel(unit, gm, player)}</span></div>`);
     }
     const vehicle = (currentState?.vehicles || []).find((entry) => entry.id === unit?.mountedVehicleId);
     if (vehicle) pieces.push(`<div class="combat-vehicle-state">${esc(vehicle.name)} - ${vehicle.driverId === unit.id ? `DRIVER / MOVE ${vehicle.currentMoveSpeed}` : "PASSENGER"}</div>`);
@@ -548,7 +553,7 @@
     ].join("|");
   }
 
-  function updateCard(card, unit) {
+  function updateCard(card, unit, { gm = false, player = false } = {}) {
     const timed = card.querySelector('[data-combat-meter="timed"]');
     if (timed && unit.timedAction) {
       const percent = Math.max(0, Math.min(100, (Number(unit.timedAction.remaining) / Math.max(0.1, Number(unit.timedAction.total))) * 100));
@@ -562,7 +567,7 @@
     if (shield && unit.powerShield) {
       const percent = Math.max(0, Math.min(100, (Number(unit.powerShield.hp) / Math.max(1, Number(unit.powerShield.maximumHp) || 30)) * 100));
       shield.querySelector("div").style.width = `${percent}%`;
-      shield.querySelector("span").textContent = `POWER SHIELDS - ${Number(unit.powerShield.hp) || 0}/${Number(unit.powerShield.maximumHp) || 30} HP${unit.powerShield.active ? "" : " (OFFLINE)"}`;
+      shield.querySelector("span").textContent = powerShieldLabel(unit, gm, player);
       shield.classList.toggle("active", Boolean(unit.powerShield.active));
       shield.classList.toggle("inactive", !unit.powerShield.active);
       shield.classList.toggle("collapsed", Boolean(unit.powerShield.collapsedAt));

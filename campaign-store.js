@@ -96,10 +96,11 @@ class CampaignStore {
         throw error;
       }
     }
-    if (this.local.has(campaign.code)) return false;
-    this.local.set(campaign.code, clone(campaign));
-    await this.flushLocal();
-    return true;
+    return this.updateLocal(next => {
+      if (next.has(campaign.code)) return false;
+      next.set(campaign.code, clone(campaign));
+      return true;
+    });
   }
 
   async save(campaign) {
@@ -113,8 +114,8 @@ class CampaignStore {
       );
       return;
     }
-    this.local.set(campaign.code, clone(campaign));
-    await this.flushLocal();
+    const saved = clone(campaign);
+    await this.updateLocal(next => { next.set(saved.code, saved); return true; });
   }
 
   async delete(code) {
@@ -123,19 +124,23 @@ class CampaignStore {
       const result = await this.pool.query("DELETE FROM sa_campaigns WHERE code = $1", [normalized]);
       return result.rowCount > 0;
     }
-    const removed = this.local.delete(normalized);
-    if (removed) await this.flushLocal();
-    return removed;
+    return this.updateLocal(next => next.delete(normalized));
   }
 
-  async flushLocal() {
-    const payload = JSON.stringify([...this.local.values()], null, 2);
-    this.writeQueue = this.writeQueue.then(async () => {
+  async updateLocal(change) {
+    const queued = this.writeQueue.catch(() => {}).then(async () => {
+      const next = new Map(this.local);
+      const result = change(next);
+      if (!result) return result;
+      const payload = JSON.stringify([...next.values()], null, 2);
       const temporary = `${LOCAL_DATA_FILE}.tmp`;
       await fs.promises.writeFile(temporary, payload, "utf8");
       await fs.promises.rename(temporary, LOCAL_DATA_FILE);
+      this.local = next;
+      return result;
     });
-    return this.writeQueue;
+    this.writeQueue = queued;
+    return queued;
   }
 
   async close() {

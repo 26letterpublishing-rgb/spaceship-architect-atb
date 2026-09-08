@@ -40,6 +40,9 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Ship combat and surface combat are separate encounter modes. In ship combat, every combatant is aboard a ship.
 - A combatant may target only characters aboard the same ship. Future boarding rules may move invaders between ship columns, but do not infer those rules early.
 - GM and PC views must receive live turn updates without requiring a perspective switch or manual refresh.
+- `prepareEncounter` replaces a battle in one validated, durable operation. Preserve saved preparation receipts on restore so retries cannot reset the encounter. Never reintroduce the client clear/add loop.
+- `live-dom.js` preserves keyed live controls and unfinished input. Avoid replacing whole ATB sections during clock updates. Numeric edits must reach the server, not just remain visible in a field.
+- `health-display.js` owns ship condition indicators. The GM sees exact character HP, Hull and Shields; player views show only condition icons for NPCs and ships. Keep exact totals out of player-facing tooltips and log text. Players retain their own character HP.
 - `ship-power.js` owns shared EN/AU output and server-driven AU recharge. AU rating sets capacity and percent per combat second; stop at cap and obey the combat clock. Never refill spent AU during routine ship synchronization.
 - The GM must retain a visible notification, Command Window countdown, and confirmed ability to act for a disconnected player.
 - Turn controls should not hide the ATB rings or ship map. Desktop action panels are compact and collapsible.
@@ -50,6 +53,7 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Linked ships expose crew assignment to the GM. Any campaign character can be assigned, and assignments persist.
 - Player Starships shows every linked ship on which that character is crew.
 - `campaign.npcRoster` preserves deployed NPC identities across encounters. Ship editing, fleet assignment, and preparation must all include these NPCs, not only PCs. Never erase NPC crew when a player saves PC assignments.
+- Crew assignment is not current location: `crew-overview.js` shows assigned ships, deployed location and station separately. Prefer live encounter locations over saved out-of-combat locations.
 - Combat supports at most six ships. `ship-distances.js` owns symmetric pairwise distances in Units (one Unit is a Lunar Distance), default 25. Only GM-selected pairs change; distances are currently informational, without automatic geometry or targeting effects.
 
 ### Demo Isolation

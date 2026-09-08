@@ -1910,3 +1910,13 @@ body.class-gallery-open{overflow:hidden}.class-gallery-modal{z-index:1800;paddin
 .player-ship-wall.vertical.end{top:auto;height:calc(30% - 3px)}
 .player-ship-door.horizontal{width:auto!important}
 .player-ship-door.vertical{height:auto!important}
+
+.class-card-detail > header { min-height: 156px; padding: 28px 198px 28px 32px; }
+.class-card-detail > header h2 { margin: 16px 0 0; font-size: 2.4rem; line-height: 1.08; letter-spacing: 0; overflow-wrap: anywhere; }
+.class-detail-core { padding: 28px 32px; }
+.class-detail-core > p { font-size: 1.15rem; }
+@media (max-width: 760px) {
+  .class-card-detail > header { padding: 20px 116px 20px 20px; }
+  .class-card-detail > header h2 { font-size: 1.65rem; }
+  .class-detail-core { padding: 20px; }
+}
