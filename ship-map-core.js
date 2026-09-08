@@ -50,6 +50,18 @@
     }
   }
 
+  const exhaustSizes = [[1, 1], [2, 1], [3, 2], [3, 2], [4, 2]];
+  const exhaustCraft = ["Dianium, 2 hrs", "Xpidinium, 3 hrs", "Crystilium, 4 hrs", "Argol, 4 hrs", "Drakkonite, 6 hrs"];
+  const exhaustColors = ["#8ce8ff", "#bf83ff", "#679dff", "#52edcb", "#ff6679"];
+  for (let tier = 1; tier <= 5; tier++) {
+    const type = `exhaust-thruster-${tier}`;
+    catalog[type] = { ...catalog["exhaust-thruster-1"], name: `Exhaust Thruster ${tier}`, label: `ET ${tier}`,
+      width: exhaustSizes[tier - 1][0], height: exhaustSizes[tier - 1][1], impulseBonus: tier, exhaust: -1 - tier,
+      energyCost: tier * 2, price: tier * 200, security: Math.ceil(tier / 2) + 1, threshold: 8 + tier * 2,
+      crafting: exhaustCraft[tier - 1], cardNumber: tier < 5 ? `A-${22 + tier}` : "B-13",
+      image: image(`${type}-graphic.png`), sprite: `${type}-sprite.png`, color: exhaustColors[tier - 1], auBoost: tier, auCost: 4 };
+  }
+
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
@@ -107,7 +119,10 @@
 
   function exteriorFacing(layout, square) {
     // The mount faces the neighboring hull; the exhaust points the opposite way.
-    const side = SIDES.find(side => side.valid(square) && layout.hull.has(square + side.offset));
+    const sic = layout.footprint.get(square);
+    const cells = sic ? [...layout.footprint].filter(([, other]) => other.sicId === sic.sicId).map(([cell]) => cell) : [square];
+    const side = SIDES.map(side => ({ ...side, contacts: cells.filter(cell => side.valid(cell) && layout.hull.has(cell + side.offset)).length }))
+      .sort((a, b) => b.contacts - a.contacts).find(side => side.contacts);
     return { top: 0, right: 90, bottom: 180, left: 270 }[side?.name] ?? 0;
   }
 
@@ -118,8 +133,11 @@
     }
     const sic = layout.footprint.get(square);
     if (!sic?.exterior) return "";
+    if (sic.offset) return '<span class="sa-exterior-tile" aria-hidden="true"></span>';
+    const data = definition(sic.type), angle = exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
-    return `<span class="sa-exterior-thruster ${active ? "is-firing" : ""}" style="--thruster-angle:${exteriorFacing(layout, square)}deg" aria-hidden="true"><i class="sa-thruster-body"></i><img src="exhaust-thruster-1-sprite.png" alt="" draggable="false"><i class="sa-thruster-flame"></i></span>`;
+    const jets = data.impulseBonus > 1 ? '<i class="sa-thruster-flame jet-left"></i><i class="sa-thruster-flame jet-right"></i>' : '<i class="sa-thruster-flame"></i>';
+    return `<span class="sa-exterior-thruster ${active ? "is-firing" : ""}" style="width:${sic.width * 100}%;height:${sic.height * 100}%;--thruster-angle:${angle}deg;--assembly-width:${sideways ? sic.height / sic.width * 100 : 100}%;--assembly-height:${sideways ? sic.width / sic.height * 100 : 100}%;--exhaust-color:${data.color}" aria-hidden="true"><span class="sa-thruster-assembly"><i class="sa-thruster-body"></i><img src="${data.sprite}" alt="" draggable="false">${jets}</span></span>`;
   }
 
   const VIEW_LABELS = Object.freeze({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations", hull: "Hull" });

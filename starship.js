@@ -41,40 +41,79 @@ for (const family of ["au", "en-au", "au-en"]) for (let tier = 1; tier <= 6; tie
   document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
 }
 
-const thruster = window.SAShipMap.definition("exhaust-thruster-1");
-SIC_CATALOG["exhaust-thruster-1"] = { ...thruster, category: "thruster", shortLabel: thruster.label, enOutput: 0, floorplan: thruster.image };
-const thrusterCard = document.createElement("section");
-thrusterCard.className = "sic-market-item";
-thrusterCard.innerHTML = `<article class="sic-poker-card" data-sic-card="exhaust-thruster-1" tabindex="0" aria-label="Exhaust Thruster 1 details"><header class="sic-poker-heading"><span>Thruster <small>A-23</small></span><div><h3>Exhaust Thruster 1</h3><strong>Price: 200</strong></div></header><img class="sic-poker-art" src="exhaust-thruster-1-graphic.png" alt="Exhaust Thruster 1" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>2</dd></div><div><dt>Security Level</dt><dd>2</dd></div><div><dt>Size</dt><dd>1x1 EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Dianium, 2 hrs</dd></div></dl><section class="sic-poker-rules"><p>Exterior propulsion. Maximum four thrusters per ship.</p><strong>Impulse: 1 + HSM/2</strong><p>Round HSM/2 toward zero.<br>Exhaust: -2. Adds one Evade die.<br>4 AU: +1 Move Speed, once per thruster.</p></section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>10</span></footer></article><button class="sic-purchase-button" data-purchase-sic="exhaust-thruster-1" type="button">Purchase</button>`;
-document.querySelector(".sic-card-gallery").append(thrusterCard);
+for (let tier = 1; tier <= 5; tier++) {
+  const type = `exhaust-thruster-${tier}`, data = window.SAShipMap.definition(type);
+  SIC_CATALOG[type] = { ...data, category: "thruster", shortLabel: data.label, enOutput: 0, floorplan: data.image };
+  const card = document.createElement("section"); card.className = "sic-market-item";
+  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Thruster <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header><img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height} EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><p>Exterior propulsion. Maximum four thrusters per ship.</p><strong>Impulse: ${tier} + HSM/2</strong><p>Round HSM/2 toward zero.<br>Exhaust: ${data.exhaust}. Adds one Evade die.<br>4 AU: +${data.auBoost} Move Speed, once per thruster.</p></section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  document.querySelector(".sic-card-gallery").append(card);
+}
+
+const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function cardAccent(type) {
+  if (type === "life-support") return "#42e0d0";
+  if (type === "nutritional-supplement") return "#e9ef4d";
+  return ["#82ddff", "#b58aff", "#679dff", "#52edcb", "#ff6679", "#cc87ff"][(Number(type.match(/\d+$/)?.[0]) || 1) - 1];
+}
+function previewSicCard(source) {
+  const card = source.cloneNode(true);
+  card.dataset.sicPreview = source.dataset.sicCard || source.dataset.sicPreview;
+  card.removeAttribute("data-sic-card"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label");
+  card.querySelectorAll("button,[id]").forEach(node => node.matches("button") ? node.remove() : node.removeAttribute("id"));
+  return card;
+}
 
 // Move the real cards into collapsible families; previews and purchase handlers keep their identities.
 const market = document.querySelector(".sic-card-gallery");
+const purchaseFeedback = document.createElement("p"); purchaseFeedback.dataset.purchaseFeedback = "";
+purchaseFeedback.className = "sic-purchase-feedback"; purchaseFeedback.setAttribute("role", "alert"); market.before(purchaseFeedback);
 for (const overlay of document.querySelectorAll('.desktop-live-stats [data-propulsion-overlay]')) { const copy=overlay.cloneNode(true);copy.classList.add('mobile-live-stats');document.querySelector('.mobility-mobile svg')?.append(copy); }
 const families = new Map();
 for (const item of [...market.querySelectorAll(".sic-market-item")]) {
   const type = item.querySelector("[data-sic-card]").dataset.sicCard;
+  item.querySelector("[data-sic-card]").classList.add("sic-display-card");
+  item.style.setProperty("--card-accent", cardAccent(type));
   const family = SIC_CATALOG[type]?.name?.replace(/ \d+$/, "") || item.querySelector("h3").textContent;
   if (!families.has(family)) families.set(family, []);
   families.get(family).push(item);
 }
 for (const [family, items] of families) {
+  if (items.length === 1) { market.append(items[0]); continue; }
   const stack = document.createElement("details"); stack.className = "sic-family-stack";
   const summary = document.createElement("summary");
   summary.setAttribute("aria-label", `${family}: expand ${items.length} card${items.length === 1 ? "" : "s"}`);
   const ordered = [...items].sort((a, b) => Number(b.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0) - Number(a.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0));
   const preview = document.createElement("div"); preview.className = "sic-stack-preview sic-market-item"; preview.setAttribute("aria-hidden", "true"); preview.inert = true;
   for (const [index, item] of ordered.entries()) {
-    const card = item.querySelector("[data-sic-card]").cloneNode(true);
-    card.dataset.sicPreview = card.dataset.sicCard;
-    card.removeAttribute("data-sic-card"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label");
-    card.querySelectorAll("button,[id]").forEach(node => node.matches("button") ? node.remove() : node.removeAttribute("id"));
+    const card = previewSicCard(item.querySelector("[data-sic-card]"));
+    card.style.setProperty("--stack-angle", `${index === ordered.length - 1 ? 0 : (index % 2 ? -1 : 1) * (ordered.length - index) * .35}deg`);
+    card.style.setProperty("--stack-offset", `${(ordered.length - index - 1) * -3}px`);
     card.classList.add(index === ordered.length - 1 ? "sic-stack-bottom" : "sic-stack-header");
     preview.append(card);
   }
   summary.innerHTML = `<strong>${family}</strong>`; summary.append(preview);
   const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
-  stack.append(summary, cards); market.append(stack);
+  const back = document.createElement("button"); back.type = "button"; back.className = "sic-stack-back"; back.textContent = "Back";
+  stack.append(summary, back, cards); market.append(stack);
+  let busy = false;
+  async function spreadCards(open) {
+    if (busy) return; busy = true;
+    const origin = (open ? summary : stack).getBoundingClientRect();
+    if (open) stack.open = true;
+    cards.inert = true;
+    back.disabled = true;
+    if (!reducedCardMotion()) await Promise.all(items.map((item, index) => {
+      const box = item.getBoundingClientRect();
+      const folded = `translate(${origin.left - box.left}px,${origin.top - box.top}px) scale(.72) rotate(${(index - 2) * 3}deg)`;
+      return item.animate(open ? [{ transform: folded, opacity: 0 }, { transform: "none", opacity: 1 }] : [{ transform: "none", opacity: 1 }, { transform: folded, opacity: 0 }],
+        { duration: 280, delay: index * 25, easing: "cubic-bezier(.2,.75,.2,1)" }).finished.catch(() => {});
+    }));
+    if (!open) stack.open = false;
+    cards.inert = false; back.disabled = false; busy = false;
+    (open ? back : summary).focus({ preventScroll: true });
+  }
+  summary.addEventListener("click", event => { event.preventDefault(); spreadCards(!stack.open); });
+  back.addEventListener("click", () => spreadCards(false));
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -728,6 +767,7 @@ function renderInventoryList(container, kind) {
     } else if (kind === "installed") {
       actions.append(inventoryButton("Locate", "locate-sic", () => locateInstalledSic(item)));
       actions.append(inventoryButton("Remove", "store-sic", () => removePlacedSic(placement)));
+      actions.append(inventoryButton(`Purchase Duplicate (${formatCredits(definition.price)})`, "duplicate-sic", () => purchaseSic(item.type)));
     } else {
       actions.append(inventoryButton("Install", "install-sic", () => moveSicToQueue(item)));
       actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`, "sell-sic", () => markSicDisposition(item, "sell")));
@@ -769,13 +809,15 @@ function renderInventory() {
     if (!purchased.length) {
       const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "No SICs purchased yet."; gallery.append(empty); return;
     }
-    purchased.forEach((item) => {
+    purchased.forEach((item, index) => {
       const definition = sicDefinition(item);
       const button = document.createElement("button");
       button.type = "button"; button.className = "purchased-sic-thumbnail"; button.dataset.openSicType = item.type;
+      button.style.setProperty("--card-angle", `${[ -2, 1.5, -1, 2, -.5 ][index % 5]}deg`);
+      button.style.setProperty("--card-accent", cardAccent(item.type));
       const sourceCard = document.querySelector(`[data-sic-card="${CSS.escape(item.type)}"]`);
       if (sourceCard) {
-        const previewCard = sourceCard.cloneNode(true);
+        const previewCard = previewSicCard(sourceCard);
         previewCard.classList.add("purchased-sic-card-preview");
         previewCard.removeAttribute("data-sic-card");
         previewCard.removeAttribute("tabindex");
@@ -926,7 +968,11 @@ shipGrids.forEach((grid) => {
 });
 function purchaseSic(type) {
   const definition = SIC_CATALOG[type]; if (!definition) return;
-  if (definition.thruster && draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length >= 4) { showMessage("A ship may have at most four thrusters.", "error"); return; }
+  const feedback = document.querySelector("[data-purchase-feedback]");
+  if (feedback) feedback.textContent = "";
+  const reject = message => { showMessage(message, "error"); if (feedback) feedback.textContent = message; };
+  if (definition.thruster && draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length >= 4) { reject("A ship may have at most four thrusters."); return; }
+  if (pendingCost() + definition.price > draft.groupCredits) { reject(`Not enough Group Credits to purchase ${definition.name}.`); return; }
   rememberForUndo();
   const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   draft.sicInventory.push({ id, type, pendingPurchase: true, storage: false, pendingDisposition: "" });
@@ -1145,13 +1191,34 @@ document.querySelectorAll("[data-save-starship-crew]").forEach((button) => butto
   } catch (error) { campaignMessage(error.message, "error"); }
 }));
 
-const sicCards = [...document.querySelectorAll(".sic-poker-card")];
-const sicCardDialog = document.querySelector("#sicCardDialog");
-function openSicCard(sicCard) {
-  if (!sicCard || !sicCardDialog) return;
-  const cloneCard = sicCard.cloneNode(true); cloneCard.removeAttribute("tabindex");
+const sicCards = [...document.querySelectorAll("[data-sic-card]")];
+let cardHost = document;
+try { while (cardHost.defaultView.frameElement) cardHost = cardHost.defaultView.parent.document; } catch {}
+if (cardHost !== document && !cardHost.querySelector("link[data-sic-cards-style]")) {
+  const style = cardHost.createElement("link"); style.rel = "stylesheet"; style.dataset.sicCardsStyle = "";
+  style.href = new URL("sic-cards.css?v=20260909-cards-1", location.href).href; cardHost.head.append(style);
+}
+const sicCardDialog = cardHost === document ? document.querySelector("#sicCardDialog") : cardHost.createElement("dialog");
+if (cardHost !== document) { sicCardDialog.innerHTML = '<button type="button" data-close-sic-card>Back</button><div data-sic-card-dialog-body></div>'; cardHost.body.append(sicCardDialog); }
+sicCardDialog.className = "sic-card-dialog sic-inspection";
+sicCardDialog.setAttribute("aria-label", "SIC card details");
+sicCardDialog.querySelector("[data-close-sic-card]").textContent = "Back";
+sicCardDialog.querySelector("[data-close-sic-card]").setAttribute("aria-label", "Back to cards");
+let inspectedTrigger = null, closingCard = false;
+function openSicCard(sicCard, trigger = sicCard) {
+  if (!sicCard || sicCardDialog.open) return;
+  inspectedTrigger = trigger;
+  const cloneCard = previewSicCard(sicCard);
+  sicCardDialog.style.setProperty("--card-accent", cardAccent(cloneCard.dataset.sicPreview));
   sicCardDialog.querySelector("[data-sic-card-dialog-body]").replaceChildren(cloneCard);
-  if (typeof sicCardDialog.showModal === "function") sicCardDialog.showModal();
+  sicCardDialog.showModal();
+  if (!reducedCardMotion()) sicCardDialog.animate([{ opacity: 0, transform: "translateY(35px) scale(.72) rotate(-4deg)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
+}
+async function closeSicCard() {
+  if (closingCard || !sicCardDialog.open) return; closingCard = true;
+  if (!reducedCardMotion()) await sicCardDialog.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(24px) scale(.8) rotate(2deg)" }], { duration: 170 }).finished.catch(() => {});
+  sicCardDialog.close(); closingCard = false;
+  if (inspectedTrigger?.isConnected) inspectedTrigger.focus({ preventScroll: true });
 }
 sicCards.forEach((sicCard) => {
   sicCard.addEventListener("click", () => openSicCard(sicCard));
@@ -1160,10 +1227,12 @@ sicCards.forEach((sicCard) => {
 document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-open-sic-type]");
   if (!trigger) return;
-  openSicCard(document.querySelector(`[data-sic-card="${CSS.escape(trigger.dataset.openSicType)}"]`));
+  openSicCard(document.querySelector(`[data-sic-card="${CSS.escape(trigger.dataset.openSicType)}"]`), trigger);
 });
-document.querySelector("[data-close-sic-card]")?.addEventListener("click", () => sicCardDialog?.close());
-sicCardDialog?.addEventListener("click", (event) => { if (event.target === sicCardDialog) sicCardDialog.close(); });
+sicCardDialog.querySelector("[data-close-sic-card]").addEventListener("click", closeSicCard);
+sicCardDialog.addEventListener("click", (event) => { if (event.target === sicCardDialog) closeSicCard(); });
+sicCardDialog.addEventListener("cancel", event => { event.preventDefault(); closeSicCard(); });
+window.addEventListener("pagehide", () => { if (cardHost !== document) sicCardDialog.remove(); });
 
 const reputationValues = ["+5", "+4", "+3", "+2", "+1", "0", "+1", "+2", "+3", "+4", "+5"];
 const reputationNames = [["Benevolent", "Ruthless"], ["Virtuous", "Treacherous"], ["Civil", "Savage"], ["Powerful", "Weak"], ["Cunning", "Exploitable"]];

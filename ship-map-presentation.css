@@ -12,13 +12,19 @@
 .hull-view :is(.ship-grid-cell,.player-ship-cell,.combat-map-square)::after{display:none!important}
 .hull-view .player-ship-cell>button{display:none!important}
 .ship-grid .ship-grid-cell.has-sic:has(>.sa-exterior-thruster),.player-starship-map .player-ship-cell.sic:has(>.sa-exterior-thruster),.combat-map-grid .combat-map-square.sic:has(>.sa-exterior-thruster){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
-.sa-exterior-thruster{display:block;position:absolute;inset:0;transform:rotate(var(--thruster-angle));pointer-events:none;z-index:9}
+.sa-exterior-thruster{display:block;position:absolute;left:0;top:0;pointer-events:none;z-index:9}
+.sa-thruster-assembly{position:absolute;left:50%;top:50%;width:var(--assembly-width,100%);height:var(--assembly-height,100%);transform:translate(-50%,-50%) rotate(var(--thruster-angle))}
+.ship-grid .ship-grid-cell.has-sic:has(>.sa-exterior-tile),.player-starship-map .player-ship-cell.sic:has(>.sa-exterior-tile),.combat-map-grid .combat-map-square.sic:has(>.sa-exterior-tile){background:transparent!important;border:0!important;box-shadow:none!important}
+:is(.sa-exterior-tile,.sa-exterior-thruster)~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-thruster,>.sa-exterior-tile)::after{display:none!important}
 .sa-exterior-thruster~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}
 .sa-thruster-body{position:absolute;inset:0 14% 30%;background:#8b9ba5;border-top:3px solid #d3e0e6;clip-path:polygon(24% 0,76% 0,76% 20%,92% 45%,100% 100%,0 100%,8% 45%,24% 20%)}
 .sa-exterior-thruster img{display:none;position:absolute;left:8%;top:-2%;width:84%;height:76%;object-fit:fill;max-width:none}
 :is(.high-resolution,.hull-view) .sa-exterior-thruster img{display:block}
 :is(.high-resolution,.hull-view) .sa-thruster-body{display:none}
 .sa-thruster-flame{display:none;position:absolute;left:25%;top:67%;width:50%;height:33%;transform-origin:50% 0;background:linear-gradient(#ecfeff 0%,#8ce8ff 25%,#368ffc 60%,#4d75dc00 100%);clip-path:polygon(0 0,100% 0,84% 45%,60% 100%,45% 77%,24% 97%,12% 42%);filter:drop-shadow(0 0 3px #64dbff);animation:sa-thruster-burn .36s ease-in-out infinite alternate}
+.sa-thruster-flame{background:linear-gradient(#fff 0%,var(--exhaust-color,#8ce8ff) 30%,transparent 100%)}
+.sa-thruster-flame.jet-left{left:13%;width:24%}.sa-thruster-flame.jet-right{left:63%;width:24%;animation-delay:-.18s}
 :is(.high-resolution,.hull-view) .is-firing .sa-thruster-flame{display:block}
 @keyframes sa-thruster-burn{from{transform:scale(.86,.8);opacity:.76}to{transform:scale(1,1);opacity:1}}
 @media(prefers-reduced-motion:reduce){.sa-thruster-flame{animation:none}}

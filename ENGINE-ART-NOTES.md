@@ -1,5 +1,19 @@
 # Hybrid Engine Artwork
 
+## Exhaust Family Completion and Digital Cards
+
+Card artwork: `exhaust-thruster-2-graphic.png` through `exhaust-thruster-5-graphic.png` are copies of the corresponding existing `en-engine-N-graphic.png`, following the user's approved reassignment. Original assets are preserved.
+
+New workspace sprites: `exhaust-thruster-2-sprite.png`, `exhaust-thruster-3-sprite.png`, `exhaust-thruster-4-sprite.png`, and `exhaust-thruster-5-sprite.png`. Generated with the built-in image tool, not the API/CLI fallback. All four were inspected and their RGBA alpha channels verified. Originals remain under Codex generated_images.
+
+Final prompt set:
+- Tier 2: transparent-background polished realistic sci-fi exterior sprite; orthographic top-down compact broad silver twin-nozzle assembly, mounting crossbar at top, exhaust bells pointing down, purple conduits, symmetric black steel detailing, 2:1 composition. No flames, text, floor, border or background.
+- Tier 3: transparent-background heavy silver twin-nozzle assembly, top mounting crossbar, downward bells, blue conduits with green/purple highlights, ribbed cooling and dense pipes, symmetric 3:2 composition. No flames, text, floor or border. Nozzle centers at quarter and three-quarter width.
+- Tier 4: transparent PNG advanced armored twin-nozzle sprite, silver/black metal, emerald-turquoise coolant conduits, enhanced heat shields and radiators, overhead view, top crossbar, downward bells, symmetric 3:2 composition. No backdrop, shadow, text, floor or flames; transparent space between nozzles.
+- Tier 5: transparent RGBA heavy advanced twin-bell exterior thruster, overhead view, top mounting crossbar, silver/black armor, red coolant pipes, magnetic collars and thermal radiators, symmetric 2:1 composition. No backdrop, cast shadow, floor, text or flames; nozzle centers at 25% and 75% width.
+
+Shared CSS supplies separate tier-colored exhaust animation. A single sprite spans each SIC's printed footprint, rather than repeating it per cell. The card face is shared across the shop, rotated collection, and outer-viewport inspector; hover lift, deck spread/fold, floating detail and edge glow all respect reduced motion. These are presentation effects, not new game actions.
+
 ## Exterior Presentation, September 8
 
 Built-in image generation produced two new repository assets. The thruster card image is unchanged; the ship views now use a separate sprite. Original files remain in Codex generated_images.

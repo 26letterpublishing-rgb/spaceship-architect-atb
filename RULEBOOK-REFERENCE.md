@@ -2,6 +2,8 @@
 
 ## September 8: Exterior Thrusters and Space Map
 
+- Exhaust family completed: tiers 1-5 only (no tier 6 in these catalogs). A-24: 2x1 EXT, 400 credits, EN 4, security 2, Xpidinium/3 hrs, threshold 12. A-25: 3x2 EXT, 600 credits, EN 6, security 3, Crystilium/4 hrs, threshold 14. A-26: 3x2 EXT, 800 credits, EN 8, security 3, Argol/4 hrs, threshold 16. B-13: 4x2 EXT, 1,000 credits, EN 10, security 4, Drakkonite/6 hrs, threshold 18. All have no stations; Impulse adds their tier to trunc(HSM/2); Exhaust is -(tier+1). Printed 4-AU boost grants +tier Move Speed once per thruster but remains deferred with actual ship movement. B-13's repeated +1 Evade die sentence is treated as the same single benefit, consistent with the core rule and the existing source warning.
+
 - Exhaust Thruster 1, Series A card A-23 (PDF page 23): price 200, EN cost 2, security 2, 1x1 EXT, Engineering, Dianium/2 hours, damage threshold 10, no stations. Impulse = 1 + trunc(HSM/2); Exhaust -2; one Evade die. Four AU adds one Move Speed once per thruster. Impairment removes the AU option and one Evade die, retaining base Impulse.
 - Core PDF page 56 (printed L27 spread): total all Impulse, preserve negative totals but treat them as zero movement. Divide negative HSM toward zero. Maximum four thrusters total. Evade die: speed <=3 D4, 4-7 D6, 8-11 D8, 12-15 D10, >=16 D12. AU boosts do not increase Evade die type.
 - User explicitly requires EXT parts to attach outside an outer hull wall; they cannot be installed inside the ship. Exterior parts do not buy hull area, add HSM/HP, create stations, or connect interior doors.
