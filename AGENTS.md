@@ -44,6 +44,9 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - `live-dom.js` preserves keyed live controls and unfinished input. Avoid replacing whole ATB sections during clock updates. Numeric edits must reach the server, not just remain visible in a field.
 - `health-display.js` owns ship condition indicators. The GM sees exact character HP, Hull and Shields; player views show only condition icons for NPCs and ships. Keep exact totals out of player-facing tooltips and log text. Players retain their own character HP.
 - `ship-power.js` owns shared EN/AU output and server-driven AU recharge. AU rating sets capacity and percent per combat second; stop at cap and obey the combat clock. Never refill spent AU during routine ship synchronization.
+- Engine station bonuses use explicit `stationBonus` metadata, not the presence of AU output. Power Hybrids boost EN; Action Hybrids boost AU. Retain existing type IDs when changing display names.
+- `campaign-time.js` owns GM Pass Time, daily recovery and carried-item recharge. Partial days and request receipts persist. Never trust a player save to overwrite server-owned recovery time, round away fractional recovery, or advance campaign time during active combat.
+- Skill result dialogs submit only through Confirm and Submit; rerolls remain local until confirmed. Dice placement must use the visible intersection of parent frames, not the full height of an auto-sized combat frame.
 - The GM must retain a visible notification, Command Window countdown, and confirmed ability to act for a disconnected player.
 - Turn controls should not hide the ATB rings or ship map. Desktop action panels are compact and collapsible.
 

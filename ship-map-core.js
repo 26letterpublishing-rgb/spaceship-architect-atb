@@ -32,6 +32,23 @@
     "au-engine-6": { ...catalog["en-engine-6"], label: "AU 6", color: "#886b28", output: 0, auOutput: 60, price: 24000, security: 5, crafting: "Infinium, 1 week", threshold: 33, cardNumber: "B-12", image: image("au-engine-6-floor-plan.png") },
   });
 
+  const hybridFamilies = [
+    { prefix: "en-au", name: "Power Hybrid", label: "PH", color: "#296e88", bonus: "en", en: [3, 9, 19, 33, 51, 73], au: [1, 2, 5, 10, 17, 26], prices: [1450, 3950, 8650, 15550, 24650, 35950], thresholds: [9, 14, 20, 26, 34, 42], firstCraft: "Argol, 6 hrs", cards: ["A-11", "A-12", "A-13", "A-14", "B-7", "B-8"] },
+    { prefix: "au-en", name: "Action Hybrid", label: "AH", color: "#8b5378", bonus: "au", en: [1, 4, 9, 16, 25, 36], au: [2, 5, 12, 20, 30, 47], prices: [1150, 3400, 7950, 13600, 20750, 31400], thresholds: [8, 12, 17, 22, 29, 36], firstCraft: "Mirium, 8 hrs", cards: ["A-15", "A-16", "A-17", "A-18", "B-9", "B-10"] },
+  ];
+  for (let tier = 1; tier <= 6; tier += 1) {
+    Object.assign(catalog[`en-engine-${tier}`], { name: `Power Engine ${tier}`, stationBonus: "en", engine: true });
+    Object.assign(catalog[`au-engine-${tier}`], { name: `Action Engine ${tier}`, stationBonus: "au", engine: true });
+    for (const family of hybridFamilies) {
+      const type = `${family.prefix}-engine-${tier}`;
+      catalog[type] = { ...catalog[`au-engine-${tier}`], name: `${family.name} Engine ${tier}`, label: `${family.label} ${tier}`, color: family.color,
+        output: family.en[tier - 1], auOutput: family.au[tier - 1], stationBonus: family.bonus,
+        price: family.prices[tier - 1], threshold: family.thresholds[tier - 1], cardNumber: family.cards[tier - 1],
+        crafting: tier === 1 ? family.firstCraft : catalog[`au-engine-${tier}`].crafting,
+        impairedAuOnly: true, image: image(`${type}-floor-plan.png`) };
+    }
+  }
+
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
@@ -49,7 +66,7 @@
   }
 
   function blocksMovement(type, width, height, column, row) {
-    if (!/^(en|au)-engine-/.test(String(type)) || width < 3 || height < 3) return false;
+    if (!definition(type).engine || width < 3 || height < 3) return false;
     const centerColumns = width % 2 ? [Math.floor(width / 2)] : [width / 2 - 1, width / 2];
     const centerRows = height % 2 ? [Math.floor(height / 2)] : [height / 2 - 1, height / 2];
     return centerColumns.includes(column) && centerRows.includes(row);

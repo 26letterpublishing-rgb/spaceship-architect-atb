@@ -378,11 +378,24 @@ export class PhysicalDiceRoller {
   }
 
   positionAt(anchor) {
+    this.positionAnchor = anchor;
     const rect = anchor?.getBoundingClientRect?.();
+    let top = 0, bottom = window.innerHeight, offset = 0, child = window;
+    try {
+      while (child.parent !== child && child.frameElement) {
+        offset += child.frameElement.getBoundingClientRect().top + child.frameElement.clientTop;
+        child = child.parent;
+        top = Math.max(top, -offset);
+        bottom = Math.min(bottom, child.innerHeight - offset);
+      }
+    } catch { /* Cross-origin embeds retain their local viewport. */ }
+    if (bottom <= top) { top = 0; bottom = window.innerHeight; }
     const preferredX = rect ? rect.left + rect.width * 0.68 : window.innerWidth / 2;
-    const preferredY = rect ? rect.top + rect.height / 2 - 58 : window.innerHeight / 2;
+    const preferredY = rect ? rect.top + rect.height / 2 - 58 : (top + bottom) / 2;
     const x = Math.min(window.innerWidth - 130, Math.max(130, preferredX));
-    const y = Math.min(window.innerHeight - 135, Math.max(110, preferredY));
+    const margin = Math.min(135, (bottom - top) / 2);
+    const y = Math.min(bottom - margin, Math.max(top + margin, preferredY));
+    this.stage.style.maxHeight = `${Math.max(140, bottom - top - 24)}px`;
     this.stage.style.setProperty("--dice-left", `${x}px`);
     this.stage.style.setProperty("--dice-top", `${y}px`);
   }
@@ -565,6 +578,10 @@ export class PhysicalDiceRoller {
 
   tick(time) {
     if (!this.active) return;
+    if (!this.lastPositionTime || time - this.lastPositionTime > 100) {
+      this.positionAt(this.positionAnchor);
+      this.lastPositionTime = time;
+    }
     const elapsed = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
 

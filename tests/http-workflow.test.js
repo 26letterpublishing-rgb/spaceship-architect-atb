@@ -47,7 +47,9 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const token = created.token;
   const playerTokens = [];
   for (const id of ["http-aster", "http-bram"]) {
-    const character = { id, phase: "finalized", access: { pcCode: `${id}-code` }, identity: { characterName: id, playerName: `${id} player` } };
+    const character = { id, phase: "finalized", access: { pcCode: `${id}-code` }, identity: { characterName: id, playerName: `${id} player` },
+      attributes: { health: [1, 0, -1, -1] }, computed: { maximumHp: 30, skills: { "Athletics/Endurance": 1.2 } }, health: { current: 10 },
+      items: [{ catalogId: "jet-pack", name: "Jet-Pack", charges: 0, chargesMax: 5 }] };
     const pending = await post("join/request", { code, character }, 201);
     await post("join/respond", { code, token, requestId: pending.requestId, decision: "approve" });
     const joined = await post("join/status", { code, characterId: id, pcCode: `${id}-code` });
@@ -55,6 +57,24 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     playerTokens.push(joined.token);
   }
   assert.notEqual(playerTokens[0], playerTokens[1]);
+  const time = { code, token, amount: 12, unit: "hours", requestId: "http-time-first" };
+  await post("time/pass", { ...time, token: playerTokens[0] }, 403);
+  assert.equal((await post("time/pass", time)).healed, 0);
+  assert.equal((await post("time/pass", time)).healed, 0);
+  const day = await post("time/pass", { ...time, requestId: "http-time-second" });
+  assert.ok(Math.abs(day.healed - 8.4) < 1e-9);
+  assert.equal(day.recharged, 2);
+  for (const pc of day.campaign.characters) {
+    assert.equal(pc.character.health.current, 14.2);
+    assert.equal(pc.character.items[0].charges, 5);
+  }
+  const requested = await post("roll/request", { code, token, targetIds: ["http-aster"], attribute: "Intellect", skill: "Computer Systems" }, 201);
+  const roll = { code, token: playerTokens[0], characterId: "http-aster", requestId: requested.request.id, score: 13, outcome: "Success", mode: "automatic", diceResults: [6, 7] };
+  assert.equal((await post("roll/respond", roll)).recorded, true);
+  assert.equal((await post("roll/respond", roll)).alreadyRecorded, true);
+  await post("roll/respond", { ...roll, score: 14 }, 409);
+  await post("roll/close", { code, token, requestId: roll.requestId });
+  assert.equal((await post("roll/respond", roll)).alreadyRecorded, true);
   for (const [id, owner, authenticated] of [["http-gm-ship", "http-aster", true], ["http-menu-ship", "http-bram", false]]) {
     await post("starship/link", {
       code, ...(authenticated ? { token } : {}), controlType: "pc",

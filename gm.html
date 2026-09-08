@@ -198,6 +198,12 @@
               <h3>Recharge Items</h3>
               <p>Restore carried Jet-Packs, Power Shields, and Mobile Zero-Point Energy for the selected characters.</p>
               <button id="rechargeItems" class="primary" type="button">Send Recharge</button>
+              <hr />
+              <h3>Pass Time</h3>
+              <label>Amount<input id="passTimeAmount" type="number" min="0.01" step="any" value="1" /></label>
+              <label>Time Unit<select id="passTimeUnit"><option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days" selected>Days</option><option value="weeks">Weeks</option></select></label>
+              <button id="passTime" class="primary" type="button">Pass Time</button>
+              <p id="passTimeMessage" class="tool-message" role="status"></p>
             </section>
             <form id="privateNoteForm" class="tool-card">
               <h3>Private Note</h3>
@@ -358,11 +364,11 @@
       </section>
     </div>
   <script src="drama-card-data.js?v=20260817-drama-awards"></script>
-  <script src="ship-map-core.js?v=20260907-au-1"></script>
-  <script src="ship-power.js?v=20260907-au-1"></script>
+  <script src="ship-map-core.js?v=20260907-hybrid-time-2"></script>
+  <script src="ship-power.js?v=20260907-hybrid-time-2"></script>
   <script src="ship-distances.js?v=20260907-fleet-1"></script>
   <script src="live-dom.js?v=20260907-workspace-2"></script>
   <script src="crew-overview.js?v=20260907-workspace-1"></script>
-  <script type="module" src="gm.js?v=20260907-workspace-2"></script>
+  <script type="module" src="gm.js?v=20260907-hybrid-time-2"></script>
   </body>
 </html>

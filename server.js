@@ -2607,6 +2607,17 @@ async function handleRoomAction(body, res) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
+    if (campaignApi && url.pathname === "/api/campaign/time/pass" && req.method === "POST") {
+      const body = await readBody(req);
+      if (!body || typeof body !== "object" || Array.isArray(body)) { sendJson(res, 400, { error: "A time request is required." }); return; }
+      const code = String(body.code || "").trim().toUpperCase();
+      const previous = roomActionQueues.get(code) || Promise.resolve();
+      const pending = previous.catch(() => {}).then(() => campaignApi.handle(req, res, url, async () => body, sendJson));
+      roomActionQueues.set(code, pending);
+      try { await pending; }
+      finally { if (roomActionQueues.get(code) === pending) roomActionQueues.delete(code); }
+      return;
+    }
     if (campaignApi && await campaignApi.handle(req, res, url, readBody, sendJson)) return;
   } catch (error) {
     console.error("Campaign request failed:", error);
@@ -2716,6 +2727,22 @@ async function startServer() {
   campaignApi = new CampaignApi({
     store: campaignStore,
     storageMode: campaignStore.mode,
+    canPassTime: code => {
+      const room = rooms.get(code);
+      return !room || !room.hasEngagedClock || Boolean(room.encounterEndedAt);
+    },
+    timePassed: (code, characters) => {
+      const room = rooms.get(code);
+      if (!room) return;
+      for (const unit of room.units) {
+        const record = characters.find(entry => entry.id === unit.characterId);
+        if (!record) continue;
+        unit.currentHp = record.character.health?.current ?? unit.currentHp;
+        unit.items = clone(record.character.items || []);
+        if (unit.currentHp > 0) unit.defeatedAt = null;
+      }
+      broadcast(room);
+    },
     connectedCharacterIds: (code) => (getRoom(code)?.units || []).filter((unit) => unit.team === "pc" && unit.characterId && unit.playerConnected).map((unit) => unit.characterId),
     restoreEncounter: (code, snapshot) => {
       for (const response of clients.get(code) || []) response.end();

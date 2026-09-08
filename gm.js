@@ -2236,6 +2236,31 @@ dom.encounterCharacterList.addEventListener("input", event => {
   const value = Number(event.target.value);
   if (event.target.value.trim() && Number.isFinite(value) && value >= 0) encounterDistances[Number(event.target.dataset.encounterDistance)].units = value;
 });
+
+document.querySelector("#passTime")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const amount = Number(document.querySelector("#passTimeAmount").value);
+  const unit = document.querySelector("#passTimeUnit").value;
+  const message = document.querySelector("#passTimeMessage");
+  const minutes = amount * ({ minutes: 1, hours: 60, days: 1440, weeks: 10080 }[unit]);
+  if (!Number.isInteger(minutes) || minutes <= 0 || minutes > 5256000) {
+    showMessage(message, "Enter a positive duration of whole minutes, up to ten years.", "error"); return;
+  }
+  button.disabled = true;
+  if (!await confirmGm({ title: "Pass Campaign Time?", message: `Pass ${amount} ${unit} for all campaign characters? This applies daily healing and recharges carried items.`, acceptLabel: "Pass Time" })) { button.disabled = false; return; }
+  const key = `sa-pass-time-${code}`;
+  try {
+    let pending;
+    try { pending = JSON.parse(sessionStorage.getItem(key)); } catch {}
+    if (!pending || pending.minutes !== minutes) pending = { minutes, requestId: crypto.randomUUID() };
+    sessionStorage.setItem(key, JSON.stringify(pending));
+    const payload = await api("/api/campaign/time/pass", { code, token, amount, unit, requestId: pending.requestId });
+    sessionStorage.removeItem(key);
+    receiveCampaign(payload.campaign);
+    showMessage(message, `Passed ${amount} ${unit}. Restored ${Number(payload.healed.toFixed(3))} HP and recharged ${payload.recharged} items across the campaign.`, "success");
+  } catch (error) { showMessage(message, error.message, "error"); }
+  finally { button.disabled = false; }
+});
 dom.encounterCharacterList.addEventListener("change", (event) => {
   if (event.target.matches("[data-encounter-distance]")) {
     const value = Number(event.target.value);

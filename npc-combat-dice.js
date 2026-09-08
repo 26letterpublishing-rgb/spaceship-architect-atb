@@ -1,4 +1,4 @@
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260907-hybrid-time-1";
 
 const roller = new PhysicalDiceRoller({
   shell: document.querySelector("#npcDiceRoller"),
@@ -30,7 +30,8 @@ function fusedTopTwo(results) {
 }
 
 function roll({ sides, title, subtitle, fusion, flat = 0, skill = 0 }) {
-  return new Promise((resolve) => {
+  document.body.classList.add("npc-dice-active");
+  return new Promise((resolve, reject) => {
     roller.rollPool({
       sides,
       title,
@@ -43,8 +44,8 @@ function roll({ sides, title, subtitle, fusion, flat = 0, skill = 0 }) {
         roller.stop();
         resolve({ score, results, kept });
       },
-    });
-  });
+    }).catch(error => { roller.stop(); reject(error); });
+  }).finally(() => document.body.classList.remove("npc-dice-active"));
 }
 
 window.SANpcDice = {

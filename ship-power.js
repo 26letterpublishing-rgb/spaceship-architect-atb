@@ -13,11 +13,13 @@
     const online = new Map();
     for (const placement of ship.placements || []) {
       const item = inventory.get(placement.sicId);
-      if (!item || item.impaired || item.disabled || ["impaired", "destroyed", "offline", "powered-down"].includes(item.status)) continue;
+      if (!item || item.disabled || ["destroyed", "offline", "powered-down"].includes(item.status)) continue;
       const definition = maps.definition(item.type);
+      const impaired = item.impaired || item.status === "impaired";
+      if (impaired && !definition.impairedAuOnly) continue;
       en += nonnegative(definition.output);
-      au += nonnegative(definition.auOutput);
-      online.set(placement.sicId, { placement, definition });
+      if (!impaired) au += nonnegative(definition.auOutput);
+      if (!impaired) online.set(placement.sicId, { placement, definition });
     }
     const occupied = new Set();
     for (const unit of units) {
@@ -30,8 +32,8 @@
       if (!station || occupied.has(key)) continue;
       occupied.add(key);
       const skill = nonnegative(unit.engineeringSkill ?? (unit.team === "npc" ? unit.mentalSkill : 0));
-      if (entry.definition.auOutput) au += skill;
-      else if (entry.definition.output) en += skill;
+      if (entry.definition.stationBonus === "au") au += skill;
+      else if (entry.definition.stationBonus === "en") en += skill;
       if (unit.classId === "engineer") au += Math.max(0, ...(unit.intellectDice || []).map(nonnegative));
     }
     return { en, au: Math.floor(au) };

@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama-card-data.js");
 const SHIP_MAP = require("./ship-map-core.js");
 const SHOWCASE_NPCS = require("./data/npc-templates.json");
+const CAMPAIGN_TIME = require("./campaign-time.js");
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SCRIPT_LENGTH = 250000;
@@ -798,12 +799,14 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {} }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {} }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = connectedCharacterIds;
     this.restoreEncounter = restoreEncounter;
     this.deleteEncounter = deleteEncounter;
+    this.canPassTime = canPassTime;
+    this.timePassed = timePassed;
     this.sessions = new Map();
     this.clients = new Map();
     this.campaignCache = new Map();
@@ -1987,6 +1990,49 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/time/pass" && req.method === "POST") {
+      if (!this.gmSession(token, code)) { sendJson(res, 403, { error: "GM authorization is required." }); return true; }
+      try {
+        const minutes = CAMPAIGN_TIME.durationMinutes(body.amount, body.unit);
+        const requestId = String(body.requestId || "");
+        if (!/^[\w-]{8,100}$/.test(requestId)) throw new Error("A time request ID is required.");
+        const previous = this.saveQueues.get(code) || Promise.resolve();
+        const queued = previous.catch(() => {}).then(async () => {
+          const receipt = (campaign.timeReceipts || []).find(entry => entry.id === requestId);
+          if (receipt) {
+            if (receipt.minutes !== minutes) throw new Error("This time request was already used for a different duration.");
+            return receipt;
+          }
+          if (!this.canPassTime(code)) throw new Error("End combat before passing campaign time.");
+          const next = clone(campaign);
+          let healed = 0, recharged = 0;
+          for (const record of next.characters.filter(entry => entry.approved)) {
+            const result = CAMPAIGN_TIME.passCharacterTime(record.character, minutes);
+            healed += result.healed; recharged += result.recharged.length;
+            record.updatedAt = new Date().toISOString();
+            next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${body.amount} ${body.unit}. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
+          }
+          const result = { id: requestId, minutes, healed, recharged };
+          next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + minutes;
+          next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
+          next.revision = (Number(next.revision) || 1) + 1;
+          next.updatedAt = new Date().toISOString();
+          trimPrivateNotes(next);
+          if (!next.showcase) await this.store.save(next);
+          Object.assign(campaign, next);
+          this.timePassed(code, campaign.characters);
+          await this.broadcast(code, campaign);
+          return result;
+        });
+        this.saveQueues.set(code, queued);
+        let result;
+        try { result = await queued; }
+        finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
+        sendJson(res, 200, { ...result, campaign: this.state(campaign, token) });
+      } catch (error) { sendJson(res, 400, { error: error.message }); }
+      return true;
+    }
+
     if (path === "/api/campaign/item/recharge" && req.method === "POST") {
       if (!this.gmSession(token, code)) {
         sendJson(res, 403, { error: "GM authorization is required." });
@@ -1995,14 +2041,8 @@ class CampaignApi {
       const targetIds = Array.isArray(body.targetIds) ? body.targetIds.map(String) : [];
       let recharged = 0;
       for (const record of campaign.characters.filter((entry) => targetIds.includes(entry.id))) {
-        const names = [];
-        for (const item of Array.isArray(record.character.items) ? record.character.items : []) {
-          if (!["jet-pack", "power-shields", "mobile-zero-point-energy"].includes(item.catalogId)) continue;
-          if (item.chargesMax !== null && item.chargesMax !== undefined) item.charges = item.chargesMax;
-          if (item.catalogId === "mobile-zero-point-energy") item.chargeState = "Full";
-          names.push(item.name);
-          recharged += 1;
-        }
+        const names = CAMPAIGN_TIME.rechargeItems(record.character);
+        recharged += names.length;
         if (names.length) campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM recharge restored: ${names.join(", ")}.`, createdAt: new Date().toISOString(), readAt: null });
         record.updatedAt = new Date().toISOString();
       }
@@ -2033,6 +2073,7 @@ class CampaignApi {
       };
       next.resources ||= {};
       next.health ||= { current: null, permanentBonus: 0 };
+      next.health.recoveryMinutes = record.character.health?.recoveryMinutes || 0;
       const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
       const submittedCredits = Number(next.resources.creditsBase) || 0;
       const baseCredits = Number(body.baseCredits);
@@ -2049,8 +2090,8 @@ class CampaignApi {
         : Number(body.baseCurrentHp);
       const nextMaximumHp = Math.max(0, Number(next.computed?.maximumHp) || 0);
       next.health.current = !exactGmSave && Number.isFinite(baseCurrentHp) && Number.isFinite(submittedHp)
-        ? Math.round(boundedNumber(serverHp + (submittedHp - baseCurrentHp), -9999, nextMaximumHp))
-        : Math.round(boundedNumber(submittedHp, -9999, nextMaximumHp));
+        ? boundedNumber(serverHp + (submittedHp - baseCurrentHp), -9999, nextMaximumHp)
+        : boundedNumber(submittedHp, -9999, nextMaximumHp);
       record.character = next;
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
@@ -3035,16 +3076,23 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/roll/respond" && req.method === "POST") {
-      const request = campaign.rollRequests.find((entry) => entry.id === body.requestId && !entry.closedAt);
+      const request = campaign.rollRequests.find((entry) => entry.id === body.requestId);
       const characterId = String(body.characterId || "");
       if (!request || !request.targetIds.includes(characterId) || !this.characterSession(token, code, characterId)) {
         sendJson(res, 403, { error: "This roll request is not available to that character." });
         return true;
       }
       if (request.results[characterId]) {
+        const previous = request.results[characterId];
+        const same = previous.score === (Number(body.score) || 0)
+          && previous.mode === (body.mode === "manual" ? "manual" : "automatic")
+          && previous.outcome === String(body.outcome || "").slice(0, 40)
+          && JSON.stringify(previous.diceResults) === JSON.stringify(Array.isArray(body.diceResults) ? body.diceResults.map(Number) : []);
+        if (same) { sendJson(res, 200, { recorded: true, alreadyRecorded: true }); return true; }
         sendJson(res, 409, { error: "This character has already answered that roll request." });
         return true;
       }
+      if (request.closedAt) { sendJson(res, 403, { error: "This roll request was closed by the GM." }); return true; }
       const submittedScore = Number(body.score) || 0;
       request.results[characterId] = {
         score: submittedScore,

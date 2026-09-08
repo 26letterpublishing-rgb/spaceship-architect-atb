@@ -17,7 +17,7 @@ import {
   classById,
 } from "./character-data.js?v=20260816-atb-2e";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
-import { PhysicalDiceRoller } from "./dice-roller.js?v=20260813-feedback-2";
+import { PhysicalDiceRoller } from "./dice-roller.js?v=20260907-hybrid-time-1";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
@@ -1318,7 +1318,7 @@ function normalizeCharacter(raw) {
   normalized.health.permanentBonus = Math.round(clamp(normalized.health.permanentBonus, 0, 9999));
   normalized.health.current = source.health?.current === null || source.health?.current === undefined
     ? null
-    : Math.round(clamp(source.health.current, -9999, 999999));
+    : clamp(source.health.current, -9999, 999999);
   return normalized;
 }
 
@@ -1662,7 +1662,7 @@ function renderTabbedStatus() {
   const maximum = maximumHp();
   const current = character.health.current === null || character.health.current === undefined
     ? maximum
-    : Math.min(maximum, Math.max(-9999, Math.round(Number(character.health.current) || 0)));
+    : Math.min(maximum, Math.max(-9999, Number(character.health.current) || 0));
   dom.tabStatusExperience.textContent = Math.max(0, Number(character.experience.available) || 0) + " / " + Math.max(0, Number(character.experience.totalGained) || 0);
   dom.tabStatusHp.textContent = current + " / " + maximum;
   const hpRatio = maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0;
@@ -2908,7 +2908,7 @@ function syncDerivedResources(previousMaxHp = null) {
 
   const nextMaxHp = maximumHp();
   if (character.health.current === null || (previousMaxHp !== null && character.health.current === previousMaxHp)) character.health.current = nextMaxHp;
-  character.health.current = Math.round(clamp(character.health.current, -9999, nextMaxHp));
+  character.health.current = clamp(character.health.current, -9999, nextMaxHp);
 }
 
 function campaignCommandWindowBonus() {
@@ -4482,6 +4482,11 @@ function openAttributeCheck(attributeKey) {
 function closeSkillCheck(options = {}) {
   if (diceRoller.isActive()) return;
   const discardCombat = options?.discardCombat === true;
+  if (!discardCombat && skillCheck?.submitting) return;
+  if (!discardCombat && skillCheck?.pendingSubmission && (skillCheck.campaignRequestId || skillCheck.combatRequest) && !skillCheck.campaignSubmitted && !skillCheck.combatSubmitted) {
+    notice("Confirm and Submit this result, or choose a reroll first.", "error");
+    return;
+  }
   const abandonedCombatRequest = !discardCombat && skillCheck?.combatRequest && !skillCheck.combatSubmitted
     ? { type: "roll", ...skillCheck.combatRequest }
     : null;
@@ -4578,14 +4583,35 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   const freeRule = manual ? null : availableFreeReroll();
   dom.freeRuleReroll.hidden = !freeRule;
   dom.freeRuleReroll.textContent = freeRule?.label || "Use Free Reroll";
-  submitCampaignRollResult({ score, outcome, manual, diceResults });
-  submitCombatRollResult({ score, manual, diceResults });
+  skillCheck.pendingSubmission = { score, outcome, manual, diceResults };
+  dom.exitSkillResult.disabled = false;
+}
+
+async function confirmSkillResult() {
+  const check = skillCheck;
+  if (!check?.pendingSubmission || check.submitting || diceRoller.isActive()) return;
+  check.submitting = true;
+  dom.exitSkillResult.disabled = true;
+  dom.rerollSkillCheck.disabled = true;
+  dom.freeRuleReroll.disabled = true;
+  try {
+    if (!await submitCampaignRollResult(check.pendingSubmission)) return;
+    submitCombatRollResult(check.pendingSubmission);
+    if (skillCheck === check) closeSkillCheck({ discardCombat: true });
+  } finally {
+    check.submitting = false;
+    dom.exitSkillResult.disabled = false;
+    dom.rerollSkillCheck.disabled = character.resources.reverence < reverenceRerollCost();
+    dom.freeRuleReroll.disabled = false;
+  }
 }
 
 async function submitCampaignRollResult({ score, outcome, manual, diceResults }) {
-  const requestId = skillCheck?.campaignRequestId;
-  if (!requestId || !campaignCode || !campaignCharacterId || !campaignToken || skillCheck.campaignSubmitted) return;
-  skillCheck.campaignSubmitted = true;
+  const check = skillCheck;
+  const requestId = check?.campaignRequestId;
+  if (!requestId || check.campaignSubmitted) return true;
+  if (!campaignCode || !campaignCharacterId || !campaignToken) { notice("Reconnect to the campaign before submitting.", "error"); return false; }
+  check.campaignSubmitted = true;
   try {
     await campaignRequest("/api/campaign/roll/respond", {
       method: "POST",
@@ -4601,9 +4627,11 @@ async function submitCampaignRollResult({ score, outcome, manual, diceResults })
       }),
     });
     notice("Roll result sent to the GM.", "success");
+    return true;
   } catch (error) {
-    skillCheck.campaignSubmitted = false;
+    check.campaignSubmitted = false;
     notice(error.message, "error");
+    return false;
   }
  }
 
@@ -6377,7 +6405,7 @@ function openRequestedCampaignRoll() {
   selectSkillAttribute(attribute.key);
   dom.skillCheckSubtitle.textContent = request.hideDifficulty
     ? "GM-requested roll. The Difficulty is hidden."
-    : "GM-requested roll. The result will be returned automatically.";
+    : "GM-requested roll. Confirm and Submit when your result is ready.";
 }
 
 function processFinalization() {
@@ -8521,7 +8549,7 @@ dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
 dom.freeRuleReroll.addEventListener("click", useFreeRuleReroll);
 dom.skillCheckClose.addEventListener("click", closeSkillCheck);
 dom.cancelSkillCheck.addEventListener("click", closeSkillCheck);
-dom.exitSkillResult.addEventListener("click", closeSkillCheck);
+dom.exitSkillResult.addEventListener("click", confirmSkillResult);
 
 dom.fubsButton.addEventListener("click", () => {
   if (character.fubs.status === "complete") showFubsResult();

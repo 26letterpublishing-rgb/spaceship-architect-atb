@@ -939,6 +939,10 @@
 }
 
 /* One scroll surface per prompt. The overlay scrolls; its card never traps the footer. */
+#npcDiceRoller { z-index: 12000; }
+.npc-dice-active .attack-resolution-panel { opacity: .15; pointer-events: none; }
+.npc-dice-active #turnDialog { visibility: hidden; }
+
 .combat-action-dialog,
 .attack-resolution-dialog,
 .first-aid-resolution-dialog {

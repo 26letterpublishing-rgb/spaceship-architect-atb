@@ -51,6 +51,26 @@ not refill the reserve. A GM-only Spend 1 AU button supports manual playtesting
 until ship action SICs consume AU automatically. Do not restore printed
 once-per-SvS-round refreshes alongside this meter.
 
+## Hybrid Engines and Campaign Time (September 7, 2026)
+
+Approved engine names are Power Engine (EN), Action Engine (AU), Power Hybrid
+Engine (EN-focused), and Action Hybrid Engine (AU-focused), each with six tiers.
+Existing EN/AU type IDs remain unchanged to preserve saved ships. Hybrids use
+`en-au-engine-N` and `au-en-engine-N`. Printed sources: A-11 through A-18 and
+B-7 through B-10. Power Hybrid station bonuses increase EN; Action Hybrid bonuses
+increase AU. Both lose AU when impaired and retain their printed EN output;
+destroyed/offline engines provide nothing. Instability events remain future rules.
+
+Pass Time is a GM campaign operation, separate from the combat clock. The GM enters
+minutes/hours/days/weeks; active combat must end first. All approved characters
+recover HP each accumulated 24 hours equal to filled Health boxes plus their
+effective Athletics/Endurance rating. Dice row indices 0 through 4 represent one
+through five filled boxes; a D6 plus D4 is three boxes. Preserve fractional skill
+values and resulting HP. Partial days persist per character. Every Pass Time also
+uses the existing carried-item recharge rules. Elapsed campaign minutes and retry
+receipts persist for future crafting integration; crafting completion itself is
+not implemented by this pass.
+
 ## Product Purpose
 
 The product is a multiplayer roleplaying companion, not only a ship builder or

@@ -15,27 +15,27 @@ if (backLink && pageParameters.get("campaign") && pageParameters.get("ship")) {
   backLink.addEventListener("click", (event) => { event.preventDefault(); history.back(); });
 }
 const SIC_CATALOG = {
-  "en-engine-1": { name: "EN Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, ...window.SAShipMap.definition("en-engine-1"), floorplan: window.SAShipMap.definition("en-engine-1").image },
-  "en-engine-2": { name: "EN Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, ...window.SAShipMap.definition("en-engine-2"), floorplan: window.SAShipMap.definition("en-engine-2").image },
-  "en-engine-3": { name: "EN Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, ...window.SAShipMap.definition("en-engine-3"), floorplan: window.SAShipMap.definition("en-engine-3").image },
-  "en-engine-4": { name: "EN Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, ...window.SAShipMap.definition("en-engine-4"), floorplan: window.SAShipMap.definition("en-engine-4").image },
-  "en-engine-5": { name: "EN Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, ...window.SAShipMap.definition("en-engine-5"), floorplan: window.SAShipMap.definition("en-engine-5").image },
-  "en-engine-6": { name: "EN Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, ...window.SAShipMap.definition("en-engine-6"), floorplan: window.SAShipMap.definition("en-engine-6").image },
+  "en-engine-1": { name: "Power Engine 1", shortLabel: "EN 1", category: "engine", price: 1750, width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, ...window.SAShipMap.definition("en-engine-1"), floorplan: window.SAShipMap.definition("en-engine-1").image },
+  "en-engine-2": { name: "Power Engine 2", shortLabel: "EN 2", category: "engine", price: 4550, width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, ...window.SAShipMap.definition("en-engine-2"), floorplan: window.SAShipMap.definition("en-engine-2").image },
+  "en-engine-3": { name: "Power Engine 3", shortLabel: "EN 3", category: "engine", price: 10150, width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, ...window.SAShipMap.definition("en-engine-3"), floorplan: window.SAShipMap.definition("en-engine-3").image },
+  "en-engine-4": { name: "Power Engine 4", shortLabel: "EN 4", category: "engine", price: 17500, width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, ...window.SAShipMap.definition("en-engine-4"), floorplan: window.SAShipMap.definition("en-engine-4").image },
+  "en-engine-5": { name: "Power Engine 5", shortLabel: "EN 5", category: "engine", price: 26950, width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, ...window.SAShipMap.definition("en-engine-5"), floorplan: window.SAShipMap.definition("en-engine-5").image },
+  "en-engine-6": { name: "Power Engine 6", shortLabel: "EN 6", category: "engine", price: 38500, width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, ...window.SAShipMap.definition("en-engine-6"), floorplan: window.SAShipMap.definition("en-engine-6").image },
   "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, ...window.SAShipMap.definition("life-support"), floorplan: window.SAShipMap.definition("life-support").image },
   "nutritional-supplement": { name: "Nut. Supplement", shortLabel: "NUT.", category: "utility", price: 850, width: 1, height: 1, enOutput: 0, energyCost: 3, clearance: 0, ...window.SAShipMap.definition("nutritional-supplement"), floorplan: window.SAShipMap.definition("nutritional-supplement").image },
 };
 
-for (let tier = 1; tier <= 6; tier += 1) {
-  const type = `au-engine-${tier}`;
+for (const family of ["au", "en-au", "au-en"]) for (let tier = 1; tier <= 6; tier += 1) {
+  const type = `${family}-engine-${tier}`;
   const data = window.SAShipMap.definition(type);
-  SIC_CATALOG[type] = { ...data, name: `AU Engine ${tier}`, shortLabel: `AU ${tier}`, category: "engine", enOutput: 0, energyCost: 0, clearance: tier, floorplan: data.image };
+  SIC_CATALOG[type] = { ...data, shortLabel: data.label, category: "engine", enOutput: data.output, energyCost: 0, clearance: tier, floorplan: data.image };
   const card = document.createElement("section");
   card.className = "sic-market-item";
-  card.innerHTML = `<article class="sic-poker-card au-engine-card" data-sic-card="${type}" tabindex="0" aria-label="AU Engine ${tier} details">
-    <header class="sic-poker-heading"><span>Engine <small>${data.cardNumber}</small></span><div><h3>AU Engine ${tier}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header>
-    <img class="sic-poker-art" src="au-engine-${tier}-graphic.png" alt="AU Engine ${tier} capacitor core" />
+  card.innerHTML = `<article class="sic-poker-card au-engine-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details">
+    <header class="sic-poker-heading"><span>Engine <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header>
+    <img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name} reactor" loading="lazy" />
     <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${tier}&times;${tier}</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl>
-    <section class="sic-poker-rules"><p>${tier <= 2 ? "Small" : tier <= 4 ? "Basic" : "Large"} Core system that exclusively outputs AU.</p><p>Minimum distance away from another Engine is ${tier} square${tier > 1 ? "s" : ""}.</p><strong>Outputs ${data.auOutput} AU</strong><p>Stations ${data.stations.length}<br />Passive Station Bonus: Each Character grants additional AU for each level of Engineering they have.</p></section>
+    <section class="sic-poker-rules"><p>${family === "au" ? "Core system that exclusively outputs AU." : `Hybrid engine focused on ${data.stationBonus === "en" ? "EN power" : "AU output"}.`}</p><p>Minimum distance away from another Engine is ${tier} square${tier > 1 ? "s" : ""}.</p><strong>Outputs ${data.output ? `${data.output} EN + ` : ""}${data.auOutput} AU</strong><p>Stations ${data.stations.length}<br />Passive Station Bonus: Each Character grants additional ${data.stationBonus.toUpperCase()} for each level of Engineering they have.</p></section>
     <footer><span><small>If Impaired</small>No longer provides AU. Becomes unstable.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer>
     </article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
