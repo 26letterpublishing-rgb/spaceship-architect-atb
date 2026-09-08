@@ -28,6 +28,8 @@ Read `RULEBOOK-REFERENCE.md` before changes involving game rules or SIC expansio
 - Exterior SICs attach outside an outer hull wall, never inside a hull square or enclosed courtyard. `ship-map-core.js` owns exterior validation and propulsion. Preserve external placements through campaign and encounter normalization; include them in view bounds, but never in walkable hull, hull cost, HSM, stations, or door generation.
 - Exhaust Thruster 1 is the only implemented thruster. Maximum four purchased thrusters total. Impulse uses HSM/2 rounded toward zero. Impairment removes its AU boost and Evade die, not base Impulse. Ship movement and boosts await the future bridge/cockpit pass.
 - The SIC market groups persistent real cards into expandable family stacks. Do not duplicate purchase controls in collapsed strips.
+- Collapsed stacks show descending tiers above the full tier-1 card, without purchase buttons. Preview clones must not retain interactive card IDs or purchase controls.
+- `ship-map-core.js` owns Hull controls, outer plating and directional exterior sprites. Hull is presentation only: temporarily hide interior walls, stations, labels, mesh and crew, preserving their settings. Starting character movement returns to the interior. Thruster nozzles point away from their mounting hull edge; low-res uses a silhouette, high-res/Hull uses the sprite with an exhaust animation (respect reduced motion and offline state).
 
 - Create Starship, GM View Ship, PC Starships, and combat maps must render the same ship topology and visual language.
 - Low resolution uses clean, flat room colors. Do not use the old white circles inside hull squares.

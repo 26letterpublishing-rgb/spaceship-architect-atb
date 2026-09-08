@@ -310,10 +310,20 @@ body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;pad
 .sic-family-stack>summary>strong{display:flex;justify-content:space-between;font-size:1.05rem;margin-bottom:12px}
 .sic-family-stack>summary>strong:after{content:"+";font-size:1.3rem;color:#68debb}
 .sic-family-stack[open]>summary>strong:after{content:"-"}
-.sic-stack-strips{display:block;padding-right:15px}
-.sic-stack-strips>span{display:block;position:relative;height:38px;margin-top:-6px;padding:7px 12px;border:1px solid #748997;border-radius:4px 4px 0 0;background:#172a35;box-shadow:0 -2px 5px #0007;font-size:.88rem}
-.sic-stack-strips>span:nth-child(even){background:#243640;margin-left:5px}
+.sic-stack-preview{display:flex;flex-direction:column;gap:0;padding-top:3px;pointer-events:none}
+.sic-stack-header .sic-poker-heading strong{display:none}
+.sic-stack-preview .sic-stack-header{grid-template-rows:52px 164px 1fr 54px}
+.sic-stack-preview .sic-stack-header .sic-poker-heading{min-height:52px}
+.sic-stack-preview [data-sic-preview="life-support"] .sic-poker-heading>span{background:#31d5cb}
+.sic-stack-preview [data-sic-preview="nutritional-supplement"] .sic-poker-heading>span{background:#d9dc35}
+.sic-stack-preview .sic-poker-card{position:relative;width:100%;max-width:none;box-shadow:0 -3px 6px #0008}
+.sic-stack-preview .sic-stack-header{height:52px!important;min-height:52px!important;overflow:hidden;margin-bottom:-6px}
+.sic-stack-preview .sic-stack-header:nth-child(odd){width:calc(100% - 12px);margin-left:6px}
+.sic-stack-preview .sic-poker-heading{grid-template-columns:38px minmax(0,1fr)!important;min-height:62px;padding-right:6px!important}
+.sic-stack-preview .sic-poker-heading h3{font-size:14px!important;white-space:nowrap;line-height:1.15;letter-spacing:0}
+.sic-stack-preview .sic-poker-heading>div{min-width:0;padding-right:0!important}
+.sic-stack-preview .sic-stack-bottom{height:490px;min-height:490px}
 .sic-family-stack[open]{grid-column:1/-1}
-.sic-family-stack[open] .sic-stack-strips{display:none}
+.sic-family-stack[open] .sic-stack-preview{display:none}
 .sic-family-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,340px));gap:18px;justify-content:start}
 [data-propulsion-summary]{display:block;padding:10px;color:#b8f0dd;text-align:center;font-size:.9rem}

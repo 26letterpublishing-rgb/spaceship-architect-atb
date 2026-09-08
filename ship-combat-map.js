@@ -289,6 +289,8 @@
     const routeNodes = new Set((preview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === ship.id);
     grid.classList.toggle("show-labels", mapView.labels);
+    grid.classList.toggle("hull-view", mapView.hull);
+    viewInputs.forEach(input => { const key=input.dataset.combatMapView; input.disabled=window.SAShipMap.viewDisabled(mapView,key); input.checked=Boolean(mapView[key])&&!input.disabled; });
     grid.classList.toggle("high-resolution", mapView.highResolution);
     grid.classList.toggle("show-combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls);
@@ -309,7 +311,7 @@
       }).join("")}</div>` : "";
       const stations = stationMarkers(ship, sic, square);
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
+      return `<div class="${classes}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
     const movingMarkup = units.map((unit) => {
       const moving = movementPresentation(unit); if (!moving) return "";
@@ -385,7 +387,7 @@
     const activePreview = selectedShipId === record.id ? preview : null;
     const routeNodes = new Set((activePreview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === record.id);
-    const classes = ["combat-map-grid", "inline-combat-map-grid", mapView.labels ? "show-labels" : "", mapView.highResolution ? "high-resolution" : "", mapView.combatMesh ? "show-combat-mesh" : "", mapView.walls ? "show-walls" : "", mapView.stations ? "show-stations" : ""].filter(Boolean).join(" ");
+    const classes = ["combat-map-grid", "inline-combat-map-grid", mapView.hull ? "hull-view" : "", mapView.labels ? "show-labels" : "", mapView.highResolution ? "high-resolution" : "", mapView.combatMesh ? "show-combat-mesh" : "", mapView.walls ? "show-walls" : "", mapView.stations ? "show-stations" : ""].filter(Boolean).join(" ");
     const squares = [];
     for (let row = minRow; row <= maxRow; row += 1) {
       for (let column = minCol; column <= maxCol; column += 1) {
@@ -403,7 +405,7 @@
         }).join("")}</div>` : "";
         const stations = stationMarkers(record, sic, square);
         const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-        squares.push(`<div class="${cellClasses}" style="${style}">${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
+        squares.push(`<div class="${cellClasses}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
       }
     }
     const moving = units.map((unit) => {
@@ -430,7 +432,7 @@
     const prompt = isSelected && interaction === "move"
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.")
       : "Live interior view";
-    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${Object.entries({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations" }).map(([key, label]) => `<label><input type="checkbox" data-inline-map-view="${key}" ${mapView[key] ? "checked" : ""}> ${label}</label>`).join("")}</div></div>
+    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div></div>
       <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount}">${squares.join("")}${moving}${line}</div></div>
       <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
   }
@@ -524,6 +526,7 @@
     const preferred = options.unitId || (mode === "player" ? myUnitId : combatState?.activeId) || combatState?.units?.[0]?.id || "";
     selectedUnitId = preferred;
     interaction = options.interaction || (mode === "gm" ? "relocate" : "view");
+    if (interaction !== "view") mapView.hull = false;
     const unit = selectedUnit();
     selectedShipId = options.starshipId || unit?.location?.starshipId || ships()[0]?.id || "";
     shipSelect.innerHTML = ships().map((ship) => `<option value="${esc(ship.id)}">${esc(ship.title)}</option>`).join("");
@@ -710,6 +713,7 @@
   window.SACombatMap = {
     open,
     openMove(unit) {
+      mapView.hull = false;
       selectedUnitId = unit.id;
       selectedShipId = unit.location?.starshipId || "";
       interaction = "move";

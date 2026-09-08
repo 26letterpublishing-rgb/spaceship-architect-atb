@@ -1,5 +1,14 @@
 # Hybrid Engine Artwork
 
+## Exterior Presentation, September 8
+
+Built-in image generation produced two new repository assets. The thruster card image is unchanged; the ship views now use a separate sprite. Original files remain in Codex generated_images.
+
+- `exhaust-thruster-1-sprite.png`: single orthographic top-down sci-fi exhaust thruster on genuine transparency, mounting collar at top and flared nozzle pointing down. Symmetric dark titanium and brushed silver, cyan conduits, machined ribbing; no flame, floor, text or surrounding shadow. Game presentation rotates this sprite away from the adjacent hull and adds the animated flame separately.
+- `starship-hull-plating.png`: seamless square material texture, orthographic exterior starship armor, brushed titanium silver and graphite rectangular plates, fine recessed seams and rivets, even lighting. No interiors, machinery, glow, text, perspective or border.
+
+Reference: core PDF page 48, exterior thruster drawing. This is a visual layer only; no ship movement or AU boost action has been added.
+
 ## Power Reactors and Thruster Reassignment, September 8
 
 Built-in image generation produced `power-engine-1-graphic.png` through `power-engine-6-graphic.png` in this repository. Existing EN engine floorplans are unchanged. Original `en-engine-{1..6}-graphic.png` assets are reserved for thrusters; the first is also copied to `exhaust-thruster-1-graphic.png` for its card and exterior representation.

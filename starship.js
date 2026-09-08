@@ -62,7 +62,17 @@ for (const [family, items] of families) {
   const stack = document.createElement("details"); stack.className = "sic-family-stack";
   const summary = document.createElement("summary");
   summary.setAttribute("aria-label", `${family}: expand ${items.length} card${items.length === 1 ? "" : "s"}`);
-  summary.innerHTML = `<strong>${family}</strong><span class="sic-stack-strips">${items.map(item => `<span>${item.querySelector("h3").textContent}</span>`).join("")}</span>`;
+  const ordered = [...items].sort((a, b) => Number(b.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0) - Number(a.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0));
+  const preview = document.createElement("div"); preview.className = "sic-stack-preview sic-market-item"; preview.setAttribute("aria-hidden", "true"); preview.inert = true;
+  for (const [index, item] of ordered.entries()) {
+    const card = item.querySelector("[data-sic-card]").cloneNode(true);
+    card.dataset.sicPreview = card.dataset.sicCard;
+    card.removeAttribute("data-sic-card"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label");
+    card.querySelectorAll("button,[id]").forEach(node => node.matches("button") ? node.remove() : node.removeAttribute("id"));
+    card.classList.add(index === ordered.length - 1 ? "sic-stack-bottom" : "sic-stack-header");
+    preview.append(card);
+  }
+  summary.innerHTML = `<strong>${family}</strong>`; summary.append(preview);
   const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
   stack.append(summary, cards); market.append(stack);
 }
@@ -77,6 +87,7 @@ function loadMapView() {
     return {
       labels: saved.labels !== false,
       highResolution: Boolean(saved.highResolution),
+      hull: Boolean(saved.hull),
       combatMesh: Boolean(saved.combatMesh),
       walls: saved.walls !== false,
       stations: saved.stations !== false,
@@ -534,6 +545,7 @@ function renderGridCells() {
   const placementActive = Boolean(selectedSic());
   shipGrids.forEach((grid) => {
     grid.classList.toggle("show-sic-labels", mapView.labels);
+    grid.classList.toggle("hull-view", mapView.hull);
     grid.classList.toggle("high-resolution", mapView.highResolution && !placementActive);
     grid.classList.toggle("combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls && !placementActive);
@@ -551,6 +563,7 @@ function renderGridCells() {
       cell.classList.toggle("sic-origin", Boolean(placement && placement.cell === index));
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
+      cell.insertAdjacentHTML("beforeend", window.SAShipMap.surfaceMarkup(layout, index));
       cell.style.removeProperty("--sic-basic-color"); cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-tint"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
       if (placement) {
         const x = occupied.offset % definition.width; const y = Math.floor(occupied.offset / definition.width);
@@ -594,7 +607,8 @@ function renderMapViewControls() {
   const placementActive = Boolean(selectedSic());
   mapViewToggles.forEach((toggle) => {
     const key = toggle.dataset.mapToggle;
-    toggle.checked = Boolean(mapView[key]);
+    toggle.disabled = window.SAShipMap.viewDisabled(mapView, key);
+    toggle.checked = Boolean(mapView[key]) && !toggle.disabled;
     const label = toggle.closest("label");
     const suspended = (key === "highResolution" || key === "walls") && placementActive && mapView[key];
     label?.classList.toggle("is-suspended", suspended);

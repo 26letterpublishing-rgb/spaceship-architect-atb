@@ -105,6 +105,29 @@
     return `background-image:url('${entry.image}');background-size:${entry.width * 100}% ${entry.height * 100}%;background-position:${x}% ${y}%;background-repeat:no-repeat`;
   }
 
+  function exteriorFacing(layout, square) {
+    // The mount faces the neighboring hull; the exhaust points the opposite way.
+    const side = SIDES.find(side => side.valid(square) && layout.hull.has(square + side.offset));
+    return { top: 0, right: 90, bottom: 180, left: 270 }[side?.name] ?? 0;
+  }
+
+  function surfaceMarkup(layout, square) {
+    if (layout.hull.has(square)) {
+      const edges = SIDES.filter(side => !side.valid(square) || !layout.hull.has(square + side.offset)).map(side => `edge-${side.name}`).join(" ");
+      return `<span class="sa-hull-plate ${edges}" style="--plate-x:${square % 20 % 2 * 100}%;--plate-y:${Math.floor(square / 20) % 2 * 100}%" aria-hidden="true"></span>`;
+    }
+    const sic = layout.footprint.get(square);
+    if (!sic?.exterior) return "";
+    const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
+    return `<span class="sa-exterior-thruster ${active ? "is-firing" : ""}" style="--thruster-angle:${exteriorFacing(layout, square)}deg" aria-hidden="true"><i class="sa-thruster-body"></i><img src="exhaust-thruster-1-sprite.png" alt="" draggable="false"><i class="sa-thruster-flame"></i></span>`;
+  }
+
+  const VIEW_LABELS = Object.freeze({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations", hull: "Hull" });
+  function viewDisabled(view, key) { return Boolean(view.hull && ["labels", "combatMesh", "walls", "stations"].includes(key)); }
+  function viewControls(view, attribute) {
+    return Object.entries(VIEW_LABELS).map(([key, label]) => `<label><input type="checkbox" ${attribute}="${key}" ${view[key] && !viewDisabled(view, key) ? "checked" : ""} ${viewDisabled(view, key) ? "disabled" : ""}> <span>${label}</span></label>`).join("");
+  }
+
   function doorKey(first, second) {
     return [Number(first), Number(second)].sort((a, b) => a - b).join(":");
   }
@@ -207,5 +230,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
 }));

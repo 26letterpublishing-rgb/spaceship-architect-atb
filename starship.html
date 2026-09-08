@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260908-thrusters-4" />
-    <link rel="stylesheet" href="ship-map-presentation.css?v=20260907-shared-1" />
+    <link rel="stylesheet" href="starship.css?v=20260908-hull-1" />
+    <link rel="stylesheet" href="ship-map-presentation.css?v=20260908-hull-1" />
     <link rel="stylesheet" href="crew-overview.css?v=20260907-workspace-1" />
   </head>
   <body>
@@ -100,6 +100,7 @@
             <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
             <label><input type="checkbox" data-map-toggle="walls" checked /><span>Walls</span></label>
             <label><input type="checkbox" data-map-toggle="stations" checked /><span>Stations</span></label>
+            <label><input type="checkbox" data-map-toggle="hull" /><span>Hull</span></label>
           </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
@@ -220,6 +221,7 @@
             <label><input type="checkbox" data-map-toggle="combatMesh" /><span>Combat Mesh</span></label>
             <label><input type="checkbox" data-map-toggle="walls" checked /><span>Walls</span></label>
             <label><input type="checkbox" data-map-toggle="stations" checked /><span>Stations</span></label>
+            <label><input type="checkbox" data-map-toggle="hull" /><span>Hull</span></label>
           </fieldset>
           <div class="sic-state-list" data-sic-list="pending"></div>
           <div class="sic-state-list" data-sic-list="queue"></div>
@@ -374,10 +376,10 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="ship-map-core.js?v=20260908-thrusters-4"></script>
+    <script src="ship-map-core.js?v=20260908-hull-1"></script>
     <script src="ship-power.js?v=20260907-hybrid-time-2"></script>
     <script src="live-dom.js?v=20260907-workspace-2"></script>
     <script src="crew-overview.js?v=20260907-workspace-1"></script>
-    <script src="starship.js?v=20260908-thrusters-4"></script>
+    <script src="starship.js?v=20260908-hull-1"></script>
   </body>
 </html>
