@@ -60,14 +60,38 @@
       energyCost: tier * 2, price: tier * 200, security: Math.ceil(tier / 2) + 1, threshold: 8 + tier * 2,
       crafting: exhaustCraft[tier - 1], cardNumber: tier < 5 ? `A-${22 + tier}` : "B-13",
       image: image(`${type}-graphic.png`), sprite: `${type}-sprite.png`, color: exhaustColors[tier - 1], auBoost: tier, auCost: 4 };
+    catalog[type].emitters = [ [[50,90,50]], [[27.5,86,32],[72.5,86,32]], [[22,88,36],[78,88,36]],
+      [[25,84,32],[75,84,32]], [[27,90,32],[73,90,32]] ][tier - 1];
+    const ionicType = `ionic-pulse-thruster-${tier}`;
+    catalog[ionicType] = { ...catalog[type], name: `Ionic Pulse Thruster ${tier}`, label: `IP ${tier}`, ionic: true,
+      exhaust: 0, energyCost: tier * 5, price: tier * 350, security: [2, 2, 3, 3, 4][tier - 1], threshold: 7 + tier,
+      crafting: ["Paradon, 4 hrs", "Argol, 4 hrs", "Mirium, 5 hrs", "Drakkonite, 6 hrs", "Mirium, 8 hrs"][tier - 1],
+      cardNumber: `B-${13 + tier}`, image: image(`${ionicType}-graphic.png`), sprite: `${ionicType}-graphic.png`, auCost: 2,
+      emitters: tier === 1 ? [[50,80,42]] : [[26,80,32],[74,80,32]] };
   }
 
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
 
+  function componentDefinition(item) {
+    const entry = definition(item?.type);
+    let { width, height } = entry, stations = entry.stations;
+    // New purchases use corners; old saves retain their station coordinates and occupants.
+    if (item?.stationLayout === "corners-v1" && stations.length) {
+      stations = [{ x: 0, y: 0, mesh: 0 }, { x: width - 1, y: height - 1, mesh: 8 },
+        { x: width - 1, y: 0, mesh: 2 }, { x: 0, y: height - 1, mesh: 6 }].slice(0, stations.length);
+    }
+    if (Number(item?.rotation) % 180 === 90) {
+      stations = stations.map(s => ({ x: height - 1 - s.y, y: s.x, mesh: s.mesh % 3 * 3 + 2 - Math.floor(s.mesh / 3) }));
+      [width, height] = [height, width];
+    }
+    return { ...entry, width, height, stations };
+  }
+
   function exteriorPlacement(ship, type, origin, ignoreId = "") {
-    const entry = definition(type), hull = new Set(ship.gridCells || []), cells = [];
+    const item = (ship.sicInventory || []).find(item => item.id === ignoreId);
+    const entry = item ? componentDefinition(item) : definition(type), hull = new Set(ship.gridCells || []), cells = [];
     if (!Number.isInteger(origin) || origin < 0 || origin >= 400 || origin % 20 + entry.width > 20 || Math.floor(origin / 20) + entry.height > 20) return false;
     for (let y = 0; y < entry.height; y++) for (let x = 0; x < entry.width; x++) cells.push(origin + y * 20 + x);
     if (cells.some(cell => hull.has(cell))) return false;
@@ -101,12 +125,20 @@
     if (['gridCells','sicInventory','placements'].some(key => ship[key] !== undefined && !Array.isArray(ship[key]))) return "Invalid starship construction data.";
     if ((ship.sicInventory || []).some(item => !item || typeof item !== 'object') || (ship.placements || []).some(item => !item || typeof item !== 'object')) return "Invalid starship component data.";
     const inventory = ship.sicInventory || [];
-    if (inventory.filter(item => !item.pendingDisposition && definition(item.type).thruster).length > 4) return "A ship may have at most four thrusters.";
+    const installed = new Set((ship.placements || []).map(p => p.sicId));
+    if (inventory.filter(item => installed.has(item.id) && definition(item.type).thruster).length > 4) return "A ship may have at most four installed thrusters.";
     for (const p of ship.placements || []) {
       const item = inventory.find(item => item.id === p.sicId);
       if (item && definition(item.type).exterior && !exteriorPlacement(ship, item.type, p.cell, item.id)) return "Exterior SICs must attach to an outer hull wall, outside the ship and clear of other SICs.";
     }
     return "";
+  }
+
+  function masking(record) {
+    const ship = record.ship || record, installed = new Set((ship.placements || []).map(p => p.sicId));
+    const darkveil = Math.max(0, ...(ship.sicInventory || []).filter(item => installed.has(item.id) && !item.disabled && !item.impaired && !["destroyed", "offline", "powered-down", "impaired"].includes(item.status)).map(item => Number(definition(item.type).darkveil) || 0));
+    const stats = propulsion(record);
+    return stats.hsm + stats.exhaust + darkveil;
   }
 
   function floorplanStyle(type, column = 0, row = 0) {
@@ -136,12 +168,14 @@
     if (sic.offset) return '<span class="sa-exterior-tile" aria-hidden="true"></span>';
     const data = definition(sic.type), angle = exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
-    const jets = data.impulseBonus > 1 ? '<i class="sa-thruster-flame jet-left"></i><i class="sa-thruster-flame jet-right"></i>' : '<i class="sa-thruster-flame"></i>';
+    const jetClass = data.ionic ? "sa-ion-pulse" : "sa-thruster-flame";
+    // Emission points are measured in the sprite frame, then transformed with the complete assembly.
+    const jets = (data.emitters || []).map(([x,y,width], index) => `<i class="${jetClass}" style="left:${8 + .84 * (x - width / 2)}%;top:${-2 + .76 * y}%;width:${.84 * width}%;animation-delay:${index * -.8}s"></i>`).join("");
     return `<span class="sa-exterior-thruster ${active ? "is-firing" : ""}" style="width:${sic.width * 100}%;height:${sic.height * 100}%;--thruster-angle:${angle}deg;--assembly-width:${sideways ? sic.height / sic.width * 100 : 100}%;--assembly-height:${sideways ? sic.width / sic.height * 100 : 100}%;--exhaust-color:${data.color}" aria-hidden="true"><span class="sa-thruster-assembly"><i class="sa-thruster-body"></i><img src="${data.sprite}" alt="" draggable="false">${jets}</span></span>`;
   }
 
   const VIEW_LABELS = Object.freeze({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations", hull: "Hull" });
-  function viewDisabled(view, key) { return Boolean(view.hull && ["labels", "combatMesh", "walls", "stations"].includes(key)); }
+  function viewDisabled(view, key) { return Boolean(view.hull && ["combatMesh", "walls", "stations"].includes(key)); }
   function viewControls(view, attribute) {
     return Object.entries(VIEW_LABELS).map(([key, label]) => `<label><input type="checkbox" ${attribute}="${key}" ${view[key] && !viewDisabled(view, key) ? "checked" : ""} ${viewDisabled(view, key) ? "disabled" : ""}> <span>${label}</span></label>`).join("");
   }
@@ -164,7 +198,7 @@
     for (const placement of ship.placements || []) {
       const item = inventory.get(placement.sicId);
       const type = item?.type || "";
-      const entry = definition(type);
+      const entry = componentDefinition(item);
       const origin = Number(placement.cell);
       const originRow = Math.floor(origin / GRID_SIZE);
       const originColumn = origin % GRID_SIZE;
@@ -185,7 +219,8 @@
         const otherCross = side.name === "right" ? other.row : other.column;
         const currentSize = side.name === "right" ? current.height : current.width;
         const otherSize = side.name === "right" ? other.height : other.width;
-        const score = Math.abs(currentCross - (currentSize - 1) / 2) + Math.abs(otherCross - (otherSize - 1) / 2);
+        const stationPenalty = room => room.stations.some(s => s.x === room.column && s.y === room.row) ? 10 : 0;
+        const score = Math.abs(currentCross - (currentSize - 1) / 2) + Math.abs(otherCross - (otherSize - 1) / 2) + stationPenalty(current) + stationPenalty(other);
         const pair = [current.sicId, other.sicId].sort().join(":");
         const key = doorKey(square, adjacent);
         const previous = bestConnections.get(pair);
@@ -193,6 +228,20 @@
       }
     }
     const connectionDoors = new Set([...bestConnections.values()].map((entry) => entry.key));
+    const hallwayDoors = new Map();
+    for (const [square, room] of footprint) {
+      if (room.exterior) continue;
+      for (const side of SIDES) {
+        const adjacent = square + side.offset;
+        if (!side.valid(square) || !hull.has(adjacent) || footprint.has(adjacent)) continue;
+        const horizontal = side.name === "top" || side.name === "bottom";
+        const cross = horizontal ? room.column : room.row, size = horizontal ? room.width : room.height;
+        const station = room.stations.some(s => s.x === room.column && s.y === room.row);
+        const score = Math.abs(cross - (size - 1) / 2) + (station ? 10 : 0);
+        const group = `${room.sicId}:${side.name}`, previous = hallwayDoors.get(group);
+        if (!previous || score < previous.score) hallwayDoors.set(group, { square, score });
+      }
+    }
 
     function boundary(square, sideName) {
       if (!hull.has(Number(square))) return { kind: "none", side: sideName, key: "" };
@@ -208,9 +257,7 @@
         const key = doorKey(square, adjacent);
         return { kind: connectionDoors.has(key) ? "door" : "wall", side: sideName, key };
       }
-      const cross = sideName === "top" || sideName === "bottom" ? current.column : current.row;
-      const size = sideName === "top" || sideName === "bottom" ? current.width : current.height;
-      const centered = cross === Math.floor((size - 1) / 2);
+      const centered = hallwayDoors.get(`${current.sicId}:${sideName}`)?.square === Number(square);
       return { kind: centered ? "door" : "wall", side: sideName, key: centered ? doorKey(square, adjacent) : "" };
     }
 
@@ -248,5 +295,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
 }));

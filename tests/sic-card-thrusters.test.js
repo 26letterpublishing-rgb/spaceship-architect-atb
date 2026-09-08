@@ -54,7 +54,9 @@ test('mixed thruster tiers share the four-part cap and each grant only one Evade
   assert.equal(maps.propulsion(ship).evadeCount,1);
   assert.equal(maps.propulsion(ship).moveSpeed,27);
   ship.sicInventory.push(...[3,4,1].map(tier=>({id:String(tier),type:`exhaust-thruster-${tier}`})));
-  assert.match(maps.exteriorError(ship),/four thrusters/);
+  assert.equal(maps.exteriorError(ship),'','stored thrusters do not count against the installation limit');
+  ship.placements.push(...[3,4,1].map((tier,i)=>({sicId:String(tier),cell:250+i*10})));
+  assert.match(maps.exteriorError(ship),/four installed thrusters/);
 });
 
 function purchaseContext(credits=1000) {
@@ -76,9 +78,8 @@ test('repeat purchases get unique pending identities and respect reserved credit
   assert.match(calls.at(-1)[0],/Not enough Group Credits/);
   assert.equal(context.draft.groupCredits,450,'credits are deducted by the existing confirmation transaction');
 });
-test('duplicate purchasing cannot bypass the mixed-tier thruster limit', () => {
-  const {context,calls}=purchaseContext(10000);
+test('duplicate purchasing permits extra thrusters in storage', () => {
+  const {context}=purchaseContext(10000);
   for(let tier=1;tier<=5;tier++)context.purchaseSic(`exhaust-thruster-${tier}`);
-  assert.equal(context.draft.sicInventory.length,4);
-  assert.match(calls.at(-1)[0],/four thrusters/);
+  assert.equal(context.draft.sicInventory.length,5);
 });

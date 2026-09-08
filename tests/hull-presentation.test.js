@@ -50,7 +50,9 @@ test('six view controls suspend interior settings without overwriting them', () 
   const before=JSON.stringify(view);
   const html=maps.viewControls(view,'data-test-view');
   assert.equal((html.match(/type="checkbox"/g)||[]).length,6);
-  for(const key of ['labels','combatMesh','walls','stations']) {
+  assert.match(html,/data-test-view="labels" checked/);
+  assert.equal(maps.viewDisabled(view,'labels'),false);
+  for(const key of ['combatMesh','walls','stations']) {
     assert.match(html,new RegExp(`data-test-view="${key}"\\s+disabled`));
     assert.equal(maps.viewDisabled(view,key),true);
   }

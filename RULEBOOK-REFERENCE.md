@@ -1,5 +1,13 @@
 # Spaceship Architect: Source Understanding
 
+## Ionic Thruster Follow-Up
+
+- Ionic Pulse Thrusters B-14 through B-18: tiers 1-5, prices 350/700/1050/1400/1750, EN costs 5/10/15/20/25, sizes 1x1/2x1/3x2/3x2/4x2 EXT, security 2/2/3/3/4, thresholds 8/9/10/11/12. Engineering crafting: Paradon 4 hrs, Argol 4 hrs, Mirium 5 hrs, Drakkonite 6 hrs, Mirium 8 hrs. No stations.
+- Each Ionic thruster contributes tier + trunc(HSM/2) Impulse and one Evade die, with no Exhaust penalty. Printed 2-AU boost adds its tier to Move Speed once per thruster; actual ship movement and AU boosts remain deferred. Impairment removes that boost and Evade die, retaining Impulse.
+- User clarification: four thrusters means four installed, combined across families. Extra copies may be purchased and stored without a count cap. Rectangular SICs may rotate 90 degrees; exterior orientation still follows their mounting hull edge.
+- Core PDF page 57: Masking Level combines HSM, Exhaust and the best Darkveil modifier. Negative values are valid. Darkveil itself is not yet a catalog purchase; the shared calculation supports its metadata when introduced.
+- User presentation changes: stations prefer corners and doors prefer locations away from stations. Existing saved station locations are retained; new inventory carries a corner-layout version.
+
 ## September 8: Exterior Thrusters and Space Map
 
 - Exhaust family completed: tiers 1-5 only (no tier 6 in these catalogs). A-24: 2x1 EXT, 400 credits, EN 4, security 2, Xpidinium/3 hrs, threshold 12. A-25: 3x2 EXT, 600 credits, EN 6, security 3, Crystilium/4 hrs, threshold 14. A-26: 3x2 EXT, 800 credits, EN 8, security 3, Argol/4 hrs, threshold 16. B-13: 4x2 EXT, 1,000 credits, EN 10, security 4, Drakkonite/6 hrs, threshold 18. All have no stations; Impulse adds their tier to trunc(HSM/2); Exhaust is -(tier+1). Printed 4-AU boost grants +tier Move Speed once per thruster but remains deferred with actual ship movement. B-13's repeated +1 Evade die sentence is treated as the same single benefit, consistent with the core rule and the existing source warning.

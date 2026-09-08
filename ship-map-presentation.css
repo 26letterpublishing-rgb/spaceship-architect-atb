@@ -8,7 +8,8 @@
 .ship-grid.hull-view .ship-grid-cell{background:transparent!important;box-shadow:none!important;border:0!important}
 .hull-view :is(.combat-map-square,.player-ship-cell){border:0!important;box-shadow:none!important;animation:none}
 .sa-hull-plate.edge-top{border-top:2px solid #dae2e8}.sa-hull-plate.edge-bottom{border-bottom:2px solid #37434b}.sa-hull-plate.edge-left{border-left:2px solid #b4c2ca}.sa-hull-plate.edge-right{border-right:2px solid #37434b}
-.hull-view :is(.sa-map-wall,.sa-map-door,.sic-station-marker,.player-ship-station,.combat-station-marker,.sic-grid-label,.player-ship-label,.combat-map-label,.combat-token,.player-ship-token,.combat-mesh,.player-ship-mesh,.combat-move-line,.player-ship-move-line,.combat-map-preview-dot){display:none!important}
+.hull-view :is(.sa-map-wall,.sa-map-door,.sic-station-marker,.player-ship-station,.combat-station-marker,.combat-token,.player-ship-token,.combat-mesh,.player-ship-mesh,.combat-move-line,.player-ship-move-line,.combat-map-preview-dot){display:none!important}
+.hull-view :is(.sic-grid-label,.player-ship-label,.combat-map-label){z-index:12}
 .hull-view :is(.ship-grid-cell,.player-ship-cell,.combat-map-square)::after{display:none!important}
 .hull-view .player-ship-cell>button{display:none!important}
 .ship-grid .ship-grid-cell.has-sic:has(>.sa-exterior-thruster),.player-starship-map .player-ship-cell.sic:has(>.sa-exterior-thruster),.combat-map-grid .combat-map-square.sic:has(>.sa-exterior-thruster){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
@@ -25,9 +26,16 @@
 .sa-thruster-flame{display:none;position:absolute;left:25%;top:67%;width:50%;height:33%;transform-origin:50% 0;background:linear-gradient(#ecfeff 0%,#8ce8ff 25%,#368ffc 60%,#4d75dc00 100%);clip-path:polygon(0 0,100% 0,84% 45%,60% 100%,45% 77%,24% 97%,12% 42%);filter:drop-shadow(0 0 3px #64dbff);animation:sa-thruster-burn .36s ease-in-out infinite alternate}
 .sa-thruster-flame{background:linear-gradient(#fff 0%,var(--exhaust-color,#8ce8ff) 30%,transparent 100%)}
 .sa-thruster-flame.jet-left{left:13%;width:24%}.sa-thruster-flame.jet-right{left:63%;width:24%;animation-delay:-.18s}
+.sa-ion-pulse{display:none;position:absolute;left:25%;top:66%;width:50%;height:25%;box-sizing:border-box;border:2px solid var(--exhaust-color);border-top:0;border-radius:0 0 100% 100%;transform-origin:50% 0;filter:drop-shadow(0 0 3px var(--exhaust-color));animation:sa-ion-wave 1.6s ease-out infinite;pointer-events:none}
+.sa-ion-pulse.jet-left{left:13%;width:24%}.sa-ion-pulse.jet-right{left:63%;width:24%;animation-delay:-.8s}
+:is(.high-resolution,.hull-view) .is-firing .sa-ion-pulse{display:block}
+@keyframes sa-ion-wave{0%{transform:scale(.5,.2);opacity:0}12%{opacity:.85}100%{transform:translateY(65%) scale(1.6,1.6);opacity:0}}
 :is(.high-resolution,.hull-view) .is-firing .sa-thruster-flame{display:block}
 @keyframes sa-thruster-burn{from{transform:scale(.86,.8);opacity:.76}to{transform:scale(1,1);opacity:1}}
-@media(prefers-reduced-motion:reduce){.sa-thruster-flame{animation:none}}
+@media(prefers-reduced-motion:reduce){.sa-thruster-flame,.sa-ion-pulse{animation:none}}
+.desktop-grid-viewport:has(.high-resolution)::before,.player-starship-map.high-resolution::before,.combat-map-grid.high-resolution::before{content:"";position:absolute;left:10%;top:5%;width:90px;height:1px;background:linear-gradient(90deg,transparent,#c1e3f4);pointer-events:none;z-index:0;opacity:0;animation:sa-shooting-star 23s linear infinite}
+@keyframes sa-shooting-star{0%,88%,100%{opacity:0;transform:translate(0,0) rotate(28deg)}89%{opacity:.65}94%{opacity:0;transform:translate(400px,200px) rotate(28deg)}}
+@media(prefers-reduced-motion:reduce){.desktop-grid-viewport::before,.player-starship-map::before,.combat-map-grid::before{animation:none!important}}
 .desktop-grid-viewport,.mobile-grid-viewport {overflow:clip}
 .ship-grid .ship-grid-cell {
   overflow:visible;

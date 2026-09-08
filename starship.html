@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spaceship Architect Starship Creator</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="starship.css?v=20260909-cards-1" />
-    <link rel="stylesheet" href="ship-map-presentation.css?v=20260909-cards-1" />
+    <link rel="stylesheet" href="starship.css?v=20260909-ionic-1" />
+    <link rel="stylesheet" href="ship-map-presentation.css?v=20260909-ionic-1" />
     <link rel="stylesheet" href="crew-overview.css?v=20260907-workspace-1" />
-    <link rel="stylesheet" href="sic-cards.css?v=20260909-cards-1" />
+    <link rel="stylesheet" href="sic-cards.css?v=20260909-ionic-1" />
   </head>
   <body>
     <header class="starship-header">
@@ -48,11 +48,13 @@
 
       <section class="starship-panel is-active" data-starship-panel="sheet">
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
-        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260907-au-class-1" alt="Spaceship Architect starship sheet" />
+        <img class="blueprint-source" src="ship-sheet-template.svg?v=20260909-ionic-1" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
           <g data-propulsion-overlay fill="#000"><rect x="207" y="99" width="18" height="16"/><rect x="216" y="121" width="18" height="16"/><rect x="225" y="143" width="18" height="16"/><rect x="234" y="165" width="18" height="16"/><rect x="275" y="165" width="18" height="18"/><rect x="294" y="99" width="14" height="16"/><rect x="331" y="99" width="16" height="16"/><rect x="271" y="66" width="20" height="18"/></g>
           <g data-propulsion-overlay font-size="9"><text data-propulsion="impulse0" x="216" y="107">0</text><text data-propulsion="impulse1" x="225" y="129">0</text><text data-propulsion="impulse2" x="234" y="151">0</text><text data-propulsion="impulse3" x="243" y="173">0</text><text data-propulsion="rawSpeed" x="284" y="175">0</text><text data-propulsion="evadeCount" x="301" y="108">0</text><text data-propulsion="evadeDie" x="339" y="108">4</text><text data-propulsion="exhaust" x="281" y="75">0</text></g>
           <text data-live-stat="hull" x="139" y="84">0</text>
+          <g data-propulsion-overlay><rect x="400" y="66" width="34" height="17" fill="#000"/><text data-live-stat="masking" x="417" y="75" font-size="10">0</text></g>
+          <g><rect x="131" y="34" width="16" height="13" fill="#000"/><rect x="175" y="39" width="10" height="9" fill="#000"/><text data-live-stat="shield" x="139" y="40" font-size="10">0</text><text data-live-stat="shield" x="179.5" y="43" font-size="8">0</text></g>
           <text data-live-stat="hull" x="179.5" y="86">0</text>
           <text data-live-stat="en" data-en-part="available" x="446" y="185">0</text>
           <text data-live-stat="en" data-en-part="max" x="478" y="185">0</text>
@@ -148,12 +150,12 @@
       <section class="mobile-sheet" aria-label="Mobile starship sheet">
         <article class="mobile-blueprint resistance-mobile">
           <h2>Resistance</h2>
-          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /><g class="mobile-live-stats"><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
+          <svg viewBox="8 10 188 101" aria-label="Shield and Hull resistance"><image href="ship-sheet-template.svg?v=20260909-ionic-1" width="612" height="792" /><g class="mobile-live-stats"><rect x="131" y="34" width="16" height="13" fill="#000"/><rect x="175" y="39" width="10" height="9" fill="#000"/><text data-live-stat="shield" x="139" y="40" font-size="10">0</text><text data-live-stat="shield" x="179.5" y="43" font-size="8">0</text><text data-live-stat="hull" x="139" y="84">0</text><text data-live-stat="hull" x="179.5" y="86">0</text></g></svg>
         </article>
         <article class="mobile-blueprint mobility-mobile">
           <h2>Defense &amp; Mobility</h2>
           <svg viewBox="192 8 258 196" aria-label="Defense and Mobility">
-            <image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" />
+            <image href="ship-sheet-template.svg?v=20260909-ionic-1" width="612" height="792" />
             <g class="mobile-thruster-overlay" aria-hidden="true">
               <rect class="mobile-thruster-label-mask" x="246" y="122" width="55" height="22" rx="2" />
               <g class="mobile-thruster-needle" transform="translate(-25 0)">
@@ -188,7 +190,7 @@
         </article>
         <article class="mobile-blueprint fuel-mobile">
           <h2>FTL Fuel</h2>
-          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg>
+          <svg viewBox="476 51 121 101" aria-label="FTL Fuel"><image href="ship-sheet-template.svg?v=20260909-ionic-1" width="612" height="792" /></svg>
         </article>
         <article class="mobile-blueprint credits-mobile">
           <h2>Group Credits</h2>
@@ -271,7 +273,7 @@
           <div id="mobilePlacementControls" class="mobile-placement-controls" hidden><span data-mobile-placement-message></span><button type="button" data-mobile-place>Place Here</button><button type="button" data-cancel-placement>Cancel</button></div>
           <footer><span>Total Squares Used <output data-total-squares>0</output></span><span>Scale Rank <output data-confirmed-scale>--</output></span></footer>
         </section>
-        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg></article>
+        <article class="mobile-blueprint weapons-mobile"><h2>Weapons</h2><svg viewBox="7 650 307 133" aria-label="Starship weapons"><image href="ship-sheet-template.svg?v=20260909-ionic-1" width="612" height="792" /></svg></article>
         <article class="mobile-blueprint reputation-mobile">
           <h2>Reputation</h2>
           <svg class="mobile-reputation-chart reputation-chart" viewBox="0 0 620 292" role="img" aria-label="Five reputation tracks, with one selected position on each track">
@@ -293,7 +295,7 @@
         </article>
         <article class="mobile-blueprint minerals-mobile">
           <h2>Minerals</h2>
-          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260907-au-class-1" width="612" height="792" /></svg>
+          <svg viewBox="8 378 138 273" aria-label="Mineral inventory"><image href="ship-sheet-template.svg?v=20260909-ionic-1" width="612" height="792" /></svg>
         </article>
       </section>
       <section class="purchased-sic-shelf" aria-label="Purchased SIC cards">
@@ -377,10 +379,10 @@
       </section>
     </main>
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
-    <script src="ship-map-core.js?v=20260909-cards-1"></script>
-    <script src="ship-power.js?v=20260907-hybrid-time-2"></script>
+    <script src="ship-map-core.js?v=20260909-ionic-1"></script>
+    <script src="ship-power.js?v=20260909-ionic-1"></script>
     <script src="live-dom.js?v=20260907-workspace-2"></script>
     <script src="crew-overview.js?v=20260907-workspace-1"></script>
-    <script src="starship.js?v=20260909-cards-1"></script>
+    <script src="starship.js?v=20260909-ionic-1"></script>
   </body>
 </html>

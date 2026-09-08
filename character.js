@@ -176,7 +176,7 @@ function classIconSvg(kind) {
     bomb: '<circle cx="10" cy="14" r="7"/><path d="m14 8 2-3 3 1M18 2l1 1M22 5h-1M21 9l-1-1M6 12l2-2"/>',
     target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/>',
     informant: '<path d="M5 3h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-9l-6 4v-4H3V5a2 2 0 0 1 2-2ZM12 10v5M12 7h.01"/>',
-    mastermind: '<g stroke-width="1.5"><path d="M12 4c-1-3-5-2-5 1-3-1-5 2-4 4-3 2-2 6 0 7-1 3 2 5 4 4 1 3 5 2 5-1V4Zm0 0c1-3 5-2 5 1 3-1 5 2 4 4 3 2 2 6 0 7 1 3-2 5-4 4-1 3-5 2-5-1V4Z"/><path d="M7 5c-1 2 0 4 2 4M3 9c3-1 5 1 4 3M3 16c0-2 2-3 4-2M7 20c-1-2 0-4 2-4M17 5c1 2 0 4-2 4M21 9c-3-1-5 1-4 3M21 16c0-2-2-3-4-2M17 20c1-2 0-4-2-4M12 12c-2-2-3-1-3 1M12 12c2-2 3-1 3 1"/></g>',
+    mastermind: '<g stroke-width="1.5" stroke-linejoin="round"><path d="m1 8 11-5 11 5-11 5L1 8Z"/><path d="M5 10v7c4 3 10 3 14 0v-7M12 8h10v9M21 20l1-3 1 3"/><path d="M8 16c2 1 6 1 8 0" opacity=".6"/></g>',
     medic: '<path d="M8 2h8v6h6v8h-6v6H8v-6H2V8h6Z"/>',
     compass: '<circle cx="12" cy="12" r="10"/><path d="m16 6-2 8-6 4 2-8Z"/>',
     ninja: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/><circle cx="12" cy="12" r="2"/>',

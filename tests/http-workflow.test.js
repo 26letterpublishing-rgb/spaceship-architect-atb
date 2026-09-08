@@ -84,12 +84,14 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     assert.deepEqual(assigned.starship.crewCharacterIds, [owner]);
   }
   await post("starship/crew", { code, token: playerTokens[1], characterId: "http-bram", starshipId: "http-gm-ship", crewCharacterIds: ["http-bram"] }, 403);
-  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'exhaust-thruster-1'}],placements:[{sicId:'thruster',cell:20}]};
+  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'ionic-pulse-thruster-2',rotation:90},...Array.from({length:6},(_,i)=>({id:`stored-${i}`,type:'exhaust-thruster-1',storage:true}))],placements:[{sicId:'thruster',cell:20}]};
   await post('starship/link',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:21}]}},400);
   const exteriorLinked=await post('starship/link',{code,token,starship:exteriorShip},201);
   assert.equal(exteriorLinked.starship.ship.placements[0].cell,20);
   const exteriorSaved=await post('starship/save',{code,token,starship:exteriorShip});
   assert.equal(exteriorSaved.starship.ship.placements[0].cell,20);
+  assert.equal(exteriorSaved.starship.ship.sicInventory[0].rotation,90);
+  assert.equal(exteriorSaved.starship.ship.sicInventory.length,7);
   await post('starship/save',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:200}]}},400);
   const combat = async (payload, expected = 200) => {
     const response = await fetch(`${base}/api/action`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -105,6 +107,8 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const exteriorEncounter=await combat({action:'syncEncounterStarships',starships:[{id:exteriorShip.id,ship:exteriorShip}]});
   assert.equal(exteriorEncounter.starships[0].ship.placements[0].cell,20);
   assert.equal(exteriorEncounter.starships[0].ship.gridCells.length,4);
+  assert.equal(exteriorEncounter.starships[0].ship.sicInventory[0].rotation,90);
+  assert.equal(exteriorEncounter.starships[0].ship.sicInventory.length,7);
   let encounter = await combat({ action: "syncEncounterStarships", starships: [auShip] });
   assert.equal(encounter.starships[0].auState.current, 25);
   await combat({ action: "addUnit", characterName: "AU Clock Test", playerName: "GM", team: "npc", speed: 1, commandWindow: 10,

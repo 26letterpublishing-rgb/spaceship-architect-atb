@@ -46,15 +46,18 @@
 .sic-stack-back{border:1px solid #91a0aa!important;border-radius:4px!important;color:white!important;background:#070a0d!important;box-shadow:none!important;padding:8px 18px!important;font:700 14px Arial,sans-serif!important;cursor:pointer}
 .sic-stack-back:hover{border-color:#79e5f1!important}
 .inventory-installed.inventory-sic{grid-template-columns:minmax(0,1fr);gap:6px}
+.inventory-pending.inventory-sic,.inventory-storage.inventory-sic,.inventory-queue.inventory-sic{grid-template-columns:minmax(0,1fr);gap:6px}
+.inventory-sic .inventory-sic-name strong{white-space:normal;overflow-wrap:anywhere}
+.inventory-sic .inventory-sic-actions{justify-content:flex-start;flex-wrap:wrap}
 .inventory-installed .inventory-sic-name strong{white-space:normal;font-size:12px;overflow:visible}
 .inventory-installed .inventory-sic-actions{justify-content:flex-start;flex-wrap:wrap}
 .inventory-installed .inventory-sic-actions button{font-size:9px;min-height:27px;white-space:normal}
 .purchased-sic-shelf>header{margin-bottom:22px}
 .purchased-sic-grid{display:flex!important;flex-wrap:wrap;gap:25px 0!important;padding:10px 22px 22px!important;isolation:isolate}
-.purchased-sic-thumbnail{flex:0 0 300px;width:300px!important;max-width:100%;height:490px!important;aspect-ratio:auto!important;margin:0 -16px!important;padding:0!important;overflow:visible!important;border:0!important;border-radius:6px;background:none!important;box-shadow:none!important;transform:rotate(var(--card-angle));transform-origin:50% 90%;transition:transform 180ms ease;cursor:zoom-in;text-shadow:none!important;min-height:0}
+.purchased-sic-thumbnail{flex:0 0 100px;width:100px!important;max-width:100%;height:163.334px!important;aspect-ratio:auto!important;margin:0 -4px!important;padding:0!important;overflow:visible!important;border:0!important;border-radius:2px;background:none!important;box-shadow:none!important;transform:rotate(var(--card-angle));transform-origin:50% 90%;transition:transform 180ms ease;cursor:zoom-in;text-shadow:none!important;min-height:0}
 .purchased-sic-thumbnail:hover,.purchased-sic-thumbnail:focus-visible{transform:translateY(-12px) rotate(0) scale(1.035);z-index:10;outline:0}
 .purchased-sic-thumbnail:hover>.sic-display-card,.purchased-sic-thumbnail:focus-visible>.sic-display-card{border-color:var(--card-accent)!important;box-shadow:0 18px 32px #000c,0 0 18px color-mix(in srgb,var(--card-accent) 45%,transparent)}
-.purchased-sic-thumbnail>.sic-display-card{pointer-events:none}
+.purchased-sic-thumbnail>.sic-display-card{pointer-events:none;width:300px!important;max-width:none!important;transform:scale(.333333);transform-origin:0 0}
 .sic-card-dialog.sic-inspection{box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(420px,calc(100% - 28px));max-width:none;max-height:calc(100dvh - 28px);height:max-content;padding:38px 12px 12px;overflow:auto;border:1px solid var(--card-accent,#7de0ff);border-radius:8px;background:#081018;box-shadow:0 0 28px color-mix(in srgb,var(--card-accent,#7de0ff) 40%,transparent),0 30px 80px #000c;color:#edf3f7}
 .sic-inspection::backdrop{background:#000a;backdrop-filter:blur(4px)}
 .sic-inspection>[data-close-sic-card]{position:absolute;right:10px;top:7px;width:auto;height:25px;min-height:0;padding:2px 12px;border:1px solid #8096a3;border-radius:4px;background:#020609;color:#fff;font:700 12px Arial,sans-serif;cursor:pointer}
@@ -62,6 +65,21 @@
 .sic-inspection .sic-display-card .sic-poker-rules p{font-size:13px!important}.sic-inspection .sic-display-card .sic-poker-stats dt,.sic-inspection .sic-display-card .sic-poker-stats dd{font-size:10px!important}
 .sic-inspection .sic-display-card:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 30%,#c6faff13 46%,#ffffff22 50%,transparent 65%);background-size:300% 100%;animation:sic-card-sheen 6s ease-in-out infinite;border-radius:5px}
 @keyframes sic-card-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.sic-family-picker{box-sizing:border-box;position:fixed;inset:12px;width:calc(100% - 24px);height:calc(100dvh - 24px);max-width:none;max-height:none;margin:0;padding:16px;overflow:hidden;border:1px solid #64d9ed;border-radius:8px;background:#070e14;color:#eef5f9;font-family:Arial,sans-serif}
+.sic-family-picker[open]{display:flex;flex-direction:column;gap:10px}
+.sic-family-picker::backdrop{background:#000c;backdrop-filter:blur(5px)}
+.sic-family-picker>header{display:flex;align-items:center;gap:20px;flex:none;padding:0;background:none;border:0}
+.sic-family-picker h2{font:700 20px Arial,sans-serif;margin:0;flex:1;letter-spacing:0}
+.sic-family-picker>header>strong{font:700 14px Arial,sans-serif;color:#f1d26a}
+.sic-family-picker [data-family-back]{padding:9px 20px;border:1px solid #8ba3af;border-radius:4px;background:#17242d;color:#fff;font:700 14px Arial,sans-serif;cursor:pointer}
+.sic-family-picker [data-family-feedback]{margin:0;color:#ffa2b3;font-size:14px}
+.sic-family-picker [data-family-feedback]:empty{display:none}
+.sic-picker-grid{flex:1;min-height:0;display:grid;align-content:center;justify-content:center;gap:14px}
+.sic-picker-slot{position:relative;min-width:0}
+.sic-picker-face{position:relative;width:300px;height:490px;transform:scale(var(--picker-scale));transform-origin:0 0}
+.sic-picker-face>.sic-purchase-button,.sic-inspector-locate{box-sizing:border-box;position:absolute;top:14px;right:9px;z-index:6;min-height:38px;padding:8px 12px;border:1px solid #9affc2;border-radius:4px;background:linear-gradient(#5df69b,#078e56);color:#001d12;font:700 12px Arial,sans-serif;cursor:pointer}
+.sic-inspection .sic-display-card:has(.sic-inspector-locate) .sic-poker-heading>div{padding-right:92px!important}
+.sic-inspector-locate:disabled{filter:grayscale(1);opacity:.55;cursor:default}
 @keyframes sic-card-sheen{0%,30%{background-position:100% 0}70%,100%{background-position:0 0}}
 @media(max-width:600px){.purchased-sic-grid{justify-content:center}.purchased-sic-thumbnail{margin:0!important}.sic-card-gallery{padding-inline:0}.sic-inspection .sic-display-card{min-height:490px!important;height:490px!important;grid-template-rows:82px 156px minmax(0,1fr) 56px!important}}
 @media(prefers-reduced-motion:reduce){.sic-display-card,.purchased-sic-thumbnail{transition:none!important}.sic-inspection .sic-display-card,.sic-inspection .sic-display-card:after{animation:none!important}}

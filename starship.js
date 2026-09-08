@@ -41,11 +41,12 @@ for (const family of ["au", "en-au", "au-en"]) for (let tier = 1; tier <= 6; tie
   document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
 }
 
-for (let tier = 1; tier <= 5; tier++) {
-  const type = `exhaust-thruster-${tier}`, data = window.SAShipMap.definition(type);
+for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; tier++) {
+  const type = `${family}-thruster-${tier}`, data = window.SAShipMap.definition(type);
   SIC_CATALOG[type] = { ...data, category: "thruster", shortLabel: data.label, enOutput: 0, floorplan: data.image };
   const card = document.createElement("section"); card.className = "sic-market-item";
-  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Thruster <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header><img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height} EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><p>Exterior propulsion. Maximum four thrusters per ship.</p><strong>Impulse: ${tier} + HSM/2</strong><p>Round HSM/2 toward zero.<br>Exhaust: ${data.exhaust}. Adds one Evade die.<br>4 AU: +${data.auBoost} Move Speed, once per thruster.</p></section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  const rules = `<p>Exterior propulsion. Maximum four installed thrusters.</p><strong>Impulse: ${tier} + HSM/2</strong><p>Round HSM/2 toward zero.<br>${data.ionic ? "No Exhaust penalty." : `Exhaust: ${data.exhaust}.`} Adds one Evade die.<br>${data.auCost} AU: +${data.auBoost} Move Speed, once per thruster.</p>`;
+  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Thruster <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header><img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height} EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector(".sic-card-gallery").append(card);
 }
 
@@ -93,27 +94,8 @@ for (const [family, items] of families) {
   }
   summary.innerHTML = `<strong>${family}</strong>`; summary.append(preview);
   const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
-  const back = document.createElement("button"); back.type = "button"; back.className = "sic-stack-back"; back.textContent = "Back";
-  stack.append(summary, back, cards); market.append(stack);
-  let busy = false;
-  async function spreadCards(open) {
-    if (busy) return; busy = true;
-    const origin = (open ? summary : stack).getBoundingClientRect();
-    if (open) stack.open = true;
-    cards.inert = true;
-    back.disabled = true;
-    if (!reducedCardMotion()) await Promise.all(items.map((item, index) => {
-      const box = item.getBoundingClientRect();
-      const folded = `translate(${origin.left - box.left}px,${origin.top - box.top}px) scale(.72) rotate(${(index - 2) * 3}deg)`;
-      return item.animate(open ? [{ transform: folded, opacity: 0 }, { transform: "none", opacity: 1 }] : [{ transform: "none", opacity: 1 }, { transform: folded, opacity: 0 }],
-        { duration: 280, delay: index * 25, easing: "cubic-bezier(.2,.75,.2,1)" }).finished.catch(() => {});
-    }));
-    if (!open) stack.open = false;
-    cards.inert = false; back.disabled = false; busy = false;
-    (open ? back : summary).focus({ preventScroll: true });
-  }
-  summary.addEventListener("click", event => { event.preventDefault(); spreadCards(!stack.open); });
-  back.addEventListener("click", () => spreadCards(false));
+  stack.append(summary, cards); market.append(stack);
+  summary.addEventListener("click", event => { event.preventDefault(); openSicFamily(family, items, summary); });
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -151,7 +133,9 @@ function constructionState(source) {
     sicInventory: Array.isArray(source?.sicInventory)
       ? source.sicInventory.filter((item) => item?.id && SIC_CATALOG[item.type]).map((item) => ({
           id: String(item.id), type: item.type, pendingPurchase: Boolean(item.pendingPurchase),
-          storage: !placedIds.has(String(item.id)) && !item.pendingPurchase ? item.storage !== false : false,
+          rotation: Number(item.rotation) % 180 === 90 ? 90 : 0,
+          stationLayout: item.stationLayout === "corners-v1" ? "corners-v1" : undefined,
+          storage: !placedIds.has(String(item.id)) && (item.pendingPurchase ? Boolean(item.storage) : item.storage !== false),
           pendingDisposition: item.pendingDisposition === "sell" || item.pendingDisposition === "destroy" ? item.pendingDisposition : "",
         }))
       : [],
@@ -275,7 +259,10 @@ function pendingCost() {
 function selectedSic() {
   return draft.sicInventory.find((item) => item.id === selectedSicId && !item.storage && !item.pendingDisposition) || null;
 }
-function sicDefinition(itemOrType) { return SIC_CATALOG[typeof itemOrType === "string" ? itemOrType : itemOrType?.type] || SIC_CATALOG["en-engine-1"]; }
+function sicDefinition(itemOrType) {
+  const base = SIC_CATALOG[typeof itemOrType === "string" ? itemOrType : itemOrType?.type] || SIC_CATALOG["en-engine-1"];
+  return typeof itemOrType === "object" && itemOrType ? { ...base, ...window.SAShipMap.componentDefinition(itemOrType) } : base;
+}
 function placementCells(placement) {
   const item = draft.sicInventory.find((entry) => entry.id === placement?.sicId);
   const definition = sicDefinition(item);
@@ -439,6 +426,8 @@ function validateSicPlacement(sicId, cell) {
   const definition = sicDefinition(item); const cells = candidateCells(sicId, cell);
   if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
   if (definition.exterior) {
+    const others = draft.placements.filter(p => p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i => i.id === p.sicId)).thruster);
+    if (definition.thruster && others.length >= 4) return { legal: false, reason: "A ship may have at most four installed thrusters. Additional thrusters can remain in storage.", cells };
     if (!window.SAShipMap.exteriorPlacement(draft, item.type, cell, sicId)) return { legal: false, reason: "Attach this exterior SIC to an outer hull wall, outside the ship and clear of other SICs.", cells };
   } else if (cells.some((candidate) => !draft.gridCells.includes(candidate))) return { legal: false, reason: `Purchase all ${definition.width * definition.height} required hull squares first.`, cells };
   if (cells.some((candidate) => { const occupant = placementAt(candidate); return occupant && occupant.sicId !== sicId; })) return { legal: false, reason: "That area already contains a SIC.", cells };
@@ -487,7 +476,6 @@ function inspectConstruction() {
     draft.placements.filter((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type === "nutritional-supplement").forEach((placement) => placementCells(placement).forEach((cell) => cells.add(cell)));
   }
   if (pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
-  if (draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length > 4) errors.push("A ship may have at most four thrusters.");
   return { errors: [...new Set(errors)], cells };
 }
 
@@ -705,11 +693,11 @@ const inventoryHeadings = {
 function inventoryGroup(kind) {
   return draft.sicInventory.filter((item) => {
     const placement = placementForSic(item.id);
-    if (kind === "pending") return Boolean(item.pendingDisposition) || (item.pendingPurchase && !placement);
+    if (kind === "pending") return Boolean(item.pendingDisposition) || (item.pendingPurchase && !placement && !item.storage);
     if (item.pendingDisposition) return false;
     if (kind === "queue") return !item.pendingPurchase && !placement && !item.storage;
     if (kind === "installed") return Boolean(placement);
-    return !placement && item.storage && !item.pendingPurchase;
+    return !placement && item.storage;
   });
 }
 
@@ -722,6 +710,7 @@ function inventoryButton(label, className, handler) {
 function locateInstalledSic(item) {
   const placement = placementForSic(item.id);
   if (!placement) return;
+  document.querySelector('[data-starship-tab="sheet"]')?.click();
   shipGrids.forEach((grid) => {
     if (grid.offsetParent === null) return;
     const cells = placementCells(placement).map((index) => grid.querySelector(`[data-grid-index="${index}"]`)).filter(Boolean);
@@ -763,16 +752,20 @@ function renderInventoryList(container, kind) {
         mobilePreviewCell = null; clearPlacementPreview(); saveMapView(); renderAll();
       }));
       if (item.pendingPurchase) actions.append(inventoryButton("Refund in Full", "refund-sic", () => refundPendingSic(item)));
-      else actions.append(inventoryButton("To Storage", "store-sic", () => moveSicToStorage(item)));
+      actions.append(inventoryButton("To Storage", "store-sic", () => moveSicToStorage(item)));
     } else if (kind === "installed") {
       actions.append(inventoryButton("Locate", "locate-sic", () => locateInstalledSic(item)));
       actions.append(inventoryButton("Remove", "store-sic", () => removePlacedSic(placement)));
       actions.append(inventoryButton(`Purchase Duplicate (${formatCredits(definition.price)})`, "duplicate-sic", () => purchaseSic(item.type)));
     } else {
       actions.append(inventoryButton("Install", "install-sic", () => moveSicToQueue(item)));
-      actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`, "sell-sic", () => markSicDisposition(item, "sell")));
-      actions.append(inventoryButton("Destroy", "destroy-sic", () => markSicDisposition(item, "destroy")));
+      if (item.pendingPurchase) actions.append(inventoryButton("Refund in Full", "refund-sic", () => refundPendingSic(item)));
+      else {
+        actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`, "sell-sic", () => markSicDisposition(item, "sell")));
+        actions.append(inventoryButton("Destroy", "destroy-sic", () => markSicDisposition(item, "destroy")));
+      }
     }
+    if (!item.pendingDisposition && definition.width !== definition.height) actions.append(inventoryButton(`Rotate (${definition.width}x${definition.height})`, "rotate-sic", () => rotateSic(item)));
     card.append(name, actions); container.append(card);
   });
 }
@@ -782,6 +775,15 @@ function refundPendingSic(item) {
   draft.sicInventory = draft.sicInventory.filter((sic) => sic.id !== item.id);
   if (selectedSicId === item.id) selectedSicId = null;
   saveDraft(); showMessage(`Pending ${sicDefinition(item).name} refunded in full.`); renderAll();
+}
+function rotateSic(item) {
+  const before = getWorkingState(), previousRotation = item.rotation;
+  item.rotation = Number(item.rotation) === 90 ? 0 : 90;
+  const placement = placementForSic(item.id);
+  const result = placement && validateSicPlacement(item.id, placement.cell);
+  if (result && !result.legal) { item.rotation = previousRotation; showMessage(`Cannot rotate here: ${result.reason} Remove to storage to reposition it.`, "error"); return; }
+  undoState = before; mobilePreviewCell = null; clearPlacementPreview(); saveDraft(); renderAll();
+  showMessage(`${sicDefinition(item).name} rotated.`, "success");
 }
 function moveSicToStorage(item) {
   rememberForUndo(); item.storage = true; if (selectedSicId === item.id) selectedSicId = null;
@@ -812,7 +814,7 @@ function renderInventory() {
     purchased.forEach((item, index) => {
       const definition = sicDefinition(item);
       const button = document.createElement("button");
-      button.type = "button"; button.className = "purchased-sic-thumbnail"; button.dataset.openSicType = item.type;
+      button.type = "button"; button.className = "purchased-sic-thumbnail"; button.dataset.openSicType = item.type; button.dataset.openSicId = item.id;
       button.style.setProperty("--card-angle", `${[ -2, 1.5, -1, 2, -.5 ][index % 5]}deg`);
       button.style.setProperty("--card-accent", cardAccent(item.type));
       const sourceCard = document.querySelector(`[data-sic-card="${CSS.escape(item.type)}"]`);
@@ -845,8 +847,9 @@ function renderLiveStats() {
   document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(au); });
   const scale = shipScaleStats(hull);
   const propulsion = window.SAShipMap.propulsion(confirmed);
+  document.querySelectorAll('[data-live-stat="masking"]').forEach(element => { element.textContent = String(window.SAShipMap.masking(confirmed)); });
   document.querySelectorAll('[data-propulsion]').forEach(element => { const key = element.dataset.propulsion; element.textContent = key.startsWith('impulse') ? String(propulsion.impulses[Number(key.slice(-1))] ?? 0) : String(propulsion[key] ?? 0); });
-  document.querySelectorAll("[data-propulsion-summary]").forEach(element => { element.textContent = `Impulse ${propulsion.impulses.join(" + ") || "0"} | Move ${propulsion.rawSpeed} | Evade ${propulsion.evadeCount}D${propulsion.evadeDie} | Exhaust ${propulsion.exhaust}`; });
+  document.querySelectorAll("[data-propulsion-summary]").forEach(element => { element.textContent = `Impulse ${propulsion.impulses.join(" + ") || "0"} | Move ${propulsion.rawSpeed} | Evade ${propulsion.evadeCount}D${propulsion.evadeDie} | Exhaust ${propulsion.exhaust} | Masking ${window.SAShipMap.masking(confirmed)}`; });
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });
   document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
     const value = String(element.dataset.enPart === "max" ? enMax : enAvailable);
@@ -971,14 +974,14 @@ function purchaseSic(type) {
   const feedback = document.querySelector("[data-purchase-feedback]");
   if (feedback) feedback.textContent = "";
   const reject = message => { showMessage(message, "error"); if (feedback) feedback.textContent = message; };
-  if (definition.thruster && draft.sicInventory.filter(item => !item.pendingDisposition && sicDefinition(item).thruster).length >= 4) { reject("A ship may have at most four thrusters."); return; }
   if (pendingCost() + definition.price > draft.groupCredits) { reject(`Not enough Group Credits to purchase ${definition.name}.`); return; }
   rememberForUndo();
   const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  draft.sicInventory.push({ id, type, pendingPurchase: true, storage: false, pendingDisposition: "" });
+  draft.sicInventory.push({ id, type, rotation: 0, stationLayout: "corners-v1", pendingPurchase: true, storage: false, pendingDisposition: "" });
   selectedSicId = id; mapView.mode = "build"; saveDraft(); saveMapView();
   document.querySelector('[data-starship-tab="sheet"]')?.click();
   showMessage(definition.exterior ? `${definition.name}: select empty space attached to an outer hull wall.` : `${definition.name} added to pending purchases. Select its ${definition.width}×${definition.height} hull area to install it.`, "success"); renderAll();
+  return true;
 }
 document.querySelectorAll("[data-purchase-sic]").forEach((button) => button.addEventListener("click", () => purchaseSic(button.dataset.purchaseSic)));
 function undoConstruction() {
@@ -1196,7 +1199,7 @@ let cardHost = document;
 try { while (cardHost.defaultView.frameElement) cardHost = cardHost.defaultView.parent.document; } catch {}
 if (cardHost !== document && !cardHost.querySelector("link[data-sic-cards-style]")) {
   const style = cardHost.createElement("link"); style.rel = "stylesheet"; style.dataset.sicCardsStyle = "";
-  style.href = new URL("sic-cards.css?v=20260909-cards-1", location.href).href; cardHost.head.append(style);
+  style.href = new URL("sic-cards.css?v=20260909-ionic-1", location.href).href; cardHost.head.append(style);
 }
 const sicCardDialog = cardHost === document ? document.querySelector("#sicCardDialog") : cardHost.createElement("dialog");
 if (cardHost !== document) { sicCardDialog.innerHTML = '<button type="button" data-close-sic-card>Back</button><div data-sic-card-dialog-body></div>'; cardHost.body.append(sicCardDialog); }
@@ -1205,10 +1208,69 @@ sicCardDialog.setAttribute("aria-label", "SIC card details");
 sicCardDialog.querySelector("[data-close-sic-card]").textContent = "Back";
 sicCardDialog.querySelector("[data-close-sic-card]").setAttribute("aria-label", "Back to cards");
 let inspectedTrigger = null, closingCard = false;
+let activeFamilyDialog = null;
+let disposeFamilyDialog = null;
+function openSicFamily(family, items, trigger) {
+  if (activeFamilyDialog) return;
+  const dialog = cardHost.createElement("dialog");
+  dialog.className = "sic-family-picker"; dialog.setAttribute("aria-label", family);
+  dialog.innerHTML = `<header><button type="button" data-family-back>Back</button><h2>${escapeHtml(family)}</h2><strong>${formatCredits(draft.groupCredits - pendingCost())} Credits</strong></header><p role="alert" data-family-feedback></p><div class="sic-picker-grid"></div>`;
+  const grid = dialog.querySelector(".sic-picker-grid"), slots = [];
+  for (const [index, item] of items.entries()) {
+    const source = item.querySelector("[data-sic-card]"), type = source.dataset.sicCard;
+    const slot = cardHost.createElement("div"); slot.className = "sic-picker-slot";
+    const face = cardHost.createElement("section"); face.className = "sic-market-item sic-picker-face";
+    face.style.setProperty("--card-accent", cardAccent(type));
+    const preview = previewSicCard(source); preview.tabIndex = 0; preview.setAttribute("role", "button"); preview.setAttribute("aria-label", `${SIC_CATALOG[type].name} details`);
+    preview.addEventListener("click", () => openSicCard(source, preview));
+    preview.addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openSicCard(source, preview); } });
+    const buy = cardHost.createElement("button"); buy.type = "button"; buy.className = "sic-purchase-button"; buy.textContent = "Purchase"; buy.dataset.purchaseType = type;
+    buy.addEventListener("click", () => {
+      if (buy.disabled) return;
+      buy.disabled = true;
+      if (purchaseSic(type)) close(false);
+      else { buy.disabled = false; dialog.querySelector("[data-family-feedback]").textContent = purchaseFeedback.textContent; }
+    });
+    face.append(preview, buy); slot.append(face); grid.append(slot); slots.push(slot);
+    if (!reducedCardMotion()) slot.animate([{ opacity: 0, transform: `translateY(45px) rotate(${(index - 2) * 5}deg) scale(.7)` }, { opacity: 1, transform: "none" }], { duration: 320, delay: index * 35, fill: "backwards" });
+  }
+  function fit() {
+    const { width, height } = grid.getBoundingClientRect();
+    let best = { scale: 0, columns: 1 };
+    for (let columns = 1; columns <= slots.length; columns++) {
+      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 300), (height - (rows - 1) * 14) / (rows * 490));
+      if (scale > best.scale) best = { scale, columns };
+    }
+    const scale = Math.max(.15, best.scale);
+    grid.style.gridTemplateColumns = `repeat(${best.columns},${300 * scale}px)`;
+    slots.forEach(slot => { slot.style.width = `${300 * scale}px`; slot.style.height = `${490 * scale}px`; slot.style.setProperty("--picker-scale", scale); });
+  }
+  let closing = false;
+  const resize = new cardHost.defaultView.ResizeObserver(fit);
+  async function close(animate = true) {
+    if (closing) return; closing = true; dialog.inert = true;
+    if (animate && !reducedCardMotion()) await dialog.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.85) translateY(20px)" }], { duration: 180 }).finished.catch(() => {});
+    dispose();
+    if (animate && trigger.isConnected) trigger.focus({ preventScroll: true });
+  }
+  function dispose() {
+    resize.disconnect(); dialog.close(); dialog.remove(); activeFamilyDialog = null; disposeFamilyDialog = null;
+  }
+  dialog.querySelector("[data-family-back]").addEventListener("click", () => close());
+  dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+  cardHost.body.append(dialog); activeFamilyDialog = dialog; disposeFamilyDialog = dispose; dialog.showModal(); resize.observe(grid); fit();
+}
 function openSicCard(sicCard, trigger = sicCard) {
   if (!sicCard || sicCardDialog.open) return;
   inspectedTrigger = trigger;
   const cloneCard = previewSicCard(sicCard);
+  const installedItem = draft.sicInventory.find(item => item.id === trigger?.dataset.openSicId);
+  if (installedItem) {
+    const locate = cardHost.createElement("button"); locate.type = "button"; locate.className = "sic-inspector-locate"; locate.textContent = "Locate";
+    locate.disabled = !placementForSic(installedItem.id); locate.title = locate.disabled ? "This SIC is not installed" : "Locate this installed SIC";
+    locate.addEventListener("click", async () => { await closeSicCard(); locateInstalledSic(installedItem); });
+    cloneCard.append(locate);
+  }
   sicCardDialog.style.setProperty("--card-accent", cardAccent(cloneCard.dataset.sicPreview));
   sicCardDialog.querySelector("[data-sic-card-dialog-body]").replaceChildren(cloneCard);
   sicCardDialog.showModal();
@@ -1232,7 +1294,7 @@ document.addEventListener("click", (event) => {
 sicCardDialog.querySelector("[data-close-sic-card]").addEventListener("click", closeSicCard);
 sicCardDialog.addEventListener("click", (event) => { if (event.target === sicCardDialog) closeSicCard(); });
 sicCardDialog.addEventListener("cancel", event => { event.preventDefault(); closeSicCard(); });
-window.addEventListener("pagehide", () => { if (cardHost !== document) sicCardDialog.remove(); });
+window.addEventListener("pagehide", () => { disposeFamilyDialog?.(); if (cardHost !== document) sicCardDialog.remove(); });
 
 const reputationValues = ["+5", "+4", "+3", "+2", "+1", "0", "+1", "+2", "+3", "+4", "+5"];
 const reputationNames = [["Benevolent", "Ruthless"], ["Virtuous", "Treacherous"], ["Civil", "Savage"], ["Powerful", "Weak"], ["Cunning", "Exploitable"]];

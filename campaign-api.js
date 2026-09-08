@@ -513,7 +513,7 @@ function normalizeStarshipRecord(raw) {
 function starshipStationAt(record, square, mesh) {
   const ship = record?.ship || {}; const targetRow = Math.floor(Number(square) / 20); const targetColumn = Number(square) % 20;
   for (const placement of ship.placements || []) {
-    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const definition = SHIP_MAP.definition(item?.type);
+    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const definition = SHIP_MAP.componentDefinition(item);
     const originRow = Math.floor(Number(placement.cell) / 20); const originColumn = Number(placement.cell) % 20;
     const x = targetColumn - originColumn; const y = targetRow - originRow;
     if (x < 0 || y < 0 || x >= definition.width || y >= definition.height) continue;

@@ -14,7 +14,7 @@
     for (const placement of ship.placements || []) {
       const item = inventory.get(placement.sicId);
       if (!item || item.disabled || ["destroyed", "offline", "powered-down"].includes(item.status)) continue;
-      const definition = maps.definition(item.type);
+      const definition = maps.componentDefinition(item);
       const impaired = item.impaired || item.status === "impaired";
       if (impaired && !definition.impairedAuOnly) continue;
       en += nonnegative(definition.output);

@@ -34,7 +34,9 @@ test('thrusters calculate HSM, impulse, exhaust and impairment without changing 
   assert.deepEqual(maps.propulsion(s),{hsm:20,impulses:[11],rawSpeed:11,moveSpeed:11,exhaust:-2,evadeCount:1,evadeDie:8});
   s.sicInventory[0].impaired=true;assert.equal(maps.propulsion(s).evadeCount,0);assert.equal(maps.propulsion(s).moveSpeed,11);
   s.sicInventory[0].status='offline';assert.equal(maps.propulsion(s).moveSpeed,0);
-  s.sicInventory=Array.from({length:5},(_,i)=>({id:String(i),type:'exhaust-thruster-1'}));assert.match(maps.exteriorError(s),/four/);
+  s.sicInventory=Array.from({length:5},(_,i)=>({id:String(i),type:'exhaust-thruster-1'}));
+  s.placements=[];assert.equal(maps.exteriorError(s),'');
+  s.placements=s.sicInventory.map((item,i)=>({sicId:item.id,cell:i}));assert.match(maps.exteriorError(s),/four/);
   const large={gridCells:Array.from({length:151},(_,i)=>i+20),sicInventory:[{id:'t',type:'exhaust-thruster-1'}],placements:[{sicId:'t',cell:0}]};
   assert.equal(maps.propulsion(large).hsm,-5);assert.equal(maps.propulsion(large).rawSpeed,-1);assert.equal(maps.propulsion(large).moveSpeed,0);
 });

@@ -4764,7 +4764,7 @@ tQAAAABJRU5ErkJggg=="/>
   [fill="#ef243f"] { fill: #ffd0d3; }
   [fill="#b9243b"] { fill: #f1a0aa; }
   @media (prefers-reduced-motion: reduce) {
-    #hsm-circuit-pulse { display: none; }
+    #hsm-circuit-pulse, #hsm-charge { display: none; }
   }
 </style>
 <defs>
@@ -4782,10 +4782,13 @@ tQAAAABJRU5ErkJggg=="/>
     <feGaussianBlur stdDeviation="1.25"/>
   </filter>
 </defs>
+<path id="hsm-charge" d="M319.92 28.289V46.542L355.503 48.877V25.954Z" fill="#a84fff" opacity="0" pointer-events="none">
+  <animate attributeName="opacity" values="0;.1;.5;0" keyTimes="0;.45;.999;1" dur="5s" begin="0s;hsmPulse4.end"/>
+</path>
 <g id="hsm-circuit-pulse" pointer-events="none" mask="url(#hsm-pulse-mask)" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <g>
     <path d="M375.484 49.055V189.561H267.264L259.4 171.5" pathLength="100" stroke="#20d8ff" stroke-width="5" stroke-dasharray="20 100" opacity="0" filter="url(#hsm-sheen-glow)">
-      <animate id="hsmPulse1" attributeName="stroke-dashoffset" from="0" to="-100" dur="1.8s" begin="0s;hsmPulse4.end+5s"/>
+      <animate id="hsmPulse1" attributeName="stroke-dashoffset" from="0" to="-100" dur="1.8s" begin="5s;hsmPulse4.end+5s"/>
       <animate attributeName="opacity" values="0;.22;.22;0" keyTimes="0;.06;.84;1" dur="1.8s" begin="hsmPulse1.begin"/>
     </path>
     <path d="M375.484 49.055V189.561H267.264L259.4 171.5" pathLength="100" stroke="#78efff" stroke-width="3.2" stroke-dasharray="12 100" opacity="0">

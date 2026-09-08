@@ -1,5 +1,18 @@
 # Hybrid Engine Artwork
 
+## Ionic Pulse Thrusters
+
+`ionic-pulse-thruster-1-graphic.png` through `ionic-pulse-thruster-5-graphic.png` are transparent generated field emitters shared by cards and exterior sprites. All five were visually inspected and alpha channels verified. Top mounting rails and downward-facing shallow dishes distinguish these from Exhaust rocket bells. Effects are CSS semicircular pulses, not baked into the images. Generated with the built-in image tool; originals remain in this task's Codex generated-images directory.
+
+Prompt specifications:
+- Tier 1: compact sci-fi ion-field emitter, not a flared rocket nozzle. Orthographic top-down silver/graphite mounting bracket at top, shallow semicircular dish at bottom facing down, light-blue glowing concentric electrodes. Symmetric machined metal, square transparent-alpha composition, fills 85 percent, crisp realistic hard-surface game asset. No flame, pulse waves, floor, text, backdrop or scene.
+- Tier 2: wide silver/graphite field emitter, top mounting rail, two shallow round dishes facing down, purple concentric electrodes. Symmetric orthographic top-down machined metal, transparent RGBA, 2:1 silhouette with small margin. No rocket bells, flames, waves, floor, text or background.
+- Tier 3: advanced silver/graphite field emitter, two shallow circular dishes along lower edge linked to a top rail by intricate magnetic coils and coolant conduits. Blue concentric electrodes with green/purple accent conduits. Symmetric top-down realistic hard-surface render, landscape 3:2 transparent frame. No rocket bells, flames, waves, text, floor or background.
+- Tier 4: advanced silver/graphite assembly, broad top rail, two shallow semicircular downward-facing dishes, greenish-blue concentric electrodes, turquoise coils, extra symmetric radiator fins and conduits. Orthographic top-down realistic render, 3:2 silhouette with minimal transparent padding. No rocket bells, flames, waves, text, floor or background.
+- Tier 5: true transparent-alpha gunmetal/silver field emitter, two shallow circular dishes on the bottom with crimson concentric light, red magnetic rings and intricate exotic stabilizer fins. Horizontal top rail, symmetric top-down 2:1 design, high-detail game equipment cutout, minimal padding. No rocket cones, flames, waves, floor, backdrop or text.
+
+Sprite-local emitter coordinates in `ship-map-core.js` keep pulses and exhaust jets aligned through footprint rotation and hull-facing transforms. Reduced motion disables moving effects.
+
 ## Exhaust Family Completion and Digital Cards
 
 Card artwork: `exhaust-thruster-2-graphic.png` through `exhaust-thruster-5-graphic.png` are copies of the corresponding existing `en-engine-N-graphic.png`, following the user's approved reassignment. Original assets are preserved.

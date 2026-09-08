@@ -82,6 +82,9 @@ function normalizeEncounterStarships(value) {
       status: String(entry?.status || "").slice(0, 40),
       impaired: Boolean(entry?.impaired),
       disabled: Boolean(entry?.disabled),
+      rotation: Number(entry?.rotation) % 180 === 90 ? 90 : 0,
+      stationLayout: entry?.stationLayout === "corners-v1" ? "corners-v1" : undefined,
+      storage: Boolean(entry?.storage),
     }));
     const doorStates = {};
     for (const [key, state] of Object.entries(ship.doorStates && typeof ship.doorStates === "object" ? ship.doorStates : {})) {
