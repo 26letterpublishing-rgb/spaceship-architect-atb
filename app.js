@@ -99,18 +99,6 @@ const delayBaseOptions = [
 ];
 const c4Factors = ["Situation", "Execution", "Quality", "Performance", "Efficiency", "Ingenuity"];
 const c4GreenFactors = new Set(["Situation", "Execution"]);
-const c4PositiveSteps = [
-  { flat: 2, percent: 0, label: "+2" },
-  { flat: 3, percent: 0, label: "+3" },
-  { flat: 0, percent: 0.16, label: "+16%" },
-  { flat: 0, percent: 0.33, label: "+33%" },
-];
-const c4NegativeSteps = [
-  { flat: -2, percent: 0, label: "-2" },
-  { flat: -3, percent: 0, label: "-3" },
-  { flat: 0, percent: -0.16, label: "-16%" },
-  { flat: 0, percent: -0.33, label: "-33%" },
-];
 const npcDefaults = [
   { characterName: "Security Guard", speed: 5, color: "#39e58f", hp: 36 },
   { characterName: "Space Slug", speed: 3, color: "#7ad66d", hp: 24 },
@@ -833,48 +821,8 @@ function c4CritIconMarkup(active) {
   `;
 }
 
-function c4StepsForValue(value) {
-  const count = Math.min(4, Math.abs(Number(value) || 0));
-  if (!count) return [];
-  const source = value > 0 ? c4PositiveSteps : c4NegativeSteps;
-  return source.slice(0, count);
-}
-
 function calculateDelayDetailsFor(modalState) {
-  if (!modalState) {
-    return { base: 8, flat: 0, percent: 0, critBonus: 0, rate: 8, labels: [] };
-  }
-  let flat = 0;
-  let percent = 0;
-  let critBonus = 0;
-  const labels = [];
-  for (const [factor, value] of Object.entries(modalState.factors)) {
-    if (factor === "Execution") {
-      if (value > 0) labels.push("Execution Crit");
-      continue;
-    }
-    const steps = c4StepsForValue(value);
-    if (!steps.length) continue;
-    for (const step of steps) {
-      flat += step.flat;
-      percent += step.percent;
-    }
-    labels.push(`${factor} ${steps.map((step) => step.label).join(" ")}`);
-  }
-  const withFlat = Math.max(1, modalState.base + flat);
-  const beforeCrit = Math.max(0.1, withFlat * (1 + percent));
-  if ((modalState.factors.Execution || 0) > 0) {
-    critBonus = Math.max(2, beforeCrit * 0.25);
-  }
-  const finalValue = beforeCrit + critBonus;
-  return {
-    base: modalState.base,
-    flat,
-    percent,
-    critBonus,
-    rate: Math.ceil(finalValue * 10) / 10,
-    labels,
-  };
+  return window.SADelayRules.calculate(modalState);
 }
 
 function calculateDelayDetails() {
@@ -1720,6 +1668,7 @@ function beginDefeatSequence() {
 }
 
 function receiveState(nextState, { force = false } = {}) {
+  window.SAShipNavigationUI?.observe(nextState);
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
 
@@ -1797,6 +1746,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 
 window.SACombatBridge = {
   action,
+  delayIcon: c4IconMarkup,
   state: () => state,
   mode: () => mode,
   myUnitId: () => myUnitId,

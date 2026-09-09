@@ -5,6 +5,7 @@
 :is(.map-view-controls,.combat-map-view-controls,.player-starship-view-controls,.inline-map-toolbar) label:has(input:disabled){opacity:.45;cursor:default}
 .sa-hull-plate{display:none;position:absolute;inset:0;box-sizing:border-box;pointer-events:none;background:#939ba2 url('starship-hull-plating.png') var(--plate-x) var(--plate-y)/200% 200%;z-index:8}
 .hull-view .sa-hull-plate{display:block}
+.sa-bridge-window{position:absolute;inset:8%;background-repeat:no-repeat;border:2px solid #b3d4da;border-radius:18% 18% 8% 8%;box-shadow:0 0 0 2px #324148,0 0 8px #71dded55;overflow:hidden}.sa-bridge-window:after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#bce9ed55,transparent 38%,transparent 65%,#c2faff22);border-top:1px solid #e4ffff}
 .ship-grid.hull-view .ship-grid-cell{background:transparent!important;box-shadow:none!important;border:0!important}
 .hull-view :is(.combat-map-square,.player-ship-cell){border:0!important;box-shadow:none!important;animation:none}
 .sa-hull-plate.edge-top{border-top:2px solid #dae2e8}.sa-hull-plate.edge-bottom{border-bottom:2px solid #37434b}.sa-hull-plate.edge-left{border-left:2px solid #b4c2ca}.sa-hull-plate.edge-right{border-right:2px solid #37434b}

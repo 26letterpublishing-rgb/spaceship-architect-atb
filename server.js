@@ -1058,6 +1058,7 @@ function usesCommandWindow(unit, source) {
 
 function pauseForReadyUnit(room, unit, source = "clock") {
   if (!unit || room.pausedForTurn) return;
+  unit.turnSerial=(Number(unit.turnSerial)||0)+1;
   const carriedCommand = unit.commandCarrySeconds;
   room.pausedForTurn = true;
   room.running = false;
@@ -1354,6 +1355,12 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
 
 function resolveCompletedEvent(room, event, source) {
   if (!event) return false;
+  if(event.type==='delayed' && event.unit.delayedAction?.shipOrder){
+    const result=shipNavigation.resolveInput(room,event.unit);
+    event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
+    pushLog(room,`${event.unit.characterName}: ${result.ok ? `pilot input complete; ${result.ship.title} moving${result.cost ? ` (${result.cost} AU)` : ''}` : result.error}`);
+    return false;
+  }
   if (event.type === "queued") {
     pauseForQueuedEffect(room, event.unit, event.effect, source);
     return true;
@@ -1515,6 +1522,7 @@ function contentType(filePath) {
   if (ext === ".json") return "application/json; charset=utf-8";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
   if (ext === ".svg") return "image/svg+xml";
   if (ext === ".mp4") return "video/mp4";
   if (ext === ".m4a") return "audio/mp4";
@@ -1781,6 +1789,12 @@ async function handleRoomAction(body, res) {
     const occupied = room.units.filter((entry) => entry.id !== unit.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
     if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
     syncUnitCombat(unit, { location: body.location });
+    if(unit.delayedAction?.shipOrder){
+      const seated=shipNavigation.station(room,unit),pending=unit.delayedAction.shipOrder;
+      if(!seated||seated.ship.id!==pending.shipId||seated.cell.sicId!==pending.sicId){
+        unit.delayedAction=null;unit.atb=Math.max(0,unit.atb-room.threshold);pushLog(room,`${unit.characterName}'s pilot input was interrupted.`);
+      }
+    }
     unit.travelRoute = [];
     unit.timedAction = null;
     pushLog(room, `${unit.characterName} was relocated by the GM.`);

@@ -1,6 +1,8 @@
 const path = require("path");
+const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
+  "delay-rules.js",
   "app.js", "character.js", "character-data.js", "character-print.js",
   "combat-actions.js", "combat-engine.js", "combat-rules.js", "data-reset.js",
   "dice-roller.js", "drama-card-data.js", "fubs-data.js", "gear-data.js", "gm.js",
@@ -23,6 +25,7 @@ function resolvePublicAsset(root, pathname) {
     || (rootFile && (browserScripts.has(file) || [".html", ".css"].includes(extension) || mediaExtensions.has(extension)))
     || (/^fonts\/[^/]+$/.test(file) && [".woff", ".woff2", ".ttf", ".otf"].includes(extension));
   if (!allowed) return null;
+  if(optimized[file])file=optimized[file].file;
   const absolute = path.resolve(root, file);
   return path.dirname(absolute) === root || absolute.startsWith(root + path.sep) ? absolute : null;
 }

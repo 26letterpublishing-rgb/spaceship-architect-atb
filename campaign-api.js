@@ -1189,6 +1189,7 @@ class CampaignApi {
         weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: [8, 8, 6], strengthDice: index === 1 ? [8, 8, 6] : [6, 4],
         projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
         engineeringSkill: entry.skills.Engineering || 0,
+        pilotSkill: entry.skills['Pilot/Helm'] || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
         location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],

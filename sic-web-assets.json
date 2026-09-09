@@ -1,0 +1,1164 @@
+{
+  "au-en-engine-1-floor-plan.png": {
+    "file": "au-en-engine-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2882153,
+    "webBytes": 162380,
+    "alpha": false
+  },
+  "au-en-engine-1-graphic.png": {
+    "file": "au-en-engine-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1372382,
+    "webBytes": 20890,
+    "alpha": false
+  },
+  "au-en-engine-2-floor-plan.png": {
+    "file": "au-en-engine-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2817133,
+    "webBytes": 147126,
+    "alpha": false
+  },
+  "au-en-engine-2-graphic.png": {
+    "file": "au-en-engine-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1695935,
+    "webBytes": 26410,
+    "alpha": false
+  },
+  "au-en-engine-3-floor-plan.png": {
+    "file": "au-en-engine-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 2640045,
+    "webBytes": 171384,
+    "alpha": false
+  },
+  "au-en-engine-3-graphic.png": {
+    "file": "au-en-engine-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1739077,
+    "webBytes": 29980,
+    "alpha": false
+  },
+  "au-en-engine-4-floor-plan.png": {
+    "file": "au-en-engine-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2913733,
+    "webBytes": 326232,
+    "alpha": false
+  },
+  "au-en-engine-4-graphic.png": {
+    "file": "au-en-engine-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1802464,
+    "webBytes": 30012,
+    "alpha": false
+  },
+  "au-en-engine-5-floor-plan.png": {
+    "file": "au-en-engine-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2864880,
+    "webBytes": 455870,
+    "alpha": false
+  },
+  "au-en-engine-5-graphic.png": {
+    "file": "au-en-engine-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1989761,
+    "webBytes": 29266,
+    "alpha": false
+  },
+  "au-en-engine-6-floor-plan.png": {
+    "file": "au-en-engine-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 3022518,
+    "webBytes": 516452,
+    "alpha": false
+  },
+  "au-en-engine-6-graphic.png": {
+    "file": "au-en-engine-6-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2012722,
+    "webBytes": 32776,
+    "alpha": false
+  },
+  "au-engine-1-floor-plan.png": {
+    "file": "au-engine-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2687463,
+    "webBytes": 136106,
+    "alpha": false
+  },
+  "au-engine-1-graphic.png": {
+    "file": "au-engine-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1648047,
+    "webBytes": 16038,
+    "alpha": false
+  },
+  "au-engine-2-floor-plan.png": {
+    "file": "au-engine-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2994382,
+    "webBytes": 166264,
+    "alpha": false
+  },
+  "au-engine-2-graphic.png": {
+    "file": "au-engine-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1850215,
+    "webBytes": 23864,
+    "alpha": false
+  },
+  "au-engine-3-floor-plan.png": {
+    "file": "au-engine-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 3270785,
+    "webBytes": 223428,
+    "alpha": false
+  },
+  "au-engine-3-graphic.png": {
+    "file": "au-engine-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1921303,
+    "webBytes": 23826,
+    "alpha": false
+  },
+  "au-engine-4-floor-plan.png": {
+    "file": "au-engine-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2890037,
+    "webBytes": 344022,
+    "alpha": false
+  },
+  "au-engine-4-graphic.png": {
+    "file": "au-engine-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1799900,
+    "webBytes": 24454,
+    "alpha": false
+  },
+  "au-engine-5-floor-plan.png": {
+    "file": "au-engine-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2776709,
+    "webBytes": 467346,
+    "alpha": false
+  },
+  "au-engine-5-graphic.png": {
+    "file": "au-engine-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1785428,
+    "webBytes": 24922,
+    "alpha": false
+  },
+  "au-engine-6-floor-plan.png": {
+    "file": "au-engine-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 3122239,
+    "webBytes": 547956,
+    "alpha": false
+  },
+  "au-engine-6-graphic.png": {
+    "file": "au-engine-6-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2073773,
+    "webBytes": 29638,
+    "alpha": false
+  },
+  "cockpit-1-card.png": {
+    "file": "cockpit-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2308760,
+    "webBytes": 35272,
+    "alpha": false
+  },
+  "cockpit-1-floor-plan.png": {
+    "file": "cockpit-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2806437,
+    "webBytes": 157938,
+    "alpha": false
+  },
+  "en-au-engine-1-floor-plan.png": {
+    "file": "en-au-engine-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2582443,
+    "webBytes": 117954,
+    "alpha": false
+  },
+  "en-au-engine-1-graphic.png": {
+    "file": "en-au-engine-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1940970,
+    "webBytes": 36882,
+    "alpha": false
+  },
+  "en-au-engine-2-floor-plan.png": {
+    "file": "en-au-engine-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 3064036,
+    "webBytes": 175054,
+    "alpha": false
+  },
+  "en-au-engine-2-graphic.png": {
+    "file": "en-au-engine-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2057871,
+    "webBytes": 31960,
+    "alpha": false
+  },
+  "en-au-engine-3-floor-plan.png": {
+    "file": "en-au-engine-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 3112616,
+    "webBytes": 222886,
+    "alpha": false
+  },
+  "en-au-engine-3-graphic.png": {
+    "file": "en-au-engine-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2033764,
+    "webBytes": 37566,
+    "alpha": false
+  },
+  "en-au-engine-4-floor-plan.png": {
+    "file": "en-au-engine-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2971371,
+    "webBytes": 338202,
+    "alpha": false
+  },
+  "en-au-engine-4-graphic.png": {
+    "file": "en-au-engine-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2179947,
+    "webBytes": 42172,
+    "alpha": false
+  },
+  "en-au-engine-5-floor-plan.png": {
+    "file": "en-au-engine-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 3034430,
+    "webBytes": 509718,
+    "alpha": false
+  },
+  "en-au-engine-5-graphic.png": {
+    "file": "en-au-engine-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2085460,
+    "webBytes": 36150,
+    "alpha": false
+  },
+  "en-au-engine-6-floor-plan.png": {
+    "file": "en-au-engine-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 3092180,
+    "webBytes": 489690,
+    "alpha": false
+  },
+  "en-au-engine-6-graphic.png": {
+    "file": "en-au-engine-6-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2248757,
+    "webBytes": 40948,
+    "alpha": false
+  },
+  "en-engine-1-floor-plan.png": {
+    "file": "en-engine-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2612831,
+    "webBytes": 150732,
+    "alpha": false
+  },
+  "en-engine-1-graphic.png": {
+    "file": "en-engine-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2432782,
+    "webBytes": 28612,
+    "alpha": false
+  },
+  "en-engine-2-floor-plan.png": {
+    "file": "en-engine-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2574153,
+    "webBytes": 147152,
+    "alpha": false
+  },
+  "en-engine-2-graphic.png": {
+    "file": "en-engine-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2361222,
+    "webBytes": 29632,
+    "alpha": false
+  },
+  "en-engine-3-floor-plan.png": {
+    "file": "en-engine-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 2787967,
+    "webBytes": 218060,
+    "alpha": false
+  },
+  "en-engine-3-graphic.png": {
+    "file": "en-engine-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2612613,
+    "webBytes": 29622,
+    "alpha": true
+  },
+  "en-engine-4-floor-plan.png": {
+    "file": "en-engine-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2655636,
+    "webBytes": 328272,
+    "alpha": false
+  },
+  "en-engine-4-graphic.png": {
+    "file": "en-engine-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2668336,
+    "webBytes": 37202,
+    "alpha": true
+  },
+  "en-engine-5-floor-plan.png": {
+    "file": "en-engine-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2610447,
+    "webBytes": 433424,
+    "alpha": false
+  },
+  "en-engine-5-graphic.png": {
+    "file": "en-engine-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2536500,
+    "webBytes": 35972,
+    "alpha": true
+  },
+  "en-engine-6-floor-plan.png": {
+    "file": "en-engine-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2751849,
+    "webBytes": 456952,
+    "alpha": false
+  },
+  "en-engine-6-graphic.png": {
+    "file": "en-engine-6-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2685152,
+    "webBytes": 31282,
+    "alpha": true
+  },
+  "exhaust-thruster-1-graphic.png": {
+    "file": "exhaust-thruster-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2432782,
+    "webBytes": 28612,
+    "alpha": false
+  },
+  "exhaust-thruster-1-sprite.png": {
+    "file": "exhaust-thruster-1-sprite-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 1434501,
+    "webBytes": 85452,
+    "alpha": true
+  },
+  "exhaust-thruster-2-graphic.png": {
+    "file": "exhaust-thruster-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2361222,
+    "webBytes": 29632,
+    "alpha": false
+  },
+  "exhaust-thruster-2-sprite.png": {
+    "file": "exhaust-thruster-2-sprite-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      720,
+      360
+    ],
+    "sourceBytes": 1942003,
+    "webBytes": 70410,
+    "alpha": true
+  },
+  "exhaust-thruster-3-graphic.png": {
+    "file": "exhaust-thruster-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2612613,
+    "webBytes": 29622,
+    "alpha": true
+  },
+  "exhaust-thruster-3-sprite.png": {
+    "file": "exhaust-thruster-3-sprite-web.webp",
+    "sourcePixels": [
+      1536,
+      1024
+    ],
+    "webPixels": [
+      768,
+      512
+    ],
+    "sourceBytes": 2546980,
+    "webBytes": 115356,
+    "alpha": true
+  },
+  "exhaust-thruster-4-graphic.png": {
+    "file": "exhaust-thruster-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2668336,
+    "webBytes": 37202,
+    "alpha": true
+  },
+  "exhaust-thruster-4-sprite.png": {
+    "file": "exhaust-thruster-4-sprite-web.webp",
+    "sourcePixels": [
+      1536,
+      1024
+    ],
+    "webPixels": [
+      1024,
+      683
+    ],
+    "sourceBytes": 2538972,
+    "webBytes": 187282,
+    "alpha": true
+  },
+  "exhaust-thruster-5-graphic.png": {
+    "file": "exhaust-thruster-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2536500,
+    "webBytes": 35972,
+    "alpha": true
+  },
+  "exhaust-thruster-5-sprite.png": {
+    "file": "exhaust-thruster-5-sprite-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1280,
+      640
+    ],
+    "sourceBytes": 2183393,
+    "webBytes": 260768,
+    "alpha": true
+  },
+  "hallway.png": {
+    "file": "hallway-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2376551,
+    "webBytes": 72606,
+    "alpha": true
+  },
+  "ionic-pulse-thruster-1-card.png": {
+    "file": "ionic-pulse-thruster-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2003438,
+    "webBytes": 29238,
+    "alpha": false
+  },
+  "ionic-pulse-thruster-1-graphic.png": {
+    "file": "ionic-pulse-thruster-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2049245,
+    "webBytes": 114742,
+    "alpha": true
+  },
+  "ionic-pulse-thruster-2-card.png": {
+    "file": "ionic-pulse-thruster-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1678071,
+    "webBytes": 24212,
+    "alpha": false
+  },
+  "ionic-pulse-thruster-2-graphic.png": {
+    "file": "ionic-pulse-thruster-2-graphic-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      720,
+      360
+    ],
+    "sourceBytes": 1892825,
+    "webBytes": 64132,
+    "alpha": true
+  },
+  "ionic-pulse-thruster-3-card.png": {
+    "file": "ionic-pulse-thruster-3-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1859891,
+    "webBytes": 31638,
+    "alpha": false
+  },
+  "ionic-pulse-thruster-3-graphic.png": {
+    "file": "ionic-pulse-thruster-3-graphic-web.webp",
+    "sourcePixels": [
+      1536,
+      1024
+    ],
+    "webPixels": [
+      768,
+      512
+    ],
+    "sourceBytes": 2554869,
+    "webBytes": 121846,
+    "alpha": true
+  },
+  "ionic-pulse-thruster-4-card.png": {
+    "file": "ionic-pulse-thruster-4-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1557821,
+    "webBytes": 23514,
+    "alpha": false
+  },
+  "ionic-pulse-thruster-4-graphic.png": {
+    "file": "ionic-pulse-thruster-4-graphic-web.webp",
+    "sourcePixels": [
+      1536,
+      1024
+    ],
+    "webPixels": [
+      1024,
+      683
+    ],
+    "sourceBytes": 2492450,
+    "webBytes": 188096,
+    "alpha": true
+  },
+  "ionic-pulse-thruster-5-card.png": {
+    "file": "ionic-pulse-thruster-5-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2183588,
+    "webBytes": 36380,
+    "alpha": false
+  },
+  "ionic-pulse-thruster-5-graphic.png": {
+    "file": "ionic-pulse-thruster-5-graphic-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1280,
+      640
+    ],
+    "sourceBytes": 2155610,
+    "webBytes": 273708,
+    "alpha": true
+  },
+  "life-support-floor-plan.png": {
+    "file": "life-support-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 3019007,
+    "webBytes": 189802,
+    "alpha": false
+  },
+  "life-support-graphic.png": {
+    "file": "life-support-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2136746,
+    "webBytes": 31242,
+    "alpha": false
+  },
+  "nutritional-supplement-floor-plan.png": {
+    "file": "nutritional-supplement-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2675653,
+    "webBytes": 135250,
+    "alpha": false
+  },
+  "nutritional-supplement-graphic.png": {
+    "file": "nutritional-supplement-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2507644,
+    "webBytes": 25802,
+    "alpha": false
+  },
+  "pilot-console-art.png": {
+    "file": "pilot-console-art-web.webp",
+    "sourcePixels": [
+      1672,
+      941
+    ],
+    "webPixels": [
+      1672,
+      941
+    ],
+    "sourceBytes": 1920385,
+    "webBytes": 163950,
+    "alpha": false
+  },
+  "power-engine-1-graphic.png": {
+    "file": "power-engine-1-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1377101,
+    "webBytes": 18786,
+    "alpha": false
+  },
+  "power-engine-2-graphic.png": {
+    "file": "power-engine-2-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1541278,
+    "webBytes": 21262,
+    "alpha": false
+  },
+  "power-engine-3-graphic.png": {
+    "file": "power-engine-3-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1431561,
+    "webBytes": 22084,
+    "alpha": false
+  },
+  "power-engine-4-graphic.png": {
+    "file": "power-engine-4-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1483899,
+    "webBytes": 23378,
+    "alpha": false
+  },
+  "power-engine-5-graphic.png": {
+    "file": "power-engine-5-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1586025,
+    "webBytes": 26212,
+    "alpha": false
+  },
+  "power-engine-6-graphic.png": {
+    "file": "power-engine-6-graphic-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1675060,
+    "webBytes": 26346,
+    "alpha": false
+  },
+  "starship-hull-plating.png": {
+    "file": "starship-hull-plating-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2766833,
+    "webBytes": 136356,
+    "alpha": false
+  }
+}

@@ -68,22 +68,21 @@ async function main() {
   for(const unit of units)await act({action:'setSpeed',id:unit.id,speed:.1});
 
   async function hexClick(page,q,r) {
-    const point=await page.locator('.ship-navigation-dialog svg').evaluate((svg,p)=>{
+    const point=await page.locator('.ship-navigation-dialog svg[data-space-canvas]').evaluate((svg,p)=>{
       const c=new DOMPoint(Math.sqrt(3)*(p.q+p.r/2),1.5*p.r).matrixTransform(svg.getScreenCTM());return {x:c.x,y:c.y};
     },{q,r});
     await page.mouse.move(point.x-50,point.y+20,{steps:12});await page.mouse.move(point.x,point.y,{steps:10});await page.mouse.click(point.x,point.y);
   }
   async function move(page,frame,unit,destination,index) {
     await act({action:'nudge',id:unit.id,amount:100});
-    await frame.getByRole('button',{name:'Move Starship',exact:true}).click();
-    const dialog=page.getByRole('dialog',{name:'Move Starship',exact:true});await dialog.waitFor();
-    assert.equal(await dialog.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(16, 22, 27)');
+    const dialog=page.getByRole('dialog',{name:'Pilot console',exact:true});await dialog.waitFor();
+    assert.ok((await dialog.evaluate(el=>getComputedStyle(el).backgroundImage)).includes('pilot-console-art-web.webp'));
     if(index===1) {
       await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).fill(String(destination.q));
       await dialog.getByRole('spinbutton',{name:'Hex R',exact:true}).fill(String(destination.r));
     } else await hexClick(page,destination.q,destination.r);
     if(index===0)await dialog.getByRole('checkbox').check();
-    const confirm=dialog.getByRole('button',{name:'Confirm Move',exact:true});
+    const confirm=dialog.getByRole('button',{name:'Move Ship',exact:true});
     const rect=await confirm.boundingBox();await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:20});
     await page.waitForTimeout(700);
     assert.equal(await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).inputValue(),String(destination.q));
@@ -91,7 +90,10 @@ async function main() {
     assert.equal(await confirm.isEnabled(),true);
     if(index===0)await page.screenshot({path:path.join(artifacts,unit.team+'-destination.png')});
     await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
-    await dialog.waitFor({state:'detached'});
+    await dialog.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'Leave Station',exact:true}).isEnabled(),false);
+    const pending=(await state()).units.find(u=>u.id===unit.id);assert.ok(pending.delayedAction.shipOrder);assert.ok(pending.atb>=100);
+    for(let tick=0;tick<5&&(await state()).units.find(u=>u.id===unit.id).delayedAction;tick++)await act({action:'step'});
     const after=await state(), ship=after.starships.find(s=>s.id===unit.location.starshipId);
     assert.deepEqual(ship.navigation.target,destination);assert.equal(after.activeId,null);
     await act({action:'setHardPaused',paused:false});
@@ -100,6 +102,7 @@ async function main() {
     await page.waitForTimeout(650);
     await act({action:'setHardPaused',paused:true});
     const moved=(await state()).shipPositions.find(p=>p.id===ship.id);assert.notDeepEqual(moved,before);
+    await dialog.getByRole('button',{name:'Combat View',exact:true}).click();
     console.log(`${unit.team} mouse movement ${index+1}: passed, route ${destination.q},${destination.r}`);
   }
   for(let i=0;i<3;i++) await move(gm,gmFrame,npc,{q:22-i,r:i-1},i);
@@ -113,9 +116,26 @@ async function main() {
   assert.notEqual(await expanded.locator('[data-space-ship="browser-ship-0"]').getAttribute('transform'),oldTransform);
   await expanded.getByRole('button',{name:'Close',exact:true}).click();
   await pc.screenshot({path:path.join(artifacts,'player-live-flight.png')});
-  await act({action:'setCombatLocation',id:pilot.id,location:{starshipId:ships[0].id,square:148,mesh:4,stationed:false}});
+  await act({action:'nudge',id:pilot.id,amount:100});
+  const helm=pc.getByRole('dialog',{name:'Pilot console',exact:true});await helm.waitFor();
+  assert.equal(await helm.locator('.sa-health-track small').count(),0,'Players see condition icons, not exact ship HP.');
+  for(const size of [{width:1366,height:768},{width:1920,height:1080}]){
+    await pc.setViewportSize(size);await pc.waitForTimeout(300);
+    const bounds=await helm.getByRole('button',{name:'Leave Station',exact:true}).boundingBox();assert.ok(bounds.y+bounds.height<=size.height);
+    await pc.screenshot({path:path.join(artifacts,`pilot-${size.width}.png`)});
+  }
+  await pc.setViewportSize({width:1600,height:1000});
+  await helm.getByRole('button',{name:'Leave Station',exact:true}).click();
+  const map=pcFrame.locator('[data-inline-ship-map="browser-ship-0"]');
+  await map.locator('[data-inline-cancel-move]').click();assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,true);
+  await pcFrame.getByRole('button',{name:'Pilot Console',exact:true}).click();
+  await helm.getByRole('button',{name:'Leave Station',exact:true}).click();
+  await map.locator('[data-map-square="147"][data-map-mesh="1"]').click();
+  await map.locator('[data-inline-confirm-move]').click();
+  for(let i=0;i<5&&(await state()).units.find(u=>u.id===pilot.id).timedAction;i++)await act({action:'step'});
+  assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,false);
   await act({action:'nudge',id:pilot.id,amount:100});await pc.waitForTimeout(250);
-  assert.equal(await pcFrame.getByRole('button',{name:'Move Starship',exact:true}).count(),0);
+  assert.equal(await pcFrame.getByRole('button',{name:'Pilot Console',exact:true}).count(),0);
   await act({action:'completeTurn',id:pilot.id});
   assert.equal((await state()).starships[0].navigation.phase,'powered');
 
@@ -140,6 +160,11 @@ async function main() {
   await builder.getByRole('dialog',{name:'SIC card details'}).waitFor();
   await builder.waitForTimeout(800);
   await builder.screenshot({path:path.join(artifacts,'cockpit-card.png')});
+  await builder.getByRole('dialog',{name:'SIC card details'}).getByRole('button',{name:'Back to cards',exact:true}).click();
+  await builder.evaluate(ship=>{ship={...ship,buildVersion:3};localStorage.setItem('sa-starship-layout-draft',JSON.stringify(ship));localStorage.setItem('sa-starship-library-v1',JSON.stringify([ship]));localStorage.setItem('sa-starship-active-v1',ship.id);localStorage.setItem('sa-starship-map-view',JSON.stringify({hull:true,labels:true,zoom:4}));},ships[0].ship);
+  await builder.reload();await builder.locator('.hull-view .sa-bridge-window').first().waitFor();
+  await builder.locator('.sa-bridge-window').first().scrollIntoViewIfNeeded();
+  await builder.screenshot({path:path.join(artifacts,'hull-canopy.png')});
   await gm.close();await pc.close();await builder.close();
   const demo=await context.newPage();
   const demoResponse=demo.waitForResponse(response=>response.url().endsWith('/api/campaign/showcase/start'));

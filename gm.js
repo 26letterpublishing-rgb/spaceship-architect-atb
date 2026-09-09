@@ -538,6 +538,7 @@ function encounterRuleFields(record) {
     strengthDice: (record?.character?.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
     engineeringSkill: Number(skillRating(record, "Engineering")) || 0,
+    pilotSkill: Number(skillRating(record, "Pilot/Helm")) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),

@@ -170,6 +170,8 @@ function syncUnitCombat(unit, source = {}) {
   unit.projectileSkill = Math.max(0, Number(source.projectileSkill) || 0);
   const engineering = source.engineeringSkill ?? unit.engineeringSkill;
   unit.engineeringSkill = engineering == null ? null : Math.max(0, Number(engineering) || 0);
+  const pilot = source.pilotSkill ?? unit.pilotSkill;
+  unit.pilotSkill = pilot == null ? null : Math.max(0,Number(pilot)||0);
   unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
   unit.raceId = safeText(source.raceId, unit.raceId || "", 80);
@@ -236,6 +238,7 @@ function migrateUnitCombat(unit) {
     dexterityDice: unit.dexterityDice,
     projectileSkill: unit.projectileSkill,
     engineeringSkill: unit.engineeringSkill,
+    pilotSkill: unit.pilotSkill,
     meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
     raceId: unit.raceId,
@@ -466,14 +469,19 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   if (!unit || room.activeId !== unit.id || !ACTION_KINDS.has(kind)) {
     return { ok: false, error: "That combat action is not currently available." };
   }
+  if(unit.delayedAction || unit.delayTimer)return {ok:false,error:'Finish the current delay first.'};
+  if(navigation.station(room,unit) && !['moveStarship','move'].includes(kind))return {ok:false,error:'Leave the station to use standard combat actions.'};
 
   const weapon = heldWeapon(unit);
   room.vehicles = Array.isArray(room.vehicles) ? room.vehicles : [];
   if (kind === 'moveStarship') {
-    const result = navigation.order(room, unit, body);
+    const result = navigation.queue(room, unit, body);
     if (!result.ok) return result;
     clearAim(unit);
-    finishTurn(room, unit, `ordered ${result.ship.title} to move to hex ${body.destination.q}, ${body.destination.r}${result.cost ? `, spending ${result.cost} AU` : ''}`, helpers);
+    const previousSource=room.activeSource;
+    room.pausedForTurn=false;room.activeId=null;helpers.clearActiveCommand(room);
+    helpers.pushLog(room,`${unit.characterName} started pilot input for ${result.ship.title}.`);
+    helpers.moveToNextTurnOrClock(room,previousSource);
     return {ok:true};
   }
   const requestedTarget = targetUnit(room, unit, safeText(body.targetId, "", 100));

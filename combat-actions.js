@@ -322,8 +322,8 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit);return;}
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
-      if (kind === 'moveStarship') {window.SAShipNavigationUI.open(currentUnit);return;}
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
         window.SACombatMap.openMove(currentUnit);
         return;
@@ -426,12 +426,17 @@
         ? `<span>Held Weapon</span><strong>${esc(current.name)}</strong><small>${chargeReadout}${mine?.aim ? ` | Aim: +highest PER die to Dexterity and Damage; +${Number(mine.aim.speedBonus) || 0} Speed` : ""}</small>`
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
     });
-    const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest;
-    const cockpit = state && mine && window.SAShipNavigation.access(state,mine);
+    const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest || Boolean(mine?.delayedAction || mine?.delayTimer);
+    const seated=state && mine && window.SAShipNavigation.station(state,mine);
+    document.body.classList.toggle('pilot-station-active',Boolean(seated));
+    window.SAShipNavigationUI.sync(mine,isMyTurn);
+    for(const group of document.querySelectorAll('.combat-action-grid'))group.classList.toggle('pilot-station-actions',Boolean(seated));
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
-      if (kind === 'moveStarship') {button.hidden=!cockpit;unavailable ||= !cockpit;}
+      button.hidden=Boolean(seated)&&!['moveStarship','move'].includes(kind);
+      if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Pilot Console';unavailable=false;}
+      if(kind==='move')button.textContent=seated?'Leave Station':'Move';
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
@@ -480,6 +485,7 @@
       dexterityDice: (record.character.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       projectileSkill: skillValue("Projectile"),
       engineeringSkill: skillValue("Engineering"),
+      pilotSkill: skillValue("Pilot/Helm"),
       meleeSkill: skillValue("Melee"),
       dodgeSkill: skillValue("Dodge/Block"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),

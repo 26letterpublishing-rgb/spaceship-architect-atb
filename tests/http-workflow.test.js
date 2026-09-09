@@ -198,8 +198,8 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(disconnected.units[0].playerConnected, false, "disconnect callbacks must update the replacement unit, not the discarded one");
   const flightShips=['http-gm-ship','http-menu-ship'].map((id,i)=>({id,title:`Flight ${i+1}`,crewCharacterIds:[i?'http-bram':'http-aster'],ship:{
     id,title:`Flight ${i+1}`,confirmedOnce:true,gridCells:[21,22,41,42],
-    sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'}],
-    placements:[{sicId:'cp',cell:21},{sicId:'th',cell:20},{sicId:'au',cell:42}]}}));
+    sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'},{id:'en',type:'en-engine-1'}],
+    placements:[{sicId:'cp',cell:21},{sicId:'th',cell:20},{sicId:'au',cell:42},{sicId:'en',cell:22}]}}));
   for(const ship of flightShips) await post('starship/save',{code,token,starship:ship.ship});
   await post('starship/save',{code,token,starship:{...flightShips[0].ship,gridCells:[0,1,2,20,21,22,40,41,42]}},400);
   let flight=await combat({action:'prepareEncounter',preparationId:'flight-prep-001',mode:'starship',starships:flightShips,
@@ -213,6 +213,9 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     flight=await combat({action:'nudge',id:unit.id,amount:100});assert.equal(flight.activeId,unit.id);
     flight=await combat({action:'playerCombatAction',kind:'moveStarship',id:unit.id,destination,...auth});
     assert.equal(flight.activeId,null);assert.equal(flight.units.find(u=>u.id===unit.id).timedAction,null);
+    assert.ok(flight.units.find(u=>u.id===unit.id).delayedAction.shipOrder);
+    for(let tick=0;tick<5&&flight.units.find(u=>u.id===unit.id).delayedAction;tick++)flight=await combat({action:'step'});
+    assert.equal(flight.units.find(u=>u.id===unit.id).delayedAction,null);
     const ship=flight.starships.find(s=>s.id===unit.location.starshipId);assert.equal(ship.navigation.phase,'powered');
     return ship;
   };
@@ -226,6 +229,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   flight=await combat({action:'nudge',id:pilot.id,amount:100});
   await combat({action:'playerCombatAction',kind:'moveStarship',id:pilot.id,destination:{q:20,r:0},gmToken:'',characterId:'http-bram',characterToken:playerTokens[1]},403);
   flight=await combat({action:'playerCombatAction',kind:'moveStarship',id:pilot.id,destination:{q:20,r:0},boostIds:['th']});
+  for(let tick=0;tick<5&&flight.units.find(u=>u.id===pilot.id).delayedAction;tick++)flight=await combat({action:'step'});
   assert.equal(flight.starships[0].auState.current,1);
   const oldNav=flight.starships[0].navigation;
   flight=await combat({action:'syncEncounterStarships',starships:flightShips.map(s=>({...s,navigation:{phase:'stopped'},auState:{current:3}}))});
@@ -254,6 +258,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }
+  assert.equal((await fetch(base+'/cockpit-1-card.png')).headers.get('content-type'),'image/webp');
   for (const file of ["/", "/ship-map-presentation.css", "/ship-map-core.js", "/ship-power.js", "/ship-navigation.js", "/ship-navigation-ui.js", "/ship-navigation-ui.css", "/cockpit-1-card.png", "/cockpit-1-floor-plan.png", "/ionic-pulse-thruster-5-card.png", "/au-engine-6-floor-plan.png", "/life-support-floor-plan.png", "/nutritional-supplement-floor-plan.png", "/data/weapons.json"]) {
     assert.equal((await fetch(base + file)).status, 200, file);
   }

@@ -3,7 +3,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.SAShipMap = api;
 }(typeof window !== "undefined" ? window : null, function createShipMapCore() {
-  const ASSET_VERSION = "20260902-floorplans-2";
+  const ASSET_VERSION = "20260911-pilot-web-assets-1";
   const GRID_SIZE = 20;
   const SIDES = Object.freeze([
     { name: "top", offset: -GRID_SIZE, valid: (square) => square >= GRID_SIZE },
@@ -178,7 +178,9 @@
   function surfaceMarkup(layout, square) {
     if (layout.hull.has(square)) {
       const edges = SIDES.filter(side => !side.valid(square) || !layout.hull.has(square + side.offset)).map(side => `edge-${side.name}`).join(" ");
-      return `<span class="sa-hull-plate ${edges}" style="--plate-x:${square % 20 % 2 * 100}%;--plate-y:${Math.floor(square / 20) % 2 * 100}%" aria-hidden="true"></span>`;
+      const cell=layout.footprint.get(square),def=cell&&definition(cell.type);
+      const canopy=def?.bridge?`<span class="sa-bridge-window" style="background-image:url('${def.image}');background-size:${cell.width*100}% ${cell.height*100}%;background-position:${cell.width>1?cell.column/(cell.width-1)*100:0}% ${cell.height>1?cell.row/(cell.height-1)*100:0}%"></span>`:'';
+      return `<span class="sa-hull-plate ${edges}" style="--plate-x:${square % 20 % 2 * 100}%;--plate-y:${Math.floor(square / 20) % 2 * 100}%" aria-hidden="true">${canopy}</span>`;
     }
     const sic = layout.footprint.get(square);
     if (!sic?.exterior) return "";

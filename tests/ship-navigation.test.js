@@ -9,6 +9,7 @@ const combat=require('../combat-engine');
 function fixture() {
   const ship={id:'ship',title:'Flight Test',ship:{gridCells:[21,22,41,42],sicInventory:[{id:'cockpit',type:'cockpit-1'},{id:'thruster',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'}],placements:[{sicId:'cockpit',cell:21},{sicId:'thruster',cell:20},{sicId:'au',cell:42}]}};
   const unit={id:'pilot',characterName:'Pilot',atb:100,location:{environment:'starship',starshipId:'ship',square:21,mesh:0,sicId:'cockpit',stationed:true}};
+  ship.ship.sicInventory.push({id:'en',type:'en-engine-1'});ship.ship.placements.push({sicId:'en',cell:22});
   const room={starships:[ship],shipPositions:[{id:'ship',q:0,r:0}],units:[unit],activeId:unit.id,threshold:100,pausedForTurn:true};
   power.refresh(room,{reset:true});
   const helpers={clearActiveCommand(){},pushLog(){},moveToNextTurnOrClock(){}};
@@ -37,13 +38,14 @@ test('ship actions require an actual occupied operational cockpit and installed 
   const {room,ship,unit}=fixture();ship.ship.placements=ship.ship.placements.filter(p=>p.sicId!=='thruster');assert.equal(navigation.access(room,unit),null);
 });
 
-test('Move Starship uses the pilot turn immediately, AU once, and leaves the character free',()=>{
+test('Move Starship freezes pilot ATB for input, then spends AU once and launches',()=>{
   const {room,ship,unit,helpers}=fixture();
   assert.equal(combat.resolvePlayerCombatAction(room,unit,{kind:'moveStarship',destination:{q:12,r:0},boostIds:['thruster']},helpers).ok,true);
-  assert.equal(room.activeId,null);assert.equal(unit.atb,0);assert.equal(unit.timedAction,undefined);assert.equal(unit.location.stationed,true);
-  assert.equal(ship.auState.current,1);assert.equal(ship.navigation.speed,12);
+  assert.equal(room.activeId,null);assert.equal(unit.atb,100);assert.equal(unit.timedAction,undefined);assert.equal(unit.location.stationed,true);
+  assert.equal(ship.auState.current,3);assert.equal(ship.navigation,undefined);assert.ok(unit.delayedAction.shipOrder);
   assert.equal(combat.resolvePlayerCombatAction(room,unit,{kind:'moveStarship',destination:{q:30,r:0},boostIds:['thruster']},helpers).ok,false);
-  assert.equal(ship.auState.current,1);
+  assert.equal(ship.auState.current,3);
+  assert.equal(navigation.resolveInput(room,unit).ok,true);assert.equal(ship.auState.current,1);assert.equal(ship.navigation.speed,12);
   navigation.advance(room,6);near(room.shipPositions[0].q,6);
 });
 

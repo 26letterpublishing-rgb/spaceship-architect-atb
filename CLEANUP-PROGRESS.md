@@ -1,5 +1,9 @@
 # Astra Cleanup
 
+## Pilot Console Follow-Up
+
+See `PILOT-CONSOLE-PASS.md` for the unique helm artwork, live station console, automatic delayed input, Leave Station movement, shared hull canopy, print-safe image optimization, and precise verification scope. Original SIC PNGs and Gold Standard are preserved. This pass replaces the prior immediate ship-order behavior; input now freezes pilot ATB and launches only after completion.
+
 ## Cockpit Navigation and Card Proportions Pass
 
 - Canonical 350x490 SIC faces across shop, picker, inspector and collection. Purchased thumbnails uniformly scale to approximately 117x163, preserving poker proportions and staying within the shelf.

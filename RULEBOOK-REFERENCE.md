@@ -1,5 +1,9 @@
 # Spaceship Architect: Source Understanding
 
+## Pilot Console Follow-Up
+
+The user superseded immediate cockpit orders with Delayed Resolution input. The pilot cannot act or leave while typing; normal ATB is held. Very Fast base 14, Performance +4, Quality equals the ceiling average of the highest two operational thruster tiers (single thruster uses its tier; existing radial caps at four), Pilot/Helm whole levels 0/1-2/3-4/5/6+ yield Ingenuity 0/1/2/3/4. All other factors neutral. Existing movement continues during input; the replacement route begins at input completion from the then-current position. Leaving the station uses normal character movement, not free Get Up. Launched movement remains independent. See `PILOT-CONSOLE-PASS.md` for implementation and print-resolution decisions.
+
 ## Cockpit and Computer-Timed Ship Movement
 
 - Cockpit 1, Series A card A-1: 750 credits, 1 EN, security 4, 1x1 EDG, Computer Systems, Transpherion / 4 hours, threshold 20, one station and one Bridge per ship. EDG means an interior square bordering the true outer hull, not an enclosed courtyard. Printed audio/local temperature capabilities remain card text; no new communications simulation is implied.
