@@ -41,7 +41,9 @@
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="station"]')) {
-    const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction='moveStarship';button.textContent='Move Starship';button.hidden=true;station.after(button);
+    for(const kind of ['consoleView','moveStarship']){
+      const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
+    }
   }
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
 
@@ -322,7 +324,8 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
-      if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit);return;}
+      if(kind==='consoleView'){window.SAShipNavigationUI.open(currentUnit);return;}
+      if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit,{compact:true});return;}
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
         window.SACombatMap.openMove(currentUnit);
@@ -434,9 +437,10 @@
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
-      button.hidden=Boolean(seated)&&!['moveStarship','move'].includes(kind);
-      if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Pilot Console';unavailable=false;}
-      if(kind==='move')button.textContent=seated?'Leave Station':'Move';
+      button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView'].includes(kind);
+      if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Move Ship';}
+      if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
+      if(kind==='move')button.textContent=seated?'Leave Console':'Move';
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }

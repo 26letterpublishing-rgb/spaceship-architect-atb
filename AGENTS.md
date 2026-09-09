@@ -1,5 +1,11 @@
 # Spaceship Architect Working Guide
 
+## Resume Entry Point
+
+Read `CURRENT-HANDOFF.md` first for the current authorization boundary, pending requests, and a targeted reading order. This guide records durable conventions; the handoff records unfinished work. Do not mistake an earlier completed pass for verification of newly reported bugs.
+
+Latest cockpit follow-up: `PILOT-CONSOLE-FOLLOWUP.md`. PCs default to the persistent pilot console; GM/NPCs default to ordinary Move Ship, Leave Console, Console View controls. Never auto-open a PC console for the GM. Preserve Combat View choice across turns while stationed. Compact and full planners share confirmation logic and server rules.
+
 ## Product Direction
 
 Spaceship Architect is a multiplayer tabletop RPG companion for campaign management, character creation, starship construction, and real-time ATB combat. The GM desktop workflow is the primary development target. Keep mobile broadly functional, especially page scrolling and core controls, but postpone mobile-only refinement until the desktop experience is stable.

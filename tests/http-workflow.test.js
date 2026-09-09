@@ -152,6 +152,16 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const demo = await post("showcase/start", {});
   const demoAction = payload => combat({roomCode:demo.code,gmToken:demo.gmToken,...payload});
   let demoState = await (await fetch(`${base}/api/state?room=${demo.code}`)).json();
+  for(const ship of demoState.starships){
+    const maps=require('../ship-map-core'),nav=require('../ship-navigation');
+    assert.equal(maps.exteriorError(ship.ship),'');
+    assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,2);
+    const cockpit=ship.ship.sicInventory.find(item=>maps.definition(item.type).shipControl);
+    const cell=ship.ship.placements.find(p=>p.sicId===cockpit.id).cell;
+    const pilot={location:{starshipId:ship.id,square:cell,mesh:0,sicId:cockpit.id,stationed:true}};
+    assert.ok(nav.access(demoState,pilot)?.speed>0,'Each demo ship supports unboosted movement');
+    assert.ok(ship.auState.maximum>=2,'Each demo ship supports an Ionic boost');
+  }
   const demoPc = demoState.units.find(unit => unit.team === "pc");
   demoState = await demoAction({action:"removeUnit",id:demoPc.id});
   assert.ok(!demoState.units.some(unit => unit.id === demoPc.id));

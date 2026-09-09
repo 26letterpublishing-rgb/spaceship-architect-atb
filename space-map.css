@@ -1,4 +1,11 @@
 .combat-space-map{margin:0!important;padding:0!important}
+@media(min-width:901px){
+  .ship-combat-columns:not([data-ship-count="1"])>.combat-space-map{height:54px;position:relative;z-index:2;pointer-events:none}
+  .ship-combat-columns>.combat-space-map>.space-map{pointer-events:auto;margin-bottom:0}
+  .ship-combat-columns[data-ship-count]:not([data-ship-count="1"])>.ship-combat-lane:nth-child(2)>.ship-combat-title{padding-right:170px}
+  .ship-combat-columns[data-ship-count]:not([data-ship-count="1"])>.ship-combat-lane:nth-child(3)>.ship-combat-title{padding-left:170px}
+  .ship-combat-columns>.ship-combat-lane:nth-child(-n+3)>.ship-combat-title h2{font-size:20px;overflow-wrap:anywhere}
+}
 .space-map{position:relative;width:min(360px,100%);margin:0 auto 6px;min-width:0;background:#070e14;border:2px solid #d6e2e8;border-radius:999px;overflow:hidden}
 .space-map header{position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:1}
 .space-map h3,.space-map header span{display:none}

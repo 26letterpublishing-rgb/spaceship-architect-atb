@@ -22,3 +22,35 @@
 .pilot-telemetry{font:9px/1.8 monospace;color:#658f8d;margin-top:20px;opacity:.7}.pilot-telemetry i{display:block;height:16px;background:repeating-linear-gradient(90deg,#66cdbd 0 2px,transparent 2px 8px);animation:pilot-scan 5s ease-in-out infinite;transform-origin:left}@keyframes pilot-scan{50%{transform:scaleX(.35);opacity:.3}}
 @media(max-width:1050px){.ship-navigation-dialog form{grid-template-columns:18% 58% 18%;padding-left:2%;padding-right:2%}.pilot-factor{width:55px;height:55px}.pilot-fleet strong,.pilot-activity p{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.pilot-telemetry i{animation:none}.pilot-recharge i,.pilot-input-progress i{transition:none}}
+
+.ship-navigation-dialog form{grid-template-rows:8% 43% 43%}
+.ship-navigation-dialog [data-availability]{font:12px/1.4 Arial,sans-serif;color:#e4d59e;min-height:34px;margin:0}
+.pilot-input [data-factors]{gap:8px;padding-bottom:4px}.pilot-factor{width:44px;height:44px}.pilot-input small{font-size:10px}.pilot-input output{margin-top:4px}
+.pilot-rings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:160px;overflow:auto;margin-top:8px}
+.pilot-rings .tactical-ring-group{margin:0;padding:0;min-width:0;text-align:center}
+.pilot-rings .tactical-ring-group h3{font-size:10px;margin:2px 0;color:#decfad}
+.pilot-rings .ring-instructions,.pilot-rings .ring-legend,.pilot-rings .ring-action-orbit{display:none}
+.pilot-rings .ring-stage{perspective:800px;height:120px;display:grid;place-items:center}
+.pilot-rings .tactical-ring-svg{display:block;width:140px;height:140px;max-width:100%;transform:rotateX(34deg);overflow:visible;pointer-events:none}
+.pilot-rings .ring-shadow{fill:#0008}.pilot-rings .ring-backplate{fill:#300e18;stroke:#c05868;stroke-width:5}
+.pilot-rings .ring-side-wall-segment{fill:var(--segment-color);stroke:#391122;stroke-width:1;filter:brightness(.65)}
+.pilot-rings .ring-side-seam{fill:none;stroke:#240d15}.pilot-rings .ring-front-lip{fill:none;stroke:#d45068;stroke-width:7}
+.pilot-rings .ring-slice-shell{fill:rgba(var(--bar-rgb),.18);stroke:#342633;stroke-width:2}
+.pilot-rings .ring-slice-sheen{fill:#ffffff0b;stroke:#ffffff22;stroke-width:1}
+.pilot-rings .ring-slice-name{fill:#fff;stroke:#10171f;stroke-width:2;paint-order:stroke fill;text-anchor:middle;dominant-baseline:middle;font-family:Arial,sans-serif;font-weight:700}
+.pilot-rings .ring-pc-role{fill:#5ce0ee;font-size:8px}.pilot-rings .ring-core{fill:#28121e;stroke:#cc6c83;stroke-width:3}
+.pilot-rings .ring-core-text,.pilot-rings .ring-core-subtext{fill:#ecdae1;text-anchor:middle;font:700 12px Arial,sans-serif}.pilot-rings .ring-core-subtext{font-size:8px}
+.pilot-rings .ring-delay-pocket{fill:none;stroke-width:7}.pilot-rings .action-delay{stroke:#af76ff}.pilot-rings .timer-delay{stroke:#ffab67}
+.pilot-rings .ring-command-drain{fill:#0008;stroke:#ffc85a;stroke-width:1}
+.pilot-rings .ring-queued-shell{fill:#ffffff22;stroke:#c5ccdb}.pilot-rings .ring-queued-fill{fill:#c5ccdb}
+.pilot-chart{position:relative;overflow:hidden}.pilot-chart::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 48%,#74e8ca0a 50%,transparent 52%);background-size:100% 200%;animation:helm-sweep 9s linear infinite}
+.pilot-input-progress{position:relative}.ship-navigation-dialog[data-input=active] .pilot-input-progress::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(110deg,transparent 0 12px,#e6fff488 12px 16px);animation:helm-data .8s linear infinite}
+.pilot-au i.charged{animation:helm-charge 4s ease-in-out infinite}.pilot-au i.charged:nth-child(3n){animation-delay:-1.3s}.pilot-au i.charged:nth-child(3n+1){animation-delay:-2.6s}
+@keyframes helm-sweep{to{background-position:0 200%}}@keyframes helm-data{to{background-position:35px 0}}@keyframes helm-charge{50%{box-shadow:0 0 11px #ecd77699;filter:brightness(1.12)}}
+.pilot-destination{pointer-events:none}.pilot-destination.locked circle{animation:helm-lock 2.5s ease-in-out infinite}@keyframes helm-lock{50%{stroke-opacity:.45}}
+.navigation-planner{width:min(960px,calc(100vw - 32px));height:min(760px,calc(100dvh - 32px));background:#09191e}
+.navigation-planner form{min-height:0;grid-template-columns:1fr 230px;grid-template-rows:54px minmax(160px,1fr) auto;gap:12px;padding:16px}
+.navigation-planner .pilot-fleet,.navigation-planner .pilot-activity,.navigation-planner .pilot-rings,.navigation-planner [data-factors],.navigation-planner .pilot-input h3{display:none}
+.navigation-planner .pilot-chart{grid-column:1;grid-row:2}.navigation-planner .pilot-power{grid-column:2;grid-row:2;margin:0}
+.navigation-planner .pilot-input{grid-column:1;grid-row:3;margin:0}.navigation-planner footer{grid-column:2;grid-row:3;margin:0}.navigation-planner header{padding:0}
+@media(prefers-reduced-motion:reduce){.ship-navigation-dialog *,.ship-navigation-dialog *::after{animation:none!important;transition:none!important}}

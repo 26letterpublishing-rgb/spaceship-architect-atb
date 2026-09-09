@@ -1353,7 +1353,7 @@ function ringActionButtons(unit, midAngle) {
   `;
 }
 
-function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "") {
+function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "", readOnly = false) {
   if (!units.length) {
     return `
       <section class="tactical-ring-group" data-ring-group="${escapeHtml(groupId)}">
@@ -1382,7 +1382,7 @@ function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "") {
     const end = (index + 1) * slice - gap / 2;
     const mid = start + (end - start) / 2;
     const rgb = hexToRgb(unit.color || "#39e58f");
-    const gradId = `ringGrad${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
+    const gradId = `${readOnly ? 'helm' : ''}ringGrad${unit.id.replace(/[^a-zA-Z0-9]/g, "")}`;
     const atbRadius = 18 + (116 * pct(unit)) / 100;
     const delayed = hasAnyDelay(unit);
     const ready = unit.atb >= state.threshold && !delayed;
@@ -1429,7 +1429,7 @@ function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "") {
       <div class="tactical-ring-view" data-count="${ordered.length}">
       <div class="ring-instructions">${mode === "gm" ? "Long-hold any slice to reposition it around the table." : "Tactical ring view is local to this screen."}</div>
       <div class="ring-stage">
-        <svg class="tactical-ring-svg" data-ring-group="${escapeHtml(groupId)}" viewBox="0 0 320 320" role="img" aria-label="${escapeHtml(groupTitle || "ATB")} tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <svg class="tactical-ring-svg" data-ring-group="${escapeHtml(groupId)}" viewBox="${readOnly ? '-4 -4 328 390' : '0 0 320 320'}" role="img" aria-label="${escapeHtml(groupTitle || "ATB")} tactical ring" xmlns:xlink="http://www.w3.org/1999/xlink">
           <defs>
             <linearGradient id="ringLipGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stop-color="#5e0710" />
@@ -1449,9 +1449,9 @@ function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "") {
           <circle class="ring-core" cx="160" cy="160" r="34" />
           <text class="ring-core-text" x="160" y="153">${state.running && !state.hardPaused ? "ATB" : "HOLD"}</text>
           <text class="ring-core-subtext" x="160" y="172">${readyCount.textContent}</text>
-          ${controls.join("")}
+          ${readOnly ? '' : controls.join("")}
         </svg>
-        ${mode === "gm" ? `<div class="ring-action-orbit">${actionButtons.join("")}</div>` : ""}
+        ${mode === "gm" && !readOnly ? `<div class="ring-action-orbit">${actionButtons.join("")}</div>` : ""}
       </div>
       <div class="ring-legend">
         <span><i class="timer-delay"></i>Reload/Recovery</span>
@@ -1668,7 +1668,6 @@ function beginDefeatSequence() {
 }
 
 function receiveState(nextState, { force = false } = {}) {
-  window.SAShipNavigationUI?.observe(nextState);
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
 
@@ -1689,6 +1688,7 @@ function receiveState(nextState, { force = false } = {}) {
   const previousUnits = new Map((state?.units || []).map((unit) => [unit.id, unit]));
   const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
+  window.SAShipNavigationUI?.observe(state);
   if (newlyDefeated.length) {
     if (mode === "player") beginDefeatSequence();
     const defeatedIds = new Set(newlyDefeated.map((unit) => unit.id));
@@ -1747,6 +1747,8 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 window.SACombatBridge = {
   action,
   delayIcon: c4IconMarkup,
+  pilotRings: () => (state?.starships || []).map(ship => tacticalRingSingleMarkup(
+    state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
   state: () => state,
   mode: () => mode,
   myUnitId: () => myUnitId,

@@ -41,11 +41,20 @@ async function main() {
       {preparationUnitId:'browser-npc',characterName:'NPC Pilot',team:'npc',speed:1,commandWindow:120,location:{starshipId:ships[1].id,square:147,mesh:0,stationed:true}}]});
   browser=await chromium.launch({channel:process.env.SA_BROWSER_CHANNEL || 'msedge',headless:true});
   const context=await browser.newContext({viewport:{width:1600,height:1000}});
+  const playerContext=await browser.newContext({viewport:{width:1600,height:1000}});
   const campaignSubscriptions=new Set(), embeddedSubscriptions=[];
-  context.on('request',request=>{if(request.url().includes('/campaign-events?')){campaignSubscriptions.add(request);if(request.frame().parentFrame())embeddedSubscriptions.push(request.url());}});
-  context.on('requestfinished',request=>campaignSubscriptions.delete(request));
-  context.on('requestfailed',request=>campaignSubscriptions.delete(request));
-  const errors=[];context.on('page',p=>p.on('pageerror',err=>errors.push(err.message)));
+  const errors=[],moveRequests=[];
+  for(const owner of [context,playerContext]){
+    await owner.route('**/api/action',async route=>{
+      const body=route.request().postDataJSON();
+      if(body?.kind==='moveStarship'){moveRequests.push(body);await new Promise(resolve=>setTimeout(resolve,700));}
+      await route.continue();
+    });
+    owner.on('request',request=>{if(request.url().includes('/campaign-events?')){campaignSubscriptions.add(request);if(request.frame().parentFrame())embeddedSubscriptions.push(request.url());}});
+    owner.on('requestfinished',request=>campaignSubscriptions.delete(request));
+    owner.on('requestfailed',request=>campaignSubscriptions.delete(request));
+    owner.on('page',p=>p.on('pageerror',err=>errors.push(err.message)));
+  }
   const gm=await context.newPage();
   await gm.goto(base+'/gm.html?campaign='+code);
   await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill('Browser Flight Test');
@@ -56,7 +65,7 @@ async function main() {
   const gmFrame=gm.frameLocator('#atbFrame');
   await gmFrame.getByRole('button',{name:'Engage Clock',exact:true}).click();
   await act({action:'setHardPaused',paused:true});
-  const pc=await context.newPage();
+  const pc=await playerContext.newPage();
   await pc.goto(`${base}/character.html?campaign=${code}&character=${characters[0].id}`);
   await pc.getByRole('button',{name:'Enter PC Code',exact:true}).click();
   await pc.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill('browser-aster');
@@ -75,7 +84,10 @@ async function main() {
   }
   async function move(page,frame,unit,destination,index) {
     await act({action:'nudge',id:unit.id,amount:100});
-    const dialog=page.getByRole('dialog',{name:'Pilot console',exact:true});await dialog.waitFor();
+    const dialog=page.getByRole('dialog',{name:'Pilot console',exact:true});
+    if(unit.team==='npc'){await page.waitForTimeout(300);assert.equal(await dialog.count(),0,'GM NPC defaults to standard controls');}
+    if(!(await dialog.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
+    await dialog.waitFor();
     assert.ok((await dialog.evaluate(el=>getComputedStyle(el).backgroundImage)).includes('pilot-console-art-web.webp'));
     if(index===1) {
       await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).fill(String(destination.q));
@@ -89,24 +101,43 @@ async function main() {
     assert.equal(await dialog.getByRole('spinbutton',{name:'Hex R',exact:true}).inputValue(),String(destination.r));
     assert.equal(await confirm.isEnabled(),true);
     if(index===0)await page.screenshot({path:path.join(artifacts,unit.team+'-destination.png')});
-    await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
+    const requestsBefore=moveRequests.length;
+    await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
+    await page.mouse.down();await page.waitForTimeout(350);await page.mouse.up();
+    if(index===0)await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
     await dialog.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
-    assert.equal(await dialog.getByRole('button',{name:'Leave Station',exact:true}).isEnabled(),false);
+    assert.equal(moveRequests.length,requestsBefore+1,'Held clicks and rapid retries submit one order');
+    assert.equal(await dialog.getByRole('button',{name:'Leave Console',exact:true}).isEnabled(),false);
     const pending=(await state()).units.find(u=>u.id===unit.id);assert.ok(pending.delayedAction.shipOrder);assert.ok(pending.atb>=100);
     for(let tick=0;tick<5&&(await state()).units.find(u=>u.id===unit.id).delayedAction;tick++)await act({action:'step'});
     const after=await state(), ship=after.starships.find(s=>s.id===unit.location.starshipId);
     assert.deepEqual(ship.navigation.target,destination);assert.equal(after.activeId,null);
+    assert.equal(await dialog.isVisible(),true,'Console persists between turns');
+    assert.equal(await dialog.locator('[data-factors]>div').count(),6);
+    assert.equal(await dialog.locator('.tactical-ring-svg').count(),2);
+    assert.equal(await dialog.locator('.ring-action-btn').count(),0,'Console rings are observation-only');
+    const ringBefore=await dialog.locator('.ring-slice-fill').first().getAttribute('d');
     await act({action:'setHardPaused',paused:false});
     if(!(await state()).running)await act({action:'setRunning',running:true});
     const before=(await state()).shipPositions.find(p=>p.id===ship.id);
     await page.waitForTimeout(650);
     await act({action:'setHardPaused',paused:true});
     const moved=(await state()).shipPositions.find(p=>p.id===ship.id);assert.notDeepEqual(moved,before);
+    await page.waitForTimeout(250);
+    assert.notEqual(await dialog.locator('.ring-slice-fill').first().getAttribute('d'),ringBefore,'Console rings update while time passes');
     await dialog.getByRole('button',{name:'Combat View',exact:true}).click();
     console.log(`${unit.team} mouse movement ${index+1}: passed, route ${destination.q},${destination.r}`);
   }
   for(let i=0;i<3;i++) await move(gm,gmFrame,npc,{q:22-i,r:i-1},i);
   for(let i=0;i<3;i++) await move(pc,pcFrame,pilot,{q:3+i,r:i-1},i);
+  assert.equal(await gm.getByRole('dialog',{name:'Pilot console',exact:true}).count(),0,'PC turns never open GM console');
+  await pcFrame.locator('body').evaluate(el=>{
+    const win=el.ownerDocument.defaultView,stale=structuredClone(win.SACombatBridge.state());
+    stale.revision-=1;stale.units.find(u=>u.id===win.SACombatBridge.myUnitId()).location.stationed=false;
+    win.receiveState(stale);
+  });
+  await pc.waitForTimeout(300);
+  assert.equal(await pc.getByRole('dialog',{name:'Pilot console',exact:true}).count(),0,'Stale state must not reset Combat View preference');
   assert.deepEqual(embeddedSubscriptions,[],'Embedded combat must reuse its parent campaign updates, not open duplicate streams.');
   assert.equal(campaignSubscriptions.size,2,'Only the two parent campaign streams remain connected.');
   await pcFrame.getByRole('button',{name:'Enlarge space map',exact:true}).click();
@@ -117,25 +148,29 @@ async function main() {
   await expanded.getByRole('button',{name:'Close',exact:true}).click();
   await pc.screenshot({path:path.join(artifacts,'player-live-flight.png')});
   await act({action:'nudge',id:pilot.id,amount:100});
-  const helm=pc.getByRole('dialog',{name:'Pilot console',exact:true});await helm.waitFor();
+  const helm=pc.getByRole('dialog',{name:'Pilot console',exact:true});
+  await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();await helm.waitFor();
   assert.equal(await helm.locator('.sa-health-track small').count(),0,'Players see condition icons, not exact ship HP.');
   for(const size of [{width:1366,height:768},{width:1920,height:1080}]){
     await pc.setViewportSize(size);await pc.waitForTimeout(300);
-    const bounds=await helm.getByRole('button',{name:'Leave Station',exact:true}).boundingBox();assert.ok(bounds.y+bounds.height<=size.height);
+    const bounds=await helm.getByRole('button',{name:'Leave Console',exact:true}).boundingBox();assert.ok(bounds.y+bounds.height<=size.height);
     await pc.screenshot({path:path.join(artifacts,`pilot-${size.width}.png`)});
   }
+  await pc.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await helm.locator('.pilot-au i.charged').first().evaluate(el=>getComputedStyle(el).animationName),'none');
+  await pc.emulateMedia({reducedMotion:'no-preference'});
   await pc.setViewportSize({width:1600,height:1000});
-  await helm.getByRole('button',{name:'Leave Station',exact:true}).click();
+  await helm.getByRole('button',{name:'Leave Console',exact:true}).click();
   const map=pcFrame.locator('[data-inline-ship-map="browser-ship-0"]');
   await map.locator('[data-inline-cancel-move]').click();assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,true);
-  await pcFrame.getByRole('button',{name:'Pilot Console',exact:true}).click();
-  await helm.getByRole('button',{name:'Leave Station',exact:true}).click();
+  await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
+  await helm.getByRole('button',{name:'Leave Console',exact:true}).click();
   await map.locator('[data-map-square="147"][data-map-mesh="1"]').click();
   await map.locator('[data-inline-confirm-move]').click();
   for(let i=0;i<5&&(await state()).units.find(u=>u.id===pilot.id).timedAction;i++)await act({action:'step'});
   assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,false);
   await act({action:'nudge',id:pilot.id,amount:100});await pc.waitForTimeout(250);
-  assert.equal(await pcFrame.getByRole('button',{name:'Pilot Console',exact:true}).count(),0);
+  assert.equal(await pcFrame.getByRole('button',{name:'Console View',exact:true}).count(),0);
   await act({action:'completeTurn',id:pilot.id});
   assert.equal((await state()).starships[0].navigation.phase,'powered');
 
@@ -183,6 +218,66 @@ async function main() {
   await demoPc.frameLocator('#playerAtbFrame').locator('[data-space-ship]').first().waitFor();
   await demo.screenshot({path:path.join(artifacts,'explore-player.png')});
   console.log('Explore Features GM clock and PC combat perspective: passed');
+  const demoAct=body=>post('action',{roomCode:demoRoom.code,gmToken:demoRoom.gmToken,...body});
+  const readDemo=()=>fetch(base+'/api/state?room='+demoRoom.code).then(r=>r.json());
+  await demoAct({action:'setHardPaused',paused:true});
+  const maps=require('../ship-map-core'),navigation=require('../ship-navigation');
+  for(const ship of (await readDemo()).starships){
+    assert.equal(ship.ship.sicInventory.filter(i=>maps.definition(i.type).thruster).length,2);
+    assert.equal(maps.exteriorError(ship.ship),'');
+    assert.equal(ship.ship.sicInventory.filter(i=>maps.definition(i.type).shipControl).length,1);
+  }
+  async function advanceDemoUntil(predicate){
+    for(let tick=0;tick<180;tick++){
+      const current=await readDemo();if(predicate(current))return current;
+      if(current.activeId)await demoAct({action:'completeTurn',id:current.activeId});
+      await demoAct({action:'step'});
+    }
+    throw new Error('Explore action did not finish within 180 combat seconds');
+  }
+  async function demoPilot(isPc){
+    if(!isPc){await demo.getByRole('button',{name:'GM',exact:true}).click();await demo.frameLocator('#showcaseFrame').getByRole('button',{name:'Combat',exact:true}).click();await demo.frameLocator('#showcaseFrame').getByRole('button',{name:'Resume Encounter',exact:true}).click();}
+    const frame=demo.frameLocator('#showcaseFrame').frameLocator(isPc?'#playerAtbFrame':'#atbFrame');
+    const initial=await readDemo(),unit=initial.units.find(u=>isPc?u.characterName==='Nova Vale':u.team==='npc');
+    const ship=initial.starships.find(s=>s.id===unit.location.starshipId);
+    const cp=ship.ship.sicInventory.find(i=>maps.definition(i.type).shipControl),placement=ship.ship.placements.find(p=>p.sicId===cp.id);
+    await advanceDemoUntil(s=>!s.activeId);
+    await demoAct({action:'nudge',id:unit.id,amount:100});
+    await frame.getByRole('button',{name:'Move',exact:true}).click();
+    const map=frame.locator(`[data-inline-ship-map="${ship.id}"]`);
+    await map.locator(`[data-map-square="${placement.cell}"][data-map-mesh="0"]`).click();
+    await map.locator('[data-inline-confirm-move]').click();
+    await advanceDemoUntil(s=>s.units.find(u=>u.id===unit.id).location.stationed);
+    let current=await readDemo(),seated=current.units.find(u=>u.id===unit.id);
+    assert.ok(navigation.access(current,seated),'Demo cockpit has functioning propulsion');
+    const full=demo.getByRole('dialog',{name:'Pilot console',exact:true});
+    if(isPc)await full.waitFor();else assert.equal(await full.count(),0);
+    for(let i=0;i<3;i++){
+      await advanceDemoUntil(s=>!s.activeId);
+      await demoAct({action:'nudge',id:unit.id,amount:100});
+      const compact=i===1||!isPc;
+      if(compact){
+        if(await full.isVisible())await full.getByRole('button',{name:'Combat View',exact:true}).click();
+        await frame.getByRole('button',{name:'Move Ship',exact:true}).click();
+      }else if(!(await full.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
+      const order=demo.getByRole('dialog',{name:compact?'Move ship':'Pilot console',exact:true});await order.waitFor();
+      const destination={q:(isPc?0:25)+i+2,r:2-i};
+      await hexClick(demo,destination.q,destination.r);
+      const confirm=order.getByRole('button',{name:'Move Ship',exact:true});
+      await confirm.hover();await demo.waitForTimeout(650);assert.equal(await confirm.isEnabled(),true);
+      await confirm.click();await order.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
+      await advanceDemoUntil(s=>!s.units.find(u=>u.id===unit.id).delayedAction);
+      await order.getByRole('button',{name:'Entering Order',exact:true}).waitFor({state:'hidden'});
+      assert.deepEqual((await readDemo()).starships.find(s=>s.id===ship.id).navigation.target,destination);
+      await demo.screenshot({path:path.join(artifacts,`explore-${isPc?'pc':'npc'}-order-${i+1}.png`)});
+      await order.getByRole('button',{name:'Combat View',exact:true}).click();
+      console.log(`Explore ${isPc?'PC':'NPC'} station-arrival mouse order ${i+1}: passed`);
+    }
+  }
+  await demoPilot(true);await demoPilot(false);
+  const demoCombat=demo.frameLocator('#showcaseFrame').frameLocator('#atbFrame');
+  await demoCombat.locator('.combat-space-map').scrollIntoViewIfNeeded();
+  await demo.screenshot({path:path.join(artifacts,'combat-map-inset.png')});
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed. Artifacts: '+artifacts);
   console.log('Isolated campaign data: '+dataDir);
