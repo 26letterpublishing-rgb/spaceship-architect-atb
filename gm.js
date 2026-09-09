@@ -1392,6 +1392,7 @@ function renderCampaign() {
 }
 
 function receiveCampaign(next) {
+  dom.atbFrame.contentWindow?.postMessage({type:'sa-campaign-state',campaign:next},location.origin);
   processDramaPlayEvents(next);
   campaign = next;
   if (!targetSelectionTouched && !selectedTargets.size && next.characters?.length === 1) {
@@ -2504,6 +2505,10 @@ dom.atbFrame.addEventListener("load", () => {
 window.addEventListener("resize", syncAtbFrameHeight);
 window.addEventListener("message", async (event) => {
   if (event.origin !== location.origin || event.source !== dom.atbFrame.contentWindow) return;
+  if (event.data?.type === 'sa-request-campaign-state') {
+    dom.atbFrame.contentWindow.postMessage({type:'sa-campaign-state',campaign},location.origin);
+    return;
+  }
   if (event.data?.type !== "sa-combat-ended") return;
   dom.atbFrame.removeAttribute("src");
   stagedNpcs = [];

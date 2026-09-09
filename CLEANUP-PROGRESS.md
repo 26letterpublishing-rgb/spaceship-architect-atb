@@ -1,5 +1,15 @@
 # Astra Cleanup
 
+## Cockpit Navigation and Card Proportions Pass
+
+- Canonical 350x490 SIC faces across shop, picker, inspector and collection. Purchased thumbnails uniformly scale to approximately 117x163, preserving poker proportions and staying within the shelf.
+- New distinct Ionic Pulse Thruster card artwork for all five tiers; existing ship placement sprites unchanged. Cockpit 1 has its own card and overhead artwork, printed construction values, outer-edge placement and one-Bridge limit.
+- Server-authoritative cockpit movement, AU boost selection, continuous fractional routes, mid-flight replacement orders, repeated inertia, impairment handling and restart persistence. Pilot actions resolve immediately so ATB continues independently.
+- Fixed duplicate embedded campaign event subscriptions that exhausted HTTP/1.1 browser connections with GM and PC tabs open, stalling new resources and movement confirmation. Parent frames now relay campaign updates with origin/source checks; encounter streams remain live.
+- Verification: 74 automated tests passed, including fresh GM/two-PC fixture joins, both ship-link workflows, repeated PC/NPC orders, permissions, AU preservation, route persistence through actual server restart, and renewed GM login afterward. Optional Edge mouse regression completed three NPC and three PC ship orders, click-lock/one-click confirmation, mid-route changes, live enlarged map, station departure, card measurements and all five loaded Ionic images.
+- Tests use temporary campaigns, not repository campaign data. Fresh PCs were API-created fixtures, not full character-creation journeys. Local results do not establish Render/PostgreSQL correctness, exhaustive gameplay coverage, or mobile polish. Gold Standard remains untouched.
+- Final Explore Features smoke check: opened GM combat, resumed the prepared encounter, engaged the clock, switched to Nova Vale, and verified the live two-ship map appears in PC combat without page errors. New cockpit movement was exercised in the separate fresh campaign, not claimed as an Explore movement test.
+
 ## Scope
 
 Preserve Gold Standard and the computer-driven ATB rules. Incrementally consolidate the active application, not a rewrite. No new SIC expansion during this pass.

@@ -21,6 +21,7 @@ const {
 } = require("./combat-engine");
 const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
+const shipNavigation = require("./ship-navigation");
 const shipDistances = require("./ship-distances");
 const shipMapCore = require("./ship-map-core");
 const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
@@ -172,6 +173,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
+    room.starships.forEach(ship => { ship.navigation = clone(snapshot.starships?.find(s => s.id === ship.id)?.navigation || null); });
     room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
@@ -1273,6 +1275,7 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
   shipPower.advance(room, seconds * multiplier);
+  shipNavigation.advance(room, seconds * multiplier);
   const completedEvents = [];
   tickAreaEffects(room, seconds, multiplier);
   for (const unit of room.units) {
@@ -1762,9 +1765,9 @@ async function handleRoomAction(body, res) {
   if (action === "syncEncounterStarships") {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
-    const previous = new Map((room.starships || []).map(ship => [ship.id, ship.auState]));
+    const previous = new Map((room.starships || []).map(ship => [ship.id, {auState:ship.auState,navigation:ship.navigation}]));
     room.starships = normalizeEncounterStarships(body.starships);
-    room.starships.forEach(ship => { ship.auState = previous.get(ship.id) || null; });
+    room.starships.forEach(ship => { ship.auState = previous.get(ship.id)?.auState || null; ship.navigation = previous.get(ship.id)?.navigation || null; });
     shipPower.refresh(room);
     room.shipPositions = shipDistances.positions(room.starships, room.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
@@ -2431,6 +2434,7 @@ async function handleRoomAction(body, res) {
   }
 
   if (action === "reset") {
+    room.starships.forEach(ship => {ship.navigation=null;});
     shipPower.refresh(room, { reset: true });
     room.attackResolution = null;
     room.itemResolution = null;
@@ -2465,6 +2469,7 @@ async function handleRoomAction(body, res) {
   }
 
   if (action === "clearEncounter") {
+    room.starships.forEach(ship => {ship.navigation=null;});
     if (!body.preparing && resetShowcaseRoom(room)) {
       room.undoSnapshot = null;
     } else {

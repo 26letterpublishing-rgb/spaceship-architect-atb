@@ -646,17 +646,27 @@ async function loadCampaignForEncounter(code) {
 
 function connectCampaignEvents() {
   campaignEvents?.close();
+  campaignEvents=null;
   if (!currentRoomCode) return;
+  if ((embeddedGm || embeddedPlayer) && window.parent !== window) {
+    window.parent.postMessage({type:'sa-request-campaign-state'},location.origin);
+    return;
+  }
   const token = mode === "gm" ? gmCampaignToken : campaignCharacterToken;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(token || "")}`);
   campaignEvents.addEventListener("campaign", (event) => {
-    campaignState = JSON.parse(event.data);
-    if (mode === "join") renderCampaignCharacterPicker();
-    if (embeddedPlayer) {
-      playerPreviewRecord = campaignState.characters.find((entry) => entry.id === campaignCharacterId) || null;
-      render();
-    }
+    receiveCampaignUpdate(JSON.parse(event.data));
   });
+}
+
+function receiveCampaignUpdate(next) {
+  if (!next || next.code !== currentRoomCode) return;
+  campaignState=next;
+  if (mode === 'join') renderCampaignCharacterPicker();
+  if (embeddedPlayer) {
+    playerPreviewRecord=campaignState.characters.find(entry=>entry.id===campaignCharacterId) || null;
+    render();
+  }
 }
 
 function renderDiceGrid(statName, grid) {
@@ -1594,6 +1604,7 @@ function updateShipAuMeters() {
 
 function updateShipHeaders() {
   const ships = state?.starships || [];
+  window.SASpaceMap.refresh?.(ships,state.shipPositions);
   for (const ship of ships) {
     const header = unitList.querySelector(`[data-ship-vitals="${CSS.escape(ship.id)}"]`);
     if (!header) continue;
@@ -1604,7 +1615,8 @@ function updateShipHeaders() {
     const shield = Number(ship.currentShieldHp ?? ship.ship?.currentShieldHp ?? shieldMax) || 0;
     header.innerHTML = [["hull", hull, hullMax], ["shield", shield, shieldMax]].map(([kind, value, max]) => window.SAHealthDisplay.track(kind, value, max, mode === "gm")).join("");
     const distances = unitList.querySelector(`[data-ship-distances="${CSS.escape(ship.id)}"]`);
-    distances.textContent = window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${pair.units} Units`).join(" · ");
+    const nav=ship.navigation;
+    distances.textContent = [nav && nav.phase !== 'stopped' ? `${nav.phase === 'drift' ? 'Drifting' : 'Moving'}: ${nav.speed} Units / 12 sec` : '',...window.SAShipDistances.pairs(ships, state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${Number(pair.units.toFixed(1))} Units`)].filter(Boolean).join(" · ");
   }
 }
 
@@ -1741,11 +1753,12 @@ function receiveState(nextState, { force = false } = {}) {
   return true;
 }
 
-async function action(payload, soundName = "tap") {
+async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
   let response;
   try {
     response = await fetch("/api/action", {
       method: "POST",
+      ...(throwOnError ? {signal:AbortSignal.timeout(12000)} : {}),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...payload,
@@ -1757,14 +1770,17 @@ async function action(payload, soundName = "tap") {
     });
   } catch {
     setConnected(false, "Cannot reach the ATB room server. Check the connection, then try again.");
+    if (throwOnError) throw new Error("Connection lost. Check the ship's current order before retrying.");
     return state;
   }
   if (!response.ok) {
+    const failure = await response.json().catch(()=>null);
     if (response.status === 404) {
       returnToWelcome("That room expired. Create or join a new room.");
     } else {
       setConnected(false, "The ATB room server rejected that action. Try again.");
     }
+    if (throwOnError) throw new Error(failure?.error || "The action could not be completed. Check that this is still the pilot's turn.");
     return state;
   }
   try {
@@ -1772,6 +1788,7 @@ async function action(payload, soundName = "tap") {
     receiveState(nextState, { force: true });
   } catch {
     setConnected(false, "The ATB room server sent an unreadable response. Try again.");
+    if (throwOnError) throw new Error("The response was interrupted. Check the ship's current order before retrying.");
     return state;
   }
   if (mode === "gm") playGmSound(soundName);
@@ -4262,6 +4279,7 @@ setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin || event.source !== window.parent) return;
   const message = event.data || {};
+  if (message.type === 'sa-campaign-state') {receiveCampaignUpdate(message.campaign);return;}
   if (message.type === "sa-gm-sound-muted") {
     gmSoundsMuted = Boolean(message.muted);
     if (gmSoundsMuted) stopGmAudio();

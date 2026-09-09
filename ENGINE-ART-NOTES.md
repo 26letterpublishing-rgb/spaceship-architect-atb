@@ -69,3 +69,17 @@ Each family/tier received a separate card illustration and floorplan request.
   to all four edge midpoints, small edge/corner consoles; no outer walls, doors,
   grid lines, text, people, or perspective. Shared map code supplies topology,
   stations, and collision rather than interpreting art pixels.
+
+## Cockpit and Ionic Card-Art Pass
+
+Generated with the built-in image-generation tool. Original generated PNGs were copied without modifying the existing placement sprites. Final assets are in the repository root:
+
+- ionic-pulse-thruster-1-card.png through ionic-pulse-thruster-5-card.png
+- cockpit-1-card.png
+- cockpit-1-floor-plan.png
+
+Prompt set: each Ionic card is a square product render on black, realistic bright machined silver/graphite machinery in a three-quarter perspective, fully visible and filling roughly 85 percent of the frame. No labels, frames, people, floorplan, or flames. Magnetic aperture rings emit semicircular ion pulses. Tier 1 uses one light-blue aperture; tier 2 twin purple apertures; tier 3 blue with green/purple conduits; tier 4 teal with extra fins and suspended focusing rings; tier 5 red with heavy armor and capacitor banks. Preserve strong silhouette and thumbnail readability while making each tier progressively more advanced.
+
+Cockpit card prompt: one empty pilot chair with a wraparound cyan console, joystick, throttle and forward viewport, realistic three-quarter cutaway on black, complete compact single-person station, no text or people.
+
+Cockpit floorplan prompt: perfectly overhead orthographic square gray metal floor, no outer walls, doors, grid, labels or people. Compact chair and console in the upper-left corner (around 22 percent across, 25 percent down), open walking floor elsewhere. Shared renderer supplies station markers and boundaries.

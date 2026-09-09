@@ -1,16 +1,24 @@
 (function() {
   const escape = value => String(value ?? "").replace(/[&<>"']/g,c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const colors = ["#54d7f5","#f5858d","#b997ff","#64dfa1","#ffd275","#f89dd9"];
+  const enlarged = new Set();
   const xy = p => ({x:Math.sqrt(3)*(p.q+p.r/2),y:1.5*p.r});
-  function markup(ships,saved,editable=false) {
+  function markup(ships,saved,editable=false,options={}) {
     const points = window.SAShipDistances.positions(ships,saved), cart = points.map(xy);
-    const xs=cart.length?cart.map(p=>p.x):[0], ys=cart.length?cart.map(p=>p.y):[0];
+    const routes = points.flatMap((p,i)=>{
+      const nav=ships[i].navigation;
+      if (!nav || !['powered','drift'].includes(nav.phase)) return [];
+      const target=nav.phase==='powered' ? nav.target : {q:p.q+nav.direction.q*nav.speed,r:p.r+nav.direction.r*nav.speed};
+      return [{a:xy(p),b:xy(target),color:colors[i],drift:nav.phase==='drift'}];
+    });
+    const bounds=options.navigation ? cart : [...cart,...routes.map(route=>route.b)];
+    const xs=bounds.length?bounds.map(p=>p.x):[0], ys=bounds.length?bounds.map(p=>p.y):[0];
     const spanX=Math.max(...xs)-Math.min(...xs), spanY=Math.max(...ys)-Math.min(...ys);
     const width=Math.max(18,spanX*1.45+8,(spanY+8)*3.4),height=width/3.4;
     const minX=(Math.min(...xs)+Math.max(...xs)-width)/2, minY=(Math.min(...ys)+Math.max(...ys)-height)/2;
     const size=width/38;
-    const patternId = `space-hex-${editable?'editor':'view'}`;
-    return `<section class="space-map"><header>${!editable ? '<button type="button" data-space-enlarge aria-label="Enlarge space map" title="Enlarge space map">&#x2922;</button>' : ''}</header><svg data-space-canvas viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Starship positions on a hex map"><defs><pattern id="${patternId}" width="${Math.sqrt(3)}" height="3" patternUnits="userSpaceOnUse"><path d="M0 -1 L.866 -.5 V.5 L0 1 L-.866 .5 V-.5 Z M.866 .5 L1.732 1 V2 L.866 2.5 L0 2 V1 Z M0 2 L.866 2.5 V3.5 L0 4 L-.866 3.5 V2.5 Z" fill="none" stroke="#689099" stroke-width=".035"/></pattern></defs><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#070e14"/><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${patternId})"/>${points.map((p,i)=>{const c=cart[i];const overlap=points.slice(0,i).filter(o=>o.q===p.q&&o.r===p.r).length;return `<g transform="translate(${c.x} ${c.y})" style="color:${colors[i]}"><title>${escape(ships[i].title || ships[i].ship?.title)}: ${p.q}, ${p.r}</title><circle r="${size*.55}" fill="currentColor" stroke="#fff" stroke-width="${size*.09}"/><text y="${size*(overlap%2 ? 1 : -1)*(1.2+Math.ceil(overlap/2)*.85)}" text-anchor="${c.x<minX+width*.25 ? `start` : c.x>minX+width*.75 ? `end` : `middle`}" font-size="${size*1.15}" fill="currentColor" stroke="#070e14" stroke-width="${size*.18}" paint-order="stroke">${escape(ships[i].title || ships[i].ship?.title || 'Starship')}</text></g>`;}).join('')}</svg>${editable?`<div class="space-map-coordinates">${points.map((p,i)=>`<label><strong style="color:${colors[i]}">${escape(ships[i].title || ships[i].ship?.title)}</strong><input type="radio" name="space-placement-ship" value="${escape(p.id)}" ${i===0?'checked':''} aria-label="Place ${escape(ships[i].title)}"><span>Q</span><input type="number" step="1" min="-10000" max="10000" value="${p.q}" data-space-id="${escape(p.id)}" data-space-axis="q" aria-label="${escape(ships[i].title)} hex Q"><span>R</span><input type="number" step="1" min="-10000" max="10000" value="${p.r}" data-space-id="${escape(p.id)}" data-space-axis="r" aria-label="${escape(ships[i].title)} hex R"></label>`).join('')}</div>`:''}</section>`;
+    const patternId = `space-hex-${options.navigation?'navigation':editable?'editor':'view'}`;
+    return `<section class="space-map"><header>${!editable && !options.navigation ? '<button type="button" data-space-enlarge aria-label="Enlarge space map" title="Enlarge space map">&#x2922;</button>' : ''}</header><svg data-space-canvas viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Starship positions on a hex map"><defs><pattern id="${patternId}" width="${Math.sqrt(3)}" height="3" patternUnits="userSpaceOnUse"><path d="M0 -1 L.866 -.5 V.5 L0 1 L-.866 .5 V-.5 Z M.866 .5 L1.732 1 V2 L.866 2.5 L0 2 V1 Z M0 2 L.866 2.5 V3.5 L0 4 L-.866 3.5 V2.5 Z" fill="none" stroke="#689099" stroke-width=".035"/></pattern></defs><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#070e14"/><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${patternId})"/>${routes.map(route=>`<path d="M${route.a.x} ${route.a.y} L${route.b.x} ${route.b.y}" fill="none" stroke="${route.color}" stroke-width="${size*.13}" stroke-dasharray="${route.drift?`${size*.35} ${size*.3}`:'none'}" opacity=".7"/>`).join('')}${points.map((p,i)=>{const c=cart[i];const overlap=points.slice(0,i).filter(o=>o.q===p.q&&o.r===p.r).length;return `<g data-space-ship="${escape(p.id)}" transform="translate(${c.x} ${c.y})" style="color:${colors[i]}"><title>${escape(ships[i].title || ships[i].ship?.title)}: ${Number(p.q.toFixed(2))}, ${Number(p.r.toFixed(2))}</title><circle r="${size*.55}" fill="currentColor" stroke="#fff" stroke-width="${size*.09}"/><text y="${size*(overlap%2 ? 1 : -1)*(1.2+Math.ceil(overlap/2)*.85)}" text-anchor="${c.x<minX+width*.25 ? `start` : c.x>minX+width*.75 ? `end` : `middle`}" font-size="${size*1.15}" fill="currentColor" stroke="#070e14" stroke-width="${size*.18}" paint-order="stroke">${escape(ships[i].title || ships[i].ship?.title || 'Starship')}</text></g>`;}).join('')}</svg>${editable?`<div class="space-map-coordinates">${points.map((p,i)=>`<label><strong style="color:${colors[i]}">${escape(ships[i].title || ships[i].ship?.title)}</strong><input type="radio" name="space-placement-ship" value="${escape(p.id)}" ${i===0?'checked':''} aria-label="Place ${escape(ships[i].title)}"><span>Q</span><input type="number" step="1" min="-10000" max="10000" value="${p.q}" data-space-id="${escape(p.id)}" data-space-axis="q" aria-label="${escape(ships[i].title)} hex Q"><span>R</span><input type="number" step="1" min="-10000" max="10000" value="${p.r}" data-space-id="${escape(p.id)}" data-space-axis="r" aria-label="${escape(ships[i].title)} hex R"></label>`).join('')}</div>`:''}</section>`;
   }
   function bindEditor(container,ships,saved,onChange) {
     const signature = JSON.stringify([ships.map(ship=>[ship.id,ship.title]),saved]);
@@ -37,7 +45,15 @@
     dialog.innerHTML=button.closest('.space-map').outerHTML;
     dialog.querySelector('[data-space-enlarge]').remove();
     const close=host.createElement('button');close.textContent='Close';close.onclick=()=>dialog.close();dialog.append(close);
-    dialog.addEventListener('close',()=>{dialog.remove();button.focus();});host.body.append(dialog);dialog.showModal();
+    enlarged.add(dialog);
+    const cleanup=()=>{window.removeEventListener('pagehide',cleanup);enlarged.delete(dialog);dialog.remove();};
+    dialog.addEventListener('close',()=>{cleanup();if(button.isConnected)button.focus();},{once:true});window.addEventListener('pagehide',cleanup,{once:true});host.body.append(dialog);dialog.showModal();
   });
-  window.SASpaceMap={markup,bindEditor};
+  function refresh(ships,positions) {
+    for(const dialog of enlarged) {
+      const template=dialog.ownerDocument.createElement('template');template.innerHTML=markup(ships,positions);
+      dialog.querySelector('svg')?.replaceWith(template.content.querySelector('svg'));
+    }
+  }
+  window.SASpaceMap={markup,bindEditor,refresh};
 }());

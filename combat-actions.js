@@ -40,6 +40,9 @@
   const error = document.querySelector("#combatActionError");
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
+  for (const station of document.querySelectorAll('[data-combat-action="station"]')) {
+    const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction='moveStarship';button.textContent='Move Starship';button.hidden=true;station.after(button);
+  }
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
 
   let currentState = null;
@@ -320,6 +323,7 @@
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
+      if (kind === 'moveStarship') {window.SAShipNavigationUI.open(currentUnit);return;}
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
         window.SACombatMap.openMove(currentUnit);
         return;
@@ -423,9 +427,11 @@
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
     });
     const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest;
+    const cockpit = state && mine && window.SAShipNavigation.access(state,mine);
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
+      if (kind === 'moveStarship') {button.hidden=!cockpit;unavailable ||= !cockpit;}
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }

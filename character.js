@@ -2301,6 +2301,7 @@ function refreshCampaignRollPrompt() {
 }
 
 function receiveCampaignState(nextState) {
+  dom.playerAtbFrame?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
   cacheCampaign(nextState);
@@ -8109,6 +8110,10 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if (event.data?.type === 'sa-request-campaign-state') {
+    dom.playerAtbFrame.contentWindow.postMessage({type:'sa-campaign-state',campaign:campaignState},location.origin);
+    return;
+  }
   if (event.data?.type === "sa-open-character-tab") {
     showCharacterPanel(event.data.tab || "starships");
     return;

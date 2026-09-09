@@ -21,7 +21,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     child.kill();
     await exited;
   });
-  const base = await new Promise((resolve, reject) => {
+  let base = await new Promise((resolve, reject) => {
     let output = "";
     const timer = setTimeout(() => reject(new Error(`Server startup timed out: ${output}`)), 10000);
     const finish = (error, address) => { clearTimeout(timer); error ? reject(error) : resolve(address); };
@@ -44,7 +44,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   };
   const created = await post("create", { name: "HTTP Crew Regression", gmCode: "local-test-gm" }, 201);
   const code = created.campaign.code;
-  const token = created.token;
+  let token = created.token;
   const playerTokens = [];
   for (const id of ["http-aster", "http-bram"]) {
     const character = { id, phase: "finalized", access: { pcCode: `${id}-code` }, identity: { characterName: id, playerName: `${id} player` },
@@ -196,10 +196,65 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   await new Promise(resolve => setTimeout(resolve, 3250));
   const disconnected = await (await fetch(`${base}/api/state?room=${code}`)).json();
   assert.equal(disconnected.units[0].playerConnected, false, "disconnect callbacks must update the replacement unit, not the discarded one");
+  const flightShips=['http-gm-ship','http-menu-ship'].map((id,i)=>({id,title:`Flight ${i+1}`,crewCharacterIds:[i?'http-bram':'http-aster'],ship:{
+    id,title:`Flight ${i+1}`,confirmedOnce:true,gridCells:[21,22,41,42],
+    sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'}],
+    placements:[{sicId:'cp',cell:21},{sicId:'th',cell:20},{sicId:'au',cell:42}]}}));
+  for(const ship of flightShips) await post('starship/save',{code,token,starship:ship.ship});
+  await post('starship/save',{code,token,starship:{...flightShips[0].ship,gridCells:[0,1,2,20,21,22,40,41,42]}},400);
+  let flight=await combat({action:'prepareEncounter',preparationId:'flight-prep-001',mode:'starship',starships:flightShips,
+    shipPositions:[{id:flightShips[0].id,q:0,r:0},{id:flightShips[1].id,q:25,r:0}],
+    units:[{characterId:'http-aster',characterName:'Aster',team:'pc',speed:1,commandWindow:30,location:{starshipId:flightShips[0].id,square:21,mesh:0,stationed:true}},
+      {characterId:'http-bram',characterName:'Bram',team:'pc',speed:1,commandWindow:30,location:{starshipId:flightShips[1].id,square:22,mesh:4}},
+      {preparationUnitId:'flight-npc',characterName:'NPC Pilot',team:'npc',speed:1,commandWindow:30,location:{starshipId:flightShips[1].id,square:21,mesh:0,stationed:true}}]});
+  const pilot=flight.units.find(u=>u.characterId==='http-aster'), npcPilot=flight.units.find(u=>u.team==='npc');
+  assert.equal(pilot.location.mesh,0);assert.equal(pilot.location.sicId,'cp');
+  const fly=async (unit,destination,auth={})=>{
+    flight=await combat({action:'nudge',id:unit.id,amount:100});assert.equal(flight.activeId,unit.id);
+    flight=await combat({action:'playerCombatAction',kind:'moveStarship',id:unit.id,destination,...auth});
+    assert.equal(flight.activeId,null);assert.equal(flight.units.find(u=>u.id===unit.id).timedAction,null);
+    const ship=flight.starships.find(s=>s.id===unit.location.starshipId);assert.equal(ship.navigation.phase,'powered');
+    return ship;
+  };
+  for(let i=0;i<3;i++) {
+    await fly(pilot,{q:10+i,r:2-i},{gmToken:'',characterId:'http-aster',characterToken:playerTokens[0]});
+    const before=flight.shipPositions.find(p=>p.id===flightShips[0].id);
+    flight=await combat({action:'step'});assert.notDeepEqual(flight.shipPositions.find(p=>p.id===before.id),before);
+    await fly(npcPilot,{q:15-i,r:-4+i});
+    flight=await combat({action:'step'});
+  }
+  flight=await combat({action:'nudge',id:pilot.id,amount:100});
+  await combat({action:'playerCombatAction',kind:'moveStarship',id:pilot.id,destination:{q:20,r:0},gmToken:'',characterId:'http-bram',characterToken:playerTokens[1]},403);
+  flight=await combat({action:'playerCombatAction',kind:'moveStarship',id:pilot.id,destination:{q:20,r:0},boostIds:['th']});
+  assert.equal(flight.starships[0].auState.current,1);
+  const oldNav=flight.starships[0].navigation;
+  flight=await combat({action:'syncEncounterStarships',starships:flightShips.map(s=>({...s,navigation:{phase:'stopped'},auState:{current:3}}))});
+  assert.deepEqual(flight.starships[0].navigation,oldNav);assert.equal(flight.starships[0].auState.current,1);
+  flight=await combat({action:'setCombatLocation',id:pilot.id,location:{starshipId:flightShips[0].id,square:22,mesh:4,stationed:false}});
+  const beforeLeave=flight.shipPositions[0].q;
+  flight=await combat({action:'step'});assert.ok(flight.shipPositions[0].q>beforeLeave);
+  await new Promise(resolve=>setTimeout(resolve,400));
+  const flightSave=JSON.parse(fs.readFileSync(path.join(dataDir,'campaigns.json'),'utf8')).find(c=>c.code===code).encounter;
+  assert.deepEqual(flightSave.shipPositions,flight.shipPositions);assert.deepEqual(flightSave.starships[0].navigation,flight.starships[0].navigation);
+  const stopped=once(child,'exit');child.kill();await stopped;
+  const restarted=spawn(process.execPath,['server.js'],{cwd:root,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe'],windowsHide:true});
+  t.after(async()=>{if(restarted.exitCode===null && restarted.signalCode===null){const exit=once(restarted,'exit');restarted.kill();await exit;}});
+  base=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error('Navigation restore server did not start')),5000);
+    restarted.once('error',error=>{clearTimeout(timer);reject(error);});
+    restarted.stdout.on('data',chunk=>{const url=String(chunk).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});
+  });
+  const resumed=await (await fetch(`${base}/api/state?room=${code}`)).json();
+  assert.deepEqual(resumed.shipPositions,flightSave.shipPositions);
+  assert.deepEqual(resumed.starships[0].navigation,flightSave.starships[0].navigation);
+  assert.equal(resumed.starships[0].auState.current,flightSave.starships[0].auState.current);
+  assert.equal(resumed.running,false);assert.equal(resumed.hardPaused,true);
+  token=(await post('open',{name:'HTTP Crew Regression',gmCode:'local-test-gm'})).token;
+  flight=await combat({action:'reset'});assert.equal(flight.starships[0].navigation,null);
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }
-  for (const file of ["/", "/ship-map-presentation.css", "/ship-map-core.js", "/ship-power.js", "/au-engine-6-floor-plan.png", "/life-support-floor-plan.png", "/nutritional-supplement-floor-plan.png", "/data/weapons.json"]) {
+  for (const file of ["/", "/ship-map-presentation.css", "/ship-map-core.js", "/ship-power.js", "/ship-navigation.js", "/ship-navigation-ui.js", "/ship-navigation-ui.css", "/cockpit-1-card.png", "/cockpit-1-floor-plan.png", "/ionic-pulse-thruster-5-card.png", "/au-engine-6-floor-plan.png", "/life-support-floor-plan.png", "/nutritional-supplement-floor-plan.png", "/data/weapons.json"]) {
     assert.equal((await fetch(base + file)).status, 200, file);
   }
 });

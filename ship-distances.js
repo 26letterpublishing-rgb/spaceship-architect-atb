@@ -27,7 +27,7 @@
     const defaults = [[0,0],[25,0],[0,25],[25,25],[-25,25],[-25,0]];
     return ships.map((ship,index) => {
       const point = saved.find(point => point.id === ship.id);
-      const valid = point && [point.q,point.r].every(n => Number.isInteger(n) && Math.abs(n) <= 10000);
+      const valid = point && [point.q,point.r].every(n => Number.isFinite(n) && Math.abs(n) <= 10000);
       return { id: ship.id, q: valid ? point.q : defaults[index % 6][0], r: valid ? point.r : defaults[index % 6][1] };
     });
   }

@@ -1,5 +1,6 @@
 const weaponCatalog = require("./data/weapons.json");
 const combatRules = require("./combat-rules");
+const navigation = require("./ship-navigation");
 
 const weaponsById = new Map(weaponCatalog.map((weapon) => [weapon.id, weapon]));
 const ACTION_KINDS = new Set([
@@ -7,6 +8,7 @@ const ACTION_KINDS = new Set([
   "defense",
   "melee",
   "move",
+  "moveStarship",
   "wrestle",
   "aim",
   "charge",
@@ -467,6 +469,13 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
   const weapon = heldWeapon(unit);
   room.vehicles = Array.isArray(room.vehicles) ? room.vehicles : [];
+  if (kind === 'moveStarship') {
+    const result = navigation.order(room, unit, body);
+    if (!result.ok) return result;
+    clearAim(unit);
+    finishTurn(room, unit, `ordered ${result.ship.title} to move to hex ${body.destination.q}, ${body.destination.r}${result.cost ? `, spending ${result.cost} AU` : ''}`, helpers);
+    return {ok:true};
+  }
   const requestedTarget = targetUnit(room, unit, safeText(body.targetId, "", 100));
   const target = requestedTarget?.characterName || "the chosen target";
   if (kind === "wait3") {

@@ -1,0 +1,15 @@
+.ship-navigation-dialog{box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100dvh - 32px);height:max-content;overflow:auto;padding:20px;border:1px solid #54d7f5;border-radius:8px;background:#10161b;color:#eef5f7;font:14px/1.4 Arial,sans-serif;letter-spacing:0;box-shadow:0 25px 70px #000b}
+.ship-navigation-dialog::backdrop{background:#0009}
+.ship-navigation-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;background:none}
+.ship-navigation-dialog h2{font:700 23px/1.2 Arial,sans-serif;margin:0 0 3px}.ship-navigation-dialog header strong{color:#75dcef}
+.ship-navigation-dialog button{border:1px solid #78909d;border-radius:4px;padding:8px 16px;background:#202b32;color:white;font:700 14px Arial,sans-serif;cursor:pointer;box-shadow:none;min-height:36px}
+.ship-navigation-dialog button:before,.ship-navigation-dialog button:after{display:none}
+.ship-navigation-dialog button:disabled{opacity:.5;cursor:default}.ship-navigation-dialog button[type=submit]{background:#087848;border-color:#73f6b2;min-width:160px}
+.ship-navigation-dialog .space-map{margin:0;width:100%;max-width:none;border:1px solid #4d6775;border-radius:4px;background:#070e14;padding:0;overflow:hidden}
+.ship-navigation-dialog .space-map header{display:none}.ship-navigation-dialog svg{width:100%;height:300px;display:block;cursor:crosshair;touch-action:none}
+.ship-navigation-dialog .navigation-fields{display:flex;gap:12px;align-items:end;margin:12px 0}.navigation-fields label{display:grid;gap:4px}
+.ship-navigation-dialog input[type=number]{box-sizing:border-box;width:104px;min-height:36px;padding:6px;border:1px solid #78909d;background:#080e12;color:white;font:16px Arial,sans-serif}
+.ship-navigation-dialog fieldset{border:1px solid #516772;border-radius:4px;display:flex;flex-wrap:wrap;gap:10px 20px;padding:10px 12px;margin:10px 0}
+.ship-navigation-dialog fieldset label{display:flex;align-items:center;gap:7px;font-size:13px}.ship-navigation-dialog fieldset span{color:#edcf6f}.ship-navigation-dialog input[type=checkbox]{accent-color:#61dcb3;width:16px;height:16px}
+.ship-navigation-dialog output{display:block;color:#7cf4ba;font-variant-numeric:tabular-nums}.ship-navigation-dialog [data-error]{color:#ff9caf;min-height:20px;margin:8px 0}.ship-navigation-dialog footer{display:flex;justify-content:flex-end;background:none;padding:0}
+@media(max-height:750px){.ship-navigation-dialog svg{height:230px}.ship-navigation-dialog{padding:14px}}

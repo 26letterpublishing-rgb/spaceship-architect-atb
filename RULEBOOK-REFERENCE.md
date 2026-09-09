@@ -1,5 +1,14 @@
 # Spaceship Architect: Source Understanding
 
+## Cockpit and Computer-Timed Ship Movement
+
+- Cockpit 1, Series A card A-1: 750 credits, 1 EN, security 4, 1x1 EDG, Computer Systems, Transpherion / 4 hours, threshold 20, one station and one Bridge per ship. EDG means an interior square bordering the true outer hull, not an enclosed courtyard. Printed audio/local temperature capabilities remain card text; no new communications simulation is implied.
+- User-approved timing supersedes printed tabletop SvS timing: full calculated ship Move Speed takes 12 combat seconds, versus a character movement segment's 3 seconds. A cockpit order consumes the pilot's current action immediately and moves independently while combat continues.
+- The pilot must actually occupy an operational cockpit station and the ship must have an operational installed thruster to issue orders. Leaving or impairment does not cancel an already accepted base order. A later pilot turn may replace the route from its exact current position, even mid-flight.
+- Exhaust boosts cost 4 AU per selected thruster, Ionic boosts 2 AU; each adds its tier once per order. A new order pays for its own boosts without refunding previous spending. Impairing a boosted thruster removes its remaining powered boost contribution, without undoing traveled distance.
+- On powered arrival, continue in the same direction with speed max(0, floor(previous speed / 2) - 2). Repeat that decay every 12 combat seconds until zero. The combat clock controls powered movement, drift and AU recharge. Fractional positions/routes persist; restarting the server preserves them and pauses the clock.
+- The older deferrals below describe earlier passes; Cockpit 1 movement and AU boosts are now implemented. SIC-damage automation and the remaining cockpit/bridge actions are not part of this pass.
+
 ## Ionic Thruster Follow-Up
 
 - Ionic Pulse Thrusters B-14 through B-18: tiers 1-5, prices 350/700/1050/1400/1750, EN costs 5/10/15/20/25, sizes 1x1/2x1/3x2/3x2/4x2 EXT, security 2/2/3/3/4, thresholds 8/9/10/11/12. Engineering crafting: Paradon 4 hrs, Argol 4 hrs, Mirium 5 hrs, Drakkonite 6 hrs, Mirium 8 hrs. No stations.

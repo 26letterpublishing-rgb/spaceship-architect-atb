@@ -51,6 +51,14 @@ for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; t
 }
 
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+{
+  const type = "cockpit-1", data = window.SAShipMap.definition(type);
+  SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
+  const card = document.createElement("section"); card.className="sic-market-item";
+  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Cockpit 1 details"><header class="sic-poker-heading"><span>Bridge <small>A-1</small></span><div><h3>Cockpit 1</h3><strong>Price: 750</strong></div></header><img class="sic-poker-art" src="cockpit-1-card.png" alt="Single pilot cockpit console" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>1x1 EDG</dd></div><div><dt>Skill</dt><dd>CPU Systems</dd></div><div><dt>Crafting</dt><dd>Transpherion, 4 hrs</dd></div></dl><section class="sic-poker-rules"><p>Single-person control center. Install inside an outer hull edge. Limit one Bridge per ship.</p><strong>Stations 1</strong><p>Stationed pilot: Move Starship with installed thrusters, including AU boosts. Orders continue after leaving the station.</p><p>Audio communication with detected ships. Local air and temperature control.</p></section><footer><span><small>If Impaired</small>Occupant also takes damage inflicted, reduced by 20.</span><span><small>Damage Threshold</small>20</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  document.querySelector(".sic-card-gallery").prepend(card);
+}
+for (const card of document.querySelectorAll('[data-sic-card^="ionic-pulse-thruster-"]')) card.querySelector(".sic-poker-art").src = `${card.dataset.sicCard}-card.png`;
 function cardAccent(type) {
   if (type === "life-support") return "#42e0d0";
   if (type === "nutritional-supplement") return "#e9ef4d";
@@ -425,6 +433,8 @@ function validateSicPlacement(sicId, cell) {
   if (!item) return { legal: false, reason: "That SIC is no longer available.", cells: [] };
   const definition = sicDefinition(item); const cells = candidateCells(sicId, cell);
   if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
+  if (definition.edge && !window.SAShipMap.edgePlacement(draft,cell)) return {legal:false,reason:"Cockpit 1 must be inside the ship, against an outer hull wall.",cells};
+  if (definition.bridge && draft.placements.some(p=>p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i=>i.id===p.sicId)).bridge)) return {legal:false,reason:"A ship may have only one Bridge or Cockpit.",cells};
   if (definition.exterior) {
     const others = draft.placements.filter(p => p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i => i.id === p.sicId)).thruster);
     if (definition.thruster && others.length >= 4) return { legal: false, reason: "A ship may have at most four installed thrusters. Additional thrusters can remain in storage.", cells };
@@ -1199,7 +1209,7 @@ let cardHost = document;
 try { while (cardHost.defaultView.frameElement) cardHost = cardHost.defaultView.parent.document; } catch {}
 if (cardHost !== document && !cardHost.querySelector("link[data-sic-cards-style]")) {
   const style = cardHost.createElement("link"); style.rel = "stylesheet"; style.dataset.sicCardsStyle = "";
-  style.href = new URL("sic-cards.css?v=20260909-ionic-1", location.href).href; cardHost.head.append(style);
+  style.href = new URL("sic-cards.css?v=20260910-cockpit-1", location.href).href; cardHost.head.append(style);
 }
 const sicCardDialog = cardHost === document ? document.querySelector("#sicCardDialog") : cardHost.createElement("dialog");
 if (cardHost !== document) { sicCardDialog.innerHTML = '<button type="button" data-close-sic-card>Back</button><div data-sic-card-dialog-body></div>'; cardHost.body.append(sicCardDialog); }
@@ -1238,12 +1248,12 @@ function openSicFamily(family, items, trigger) {
     const { width, height } = grid.getBoundingClientRect();
     let best = { scale: 0, columns: 1 };
     for (let columns = 1; columns <= slots.length; columns++) {
-      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 300), (height - (rows - 1) * 14) / (rows * 490));
+      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 350), (height - (rows - 1) * 14) / (rows * 490));
       if (scale > best.scale) best = { scale, columns };
     }
     const scale = Math.max(.15, best.scale);
-    grid.style.gridTemplateColumns = `repeat(${best.columns},${300 * scale}px)`;
-    slots.forEach(slot => { slot.style.width = `${300 * scale}px`; slot.style.height = `${490 * scale}px`; slot.style.setProperty("--picker-scale", scale); });
+    grid.style.gridTemplateColumns = `repeat(${best.columns},${350 * scale}px)`;
+    slots.forEach(slot => { slot.style.width = `${350 * scale}px`; slot.style.height = `${490 * scale}px`; slot.style.setProperty("--picker-scale", scale); });
   }
   let closing = false;
   const resize = new cardHost.defaultView.ResizeObserver(fit);

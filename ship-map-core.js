@@ -13,6 +13,7 @@
   ]);
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
   const catalog = {
+    "cockpit-1": { name: "Cockpit 1", width: 1, height: 1, label: "CP 1", color: "#346f91", image: image("cockpit-1-floor-plan.png"), shipControl: true, bridge: true, edge: true, energyCost: 1, price: 750, security: 4, crafting: "Transpherion, 4 hrs", threshold: 20, cardNumber: "A-1", output: 0, stations: [{x:0,y:0,mesh:0}] },
     "exhaust-thruster-1": { name: "Exhaust Thruster 1", width: 1, height: 1, label: "ET 1", color: "#568da4", image: image("exhaust-thruster-1-graphic.png"), exterior: true, thruster: true, impulseBonus: 1, exhaust: -2, energyCost: 2, price: 200, security: 2, crafting: "Dianium, 2 hrs", threshold: 10, cardNumber: "A-23", output: 0, stations: [] },
     "en-engine-1": { width: 1, height: 1, label: "EN 1", color: "#2d873b", image: image("en-engine-1-floor-plan.png"), output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
     "en-engine-2": { width: 2, height: 2, label: "EN 2", color: "#2d873b", image: image("en-engine-2-floor-plan.png"), output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
@@ -126,12 +127,28 @@
     if ((ship.sicInventory || []).some(item => !item || typeof item !== 'object') || (ship.placements || []).some(item => !item || typeof item !== 'object')) return "Invalid starship component data.";
     const inventory = ship.sicInventory || [];
     const installed = new Set((ship.placements || []).map(p => p.sicId));
+    if (inventory.filter(item => installed.has(item.id) && definition(item.type).bridge).length > 1) return "A ship may have only one Bridge or Cockpit.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).thruster).length > 4) return "A ship may have at most four installed thrusters.";
     for (const p of ship.placements || []) {
       const item = inventory.find(item => item.id === p.sicId);
+      if (item && definition(item.type).edge && !edgePlacement(ship,p.cell)) return "Cockpit 1 must be inside the ship, against an outer hull wall.";
       if (item && definition(item.type).exterior && !exteriorPlacement(ship, item.type, p.cell, item.id)) return "Exterior SICs must attach to an outer hull wall, outside the ship and clear of other SICs.";
     }
     return "";
+  }
+
+  function edgePlacement(ship, cell) {
+    const hull = new Set(ship.gridCells || []);
+    if (!Number.isInteger(cell) || !hull.has(cell)) return false;
+    const queue = SIDES.filter(s => !s.valid(cell) || !hull.has(cell+s.offset));
+    if (queue.some(s=>!s.valid(cell))) return true;
+    const frontier = queue.map(s=>cell+s.offset), seen = new Set(frontier);
+    for (let i=0;i<frontier.length;i++) for (const side of SIDES) {
+      const current=frontier[i], next=current+side.offset;
+      if (!side.valid(current)) return true;
+      if (!hull.has(next) && !seen.has(next)) {seen.add(next);frontier.push(next);}
+    }
+    return false;
   }
 
   function masking(record) {
@@ -295,5 +312,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, edgePlacement, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
 }));
