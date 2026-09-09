@@ -73,6 +73,10 @@ async function main() {
   await pc.getByRole('button',{name:'Combat',exact:true}).click();
   const pcFrame=pc.frameLocator('#playerAtbFrame');
   await pcFrame.getByRole('button',{name:'Enlarge space map',exact:true}).waitFor();
+  await pcFrame.locator('body').evaluate(el=>{
+    const win=el.ownerDocument.defaultView,original=win.tone;
+    win.__pilotTones=[];win.tone=(...args)=>{win.__pilotTones.push(args);return original(...args);};
+  });
   const units=(await state()).units,pilot=units.find(u=>u.characterId===characters[0].id),npc=units.find(u=>u.team==='npc');
   for(const unit of units)await act({action:'setSpeed',id:unit.id,speed:.1});
 
@@ -88,6 +92,24 @@ async function main() {
     if(unit.team==='npc'){await page.waitForTimeout(300);assert.equal(await dialog.count(),0,'GM NPC defaults to standard controls');}
     if(!(await dialog.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
     await dialog.waitFor();
+    assert.equal(await frame.locator('[data-combat-action="station"]').count(),0);
+    await dialog.locator('[data-turn-announcement]').filter({hasText:unit.team==='pc'?'YOUR TURN':`${unit.characterName.toUpperCase()}'S TURN`}).waitFor();
+    assert.ok(Number(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'))>0 || unit.team==='npc');
+    if(unit.team==='pc'){
+      if(index===0){
+        await dialog.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
+        assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.length),3,'Enabling turn audio plays one cue, not two');
+        assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.eval('audioContext.state')),'running');
+        const bar=dialog.getByRole('progressbar',{name:'Command window remaining'});
+        const before=Number(await bar.getAttribute('aria-valuenow'));
+        await act({action:'setHardPaused',paused:false});await page.waitForTimeout(1200);await act({action:'setHardPaused',paused:true});await page.waitForTimeout(300);
+        const paused=Number(await bar.getAttribute('aria-valuenow'));assert.ok(paused<before,'Command bar drains as live command time passes');
+        await page.waitForTimeout(450);assert.equal(Number(await bar.getAttribute('aria-valuenow')),paused,'Pausing freezes command bar');
+      }else if(index===1){
+        assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.length),6,'Next turn adds one three-tone cue');
+        await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).click();
+      }else assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.length),6,'Muted turns do not play a cue');
+    }
     assert.ok((await dialog.evaluate(el=>getComputedStyle(el).backgroundImage)).includes('pilot-console-art-web.webp'));
     if(index===1) {
       await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).fill(String(destination.q));
@@ -106,6 +128,8 @@ async function main() {
     await page.mouse.down();await page.waitForTimeout(350);await page.mouse.up();
     if(index===0)await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
     await dialog.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
+    assert.equal(await dialog.locator('[data-turn-announcement]').innerText(),'ENTERING COORDINATES');
+    assert.equal(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'),'0');
     assert.equal(moveRequests.length,requestsBefore+1,'Held clicks and rapid retries submit one order');
     assert.equal(await dialog.getByRole('button',{name:'Leave Console',exact:true}).isEnabled(),false);
     const pending=(await state()).units.find(u=>u.id===unit.id);assert.ok(pending.delayedAction.shipOrder);assert.ok(pending.atb>=100);
@@ -158,6 +182,7 @@ async function main() {
   }
   await pc.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await helm.locator('.pilot-au i.charged').first().evaluate(el=>getComputedStyle(el).animationName),'none');
+  for(const selector of ['.wave-trace','.vector-orbit'])assert.equal(await helm.locator(selector).evaluate(el=>getComputedStyle(el).animationName),'none');
   await pc.emulateMedia({reducedMotion:'no-preference'});
   await pc.setViewportSize({width:1600,height:1000});
   await helm.getByRole('button',{name:'Leave Console',exact:true}).click();

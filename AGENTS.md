@@ -6,6 +6,8 @@ Read `CURRENT-HANDOFF.md` first for the current authorization boundary, pending 
 
 Latest cockpit follow-up: `PILOT-CONSOLE-FOLLOWUP.md`. PCs default to the persistent pilot console; GM/NPCs default to ordinary Move Ship, Leave Console, Console View controls. Never auto-open a PC console for the GM. Preserve Combat View choice across turns while stationed. Compact and full planners share confirmation logic and server rules.
 
+Station occupancy is entered through movement, not a free-text Station action. Keep vehicle mounting separately available. Console turn alerts use turnSerial to deduplicate audio, respect mute preferences, and show server command time as a shrinking bar. Decorative instrumentation must never obscure inputs or imply invented game values; respect reduced motion.
+
 ## Product Direction
 
 Spaceship Architect is a multiplayer tabletop RPG companion for campaign management, character creation, starship construction, and real-time ATB combat. The GM desktop workflow is the primary development target. Keep mobile broadly functional, especially page scrolling and core controls, but postpone mobile-only refinement until the desktop experience is stable.

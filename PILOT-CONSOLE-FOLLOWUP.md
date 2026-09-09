@@ -1,5 +1,13 @@
 # Pilot Console Follow-Up
 
+## Turn Alerts Follow-Up (pilot-console-3)
+
+- Removed normal Station and legacy map Enter Station controls. Movement confirmation still seats the character at a station. The old shared menu's vehicle operations remain as a contextual Vehicle button; no free-text SIC station option. Server rejects manual Station actions without consuming a turn. Validated legacy enterStation API remains compatible, but is no longer exposed as a UI shortcut.
+- Full/compact consoles show a prominent turn banner in the pilot's ATB color. A long, left-anchored command bar shrinks from its right edge using server command remaining/total, freezes when paused, empties during input/standby and marks low time. Numeric countdown removed from the console header, not from GM oversight elsewhere.
+- Turn sounds use the existing audio system and respect the existing mute preference. Console sound icon can enable/mute them; outer-document pointer/keyboard gestures resume the combat frame's audio context. Turn identity includes turnSerial, avoiding missed consecutive turns and repeated redraw cues. Enabling audio during a turn plays only one cue.
+- Decorative waveform below AU, calibration traces around the Tactical Rings and rotating vector array beneath Leave Console. No gameplay values are fabricated; these graphics are aria-hidden, noninteractive, and disabled by reduced motion.
+- Verification: 82 tests; repeated twelve-order mouse suite; added real AudioContext/tone scheduling checks, one cue per turn, mute silence, draining/frozen command bar, input-state banner and reduced-motion checks. Desktop screenshots retain 1366x768 and 1920x1080 coverage. This is not a physical-speaker listening test.
+
 ## Behavior
 
 - Stationed NPCs default to ordinary GM controls. Stationed PCs default to the full console. GM views never auto-open a PC console; manual Console View remains available.

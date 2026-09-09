@@ -759,6 +759,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
   if (kind === "station") {
     const operation = safeText(body.stationMode, "manual", 30);
+    if (!['dismount','mountItem','takeDriver','joinVehicle'].includes(operation)) return {ok:false,error:'Move to a station to occupy it.'};
     if (operation === "dismount") {
       const vehicle = room.vehicles.find((entry) => entry.id === unit.mountedVehicleId);
       if (vehicle) {
@@ -885,17 +886,14 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
 
   unit.movementChargeUnits = 0;
   if (kind === "wrestle" && !requestedTarget) return { ok: false, error: "Choose a valid target." };
-  const stationName = safeText(body.stationName, "an SIC", 80);
   const labels = {
     wrestle: `attempted to Wrestle/Disarm ${target}; resolve dice manually`,
     firstAid: "used First Aid (Intellect + Anatomy/First Aid + 2D8; healing cannot exceed Maximum HP)",
-    station: `became stationed at ${stationName}`,
     actionResolved: "resolved an action",
   };
   const briefDetails = {
     wrestle: ["Resolve the contest manually", "Target must be nearby"],
     firstAid: ["Requires a First Aid Kit", "Roll Intellect + Anatomy/First Aid, then add 2D8 healing", "Healing cannot exceed Maximum HP"],
-    station: [`Station: ${stationName}`],
     actionResolved: ["Freeform table action"],
   };
   setCombatBrief(unit, kind, labels[kind] || "Action resolved", briefDetails[kind] || []);

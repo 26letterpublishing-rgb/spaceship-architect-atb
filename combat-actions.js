@@ -40,7 +40,7 @@
   const error = document.querySelector("#combatActionError");
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
-  for (const station of document.querySelectorAll('[data-combat-action="station"]')) {
+  for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
     for(const kind of ['consoleView','moveStarship']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
@@ -117,10 +117,9 @@
     return options.join("") || '<option value="">No other combatants available</option>';
   }
 
-  function weaponOptions({ throwableOnly = false, includeItems = false, station = false } = {}) {
+  function weaponOptions({ throwableOnly = false, includeItems = false, vehicle = false } = {}) {
     const options = [];
-    if (station) {
-      options.push('<option value="manual">SIC / Ship Station</option>');
+    if (vehicle) {
       if (currentUnit?.mountedVehicleId) options.push('<option value="dismount">Dismount current vehicle</option>');
       const occupiedVehicle = (currentState?.vehicles || []).find((entry) => entry.id === currentUnit?.mountedVehicleId);
       if (occupiedVehicle && !occupiedVehicle.driverId) options.push(`<option value="vehicle-drive:${esc(occupiedVehicle.id)}">Take driver seat of ${esc(occupiedVehicle.name)}</option>`);
@@ -188,7 +187,7 @@
     throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, includeItems: true, note: "Smoke Grenades detonate after 5 seconds. Other explosives use their listed countdown. Thrown melee weapons deal half damage." },
     charge: { title: "Charge Weapon", note: "The Charge meter fills alongside normal ATB. Each completed segment provides one card Charge." },
     firstAid: { title: "First Aid", target: true, includeSelf: true, kit: true, note: "Choose the patient and whether to commit a carried First Aid Kit. Treatment time uses Intellect boxes + Anatomy/First Aid." },
-    station: { title: "Station / Mount", weapon: "station", text: "SIC / Station Name", placeholder: "Helm, Engine Room, Sensor Console...", note: "Mount a carried vehicle, join an available Small ATV, dismount, or enter a ship station." },
+    vehicle: { title: "Vehicle", weapon: "vehicle", note: "Mount, dismount, or take an available driver or passenger seat." },
   };
 
 
@@ -266,7 +265,7 @@
     }
     weaponWrap.hidden = !config.weapon;
     weapon.innerHTML = config.weapon
-      ? weaponOptions({ throwableOnly: config.weapon === "throwable", includeItems: config.includeItems, station: config.weapon === "station" })
+      ? weaponOptions({ throwableOnly: config.weapon === "throwable", includeItems: config.includeItems, vehicle: config.weapon === "vehicle" })
       : "";
     consumeWrap.hidden = true;
     consume.checked = false;
@@ -361,20 +360,20 @@
     }
     let actualKind = pendingKind;
     if (!weaponWrap.hidden) {
-      if (!weapon.value) { error.textContent = "Choose an item, weapon, vehicle, or station."; return; }
+      if (!weapon.value) { error.textContent = "Choose an item, weapon, or vehicle."; return; }
       if (pendingKind === "drawWeapon") {
         if (weapon.value.startsWith("item:")) { actualKind = "useItem"; details.itemId = weapon.value.slice(5); details.consume = Boolean(consume.checked); details.protectedIds = [...shieldTargets.querySelectorAll("input:checked")].map((input) => input.value); }
         else if (weapon.value.startsWith("weapon:")) details.inventoryId = weapon.value.slice(7);
-      } else if (pendingKind === "station") {
+      } else if (pendingKind === "vehicle") {
+        actualKind = "station";
         if (weapon.value === "dismount") details.stationMode = "dismount";
         else if (weapon.value.startsWith("vehicle-item:")) { details.stationMode = "mountItem"; details.itemId = weapon.value.slice(13); }
         else if (weapon.value.startsWith("vehicle-join:")) { details.stationMode = "joinVehicle"; details.vehicleId = weapon.value.slice(13); }
         else if (weapon.value.startsWith("vehicle-drive:")) { details.stationMode = "takeDriver"; details.vehicleId = weapon.value.slice(14); }
-        else details.stationMode = "manual";
+        else { error.textContent = "Choose an available vehicle."; return; }
       } else if (weapon.value.startsWith("weapon:")) details.inventoryId = weapon.value.slice(7);
       else if (pendingKind === "throwItem" && weapon.value.startsWith("item:")) details.itemId = weapon.value.slice(5);
     }
-    if (!textWrap.hidden && pendingKind === "station") details.stationName = textInput.value.trim();
     if (pendingKind === "firstAid") details.useKit = Boolean(useKit.checked);
     if (!attackWrap.hidden) {
       const plan = currentAttackPlan();
@@ -440,6 +439,7 @@
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView'].includes(kind);
       if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
+      if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
       if(kind==='move')button.textContent=seated?'Leave Console':'Move';
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }

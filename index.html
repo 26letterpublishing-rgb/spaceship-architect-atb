@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="health-display.css?v=20260909-ionic-1" />
   <script src="data-reset.js?v=20260907-preserve-saves-1"></script>
     <link rel="stylesheet" href="space-map.css?v=pilot-console-2">
-    <link rel="stylesheet" href="ship-navigation-ui.css?v=pilot-console-2" data-navigation-style>
+    <link rel="stylesheet" href="ship-navigation-ui.css?v=pilot-console-3" data-navigation-style>
   </head>
   <body>
     <main class="shell">
@@ -188,7 +188,7 @@
           <span class="combat-action-group-label support">Items / Support</span>
           <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
           <button type="button" data-combat-action="firstAid">First Aid</button>
-          <button type="button" data-combat-action="station">Station</button>
+          <button type="button" data-combat-action="vehicle" hidden>Vehicle</button>
           <button id="playerDelay" type="button" class="secondary">Delay</button>
           <button id="playerEndTurn" type="button" class="complete player-complete">Action Resolved</button>
         </div>
@@ -318,7 +318,7 @@
         <footer>
           <div id="combatMapStats" class="combat-map-stats" aria-label="Starship statistics"></div>
           <div class="combat-map-legend"><i class="green"></i> One Move <i class="yellow"></i> Extended travel <i class="red"></i> Blocked</div>
-          <div class="combat-map-actions"><button id="stopCombatTravel" type="button" class="danger" hidden>Stop Moving</button><button id="leaveCombatStation" type="button" hidden>Get Up</button><button id="enterCombatStation" type="button" hidden>Enter Station</button><button id="cancelCombatMove" type="button">Cancel</button><button id="confirmCombatMove" type="button" class="primary" disabled>Confirm Move</button></div>
+          <div class="combat-map-actions"><button id="stopCombatTravel" type="button" class="danger" hidden>Stop Moving</button><button id="leaveCombatStation" type="button" hidden>Get Up</button><button id="cancelCombatMove" type="button">Cancel</button><button id="confirmCombatMove" type="button" class="primary" disabled>Confirm Move</button></div>
         </footer>
       </div>
     </section>
@@ -346,7 +346,7 @@
         <span class="combat-action-group-label support">Items / Support</span>
         <button type="button" data-combat-action="drawWeapon">Use Item / Draw Weapon</button>
         <button type="button" data-combat-action="firstAid">First Aid</button>
-        <button type="button" data-combat-action="station">Station</button>
+        <button type="button" data-combat-action="vehicle" hidden>Vehicle</button>
       </div>
       <div class="dialog-actions">
         <button id="completeTurn" class="complete">Action Resolved</button>
@@ -610,14 +610,14 @@
     <script src="space-map.js?v=20260910-cockpit-1"></script>
     <script src="live-dom.js?v=20260907-workspace-2"></script>
     <script src="health-display.js?v=20260907-workspace-2"></script>
-    <script src="app.js?v=pilot-console-2"></script>
+    <script src="app.js?v=pilot-console-3"></script>
   <script src="ship-map-core.js?v=20260911-pilot-1"></script>
   <script src="ship-power.js?v=20260909-ionic-1"></script>
   <script src="delay-rules.js?v=20260911-pilot-1"></script>
   <script src="ship-navigation.js?v=20260911-pilot-1"></script>
-  <script src="ship-navigation-ui.js?v=pilot-console-2"></script>
-  <script src="ship-combat-map.js?v=20260909-cards-1"></script>
-  <script src="combat-actions.js?v=pilot-console-2"></script>
+  <script src="ship-navigation-ui.js?v=pilot-console-3"></script>
+  <script src="ship-combat-map.js?v=pilot-console-3"></script>
+  <script src="combat-actions.js?v=pilot-console-3"></script>
   <script type="module" src="npc-combat-dice.js?v=20260907-hybrid-time-1"></script>
   </body>
 </html>

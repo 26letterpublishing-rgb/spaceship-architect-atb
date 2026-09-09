@@ -4,9 +4,13 @@
 
 Read this file, then `AGENTS.md`, then `PILOT-CONSOLE-FOLLOWUP.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized this cockpit follow-up with #commit, including extra console animations. Implementation is recorded in the commit containing this file. Previous published baseline: `47f8f1b540d4573b2d9f5e3bac8959fc551df59c`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized a further cockpit turn-alert pass with #commit. Implementation is recorded in the commit containing this file. Previous published baseline: `e8295ea27afa8d0c2b3c7571bfa76ed6ba6b79ac`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
 ## Latest Pass
+
+Removed standalone Station controls (vehicle mounting preserved separately), added an obvious console turn alert/audio toggle and a long shrinking command bar, and added waveform/ring/vector instrument animations. Browser assets now use pilot-console-3. Read the newest section of PILOT-CONSOLE-FOLLOWUP.md. All 82 tests and extended movement/audio/countdown checks passed locally; see the completion message for publishing/deployment verification.
+
+## Retained Features
 
 - Harden movement confirmation and test actual station arrival, not only pre-seated fixtures.
 - NPC/GM default: ordinary Move Ship, Leave Console, Console View controls.

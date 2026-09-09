@@ -30,6 +30,16 @@ test('input blocks other actions and forced departure cancels without spending A
   nav.queue(room,pilot,{destination:{q:8,r:4},boostIds:['t1']});assert.equal(combat.resolvePlayerCombatAction(room,pilot,{kind:'move',units:1},helpers).ok,false);
   pilot.location.stationed=false;assert.equal(nav.resolveInput(room,pilot).ok,false);assert.equal(ship.auState.current,3);assert.equal(ship.navigation,undefined);
 });
+
+test('manual Station actions are rejected without consuming a turn; vehicle mounting still works',()=>{
+  const {room,pilot}=fixture();pilot.location.stationed=false;
+  const helpers={id:()=> 'test-vehicle',clearActiveCommand(){},pushLog(){},moveToNextTurnOrClock(){}};
+  const result=combat.resolvePlayerCombatAction(room,pilot,{kind:'station',stationName:'Cockpit'},helpers);
+  assert.equal(result.ok,false);assert.match(result.error,/Move to a station/);assert.equal(pilot.atb,100);assert.equal(room.activeId,pilot.id);
+  pilot.items=[{id:'bike',catalogId:'one-man-vehicle',name:'Vehicle',quantity:1}];
+  assert.equal(combat.resolvePlayerCombatAction(room,pilot,{kind:'station',stationMode:'mountItem',itemId:'bike'},helpers).ok,true);
+  assert.equal(pilot.mountedVehicleId,'test-vehicle');assert.equal(room.vehicles[0].driverId,pilot.id);
+});
 test('boost impairment during input removes its cost and extra speed without canceling base order',()=>{
   const {room,pilot,ship}=fixture();nav.queue(room,pilot,{destination:{q:8,r:4},boostIds:['t1']});const base=pilot.delayedAction.shipOrder.baseSpeed;
   ship.ship.sicInventory.find(i=>i.id==='t1').impaired=true;assert.equal(nav.resolveInput(room,pilot).ok,true);assert.equal(ship.navigation.speed,base);assert.equal(ship.auState.current,3);

@@ -1747,6 +1747,10 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 window.SACombatBridge = {
   action,
   delayIcon: c4IconMarkup,
+  resumeAudio,
+  soundEnabled: () => mode === 'gm' ? !gmSoundsMuted : alertsEnabled,
+  soundIcon: () => gmMuteSound.innerHTML,
+  toggleSound: () => gmMuteSound.click(),
   pilotRings: () => (state?.starships || []).map(ship => tacticalRingSingleMarkup(
     state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
   state: () => state,
@@ -2466,14 +2470,14 @@ function notifyTurnIfNeeded() {
       ? `${command ? `${command.expired ? "Command Window expired" : `${formatSeconds(command.remaining)} Command Window`} - ` : ""}${active.playerConnected ? "Player connected" : "PLAYER DISCONNECTED"} - GM may act`
       : active.playerName;
     if (!turnPanelOpen()) showTurnPanel();
-    if (lastNotifiedActiveId !== active.id) {
-      lastNotifiedActiveId = active.id;
+    if (lastNotifiedActiveId !== `${state.roomCode}:${active.id}:${active.turnSerial || 0}`) {
+      lastNotifiedActiveId = `${state.roomCode}:${active.id}:${active.turnSerial || 0}`;
       playGmSound(active.team === "pc" ? "playerTurn" : "turn");
     }
   }
 
-  if (mode === "player" && active.id === myUnitId && alertsEnabled && lastNotifiedActiveId !== active.id) {
-    lastNotifiedActiveId = active.id;
+  if (mode === "player" && active.id === myUnitId && alertsEnabled && lastNotifiedActiveId !== `${state.roomCode}:${active.id}:${active.turnSerial || 0}`) {
+    lastNotifiedActiveId = `${state.roomCode}:${active.id}:${active.turnSerial || 0}`;
     if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
     playTurnDing();
   }
@@ -2499,7 +2503,7 @@ function notifyCommandWindowIfNeeded(active) {
   const remaining = Math.ceil(command.remaining);
   const warningSecond = remaining <= 10 && remaining > 5 ? 10 : remaining <= 5 && remaining >= 1 ? remaining : null;
   if (!warningSecond) return;
-  const key = `${active.id}:${warningSecond}`;
+  const key = `${active.id}:${active.turnSerial || 0}:${warningSecond}`;
   if (lastCommandWarningKey === key) return;
   lastCommandWarningKey = key;
   if (navigator.vibrate) navigator.vibrate(warningSecond <= 5 ? [120, 60, 120, 60, 120] : [220, 100, 220]);
@@ -2709,7 +2713,10 @@ function enablePlayerAlerts({ testSound = false } = {}) {
   alertsEnabled = true;
   safeLocalStorageSet("sa-atb-alerts", "on");
   ensureAudio();
-  if (testSound) playTurnDing();
+  if (testSound) {
+    if(state?.activeId===myUnitId){const unit=state.units.find(entry=>entry.id===myUnitId);lastNotifiedActiveId=`${state.roomCode}:${myUnitId}:${unit?.turnSerial || 0}`;}
+    playTurnDing();
+  }
 }
 
 function disablePlayerAlerts() {

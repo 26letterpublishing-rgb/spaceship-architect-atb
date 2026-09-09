@@ -10,7 +10,6 @@
   const confirm = document.querySelector("#confirmCombatMove");
   const cancel = document.querySelector("#cancelCombatMove");
   const stop = document.querySelector("#stopCombatTravel");
-  const enterStation = document.querySelector("#enterCombatStation");
   const leaveStation = document.querySelector("#leaveCombatStation");
   const panButtons = [...document.querySelectorAll("[data-combat-map-pan]")];
   const viewInputs = [...document.querySelectorAll("[data-combat-map-view]")];
@@ -517,8 +516,6 @@
     renderStats();
     stop.hidden = unit?.timedAction?.kind !== "move";
     leaveStation.hidden = !unit?.location?.stationed || combatState?.activeId !== unit?.id;
-    const station = unit?.location ? stationAt(ship, unit.location.square, unit.location.mesh) : null;
-    enterStation.hidden = Boolean(unit?.location?.stationed || !station || combatState?.activeId !== unit?.id);
     confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : preview?.station ? "Station" : "Confirm Move";
   }
 
@@ -627,11 +624,6 @@
     await submitSelectedMove({ closeAfter: true });
   });
   stop.addEventListener("click", async () => { await bridge()?.action({ action: "stopTravel", id: selectedUnitId }); close(); });
-  enterStation.addEventListener("click", async () => {
-    const unit = selectedUnit(); const ship = selectedShip(); const station = stationAt(ship, unit?.location?.square, unit?.location?.mesh);
-    if (!unit || !station) return;
-    await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "enterStation", stationName: footprint(ship).get(Number(unit.location.square))?.label || "SIC", stationSlot: unit.location.mesh }); close();
-  });
   leaveStation.addEventListener("click", async () => { await bridge()?.action({ action: "playerCombatAction", id: selectedUnitId, kind: "getUp" }); close(); });
   openButton?.addEventListener("click", () => {
     if (mode === "player") {
