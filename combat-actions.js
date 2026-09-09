@@ -41,7 +41,7 @@
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship']){
+    for(const kind of ['consoleView','moveStarship','holdConsole']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
@@ -323,6 +323,7 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(kind==='holdConsole'){window.SAShipNavigationUI.toggleHold(currentUnit).catch(err=>window.alert(err.message));return;}
       if(kind==='consoleView'){window.SAShipNavigationUI.open(currentUnit);return;}
       if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit,{compact:true});return;}
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
@@ -436,7 +437,8 @@
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
-      button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView'].includes(kind);
+      button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
+      if(kind==='holdConsole'){button.hidden=!seated;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
       if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});

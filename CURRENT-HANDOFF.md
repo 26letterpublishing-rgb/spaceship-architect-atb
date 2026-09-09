@@ -4,11 +4,13 @@
 
 Read this file, then `AGENTS.md`, then `PILOT-CONSOLE-FOLLOWUP.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized a further cockpit turn-alert pass with #commit. Implementation is recorded in the commit containing this file. Previous published baseline: `e8295ea27afa8d0c2b3c7571bfa76ed6ba6b79ac`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized the integrated-console/Hold pass with #commit. Previous published baseline: `44634e6dcc0c4ba20da73b82209aabcba638cd50`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
 ## Latest Pass
 
-Removed standalone Station controls (vehicle mounting preserved separately), added an obvious console turn alert/audio toggle and a long shrinking command bar, and added waveform/ring/vector instrument animations. Browser assets now use pilot-console-3. Read the newest section of PILOT-CONSOLE-FOLLOWUP.md. All 82 tests and extended movement/audio/countdown checks passed locally; see the completion message for publishing/deployment verification.
+Integrated front-facing console artwork, ellipse-following vector marker, one-second red turn flashes/soft ticks, unaffordable AU feedback, and console Hold/Resume. Browser assets now use pilot-console-4. See CONSOLE-HOLD-PASS.md for rules and checks.
+
+After GitHub upload, the user requested a separate live, fresh-browser, UI-only usability test: construct one new character and one functional ship, using no source or documentation during that test. Keep a chronological log of assumptions/confusion and report findings without fixing them. Completion notification comes after that report and cleanup. Do not claim the usability test is done based on the scripted regression checks.
 
 ## Retained Features
 

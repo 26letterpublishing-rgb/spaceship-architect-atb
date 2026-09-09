@@ -273,6 +273,15 @@ const leaveRoom = document.querySelector("#leaveRoom");
 const playerActionLogToggle = document.querySelector("#playerActionLogToggle");
 const myUnitCard = document.querySelector("#myUnitCard");
 const activePanel = document.querySelector("#activePanel");
+const consoleHoldTray = document.createElement('div');
+consoleHoldTray.className='console-hold-tray';consoleHoldTray.hidden=true;activePanel.after(consoleHoldTray);
+consoleHoldTray.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-resume-console]');if(!button)return;
+  button.disabled=true;
+  try {await window.SAShipNavigationUI.toggleHold(state.units.find(u=>u.id===button.dataset.resumeConsole));}
+  catch(error){window.alert(error.message);}
+  finally {button.disabled=false;}
+});
 const activeKicker = document.querySelector("#activeKicker");
 const activeTitle = document.querySelector("#activeTitle");
 const activeMeta = document.querySelector("#activeMeta");
@@ -1390,7 +1399,7 @@ function tacticalRingSingleMarkup(units, groupId = "", groupTitle = "", readOnly
     const icon = mode === "player" ? myIconForUnit(unit) : "";
     const labelPoint = polarPoint(160, 160, 83, mid);
     const allyPoint = polarPoint(160, 160, 112, mid);
-    const label = ringInnerLabel(unit, ordered.length);
+    const label = ringInnerLabel(unit, ordered.length)+(unit.consoleHold?' [HOLD]':'');
     const labelSize = ringInnerLabelSize(label, ordered.length);
 
     defs.push(`
@@ -1748,6 +1757,10 @@ window.SACombatBridge = {
   action,
   delayIcon: c4IconMarkup,
   resumeAudio,
+  consoleTick: () => {
+    if ((mode === 'gm' ? gmSoundsMuted : !alertsEnabled) || document.hidden) return;
+    try { tone(1180,0,.025,.012,'sine'); } catch {}
+  },
   soundEnabled: () => mode === 'gm' ? !gmSoundsMuted : alertsEnabled,
   soundIcon: () => gmMuteSound.innerHTML,
   toggleSound: () => gmMuteSound.click(),
@@ -3143,6 +3156,9 @@ function render() {
   renderDelayDialog();
   renderQueuedEffectDialog();
   renderActivePanel();
+  const holding=state.units.filter(u=>u.consoleHold);
+  consoleHoldTray.hidden=!holding.length;
+  window.SALiveDOM.render(consoleHoldTray,holding.map(u=>`<span style="color:${/^#[0-9a-f]{6}$/i.test(u.color)?u.color:'#75ffc4'}">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</span>`).join(''));
   renderRejoinOptions();
   const active = activeUnit();
   // A GM iframe shares origin storage with player perspectives in Explore

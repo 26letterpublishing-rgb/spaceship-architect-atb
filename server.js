@@ -934,7 +934,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !unit.consoleHold && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -1019,6 +1019,7 @@ function copyDelay(delay) {
 
 function migrateRoomDelays(room) {
   for (const unit of room.units) {
+    require('./console-hold').reconcile(unit);
     migrateUnitCombat(unit);
     ensureNpcHp(unit);
     if (!Array.isArray(unit.queuedEffects)) unit.queuedEffects = [];
@@ -1057,7 +1058,7 @@ function usesCommandWindow(unit, source) {
 }
 
 function pauseForReadyUnit(room, unit, source = "clock") {
-  if (!unit || room.pausedForTurn) return;
+  if (!unit || unit.consoleHold || room.pausedForTurn) return;
   unit.turnSerial=(Number(unit.turnSerial)||0)+1;
   const carriedCommand = unit.commandCarrySeconds;
   room.pausedForTurn = true;
@@ -1445,7 +1446,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
       return [...effectTimes, ...timerTimes, speed > 0 ? Math.max(0, (room.threshold - unit.atb) / speed) : Infinity];
     })
     .filter((time) => Number.isFinite(time));
-  if (!times.length) return;
+  if (!times.length) { addProgress(room, seconds, {slow:Boolean(interruptedId),skipId:interruptedId}); return; }
 
   const nextReadyIn = Math.min(...times);
   if (nextReadyIn <= seconds) {
@@ -2455,6 +2456,7 @@ async function handleRoomAction(body, res) {
     room.vehicles = [];
     room.areaEffects = [];
     for (const unit of room.units) {
+      unit.consoleHold = null;
       unit.atb = 0;
       unit.delay = null;
       unit.delayTimer = null;
@@ -2618,6 +2620,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "nudge") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if(unit?.consoleHold){sendJson(res,409,{error:'Resume this character before advancing their initiative.'});return;}
     if (unit && !room.pausedForTurn) {
       unit.atb = Math.min(room.threshold, unit.atb + Math.max(1, Number(body.amount) || 1));
       if (unit.atb >= room.threshold && !hasDelay(unit)) {

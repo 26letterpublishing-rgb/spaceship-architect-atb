@@ -304,6 +304,7 @@ function resetVehicleAcceleration(room, unit) {
 }
 
 function effectiveSpeed(unit) {
+  if (unit?.consoleHold) return 0;
   return Math.max(0, Number(unit?.speed) || 0) + Math.max(0, Number(unit?.aim?.speedBonus) || 0);
 }
 
@@ -466,6 +467,7 @@ function beginTimedAction(room, unit, timedAction, logText, helpers, { resetAtb 
 
 function resolvePlayerCombatAction(room, unit, body, helpers) {
   const kind = safeText(body?.kind, "", 30);
+  if (['holdConsole','resumeConsole'].includes(kind)) return require('./console-hold').resolve(room,unit,kind,helpers);
   if (!unit || room.activeId !== unit.id || !ACTION_KINDS.has(kind)) {
     return { ok: false, error: "That combat action is not currently available." };
   }
