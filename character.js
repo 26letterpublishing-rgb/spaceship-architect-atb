@@ -3591,7 +3591,7 @@ function renderClass() {
       : `<p class="modifier-empty">Choose a race to display its advantages and disadvantages.</p>`;
   const classContent = character.identity.classId
     ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}${modifierRulesMarkup("Class Disadvantages", [], "disadvantage")}`
-    : `<p class="modifier-empty">Choose a class to display its advantages.</p>`;
+    : `<p class="modifier-empty">${character.identity.classChosen ? 'No Class selected. No class modifiers apply.' : 'Choose a class to display its advantages.'}</p>`;
   dom.automaticModifiers.innerHTML = `
     <article class="modifier-summary race-modifier">
       <strong>${raceName ? escapeHtml(raceName) : "Racial Modifiers"}</strong>

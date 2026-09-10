@@ -77,4 +77,3 @@ Use case: stylized-concept. Asset: square spacecraft game SIC card illustration 
 ## bridge-8-floor-plan.png
 
 Use case: stylized-concept. Asset: square spacecraft game floorplan texture for twelve-station exotic flagship command bridge, 5 by 5 room units. STRICTLY ORTHOGRAPHIC TOP DOWN, no perspective, no text, no characters, no grid, no doors. 12 small operator consoles arranged at the four corners and then along outer room edges, stations looking outward, clear interior walking routes. Detailed brushed dark titanium floor panels and silver hardware, silver white with violet display accents, panoramic glazed wall along upper edge, thin metallic room boundary filling image edge to edge. Machinery and consoles occupy edges, center is open navigable floor. Accurate overhead miniature room texture, consistent sci-fi physical equipment.
-
