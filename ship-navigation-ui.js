@@ -28,9 +28,10 @@
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
   function open(unit,{compact=false}={}){
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
-    if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen())return;
+    if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen())return;
     const selected=choices.find(a=>a.item.id===selectedConsoles.get(seatKey(unit)))||choices.find(a=>!a.remote)||choices[0];
     if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
+    if(!compact&&selected.kind==='sensor'){combatViews.delete(seatKey(unit));window.SASensorConsoleUI.open(unit,selected.item.id);return;}
     const seated=window.SAShipNavigation.station(initial,unit);
     if(!seated)return;
     const pilotId=unit.id,shipId=seated.ship.id;
@@ -50,7 +51,7 @@
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
     let destination=null,locked=false,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
-    let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null;
+    let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';form.querySelector('[data-leave]').after(hold);
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
     const orbitDot=form.querySelector('.vector-orbit circle');
@@ -123,6 +124,7 @@
       const nav=seat.ship.navigation;
       form.querySelector('[data-flight]').textContent=nav&&nav.phase!=='stopped'?`${nav.phase==='drift'?'DRIFT':'UNDERWAY'} / ${nav.speed}`:'HOLDING POSITION';
       const fleet=state.starships.map(s=>{
+        if(s.contactOnly)return `<div><strong>${esc(s.title)}</strong><small>${s.contactLevel==='unknown'?'Unresolved signal':'Detected / analysis required'}</small></div>`;
         const hull=Number(s.maximumHullHp??s.ship?.maximumHullHp??s.ship?.gridCells?.length)||0,shield=Number(s.maximumShieldHp??s.ship?.maximumShieldHp)||0;
         return `<div><strong>${esc(s.title)}</strong>${window.SAHealthDisplay.track('hull',s.currentHullHp??s.ship?.currentHullHp??hull,hull,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',s.currentShieldHp??s.ship?.currentShieldHp??shield,shield,bridge.mode()==='gm')}</div>`;
       }).join('');
@@ -130,6 +132,12 @@
       const log=(state.log||[]).slice(-25).reverse().map(e=>`<p><time>${esc(e.at)}</time>${esc(window.SAHealthDisplay.logText(e.text,bridge.mode()==='gm'))}</p>`).join('');
       if(log!==lastLog){form.querySelector('[data-activity]').innerHTML=log;lastLog=log;}
       if(!compact){const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(form.querySelector('[data-rings]'),rings);lastRings=rings;}}
+      const contactSignature=JSON.stringify(state.starships.map(s=>[s.id,s.title,s.contactLevel,s.uncertainty]));
+      if(contactSignature!==lastContacts){
+        const template=host.createElement('template');template.innerHTML=window.SASpaceMap.markup(state.starships,state.shipPositions,false,{navigation:true});
+        const fresh=template.content.querySelector('[data-space-canvas]');
+        svg.replaceChildren(...fresh.childNodes,marker);lastContacts=contactSignature;
+      }
       for(const g of svg.querySelectorAll('g[data-space-ship]')){const p=points.find(p=>p.id===g.dataset.spaceShip);if(p){const c=xy(p);g.setAttribute('transform',`translate(${c.x} ${c.y})`);}}
       marker.classList.toggle('locked',locked);
       const a=xy(start),b=destination&&xy(destination),scale=svg.viewBox.baseVal.width/200;

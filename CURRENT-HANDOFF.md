@@ -2,13 +2,15 @@
 
 ## Start Here
 
-Read this file, then `AGENTS.md`, then `SHIELD-GENERATORS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
+Read this file, then `AGENTS.md`, then `SENSORS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the Shield Generators / Shipyard / Skills pass with #commit. Previous published baseline: `6472c14`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized the Sensors pass with #commit. Previous HEAD: `3a9c3e4`; previous application baseline: `b0aeca9`. Implementation and local verification are complete; publication is the next step when this handoff is written. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
-Completed and published in b0aeca9: 104 tests, expanded fresh-campaign shield/skill browser checks, actual restart, and 12 cockpit mouse orders passed. GitHub push succeeded; Render matched 18 code/style files and 24 artwork hashes, with live Bridge and Shield picker checks at 1366x768. See SHIELD-GENERATORS-PASS.md for actual coverage. Wait for feedback and the next #commit; do not restart this completed pass.
+Sensors: 117 unit/HTTP checks, fresh-campaign GM/two-PC sensor workflow, shield regressions, and 12 cockpit mouse orders. See SENSORS-PASS.md for exact coverage and playtest interpretations. After publication, wait for feedback and the next #commit; do not restart this pass.
 
 ## Latest Pass
+
+Sensors 1-9, remote sensor console, observer-specific unknown/detected contacts, exact-HP analysis snapshots, GM Life Scan readings, shared intelligence, updated demo ships and reduced impaired ranges. No physical sensor stations. Sensor skill affects rolls, not input speed; Quality is tier-based. All new graphics have web derivatives and preserved print masters. Player REST/SSE encounter requests now carry the authenticated character token; GM requests require their token to see the complete sensor-enabled battle.
 
 Shield generators 2-10 complete the family with unique art and tier-aware consoles. Restabilize only at zero HP (not Reinforce). Larger Construction map, centered green confirmation, Details without construction tools, ascending expanded cards, prominent rainbow console selector, distance-based initial inertia, engine charge audio, copy-edited lore, and clickable skill references with default/alternate Attribute roll setup. Art provenance: SHIELD-GENERATOR-ART.md. Prior shield/bridge foundation remains documented in SHIELD-BRIDGE-PASS.md.
 
@@ -21,7 +23,7 @@ The earlier UI-only usability audit was completed in the prior pass; its three f
 - PC default: full console, persistent between turns. Combat View opts out for the station visit. GM never automatically sees a PC console.
 - Compact movement planner and full console share submission; Leave Console means character movement.
 - Live Tactical Rings, all six delayed-resolution factors with console names, extra reduced-motion-aware animations.
-- Both new Explore ships have Power Hybrid Engine 2, Cockpit 1, Exhaust Thruster 1 and Ionic Pulse Thruster 1.
+- Both new/reset Explore ships have Power Hybrid Engine 4, Bridge 1, Exhaust Thruster 1, Ionic Pulse Thruster 1, Sensors 3, Shield 1, Life Support and Nutritional Supplement. Start 10 Units apart with a disclosed demo-only Masking 18 modifier. Keep future demo layouts current with implemented SIC families.
 - Main starmap inset between the first ship headers. Existing console background art retained.
 
 Do not restart historical requests automatically. After completion, wait for feedback and the next #commit. A request to write handoff documentation does not authorize unrelated application changes or publication.
@@ -34,7 +36,7 @@ Do not restart historical requests automatically. After completion, wait for fee
 - Preserve original PNG print masters. WebP derivatives are for web display. Print Starship is not implemented; intended scale is half an inch per small combat-mesh cell.
 - Desktop first. Timing is computer-driven, not printed tabletop initiative.
 - Crew assignment differs from live location. One occupant per station, two per ordinary location with both tokens visible.
-- Exact NPC/ship condition numbers are GM-only, including logs/tooltips.
+- Exact NPC/ship condition numbers are GM-only, including logs/tooltips, except timestamped ship HP snapshots explicitly obtained by successful Systems Analysis.
 
 ## Rules To Preserve
 

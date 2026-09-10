@@ -273,7 +273,7 @@ async function main() {
   await demoGm.getByRole('button',{name:'Resume Encounter',exact:true}).click();
   await demoGm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true}).click();
   await demo.waitForTimeout(600);
-  const demoState=await fetch(base+'/api/state?room='+demoRoom.code).then(r=>r.json());
+  const demoState=await fetch(base+'/api/state?room='+demoRoom.code+'&token='+demoRoom.gmToken).then(r=>r.json());
   assert.equal(demoState.running,true);assert.equal(demoState.starships.length,2);
   await demo.getByRole('button',{name:'Nova Vale',exact:true}).click();
   const demoPc=demo.frameLocator('#showcaseFrame');
@@ -282,7 +282,7 @@ async function main() {
   await demo.screenshot({path:path.join(artifacts,'explore-player.png')});
   console.log('Explore Features GM clock and PC combat perspective: passed');
   const demoAct=body=>post('action',{roomCode:demoRoom.code,gmToken:demoRoom.gmToken,...body});
-  const readDemo=()=>fetch(base+'/api/state?room='+demoRoom.code).then(r=>r.json());
+  const readDemo=()=>fetch(base+'/api/state?room='+demoRoom.code+'&token='+demoRoom.gmToken).then(r=>r.json());
   await demoAct({action:'setHardPaused',paused:true});
   const maps=require('../ship-map-core'),navigation=require('../ship-navigation');
   for(const ship of (await readDemo()).starships){
@@ -324,7 +324,8 @@ async function main() {
         await frame.getByRole('button',{name:'Move Ship',exact:true}).click();
       }else if(!(await full.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
       const order=demo.getByRole('dialog',{name:compact?'Move ship':'Pilot console',exact:true});await order.waitFor();
-      const destination={q:(isPc?0:25)+i+2,r:2-i};
+      const origin=initial.shipPositions.find(p=>p.id===ship.id);
+      const destination={q:Math.round(origin.q)+i+2,r:Math.round(origin.r)+2-i};
       await hexClick(demo,destination.q,destination.r);
       const confirm=order.getByRole('button',{name:'Move Ship',exact:true});
       await confirm.hover();await demo.waitForTimeout(650);assert.equal(await confirm.isEnabled(),true);

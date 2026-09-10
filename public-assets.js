@@ -3,6 +3,7 @@ const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
   "station-access.js", "ship-shields.js", "shield-console-ui.js",
+  "ship-sensors.js", "sensor-console-ui.js",
   "delay-rules.js", "skill-descriptions.js",
   "app.js", "character.js", "character-data.js", "character-print.js",
   "combat-actions.js", "combat-engine.js", "combat-rules.js", "data-reset.js",

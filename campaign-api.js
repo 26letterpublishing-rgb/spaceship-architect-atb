@@ -67,8 +67,8 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewN
   const row = Math.floor(startCell / 20);
   const column = startCell % 20;
   const gridCells = [];
-  for (let y = 0; y < 3; y += 1) for (let x = 0; x < 5; x += 1) gridCells.push((row + y) * 20 + column + x);
-  const engineCell = (row + 1) * 20 + column + 1;
+  for (let y = 0; y < 7; y += 1) for (let x = 0; x < 8; x += 1) gridCells.push((row + y) * 20 + column + x);
+  const engineCell = startCell + 61;
   const engineId = `${id}-engine-1`;
   return normalizeStarshipRecord({
     id,
@@ -80,13 +80,19 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewN
       id,
       title,
       affiliation: controlType === "pc" ? "Exploration Crew" : "Unknown Contact",
-      class: "5x3 Test Craft",
+      class: "8x7 Systems Test Craft",
       confirmedOnce: true,
       gridCells,
       placements: [{ sicId: engineId, cell: engineCell }, { sicId: `${id}-cockpit`, cell: startCell + 3 },
-        { sicId: `${id}-exhaust`, cell: startCell - 20 }, { sicId: `${id}-ionic`, cell: startCell - 16 }],
-      sicInventory: [{ id: engineId, type: "en-au-engine-2", status: "installed", stationLayout: "corners-v1" },
-        { id: `${id}-cockpit`, type: "cockpit-1", status: "installed", stationLayout: "corners-v1" },
+        { sicId: `${id}-exhaust`, cell: startCell - 20 }, { sicId: `${id}-ionic`, cell: startCell - 16 },
+        { sicId: `${id}-sensors`, cell:startCell+1 }, {sicId:`${id}-shield`,cell:startCell+41},
+        { sicId: `${id}-life`, cell:startCell+25 }, {sicId:`${id}-nutrition`,cell:startCell+6}],
+      sicInventory: [{ id: engineId, type: "en-au-engine-4", status: "installed", stationLayout: "corners-v1" },
+        { id: `${id}-cockpit`, type: "bridge-1", status: "installed", stationLayout: "corners-v1" },
+        { id: `${id}-sensors`, type:"sensors-3",status:"installed"},
+        { id: `${id}-shield`, type:"shield-1",status:"installed",stationLayout:"corners-v1"},
+        { id: `${id}-life`, type:"life-support",status:"installed"},
+        { id: `${id}-nutrition`, type:"nutritional-supplement",status:"installed"},
         { id: `${id}-exhaust`, type: "exhaust-thruster-1", status: "installed" },
         { id: `${id}-ionic`, type: "ionic-pulse-thruster-1", status: "installed" }],
       doorStates: {},
@@ -1197,6 +1203,7 @@ class CampaignApi {
         projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
         engineeringSkill: entry.skills.Engineering || 0,
         pilotSkill: entry.skills['Pilot/Helm'] || 0,
+        sensorSkill: entry.skills['Sensor Systems'] || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
         location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],
@@ -1215,6 +1222,9 @@ class CampaignApi {
       const normalized = normalizeCampaign(campaign);
       normalized.showcase = true;
       normalized.encounter.showcase = true;
+      normalized.encounter.shipPositions = [{id:pcShip.id,q:0,r:0},{id:npcShip.id,q:10,r:0}];
+      normalized.encounter.starships.forEach(ship=>{ship.sensorScenarioMasking=18;});
+      normalized.encounter.log.push({id:uid('log'),at:new Date().toLocaleTimeString(),text:'Sensor scenario: ships start 10 Units apart, with a demo-only Masking of 18. Both crews receive an unknown contact; scan to locate it.'});
       const encounterTemplate = clone(normalized.encounter);
       this.showcases.set(showcaseCode, { campaign: normalized, encounterTemplate, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
       this.campaignCache.set(showcaseCode, normalized);

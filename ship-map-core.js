@@ -115,6 +115,23 @@
       shieldHp:tier*10,shieldReduction,shieldRegeneration,restabilizeAu,stations:perimeterStations(size,size,seats) };
   }
 
+  const sensorRows = [
+    [1,150,1,1,1,1,'Ragnaron, 3 hrs',6,2,4,8,4,2,'A-31'],
+    [2,675,1,2,1,1,'Crystilium, 4 hrs',9,2,6,10,6,4,'A-32'],
+    [3,1600,2,2,1,1,'Mirium, 8 hrs',12,3,6,12,8,4,'A-33'],
+    [4,3500,2,3,1,1,'Phazon, 16 hrs',15,2,8,14,10,6,'A-34'],
+    [5,6300,3,3,2,1,'Drakkonite, 2 days',18,3,8,16,12,6,'A-35'],
+    [6,15750,3,4,2,1,'Necronium, 3 days',21,3,10,18,15,8,'A-36'],
+    [7,30800,4,4,2,1,'Dark Phazon, 1 week',24,4,10,20,16,8,'B-24'],
+    [8,63000,4,5,2,2,'Infinium, 10 days',27,3,12,22,18,10,'B-25'],
+    [9,127000,5,5,2,2,'Aethion, 3 weeks',30,4,12,24,20,10,'B-26'],
+  ];
+  for (const [tier,price,energyCost,security,width,height,crafting,threshold,diceCount,die,range,impairedRange,impairedDie,cardNumber] of sensorRows) {
+    catalog[`sensors-${tier}`] = { name:`Sensors ${tier}`, sensor:true, tier, price, energyCost, security, width, height,
+      crafting, threshold, diceCount, die, range, impairedRange, impairedDie, cardNumber, output:0, stations:[],
+      label:`SN ${tier}`, color:'#267f89', image:image(`sensors-${tier}-floor-plan.png`) };
+  }
+
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
@@ -171,6 +188,7 @@
     const inventory = ship.sicInventory || [];
     const installed = new Set((ship.placements || []).map(p => p.sicId));
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).bridge).length > 1) return "A ship may have only one Bridge or Cockpit.";
+    if (inventory.filter(item => installed.has(item.id) && definition(item.type).sensor).length > 1) return "A ship may have only one installed Sensor system.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).thruster).length > 4) return "A ship may have at most four installed thrusters.";
     for (const p of ship.placements || []) {
       const item = inventory.find(item => item.id === p.sicId);
@@ -199,6 +217,14 @@
     if (!Number.isInteger(origin) || origin < 0 || origin % 20 + width > 20 || Math.floor(origin / 20) + height > 20) return false;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) cells.push(origin + y * 20 + x);
     return cells.every(cell => hull.has(cell)) && cells.some(cell => edgePlacement(ship, cell));
+  }
+
+  function sensorStats(record) {
+    const ship = record.ship || record, ids = new Set((ship.placements || []).map(p => p.sicId));
+    const item = (ship.sicInventory || []).find(i => ids.has(i.id) && definition(i.type).sensor && !i.disabled && !['offline','powered-down','destroyed'].includes(i.status));
+    if (!item) return {range:0,diceCount:0,die:0};
+    const def = definition(item.type), impaired = item.impaired || item.status === 'impaired';
+    return {range:impaired ? def.impairedRange : def.range,diceCount:def.diceCount,die:impaired ? def.impairedDie : def.die};
   }
 
   function masking(record) {
@@ -364,5 +390,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, sensorStats, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
 }));

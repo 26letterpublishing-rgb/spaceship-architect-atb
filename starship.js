@@ -50,6 +50,14 @@ for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; t
   document.querySelector(".sic-card-gallery").append(card);
 }
 
+for (let tier=1;tier<=9;tier++) {
+  const type=`sensors-${tier}`,data=window.SAShipMap.definition(type);
+  SIC_CATALOG[type]={...data,category:'sensor',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
+  const card=document.createElement('section');card.className='sic-market-item';
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Sensor <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Sensor Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>${data.diceCount}D${data.die} / Range ${data.range} Units</strong><p>One installed Sensor system per ship. Operate from a cockpit or bridge; no local stations.</p><p>Scan Area, Scan Hex, Systems Analysis and Life Scan. Life Scan reads approximate biological life on one ship or within a 50-mile area.</p></section><footer><span><small>If Impaired</small>${data.diceCount}D${data.impairedDie} / Range ${data.impairedRange}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  document.querySelector('.sic-card-gallery').append(card);
+}
+
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),...Array.from({length:10},(_,i)=>`shield-${i+1}`)]) {
   const data = window.SAShipMap.definition(type);
@@ -439,6 +447,7 @@ function validateSicPlacement(sicId, cell) {
   if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
   if (definition.edge && !window.SAShipMap.componentAtEdge(draft,cell,item)) return {legal:false,reason:`${definition.name} must be inside the ship, against an outer hull wall.`,cells};
   if (definition.bridge && draft.placements.some(p=>p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i=>i.id===p.sicId)).bridge)) return {legal:false,reason:"A ship may have only one Bridge or Cockpit.",cells};
+  if (definition.sensor && draft.placements.some(p=>p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i=>i.id===p.sicId)).sensor)) return {legal:false,reason:"A ship may have only one installed Sensor system.",cells};
   if (definition.exterior) {
     const others = draft.placements.filter(p => p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i => i.id === p.sicId)).thruster);
     if (definition.thruster && others.length >= 4) return { legal: false, reason: "A ship may have at most four installed thrusters. Additional thrusters can remain in storage.", cells };
@@ -866,6 +875,15 @@ function renderLiveStats() {
   const scale = shipScaleStats(hull);
   const propulsion = window.SAShipMap.propulsion(confirmed);
   document.querySelectorAll('[data-live-stat="masking"]').forEach(element => { element.textContent = String(window.SAShipMap.masking(confirmed)); });
+  const sensors = window.SAShipMap.sensorStats(confirmed);
+  document.querySelectorAll('[data-sensor-range]').forEach(element => {element.textContent = sensors.range;});
+  document.querySelectorAll('[data-sensor-dice]').forEach(element => {element.textContent = `${sensors.diceCount}D${sensors.die}`;});
+  let sensorSummary = document.querySelector('[data-sensor-summary]');
+  if (!sensorSummary) {
+    sensorSummary = document.createElement('span');sensorSummary.dataset.sensorSummary='';
+    document.querySelector('.construction-summary')?.append(sensorSummary);
+  }
+  sensorSummary.textContent = `Sensors ${sensors.range} Units / ${sensors.diceCount}D${sensors.die}`;
   document.querySelectorAll('[data-propulsion]').forEach(element => { const key = element.dataset.propulsion; element.textContent = key.startsWith('impulse') ? String(propulsion.impulses[Number(key.slice(-1))] ?? 0) : String(propulsion[key] ?? 0); });
   document.querySelectorAll("[data-propulsion-summary]").forEach(element => { element.textContent = `Impulse ${propulsion.impulses.join(" + ") || "0"} | Move ${propulsion.rawSpeed} | Evade ${propulsion.evadeCount}D${propulsion.evadeDie} | Exhaust ${propulsion.exhaust} | Masking ${window.SAShipMap.masking(confirmed)}`; });
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hull); });

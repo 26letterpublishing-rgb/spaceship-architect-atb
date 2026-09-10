@@ -18,10 +18,10 @@
     const ship = seat.ship.ship || seat.ship, inventory = new Map((ship.sicInventory || []).map(i => [i.id, i]));
     return (ship.placements || []).flatMap(p => {
       const item = inventory.get(p.sicId), definition = maps.componentDefinition(item);
-      if (!online(item) || (!definition.shipControl && !definition.shield)) return [];
+      if (!online(item) || (!definition.shipControl && !definition.shield && !definition.sensor)) return [];
       const remote = seat.cell.sicId !== item.id;
       if (remote && !maps.definition(seat.cell.type).bridge) return [];
-      return [{ id: item.id, item, definition, ship: seat.ship, remote, seat, kind: definition.shield ? 'shield' : 'pilot' }];
+      return [{ id: item.id, item, definition, ship: seat.ship, remote, seat, kind: definition.sensor ? 'sensor' : definition.shield ? 'shield' : 'pilot' }];
     });
   }
   const access = (room, unit, sicId) => consoles(room, unit).find(c => c.id === sicId) || null;

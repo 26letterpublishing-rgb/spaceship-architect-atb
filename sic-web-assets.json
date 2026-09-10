@@ -1399,6 +1399,272 @@
     "webBytes": 26346,
     "alpha": false
   },
+  "sensor-console-background.png": {
+    "file": "sensor-console-background-web.webp",
+    "sourcePixels": [
+      1672,
+      941
+    ],
+    "webPixels": [
+      1672,
+      941
+    ],
+    "sourceBytes": 978963,
+    "webBytes": 79868,
+    "alpha": false
+  },
+  "sensors-1-card.png": {
+    "file": "sensors-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1506789,
+    "webBytes": 21684,
+    "alpha": false
+  },
+  "sensors-1-floor-plan.png": {
+    "file": "sensors-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2418753,
+    "webBytes": 131870,
+    "alpha": false
+  },
+  "sensors-2-card.png": {
+    "file": "sensors-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1820694,
+    "webBytes": 26122,
+    "alpha": false
+  },
+  "sensors-2-floor-plan.png": {
+    "file": "sensors-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2851720,
+    "webBytes": 173750,
+    "alpha": false
+  },
+  "sensors-3-card.png": {
+    "file": "sensors-3-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1609498,
+    "webBytes": 27266,
+    "alpha": false
+  },
+  "sensors-3-floor-plan.png": {
+    "file": "sensors-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2758144,
+    "webBytes": 174854,
+    "alpha": false
+  },
+  "sensors-4-card.png": {
+    "file": "sensors-4-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1837907,
+    "webBytes": 30322,
+    "alpha": false
+  },
+  "sensors-4-floor-plan.png": {
+    "file": "sensors-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2903206,
+    "webBytes": 189282,
+    "alpha": false
+  },
+  "sensors-5-card.png": {
+    "file": "sensors-5-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1759681,
+    "webBytes": 27620,
+    "alpha": false
+  },
+  "sensors-5-floor-plan.png": {
+    "file": "sensors-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2888671,
+    "webBytes": 326164,
+    "alpha": false
+  },
+  "sensors-6-card.png": {
+    "file": "sensors-6-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1993665,
+    "webBytes": 32598,
+    "alpha": false
+  },
+  "sensors-6-floor-plan.png": {
+    "file": "sensors-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2763666,
+    "webBytes": 311228,
+    "alpha": false
+  },
+  "sensors-7-card.png": {
+    "file": "sensors-7-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1894638,
+    "webBytes": 32992,
+    "alpha": false
+  },
+  "sensors-7-floor-plan.png": {
+    "file": "sensors-7-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2747618,
+    "webBytes": 293922,
+    "alpha": false
+  },
+  "sensors-8-card.png": {
+    "file": "sensors-8-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1949362,
+    "webBytes": 34536,
+    "alpha": false
+  },
+  "sensors-8-floor-plan.png": {
+    "file": "sensors-8-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2684957,
+    "webBytes": 417884,
+    "alpha": false
+  },
+  "sensors-9-card.png": {
+    "file": "sensors-9-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2070056,
+    "webBytes": 38644,
+    "alpha": false
+  },
+  "sensors-9-floor-plan.png": {
+    "file": "sensors-9-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2815009,
+    "webBytes": 429498,
+    "alpha": false
+  },
   "shield-1-card.png": {
     "file": "shield-1-card-web.webp",
     "sourcePixels": [

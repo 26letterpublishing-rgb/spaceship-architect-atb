@@ -539,6 +539,7 @@ function encounterRuleFields(record) {
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
     engineeringSkill: Number(skillRating(record, "Engineering")) || 0,
     pilotSkill: Number(skillRating(record, "Pilot/Helm")) || 0,
+    sensorSkill: Number(skillRating(record, "Sensor Systems")) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
@@ -1130,7 +1131,7 @@ function selectGmTab(tabName = "script") {
 
 async function refreshEncounterState() {
   if (!code) return null;
-  encounterState = await api(`/api/state?room=${encodeURIComponent(code)}`, null, "GET");
+  encounterState = await api(`/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
   renderEncounterStatus();
   renderStarships();
   return encounterState;

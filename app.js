@@ -1497,7 +1497,7 @@ function shipScopedLogEntries(shipId, units) {
 
 function shipCombatColumnsMarkup(units) {
   const ships = (state?.starships || []).slice(0, 6);
-  return `<div class="ship-combat-columns" data-ship-count="${ships.length}"><div class="combat-space-map" style="grid-column:1/-1">${window.SASpaceMap.markup(ships,state.shipPositions)}</div>${ships.map((ship) => {
+  return `<div class="ship-combat-columns" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="combat-space-map" style="grid-column:1/-1">${window.SASpaceMap.markup(ships,state.shipPositions)}</div>${ships.filter(s=>!s.contactOnly).map((ship) => {
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
     const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
     const title = ship.title || ship.ship?.title || "Unnamed Starship";
@@ -1508,7 +1508,7 @@ function shipCombatColumnsMarkup(units) {
       <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button>`:''}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
-      <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
+      <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
   }).join("")}</div>`;
@@ -1770,7 +1770,7 @@ window.SACombatBridge = {
   soundEnabled: () => mode === 'gm' ? !gmSoundsMuted : alertsEnabled,
   soundIcon: () => gmMuteSound.innerHTML,
   toggleSound: () => gmMuteSound.click(),
-  pilotRings: () => (state?.starships || []).map(ship => tacticalRingSingleMarkup(
+  pilotRings: () => (state?.starships || []).filter(ship=>!ship.contactOnly).map(ship => tacticalRingSingleMarkup(
     state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
   state: () => state,
   mode: () => mode,
@@ -1802,10 +1802,14 @@ function setRoom(nextState) {
   connectCampaignEvents();
 }
 
+function encounterStateUrl(code = currentRoomCode) {
+  return `/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(mode === 'gm' || embeddedGm ? gmCampaignToken : campaignCharacterToken)}`;
+}
+
 function connectEvents() {
   if (events) events.close();
   if (!currentRoomCode) return;
-  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}`);
+  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}&token=${encodeURIComponent(mode === 'gm' || embeddedGm ? gmCampaignToken : campaignCharacterToken)}`);
   events.addEventListener("state", (event) => {
     setConnected(true);
     receiveState(JSON.parse(event.data));
@@ -1819,7 +1823,7 @@ function connectEvents() {
 async function verifySavedRoomStillExists() {
   if (!currentRoomCode || mode === "welcome" || mode === "roomJoin") return;
   try {
-    const response = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`);
+    const response = await fetch(encounterStateUrl());
     if (response.status === 404) {
       returnToWelcome("That room expired. Create or join a new room.");
       return;
@@ -1836,7 +1840,7 @@ async function verifySavedRoomStillExists() {
 async function keepRoomAwake() {
   if (mode !== "gm" || !currentRoomCode) return;
   try {
-    const response = await fetch(`/api/keep-alive?room=${encodeURIComponent(currentRoomCode)}`, {
+    const response = await fetch(`/api/keep-alive?room=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(gmCampaignToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
@@ -3725,7 +3729,7 @@ confirmJoinRoom.addEventListener("click", async () => {
   let response;
   try {
     await loadCampaignForEncounter(code);
-    response = await fetch(`/api/state?room=${encodeURIComponent(code)}`);
+    response = await fetch(encounterStateUrl(code));
   } catch {
     setConnected(false, "Cannot reach the ATB room server. Check the room code or try again.");
     return;
@@ -4170,6 +4174,11 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if(button.dataset.sensorReading&&mode==='gm'){
+    const reading = prompt('Approximate biological life reading (artificial life is excluded):');
+    if (reading?.trim()) action({action:'sensorLifeReading',starshipId:button.dataset.sensorShip,reportAt:button.dataset.sensorReading,reading},'resolve');
+    return;
+  }
   if(button.dataset.damageShip&&mode==='gm'){
     const text=window.prompt('Incoming damage for one hit (before shield reduction):','1');
     if(text===null)return;const amount=Number(text);
@@ -4362,7 +4371,7 @@ let visibleRecoveryTimer = null;
 async function recoverVisibleCombatState() {
   if (document.hidden || !currentRoomCode || mode === "welcome" || mode === "roomJoin" || mode === "join") return;
   try {
-    const response = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}&recover=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(encounterStateUrl()+`&recover=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) return;
     lastCombatPromptKey = "";
     gmNpcPromptSignature = "";
@@ -4394,7 +4403,7 @@ async function initializeEmbeddedPlayer() {
     if (!record || campaignState.ownCharacterId !== campaignCharacterId) throw new Error("This character is no longer linked to the campaign.");
     playerPreviewRecord = record;
 
-    const encounterResponse = await fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`);
+    const encounterResponse = await fetch(encounterStateUrl());
     if (!encounterResponse.ok) throw new Error("The campaign Combat state is unavailable.");
     setRoom(await encounterResponse.json());
 
@@ -4414,7 +4423,7 @@ async function initializeEmbeddedPlayer() {
 
 if (embeddedGm && currentRoomCode) {
   document.body.classList.add("embedded-gm");
-  fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
+  fetch(encounterStateUrl())
     .then((response) => response.ok ? response.json() : Promise.reject(new Error("Campaign encounter unavailable")))
     .then((nextState) => {
       setRoom(nextState);
@@ -4431,7 +4440,7 @@ if (embeddedPlayer && currentRoomCode && campaignCharacterId) {
 }
 
 if (!embeddedGm && !embeddedPlayer && currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
-  fetch(`/api/state?room=${encodeURIComponent(currentRoomCode)}`)
+  fetch(encounterStateUrl())
     .then((response) => {
       if (response.status === 404) return { expired: true };
       return response.ok ? response.json() : null;

@@ -10,14 +10,16 @@ for source in sorted(root.glob('*.png')):
     name = source.name
     if not (re.match(r'(?:au-|en-|power-)?(?:en-|au-)?engine-\d-', name)
             or re.match(r'(?:exhaust|ionic-pulse)-thruster-\d-', name)
-            or name.startswith(('cockpit-', 'bridge-', 'shield-', 'life-support-', 'nutritional-supplement-'))
+            or name.startswith(('cockpit-', 'bridge-', 'shield-', 'sensors-', 'sensor-console-', 'life-support-', 'nutritional-supplement-'))
             or name in ('hallway.png', 'starship-hull-plating.png', 'pilot-console-art.png')):
         continue
     floor = 'floor-plan' in name or name in ('hallway.png', 'starship-hull-plating.png')
     sprite = 'sprite' in name or (name.startswith('ionic-pulse-thruster') and 'graphic' in name)
     tier = int(re.search(r'-(\d+)-', name).group(1)) if re.search(r'-(\d+)-', name) else 1
     limit = max(720, tier * 256) if floor or sprite else 360
-    if name in ('pilot-console-art.png', 'shield-console-background.png'):
+    if name.startswith('sensors-') and floor:
+        limit = 720 if tier <= 4 else 1440
+    if name in ('pilot-console-art.png', 'shield-console-background.png', 'sensor-console-background.png'):
         limit = 1920
     target = source.with_name(source.stem + '-web.webp')
     with Image.open(source) as image:

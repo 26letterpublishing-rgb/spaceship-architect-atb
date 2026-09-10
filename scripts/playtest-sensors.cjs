@@ -1,0 +1,83 @@
+// Fresh campaign fixtures use the API; console interactions use real browser mouse events.
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {spawn}=require('node:child_process'),{once}=require('node:events');
+const root=path.resolve(__dirname,'..'),artifacts=path.join(root,'test-artifacts','sensors');
+fs.mkdirSync(artifacts,{recursive:true});
+const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'sa-sensor-browser-'));
+let child,browser,base;
+async function start(){
+  child=spawn(process.execPath,['server.js'],{cwd:root,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe'],windowsHide:true});
+  base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);child.on('error',reject);child.stdout.on('data',chunk=>{const url=String(chunk).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});child.stderr.on('data',c=>process.stderr.write(c));});
+}
+async function main(){
+  await start();
+  const post=async(route,body,status=200)=>{const res=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const json=await res.json();assert.equal(res.status,status,JSON.stringify(json));return json;};
+  const created=await post('campaign/create',{name:'Sensor Test',gmCode:'sensor-test-gm'},201),code=created.campaign.code;
+  let token=created.token;
+  const people=['Observer','Other Crew'].map((name,i)=>({id:'sensor-pc-'+i,phase:'finalized',access:{pcCode:'sensor-code-'+i},identity:{characterName:name,playerName:name},attributes:{health:[1,0,-1,-1],intellect:[1,0,-1,-1],perception:[1,0,-1,-1],dexterity:[1,0,-1,-1]},computed:{maximumHp:30,moveSpeed:2,speed:.1,commandWindow:120,skills:{'Sensor Systems':6}},health:{current:30}}));
+  const tokens=[];
+  for(const character of people){const join=await post('campaign/join/request',{code,character},201);await post('campaign/join/respond',{code,token,requestId:join.requestId,decision:'approve'});tokens.push((await post('campaign/join/status',{code,characterId:character.id,pcCode:character.access.pcCode})).token);}
+  const ships=people.map((person,i)=>({id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',crewCharacterIds:[person.id],ship:{id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',confirmedOnce:true,defenseScore:1,gridCells:Array.from({length:9},(_,n)=>42+Math.floor(n/3)*20+n%3),sicInventory:[{id:'cp',type:'cockpit-1'},{id:'sn',type:'sensors-3'},{id:'en',type:'en-engine-1'}],placements:[{sicId:'cp',cell:42},{sicId:'sn',cell:43},{sicId:'en',cell:64}]}}));
+  for(const ship of ships){await post('campaign/starship/link',{code,token,starship:ship.ship},201);await post('campaign/starship/crew',{code,token,starshipId:ship.id,crewCharacterIds:ship.crewCharacterIds});}
+  const act=(body,status=200)=>post('action',{roomCode:code,gmToken:token,...body},status);
+  const state=(viewer=token)=>fetch(`${base}/api/state?room=${code}&token=${viewer}`).then(r=>r.json());
+  await act({action:'prepareEncounter',preparationId:'sensor-browser-prep',mode:'starship',starships:ships,shipPositions:[{id:ships[0].id,q:0,r:0},{id:ships[1].id,q:7,r:0}],units:people.map((p,i)=>({characterId:p.id,characterName:p.identity.characterName,team:'pc',speed:.1,commandWindow:120,sensorSkill:6,location:{starshipId:ships[i].id,square:42,mesh:0,stationed:true}}))});
+  const operator=(await state()).units.find(u=>u.characterId===people[0].id);
+  const privateState=await state(tokens[0]);assert.equal(privateState.starships[1].contactOnly,true);assert.deepEqual(privateState.starships[1].ship.sicInventory,[]);assert.equal(privateState.units.length,1);
+  assert.equal((await state('')).starships.length,0,'Anonymous state must not reveal the fleet');
+  const controller=new AbortController();
+  try {
+    const stream=await fetch(`${base}/events?room=${code}&unit=${operator.id}&token=${tokens[0]}`,{signal:controller.signal}),reader=stream.body.getReader();
+    let text='';
+    while(!text.includes('event: state\n'))text+=new TextDecoder().decode((await reader.read()).value);
+    while(!text.slice(text.indexOf('event: state\n')).includes('\n\n'))text+=new TextDecoder().decode((await reader.read()).value);
+    const packet=JSON.parse(text.match(/event: state\ndata: ([^\n]+)/)[1]);
+    assert.equal(packet.units.length,1);assert.equal(packet.starships[1].contactOnly,true);assert.deepEqual(packet.starships[1].ship.placements,[]);
+  } finally {controller.abort();}
+  browser=await chromium.launch({channel:process.env.SA_BROWSER_CHANNEL||'msedge',headless:true});
+  const errors=[],requests=[];
+  async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
+  const gm=await page();await gm.goto(base+'/gm.html?campaign='+code);await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill('Sensor Test');await gm.getByRole('textbox',{name:'GM Code',exact:true}).fill('sensor-test-gm');await gm.getByRole('button',{name:'Open Campaign',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();
+  const frame=gm.frameLocator('#atbFrame');await frame.getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
+  const pcs=[];
+  for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);}
+  const pc=pcs[0];await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
+  await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sn');
+  const consoleView=pc.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();
+  assert.equal(await gm.locator('.sensor-console').count(),0,'No automatic player console for GM');
+  async function ready(){await act({action:'nudge',id:operator.id,amount:100});await consoleView.locator('[data-turn]').filter({hasText:'YOUR TURN'}).waitFor();}
+  async function step(count){for(let i=0;i<count;i++)await act({action:'step'});}
+  await ready();await consoleView.locator('[data-q]').fill('7');await consoleView.locator('[data-r]').fill('0');await pc.waitForTimeout(500);assert.equal(await consoleView.locator('[data-q]').inputValue(),'7');
+  const scan=consoleView.getByRole('button',{name:'Scan Hex',exact:true}),rect=await scan.boundingBox();
+  await pc.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(350);await pc.mouse.up();await pc.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
+  await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();assert.equal(requests.length,1,'Held click and retry must submit once');
+  const frozenAtb=(await state()).units.find(u=>u.id===operator.id).atb;
+  await act({action:'setHardPaused',paused:false});await pc.waitForTimeout(1250);await act({action:'setHardPaused',paused:true});
+  const typing=(await state()).units.find(u=>u.id===operator.id);assert.equal(typing.atb,frozenAtb);assert.ok(typing.delayedAction.remaining<100&&typing.delayedAction.remaining>0);
+  await step(9);await consoleView.locator('[data-reports]').filter({hasText:'Hex scan complete'}).waitFor();
+  await ready();await consoleView.getByRole('combobox',{name:'Detected contact',exact:true}).selectOption(ships[1].id);await consoleView.getByRole('button',{name:'Systems Analysis',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
+  assert.ok((await state()).units.find(u=>u.id===operator.id).queuedEffects.some(e=>e.sensorReport));await step(13);
+  await consoleView.locator('[data-reports]').filter({hasText:'Snapshot at scan completion'}).waitFor();assert.ok((await state(tokens[0])).starships[0].sensorState.reports.some(r=>r.analysis));assert.ok(!(await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.analysis));
+  await pc.screenshot({path:path.join(artifacts,'sensor-console-1366.png')});
+  await pc.setViewportSize({width:1920,height:1080});await pc.screenshot({path:path.join(artifacts,'sensor-console-1920.png')});
+  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
+  const reading=frame.getByRole('button',{name:'Enter Biological Reading',exact:true});await reading.waitFor();gm.once('dialog',d=>d.accept('Approximately two biological life signs.'));await reading.click();await consoleView.locator('[data-reports]').filter({hasText:'Approximately two biological'}).waitFor();
+  await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
+  await consoleView.getByRole('button',{name:'Combat View',exact:true}).click();assert.equal(await pc.frameLocator('#playerAtbFrame').locator('[data-ship-combat-lane]').count(),1);
+  await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await pc.waitForTimeout(800);
+  const builder=await page();await builder.goto(base+'/starship.html');await builder.getByRole('button',{name:'SICs',exact:true}).click();await builder.locator('summary').filter({hasText:'Sensors'}).click();await builder.getByRole('dialog',{name:'Sensors',exact:true}).waitFor();assert.equal(await builder.locator('.sic-picker-slot').count(),9);await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(i=>i.decode())));await builder.waitForTimeout(700);await builder.screenshot({path:path.join(artifacts,'sensor-cards-1366.png')});
+  await builder.locator('[data-family-back]').click();
+  await builder.evaluate(ship=>localStorage.setItem('sa-starship-layout-draft',JSON.stringify({...draft,...ship,confirmed:ship})),ships[0].ship);
+  await builder.reload();await builder.getByRole('button',{name:'Ship Details',exact:true}).click();
+  assert.equal(await builder.locator('.desktop-live-stats [data-sensor-range]').textContent(),'12');
+  await builder.screenshot({path:path.join(artifacts,'sensor-ship-details.png')});
+  const demo=await post('campaign/showcase/start',{});const demoCode=demo.code;const demoState=await fetch(`${base}/api/state?room=${demoCode}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(demoState.starships.length,2);assert.ok(demoState.starships.every(s=>s.sensorState.contacts[demoState.starships.find(o=>o.id!==s.id).id]?.level==='unknown'));
+  assert.deepEqual(errors,[]);
+  await new Promise(r=>setTimeout(r,600));await browser.close();browser=null;const stopped=once(child,'exit');child.kill();await stopped;await start();
+  token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;
+  tokens[0]=(await post('campaign/join/status',{code,characterId:people[0].id,pcCode:people[0].access.pcCode})).token;
+  assert.ok((await state()).starships[0].sensorState.reports.some(r=>r.analysis));assert.equal((await state(tokens[0])).starships[1].contactOnly,true);
+  console.log('Sensor browser checks passed: fresh GM/two PCs, authenticated privacy, held mouse click, scan, queued analysis, GM life reading, share, reload, cards, demo contacts and server restart.');console.log(artifacts);
+}
+main().catch(async e=>{console.error(e);if(browser)for(const [i,c]of browser.contexts().entries())for(const [j,p]of c.pages().entries())await p.screenshot({path:path.join(artifacts,`failure-${i}-${j}.png`)}).catch(()=>{});process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(child&&child.exitCode===null){const stop=once(child,'exit');child.kill();await stop;}});

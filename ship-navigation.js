@@ -35,6 +35,7 @@
   }
   function queue(room,unit,body){
     if(unit.delayedAction || unit.delayTimer || unit.timedAction)return {ok:false,error:'Finish the current action first.'};
+    if(room.starships.some(ship=>ship.auCommands?.some(command=>command.unitId===unit.id)))return {ok:false,error:'Finish the pending AU command first.'};
     // Validate without spending AU or replacing the route already in flight.
     const copy=JSON.parse(JSON.stringify(room)), pilot=copy.units.find(u=>u.id===unit.id);
     const result=order(copy,pilot,body);

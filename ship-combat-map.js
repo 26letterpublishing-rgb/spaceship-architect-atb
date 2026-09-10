@@ -348,7 +348,7 @@
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
       ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
-      ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
+      ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", statValue(record, "firewallLevel", "security")],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
     stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");
@@ -364,7 +364,7 @@
     const fields = [
       ["Shield", `${shield}/${shieldMax}`], ["Hull", `${hull}/${hullMax}`],
       ["Defense", statValue(record, "defenseScore", "defense")], ["Movement", statValue(record, "moveSpeed", "movement")],
-      ["Detection", statValue(record, "sensorRange", "detection")], ["Security", statValue(record, "firewallLevel", "security")],
+      ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", statValue(record, "firewallLevel", "security")],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
     return fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");

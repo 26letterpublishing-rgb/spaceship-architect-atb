@@ -47,7 +47,7 @@
       for(const button of view.querySelectorAll('[data-order]')){
         const kind=button.dataset.order;
         button.hidden=kind==='restabilize'&&a.remote;
-        button.disabled=busy||Boolean(pending)||impaired||(kind==='restabilize'?shield.hp>0||Boolean(rest):!valid||shield.hp<=0||Boolean(rest));
+        button.disabled=busy||Boolean(pending)||Boolean(person.delayedAction?.sensorOrder||person.delayedAction?.shipOrder)||impaired||(kind==='restabilize'?shield.hp>0||Boolean(rest):!valid||shield.hp<=0||Boolean(rest));
         button.setAttribute('aria-disabled',String(button.disabled));
       }
       get('[data-rest-rule]').hidden=a.remote;
@@ -56,7 +56,7 @@
       get('[data-leave]').disabled=busy||!ready||Boolean(person.shieldRestabilizing);
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
       const sound=get('[data-sound]');sound.classList.toggle('muted',!bridge.soundEnabled());sound.setAttribute('aria-pressed',String(bridge.soundEnabled()));
-      const fleet=state.starships.map(ship=>`<div><strong>${esc(ship.title)}</strong>${window.SAHealthDisplay.track('hull',ship.currentHullHp,ship.maximumHullHp,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',ship.currentShieldHp,ship.maximumShieldHp,bridge.mode()==='gm')}</div>`).join('');
+      const fleet=state.starships.map(ship=>ship.contactOnly?`<div><strong>${esc(ship.title)}</strong><small>${ship.contactLevel==='detected'?'Detected / condition unscanned':'Unresolved signal'}</small></div>`:`<div><strong>${esc(ship.title)}</strong>${window.SAHealthDisplay.track('hull',ship.currentHullHp,ship.maximumHullHp,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',ship.currentShieldHp,ship.maximumShieldHp,bridge.mode()==='gm')}</div>`).join('');
       if(fleet!==lastFleet){get('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
       const log=(state.log||[]).slice(-20).reverse().map(e=>`<p><small>${esc(e.at)}</small>${esc(window.SAHealthDisplay.logText(e.text,bridge.mode()==='gm'))}</p>`).join('');
       if(log!==lastLog){get('[data-log]').innerHTML=log;lastLog=log;}

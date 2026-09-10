@@ -151,7 +151,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   await combat({action:"syncEncounterStarships", starships:[...ships, {...auShip,id:"seventh"}]}, 400);
   const demo = await post("showcase/start", {});
   const demoAction = payload => combat({roomCode:demo.code,gmToken:demo.gmToken,...payload});
-  let demoState = await (await fetch(`${base}/api/state?room=${demo.code}`)).json();
+  let demoState = await (await fetch(`${base}/api/state?room=${demo.code}&token=${demo.gmToken}`)).json();
   for(const ship of demoState.starships){
     const maps=require('../ship-map-core'),nav=require('../ship-navigation');
     assert.equal(maps.exteriorError(ship.ship),'');
@@ -187,7 +187,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(shipSave.starships.find(record=>record.id==='http-exterior').ship.placements[0].cell,20);
   const connection = new AbortController();
   t.after(() => connection.abort());
-  const stream = await fetch(`${base}/events?room=${code}&unit=${preparedA.units[0].id}`, { signal: connection.signal });
+  const stream = await fetch(`${base}/events?room=${code}&unit=${preparedA.units[0].id}&token=${playerTokens[0]}`, { signal: connection.signal });
   await stream.body.getReader().read();
   const spent = await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 3 });
   const retried = await combat(preparation);

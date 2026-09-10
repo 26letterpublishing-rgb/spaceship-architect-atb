@@ -85,6 +85,7 @@
     if (!/^[\w-]{8,100}$/.test(requestId)) return { ok: false, error: 'Invalid shield command receipt.' };
     ship.shieldReceipts ||= [];
     if (ship.shieldReceipts.includes(requestId)) return { ok: true, duplicate: true };
+    if (unit.delayedAction?.sensorOrder || unit.delayedAction?.shipOrder) return {ok:false,error:'Finish the current console input first.'};
     if ((room.starships || []).some(r => r.auCommands?.some(c => c.unitId === unit.id))) return { ok: false, error: 'Finish the pending AU command first.' };
     const kind = body.kind;
     if (kind === 'restabilize') {

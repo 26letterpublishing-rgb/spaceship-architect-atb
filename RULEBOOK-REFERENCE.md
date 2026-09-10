@@ -262,6 +262,12 @@ feature is implemented, after checking current user-approved overrides:
 
 ## Engineering Implications (Analysis, Not Approved Work)
 
+### Sensor Digital Pass (Authorized September 2026)
+
+Sensors 1-9 are implemented. See SENSORS-PASS.md for exact data and coverage. User-approved impaired ranges are 4, 6, 8, 10, 12, 15, 16, 18 and 20 Units. No local sensor stations or Engineering speed bonus; operate remotely from a cockpit/bridge. Successful Systems Analysis may reveal exact ship HP, as a timestamped snapshot. Important source correction: a failed Analysis adds +1 to the next ROLL, not its difficulty.
+
+Digital playtest assumptions: input base 8, Quality ceil(tier/2) capped at four, 12 combat seconds for a successful Analysis report to finish, and ship Masking as the defense fallback when no explicit Defense Score exists. These are recorded interpretations, not printed rules. Life Scan results remain approximate and GM-authored, with no artificial life. Lock-On equipment/actions are not part of this pass.
+
 Use a shared ship model and shared map behavior rather than fixing each page or
 each card independently. Keep art separate from collision and door geometry.
 Store catalog definitions separately from each purchased equipment instance.

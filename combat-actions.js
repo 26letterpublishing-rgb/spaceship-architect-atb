@@ -493,6 +493,7 @@
       projectileSkill: skillValue("Projectile"),
       engineeringSkill: skillValue("Engineering"),
       pilotSkill: skillValue("Pilot/Helm"),
+      sensorSkill: skillValue("Sensor Systems"),
       meleeSkill: skillValue("Melee"),
       dodgeSkill: skillValue("Dodge/Block"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),

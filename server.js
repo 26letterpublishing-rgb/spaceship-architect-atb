@@ -23,6 +23,7 @@ const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
 const shipNavigation = require("./ship-navigation");
 const shipShields = require("./ship-shields");
+const shipSensors = require("./ship-sensors");
 const shipDistances = require("./ship-distances");
 const shipMapCore = require("./ship-map-core");
 const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
@@ -101,7 +102,8 @@ function normalizeEncounterStarships(value) {
       currentShieldHp: Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? record.maximumShieldHp ?? ship.maximumShieldHp) || 0),
       controlType: record?.controlType === "gm" ? "gm" : "pc",
       crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
-      ship: { gridCells, placements, sicInventory, doorStates },
+      ship: { gridCells, placements, sicInventory, doorStates, affiliation:String(ship.affiliation || '').slice(0,100),
+        defenseScore:Number.isFinite(ship.defenseScore) ? ship.defenseScore : undefined },
       auState: record?.auState ? { current: record.auState.current, progress: record.auState.progress } : null,
     };
   }).filter((record) => record.id);
@@ -172,11 +174,12 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.encounterEndedAt = snapshot.encounterEndedAt || null;
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
+    room.sensorMode = Boolean(snapshot.sensorMode);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
     room.starships.forEach(ship => {
       const saved = snapshot.starships?.find(s => s.id === ship.id);
-      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts']) ship[key] = clone(saved?.[key] || null);
+      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts', 'sensorState', 'sensorScenarioMasking']) ship[key] = clone(saved?.[key] ?? null);
     });
     room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
@@ -227,7 +230,9 @@ function scheduleRoomPersist(room, delay = 250) {
 }
 
 function publicState(room) {
+  room.showcase ||= Boolean(campaignApi?.isShowcase(room.roomCode));
   shipShields.refresh(room);
+  shipSensors.refresh(room);
   migrateRoomDelays(room);
   const command = commandState(room);
   return {
@@ -259,6 +264,7 @@ function publicState(room) {
     log: room.log.slice(-30),
     undoAvailable: Boolean(room.undoSnapshot),
     showcase: Boolean(room.showcase || campaignApi?.isShowcase(room.roomCode)),
+    sensorMode: Boolean(room.sensorMode),
   };
 }
 
@@ -273,6 +279,11 @@ function resetShowcaseRoom(room) {
 }
 
 function pushLog(room, text, context = {}) {
+  if (!context.starshipId) {
+    const mentioned = room.units.filter(unit => unit.characterName && text.includes(unit.characterName));
+    const ships = new Set(mentioned.map(unit => unit.location?.starshipId).filter(Boolean));
+    if (ships.size === 1) context = {...context, starshipId:[...ships][0]};
+  }
   room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text, ...context });
   room.log = room.log.slice(-80);
 }
@@ -746,6 +757,7 @@ function snapshotRoom(room) {
     units: clone(room.units),
     log: clone(room.log),
     preparations: clone(room.preparations || []),
+    sensorMode: Boolean(room.sensorMode),
   };
 }
 
@@ -780,6 +792,7 @@ function restoreUndoSnapshot(room) {
   room.encounterEndedAt = snapshot.encounterEndedAt;
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
+  room.sensorMode = Boolean(snapshot.sensorMode);
   room.threshold = snapshot.threshold;
   room.starships = clone(snapshot.starships || []);
   room.shipDistances = clone(snapshot.shipDistances || []);
@@ -837,7 +850,21 @@ const gmUndoableActions = new Set([
 
 const gmClockOnlyActions = new Set(["setRunning", "setHardPaused", "toggleClock", "step"]);
 
+function visibleEncounter(data, viewer) {
+  if (!data?.units || !data?.starships || viewer?.gm) return data;
+  const sensorEncounter = data.starships.some(s => (s.ship?.sicInventory || []).some(i => shipMapCore.definition(i.type).sensor));
+  if (!data.sensorMode && !sensorEncounter) return data;
+  return shipSensors.view(data,data.units.find(u => u.characterId === viewer?.characterId)?.location?.starshipId);
+}
+
+async function encounterViewer(room, params) {
+  const token = params.get('token') || '';
+  const session = campaignApi.session(token,room.roomCode);
+  return {gm:session?.role === 'gm',characterId:session?.role === 'character' ? session.characterId : null};
+}
+
 function sendEvent(res, event, data) {
+  if (event === 'state') data = visibleEncounter(data,res.sensorViewer);
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
@@ -1283,6 +1310,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const shieldBusy = new Set(room.units.filter(u => u.shieldRestabilizing).map(u => u.id));
   shipShields.advance(room, seconds * multiplier);
   shipNavigation.advance(room, seconds * multiplier);
+  shipSensors.refresh(room);
   const completedEvents = [];
   tickAreaEffects(room, seconds, multiplier);
   for (const unit of room.units) {
@@ -1361,6 +1389,15 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
 
 function resolveCompletedEvent(room, event, source) {
   if (!event) return false;
+  if (event.type === 'delayed' && event.unit.delayedAction?.sensorOrder) {
+    shipSensors.resolveInput(room,event.unit,sides => require('node:crypto').randomInt(1,sides+1));
+    event.unit.atb = Math.max(0,event.unit.atb-room.threshold);
+    return false;
+  }
+  if (event.type === 'queued' && event.effect.sensorReport) {
+    shipSensors.resolveReport(room,event.unit,event.effect);
+    return false;
+  }
   if(event.type==='delayed' && event.unit.delayedAction?.shipOrder){
     const result=shipNavigation.resolveInput(room,event.unit);
     event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
@@ -1581,6 +1618,7 @@ function readBody(req) {
 }
 
 function sendJson(res, status, data) {
+  data = visibleEncounter(data,res.sensorViewer);
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(data));
 }
@@ -1629,6 +1667,10 @@ async function prepareEncounter(room, body) {
   const candidate = createRoom(room.roomCode, null, false);
   candidate.showcase = room.showcase;
   candidate.starships = prepared.starships;
+  if (candidate.showcase) for (const ship of candidate.starships) {
+    const masking = room.starships.find(previous => previous.id === ship.id)?.sensorScenarioMasking;
+    if (Number.isFinite(masking)) ship.sensorScenarioMasking = masking;
+  }
   candidate.shipDistances = prepared.shipDistances;
   candidate.shipPositions = prepared.shipPositions;
   candidate.units = prepared.units.map(unit => preparedUnit(unit, candidate.threshold));
@@ -1696,6 +1738,7 @@ async function handleRoomAction(body, res) {
   const playerAuthorized = playerUnit?.characterId
     && playerUnit.characterId === String(body.characterId || "")
     && characterAuthorized;
+  res.sensorViewer = { gm:Boolean(gmAuthorized), characterId:characterAuthorized ? String(body.characterId) : null };
   const joiningPlayer = action === "join" && body.controlledBy === "player";
   if (joiningPlayer) {
     const allowed = body.characterId && await campaignApi?.verifyCharacterAccess(room.roomCode, String(body.characterId), body.characterToken);
@@ -1703,7 +1746,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1788,7 +1831,7 @@ async function handleRoomAction(body, res) {
   if (action === "syncEncounterStarships") {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
-    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
+    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','sensorScenarioMasking','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { if (previous.has(ship.id)) Object.assign(ship, previous.get(ship.id)); });
     shipShields.refresh(room);
@@ -1833,6 +1876,23 @@ async function handleRoomAction(body, res) {
     pushLog(room, `${ship.title} spent ${Number(body.amount)} AU.`, { starshipId: ship.id });
   }
 
+  if (action === 'sensorCommand') {
+    const result = shipSensors.queue(room,playerUnit,body);
+    if (!result.ok) { sendJson(res,409,{error:result.error}); return; }
+    if (!result.duplicate) {
+      const source = room.activeSource;
+      room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
+      pushLog(room,`${playerUnit.characterName} started sensor input.`,{starshipId:result.ship.id});
+      moveToNextTurnOrClock(room,source);
+    }
+  }
+  if (action === 'sensorLifeReading') {
+    const ship = room.starships.find(s => s.id === body.starshipId);
+    const report = ship?.sensorState?.reports.find(r => r.lifeScan && r.pending && r.at === body.reportAt);
+    const reading = String(body.reading || '').trim().slice(0,500);
+    if (!report || !reading) { sendJson(res,409,{error:'Choose a pending life scan and enter an approximate biological reading.'}); return; }
+    report.pending = false; report.text = `Life scan: ${reading}`;
+  }
   if (action === 'shieldCommand') {
     const result = shipShields.command(room, playerUnit, body);
     if (!result.ok) { sendJson(res, 409, { error: result.error }); return; }
@@ -2727,6 +2787,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 404, { error: "Room not found" });
       return;
     }
+    res.sensorViewer = await encounterViewer(room,url.searchParams);
     sendJson(res, 200, publicState(room));
     return;
   }
@@ -2737,6 +2798,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 404, { error: "Room not found" });
       return;
     }
+    res.sensorViewer = await encounterViewer(room,url.searchParams);
     room.lastKeepAliveAt = Date.now();
     sendJson(res, 200, publicState(room));
     return;
@@ -2749,6 +2811,7 @@ const server = http.createServer(async (req, res) => {
       res.end("Room not found");
       return;
     }
+    res.sensorViewer = await encounterViewer(room,url.searchParams);
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -2758,7 +2821,7 @@ const server = http.createServer(async (req, res) => {
     const roomClients = clients.get(room.roomCode) || new Set();
     clients.set(room.roomCode, roomClients);
     roomClients.add(res);
-    const liveUnit = room.units.find((unit) => unit.id === String(url.searchParams.get("unit") || "") && unit.team === "pc");
+    const liveUnit = room.units.find((unit) => unit.id === String(url.searchParams.get("unit") || "") && unit.team === "pc" && unit.characterId === res.sensorViewer.characterId);
     if (liveUnit) {
       liveUnit.liveConnections = Math.max(0, Number(liveUnit.liveConnections) || 0) + 1;
       liveUnit.playerConnected = true;
