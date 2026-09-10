@@ -1,13 +1,13 @@
 # Shield Generators and Shipyard Follow-Up
 
-Authorized by #commit. Baseline 6472c14. Implementation and local verification complete; verify GitHub/Render before declaring publication complete.
+Authorized by #commit. Baseline 6472c14. Published application commit b0aeca9; GitHub push and hosted Render verification completed.
 
 - [x] Restore large Construction map, separate Details tools, prominent green confirmation, ascending family cards.
 - [x] Shield generators 2-10: source stats, unique art, tier-aware local/remote console.
 - [x] Distance-based inertia; muted/reduced-motion-aware console emphasis and charge audio.
 - [x] Review race/class text and repair 59 race transcription errors; skill descriptions with default/alternate attribute and existing roll flow.
 - [x] Automated and desktop GM/PC checks.
-- [ ] GitHub and Render verification; cleanup; final ntfy.
+- [x] GitHub and Render verification. Test-owned browsers and servers closed. Completion notification follows the final documentation push and cleanup check.
 
 Rules: Restabilize is only available at zero HP; Reinforce remains for active shields. Initial drift is max(0, floor(actual powered distance / 2) - 2), then repeats the existing decay every 12 combat seconds. CvC is 3 seconds and SvS is 12 seconds unless explicit digital timing overrides it. Only generator SICs are included, not shield add-ons. Preserve Gold Standard and campaign data.
 
@@ -23,3 +23,5 @@ Rules: Restabilize is only available at zero HP; Reinforce remains for active sh
 - Legacy in-flight orders without a traveled counter count remaining travel after upgrade; new orders persist their full traveled distance. No speculative reconstruction of historic travel.
 
 Class summaries/previews were reviewed; identified PDF transcription repairs were in race lore. No class mechanics changed. Shield Engineering behavior preserves the previous approved implementation.
+
+Hosted verification matched 18 application/style files and 24 optimized artwork responses to local hashes. Bridge and Shield pickers passed at 1366x768 without page errors; hosted screenshot inspected. Initial check saw the preceding deployment; retry after rollout matched. No hosted campaign records were created or changed.

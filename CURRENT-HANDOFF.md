@@ -6,7 +6,7 @@ Read this file, then `AGENTS.md`, then `SHIELD-GENERATORS-PASS.md`. Read `PILOT-
 
 The user authorized the Shield Generators / Shipyard / Skills pass with #commit. Previous published baseline: `6472c14`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
-Current implementation verified locally: 104 tests, expanded fresh-campaign shield/skill browser checks, actual restart, and 12 cockpit mouse orders passed. Publishing and hosted verification follow. See SHIELD-GENERATORS-PASS.md for actual coverage. After publication, wait for feedback and the next #commit; do not restart this pass.
+Completed and published in b0aeca9: 104 tests, expanded fresh-campaign shield/skill browser checks, actual restart, and 12 cockpit mouse orders passed. GitHub push succeeded; Render matched 18 code/style files and 24 artwork hashes, with live Bridge and Shield picker checks at 1366x768. See SHIELD-GENERATORS-PASS.md for actual coverage. Wait for feedback and the next #commit; do not restart this completed pass.
 
 ## Latest Pass
 
