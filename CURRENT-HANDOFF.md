@@ -6,6 +6,8 @@ Read this file, then `AGENTS.md`, then `SHIELD-BRIDGE-PASS.md`. Read `PILOT-CONS
 
 The user authorized the Shield / Bridge / Usability pass with #commit. Previous published baseline: `e1df477`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
+Completion: application changes published in 8585d1d and 2def535. Full suite: 99 passed. Fresh-campaign shield browser checks, actual restart, character No Class autosave/reload, and 12 cockpit mouse orders passed. The read-only hosted verification matched code and artwork hashes and checked the live bridge picker. See SHIELD-BRIDGE-PASS.md. Wait for feedback and the next #commit; do not restart this completed pass.
+
 ## Latest Pass
 
 Shield 1, local and remote shield console, Cockpit 2 and Bridges 1-8, shared AU reservations, shield restabilization and staffing, construction-first ship workspace, and creation clarity. See SHIELD-BRIDGE-PASS.md for approved rules, deferred source features and actual verification. Asset provenance is in SHIELD-BRIDGE-ART.md.

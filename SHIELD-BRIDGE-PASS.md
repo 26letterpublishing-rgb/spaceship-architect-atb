@@ -1,6 +1,6 @@
 # Shield, Bridge, and Usability Pass
 
-Authorized by #commit on September 9, 2026. Baseline e1df477. Work in progress; this document is not verification or publication evidence.
+Authorized by #commit on September 9, 2026. Baseline e1df477. Implemented and published as 8585d1d with creation-text follow-up 2def535. Verification evidence is summarized below.
 
 ## Checklist
 
@@ -9,7 +9,7 @@ Authorized by #commit on September 9, 2026. Baseline e1df477. Work in progress; 
 - [x] Local/remote shield console, shared access from bridges, delayed AU input, progress and freeze presentation.
 - [x] Character creation explanations/roadmap and construction-first ship workspace.
 - [x] Full automated tests and realistic GM/PC browser checks.
-- [ ] Publish and verify Render; cleanup and final ntfy.
+- [x] Publish and verify Render; close test browsers and temporary servers.
 
 ## Approved Rules
 
@@ -33,7 +33,7 @@ Authorized by #commit on September 9, 2026. Baseline e1df477. Work in progress; 
 - Usability: explain disabled creation skill controls; clear creation heading, required/optional identity labels, consistent class checklist, upfront FUBS/finalization/PC-code roadmap. Make construction the first ship view, retain full ship sheet in Details, show compact live statistics. Clarify standalone design credits/hull cost.
 - Protect Gold Standard and data/campaigns.json. No read-only audit repeat required this pass. Test realistic controls and a fresh campaign for new shared permissions/persistence.
 
-## Verification So Far
+## Verification
 
 - Full automated suite: 99 passing tests.
 - Cockpit browser regression: 12 mouse-driven flight orders, three NPC and three PC in a fresh campaign, repeated after station arrival in Explore Features.
@@ -43,3 +43,5 @@ Authorized by #commit on September 9, 2026. Baseline e1df477. Work in progress; 
 - Character creation UI: first-time prompt, creation heading/roadmap, No Class selection and reload, disabled-skill explanations. Found and fixed No Class-only drafts being discarded as empty.
 - Forced GM relocation onto a recovering shield now releases that character's active Command Window instead of leaving combat waiting for an unavailable action.
 - These tests do not constitute exhaustive playtesting or a full new-character creation run. Publication is verified separately; inspect git history and the completion message for its outcome.
+- Render: scripts/verify-shield-deployment.cjs passed against the live site. Eleven served code/style files matched local SHA-256 hashes; six new artwork responses matched optimized derivatives. A fresh hosted browser displayed all eight bridge cards and Shield 1 at 1366x768 without page errors. No hosted campaign data was changed.
+- Test browsers and temporary servers were closed. Gold Standard and data/campaigns.json were not modified. The final completion notification is sent after publication of these notes and cleanup.
