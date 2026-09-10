@@ -39,6 +39,12 @@ test('impairment uses lower dice/range, offline sensors lose contacts',()=>{
   const {room,a}=fixture(1);a.ship.sicInventory[1].impaired=true;assert.deepEqual(sensors.installed(a).dice,[2,2]);assert.equal(sensors.installed(a).range,4);
   sensors.refresh(room);assert.deepEqual(a.sensorState.contacts,{});a.ship.sicInventory[1].disabled=true;assert.equal(sensors.installed(a),null);
 });
+test('detection announcement contains class and affiliation without repeating every tick',()=>{
+  const {room,a,b}=fixture();b.ship.class='8x7 Systems Test Craft';b.sensorScenarioMasking=10;
+  sensors.refresh(room);
+  assert.match(a.sensorState.reports[0].text,/Secret b Class 8x7 Systems Test Craft Starship detected. Affiliation: Hidden Faction/);
+  sensors.refresh(room);assert.equal(a.sensorState.reports.filter(r=>r.detected).length,1);
+});
 test('sensor input has no skill bonus to speed and increases Quality across tiers',()=>{
   const rates=[];for(let i=1;i<=9;i++){const {a}=fixture(i);const s=sensors.inputSettings(a);assert.equal(s.factors.Ingenuity,0);rates.push(s.rate);}
   assert.deepEqual(rates,[10,10,13,13,15.1,15.1,19.4,19.4,19.4]);

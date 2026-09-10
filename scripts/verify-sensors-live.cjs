@@ -32,6 +32,7 @@ async function main(){
   const gm=page.frameLocator('#showcaseFrame');await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();await gm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
   const initial=await state();assert.equal(initial.starships.length,2);assert.equal(initial.starships[0].sensorState.contacts[initial.starships[1].id].level,'unknown');
   assert.ok(initial.starships.every(s=>!s.ship.sicInventory.some(i=>i.type.startsWith('shield-'))),'Fresh Explore ships have no shields');
+  assert.ok(initial.starships.every(s=>s.ship.class==='8x7 Systems Test Craft'),'Class survives encounter preparation');
   const unit=initial.units.find(u=>u.characterName==='Nova Vale'),ship=initial.starships.find(s=>s.id===unit.location.starshipId),cp=ship.ship.sicInventory.find(i=>i.type==='bridge-1'),placement=ship.ship.placements.find(p=>p.sicId===cp.id),sensor=ship.ship.sicInventory.find(i=>i.type==='sensors-3');
   if(initial.activeId)await act({action:'completeTurn',id:initial.activeId});
   await act({action:'setCombatLocation',id:unit.id,location:{starshipId:ship.id,square:placement.cell,mesh:0,stationed:true}});await act({action:'nudge',id:unit.id,amount:100});

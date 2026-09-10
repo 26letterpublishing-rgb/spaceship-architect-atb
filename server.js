@@ -105,6 +105,7 @@ function normalizeEncounterStarships(value) {
       controlType: record?.controlType === "gm" ? "gm" : "pc",
       crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
       ship: { gridCells, placements, sicInventory, doorStates, affiliation:String(ship.affiliation || '').slice(0,100),
+        class:String(ship.class || '').slice(0,100),
         defenseScore:Number.isFinite(ship.defenseScore) ? ship.defenseScore : undefined },
       auState: record?.auState ? { current: record.auState.current, progress: record.auState.progress } : null,
     };
