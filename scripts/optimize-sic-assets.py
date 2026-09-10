@@ -15,7 +15,7 @@ for source in sorted(root.glob('*.png')):
         continue
     floor = 'floor-plan' in name or name in ('hallway.png', 'starship-hull-plating.png')
     sprite = 'sprite' in name or (name.startswith('ionic-pulse-thruster') and 'graphic' in name)
-    tier = int(re.search(r'-(\d)-', name).group(1)) if re.search(r'-(\d)-', name) else 1
+    tier = int(re.search(r'-(\d+)-', name).group(1)) if re.search(r'-(\d+)-', name) else 1
     limit = max(720, tier * 256) if floor or sprite else 360
     if name in ('pilot-console-art.png', 'shield-console-background.png'):
         limit = 1920

@@ -56,7 +56,7 @@
     const start=distances.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id),length=distances.hexDistance(start,pending.target);
     if(length<1e-6 || speed<=0)return {ok:false,error:'Ship is already at the destination or cannot move.'};
     if(cost&&!power.spend(room,ship.id,cost))return {ok:false,error:'Insufficient AU when pilot input finished; previous route retained.'};
-    ship.navigation={phase:'powered',target:pending.target,direction:{q:(pending.target.q-start.q)/length,r:(pending.target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:PERIOD*length/speed,pilotId:unit.id};
+    ship.navigation={phase:'powered',traveled:0,target:pending.target,direction:{q:(pending.target.q-start.q)/length,r:(pending.target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:PERIOD*length/speed,pilotId:unit.id};
     return {ok:true,ship,cost};
   }
   function order(room, unit, body) {
@@ -77,7 +77,7 @@
     if (length < 1e-6 || speed <= 0) return {ok:false,error:'Choose a different hex and a positive Move Speed.'};
     const cost = boosts.reduce((n,b)=>n+b.cost,0);
     if (cost && !power.spend(room,allowed.ship.id,cost)) return {ok:false,error:'Not enough AU for the selected boosts.'};
-    allowed.ship.navigation = { phase:'powered', target:{q:target.q,r:target.r}, direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},
+    allowed.ship.navigation = { phase:'powered', traveled:0, target:{q:target.q,r:target.r}, direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},
       baseSpeed:allowed.speed, boosts, speed, remaining:PERIOD*length/speed, pilotId:unit.id };
     return {ok:true,ship:allowed.ship,cost};
   }
@@ -97,6 +97,7 @@
       for (let step=0;left>1e-9 && step<64 && nav.phase !== 'stopped';step++) {
         if (!(nav.speed > 0)) { nav.phase='stopped'; nav.remaining=0; break; }
         const elapsed = Math.min(left,Math.max(0,nav.remaining));
+        if (nav.phase === 'powered') nav.traveled = (Number(nav.traveled) || 0) + nav.speed*elapsed/PERIOD;
         position.q += nav.direction.q*nav.speed*elapsed/PERIOD;
         position.r += nav.direction.r*nav.speed*elapsed/PERIOD;
         left -= elapsed; nav.remaining -= elapsed;
@@ -105,7 +106,7 @@
         }
         if (nav.remaining <= 1e-9) {
           if (nav.phase==='powered') { position.q=nav.target.q;position.r=nav.target.r; }
-          nav.speed=Math.max(0,Math.floor(nav.speed/2)-2);
+          nav.speed=Math.max(0,Math.floor((nav.phase==='powered' ? nav.traveled : nav.speed)/2 + 1e-9)-2);
           nav.phase=nav.speed ? 'drift' : 'stopped'; nav.remaining=nav.speed ? PERIOD : 0;
         }
       }

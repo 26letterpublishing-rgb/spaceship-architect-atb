@@ -76,6 +76,8 @@ async function main() {
   await pcFrame.locator('body').evaluate(el=>{
     const win=el.ownerDocument.defaultView,original=win.tone;
     win.__pilotTones=[];win.tone=(...args)=>{win.__pilotTones.push(args);return original(...args);};
+    const charge=win.SACombatBridge.startEngineCharge;win.__charge={starts:0,updates:0,stops:0};
+    win.SACombatBridge.startEngineCharge=()=>{const sound=charge();if(!sound)return sound;win.__charge.starts++;return {update(p){win.__charge.updates++;sound.update(p);},stop(){win.__charge.stops++;sound.stop();}};};
   });
   const units=(await state()).units,pilot=units.find(u=>u.characterId===characters[0].id),npc=units.find(u=>u.team==='npc');
   for(const unit of units)await act({action:'setSpeed',id:unit.id,speed:.1});
@@ -139,6 +141,12 @@ async function main() {
     assert.equal(moveRequests.length,requestsBefore+1,'Held clicks and rapid retries submit one order');
     assert.equal(await dialog.getByRole('button',{name:'Leave Console',exact:true}).isEnabled(),false);
     const pending=(await state()).units.find(u=>u.id===unit.id);assert.ok(pending.delayedAction.shipOrder);assert.ok(pending.atb>=100);
+    if(unit.team==='pc'&&index===0){
+      await act({action:'setHardPaused',paused:false});await page.waitForTimeout(650);
+      await act({action:'setHardPaused',paused:true});await page.waitForTimeout(300);
+      const charge=await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__charge);
+      assert.equal(charge.starts,1);assert.ok(charge.updates>=1);assert.equal(charge.stops,1,'Pausing stops the engine sound');
+    }
     for(let tick=0;tick<5&&(await state()).units.find(u=>u.id===unit.id).delayedAction;tick++)await act({action:'step'});
     const after=await state(), ship=after.starships.find(s=>s.id===unit.location.starshipId);
     assert.deepEqual(ship.navigation.target,destination);assert.equal(after.activeId,null);

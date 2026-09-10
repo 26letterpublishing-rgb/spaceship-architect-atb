@@ -50,7 +50,7 @@
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
     let destination=null,locked=false,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
-    let alertStart=null,lastTick=-1,auWarningUntil=0;
+    let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null;
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';form.querySelector('[data-leave]').after(hold);
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
     const orbitDot=form.querySelector('.vector-orbit circle');
@@ -64,6 +64,9 @@
       if(!seat||seat.ship.id!==shipId){dialog.close();return;}
       const access=window.SAShipNavigation.access(state,pilot),delay=pilot.delayedAction,available=state.activeId===pilotId&&!pilot.consoleHold&&!delay&&!pilot.delayTimer&&!pilot.timedAction&&!state.delayRequest&&!submitting;
       dialog.dataset.input=delay?.shipOrder?'active':'idle';
+      const charging=delay?.shipOrder&&!state.hardPaused&&!state.holdPaused&&!host.hidden&&bridge.soundEnabled();
+      if(charging){chargeSound ||= bridge.startEngineCharge();chargeSound?.update(1-delay.remaining/100);}
+      else {chargeSound?.stop();chargeSound=null;}
       const ready=state.activeId===pilotId&&!delay&&!pilot.delayTimer&&!pilot.timedAction;
       const command=ready&&state.command?.unitId===pilotId?state.command:null;
       const fraction=command?.total>0&&!command.expired?Math.max(0,Math.min(1,command.remaining/command.total)):0;
@@ -156,7 +159,7 @@
     dialog.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     dialog.addEventListener('keydown',bridge.resumeAudio);
     dialog.addEventListener('cancel',rememberDismissal);
-    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
+    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
     dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();
   }
   function sync(unit){

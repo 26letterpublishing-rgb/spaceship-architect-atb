@@ -75,13 +75,27 @@ test('lost boosts remove only remaining boosted speed and cannot reverse travele
   navigation.advance(room,6);near(room.shipPositions[0].q,17);assert.equal(ship.navigation.speed,11);
 });
 
-test('inertia repeatedly floors half speed minus two every 12 combat seconds',()=>{
+test('inertia starts from distance and repeatedly decays every 12 combat seconds',()=>{
   const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:20,r:0}});
   ship.navigation.baseSpeed=20;
   navigation.advance(room,12);near(room.shipPositions[0].q,20);assert.equal(ship.navigation.speed,8);
   navigation.advance(room,12);near(room.shipPositions[0].q,28);assert.equal(ship.navigation.speed,2);
   navigation.advance(room,12);near(room.shipPositions[0].q,30);assert.equal(ship.navigation.speed,0);
   navigation.advance(room,99);near(room.shipPositions[0].q,30);
+});
+
+test('short powered trips have no inertia regardless of engine speed',()=>{
+  for (const distance of [1,2,3,4,5]) {
+    const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:distance,r:0}});
+    ship.navigation.baseSpeed=50;navigation.advance(room,12);
+    near(room.shipPositions[0].q,distance);assert.equal(ship.navigation.phase,'stopped');
+  }
+});
+
+test('first drift uses distance, not maximum speed or duration',()=>{
+  const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:12,r:0}});
+  ship.navigation.baseSpeed=48;navigation.advance(room,3);
+  near(room.shipPositions[0].q,12);near(ship.navigation.traveled,12);assert.equal(ship.navigation.speed,4);
 });
 
 test('single large tick and fractional ticks produce the same powered route and drift',()=>{

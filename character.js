@@ -18,6 +18,7 @@ import {
 } from "./character-data.js?v=20260816-atb-2e";
 import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2";
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260907-hybrid-time-1";
+import { SKILL_DESCRIPTIONS } from "./skill-descriptions.js?v=shield-generators-1";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
@@ -3935,7 +3936,7 @@ function renderSkillRow(name, skill, key) {
   const markerMarkup = `${indicators.positive.length ? `<b class="skill-rule-sign positive" aria-label="Race or Class bonus">+</b>` : ""}${indicators.negative.length ? `<b class="skill-rule-sign negative" aria-label="Race or Class penalty">-</b>` : ""}`;
   const indicatorDetails = [...indicators.positive, ...indicators.negative].join(" | ");
   return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
-    <span class="skill-name" title="${escapeAttribute(increaseReason||name)}"><span>${formatSkillName(name)}</span>${markerMarkup}${character.phase==='draft'&&level>=MAX_STARTING_SKILL?'<small class="skill-cap-note">Creation cap</small>':''}</span>
+    <button type="button" class="skill-name" data-skill-description="${escapeAttribute(key)}" title="${escapeAttribute(increaseReason||name)}"><span>${formatSkillName(name)}</span>${markerMarkup}${character.phase==='draft'&&level>=MAX_STARTING_SKILL?'<small class="skill-cap-note">Creation cap</small>':''}</button>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value">${directSkillEntry
       ? `<input class="manual-skill-rating${GM_ADJUSTMENT_MODE ? " gm-skill-rating" : ""}" ${GM_ADJUSTMENT_MODE ? `data-gm-skill-key="${escapeAttribute(key)}"` : `data-manual-skill-key="${escapeAttribute(key)}"`} type="number" min="0" step="0.1" inputmode="decimal" value="${GM_ADJUSTMENT_MODE ? ratingText(displayed) : (Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
@@ -4008,7 +4009,7 @@ function renderSkills() {
       ? `<input data-custom-name="${skill.id}" value="${escapeAttribute(skill.name)}" placeholder="Custom Skill" aria-label="Custom skill name" />`
       : `<span class="skill-name" title="${escapeAttribute(skill.name || "Custom Skill")}"><span>${formatSkillName(skill.name || "Custom Skill")}</span></span>`;
     let customRow = row.replace(
-      /<span class="skill-name"[\s\S]*?<button class="skill-refund"/,
+      /<button type="button" class="skill-name"[\s\S]*?<button class="skill-refund"/,
       `${editableName}
     <button class="skill-refund"`,
     );
@@ -4427,7 +4428,35 @@ function renderSkillAttributeChoices() {
   dom.skillResultStage.hidden = true;
 }
 
-function openSkillCheck(skillKey) {
+function openSkillDescription(skillKey) {
+  const resolved = resolveSkill(character, skillKey);
+  let host = window;
+  try { while (host.parent !== host && host.parent.document) host = host.parent; } catch {}
+  const doc = host.document;
+  if (!resolved || doc.querySelector('.skill-description-dialog')) return;
+  const defaultAttribute = SKILL_ASSOCIATED_ATTRIBUTE[resolved.name] || ({'Pilot/Helm':'dexterity','Sensor Systems':'perception','Weapon Systems':'dexterity'}[resolved.name]) || 'intellect';
+  if (!doc.querySelector('[data-skill-description-style]')) {
+    const style = doc.createElement('link'); style.rel = 'stylesheet'; style.href = new URL('skill-descriptions.css', location.href).href;
+    style.dataset.skillDescriptionStyle = ''; doc.head.append(style);
+  }
+  const dialog = doc.createElement('dialog');
+  dialog.className = 'skill-description-dialog';
+  dialog.setAttribute('aria-label', resolved.name + ' description');
+  const canRoll = (!campaignCode || campaignEditable) && character.phase === 'finalized' && !character.advancementOpen && !character.pendingRoll && !diceRoller.isActive();
+  dialog.innerHTML = `<header><h2>${escapeHtml(resolved.name)}</h2><button type="button" data-close aria-label="Close skill description">Back</button></header><p>${escapeHtml(SKILL_DESCRIPTIONS[resolved.name] || 'Custom skill. Agree on its use and the appropriate Attribute with your GM.')}</p><label>Attribute<select aria-label="Roll attribute">${ATTRIBUTE_DEFS.map(a=>`<option value="${a.key}">${escapeHtml(a.label)}</option>`).join('')}</select></label><footer><small>${canRoll?'':character.phase!=='finalized'?'Finalize the character to roll.':'Rolling is unavailable while this character is locked or busy.'}</small><button type="button" data-roll ${canRoll?'':'disabled'}>Roll</button></footer>`;
+  dialog.querySelector('select').value = defaultAttribute;
+  doc.body.append(dialog); dialog.showModal();
+  dialog.querySelector('[data-close]').onclick = ()=>dialog.close();
+  dialog.querySelector('[data-roll]').onclick = ()=>{
+    const attribute = dialog.querySelector('select').value;
+    dialog.close(); openSkillCheck(skillKey, attribute);
+  };
+  const cleanup = () => dialog.remove();
+  window.addEventListener('pagehide', cleanup, {once:true});
+  dialog.addEventListener('close',()=>{ cleanup(); window.removeEventListener('pagehide', cleanup); },{once:true});
+}
+
+function openSkillCheck(skillKey, defaultAttribute = null) {
   if ((campaignCode && !campaignEditable) || character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
   const resolved = resolveSkill(character, skillKey);
   if (!resolved) return;
@@ -4453,6 +4482,7 @@ function openSkillCheck(skillKey) {
   dom.skillCheckModal.hidden = false;
   document.body.classList.add("skill-check-open");
   renderSkillAttributeChoices();
+  if (defaultAttribute && character.attributes[defaultAttribute]) selectSkillAttribute(defaultAttribute);
 }
 
 function openAttributeCheck(attributeKey) {
@@ -6950,6 +6980,8 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const description = event.target.closest('[data-skill-description]');
+  if (description) { openSkillDescription(description.dataset.skillDescription); return; }
   const rollableSkill = event.target.closest("[data-roll-skill]");
   if (rollableSkill && !event.target.closest("button, input")) {
     openSkillCheck(rollableSkill.dataset.rollSkill);

@@ -17,6 +17,27 @@ function fixture() {
   return {room,ship,local,remote,s:ship.shieldSystems.shield};
 }
 let serial=0;
+test('all ten shield generators retain source stats, unique stations and tier recharge',()=>{
+  const rows=[[1,1,1,1000,1,1,20],[2,2,2,2400,1,2,20],[3,2,2,3900,2,2,30],[4,3,3,6000,2,3,30],[5,3,3,9500,3,3,40],[6,4,3,14250,3,4,40],[7,4,4,21000,4,4,50],[8,4,4,32500,4,5,60],[9,5,4,50000,5,5,70],[10,5,5,80500,6,6,80]];
+  for(const [tier,size,seats,price,reduction,regen,cost] of rows){
+    const d=maps.definition(`shield-${tier}`);
+    assert.deepEqual([d.width,d.height,d.stations.length,d.price,d.shieldReduction,d.shieldRegeneration,d.restabilizeAu],[size,size,seats,price,reduction,regen,cost]);
+    assert.equal(d.shieldHp,tier*10);assert.equal(d.energyCost,tier*5);assert.equal(d.restabilizeSeconds,120);
+    assert.equal(new Set(d.stations.map(s=>`${s.x}:${s.y}:${s.mesh}`)).size,seats);
+    assert.ok(d.stations.every(s=>s.x>=0&&s.x<size&&s.y>=0&&s.y<size));
+    const {room,ship,local}=fixture();
+    ship.ship.gridCells=Array.from({length:100},(_,i)=>21+Math.floor(i/10)*20+i%10);
+    ship.ship.sicInventory=[{id:'shield',type:`shield-${tier}`,stationLayout:'corners-v1'},{id:'au',type:'au-engine-6'}];
+    ship.ship.placements=[{sicId:'shield',cell:21},{sicId:'au',cell:170}];
+    room.units=[local];delete ship.shieldSystems;shields.refresh(room);power.refresh(room,{reset:true});
+    const system=ship.shieldSystems.shield;system.hp=1;shields.advance(room,12);near(system.hp,1+regen);
+    system.hp=0;ship.auState.current=cost;
+    const result=shields.command(room,local,{sicId:'shield',kind:'restabilize',requestId:`shield-tier-${tier}`});
+    assert.equal(result.ok,true,result.error);
+    const recovery=system.restabilization;
+    shields.advance(room,120);near(system.hp,tier*10);assert.equal(recovery.auSpent,cost);
+  }
+});
 test('additional installed shields add five EN per prior shield; storage draws none',()=>{
   const ship={sicInventory:[{id:'a',type:'shield-1'},{id:'b',type:'shield-1'},{id:'c',type:'shield-1'}],placements:[{sicId:'a',cell:1},{sicId:'b',cell:2}]};
   assert.equal(power.demand(ship),15);ship.placements.push({sicId:'c',cell:3});assert.equal(power.demand(ship),30);

@@ -1427,6 +1427,258 @@
     "webBytes": 157234,
     "alpha": false
   },
+  "shield-10-card.png": {
+    "file": "shield-10-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2202470,
+    "webBytes": 39986,
+    "alpha": false
+  },
+  "shield-10-floor-plan.png": {
+    "file": "shield-10-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2795262,
+    "webBytes": 430152,
+    "alpha": false
+  },
+  "shield-2-card.png": {
+    "file": "shield-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1845177,
+    "webBytes": 29972,
+    "alpha": false
+  },
+  "shield-2-floor-plan.png": {
+    "file": "shield-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2700877,
+    "webBytes": 156762,
+    "alpha": false
+  },
+  "shield-3-card.png": {
+    "file": "shield-3-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1944217,
+    "webBytes": 33318,
+    "alpha": false
+  },
+  "shield-3-floor-plan.png": {
+    "file": "shield-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 2783243,
+    "webBytes": 194992,
+    "alpha": false
+  },
+  "shield-4-card.png": {
+    "file": "shield-4-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2032078,
+    "webBytes": 35584,
+    "alpha": false
+  },
+  "shield-4-floor-plan.png": {
+    "file": "shield-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2638270,
+    "webBytes": 269160,
+    "alpha": false
+  },
+  "shield-5-card.png": {
+    "file": "shield-5-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1976964,
+    "webBytes": 35228,
+    "alpha": false
+  },
+  "shield-5-floor-plan.png": {
+    "file": "shield-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2745746,
+    "webBytes": 419644,
+    "alpha": false
+  },
+  "shield-6-card.png": {
+    "file": "shield-6-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2092666,
+    "webBytes": 35844,
+    "alpha": false
+  },
+  "shield-6-floor-plan.png": {
+    "file": "shield-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2810728,
+    "webBytes": 446832,
+    "alpha": false
+  },
+  "shield-7-card.png": {
+    "file": "shield-7-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2071369,
+    "webBytes": 36428,
+    "alpha": false
+  },
+  "shield-7-floor-plan.png": {
+    "file": "shield-7-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2695043,
+    "webBytes": 435684,
+    "alpha": false
+  },
+  "shield-8-card.png": {
+    "file": "shield-8-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2196189,
+    "webBytes": 38204,
+    "alpha": false
+  },
+  "shield-8-floor-plan.png": {
+    "file": "shield-8-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2759432,
+    "webBytes": 416314,
+    "alpha": false
+  },
+  "shield-9-card.png": {
+    "file": "shield-9-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2247617,
+    "webBytes": 41974,
+    "alpha": false
+  },
+  "shield-9-floor-plan.png": {
+    "file": "shield-9-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2684221,
+    "webBytes": 407950,
+    "alpha": false
+  },
   "shield-console-background.png": {
     "file": "shield-console-background-web.webp",
     "sourcePixels": [

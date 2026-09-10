@@ -1,0 +1,10 @@
+.skill-description-dialog{position:fixed;inset:0;margin:auto;width:min(540px,calc(100vw - 40px));max-height:calc(100dvh - 48px);box-sizing:border-box;overflow:auto;padding:22px;background:#08151c;color:#e6f2f7;border:1px solid #52cadd;border-radius:6px;box-shadow:0 12px 50px #000a;font:16px/1.5 Arial,sans-serif}
+.skill-description-dialog::backdrop{background:#02090dbb}
+.skill-description-dialog header,.skill-description-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.skill-description-dialog h2{margin:0;font-size:22px;overflow-wrap:anywhere}
+.skill-description-dialog p{white-space:pre-line;margin:20px 0}
+.skill-description-dialog label{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.skill-description-dialog select{flex:1;min-width:0;padding:9px;color:#e6f2f7;background:#122b34;border:1px solid #5c8995;font:inherit}
+.skill-description-dialog button{padding:9px 18px;background:#183a46;border:1px solid #70c3d3;border-radius:4px;color:#f4fcff;font:700 14px Arial,sans-serif;cursor:pointer}
+.skill-description-dialog button:disabled{opacity:.45;cursor:default}
+.skill-description-dialog small{font-size:13px;color:#aec1ca}

@@ -51,12 +51,12 @@ for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; t
 }
 
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),'shield-1']) {
+for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),...Array.from({length:10},(_,i)=>`shield-${i+1}`)]) {
   const data = window.SAShipMap.definition(type);
   SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
   const card = document.createElement("section"); card.className="sic-market-item";
   const isShield=Boolean(data.shield);
-  const rules=isShield?`<strong>10 Shield HP / Reduction 1</strong><p>Regenerates 1 HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: 120 powered seconds and 20 AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${(data.rebootSeconds||96)/12} SvS rounds.</p>`;
+  const rules=isShield?`<strong>${data.shieldHp} Shield HP / Reduction ${data.shieldReduction}</strong><p>Regenerates ${data.shieldRegeneration} HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: ${data.restabilizeSeconds} powered seconds and ${data.restabilizeAu} AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${(data.rebootSeconds||96)/12} SvS rounds.</p>`;
   const impairment=isShield?'Damage received is doubled. No AU abilities.':type==='cockpit-1'?'Occupant takes damage, reduced by 20.':`Random station destroyed; occupant damage reduced by ${data.threshold}.`;
   card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${isShield?'Shield':'Bridge'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}${isShield?'+':''}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}${data.edge?' EDG':''}</dd></div><div><dt>Skill</dt><dd>${isShield?'Engineering':'CPU Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   SIC_CATALOG[type].category=isShield?'shield':'bridge';
@@ -556,6 +556,7 @@ function paintHullCell(index) {
 }
 
 function beginHullPaint(index, event) {
+  if (document.body.classList.contains('ship-details-view')) return;
   if (window.matchMedia("(max-width: 820px)").matches || mapView.mode !== "build" || selectedSic() || placementAt(index)) return;
   event.preventDefault();
   rememberForUndo();
@@ -573,6 +574,7 @@ function finishHullPaint() {
   renderAll();
 }
 function handleGridClick(index, cell, mobile) {
+  if (document.body.classList.contains('ship-details-view')) return;
   validation = { errors: [], cells: new Set() };
   if (mapView.mode !== "build") return;
   if (!selectedSic()) { toggleHullCell(index); return; }
@@ -1233,7 +1235,8 @@ function openSicFamily(family, items, trigger) {
   dialog.className = "sic-family-picker"; dialog.setAttribute("aria-label", family);
   dialog.innerHTML = `<header><button type="button" data-family-back>Back</button><h2>${escapeHtml(family)}</h2><strong>${formatCredits(draft.groupCredits - pendingCost())} Credits</strong></header><p role="alert" data-family-feedback></p><div class="sic-picker-grid"></div>`;
   const grid = dialog.querySelector(".sic-picker-grid"), slots = [];
-  for (const [index, item] of items.entries()) {
+  const ascending = [...items].sort((a,b)=>Number(a.querySelector('[data-sic-card]').dataset.sicCard.match(/\d+$/)?.[0]||0)-Number(b.querySelector('[data-sic-card]').dataset.sicCard.match(/\d+$/)?.[0]||0));
+  for (const [index, item] of ascending.entries()) {
     const source = item.querySelector("[data-sic-card]"), type = source.dataset.sicCard;
     const slot = cardHost.createElement("div"); slot.className = "sic-picker-slot";
     const face = cardHost.createElement("section"); face.className = "sic-market-item sic-picker-face";

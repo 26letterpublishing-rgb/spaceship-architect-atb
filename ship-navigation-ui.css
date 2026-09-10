@@ -2,6 +2,9 @@
 .pilot-station-actions .combat-action-group-label,.pilot-station-actions #playerDelay,.pilot-station-actions #playerEndTurn,.pilot-station-active #heldWeaponReadout,.pilot-station-active [data-held-weapon-readout],.pilot-station-active #completeTurn,.pilot-station-active #gmDelay{display:none!important}
 .pilot-station-actions [hidden]{display:none!important}
 .ship-navigation-dialog::backdrop{background:#000c}
+.station-console-select{min-width:220px;min-height:46px!important;padding:10px 34px 10px 12px!important;font-size:15px!important;font-weight:700;border:3px solid #84fff1;border-radius:5px;background-color:#102329!important;color:#effffc!important;animation:console-spectrum 6s linear infinite}
+@keyframes console-spectrum{0%,100%{border-color:#77f8ff;box-shadow:0 0 10px #77f8ff80}25%{border-color:#be8cff;box-shadow:0 0 10px #be8cff80}50%{border-color:#ff88b4;box-shadow:0 0 10px #ff88b480}75%{border-color:#ebed87;box-shadow:0 0 10px #ebed8780}}
+@media(prefers-reduced-motion:reduce){.station-console-select{animation:none;box-shadow:0 0 8px #77f8ff70}}
 .ship-navigation-dialog form{height:100%;min-height:640px;display:grid;box-sizing:border-box;grid-template-columns:17% 60% 17%;grid-template-rows:10% 49% 34%;gap:2% 3%;padding:1% 4% 2%}
 .ship-navigation-dialog header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;background:#070e11b8;padding:6px 16px;border:0}
 .ship-navigation-dialog h2{font:700 24px/1.2 Arial,sans-serif;margin:2px 0;color:#dce8e9}.ship-navigation-dialog h3{font:700 12px/1.2 Arial,sans-serif;text-transform:uppercase;letter-spacing:0;color:#85eaf0;margin:0 0 10px}
@@ -114,7 +117,7 @@
 @keyframes helm-au-warning{0%,70%{filter:drop-shadow(0 0 8px #ff344b);background:#9c2037}}
 @media(prefers-reduced-motion:reduce){.ship-navigation-dialog[data-turn=ready] .pilot-command>strong{color:#ff535f}.ship-navigation-dialog[data-au-warning=true] .pilot-au{outline:2px solid #ff535f}}
 @media(max-height:720px){.ship-navigation-dialog:not(.navigation-planner) form{min-height:610px}.ship-navigation-dialog:not(.navigation-planner){min-height:700px}}
-.station-console-select{max-width:200px;min-height:34px;background:#10252c;border:1px solid #88b3be;color:#e1f5ec;padding:5px;font:13px Arial,sans-serif}
+.station-console-select{max-width:280px;font-family:Arial,sans-serif}
 .shield-console-dialog{position:fixed;inset:0;margin:auto;width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:1800px;max-height:1100px;box-sizing:border-box;padding:0;border:1px solid #96bcad;border-radius:6px;background:#080f0d url('shield-console-background.png') center/100% 100% no-repeat;color:#e2f6ec;font:14px/1.35 Arial,sans-serif;letter-spacing:0;overflow:auto}
 .shield-console-dialog::backdrop{background:#000c}
 .shield-console-dialog>header{height:9%;box-sizing:border-box;padding:8px 3%;display:flex;align-items:center;gap:20px;background:#081611b8;min-height:60px}

@@ -221,6 +221,8 @@ mines, information warfare, and equipment that modifies other equipment.
 
 ## Digital Decisions Already Given by Jason
 
+Latest generator pass: CvC = 3 seconds and SvS = 12 seconds unless explicitly overridden. Shield generators 1-10 use printed sizes, HP, reduction and regeneration divided by 12; restabilization restores full HP over 120 powered seconds before staffing bonuses, with total AU of 20/20/30/30/40/40/50/60/70/80. Only a zero-HP shield can begin restabilization. Initial ship inertia now depends on actual powered distance: max(0, floor(distance/2)-2), then the same repeated speed decay every 12 seconds. See SHIELD-GENERATORS-PASS.md and SHIELD-BRIDGE-PASS.md for staffing and AU input rules.
+
 These are user directions, not statements of the printed 1e rules:
 
 - Desktop GM play is the primary focus; mobile-specific refinement comes later.

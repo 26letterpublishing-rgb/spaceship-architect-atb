@@ -98,6 +98,22 @@
   catalog["shield-1"] = { name: "Shield 1", width: 1, height: 1, label: "SH 1", color: "#277b62", image: image("shield-1-floor-plan.png"),
     shield: true, energyCost: 5, price: 1000, security: 1, crafting: "Paradon, 6 hrs", threshold: 2, cardNumber: "A-51", output: 0,
     shieldHp: 10, shieldReduction: 1, shieldRegeneration: 1, restabilizeSeconds: 120, restabilizeAu: 20, stations: [{ x: 0, y: 0, mesh: 0 }] };
+  const shieldRows = [
+    [2, 2, 2, 2400, 1, 'Argol, 10 hrs', 1, 2, 20, 'A-52'],
+    [3, 2, 2, 3900, 2, 'Mirium, 16 hrs', 2, 2, 30, 'A-53'],
+    [4, 3, 3, 6000, 2, 'Drakkonite, 2 days', 2, 3, 30, 'A-54'],
+    [5, 3, 3, 9500, 3, 'Phazon, 3 days', 3, 3, 40, 'A-55'],
+    [6, 4, 3, 14250, 3, 'Necronium, 3 days', 3, 4, 40, 'A-56'],
+    [7, 4, 4, 21000, 4, 'Endernium, 1 week', 4, 4, 50, 'A-57'],
+    [8, 4, 4, 32500, 4, 'Dark Phazon, 1 week', 4, 5, 60, 'A-58'],
+    [9, 5, 4, 50000, 5, 'Carmot, 10 days', 5, 5, 70, 'B-36'],
+    [10, 5, 5, 80500, 5, 'Infinium, 10 days', 6, 6, 80, 'B-37'],
+  ];
+  for (const [tier,size,seats,price,security,crafting,shieldReduction,shieldRegeneration,restabilizeAu,cardNumber] of shieldRows) {
+    catalog[`shield-${tier}`] = { ...catalog['shield-1'], name:`Shield ${tier}`,width:size,height:size,label:`SH ${tier}`,
+      image:image(`shield-${tier}-floor-plan.png`),energyCost:tier*5,price,security,crafting,threshold:tier*2,cardNumber,
+      shieldHp:tier*10,shieldReduction,shieldRegeneration,restabilizeAu,stations:perimeterStations(size,size,seats) };
+  }
 
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };

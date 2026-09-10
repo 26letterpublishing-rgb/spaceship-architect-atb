@@ -340,7 +340,7 @@ body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;pad
   body:not(.ship-details-view) .desktop-sheet>.blueprint-source,body:not(.ship-details-view) .desktop-sheet>svg,body:not(.ship-details-view) .desktop-sheet>output{display:none}
   body:not(.ship-details-view) .desktop-construction-sidebar{position:relative;inset:auto;width:auto;height:auto;max-height:none;overflow:visible;box-sizing:border-box}
   .starship-header h1{margin:3px 0!important}.starship-library label{display:flex;align-items:center;gap:8px}.starship-library select{height:32px;min-height:32px}
-  body:not(.ship-details-view) .desktop-grid-viewport{position:sticky;inset:auto;top:12px;width:100%;max-width:min(850px,calc(100dvh - 370px));aspect-ratio:1;height:auto;border:1px solid #42616a;justify-self:center;align-self:start}
+  body:not(.ship-details-view) .desktop-grid-viewport{position:sticky;inset:auto;top:76px;width:100%;max-width:none;aspect-ratio:1;height:auto;border:1px solid #42616a;justify-self:center;align-self:start}
   body:not(.ship-details-view) .construction-sidebar-header h2{font-size:19px}
   body:not(.ship-details-view) .construction-sidebar-header{flex-wrap:wrap;gap:8px}
   body:not(.ship-details-view) .construction-sidebar-header>div:first-child{flex:1 0 100%}
@@ -350,3 +350,8 @@ body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;pad
   body:not(.ship-details-view) .map-view-controls span{font-size:11px}
   body.view-only-starship:not(.ship-details-view) .desktop-sheet{grid-template-columns:1fr}
 }
+.construction-command-bar{position:sticky;top:0;z-index:12;display:flex;justify-content:center;padding:10px;background:#071116ed;border-bottom:1px solid #405e68}
+.construction-command-bar button{min-width:280px;min-height:52px;font-size:18px;font-weight:800;background:#2bdd8b;color:#03150c;border:2px solid #9fffd0;box-shadow:0 0 18px #42f5a255;border-radius:6px}
+.construction-command-bar button:disabled{background:#1a563e;color:#b5d1c3;box-shadow:none}
+.ship-details-view .construction-command-bar,.ship-details-view .construction-sidebar,.view-only-starship .construction-command-bar{display:none!important}
+body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-action=confirm]{display:none}

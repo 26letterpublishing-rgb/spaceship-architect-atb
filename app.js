@@ -1762,6 +1762,7 @@ window.SACombatBridge = {
   action,
   delayIcon: c4IconMarkup,
   resumeAudio,
+  startEngineCharge,
   consoleTick: () => {
     if ((mode === 'gm' ? gmSoundsMuted : !alertsEnabled) || document.hidden) return;
     try { tone(1180,0,.025,.012,'sine'); } catch {}
@@ -2577,6 +2578,39 @@ function tone(frequency, start, duration, gainValue = 0.04, type = "square") {
   };
   osc.start(audio.currentTime + start);
   osc.stop(audio.currentTime + start + duration + 0.02);
+}
+
+function startEngineCharge() {
+  if (!window.SACombatBridge.soundEnabled() || document.hidden) return null;
+  try {
+    const audio = ensureAudio(), nodes = [42, 63].map((frequency) => {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      const node = {osc, gain, frequency}; activeGmAudioNodes.add(node);
+      osc.type = 'triangle'; osc.frequency.value = frequency; gain.gain.value = 0;
+      osc.connect(gain); gain.connect(audio.destination);
+      osc.onended = () => { activeGmAudioNodes.delete(node); osc.disconnect(); gain.disconnect(); };
+      osc.start(); return node;
+    });
+    let stopped = false;
+    return {
+      update(progress) {
+        if (stopped) return;
+        const p = Math.max(0, Math.min(1, progress));
+        for (const node of nodes) {
+          node.osc.frequency.setTargetAtTime(node.frequency * (1 + p * 1.2), audio.currentTime, .12);
+          node.gain.gain.setTargetAtTime(.025 + .025 * p, audio.currentTime, .08);
+        }
+      },
+      stop() {
+        if (stopped) return; stopped = true;
+        for (const node of nodes) {
+          node.gain.gain.cancelScheduledValues(audio.currentTime);
+          node.gain.gain.setTargetAtTime(0, audio.currentTime, .02);
+          try { node.osc.stop(audio.currentTime + .1); } catch {}
+        }
+      },
+    };
+  } catch { return null; }
 }
 
 function playGmSound(name = "tap") {

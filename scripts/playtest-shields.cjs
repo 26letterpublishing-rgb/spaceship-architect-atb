@@ -42,6 +42,8 @@ async function main(){
   await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sh');
   const remote=pc.getByRole('dialog',{name:'Shield console',exact:true}),local=eng.getByRole('dialog',{name:'Shield console',exact:true});
   await remote.waitFor();assert.match(await remote.locator('[data-connection]').innerText(),/REMOTE ACCESS/);assert.match(await local.locator('[data-connection]').innerText(),/LOCAL STATION/);
+  assert.equal(await local.getByRole('button',{name:'Restabilize Shield',exact:true}).isEnabled(),false);
+  assert.equal(await local.getByRole('button',{name:'Reinforce Field',exact:true}).isEnabled(),true);
   await pc.setViewportSize({width:1366,height:768});await pc.screenshot({path:path.join(artifacts,'remote-console-1366.png')});
   assert.ok((await remote.getByRole('button',{name:'Restore Shield HP',exact:true}).boundingBox()).x>=0);
   await pc.setViewportSize({width:1600,height:1000});
@@ -71,6 +73,8 @@ async function main(){
   await act({action:'setCombatLocation',id:pilot.id,location:{starshipId:ship.id,square:81,mesh:0,stationed:true}},409);
   await act({action:'setCombatLocation',id:pilot.id,location:{starshipId:ship.id,square:82,mesh:0,stationed:true}});await pc.getByRole('dialog',{name:'Shield console',exact:true}).waitFor();
   await act({action:'damageStarship',starshipId:ship.id,amount:100});
+  await eng.waitForFunction(()=>document.querySelector('.shield-console-dialog [data-reinforce]')?.disabled||[...document.querySelectorAll('.shield-console-dialog button')].some(b=>b.textContent==='Reinforce Field'&&b.disabled),null,{timeout:5000});
+  assert.equal(await local.getByRole('button',{name:'Restabilize Shield',exact:true}).isEnabled(),true);
   await post('action',{roomCode:code,characterId:people[0].id,characterToken:playerTokens[0],id:pilot.id,action:'shieldCommand',sicId:'sh',kind:'restabilize',requestId:'remote-forbidden'},409);
   eng.once('dialog',d=>d.accept());await local.getByRole('button',{name:'Restabilize Shield',exact:true}).click();
   await local.locator('[data-turn]').filter({hasText:'RESTABILIZING'}).waitFor();assert.equal(await local.getByRole('button',{name:'Leave Console',exact:true}).isEnabled(),false);
@@ -86,6 +90,22 @@ async function main(){
   await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
   const broken=await builder.locator('.sic-picker-slot img').evaluateAll(images=>images.filter(image=>!image.naturalWidth).length);assert.equal(broken,0);
   await builder.waitForTimeout(1200);await builder.screenshot({path:path.join(artifacts,'bridge-roster.png')});
+  assert.deepEqual(await builder.locator('.sic-picker-slot [data-purchase-type]').evaluateAll(nodes=>nodes.map(n=>n.dataset.purchaseType)),Array.from({length:8},(_,i)=>`bridge-${i+1}`));
+  await builder.locator('[data-family-back]').click();
+  await builder.locator('summary[aria-label="Shield: expand 10 cards"]').click();
+  await builder.getByRole('dialog',{name:'Shield',exact:true}).waitFor();
+  assert.deepEqual(await builder.locator('.sic-picker-slot [data-purchase-type]').evaluateAll(nodes=>nodes.map(n=>n.dataset.purchaseType)),Array.from({length:10},(_,i)=>`shield-${i+1}`));
+  await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+  await builder.waitForTimeout(800);await builder.screenshot({path:path.join(artifacts,'shield-roster.png')});
+  const cards=await builder.locator('.sic-picker-slot').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom};}));
+  assert.ok(cards.every(r=>r.x>=0&&r.y>=0&&r.right<=1600&&r.bottom<=1000),'All shield cards fit in the viewport');
+  await builder.locator('[data-family-back]').click();
+  await builder.getByRole('button',{name:'Construction',exact:true}).click();
+  assert.ok((await builder.locator('.desktop-grid-viewport').boundingBox()).width>900,'Construction map uses available desktop width');
+  assert.equal(await builder.locator('.construction-command-bar button').isVisible(),true);
+  await builder.getByRole('button',{name:'Ship Details',exact:true}).click();
+  assert.equal(await builder.locator('.desktop-construction-sidebar').isVisible(),false);
+  await builder.screenshot({path:path.join(artifacts,'ship-details.png')});
   const newcomer=await page();await newcomer.goto(base+'/character.html?library=1');
   await newcomer.getByRole('button',{name:'OK',exact:true}).click();
   await newcomer.getByRole('heading',{name:/^create character/i}).waitFor();
@@ -96,6 +116,27 @@ async function main(){
   await newcomer.waitForTimeout(700);await newcomer.reload();
   assert.equal((await newcomer.locator('#classCardPickerButton').textContent()).trim(),'No Class');
   assert.ok(await newcomer.locator('.skill-buy[disabled][title]').count()>0);
+  if(await newcomer.getByRole('button',{name:'Skills',exact:true}).isVisible())await newcomer.getByRole('button',{name:'Skills',exact:true}).click();
+  await newcomer.locator('[data-skill-description]').filter({hasText:'Engineering'}).click();
+  const description=newcomer.getByRole('dialog',{name:'Engineering description'});
+  await description.waitFor();assert.equal(await description.getByRole('button',{name:'Roll',exact:true}).isEnabled(),false);
+  const rect=await description.boundingBox();assert.ok(Math.abs(rect.x+rect.width/2-800)<5&&Math.abs(rect.y+rect.height/2-500)<5);
+  await newcomer.screenshot({path:path.join(artifacts,'skill-description-draft.png')});
+  await description.getByRole('button',{name:'Close skill description'}).click();
+  const skillPlayer=await page();await skillPlayer.goto(`${base}/character.html?campaign=${code}&character=${people[0].id}`);
+  await skillPlayer.getByRole('button',{name:'Enter PC Code',exact:true}).click();await skillPlayer.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(people[0].access.pcCode);await skillPlayer.getByRole('button',{name:'Unlock Character',exact:true}).click();
+  if(await skillPlayer.getByRole('button',{name:'Skills',exact:true}).isVisible())await skillPlayer.getByRole('button',{name:'Skills',exact:true}).click();
+  for(const attribute of ['intellect','dexterity']){
+    await skillPlayer.locator('[data-skill-description]').filter({hasText:'Engineering'}).click();
+    const dialog=skillPlayer.getByRole('dialog',{name:'Engineering description'});
+    assert.equal(await dialog.getByRole('combobox',{name:'Roll attribute'}).inputValue(),'intellect');
+    await dialog.getByRole('combobox',{name:'Roll attribute'}).selectOption(attribute);
+    await dialog.getByRole('button',{name:'Roll',exact:true}).click();
+    await skillPlayer.locator('#skillSetupStage').waitFor();
+    assert.match(await skillPlayer.locator('#skillSetupStage').innerText(),new RegExp(attribute,'i'));
+    assert.match(await skillPlayer.locator('#skillSetupStage').innerText(),/D6\s*\+\s*D4/);
+    await skillPlayer.locator('#skillCheckClose').click();
+  }
   await newcomer.screenshot({path:path.join(artifacts,'character-creation.png')});
   assert.deepEqual(errors,[]);
   await act({action:'completeTurn',id:npc.id});

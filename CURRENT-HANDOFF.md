@@ -2,15 +2,15 @@
 
 ## Start Here
 
-Read this file, then `AGENTS.md`, then `SHIELD-BRIDGE-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
+Read this file, then `AGENTS.md`, then `SHIELD-GENERATORS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the Shield / Bridge / Usability pass with #commit. Previous published baseline: `e1df477`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized the Shield Generators / Shipyard / Skills pass with #commit. Previous published baseline: `6472c14`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
-Completion: application changes published in 8585d1d and 2def535. Full suite: 99 passed. Fresh-campaign shield browser checks, actual restart, character No Class autosave/reload, and 12 cockpit mouse orders passed. The read-only hosted verification matched code and artwork hashes and checked the live bridge picker. See SHIELD-BRIDGE-PASS.md. Wait for feedback and the next #commit; do not restart this completed pass.
+Current implementation verified locally: 104 tests, expanded fresh-campaign shield/skill browser checks, actual restart, and 12 cockpit mouse orders passed. Publishing and hosted verification follow. See SHIELD-GENERATORS-PASS.md for actual coverage. After publication, wait for feedback and the next #commit; do not restart this pass.
 
 ## Latest Pass
 
-Shield 1, local and remote shield console, Cockpit 2 and Bridges 1-8, shared AU reservations, shield restabilization and staffing, construction-first ship workspace, and creation clarity. See SHIELD-BRIDGE-PASS.md for approved rules, deferred source features and actual verification. Asset provenance is in SHIELD-BRIDGE-ART.md.
+Shield generators 2-10 complete the family with unique art and tier-aware consoles. Restabilize only at zero HP (not Reinforce). Larger Construction map, centered green confirmation, Details without construction tools, ascending expanded cards, prominent rainbow console selector, distance-based initial inertia, engine charge audio, copy-edited lore, and clickable skill references with default/alternate Attribute roll setup. Art provenance: SHIELD-GENERATOR-ART.md. Prior shield/bridge foundation remains documented in SHIELD-BRIDGE-PASS.md.
 
 The earlier UI-only usability audit was completed in the prior pass; its three follow-up improvements are part of this pass. Do not restart that historical audit automatically. This pass's browser scripts use API-created finalized PC fixtures, then exercise actual GM/player interfaces. They are not full character-creation playthroughs.
 
