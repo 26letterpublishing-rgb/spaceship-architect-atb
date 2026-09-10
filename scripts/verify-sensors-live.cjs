@@ -11,7 +11,7 @@ async function main(){
   for(let n=0;n<40;n++){
     try{
       deployed=true;
-      for(const name of ['ship-command-ui.js','sensor-console-ui.css']){
+      for(const name of ['ship-combat-map.js','index.html']){
         const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
         deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
       }

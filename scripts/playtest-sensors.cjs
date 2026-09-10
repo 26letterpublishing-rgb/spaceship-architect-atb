@@ -85,7 +85,9 @@ async function main(){
   await act({action:'nudge',id:operator.id,amount:100});
   await pilotConsole.getByRole('button',{name:'Leave Console',exact:true}).click();
   const interiors=pc.frameLocator('#playerAtbFrame');
+  await pc.route('**/ship-combat-map.css*',async route=>{await new Promise(resolve=>setTimeout(resolve,800));await route.continue();});
   await interiors.getByRole('button',{name:'Enlarge ship interior',exact:true}).first().click();
+  await pc.waitForTimeout(150);assert.equal(await pc.locator('.expanded-interior-dialog[open]').count(),0,'Do not show an unstyled interior while CSS is loading');
   const enlarged=pc.locator('.expanded-interior-dialog');await enlarged.waitFor();
   const cell=enlarged.locator('[data-map-square="43"][data-map-mesh="4"]');await cell.scrollIntoViewIfNeeded();
   const box=await cell.boundingBox();assert.ok(box.width>=24&&box.height>=24,'Station-sized targets must remain clickable');

@@ -34,3 +34,5 @@ Local verification: all 128 unit/HTTP tests pass. Cockpit browser checks passed 
 Browser fixtures create finalized characters through APIs, then exercise real mouse controls; this is not a complete new-user character-creation walkthrough. Tests use isolated temporary data, never data/campaigns.json. Gold Standard is unchanged. New Command sections reuse the existing console background. Completed commands and maintenance report into the owning ship's Combat Activity.
 
 Relevant checks: tests/ship-commands.test.js, scripts/playtest-sensors.cjs, scripts/playtest-cockpit.cjs, scripts/playtest-shields.cjs, scripts/verify-sensors-live.cjs. Final screenshot artifacts are under ignored test-artifacts directories.
+
+Hosted follow-up: the first Render run matched all 28 code/style files and 19 images, then caught an unstyled expanded dialog while the parent-page CSS was still loading. The planner now waits for both required stylesheets, handles timeout/retry, and blocks duplicate opening while loading. A browser regression delays that CSS by 800ms and verifies no unstyled dialog is shown. Local browser and full 128-test reruns pass; hosted rerun pending.

@@ -4,7 +4,7 @@
 
 Read this file, then `AGENTS.md`, then `COMMAND-ACTIONS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the Command Actions and Interior Movement pass with #commit. Implementation is in the working tree. Final tests, commit, push and Render verification are IN PROGRESS, not complete. Do not send ntfy until publishing and cleanup are finished. Last previously published HEAD was bdea991.
+The user authorized the Command Actions and Interior Movement pass with #commit. Initial release eaf99ac is on GitHub/Render. Its live walkthrough caught a stylesheet-loading race in the expanded interior, now fixed and covered by an 800ms-delayed CSS browser test. Publishing that follow-up and repeating Render verification are IN PROGRESS, not complete. Do not send ntfy until publishing and cleanup are finished.
 
 Local verification passed: 128 unit/HTTP tests; fresh-campaign GM/two-PC sensor workflow plus Command help/Team preparation, enlarged held-click interior movement, local power-off/restart, diagnostics through GM Pass Time, shield regressions, and 12 cockpit mouse orders. Eleven command/maintenance unit checks include conditional navigation/analysis after departure. Render publication verification remains pending. See COMMAND-ACTIONS-PASS.md for interpretations and deferred features.
 

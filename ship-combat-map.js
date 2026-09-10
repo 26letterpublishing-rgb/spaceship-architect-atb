@@ -464,19 +464,32 @@
     viewport.scrollTop += target.top - bounds.top - viewport.clientHeight / 2 + target.height / 2;
   }
 
-  function expandInterior(host, source) {
+  let interiorLoading=false;
+  async function expandInterior(host, source) {
+    if(interiorLoading)return;
+    interiorLoading=true;
     closeExpandedMap();
     let owner = window;
     try { while (owner.parent !== owner && owner.parent.document) owner = owner.parent; } catch (_) { /* Use the highest same-origin viewport. */ }
     const doc = owner.document;
-    if (!doc.querySelector("[data-interior-map-styles]")) {
-      // The campaign host does not normally load combat-map styles.
-      document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"]').forEach((link) => {
-        const copy = doc.createElement("link");
-        copy.rel = "stylesheet"; copy.href = link.href; copy.dataset.interiorMapStyles = "";
-        if (doc !== document) doc.head.append(copy);
-      });
-    }
+    source.disabled=true;source.setAttribute('aria-busy','true');
+    try {
+      // A hosted stylesheet can arrive much later than its dialog markup.
+      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"]')].map(link=>{
+        const existing=[...doc.querySelectorAll('link[rel="stylesheet"]')].find(candidate=>candidate.href===link.href);
+        if(existing?.sheet)return Promise.resolve();
+        return new Promise((resolve,reject)=>{
+          const copy=existing||doc.createElement('link');
+          const finish=error=>{owner.clearTimeout(timer);copy.removeEventListener('load',loaded);copy.removeEventListener('error',failed);if(error){if(copy!==link)copy.remove();reject(error);}else resolve();};
+          const loaded=()=>finish(),failed=()=>finish(new Error('The ship interior could not load. Please try again.'));
+          const timer=owner.setTimeout(failed,15000);
+          copy.addEventListener('load',loaded,{once:true});copy.addEventListener('error',failed,{once:true});
+          if(!existing){copy.rel='stylesheet';copy.href=link.href;copy.dataset.interiorMapStyles='';doc.head.append(copy);}
+        });
+      }));
+    } catch(error) {owner.alert(error.message);return;}
+    finally {interiorLoading=false;source.disabled=false;source.removeAttribute('aria-busy');}
+    if(!host.isConnected)return;
     const shell = doc.createElement("dialog");
     shell.className = "expanded-interior-dialog";
     const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
