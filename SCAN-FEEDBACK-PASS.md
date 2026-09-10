@@ -12,6 +12,6 @@
 
 ## Verification
 
-129 unit/HTTP tests passed during development. Fresh-campaign sensor browser checks cover two PCs and GM, held clicks, visible roll prompts, unauthorized roll rejection, repeat requests, Life Scan, queued Analysis, navigation aspect ratios at 1366 and 1920 widths, and expanded movement. Cockpit regression passed 12 PC/NPC orders across fresh campaign and Explore. Shield browser regression passed. Final restart and hosted verification are recorded in CURRENT-HANDOFF.md when completed.
+130 unit/HTTP tests passed. Fresh-campaign sensor browser checks cover two PCs and GM, held clicks, visible roll prompts, unauthorized roll rejection, repeat requests, Life Scan, queued Analysis, navigation aspect ratios at 1366 and 1920 widths, expanded movement, pending-roll restart and GM recovery. Cockpit regression passed 12 PC/NPC orders across fresh campaign and Explore. Shield browser regression passed. Render matched 30 code/style files and 19 images and passed its browser walkthrough. Hosted screenshot review caught missing class metadata in encounter normalization; bfc5a33 corrects it and the rerun verified the full detection message. Application release: 4a8c77b plus bfc5a33.
 
 These are targeted automated browser checks using API-created fixtures, not an overnight or full character-creation playthrough. Gold Standard, original artwork and real campaign data are unchanged.

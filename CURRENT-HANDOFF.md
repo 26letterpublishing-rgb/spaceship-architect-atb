@@ -1,14 +1,14 @@
 # Current Recovery Handoff
 
-## Authorized Pass In Progress
+## Latest Pass Complete
 
-Scan feedback and console layout are authorized by the latest #commit. Implementation and local checks are complete; GitHub publication and hosted verification are next. Read SCAN-FEEDBACK-PASS.md. 129 tests passed, plus sensor browser checks including pending-roll restart/GM recovery, 12 cockpit orders and shield regressions. Do not treat historical hosted completion below as verification of this pass. Gold Standard and live campaign data remain untouched.
+Scan feedback and console layout are COMPLETE. Application commits 4a8c77b and bfc5a33 are pushed and verified on Render. Read SCAN-FEEDBACK-PASS.md. All 130 tests passed, plus fresh-campaign sensor browser checks including pending-roll restart/GM recovery, 12 cockpit orders and shield regressions. Hosted verification matched 30 code/style files and 19 images, then passed cards, GM/PC switch, explicit scan roll, detection, Command help, and expanded high-resolution interior labels. The first hosted screenshot review caught missing class metadata; bfc5a33 fixed it and the rerun visibly showed the full class/affiliation message. All task-owned test/server/browser processes exited. Gold Standard and live campaign data remain untouched. Wait for user feedback and the next #commit.
 
 ## Start Here
 
 Read this file, then `AGENTS.md`, then `COMMAND-ACTIONS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The authorized Command Actions and Interior Movement pass is COMPLETE. Application commits eaf99ac and 7740d93 are pushed to GitHub and verified on Render. The first hosted walkthrough caught a stylesheet-loading race in the expanded interior; 7740d93 fixes it, with an 800ms-delayed CSS browser regression. The hosted rerun passed and all task-owned test/browser/server processes exited. Wait for feedback and the next #commit; do not restart this historical pass.
+Historical Command Actions and Interior Movement pass: commits eaf99ac and 7740d93 were pushed and verified on Render. The first hosted walkthrough caught a stylesheet-loading race in the expanded interior; 7740d93 fixes it, with an 800ms-delayed CSS browser regression. Do not restart this historical pass.
 
 Verification passed: 128 unit/HTTP tests; fresh-campaign GM/two-PC sensor workflow plus Command help/Team preparation, enlarged held-click interior movement, local power-off/restart, diagnostics through GM Pass Time, shield regressions, and 12 cockpit mouse orders. Eleven command/maintenance unit checks include conditional navigation/analysis after departure. Render matched 28 code/style files and 19 optimized images; hosted cards, GM/PC switch, scan, Command help and expanded interior passed. See COMMAND-ACTIONS-PASS.md for interpretations and deferred features.
 
@@ -29,7 +29,7 @@ The earlier UI-only usability audit was completed in the prior pass; its three f
 - PC default: full console, persistent between turns. Combat View opts out for the station visit. GM never automatically sees a PC console.
 - Compact movement planner and full console share submission; Leave Console means character movement.
 - Live Tactical Rings, all six delayed-resolution factors with console names, extra reduced-motion-aware animations.
-- Both new/reset Explore ships have Power Hybrid Engine 4, Bridge 1, Exhaust Thruster 1, Ionic Pulse Thruster 1, Sensors 3, Shield 1, Life Support and Nutritional Supplement. Start 10 Units apart with a disclosed demo-only Masking 18 modifier. Keep future demo layouts current with implemented SIC families.
+- Both new/reset Explore ships have Power Hybrid Engine 4, Bridge 1, Exhaust Thruster 1, Ionic Pulse Thruster 1, Sensors 3, Life Support and Nutritional Supplement. Shields are intentionally omitted for Analysis testing. Start 10 Units apart with a disclosed demo-only Masking 18 modifier. Keep future demo layouts current with implemented SIC families.
 - Main starmap inset between the first ship headers. Existing console background art retained.
 
 Do not restart historical requests automatically. After completion, wait for feedback and the next #commit. A request to write handoff documentation does not authorize unrelated application changes or publication.
