@@ -24,6 +24,8 @@ const shipPower = require("./ship-power");
 const shipNavigation = require("./ship-navigation");
 const shipShields = require("./ship-shields");
 const shipSensors = require("./ship-sensors");
+const shipCommands = require("./ship-commands");
+const shipMaintenance = require("./ship-maintenance");
 const shipDistances = require("./ship-distances");
 const shipMapCore = require("./ship-map-core");
 const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
@@ -179,7 +181,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.starships = normalizeEncounterStarships(snapshot.starships);
     room.starships.forEach(ship => {
       const saved = snapshot.starships?.find(s => s.id === ship.id);
-      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts', 'sensorState', 'sensorScenarioMasking']) ship[key] = clone(saved?.[key] ?? null);
+      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts', 'sensorState', 'sensorScenarioMasking', 'commandSystems', 'maintenanceReceipts']) ship[key] = clone(saved?.[key] ?? null);
     });
     room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
@@ -286,6 +288,16 @@ function pushLog(room, text, context = {}) {
   }
   room.log.push({ id: id(), at: new Date().toLocaleTimeString(), text, ...context });
   room.log = room.log.slice(-80);
+}
+
+function recordShipReports(room, operation) {
+  const previous=new Map(room.starships.map(ship=>[ship.id,ship.sensorState?.reports?.[0]]));
+  const result=operation();
+  for(const ship of room.starships){
+    const report=ship.sensorState?.reports?.[0];
+    if(report&&report!==previous.get(ship.id))pushLog(room,report.text,{starshipId:ship.id});
+  }
+  return result;
 }
 
 function removeUnitFromCombatObjects(room, unitId) {
@@ -1308,8 +1320,12 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
   const shieldBusy = new Set(room.units.filter(u => u.shieldRestabilizing).map(u => u.id));
+  for (const ship of room.starships || []) shipMaintenance.advance(ship,seconds*multiplier);
   shipShields.advance(room, seconds * multiplier);
+  const beforeShipMovement=shipDistances.positions(room.starships,room.shipPositions).map(p=>({...p}));
   shipNavigation.advance(room, seconds * multiplier);
+  recordShipReports(room,()=>shipCommands.advance(room, seconds * multiplier,beforeShipMovement));
+  shipShields.refresh(room);
   shipSensors.refresh(room);
   const completedEvents = [];
   tickAreaEffects(room, seconds, multiplier);
@@ -1389,6 +1405,22 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
 
 function resolveCompletedEvent(room, event, source) {
   if (!event) return false;
+  if (event.type === 'delayed' && (event.unit.delayedAction?.shipOrder?.trigger || event.unit.delayedAction?.sensorOrder?.trigger)) {
+    recordShipReports(room,()=>shipCommands.armExternal(room,event.unit,event.unit.delayedAction.shipOrder ? 'pilot' : 'sensor'));
+    event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
+    return false;
+  }
+  if (event.type === 'delayed' && event.unit.delayedAction?.maintenanceOrder) {
+    recordShipReports(room,()=>shipMaintenance.resolve(room,event.unit,sides=>require('node:crypto').randomInt(1,sides+1)));
+    event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
+    return false;
+  }
+  if (event.type === 'delayed' && event.unit.delayedAction?.commandOrder) {
+    recordShipReports(room,()=>shipCommands.resolveInput(room,event.unit,sides => require('node:crypto').randomInt(1,sides+1)));
+    shipShields.refresh(room);
+    event.unit.atb = Math.max(0,event.unit.atb-room.threshold);
+    return false;
+  }
   if (event.type === 'delayed' && event.unit.delayedAction?.sensorOrder) {
     shipSensors.resolveInput(room,event.unit,sides => require('node:crypto').randomInt(1,sides+1));
     event.unit.atb = Math.max(0,event.unit.atb-room.threshold);
@@ -1746,7 +1778,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1831,9 +1863,14 @@ async function handleRoomAction(body, res) {
   if (action === "syncEncounterStarships") {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
-    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','sensorScenarioMasking','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
+    const conditions=new Map((room.starships||[]).map(s=>[s.id,new Map((s.ship.sicInventory||[]).map(i=>[i.id,i]))]));
+    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','sensorScenarioMasking','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { if (previous.has(ship.id)) Object.assign(ship, previous.get(ship.id)); });
+    for(const ship of room.starships)for(const item of ship.ship.sicInventory||[]){
+      const old=conditions.get(ship.id)?.get(item.id);
+      if(old)for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable'])if(key in old)item[key]=old[key];
+    }
     shipShields.refresh(room);
     room.shipPositions = shipDistances.positions(room.starships, room.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
@@ -1877,16 +1914,39 @@ async function handleRoomAction(body, res) {
   }
 
   if (action === 'sensorCommand') {
+    const ship=room.starships.find(s=>s.id===playerUnit?.location?.starshipId);
+    const duplicate=ship?.sensorState?.receipts?.includes(String(body.requestId||''));
+    let trigger=null;
+    if(body.trigger&&!duplicate){
+      if(!ship){sendJson(res,409,{error:'Choose a ship console.'});return;}
+      const checked=shipCommands.validateTrigger(room,ship,body.trigger);
+      if(!checked.ok){sendJson(res,409,{error:checked.error});return;}
+      trigger=checked.trigger;
+    }
     const result = shipSensors.queue(room,playerUnit,body);
     if (!result.ok) { sendJson(res,409,{error:result.error}); return; }
     if (!result.duplicate) {
+      if(trigger)playerUnit.delayedAction.sensorOrder.trigger=trigger;
       const source = room.activeSource;
       room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
       pushLog(room,`${playerUnit.characterName} started sensor input.`,{starshipId:result.ship.id});
       moveToNextTurnOrClock(room,source);
     }
   }
+  if (action === 'shipCommand') {
+    const previousPositions=shipDistances.positions(room.starships,room.shipPositions).map(p=>({...p}));
+    const result = shipCommands.queue(room,playerUnit,body);
+    if (!result.ok) { sendJson(res,409,{error:result.error}); return; }
+    if(result.free&&!result.duplicate)recordShipReports(room,()=>shipCommands.advance(room,0,previousPositions));
+    if (!result.duplicate && !result.free) {
+      const source = room.activeSource;
+      room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
+      pushLog(room,`${playerUnit.characterName} started ${playerUnit.delayedAction.label}.`,{starshipId:result.ship.id});
+      moveToNextTurnOrClock(room,source);
+    }
+  }
   if (action === 'sensorLifeReading') {
+    // GM readings remain separate from player command input.
     const ship = room.starships.find(s => s.id === body.starshipId);
     const report = ship?.sensorState?.reports.find(r => r.lifeScan && r.pending && r.at === body.reportAt);
     const reading = String(body.reading || '').trim().slice(0,500);
@@ -1903,6 +1963,17 @@ async function handleRoomAction(body, res) {
         room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
         moveToNextTurnOrClock(room, source);
       }
+    }
+  }
+  if (action === 'shipMaintenance') {
+    const result=shipMaintenance.queue(room,playerUnit,body);
+    if(!result.ok){sendJson(res,409,{error:result.error});return;}
+    if(!result.duplicate){
+      if(result.immediate)playerUnit.atb=Math.max(0,playerUnit.atb-room.threshold);
+      shipShields.refresh(room);shipSensors.refresh(room);
+      const source=room.activeSource;room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);
+      pushLog(room,`${playerUnit.characterName}: SIC ${body.kind}.`,{starshipId:result.ship.id});
+      moveToNextTurnOrClock(room,source);
     }
   }
   if (action === 'damageStarship') {
@@ -2086,6 +2157,14 @@ async function handleRoomAction(body, res) {
 
   if (action === "playerCombatAction") {
     shipShields.refresh(room);
+    let trigger=null;
+    if(body.kind==='moveStarship'&&body.trigger){
+      const ship=room.starships.find(s=>s.id===playerUnit?.location?.starshipId);
+      if(!ship){sendJson(res,409,{error:'Choose a ship console.'});return;}
+      const checked=shipCommands.validateTrigger(room,ship,body.trigger);
+      if(!checked.ok){sendJson(res,409,{error:checked.error});return;}
+      trigger=checked.trigger;
+    }
     if (body.kind === "move" && Array.isArray(body.route) && body.route.length) {
       const destination = body.route.at(-1) || {};
       const occupied = room.units.filter((entry) => entry.id !== playerUnit?.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
@@ -2111,6 +2190,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 409, { error: result.error });
       return;
     }
+    if(trigger&&playerUnit.delayedAction?.shipOrder)playerUnit.delayedAction.shipOrder.trigger=trigger;
     if (result.beginAttack && !beginAttackResolution(room, result.beginAttack)) {
       sendJson(res, 409, { error: "The attacker or defender is no longer in this encounter." });
       return;
@@ -2632,6 +2712,10 @@ async function handleRoomAction(body, res) {
     if (resetShowcaseRoom(room)) {
       room.undoSnapshot = null;
     } else {
+    for(const unit of room.units){
+      const ship=room.starships.find(s=>s.id===unit.location?.starshipId);
+      if(ship&&unit.characterId){ship.characterLocations ||= {};ship.characterLocations[unit.characterId]=clone(unit.location);}
+    }
     room.attackResolution = null;
     room.itemResolution = null;
     room.vehicles = [];
@@ -2737,6 +2821,7 @@ async function handleRoomAction(body, res) {
     }
   }
 
+  if(action==='exitEncounter')await campaignApi?.saveEncounter(room.roomCode,snapshotRoom(room));
   sendJson(res, 200, publicState(room));
   broadcast(room);
   scheduleRoomPersist(room);

@@ -82,6 +82,7 @@
     ["bridge-7", "Bridge 7", 5, 10, 24250, 5, 7, "Dark Phazon, 3 days", 60, "B-3", 3],
     ["bridge-8", "Bridge 8", 5, 12, 40000, 5, 8, "Carmot, 2 hrs", 65, "B-4", 2],
   ];
+  catalog['cockpit-1'].rebootSeconds = 8 * 12;
   function perimeterStations(width, height, count) {
     if(width===1&&height===1&&count===2)return [{x:0,y:0,mesh:0},{x:0,y:0,mesh:2}];
     const points = [{ x: 0, y: 0, mesh: 0 }, { x: width - 1, y: height - 1, mesh: 8 },

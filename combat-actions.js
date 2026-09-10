@@ -41,7 +41,7 @@
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship','holdConsole']){
+    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
@@ -323,6 +323,7 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(kind==='maintenance'){window.SAMaintenanceUI.open(currentUnit);return;}
       if(kind==='holdConsole'){window.SAShipNavigationUI.toggleHold(currentUnit).catch(err=>window.alert(err.message));return;}
       if(kind==='consoleView'){window.SAShipNavigationUI.open(currentUnit);return;}
       if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit,{compact:true});return;}
@@ -442,6 +443,7 @@
       if(kind==='holdConsole'){button.hidden=!seated;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
       if (kind === 'moveStarship') {button.hidden=!consoles.some(a=>a.kind==='pilot');button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
+      if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
       if(kind==='move')button.textContent=seated?'Leave Console':'Move';
       let reason = disabled ? "Available only during your active turn." : "";
@@ -494,6 +496,8 @@
       engineeringSkill: skillValue("Engineering"),
       pilotSkill: skillValue("Pilot/Helm"),
       sensorSkill: skillValue("Sensor Systems"),
+      mathematicsSkill: skillValue("Mathematics"),
+      computerSkill: skillValue("Computer Systems"),
       meleeSkill: skillValue("Melee"),
       dodgeSkill: skillValue("Dodge/Block"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),

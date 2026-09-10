@@ -2,11 +2,11 @@
 
 ## Start Here
 
-Read this file, then `AGENTS.md`, then `SENSORS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
+Read this file, then `AGENTS.md`, then `COMMAND-ACTIONS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the Sensors pass with #commit. Application release `762b94a` was pushed to GitHub and verified on Render: 19 code/style files and 19 optimized assets matched, and the live browser completed a scan after switching GM to Nova Vale. A small follow-up styles the console header consistently in Explore Features; check the latest git commit for that adjustment. This pass is complete after its final push/check, not a request to restart historical work.
+The user authorized the Command Actions and Interior Movement pass with #commit. Implementation is in the working tree. Final tests, commit, push and Render verification are IN PROGRESS, not complete. Do not send ntfy until publishing and cleanup are finished. Last previously published HEAD was bdea991.
 
-Sensors: 117 unit/HTTP checks, fresh-campaign GM/two-PC sensor workflow, shield regressions, and 12 cockpit mouse orders. See SENSORS-PASS.md for exact coverage and playtest interpretations. After publication, wait for feedback and the next #commit; do not restart this pass.
+Local verification passed: 128 unit/HTTP tests; fresh-campaign GM/two-PC sensor workflow plus Command help/Team preparation, enlarged held-click interior movement, local power-off/restart, diagnostics through GM Pass Time, shield regressions, and 12 cockpit mouse orders. Eleven command/maintenance unit checks include conditional navigation/analysis after departure. Render publication verification remains pending. See COMMAND-ACTIONS-PASS.md for interpretations and deferred features.
 
 ## Latest Pass
 

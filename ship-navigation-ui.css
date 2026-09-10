@@ -145,3 +145,33 @@
 @media(max-width:1100px){.shield-console-dialog header{gap:8px}.shield-console-dialog h2{font-size:16px}.shield-console-dialog .station-console-select{max-width:150px}.shield-console-dialog main{padding-left:2%;padding-right:2%}.shield-console-dialog section{padding:8px}.shield-command{min-width:115px}.shield-command strong{font-size:14px}}
 @media(max-width:750px){.shield-console-dialog{background:#081811}.shield-console-dialog>header{height:auto;flex-wrap:wrap}.shield-console-dialog main{height:auto;display:flex;flex-direction:column;gap:12px}.shield-console-dialog section{overflow:visible}.shield-emitter{height:220px}.shield-console-dialog .pilot-rings{height:160px}.shield-console-dialog .shield-activity{max-height:300px;overflow:auto}}
 @media(prefers-reduced-motion:reduce){.shield-energy-trace,.shield-emitter img,.shield-au-error [data-au]{animation:none}.shield-console-dialog[data-flash=true] [data-turn]{text-shadow:none}}
+.pilot-chart.command-page>:not(.pilot-chart-title):not(.pilot-command-operations):not(.conditional-order-controls){display:none!important}
+.pilot-command-operations:not([hidden]){display:flex;flex-direction:column;gap:6px;overflow:hidden;min-height:0;flex:1;max-height:none;padding:4px 0}
+.command-tabs{display:flex;gap:4px;flex-shrink:0}
+.ship-navigation-dialog .command-tabs button{flex:1;min-height:27px;padding:4px 8px;font-size:12px}
+.command-tabs [aria-selected=true]{background:#28595c;color:#c5fff0;border-color:#83dec9}
+.command-pages{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.command-section:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;align-content:start}
+.command-section label{display:grid;gap:3px;font-size:12px;color:#a9dedd}
+.command-section select{box-sizing:border-box;width:100%;min-width:0;height:32px;background:#10242c;color:#eaf7fa;border:1px solid #588a94}
+.command-section [data-command-calls],.command-section [data-command-preparations],.command-section[data-section=Preparation]>label{grid-column:1/-1}
+.command-section[data-section=Maneuvers]>h3{display:none}
+.pilot-command-operations [data-command-error]{flex-shrink:0;font-size:12px;margin:0;color:#ffabb6}
+.pilot-chart-title{flex-shrink:0}
+.ship-navigation-dialog button[hidden]{display:none!important}
+.pilot-chart>.conditional-order-controls{flex-shrink:0;max-height:55%;overflow:auto}
+.pilot-chart>.conditional-order-controls label{display:block}
+.pilot-chart>.conditional-order-controls select{max-width:100%;background:#10242c;color:#eaf7fa;border:1px solid #588a94;min-height:30px}
+.command-controls{display:grid;align-content:start;gap:8px;min-width:0}
+.command-controls label{display:grid;gap:4px;font-size:12px;color:#a9dedd}
+.command-controls select,.command-controls input{box-sizing:border-box;min-width:0;width:100%;height:32px;background:#10242c;color:#eaf7fa;border:1px solid #588a94}
+.command-coordinate{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.command-action-row{display:grid;grid-template-columns:minmax(0,1fr) 28px;align-items:center;gap:6px}
+.command-action-row>[data-command]{font-size:12px;min-height:34px}
+.command-call{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border:1px solid #e2cf70}
+.command-call strong,.command-call small{width:100%}
+.incoming-hail{outline:2px solid #e8d276;box-shadow:0 0 12px #d3b746}
+.conditional-order-controls{padding:8px;border-top:1px solid #527a85;font-size:12px}
+.conditional-order-controls summary{cursor:pointer;color:#e1cf8c;padding:6px 0}
+.conditional-order-controls label{margin:6px 0}
+.conditional-order-controls input[type=checkbox]{width:16px;height:16px}

@@ -4,20 +4,21 @@ const root=path.resolve(__dirname,'..'),base=process.env.SA_VERIFY_BASE||'https:
 fs.mkdirSync(artifacts,{recursive:true});
 const hash=buffer=>crypto.createHash('sha256').update(buffer).digest('hex');
 const scripts=['app.js','character.js','gm.js','combat-actions.js','combat-engine.js','ship-map-core.js','ship-combat-map.js','station-access.js','ship-sensors.js','sensor-console-ui.js','sensor-console-ui.css','ship-navigation-ui.js','ship-navigation.js','ship-shields.js','shield-console-ui.js','starship.js','starship.html','space-map.js','index.html'];
+scripts.push('action-help.js','maintenance-ui.js','ship-command-ui.js','ship-cooperation.js','ship-combat-map.css','ship-navigation-ui.css','combat-workspace.css','gm.html','character.html');
 let browser;
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){
     try{
       deployed=true;
-      for(const name of ['ship-sensors.js','sensor-console-ui.css']){
+      for(const name of ['ship-command-ui.js','sensor-console-ui.css']){
         const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
         deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
       }
     }catch{deployed=false;}
     if(deployed)break;await new Promise(r=>setTimeout(r,15000));
   }
-  assert.ok(deployed,'Render has not deployed the sensor release');
+  assert.ok(deployed,'Render has not deployed the command/interior release');
   for(const name of scripts){const response=await fetch(base+'/'+name+'?verify='+Date.now());assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,name))),name);}
   const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-'));
   for(const name of images){const response=await fetch(base+'/'+name);assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,manifest[name].file))),name);}
@@ -37,6 +38,14 @@ async function main(){
   await consoleView.locator('[data-q]').fill('10');await consoleView.locator('[data-r]').fill('0');await consoleView.getByRole('button',{name:'Scan Hex',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();
   for(let i=0;i<12;i++){const s=await state();if(s.activeId)await act({action:'completeTurn',id:s.activeId});await act({action:'step'});}
   await consoleView.locator('[data-reports]').filter({hasText:'Hex scan complete'}).waitFor();await page.screenshot({path:path.join(artifacts,'live-sensor-console.png')});
-  assert.deepEqual(errors,[]);console.log('Live Render cards, demo GM/PC switch, unknown contact and browser scan passed.');
+  await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption(cp.id);
+  const pilot=page.getByRole('dialog',{name:'Pilot console',exact:true});await pilot.waitFor();await pilot.getByRole('button',{name:'Command',exact:true}).click();
+  await pilot.getByRole('tab',{name:'Preparation',exact:true}).click();
+  await pilot.getByRole('button',{name:'About Team Execution',exact:true}).click();await page.locator('.ship-action-help').waitFor();await page.locator('.ship-action-help').getByRole('button',{name:'Close',exact:true}).click();
+  await pilot.locator('.pilot-command-operations').evaluate(e=>e.scrollTop=0);await page.screenshot({path:path.join(artifacts,'live-command-console.png')});
+  await pilot.getByRole('button',{name:'Combat View',exact:true}).click();
+  const combat=page.frameLocator('#showcaseFrame').frameLocator('#playerAtbFrame');await combat.getByRole('button',{name:'Enlarge ship interior',exact:true}).first().click();
+  const interior=page.locator('.expanded-interior-dialog');await interior.waitFor();assert.ok((await interior.boundingBox()).width>1200);await page.screenshot({path:path.join(artifacts,'live-expanded-interior.png')});await interior.getByRole('button',{name:'Back',exact:true}).click();
+  assert.deepEqual(errors,[]);console.log('Live Render cards, demo GM/PC switch, scan, Command help and expanded interior passed.');
 }
 main().catch(async error=>{console.error(error);process.exitCode=1;if(browser)for(const c of browser.contexts())for(const p of c.pages())await p.screenshot({path:path.join(artifacts,'failure.png')}).catch(()=>{});}).finally(async()=>{if(browser)await browser.close();});

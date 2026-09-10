@@ -18,8 +18,15 @@
     const areaButton = host.createElement('button');
     areaButton.type='button';areaButton.dataset.order='lifeArea';areaButton.textContent='Life Scan: 50-mile Area';
     view.querySelector('[data-order="life"]').after(areaButton);
+    view.querySelectorAll('[data-order]').forEach(button=>window.SAActionHelp.attach(button,button.dataset.order));
+    const recipients=host.createElement('fieldset');recipients.className='sensor-share-recipients';recipients.innerHTML='<legend>Share Recipients</legend><div data-recipients></div>';
+    view.querySelector('[data-order="share"]').before(recipients);
+    view.querySelectorAll('[data-order]').forEach(button=>{
+      const help=button.nextElementSibling,row=host.createElement('div');row.className='sensor-action-row';button.before(row);row.append(button);if(help?.dataset.actionHelp)row.append(help);
+    });
     const contactInfo=host.createElement('small');contactInfo.dataset.contactInfo='';
     view.querySelector('[data-target]').after(contactInfo);
+    view.querySelector('.sensor-seat-actions').before(window.SAShipCommandUI.conditionalControls(host));
     host.body.append(view);view.showModal();
     const get = selector => view.querySelector(selector), q=get('[data-q]'),r=get('[data-r]');
     let busy=false,lastMap='',lastTargets='',lastReports='',lastRings='',beat=-1;
@@ -47,11 +54,14 @@
       if(mapKey!==lastMap){get('[data-map]').innerHTML=window.SASpaceMap.markup(picture.starships,picture.shipPositions,false,{navigation:true});lastMap=mapKey;}
       get('[data-destination]').textContent=`Selected: ${q.value}, ${r.value}`;
       const contacts=Object.values(access.ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');
+      window.SAShipCommandUI.refreshConditional(view,contacts);
       const targets=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
-      if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML='<option value="">Choose contact</option>'+targets;get('[data-target]').value=previous;lastTargets=targets;}
+      if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML='<option value="">Choose contact</option>'+targets;get('[data-target]').value=previous;
+        const chosen=[...view.querySelectorAll('[data-recipient]:checked')].map(i=>i.value);
+        get('[data-recipients]').innerHTML=contacts.map(c=>`<label><input type="checkbox" data-recipient value="${esc(c.id)}" ${chosen.includes(c.id)?'checked':''}>${esc(c.title)}</label>`).join('');lastTargets=targets;}
       const selectedContact=contacts.find(contact=>contact.id===get('[data-target]').value);
       contactInfo.textContent=selectedContact?[selectedContact.nature,`${selectedContact.size} hull squares`,selectedContact.faction].filter(Boolean).join(' / '):'';
-      for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(['analysis','life','share'].includes(button.dataset.order)&&!get('[data-target]').value);
+      for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(['analysis','life'].includes(button.dataset.order)&&!get('[data-target]').value)||(button.dataset.order==='share'&&!get('[data-target]').value&&!view.querySelector('[data-recipient]:checked'));
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
       get('[data-leave]').disabled=busy||!ready;
       const reports=(access.ship.sensorState?.reports||[]).map(entry=>`<article><time>${esc(new Date(entry.at).toLocaleTimeString())}</time><p>${esc(entry.text)}</p>${entry.values?`<small>Dice ${entry.values.join(' / ')} | Total ${entry.total}</small>`:''}${entry.analysis?`<div>${window.SAHealthDisplay.track('hull',entry.hull.current,entry.hull.maximum,true)}${window.SAHealthDisplay.track('shield',entry.shield.current,entry.shield.maximum,true)}</div><small>Snapshot at scan completion</small><ul>${entry.components.map(c=>`<li>${esc(c.name)}</li>`).join('')}</ul>`:''}${entry.pending&&bridge.mode()==='gm'?`<button type="button" data-reading="${esc(entry.at)}">Enter Biological Reading</button>`:''}${entry.sharedBy?`<small>Shared by ${esc(entry.sharedBy)}</small>`:''}</article>`).join('')||'<p>No completed scans.</p>';
@@ -73,10 +83,12 @@
       if(order&&!bridge.confirmGmPlayerAction(person,'sensorCommand'))return;
       let payload;
       if(reading){const text=host.defaultView.prompt('Approximate biological life reading (artificial life is excluded):');if(!text)return;payload={action:'sensorLifeReading',starshipId:initial.ship.id,reportAt:reading.dataset.reading,reading:text};}
-      else {if(order.dataset.order==='share'&&!host.defaultView.confirm('Transmit your current sensor intelligence to the selected ship?'))return;
+      else {if(order.dataset.order==='share'&&!host.defaultView.confirm('Transmit your current sensor intelligence to the selected recipients?'))return;
         const area = order.dataset.order==='lifeArea' ? host.defaultView.prompt('Center of the 50-mile scan (place or coordinates for the GM):') : '';
         if(order.dataset.order==='lifeArea'&&!area?.trim())return;
-        payload={action:'sensorCommand',id:unit.id,sicId,kind:order.dataset.order,targetId:get('[data-target]').value,area,hex:{q:Number(q.value),r:Number(r.value)},requestId:crypto.randomUUID()};}
+        const targetIds=[...view.querySelectorAll('[data-recipient]:checked')].map(i=>i.value);
+        payload={action:'sensorCommand',id:unit.id,sicId,kind:order.dataset.order,targetId:get('[data-target]').value,targetIds:targetIds.length?targetIds:[get('[data-target]').value],area,hex:{q:Number(q.value),r:Number(r.value)},requestId:crypto.randomUUID()};}
+      if(order)payload.trigger=window.SAShipCommandUI.conditionalPayload(view);
       busy=true;get('[data-error]').textContent='';redraw();
       try{await bridge.action(payload,'resolve',{throwOnError:true});}catch(error){get('[data-error]').textContent=error.message;}finally{busy=false;if(view.isConnected)redraw();}
     });

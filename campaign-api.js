@@ -1019,9 +1019,22 @@ class CampaignApi {
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
+      if(encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt){
+        for(const ship of next.starships||[]){
+          const live=encounter.starships?.find(s=>s.id===ship.id);if(!live)continue;
+          for(const item of ship.ship.sicInventory||[]){
+            const current=live.ship.sicInventory?.find(i=>i.id===item.id);if(!current)continue;
+            for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable'])if(key in current)item[key]=clone(current[key]);
+          }
+          ship.ship.currentHullHp=live.currentHullHp;ship.ship.currentShieldHp=live.currentShieldHp;
+          ship.characterLocations ||= {};
+          for(const [id,location] of Object.entries(live.characterLocations||{}))if(ship.crewCharacterIds.includes(id))ship.characterLocations[id]=clone(location);
+          for(const unit of encounter.units||[])if(ship.crewCharacterIds.includes(unit.characterId)&&unit.location?.starshipId===ship.id)ship.characterLocations[unit.characterId]=clone(unit.location);
+        }
+      }
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
-      Object.assign(campaign, { encounter: next.encounter, npcRoster, updatedAt, revision });
+      Object.assign(campaign, { encounter: next.encounter, starships:next.starships, npcRoster, updatedAt, revision });
     });
     this.saveQueues.set(code, queued);
     try { await queued; }
@@ -1204,6 +1217,8 @@ class CampaignApi {
         engineeringSkill: entry.skills.Engineering || 0,
         pilotSkill: entry.skills['Pilot/Helm'] || 0,
         sensorSkill: entry.skills['Sensor Systems'] || 0,
+        mathematicsSkill: entry.skills.Mathematics || 0,
+        computerSkill: entry.skills['Computer Systems'] || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
         location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],
@@ -1446,6 +1461,16 @@ class CampaignApi {
       await this.save(campaign); sendJson(res, 200, { open: record.ship.doorStates[key] === "open", starship: publicStarship(record), campaign: this.state(campaign, token) }); return true;
     }
 
+    if (path === "/api/campaign/starship/diagnostics" && req.method === "POST") {
+      const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
+      if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only the assigned character or GM may schedule diagnostics.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'Diagnostics are only available outside combat.'});return true;}
+      try{
+        require('./ship-maintenance').diagnostics(record,characterId);
+        await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}
+      return true;
+    }
     if (path === "/api/campaign/starship/move-character" && req.method === "POST") {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
       const characterId = String(body.characterId || "");
@@ -1462,6 +1487,7 @@ class CampaignApi {
       if (station && occupied >= 1) { sendJson(res, 409, { error: "That station is already occupied." }); return true; }
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
       record.characterLocations[characterId] = { square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
+      require('./ship-maintenance').passTime(record,0);
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
       sendJson(res, 200, { moved: true, starship: publicStarship(record), campaign: this.state(campaign, token) });
@@ -2035,6 +2061,7 @@ class CampaignApi {
             next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${body.amount} ${body.unit}. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
           }
           const result = { id: requestId, minutes, healed, recharged };
+          for(const ship of next.starships || []) require('./ship-maintenance').passTime(ship,minutes);
           next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + minutes;
           next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
           next.revision = (Number(next.revision) || 1) + 1;

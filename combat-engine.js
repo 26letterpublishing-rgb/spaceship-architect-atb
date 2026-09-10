@@ -174,6 +174,9 @@ function syncUnitCombat(unit, source = {}) {
   unit.pilotSkill = pilot == null ? null : Math.max(0,Number(pilot)||0);
   const sensor = source.sensorSkill ?? unit.sensorSkill;
   unit.sensorSkill = sensor == null ? null : Math.max(0,Number(sensor)||0);
+  for(const key of ['mathematicsSkill','computerSkill']){
+    const rating=source[key]??unit[key];unit[key]=rating==null?null:Math.max(0,Number(rating)||0);
+  }
   unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
   unit.raceId = safeText(source.raceId, unit.raceId || "", 80);
@@ -242,6 +245,8 @@ function migrateUnitCombat(unit) {
     engineeringSkill: unit.engineeringSkill,
     pilotSkill: unit.pilotSkill,
     sensorSkill: unit.sensorSkill,
+    mathematicsSkill: unit.mathematicsSkill,
+    computerSkill: unit.computerSkill,
     meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
     raceId: unit.raceId,

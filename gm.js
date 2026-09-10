@@ -540,6 +540,8 @@ function encounterRuleFields(record) {
     engineeringSkill: Number(skillRating(record, "Engineering")) || 0,
     pilotSkill: Number(skillRating(record, "Pilot/Helm")) || 0,
     sensorSkill: Number(skillRating(record, "Sensor Systems")) || 0,
+    mathematicsSkill: Number(skillRating(record, "Mathematics")) || 0,
+    computerSkill: Number(skillRating(record, "Computer Systems")) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),

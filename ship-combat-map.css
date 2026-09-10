@@ -1,4 +1,21 @@
 .combat-map-open{min-height:36px;padding:7px 16px;border-color:#7c63c8;background:linear-gradient(180deg,#453375,#1b1834)}
+.inline-map-viewport.inline-map-viewport{overflow:auto;display:block;place-items:start;max-height:360px;min-width:0}
+.inline-combat-map-grid.inline-combat-map-grid{--cell-size:72px}
+.expanded-interior-dialog{box-sizing:border-box;position:fixed;inset:12px;margin:auto;width:calc(100vw - 24px);height:calc(100dvh - 24px);max-width:none;max-height:none;padding:0;border:1px solid #54dced;border-radius:6px;color:#e6f3f6;background:#06121a;font:14px Arial,sans-serif}
+.expanded-interior-dialog[open]{display:grid;grid-template-rows:auto minmax(0,1fr)}
+.expanded-interior-dialog::backdrop{background:#01070de8}
+.expanded-interior-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid #365761}
+.expanded-interior-dialog>header>div{display:flex;gap:8px}
+.expanded-interior-dialog button{cursor:pointer;min-height:36px;border:1px solid #5994a3;border-radius:4px;background:#102f3b;color:#effbff;padding:6px 12px}
+.expanded-interior-dialog button:disabled{opacity:.4;cursor:default}
+.expanded-interior-dialog>[data-inline-ship-map]{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0;overflow:hidden}
+.expanded-interior-dialog .inline-map-viewport{min-height:0;max-height:none;display:grid;place-items:safe center}
+.expanded-interior-dialog .inline-combat-map-grid{--cell-size:var(--expanded-cell-size,96px)!important}
+.expanded-interior-dialog .combat-mesh-node{padding:0;min-height:0;border:0;border-radius:0}
+.expanded-interior-dialog .inline-map-toolbar label{font-size:12px}
+.expanded-interior-dialog .inline-map-toolbar>span{display:block;font-size:13px}
+.expanded-interior-dialog [data-expand-interior]{display:none}
+.expanded-interior-dialog .inline-map-footer .combat-map-stats{display:none}
 .combat-map-dialog{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:14px;background:rgba(1,5,10,.86);backdrop-filter:blur(4px)}
 .combat-map-dialog.hidden{display:none}
 .combat-map-panel{width:min(1180px,calc(100vw - 28px));height:min(820px,calc(100dvh - 28px));display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden;border:1px solid #49d9ef;background:#06111d;box-shadow:0 0 30px rgba(49,211,239,.25)}

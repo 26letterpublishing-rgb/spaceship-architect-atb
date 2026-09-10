@@ -286,3 +286,13 @@ assignment -> station movement -> passive bonus -> active action -> damage/reboo
 The objective is not to implement all 244 SICs at once. Establish reliable shared
 behavior with the current small set, then add families and their distinctive
 mechanics without rebuilding the foundation for each new card.
+
+## Command and Maintenance Timing
+
+See COMMAND-ACTIONS-PASS.md for the current digital interpretation of core PDF
+pages 62-64 and 68-69: bridge preparations/hailing, thruster maneuvers, local SIC
+repair/reboot, diagnostics and conditional orders. Team/conditional windows are
+12 combat seconds after input; repair uses 9 seconds; diagnostics use 55 minutes
+of GM-passed time. These concrete durations and collision snapshot rules need
+playtesting. Lock-On, hull breaches, hacking and future equipment event triggers
+are not simulated before their authoritative systems exist.

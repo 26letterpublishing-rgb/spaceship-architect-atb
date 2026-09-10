@@ -227,6 +227,7 @@ async function main() {
   await map.locator('[data-inline-cancel-move]').click();assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,true);
   await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
   await helm.getByRole('button',{name:'Leave Console',exact:true}).click();
+  assert.ok(await map.evaluate(host=>{const v=host.querySelector('.inline-map-viewport');v.scrollLeft=0;return v.firstElementChild.getBoundingClientRect().left>=v.getBoundingClientRect().left;}),'Wide mini-map must not hide its left edge outside the scroll range');
   await map.locator('[data-map-square="147"][data-map-mesh="1"]').click();
   await map.locator('[data-inline-confirm-move]').click();
   for(let i=0;i<5&&(await state()).units.find(u=>u.id===pilot.id).timedAction;i++)await act({action:'step'});
@@ -279,6 +280,7 @@ async function main() {
   const demoPc=demo.frameLocator('#showcaseFrame');
   await demoPc.getByRole('button',{name:'Combat',exact:true}).click();
   await demoPc.frameLocator('#playerAtbFrame').locator('[data-space-ship]').first().waitFor();
+  assert.equal(await demoPc.locator('.draft-introduction-modal,.workflow-tutorial-modal').count(),0,'Explore PC must not show creation guidance');
   await demo.screenshot({path:path.join(artifacts,'explore-player.png')});
   console.log('Explore Features GM clock and PC combat perspective: passed');
   const demoAct=body=>post('action',{roomCode:demoRoom.code,gmToken:demoRoom.gmToken,...body});

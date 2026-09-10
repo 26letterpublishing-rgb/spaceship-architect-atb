@@ -3,10 +3,11 @@
   const api = factory(node ? require('./ship-map-core') : root.SAShipMap,
     node ? require('./station-access') : root.SAStationAccess,
     node ? require('./ship-distances') : root.SAShipDistances,
-    node ? require('./delay-rules') : root.SADelayRules);
+    node ? require('./delay-rules') : root.SADelayRules,
+    node ? require('./ship-cooperation') : root.SAShipCooperation);
   if (node) module.exports = api;
   if (root) root.SAShipSensors = api;
-}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays) {
+}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, cooperation) {
   const copy = value => JSON.parse(JSON.stringify(value));
   const down = item => item.impaired || item.status === 'impaired';
   function installed(ship) {
@@ -85,7 +86,12 @@
     if (body.kind === 'lifeArea' && !area) return {ok:false,error:'Describe the center of the 50-mile life scan.'};
     refresh(room);
     const target = room.starships.find(s => s.id === body.targetId && s.id !== access.ship.id);
-    if (['analysis','life','share'].includes(body.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    const recipients = body.kind === 'share' ? (Array.isArray(body.targetIds) ? [...new Set(body.targetIds)] : [body.targetId]) : [];
+    if (body.kind === 'share' && (!recipients.length || recipients.length > 5 || recipients.some(id => {
+      const recipient = room.starships.find(s => s.id === id && s.id !== access.ship.id);
+      return !recipient || state.contacts[id]?.level !== 'detected' || distances.hexDistance(point(room,access.ship.id),point(room,id)) > rangeAgainst(room,access.ship,recipient);
+    }))) return {ok:false,error:'Choose recipients detected within sensor range.'};
+    if (['analysis','life'].includes(body.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,access.ship.id),point(room,target.id)) > rangeAgainst(room,access.ship,target)))
       return {ok:false,error:'Select a detected ship within sensor range.'};
     if (body.kind === 'hex' && (!body.hex || ![body.hex.q,body.hex.r].every(Number.isInteger) ||
@@ -93,7 +99,7 @@
     const settings = inputSettings(access.ship);
     unit.delayedAction = {id:`sensor-${receipt}`,kind:'action',label:({area:'Scan Area',hex:'Scan Hex',analysis:'Systems Analysis',life:'Life Scan',lifeArea:'Life Scan Area',share:'Share Data'})[body.kind],
       rate:settings.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings,
-      sensorOrder:{shipId:access.ship.id,sicId:access.id,station:access.seat.key,kind:body.kind,targetId:target?.id,area,hex:body.kind === 'hex' ? copy(body.hex) : null}};
+      sensorOrder:{shipId:access.ship.id,sicId:access.id,station:access.seat.key,kind:body.kind,targetId:target?.id,targetIds:recipients,area,hex:body.kind === 'hex' ? copy(body.hex) : null}};
     state.receipts = [...state.receipts,receipt].slice(-256);
     return {ok:true,ship:access.ship};
   }
@@ -112,23 +118,29 @@
     }
     refresh(room);
     const sensor = installed(observer), state = knowledge(observer), target = room.starships.find(s => s.id === order.targetId);
-    if (['analysis','life','share'].includes(order.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    if (['analysis','life'].includes(order.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,observer.id),point(room,target.id)) > rangeAgainst(room,observer,target))) {
       report(observer,{text:'Contact lost before sensor input finished.'}); return;
     }
     if (order.kind === 'share') {
-      const other = knowledge(target);
-      Object.assign(other.contacts,copy(state.contacts)); delete other.contacts[target.id];
-      detect(room,target,observer);
+      let delivered = 0;
+      for (const id of order.targetIds || [order.targetId]) {
+      const recipient = room.starships.find(s => s.id === id && s.id !== observer.id);
+      if (!recipient || state.contacts[id]?.level !== 'detected' || distances.hexDistance(point(room,observer.id),point(room,id)) > rangeAgainst(room,observer,recipient)) continue;
+      const other = knowledge(recipient);
+      Object.assign(other.contacts,copy(state.contacts)); delete other.contacts[recipient.id];
+      detect(room,recipient,observer);
       other.reports = [...state.reports.map(r => ({...copy(r),sharedBy:observer.title})),...other.reports].slice(0,30);
-      report(observer,{text:`Sensor data transmitted to ${target.title}.`}); return;
+      delivered++;
+      }
+      report(observer,{text:`Sensor data transmitted to ${delivered} ship${delivered === 1 ? '' : 's'}.`}); return;
     }
     if (order.kind === 'life' || order.kind === 'lifeArea') {
       report(observer,{text:`Life scan of ${target?.title || `50-mile radius around ${order.area}`}: awaiting GM biological reading.`,targetId:target?.id,lifeScan:true,pending:true}); return;
     }
-    const values = sensor.dice.map(sides => rollDie(sides)), total = fusedTotal(values) + skill(unit);
+    const {values,total} = cooperation.roll(room,observer,unit,order.kind,sensor.dice,skill(unit),rollDie,fusedTotal);
     if (order.kind === 'analysis') {
-      const difficulty = Number.isFinite(target.ship.defenseScore) ? target.ship.defenseScore : masking(room,target);
+      const difficulty = target.commandSystems?.evasions?.[0]?.defense ?? (Number.isFinite(target.ship.defenseScore) ? target.ship.defenseScore : masking(room,target));
       const penalty = state.failures[target.id] || 0;
       if (total + penalty < difficulty) {
         state.failures[target.id] = penalty+1;

@@ -2178,7 +2178,8 @@ function renderPlayerStarships(force = false) {
       const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaignState.characters));
       const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.track("shield", shieldCurrent, shieldMax, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", ship.firewallLevel ?? ship.security ?? 0], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : "";
-      const movementActions = gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`;
+      const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
+      const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
       return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}</aside></div></article>`;
   }).join("");
   const current = starshipMoveDraft && dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(starshipMoveDraft.starshipId)}"]`);
@@ -6180,6 +6181,7 @@ const WORKFLOW_TUTORIALS = {
 };
 
 function showWorkflowTutorial(key, target = "") {
+  if (SHOWCASE_MODE || character.phase !== "draft") return;
   const copy = WORKFLOW_TUTORIALS[key];
   if (!copy) return;
   const shell = document.createElement("div");
@@ -6196,7 +6198,7 @@ function activateNextDraftTask() {
 }
 
 function showDraftIntroduction() {
-  if (character.phase !== "draft" || manualInputMode() || PAGE_PARAMS.get("embedded") === "1") return;
+  if (SHOWCASE_MODE || PAGE_PARAMS.has("character") || character.phase !== "draft" || manualInputMode() || PAGE_PARAMS.get("embedded") === "1" || document.querySelector(".draft-introduction-modal")) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
   shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Next Step</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
@@ -8384,6 +8386,17 @@ dom.playerStarshipList?.addEventListener("click", (event) => {
 dom.playerStarshipList?.addEventListener("click", async (event) => {
   if (starshipMoveDraft?.submitting) return;
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
+  const diagnostics = event.target.closest("[data-ship-diagnostics]");
+  if(diagnostics){
+    const operator=diagnostics.closest('[data-player-starship]')?.querySelector('[data-diagnostics-character]')?.value||ownId;
+    if(!window.confirm('Begin 55 minutes of System Repairs and Diagnostics? The character must remain in the SIC room while the GM passes time.'))return;
+    diagnostics.disabled=true;
+    try{
+      const payload=await campaignRequest('/api/campaign/starship/diagnostics',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId:diagnostics.dataset.shipDiagnostics,characterId:operator})});
+      campaignState=payload.campaign;renderPlayerStarships(true);
+    }catch(error){notice(error.message,'error');diagnostics.disabled=false;}
+    return;
+  }
   const begin = event.target.closest("[data-player-ship-begin]");
   const destination = event.target.closest("[data-player-ship-destination]");
   const confirm = event.target.closest("[data-player-ship-confirm]");
@@ -8925,10 +8938,11 @@ if ((CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW) && "ResizeObserver" in window) {
 }
 renderAll();
 if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
-initializeCharacterApp();
-if (!CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !draftHasProgress(character) && sessionStorage.getItem(`sa-draft-guide-${character.id}`) !== "shown") {
+initializeCharacterApp().then(() => {
+if (!SHOWCASE_MODE && !PAGE_PARAMS.has("character") && !CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !draftHasProgress(character) && sessionStorage.getItem(`sa-draft-guide-${character.id}`) !== "shown") {
   sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
-  window.setTimeout(showDraftIntroduction, 250);
+  showDraftIntroduction();
 }
+});
 
 
