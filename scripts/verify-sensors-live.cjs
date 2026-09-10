@@ -8,7 +8,13 @@ let browser;
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){
-    try{const response=await fetch(base+'/ship-sensors.js?release='+Date.now(),{signal:AbortSignal.timeout(20000)});deployed=response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,'ship-sensors.js')));}catch{}
+    try{
+      deployed=true;
+      for(const name of ['ship-sensors.js','sensor-console-ui.css']){
+        const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
+        deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
+      }
+    }catch{deployed=false;}
     if(deployed)break;await new Promise(r=>setTimeout(r,15000));
   }
   assert.ok(deployed,'Render has not deployed the sensor release');

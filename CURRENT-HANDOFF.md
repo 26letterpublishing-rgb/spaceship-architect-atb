@@ -4,7 +4,7 @@
 
 Read this file, then `AGENTS.md`, then `SENSORS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the Sensors pass with #commit. Previous HEAD: `3a9c3e4`; previous application baseline: `b0aeca9`. Implementation and local verification are complete; publication is the next step when this handoff is written. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized the Sensors pass with #commit. Application release `762b94a` was pushed to GitHub and verified on Render: 19 code/style files and 19 optimized assets matched, and the live browser completed a scan after switching GM to Nova Vale. A small follow-up styles the console header consistently in Explore Features; check the latest git commit for that adjustment. This pass is complete after its final push/check, not a request to restart historical work.
 
 Sensors: 117 unit/HTTP checks, fresh-campaign GM/two-PC sensor workflow, shield regressions, and 12 cockpit mouse orders. See SENSORS-PASS.md for exact coverage and playtest interpretations. After publication, wait for feedback and the next #commit; do not restart this pass.
 

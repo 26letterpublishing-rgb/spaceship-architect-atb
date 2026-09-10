@@ -44,6 +44,8 @@ Keep future Explore fixtures current with newly implemented SIC families where t
 
 These are targeted automated browser playtests, not an overnight session or full character-creation walkthrough. Publication and hosted checks must be confirmed from git history and the task completion message, not assumed from this file.
 
+Release 762b94a was pushed and verified on Render: 19 code/style files and 19 optimized images matched their local hashes. The hosted browser opened all nine cards, switched Explore GM to Nova Vale, displayed an unknown contact, and completed a Sensor Hex scan. The live random roll failed to resolve that contact (a valid result); successful detection and queued exact-HP analysis were exercised in the local fresh-campaign test. A follow-up normalizes header button styling across parent pages.
+
 ## Code Map
 
 - ship-sensors.js: rules, command validation, intelligence and viewer filtering.
