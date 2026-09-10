@@ -53,10 +53,14 @@
       const contacts=Object.values(access.ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');
       window.SAShipCommandUI.refreshConditional(view,contacts);
       const targets=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
-      if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML='<option value="">Choose contact</option>'+targets;get('[data-target]').value=previous;
+      if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML=targets||'<option value="">No detected contacts</option>';get('[data-target]').value=contacts.some(c=>c.id===previous)?previous:contacts[0]?.id||'';
         const chosen=[...view.querySelectorAll('[data-recipient]:checked')].map(i=>i.value);
         get('[data-recipients]').innerHTML=contacts.map(c=>`<label><input type="checkbox" data-recipient value="${esc(c.id)}" ${chosen.includes(c.id)?'checked':''}>${esc(c.title)}</label>`).join('');lastTargets=targets;}
       const selectedContact=contacts.find(contact=>contact.id===get('[data-target]').value);
+      for(const kind of ['area','hex','analysis']){
+        const button=get(`[data-order="${kind}"]`),info=window.SAShipSensors.difficulty(state,access.ship.id,kind,selectedContact?.id,{q:Number(q.value),r:Number(r.value)});
+        let note=view.querySelector(`[data-difficulty="${kind}"]`);if(!note){note=host.createElement('small');note.dataset.difficulty=kind;button.parentElement.after(note);}note.textContent=info.label;
+      }
       contactInfo.textContent=selectedContact?[selectedContact.nature,`${selectedContact.size} hull squares`,selectedContact.faction].filter(Boolean).join(' / '):'';
       for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(button.dataset.order==='analysis'&&!get('[data-target]').value)||(button.dataset.order==='share'&&!get('[data-target]').value&&!view.querySelector('[data-recipient]:checked'));
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
@@ -67,17 +71,22 @@
       }
       const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
     }
+    let selecting=null,hexSelected=false;
     get('[data-map]').onclick=event=>{
       const svg=event.target.closest('[data-space-canvas]');if(!svg)return;
       const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
       const fq=Math.sqrt(3)/3*p.x-p.y/3,fr=2*p.y/3;let x=Math.round(fq),z=Math.round(fr),y=Math.round(-fq-fr);
       if(Math.abs(x-fq)>Math.abs(y+fq+fr)&&Math.abs(x-fq)>Math.abs(z-fr))x=-y-z;else if(Math.abs(z-fr)>Math.abs(y+fq+fr))z=-x-y;
       q.value=x;r.value=z;redraw();
+      if(selecting){const button=selecting;selecting=null;hexSelected=true;button.click();hexSelected=false;}
     };
     view.onchange=redraw;
     view.addEventListener('click',async event=>{
       const order=event.target.closest('[data-order]'),reading=event.target.closest('[data-reading]');
       if ((!order&&!reading)||busy||order?.disabled)return;
+      if(order&&['hex','life'].includes(order.dataset.order)&&!hexSelected){selecting=order;get('[data-error]').textContent='Click a hex on the starmap to scan.';get('[data-map]').style.cursor='crosshair';return;}
+      get('[data-map]').style.cursor='';
+      selecting=null;
       const person=bridge.state().units.find(u=>u.id===unit.id);
       if(order&&!bridge.confirmGmPlayerAction(person,'sensorCommand'))return;
       let payload;

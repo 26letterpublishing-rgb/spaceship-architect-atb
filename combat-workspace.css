@@ -87,6 +87,9 @@
 .player-starship-map-viewport {container-type:inline-size}
 .gm-ship-view #globalCharacterHud,.gm-ship-view #playerStarshipsPanel > .character-tool-heading {display:none!important}
 .gm-ship-view .player-starship-card {margin-top:0}
+.starship-combat-mode.player-mode.own-turn-active #initiativePanel{display:block!important;position:relative!important;inset:auto!important;width:100%!important;max-height:none!important;margin:0!important;opacity:1!important;filter:none!important;transform:none!important;overflow:visible!important}
+.starship-combat-mode.player-mode.own-turn-active #initiativePanel .section-head{display:flex!important}
+.high-resolution .sa-offline-shade{opacity:.55}
 .player-ship-label {font-size:.75rem;font-weight:800}
 .player-starship-map {
   --ship-cell:min(110px,calc((100cqw - 40px)/var(--ship-cols)),calc((58vh - 40px)/var(--ship-rows)));

@@ -249,6 +249,7 @@ function storeConfirmedStarship() {
 }
 
 function saveDraft() {
+  if(pageParameters.get('details')==='1')return;
   draft.updatedAt = new Date().toISOString();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch { /* Keep the editor usable in private contexts. */ }
   storeConfirmedStarship();
@@ -1147,6 +1148,7 @@ function activeCampaignCredentials(code) {
   return { token: gmToken || characterToken, characterId: gmToken ? "" : operator?.id || "" };
 }
 async function campaignApi(path, body = null, method = "POST") {
+  if(pageParameters.get('details')==='1'&&method!=='GET')throw new Error('Open Edit Ship to make changes.');
   const response = await fetch(path, { method, headers: body === null ? undefined : { "Content-Type": "application/json" }, body: body === null ? undefined : JSON.stringify(body) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "The campaign server rejected that request.");
@@ -1398,6 +1400,7 @@ async function initializeStarshipPage() {
       if (record) {
         draft = {
           ...defaultDraft(), ...clone(record.ship), id: record.id, title: record.title || record.ship.title,
+          confirmed: constructionState(record.ship.confirmed || record.ship),
           confirmedOnce: true, crewCharacterIds: clone(record.crewCharacterIds || []),
           campaignLink: { roomCode: campaignCode, campaignName: state.name, controlType: record.controlType, accessKey: draft.campaignLink?.accessKey || "" },
         };
@@ -1408,5 +1411,14 @@ async function initializeStarshipPage() {
   applyDraftToUi();
   if (!draft.campaignLink && campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
   if (draft.campaignLink) await refreshLinkedCampaign();
+  if(parameters.get('details')==='1'){
+    document.querySelector('[data-starship-tab="details"]')?.click();
+    document.querySelectorAll('[data-starship-tab]').forEach(b=>b.hidden=true);
+    document.querySelectorAll('input,textarea,select').forEach(e=>{if(!e.matches('[data-map-toggle]'))e.disabled=true;});
+    document.body.classList.add('ship-details-only');
+    const readOnlyStyle=document.createElement('style');readOnlyStyle.textContent='.ship-details-only .starship-tabs,.ship-details-only .starship-library{display:none!important}';document.head.append(readOnlyStyle);
+    const notify=()=>parent.postMessage({type:'sa-character-sheet-height',height:document.documentElement.scrollHeight},location.origin);
+    new ResizeObserver(notify).observe(document.body);notify();
+  }
 }
 initializeStarshipPage();

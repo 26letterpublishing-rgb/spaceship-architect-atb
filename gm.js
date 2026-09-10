@@ -1958,7 +1958,7 @@ dom.starshipList?.addEventListener("click", async (event) => {
   if (!card) return;
   const starshipId = card.dataset.starshipId;
   if (event.target.closest("[data-view-starship]")) {
-    dom.starshipViewerFrame.src = `character.html?campaign=${encodeURIComponent(code)}&gm=1&embedded=1&tab=starships&ship=${encodeURIComponent(starshipId)}${SHOWCASE_MODE ? "&showcase=1" : ""}`;
+    dom.starshipViewerFrame.src = `starship.html?campaign=${encodeURIComponent(code)}&embedded=gm&details=1&ship=${encodeURIComponent(starshipId)}${SHOWCASE_MODE ? "&showcase=1" : ""}`;
     dom.starshipFleet.hidden = true;
     dom.starshipEditor.hidden = true;
     dom.starshipViewer.hidden = false;

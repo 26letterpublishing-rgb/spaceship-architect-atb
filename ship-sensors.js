@@ -38,7 +38,7 @@
   function detect(room, observer, target) {
     const state = knowledge(observer);
     if(state.contacts[target.id]?.level!=='detected')report(observer,{detected:true,targetId:target.id,text:`${target.title}${target.ship.class?` Class ${target.ship.class}`:''} Starship detected. Affiliation: ${target.ship.affiliation||'Unknown'}`});
-    return state.contacts[target.id] = { id:target.id, level:'detected', title:target.title,
+    return state.contacts[target.id] = { ...state.contacts[target.id],uncertainty:undefined,id:target.id, level:'detected', title:target.title,
       position:point(room,target.id), size:(target.ship.gridCells || []).length,
       faction:target.ship.affiliation || '', nature:'Starship' };
   }
@@ -148,9 +148,12 @@
       const penalty = state.failures[target.id] || 0;
       if (total + penalty < difficulty) {
         state.failures[target.id] = penalty+1;
+        state.contacts[target.id].analysisLowerBound=Math.max(state.contacts[target.id].analysisLowerBound||0,total+penalty);
         report(observer,{text:`Systems Analysis of ${target.title} failed. Next attempt roll +${penalty+1}.`,values,total});
       } else {
         state.failures[target.id] = 0;
+        state.contacts[target.id].masking=masking(room,target);
+        state.contacts[target.id].analysisDifficulty=difficulty;
         unit.queuedEffects ||= [];
         unit.queuedEffects.push({id:`analysis-${unit.id}-${Date.now()}`,label:'Systems Analysis',progress:0,rate:100/12,resolving:false,sensorReport:{shipId:observer.id,targetId:target.id,values,total}});
         report(observer,{text:`Systems Analysis of ${target.title}: processing (12 combat seconds).`,values,total});
@@ -168,7 +171,8 @@
       const offset = order.hex ? distances.hexDistance(order.hex,point(room,other.id)) : 0;
       const difficulty = masking(room,other) + (order.hex ? -10 + Math.ceil(offset)*2 : 0);
       const proximity = order.hex ? 0 : Math.floor(range-distance+1e-8);
-      if (total+proximity >= difficulty) { detect(room,observer,other); found++; }
+      if (total+proximity >= difficulty) { detect(room,observer,other).masking=masking(room,other); found++; }
+      else if(state.contacts[other.id]){state.contacts[other.id].scanLowerBound=Math.max(state.contacts[other.id].scanLowerBound||0,total);}
     }
     report(observer,{text:`${order.kind === 'hex' ? 'Hex' : 'Area'} scan complete: ${found?`${found} contact${found===1?'':'s'} detected`:'no additional contacts detected'}.`,values,total});
   }
@@ -177,24 +181,37 @@
     unit.queuedEffects = unit.queuedEffects.filter(e => e.id !== effect.id);
     if (!observer || !target) return;
     const ids = new Set(target.ship.placements.map(p => p.sicId));
-    report(observer,{text:`Systems Analysis: ${target.title}`,targetId:target.id,analysis:true,values:order.values,total:order.total,
+    const layout={gridCells:copy(target.ship.gridCells),placements:copy(target.ship.placements),doorStates:{},sicInventory:target.ship.sicInventory.filter(i=>ids.has(i.id)).map(i=>({id:i.id,type:i.type,rotation:i.rotation,stationLayout:i.stationLayout,disabled:Boolean(i.disabled),status:i.status}))};
+    report(observer,{text:`Systems Analysis: ${target.title}`,targetId:target.id,analysis:true,layout,values:order.values,total:order.total,
       hull:{current:target.currentHullHp,maximum:target.maximumHullHp},shield:{current:target.currentShieldHp,maximum:target.maximumShieldHp},
       components:target.ship.sicInventory.filter(i => ids.has(i.id) && stations.online(i)).map(i => ({type:i.type,name:maps.definition(i.type).name || i.type}))});
   }
   function view(state, observerId) {
+    if(observerId&&state.sensorObserverId===observerId)return state;
     const observer = state.starships.find(s => s.id === observerId), data = observer?.sensorState;
     const contacts = data?.contacts || {}, own = observer ? [copy(observer)] : [];
     const positions = (state.shipPositions || []).filter(p => p.id === observerId);
     for (const contact of Object.values(contacts)) {
       // Contacts contain intelligence only, never enemy inventories, layout, movement orders or crew.
-      own.push({id:contact.id,title:contact.title,contactOnly:true,contactLevel:contact.level,uncertainty:contact.uncertainty,
-        ship:{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:copy(contact)});
+      const analysis=data.reports.find(r=>r.analysis&&r.targetId===contact.id&&r.layout);
+      own.push({id:contact.id,title:contact.title,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:analysis?.hull.current,maximumHullHp:analysis?.hull.maximum,currentShieldHp:analysis?.shield.current,maximumShieldHp:analysis?.shield.maximum,contactLevel:contact.level,uncertainty:contact.uncertainty,
+        ship:analysis?copy(analysis.layout):{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:copy(contact)});
       positions.push({...contact.position,id:contact.id});
     }
     const units = state.units.filter(u => u.location?.starshipId === observerId);
+    const visibleIds=new Set(units.map(u=>u.id));
+    const allocated=new Map();
+    for(const ship of own.filter(s=>s.analyzedContact)){
+      const p=point(state,ship.id),reading=data.reports.find(r=>r.lifeScan&&r.hex&&distances.hexDistance(r.hex,p)<.01);
+      if(!reading)continue;
+      const key=reading.at+JSON.stringify(reading.hex),remaining=Math.max(0,reading.count-(allocated.get(key)||0));
+      const crew=state.units.filter(u=>u.location?.starshipId===ship.id&&String(u.raceId||u.race||'').toLowerCase()!=='android').slice(0,remaining);
+      allocated.set(key,(allocated.get(key)||0)+crew.length);
+      crew.forEach((u,i)=>units.push({id:`anonymous-${ship.id}-${i+1}`,characterName:`Lifeform ${i+1}`,playerName:'Unknown',team:'npc',anonymous:true,atb:u.atb,speed:u.speed,color:u.color,location:{starshipId:ship.id},queuedEffects:[]}));
+    }
     const ids = new Set(units.map(u => u.id));
     return {...state,starships:own,shipPositions:positions,shipDistances:distances.fromPositions(own,positions),units,
-      activeId:ids.has(state.activeId) ? state.activeId : null,
+      activeId:visibleIds.has(state.activeId) ? state.activeId : null,hiddenActiveTurn:Boolean(state.activeId&&!visibleIds.has(state.activeId)),
       activeAction:ids.has(state.activeAction?.unitId) ? state.activeAction : null,
       command:ids.has(state.command?.unitId) ? state.command : null,
       delayRequest:ids.has(state.delayRequest?.unitId) ? state.delayRequest : null,
@@ -203,5 +220,16 @@
       vehicles:[],areaEffects:[],lastInterruptedId:null,
       log:state.log.filter(e => e.starshipId === observerId),sensorObserverId:observerId || null};
   }
-  return {installed,inputSettings,masking,rangeAgainst,refresh,fusedTotal,skill,queue,resolveInput,resolveReport,view,knowledge};
+  function difficulty(state,shipId,kind,targetId,hex){
+    const ship=state.starships.find(s=>s.id===shipId),contact=ship?.sensorState?.contacts?.[targetId];
+    let value=null;
+    if(kind==='analysis'&&Number.isFinite(contact?.analysisDifficulty))value=contact.analysisDifficulty;
+    else if(kind!=='analysis'&&Number.isFinite(contact?.masking)){
+      const origin=point(state,shipId),range=(installed(ship)?.range||0)*(contact.masking<=0?2:1);
+      value=kind==='hex'&&hex?contact.masking-10+Math.ceil(distances.hexDistance(hex,contact.position))*2:contact.masking-Math.floor(range-distances.hexDistance(origin,contact.position)+1e-8);
+    }
+    const lower=kind==='analysis'?contact?.analysisLowerBound:contact?.scanLowerBound;
+    return {value,label:Number.isFinite(value)?`Difficulty ${value}`:Number.isFinite(lower)?`Difficulty at least ${lower}`:'Difficulty unknown'};
+  }
+  return {installed,inputSettings,masking,rangeAgainst,refresh,fusedTotal,skill,queue,resolveInput,resolveReport,view,knowledge,difficulty};
 }));

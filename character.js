@@ -1407,8 +1407,8 @@ function clearDraftRecovery(characterId) {
   persistRecoveries();
 }
 
-let library = loadLibrary();
-let recoveries = loadRecoveries();
+let library = PAGE_PARAMS.has('shipRoll')?[]:loadLibrary();
+let recoveries = PAGE_PARAMS.has('shipRoll')?[]:loadRecoveries();
 const storedActiveDraftId = localStorage.getItem(ACTIVE_DRAFT_KEY);
 const activeRecovery = storedActiveDraftId === "none"
   ? null
@@ -1430,6 +1430,7 @@ let gearDraft = null;
 const pendingGearAdds = new Set();
 
 function saveLibrary(message = "Saved locally") {
+  if(PAGE_PARAMS.has('shipRoll'))return;
   if (GM_SHIP_VIEW) return;
   character.updatedAt = new Date().toISOString();
   const computed = derivedValues({ includeCampaignBonus: false });
@@ -4403,7 +4404,7 @@ function renderSkillSetup() {
   dom.selectedAttributeName.textContent = definition.label;
   dom.selectedAttributeName.style.color = definition.color;
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
-  dom.selectedSkillBonus.textContent = skillCheck.attributeOnly ? "NO SKILL" : `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
+  dom.selectedSkillBonus.textContent = Number.isFinite(skillCheck.overrideBonus)?`+${skillCheck.overrideBonus}`:skillCheck.attributeOnly ? "NO SKILL" : `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.manualSkillScore.value = "";
   renderSkillExertion();
@@ -4515,6 +4516,7 @@ function openAttributeCheck(attributeKey) {
 }
 
 function closeSkillCheck(options = {}) {
+  if(PAGE_PARAMS.has('shipRoll')&&!skillCheck?.combatSubmitted)parent.postMessage({type:'sa-ship-skill-cancel'},location.origin);
   if (diceRoller.isActive()) return;
   const discardCombat = options?.discardCombat === true;
   if (!discardCombat && skillCheck?.submitting) return;
@@ -4672,6 +4674,9 @@ async function submitCampaignRollResult({ score, outcome, manual, diceResults })
 
 function submitCombatRollResult({ score, manual, diceResults }) {
   const request = skillCheck?.combatRequest;
+  if(request?.rollRole==='ship'){
+    skillCheck.combatSubmitted=true;parent.postMessage({type:'sa-ship-skill-result',rollId:request.attackId,score,manual,diceResults},location.origin);return;
+  }
   if (!request || skillCheck.combatSubmitted || !dom.playerAtbFrame?.contentWindow) return;
   skillCheck.combatSubmitted = true;
   dom.playerAtbFrame.contentWindow.postMessage({
@@ -4964,7 +4969,7 @@ async function resolvePhysicalSkillRoll(results) {
   const top = values.slice(0, 2);
   const diceTotal = top.reduce((sum, value) => sum + value, 0);
   const resolved = skillCheckResolvedSkill();
-  const skillBonus = skillCheck.attributeOnly ? 0 : combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
+  const skillBonus = Number.isFinite(skillCheck.overrideBonus)?skillCheck.overrideBonus:skillCheck.attributeOnly ? 0 : combinedSkillBonusTenths(resolved.name, resolved.skill) / 10;
   let flatBonus = skillCheck.committedExertion;
   const equipmentRules = selectedSkillEquipment();
   const equipmentBonus = equipmentRules.reduce((sum, rule) => sum + rule.bonus, 0);
@@ -4991,7 +4996,7 @@ async function resolvePhysicalSkillRoll(results) {
   const difficulty = Number(skillCheck.difficulty);
   const outcome = adjustedSkillOutcome(score, difficulty);
   const equationParts = [`Top two: ${top.length ? top.join(" + ") : "0"}`];
-  if (!skillCheck.attributeOnly) equationParts.push(`Skill +${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`);
+  if (!skillCheck.attributeOnly) equationParts.push(`Skill +${skillBonus}`);
   if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth/Hide" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") equationParts.push("Fluffy Strength -2");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") equationParts.push("Fluffy Jump +5");
@@ -5057,7 +5062,7 @@ function rollSkillCheck() {
     title: skillCheck.attributeOnly ? resolved.name : `${resolved.name} + ${skillCheckAttribute().label}`,
     subtitle: skillCheck.attributeOnly
       ? `${skillCheckPoolLabel()} | Use the top two`
-      : `${skillCheckPoolLabel()} | Top two + ${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
+      : `${skillCheckPoolLabel()} | Top two + ${Number.isFinite(skillCheck.overrideBonus)?skillCheck.overrideBonus:ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
     fusion: true,
     onResolved: () => {},
     onSettled: (results) => {
@@ -8936,6 +8941,19 @@ if ((CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW) && "ResizeObserver" in window) {
   embeddedSizeObserver.observe(GM_SHIP_VIEW ? dom.playerStarshipList : document.documentElement);
   window.addEventListener("load", publishEmbeddedCharacterHeight);
 }
+if(PAGE_PARAMS.has('shipRoll')){
+  document.body.classList.add('ship-skill-host');
+  const style=document.createElement('style');style.textContent='html:has(.ship-skill-host),body.ship-skill-host{background:transparent!important}.ship-skill-host .skill-roll-summary{grid-template-columns:minmax(105px,.8fr) minmax(0,1.5fr) minmax(96px,.8fr)}body.ship-skill-host> :not(#skillCheckModal):not(#diceRoller):not(script):not(style){display:none!important}';document.head.append(style);
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.data?.type!=='sa-ship-skill-open')return;
+    let source=event.source;try{while(source&&source!==parent&&source!==source.parent)source=source.parent;}catch{return;}if(source!==parent)return;
+    const request=event.data;character=blankCharacter();character.phase='finalized';character.identity.characterName=request.name;
+    openSkillCheck(skillKeyForBase(request.skill||'Sensor Systems'),'intellect');if(!skillCheck)return;
+    skillCheck.combatRequest={attackId:request.rollId,rollRole:'ship'};skillCheck.overrideBonus=Number(request.bonus)||0;skillCheck.activeSides=request.sides;skillCheck.difficulty=Number.isFinite(request.difficulty)?String(request.difficulty):'';
+    renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.skill||'System';dom.skillCheckSubtitle.textContent=request.difficultyLabel||'Difficulty unknown';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
+  });
+  parent.postMessage({type:'sa-ship-skill-ready'},location.origin);
+}else{
 renderAll();
 if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 initializeCharacterApp().then(() => {
@@ -8944,5 +8962,7 @@ if (!SHOWCASE_MODE && !PAGE_PARAMS.has("character") && !CAMPAIGN_READ_ONLY_VIEW 
   showDraftIntroduction();
 }
 });
+
+}
 
 

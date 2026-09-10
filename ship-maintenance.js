@@ -23,7 +23,7 @@ function advance(ship, seconds) {
 function queue(room, unit, body) {
   const ship = room.starships.find(s=>s.id===unit?.location?.starshipId), item = ship && local(ship,unit.location);
   if (!item || item.id !== body.sicId || unit.timedAction) return {ok:false,error:'Move inside the SIC room before performing maintenance.'};
-  if (!['repair','off','on'].includes(body.kind)) return {ok:false,error:'Choose a maintenance operation.'};
+  if (!['repair','off','on','restart'].includes(body.kind)) return {ok:false,error:'Choose a maintenance operation.'};
   const receipt=String(body.requestId||'');ship.maintenanceReceipts ||= [];
   if(!/^[\w-]{8,100}$/.test(receipt))return {ok:false,error:'Invalid maintenance receipt.'};
   if(ship.maintenanceReceipts.includes(receipt))return {ok:true,duplicate:true};
@@ -37,7 +37,7 @@ function queue(room, unit, body) {
     if(body.kind==='off'){
       item.disabled=true;item.status='powered-down';item.bootRemaining=0;
     }else{
-      if(stations.online(item)||item.bootRemaining>0)return {ok:false,error:'This SIC is already online or restarting.'};
+      if((body.kind==='on'&&stations.online(item))||item.bootRemaining>0)return {ok:false,error:'This SIC is already online or restarting.'};
       const installed=new Set(ship.ship.placements.map(p=>p.sicId));
       const bridge=ship.ship.sicInventory.find(i=>installed.has(i.id)&&maps.definition(i.type).bridge);
       const seconds=maps.definition(bridge?.type).rebootSeconds;
@@ -55,7 +55,7 @@ function resolve(room,unit,rollDie){
   if(!item||item.id!==order.sicId||unit.location.starshipId!==ship.id)return;
   const d=maps.definition(item.type),rating=d.sensor?unit.sensorSkill:d.bridge?unit.computerSkill:unit.engineeringSkill;
   const dice=unit.team==='npc'?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];
-  const values=dice.map(rollDie),total=sensors.fusedTotal(values)+(Number(rating??(unit.team==='npc'?unit.mentalSkill:0))||0);
+  const values=dice.map(rollDie),total=Number.isFinite(rollDie.submittedScore)?rollDie.submittedScore:sensors.fusedTotal(values)+(Number(rating??(unit.team==='npc'?unit.mentalSkill:0))||0);
   const difficulty=Math.max(10,Number(item.repairDifficulty)||10);
   const success=points(item)>0&&total>=difficulty;
   if(success){item.impairmentPoints=points(item)-1;item.impaired=item.impairmentPoints>0;if(!item.impaired&&item.status==='impaired')item.status='online';item.repairDifficulty=difficulty+1;}

@@ -1,5 +1,9 @@
 # Current Recovery Handoff
 
+## Console Follow-Up: Publishing
+
+Latest #commit is implemented and locally verified. Read CONSOLE-FOLLOWUP-PASS.md. All 132 unit/HTTP tests, sensor GM/two-PC browser checks, cockpit 12-order suite and shield suite passed. Publishing and hosted verification are next. Mouse leave clears only unclicked routes. Anonymous crew use ACTUAL ATB progress. Prior completion below is historical.
+
 ## Latest Pass Complete
 
 Scan feedback and console layout are COMPLETE. Application commits 4a8c77b and bfc5a33 are pushed and verified on Render. Read SCAN-FEEDBACK-PASS.md. All 130 tests passed, plus fresh-campaign sensor browser checks including pending-roll restart/GM recovery, 12 cockpit orders and shield regressions. Hosted verification matched 30 code/style files and 19 images, then passed cards, GM/PC switch, explicit scan roll, detection, Command help, and expanded high-resolution interior labels. The first hosted screenshot review caught missing class metadata; bfc5a33 fixed it and the rerun visibly showed the full class/affiliation message. All task-owned test/server/browser processes exited. Gold Standard and live campaign data remain untouched. Wait for user feedback and the next #commit.

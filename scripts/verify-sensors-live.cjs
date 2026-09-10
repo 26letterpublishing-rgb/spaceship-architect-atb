@@ -12,7 +12,7 @@ async function main(){
   for(let n=0;n<40;n++){
     try{
       deployed=true;
-      for(const name of ['ship-combat-map.js','index.html']){
+      for(const name of ['ship-roll-ui.js','index.html']){
         const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
         deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
       }
@@ -38,9 +38,9 @@ async function main(){
   await act({action:'setCombatLocation',id:unit.id,location:{starshipId:ship.id,square:placement.cell,mesh:0,stationed:true}});await act({action:'nudge',id:unit.id,amount:100});
   await page.getByRole('button',{name:'Nova Vale',exact:true}).click();await page.frameLocator('#showcaseFrame').getByRole('button',{name:'Combat',exact:true}).click();await page.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();await page.getByRole('combobox',{name:'Station console',exact:true}).selectOption(sensor.id);
   const consoleView=page.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();assert.ok((await consoleView.locator('[data-map]').innerText()).includes('Unknown contact'));assert.ok(!(await consoleView.locator('[data-map]').innerText()).includes('Red Horizon'));
-  await consoleView.locator('[data-q]').fill('10');await consoleView.locator('[data-r]').fill('0');await consoleView.getByRole('button',{name:'Scan Hex',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();
+  await consoleView.locator('[data-q]').fill('10');await consoleView.locator('[data-r]').fill('0');await consoleView.getByRole('button',{name:'Scan Hex',exact:true}).click();const point=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*10,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await page.mouse.click(point.x,point.y);await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();
   for(let i=0;i<12;i++){const s=await state();if(s.activeId)await act({action:'completeTurn',id:s.activeId});await act({action:'step'});}
-  const roll=page.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();await roll.getByRole('button',{name:'Roll Dice',exact:true}).click();await roll.getByRole('button',{name:'Continue',exact:true}).click();
+  const roll=page.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();
   await consoleView.locator('[data-reports]').filter({hasText:'Hex scan complete'}).waitFor();await page.screenshot({path:path.join(artifacts,'live-sensor-console.png')});
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption(cp.id);
   const pilot=page.getByRole('dialog',{name:'Pilot console',exact:true});await pilot.waitFor();await pilot.getByRole('button',{name:'Command',exact:true}).click();

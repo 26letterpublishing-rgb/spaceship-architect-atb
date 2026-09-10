@@ -71,6 +71,8 @@ function queue(room, unit, body) {
     call.status = status;
     const paired = other && cooperation.state(other).calls.find(c => c.id === call.id);
     if (paired) paired.status = status;
+    const message=status==='connected'?`Hail answered: ${ship.title} and ${other?.title||call.title} are connected.`:`Hail ended: ${ship.title}.`;
+    report(ship,message);if(other)report(other,message);
     data.receipts = [...data.receipts,receipt].slice(-256);
     return {ok:true,free:true,ship};
   }

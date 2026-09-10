@@ -164,6 +164,13 @@
 .ship-navigation-dialog:not(.navigation-planner) .navigation-fields{margin-top:auto}
 .ship-navigation-dialog .pilot-chart.command-page .pilot-command-operations{position:relative;z-index:2}
 .ship-navigation-dialog button[hidden]{display:none!important}
+.pilot-chart,.sensor-chart [data-map]{user-select:none;-webkit-user-select:none}
+.pilot-chart input{user-select:text}
+.pilot-vector-array{flex:1;min-height:0;overflow:hidden}
+.pilot-vector-array svg{width:100%!important;height:calc(100% - 20px)!important;max-height:130px;min-height:0}
+.pilot-vector-array .vector-system{transform-origin:80px 45px;animation:console-array-spin 18s linear infinite}
+@keyframes console-array-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pilot-vector-array svg>*{animation:none!important}}
 .pilot-chart>.conditional-order-controls{flex-shrink:0;max-height:55%;overflow:auto}
 .pilot-chart>.conditional-order-controls label{display:block}
 .pilot-chart>.conditional-order-controls select{max-width:100%;background:#10242c;color:#eaf7fa;border:1px solid #588a94;min-height:30px}

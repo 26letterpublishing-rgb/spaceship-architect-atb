@@ -73,6 +73,22 @@ test('knowledge persists through serialization and disappears from unrelated shi
   assert.equal(saved.starships[0].sensorState.reports[0].hull.current,33);
   assert.ok(!JSON.stringify(sensors.view(saved,'b')).includes('"hull":{"current":33'));
 });
+test('analysis reveals layout but Life Scan gates anonymous real ATB and never reveals locations',()=>{
+  const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;room.units[1].atb=73;room.units[1].speed=4;room.activeId='enemy';sensors.refresh(room);
+  assert.equal(sensors.view(room,'a').hiddenActiveTurn,true);room.activeId=unit.id;
+  sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'layout-analysis'});sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+  let view=sensors.view(room,'a');assert.equal(view.starships[1].analyzedContact,true);assert.equal(view.units.length,1);
+  sensors.queue(room,unit,{sicId:'sn',kind:'life',hex:{q:10,r:0},requestId:'life-anonymous'});sensors.resolveInput(room,unit,()=>6);
+  view=sensors.view(room,'a');assert.equal(view.units[1].atb,73);assert.equal(view.units[1].characterName,'Lifeform 1');assert.deepEqual(view.units[1].location,{starshipId:'b'});assert.ok(!JSON.stringify(view).includes('Secret Crew'));
+  assert.equal(sensors.view(room,null).starships.length,0);
+});
+test('Masking difficulties use learned values and unknown defense remains unknown',()=>{
+  const {room,unit}=fixture();sensors.refresh(room);
+  assert.equal(sensors.difficulty(room,'a','hex','b',{q:10,r:0}).value,null);
+  sensors.queue(room,unit,{sicId:'sn',kind:'hex',hex:{q:10,r:0},requestId:'learn-mask'});sensors.resolveInput(room,unit,()=>6);
+  assert.equal(sensors.difficulty(room,'a','hex','b',{q:10,r:0}).value,8);
+  assert.equal(sensors.difficulty(room,'a','analysis','b').value,null);
+});
 
 test('failed analysis adds a retry bonus, while successful detection clears uncertainty',()=>{
   const {room,a,b,unit}=fixture();sensors.refresh(room);assert.equal(a.sensorState.contacts.b.uncertainty,5);

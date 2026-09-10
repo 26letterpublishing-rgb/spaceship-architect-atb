@@ -22,6 +22,7 @@ test('hail replies are free between turns and do not expose true coordinates',()
   const responder={...pilot,id:'r',characterId:'bpc',location:{...pilot.location,starshipId:'b'}};room.units.push(responder);room.activeId=null;
   assert.equal(commands.queue(room,responder,{kind:'accept',callId:'hail-test',requestId:'accept-test'}).free,true);
   assert.equal(a.commandSystems.calls[0].status,'connected');assert.equal(b.commandSystems.calls[0].status,'connected');
+  for(const ship of [a,b])assert.ok(ship.sensorState.reports.some(r=>/Hail answered:.*connected/.test(r.text)));
 });
 test('team fuses one pool and calculations stack then expire in combat time',()=>{
   const {room,pilot,a}=fixture();

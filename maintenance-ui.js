@@ -16,9 +16,9 @@
     const unavailable=kind=>{
       const current=bridge.state(),person=current.units.find(u=>u.id===unit.id),live=current.starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id);
       if(!person||!live||current.activeId!==unit.id||person.delayedAction||person.timedAction||person.delayTimer||person.consoleHold)return true;
-      return kind==='repair'&&!live.impaired&&live.status!=='impaired'&&!(live.impairmentPoints>0)||kind==='on'&&(window.SAStationAccess.online(live)||live.bootRemaining>0);
+      return kind==='repair'&&!live.impaired&&live.status!=='impaired'&&!(live.impairmentPoints>0)||kind==='on'&&(window.SAStationAccess.online(live)||live.bootRemaining>0)||kind==='restart'&&live.bootRemaining>0||kind==='off'&&!window.SAStationAccess.online(live)&&!live.bootRemaining;
     };
-    for(const [kind,label]of [['repair','Repair SIC'],['off','Power Off'],['on','Restart SIC']]){
+    for(const [kind,label]of [['repair','Repair SIC'],['off','Power Off'],['on','Power On'],['restart','Restart SIC']]){
       const button=doc.createElement('button');button.type='button';button.textContent=label;button.style.cssText='display:block;width:100%;margin:8px 0;padding:10px;background:#123c48;color:#e8faff;border:1px solid #67a8b7';
       button.dataset.maintenanceKind=kind;button.disabled=unavailable(kind);
       button.onclick=async()=>{
@@ -30,7 +30,10 @@
       };view.append(button);
     }
     const close=doc.createElement('button');close.type='button';close.textContent='Back';close.onclick=()=>view.close();view.append(error,close);
-    const cleanup=()=>{view.remove();active=null;window.removeEventListener('pagehide',cleanup);};
+    close.style.cssText='padding:10px 22px;background:#173641;color:#fff;border:1px solid #71b7cc;border-radius:4px;font-weight:bold';
+    const status=doc.createElement('p');status.setAttribute('role','status');view.insertBefore(status,error);
+    const timer=setInterval(()=>{const live=bridge.state().starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id);status.textContent=live?.bootRemaining>0?`Restarting: ${Math.ceil(live.bootRemaining)} combat seconds remaining`:window.SAStationAccess.online(live)?'Online':'Powered off';if(!busy)view.querySelectorAll('[data-maintenance-kind]').forEach(b=>b.disabled=unavailable(b.dataset.maintenanceKind));},200);
+    const cleanup=()=>{clearInterval(timer);view.remove();active=null;window.removeEventListener('pagehide',cleanup);};
     view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});doc.body.append(view);view.showModal();
   }
   window.SAMaintenanceUI={open};

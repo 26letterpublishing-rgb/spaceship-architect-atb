@@ -17,7 +17,7 @@
     const bonus = calculations.length * 2 + (teams.length ? teams.length + 1 : 0);
     const consumed = new Set([...teams, ...calculations]);
     data.preparations = data.preparations.filter(p => !consumed.has(p));
-    return { values, total:fuse(values) + rating + bonus, bonus, participants:teams.length + 1 };
+    return { values, total:Number.isFinite(rollDie.submittedScore)?rollDie.submittedScore:fuse(values) + rating + bonus, bonus, participants:teams.length + 1 };
   }
   return { state, advance, roll };
 }));

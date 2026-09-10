@@ -2,6 +2,7 @@
   let activeDialog=null;
   const combatViews=new Set();
   const selectedConsoles=new Map();
+  const rememberedConsole=key=>{try{return sessionStorage.getItem('sa-console:'+key);}catch{return null;}};
   function remember(unit){combatViews.add(seatKey(unit));}
   function mountSelector(container,unit,currentId,close){
     const select=container.ownerDocument.createElement('select');select.className='station-console-select';select.setAttribute('aria-label','Station console');
@@ -9,6 +10,7 @@
     select.innerHTML=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.remote?' / REMOTE':''}</option>`).join('');select.value=currentId;
     select.onchange=()=>{
       selectedConsoles.set(seatKey(unit),select.value);
+      try{sessionStorage.setItem('sa-console:'+seatKey(unit),select.value);}catch{}
       // Wait for the old dialog's cleanup before opening the next console.
       select.closest('dialog').addEventListener('close',()=>setTimeout(()=>open(unit),0),{once:true});
       close();
@@ -29,7 +31,7 @@
   function open(unit,{compact=false}={}){
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
     if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen())return;
-    const selected=choices.find(a=>a.item.id===selectedConsoles.get(seatKey(unit)))||choices.find(a=>!a.remote)||choices[0];
+    const selected=choices.find(a=>a.item.id===(selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
     if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
     if(!compact&&selected.kind==='sensor'){combatViews.delete(seatKey(unit));window.SASensorConsoleUI.open(unit,selected.item.id);return;}
     const seated=window.SAShipNavigation.station(initial,unit);
@@ -57,6 +59,7 @@
     const orbitDot=form.querySelector('.vector-orbit circle');
     // Animate in the ellipse's own coordinates, rather than rotating around its center.
     orbitDot.classList.add('vector-dot');orbitDot.setAttribute('cx','0');orbitDot.setAttribute('cy','0');form.querySelector('.vector-orbit').after(orbitDot);
+    const array=form.querySelector('.pilot-vector-array svg'),system=host.createElementNS('http://www.w3.org/2000/svg','g');system.classList.add('vector-system');system.append(...array.children);array.append(system);
     // Validate the locked destination ourselves so feedback stays inside the console.
     form.noValidate=true;
     const originalBox=svg.getAttribute('viewBox').split(' ').map(Number);
@@ -69,6 +72,9 @@
       if(!seat||seat.ship.id!==shipId){dialog.close();return;}
       const access=window.SAShipNavigation.access(state,pilot),delay=pilot.delayedAction,available=state.activeId===pilotId&&!pilot.consoleHold&&!delay&&!pilot.delayTimer&&!pilot.timedAction&&!state.delayRequest&&!submitting;
       dialog.dataset.input=delay?.shipOrder?'active':'idle';
+      const offline=seat.cell.item.disabled||['offline','powered-down'].includes(seat.cell.item.status);
+      if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))b.disabled=!b.matches('[data-close],[data-sound]');return;}
+      if(form.dataset.offline){delete form.dataset.offline;form.querySelectorAll('button,input,select').forEach(b=>b.disabled=false);}
       const charging=delay?.shipOrder&&!state.hardPaused&&!state.holdPaused&&!host.hidden&&bridge.soundEnabled();
       if(charging){chargeSound ||= bridge.startEngineCharge();chargeSound?.update(1-delay.remaining/100);}
       else {chargeSound?.stop();chargeSound=null;}
@@ -78,7 +84,9 @@
       dialog.dataset.turn=ready?'ready':delay?'input':'standby';
       dialog.dataset.urgent=command&&fraction<=.25?'true':'false';
       dialog.style.setProperty('--pilot-color',pilot.color||'#75ffc4');
-      const announcement=ready?(bridge.mode()==='player'?'YOUR TURN':`${pilot.characterName.toUpperCase()}'S TURN`):delay?(delay.shipOrder?'ENTERING COORDINATES':(delay.label||'OPERATING CONSOLE').toUpperCase()):'PILOT STANDBY';
+      const active=state.units.find(u=>u.id===state.activeId);
+      const standby=active?`PILOT STANDBY / ${active.characterName}'s turn`:state.hiddenActiveTurn?'PILOT STANDBY / Awaiting GM action':'PILOT STANDBY';
+      const announcement=ready?(bridge.mode()==='player'?'YOUR TURN':`${pilot.characterName.toUpperCase()}'S TURN`):delay?(delay.shipOrder?'ENTERING COORDINATES':(delay.label||'OPERATING CONSOLE').toUpperCase()):standby;
       const notice=form.querySelector('[data-turn-announcement]');if(notice.textContent!==announcement)notice.textContent=announcement;
       if(pilot.consoleHold)notice.textContent='HOLDING / 99%';
       const alerting=ready&&!pilot.consoleHold&&!command?.expired&&!state.hardPaused&&!state.holdPaused&&!submitting&&!host.hidden;
@@ -146,6 +154,8 @@
       }
       for(const g of svg.querySelectorAll('g[data-space-ship]')){const p=points.find(p=>p.id===g.dataset.spaceShip);if(p){const c=xy(p);g.setAttribute('transform',`translate(${c.x} ${c.y})`);}}
       marker.classList.toggle('locked',locked);
+      const pixel=svg.viewBox.baseVal.width/Math.max(1,svg.clientWidth);
+      for(const g of svg.querySelectorAll('[data-space-ship]')){const text=g.querySelector('text'),circle=g.querySelector('circle');text.setAttribute('font-size',16*pixel);text.setAttribute('stroke-width',3*pixel);text.setAttribute('y',-18*pixel);circle.setAttribute('r',8*pixel);circle.setAttribute('stroke-width',pixel);}
       const a=xy(start),b=destination&&xy(destination),scale=svg.viewBox.baseVal.width/200;
       const nextMarker=b?`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="${locked?'#75ffc4':'#ffe191'}" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/>`:'';
       if(nextMarker!==lastMarker){marker.innerHTML=nextMarker;lastMarker=nextMarker;}
@@ -158,6 +168,7 @@
       if(Math.abs(x)>10000||Math.abs(z)>10000)return;destination={q:x,r:z};locked=lock;q.value=x;r.value=z;error.textContent='';redraw();
     }
     svg.addEventListener('pointermove',e=>select(e,false));svg.addEventListener('click',e=>select(e,true));
+    form.querySelector('.pilot-chart').addEventListener('pointerleave',()=>{if(!locked&&!submitting){destination=null;q.value='';r.value='';redraw();}});
     form.querySelector('[data-boosts]').addEventListener('click',e=>{
       const box=e.target.closest('input[name=boost]');
       if(box?.dataset.unaffordable==='true'){e.preventDefault();auWarningUntil=performance.now()+2200;dialog.dataset.auWarning='true';auWarning.textContent='not enough Auxiliary power';}

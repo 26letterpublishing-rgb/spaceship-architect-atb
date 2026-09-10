@@ -180,3 +180,5 @@
 .high-resolution :is(.sic-grid-label,.player-ship-label,.combat-map-label){color:#ffe66a!important;text-shadow:0 1px 3px #000,0 0 4px #000}
 :is(.sic-grid-label,.player-ship-label,.combat-map-label){white-space:normal;text-align:center;line-height:1.15;overflow-wrap:anywhere}
 .combat-map-label{z-index:10;font-size:11px}
+.sa-offline-shade{position:absolute;inset:0;background:#74797b;z-index:2;pointer-events:none}
+.sa-reboot-status{position:absolute;left:2px;bottom:3px;z-index:18;color:#fff;background:#152329;padding:2px;font:10px Arial;white-space:nowrap;pointer-events:none}

@@ -37,7 +37,7 @@ async function main(){
   } finally {controller.abort();}
   browser=await chromium.launch({channel:process.env.SA_BROWSER_CHANNEL||'msedge',headless:true});
   const errors=[],requests=[];
-  async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
+  async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();p.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
   const gm=await page();await gm.goto(base+'/gm.html?campaign='+code);await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill('Sensor Test');await gm.getByRole('textbox',{name:'GM Code',exact:true}).fill('sensor-test-gm');await gm.getByRole('button',{name:'Open Campaign',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();
   const frame=gm.frameLocator('#atbFrame');await frame.getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
   const pcs=[];
@@ -45,6 +45,7 @@ async function main(){
   const pc=pcs[0];await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sn');
   const consoleView=pc.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();
+  await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await consoleView.waitFor();
   assert.equal(await gm.locator('.sensor-console').count(),0,'No automatic player console for GM');
   async function ready(){await act({action:'nudge',id:operator.id,amount:100});await consoleView.locator('[data-turn]').filter({hasText:'YOUR TURN'}).waitFor();}
   async function step(count){for(let i=0;i<count;i++)await act({action:'step'});
@@ -55,7 +56,7 @@ async function main(){
       await act({action:'step'});assert.equal((await state()).units.find(u=>u.id===operator.id).delayedAction.id,pending.id,'Waits for an explicit roll');
       await post('action',{roomCode:code,characterId:people[1].id,characterToken:tokens[1],action:'rollShipAction',id:operator.id,rollId:pending.id},403);
       await pc.screenshot({path:path.join(artifacts,'roll-prompt.png')});
-      await roll.getByRole('button',{name:'Roll Dice',exact:true}).click();await roll.getByRole('button',{name:'Continue',exact:true}).click();
+      const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).waitFor();await pc.screenshot({path:path.join(artifacts,'shared-skill-prompt.png')});await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await pc.waitForTimeout(900);assert.ok(await skill.locator('#diceCanvas canvas').count());await pc.screenshot({path:path.join(artifacts,'shared-physical-dice.png')});await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
       const first=(await state()).units.find(u=>u.id===operator.id).lastShipRoll;
       await act({action:'rollShipAction',id:operator.id,rollId:pending.id});assert.deepEqual((await state()).units.find(u=>u.id===operator.id).lastShipRoll,first,'Retry preserves the original result');
     }
@@ -63,6 +64,8 @@ async function main(){
   await ready();await consoleView.locator('[data-q]').fill('7');await consoleView.locator('[data-r]').fill('0');await pc.waitForTimeout(500);assert.equal(await consoleView.locator('[data-q]').inputValue(),'7');
   const scan=consoleView.getByRole('button',{name:'Scan Hex',exact:true}),rect=await scan.boundingBox();
   await pc.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(350);await pc.mouse.up();await pc.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
+  async function chooseHex(){const point=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*7,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await pc.mouse.click(point.x,point.y);}
+  await chooseHex();
   await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();assert.equal(requests.length,1,'Held click and retry must submit once');
   const frozenAtb=(await state()).units.find(u=>u.id===operator.id).atb;
   await act({action:'setHardPaused',paused:false});await pc.waitForTimeout(1250);await act({action:'setHardPaused',paused:true});
@@ -77,7 +80,7 @@ async function main(){
   await consoleView.locator('[data-conditional]').uncheck();await consoleView.locator('.conditional-order-controls summary').click();
   await pc.screenshot({path:path.join(artifacts,'sensor-console-1366.png')});
   await pc.setViewportSize({width:1920,height:1080});await pc.screenshot({path:path.join(artifacts,'sensor-console-1920.png')});
-  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
+  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await chooseHex();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
   await consoleView.locator('[data-reports]').filter({hasText:'1 lifeform detected'}).waitFor();
   await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');
@@ -122,7 +125,7 @@ async function main(){
   const confirmBox=await confirmMove.boundingBox();await pc.mouse.move(confirmBox.x+confirmBox.width/2,confirmBox.y+confirmBox.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(400);await pc.mouse.up();
   await enlarged.waitFor({state:'detached'});await step(20);
   assert.equal((await state()).units.find(u=>u.id===operator.id).location.square,43);
-  assert.equal(await interiors.locator('[data-ship-combat-lane]').count(),1);
+  assert.equal(await interiors.locator('[data-ship-combat-lane]').count(),2);
   await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
   let maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});await maintenance.waitFor();assert.equal(await maintenance.getByRole('button',{name:'Repair SIC',exact:true}).isDisabled(),true);
   pc.once('dialog',d=>d.accept());await maintenance.getByRole('button',{name:'Power Off',exact:true}).click();await maintenance.waitFor({state:'detached'});
@@ -130,6 +133,20 @@ async function main(){
   await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
   maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});await maintenance.getByRole('button',{name:'Restart SIC',exact:true}).click();await maintenance.waitFor({state:'detached'});
   assert.ok((await state()).starships[0].ship.sicInventory.find(i=>i.id==='sn').bootRemaining>0);
+  await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:42,mesh:0,stationed:true}});
+  await pc.getByRole('dialog',{name:'Pilot console',exact:true}).getByRole('button',{name:'Combat View',exact:true}).click();
+  await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
+  maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});pc.once('dialog',d=>d.accept());await maintenance.getByRole('button',{name:'Power Off',exact:true}).click();await maintenance.waitFor({state:'detached'});
+  await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
+  maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});await maintenance.getByRole('button',{name:'Power On',exact:true}).click();await maintenance.waitFor({state:'detached'});
+  await interiors.locator('.sa-reboot-status').filter({hasText:'Restart'}).first().waitFor();await pc.screenshot({path:path.join(artifacts,'bridge-reboot.png')});
+  const reboot=(await state()).starships[0].ship.sicInventory.find(i=>i.id==='cp').bootRemaining;
+  for(let i=0;i<Math.ceil(reboot)+1;i++)await act({action:'step'});
+  await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
+  assert.equal((await state()).units.find(u=>u.id===operator.id).location.stationed,true);
+  await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4,stationed:false}});
+  await gm.getByRole('button',{name:'Starships',exact:true}).click();await gm.locator('[data-view-starship]').first().click();
+  const details=gm.frameLocator('#gmStarshipViewerFrame');await details.locator('body.ship-details-only').waitFor();assert.equal(await details.locator('[data-starship-tab="details"]').getAttribute('class'),'starship-tab is-active');assert.equal(await details.locator('[data-live-stat="hull"]').first().textContent(),'9');assert.equal(await details.locator('.starship-library').isVisible(),false);await gm.screenshot({path:path.join(artifacts,'gm-view-details.png')});
   await post('campaign/starship/diagnostics',{code,token:tokens[0],characterId:people[0].id,starshipId:ships[0].id},409);
   await act({action:'exitEncounter'});
   await pc.getByRole('button',{name:'Starships',exact:true}).click();
