@@ -1,5 +1,7 @@
 # Sensors / Contact Intelligence Pass
 
+Current behavior overrides: see SCAN-FEEDBACK-PASS.md. Dice scans prompt after input; Life Scan now counts non-Android combatants in the selected hex without GM entry. New/reset Explore ships omit shields. The original implementation history below is retained for context, not as the current Life Scan specification.
+
 ## Implemented
 
 - Sensors 1-9 (A31-A36, B24-B26), unique cards and floorplans, no physical sensor stations, one installed system; stored spares allowed.

@@ -10,6 +10,9 @@
 .sensor-console header button:hover{background:#205054}.sensor-console header button:focus-visible{outline:2px solid #e7cd84;outline-offset:2px}
 .sensor-console .conditional-order-controls{padding:6px 0;border-top:1px solid #527a85;font-size:12px}
 .sensor-console .conditional-order-controls summary{cursor:help;color:#e1cf8c;padding:6px 0}
+.sensor-detection-alert{border:1px solid #ff6679;padding:8px;animation:detected-flash 1s steps(2,end) 12;color:#ff9aa5}
+@keyframes detected-flash{50%{background:#7a1f30;color:white}}
+@media(prefers-reduced-motion:reduce){.sensor-detection-alert{animation:none;background:#3c1721}}
 .sensor-console .conditional-order-controls label{display:block;margin:6px 0}
 .sensor-console .conditional-order-controls input[type=checkbox]{width:16px;height:16px}
 .sensor-console [data-sound]{width:36px;height:36px;min-width:36px;padding:6px}.sensor-console [data-sound] svg{width:22px;height:22px;display:block;fill:currentColor}

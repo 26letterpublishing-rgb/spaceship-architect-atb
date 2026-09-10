@@ -10,8 +10,8 @@
     hex:['Scan Hex','Focus on one hex within sensor range. Targets there have Masking -10; each hex away adds 2 to their difficulty. Uses Sensor dice + Sensor Systems.'],
     analysis:['Systems Analysis','Roll Sensor dice + Sensor Systems against a detected ship\'s Defense. Success produces a snapshot of exact Hull, Shields and active SICs after another 12 combat seconds. Failure gives +1 to the next attempt.'],
     share:['Share Data','Transmit available sensor intelligence to selected ships within sensor range. Shares contact and analysis information, never Lock-On.'],
-    life:['Life Scan','Request the GM\'s approximate biological reading of a detected ship after sensor input finishes.'],
-    lifeArea:['Life Scan: Area','Describe the center of a 50-mile search area. The GM supplies the approximate biological reading after input finishes.']
+    life:['Life Scan','Select a hex within sensor range. Counts non-Android characters aboard all other ships in that hex, excluding your own ship. No GM entry is needed.'],
+    lifeArea:['Life Scan','Select a hex within sensor range. Counts non-Android characters aboard other ships in that hex; excludes your own ship.']
   };
   let active = null;
   function open(key, owner = document) {

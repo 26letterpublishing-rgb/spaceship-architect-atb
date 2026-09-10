@@ -1,5 +1,9 @@
 # Current Recovery Handoff
 
+## Authorized Pass In Progress
+
+Scan feedback and console layout are authorized by the latest #commit. Implementation and local checks are complete; GitHub publication and hosted verification are next. Read SCAN-FEEDBACK-PASS.md. 129 tests passed, plus sensor browser checks including pending-roll restart/GM recovery, 12 cockpit orders and shield regressions. Do not treat historical hosted completion below as verification of this pass. Gold Standard and live campaign data remain untouched.
+
 ## Start Here
 
 Read this file, then `AGENTS.md`, then `COMMAND-ACTIONS-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.

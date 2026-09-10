@@ -7,13 +7,13 @@
     <link rel="icon" href="data:," />
   <link rel="stylesheet" href="styles.css?v=20260906-centered-prompts-1" />
   <link rel="stylesheet" href="combat-actions.css?v=20260907-hybrid-time-1" />
-  <link rel="stylesheet" href="ship-combat-map.css?v=commands-1" />
-  <link rel="stylesheet" href="ship-map-presentation.css?v=20260911-pilot-1" />
-  <link rel="stylesheet" href="combat-workspace.css?v=commands-1" />
+  <link rel="stylesheet" href="ship-combat-map.css?v=scan-feedback-1" />
+  <link rel="stylesheet" href="ship-map-presentation.css?v=scan-feedback-1" />
+  <link rel="stylesheet" href="combat-workspace.css?v=scan-feedback-1" />
   <link rel="stylesheet" href="health-display.css?v=20260909-ionic-1" />
   <script src="data-reset.js?v=20260907-preserve-saves-1"></script>
     <link rel="stylesheet" href="space-map.css?v=pilot-console-2">
-    <link rel="stylesheet" href="ship-navigation-ui.css?v=commands-1" data-navigation-style>
+    <link rel="stylesheet" href="ship-navigation-ui.css?v=scan-feedback-1" data-navigation-style>
   </head>
   <body>
     <main class="shell">
@@ -303,6 +303,7 @@
           <div><span>LOCATION CONSOLE</span><h2 id="combatMapTitle">Starship Interior</h2><p id="combatMapStatus">Select a destination.</p></div>
           <div class="combat-map-header-actions"><select id="combatMapShip" aria-label="Starship"></select><div class="combat-map-pan" aria-label="Move around map"><button type="button" data-combat-map-pan="up">↑</button><button type="button" data-combat-map-pan="left">←</button><button type="button" data-combat-map-pan="down">↓</button><button type="button" data-combat-map-pan="right">→</button></div><button id="closeCombatMap" type="button" aria-label="Close map">X</button></div>
         </header>
+        <div class="combat-map-actions combat-map-top-actions"><button id="stopCombatTravel" type="button" class="danger" hidden>Stop Moving</button><button id="leaveCombatStation" type="button" hidden>Get Up</button><button id="cancelCombatMove" type="button">Cancel</button><button id="confirmCombatMove" type="button" class="primary" disabled>Confirm Move</button></div>
         <div class="combat-map-view-controls" aria-label="Ship map view">
           <label><input type="checkbox" data-combat-map-view="labels" checked /> Labels</label>
           <label><input type="checkbox" data-combat-map-view="highResolution" /> High Resolution</label>
@@ -318,7 +319,6 @@
         <footer>
           <div id="combatMapStats" class="combat-map-stats" aria-label="Starship statistics"></div>
           <div class="combat-map-legend"><i class="green"></i> One Move <i class="yellow"></i> Extended travel <i class="red"></i> Blocked</div>
-          <div class="combat-map-actions"><button id="stopCombatTravel" type="button" class="danger" hidden>Stop Moving</button><button id="leaveCombatStation" type="button" hidden>Get Up</button><button id="cancelCombatMove" type="button">Cancel</button><button id="confirmCombatMove" type="button" class="primary" disabled>Confirm Move</button></div>
         </footer>
       </div>
     </section>
@@ -611,21 +611,22 @@
     <script src="live-dom.js?v=20260907-workspace-2"></script>
     <script src="health-display.js?v=20260907-workspace-2"></script>
     <script src="app.js?v=pilot-console-4"></script>
-  <script src="ship-map-core.js?v=20260911-pilot-1"></script>
+  <script src="ship-map-core.js?v=scan-feedback-1"></script>
   <script src="ship-power.js?v=20260909-ionic-1"></script>
   <script src="delay-rules.js?v=20260911-pilot-1"></script>
   <script src="ship-navigation.js?v=20260911-pilot-1"></script>
   <script src="station-access.js?v=shield-bridge-1"></script>
   <script src="ship-cooperation.js?v=commands-1"></script>
-  <script src="action-help.js?v=commands-1"></script>
+  <script src="action-help.js?v=scan-feedback-1"></script>
   <script src="maintenance-ui.js?v=commands-1"></script>
   <script src="ship-command-ui.js?v=commands-1"></script>
-  <script src="ship-sensors.js?v=commands-1"></script>
-  <script src="sensor-console-ui.js?v=commands-1"></script>
+  <script src="ship-roll-ui.js?v=scan-feedback-1"></script>
+  <script src="ship-sensors.js?v=scan-feedback-1"></script>
+  <script src="sensor-console-ui.js?v=scan-feedback-1"></script>
   <script src="ship-shields.js?v=shield-bridge-1"></script>
   <script src="shield-console-ui.js?v=shield-bridge-1"></script>
-  <script src="ship-navigation-ui.js?v=commands-1"></script>
-  <script src="ship-combat-map.js?v=commands-2"></script>
+  <script src="ship-navigation-ui.js?v=scan-feedback-1"></script>
+  <script src="ship-combat-map.js?v=scan-feedback-1"></script>
   <script src="combat-actions.js?v=commands-1"></script>
   <script type="module" src="npc-combat-dice.js?v=20260907-hybrid-time-1"></script>
   </body>

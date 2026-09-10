@@ -194,6 +194,12 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
       data.armed=null;
       const unit=room.units.find(u=>u.id===armed.unitId);
       if(unit){
+        if((armed.system==='sensor'&&['area','hex','analysis'].includes(armed.order.kind))||(!armed.system&&['evade','ram','skim'].includes(armed.order.kind))){
+          unit.pendingShipRolls ||= [];
+          unit.pendingShipRolls.push({id:`trigger-${armed.order.receipt||armed.delayed?.id||unit.id}-${Date.now()}`,label:armed.delayed?.label||names[armed.order.kind],armed});
+          report(ship,`${unit.characterName}: conditional order triggered; roll required.`);
+          continue;
+        }
         const operator={...unit,defeatedAt:null,location:armed.location,timedAction:null};
         if(armed.system){
           operator.delayedAction=armed.delayed;

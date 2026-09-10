@@ -316,7 +316,7 @@
       }).join("")}</div>` : "";
       const stations = stationMarkers(ship, sic, square);
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
+      return `<div class="${classes}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" style="width:${sic.width*100}%;height:${sic.height*100}%;inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
     const movingMarkup = units.map((unit) => {
       const moving = movementPresentation(unit); if (!moving) return "";
@@ -410,7 +410,7 @@
         }).join("")}</div>` : "";
         const stations = stationMarkers(record, sic, square);
         const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-        squares.push(`<div class="${cellClasses}" data-inline-square="${square}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic ? `<span class="combat-map-label">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
+        squares.push(`<div class="${cellClasses}" data-inline-square="${square}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" style="width:${sic.width*100}%;height:${sic.height*100}%;inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
       }
     }
     const moving = units.map((unit) => {
@@ -535,6 +535,8 @@
       const markup = inlineMapMarkup(record);
       if (inlineMarkupCache.get(host) !== markup) {
         host.innerHTML = markup;
+        const actions=host.querySelector('.inline-map-actions');
+        if(actions)host.prepend(actions);
         inlineMarkupCache.set(host, markup);
       }
     });

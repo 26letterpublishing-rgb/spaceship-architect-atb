@@ -1405,6 +1405,13 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
 
 function resolveCompletedEvent(room, event, source) {
   if (!event) return false;
+  const pending=event.type==='delayed'&&event.unit.delayedAction;
+  const needsRoll=pending&&(pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind));
+  if(needsRoll&&!pending.rollConfirmed&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
+    pending.awaitingRoll=true;pending.resolving=true;
+    if(!pending.rollAnnounced){pending.rollAnnounced=true;pushLog(room,`${event.unit.characterName}: roll required for ${pending.label}.`,{starshipId:event.unit.location?.starshipId});}
+    return false;
+  }
   if (event.type === 'delayed' && (event.unit.delayedAction?.shipOrder?.trigger || event.unit.delayedAction?.sensorOrder?.trigger)) {
     recordShipReports(room,()=>shipCommands.armExternal(room,event.unit,event.unit.delayedAction.shipOrder ? 'pilot' : 'sensor'));
     event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
@@ -1422,12 +1429,12 @@ function resolveCompletedEvent(room, event, source) {
     return false;
   }
   if (event.type === 'delayed' && event.unit.delayedAction?.sensorOrder) {
-    shipSensors.resolveInput(room,event.unit,sides => require('node:crypto').randomInt(1,sides+1));
+    recordShipReports(room,()=>shipSensors.resolveInput(room,event.unit,sides => require('node:crypto').randomInt(1,sides+1)));
     event.unit.atb = Math.max(0,event.unit.atb-room.threshold);
     return false;
   }
   if (event.type === 'queued' && event.effect.sensorReport) {
-    shipSensors.resolveReport(room,event.unit,event.effect);
+    recordShipReports(room,()=>shipSensors.resolveReport(room,event.unit,event.effect));
     return false;
   }
   if(event.type==='delayed' && event.unit.delayedAction?.shipOrder){
@@ -1778,7 +1785,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1931,6 +1938,22 @@ async function handleRoomAction(body, res) {
       room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
       pushLog(room,`${playerUnit.characterName} started sensor input.`,{starshipId:result.ship.id});
       moveToNextTurnOrClock(room,source);
+    }
+  }
+  if(action==='rollShipAction'){
+    const pending=playerUnit?.delayedAction;
+    if(playerUnit?.lastShipRoll?.id!==body.rollId){
+      const queued=playerUnit?.pendingShipRolls?.find(r=>r.id===body.rollId);
+      if(!queued&&(!pending?.awaitingRoll||pending.id!==body.rollId)){sendJson(res,409,{error:'That roll is no longer waiting.'});return;}
+      const ship=room.starships.find(s=>s.id===(queued?.armed.order.shipId||playerUnit.location?.starshipId)),previous=ship?.sensorState?.reports?.[0];
+      if(queued){
+        const operator={...playerUnit,defeatedAt:null,location:queued.armed.location,timedAction:null,delayedAction:queued.armed.delayed,queuedEffects:playerUnit.queuedEffects ||= []};
+        recordShipReports(room,()=>queued.armed.system==='sensor'?shipSensors.resolveInput(room,operator,sides=>require('node:crypto').randomInt(1,sides+1)):shipCommands.resolveInput(room,operator,sides=>require('node:crypto').randomInt(1,sides+1),queued.armed.order));
+        playerUnit.pendingShipRolls=playerUnit.pendingShipRolls.filter(r=>r!==queued);shipShields.refresh(room);
+      }else{pending.rollConfirmed=true;resolveCompletedEvent(room,{type:'delayed',unit:playerUnit},room.activeSource);}
+      const report=ship?.sensorState?.reports?.[0];
+      const resolved=report&&report!==previous?report:null;
+      playerUnit.lastShipRoll={id:body.rollId,label:queued?.label||pending.label,text:resolved?.text||'Action completed.',values:resolved?.values||[],total:resolved?.total};
     }
   }
   if (action === 'shipCommand') {

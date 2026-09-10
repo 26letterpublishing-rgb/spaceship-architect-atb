@@ -37,6 +37,7 @@
   }
   function detect(room, observer, target) {
     const state = knowledge(observer);
+    if(state.contacts[target.id]?.level!=='detected')report(observer,{detected:true,targetId:target.id,text:`${target.title}${target.ship.class?` Class ${target.ship.class}`:''} Starship detected. Affiliation: ${target.ship.affiliation||'Unknown'}`});
     return state.contacts[target.id] = { id:target.id, level:'detected', title:target.title,
       position:point(room,target.id), size:(target.ship.gridCells || []).length,
       faction:target.ship.affiliation || '', nature:'Starship' };
@@ -83,7 +84,6 @@
       return {ok:false,error:'Wait for your turn and finish the current action.'};
     if (!['area','hex','analysis','life','lifeArea','share'].includes(body.kind)) return {ok:false,error:'Choose a sensor operation.'};
     const area = String(body.area || '').trim().slice(0,160);
-    if (body.kind === 'lifeArea' && !area) return {ok:false,error:'Describe the center of the 50-mile life scan.'};
     refresh(room);
     const target = room.starships.find(s => s.id === body.targetId && s.id !== access.ship.id);
     const recipients = body.kind === 'share' ? (Array.isArray(body.targetIds) ? [...new Set(body.targetIds)] : [body.targetId]) : [];
@@ -91,15 +91,15 @@
       const recipient = room.starships.find(s => s.id === id && s.id !== access.ship.id);
       return !recipient || state.contacts[id]?.level !== 'detected' || distances.hexDistance(point(room,access.ship.id),point(room,id)) > rangeAgainst(room,access.ship,recipient);
     }))) return {ok:false,error:'Choose recipients detected within sensor range.'};
-    if (['analysis','life'].includes(body.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    if (body.kind==='analysis' && (!target || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,access.ship.id),point(room,target.id)) > rangeAgainst(room,access.ship,target)))
       return {ok:false,error:'Select a detected ship within sensor range.'};
-    if (body.kind === 'hex' && (!body.hex || ![body.hex.q,body.hex.r].every(Number.isInteger) ||
+    if (['hex','life','lifeArea'].includes(body.kind) && (!body.hex || ![body.hex.q,body.hex.r].every(Number.isInteger) ||
       distances.hexDistance(point(room,access.ship.id),body.hex) > installed(access.ship).range)) return {ok:false,error:'Choose a hex within sensor range.'};
     const settings = inputSettings(access.ship);
     unit.delayedAction = {id:`sensor-${receipt}`,kind:'action',label:({area:'Scan Area',hex:'Scan Hex',analysis:'Systems Analysis',life:'Life Scan',lifeArea:'Life Scan Area',share:'Share Data'})[body.kind],
       rate:settings.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings,
-      sensorOrder:{shipId:access.ship.id,sicId:access.id,station:access.seat.key,kind:body.kind,targetId:target?.id,targetIds:recipients,area,hex:body.kind === 'hex' ? copy(body.hex) : null}};
+      sensorOrder:{shipId:access.ship.id,sicId:access.id,station:access.seat.key,kind:body.kind,targetId:target?.id,targetIds:recipients,area,hex:['hex','life','lifeArea'].includes(body.kind) ? copy(body.hex) : null}};
     state.receipts = [...state.receipts,receipt].slice(-256);
     return {ok:true,ship:access.ship};
   }
@@ -118,7 +118,7 @@
     }
     refresh(room);
     const sensor = installed(observer), state = knowledge(observer), target = room.starships.find(s => s.id === order.targetId);
-    if (['analysis','life'].includes(order.kind) && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    if (order.kind==='analysis' && (!target || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,observer.id),point(room,target.id)) > rangeAgainst(room,observer,target))) {
       report(observer,{text:'Contact lost before sensor input finished.'}); return;
     }
@@ -136,7 +136,11 @@
       report(observer,{text:`Sensor data transmitted to ${delivered} ship${delivered === 1 ? '' : 's'}.`}); return;
     }
     if (order.kind === 'life' || order.kind === 'lifeArea') {
-      report(observer,{text:`Life scan of ${target?.title || `50-mile radius around ${order.area}`}: awaiting GM biological reading.`,targetId:target?.id,lifeScan:true,pending:true}); return;
+      if(!order.hex||distances.hexDistance(point(room,observer.id),order.hex)>sensor.range){report(observer,{text:'Life Scan cancelled: hex is outside sensor range.'});return;}
+      const rounded=p=>{let q=Math.round(p.q),r=Math.round(p.r),s=Math.round(-p.q-p.r);const a=Math.abs(q-p.q),b=Math.abs(r-p.r),c=Math.abs(s+p.q+p.r);if(a>b&&a>c)q=-r-s;else if(b>c)r=-q-s;return {q,r};};
+      const targets=new Set(room.starships.filter(s=>s.id!==observer.id&&distances.hexDistance(rounded(point(room,s.id)),order.hex)===0).map(s=>s.id));
+      const count=room.units.filter(u=>targets.has(u.location?.starshipId)&&String(u.raceId||u.race||'').toLowerCase()!=='android').length;
+      report(observer,{text:`Life Scan at ${order.hex.q}, ${order.hex.r}: ${count} lifeform${count===1?'':'s'} detected. Scanning ship excluded.`,lifeScan:true,count,hex:copy(order.hex)});return;
     }
     const {values,total} = cooperation.roll(room,observer,unit,order.kind,sensor.dice,skill(unit),rollDie,fusedTotal);
     if (order.kind === 'analysis') {
@@ -166,7 +170,7 @@
       const proximity = order.hex ? 0 : Math.floor(range-distance+1e-8);
       if (total+proximity >= difficulty) { detect(room,observer,other); found++; }
     }
-    report(observer,{text:`${order.kind === 'hex' ? 'Hex' : 'Area'} scan complete: ${found} contact${found === 1 ? '' : 's'} resolved.`,values,total});
+    report(observer,{text:`${order.kind === 'hex' ? 'Hex' : 'Area'} scan complete: ${found?`${found} contact${found===1?'':'s'} detected`:'no additional contacts detected'}.`,values,total});
   }
   function resolveReport(room, unit, effect) {
     const order = effect.sensorReport, observer = room.starships.find(s => s.id === order.shipId), target = room.starships.find(s => s.id === order.targetId);

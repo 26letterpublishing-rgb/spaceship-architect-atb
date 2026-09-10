@@ -60,6 +60,8 @@
     // Validate the locked destination ourselves so feedback stays inside the console.
     form.noValidate=true;
     const originalBox=svg.getAttribute('viewBox').split(' ').map(Number);
+    const resizeMap=()=>{if(!svg.clientWidth||!svg.clientHeight)return;const v=svg.viewBox.baseVal,h=v.width*svg.clientHeight/svg.clientWidth,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${v.x} ${y} ${v.width} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [key,value] of Object.entries({x:v.x,y,width:v.width,height:h}))rect.setAttribute(key,value);};
+    const mapObserver=new ResizeObserver(resizeMap);mapObserver.observe(svg);
     const redrawCommands = !compact ? window.SAShipCommandUI.mount(dialog,pilotId) : () => {};
     function redraw(){
       redrawCommands();
@@ -161,7 +163,7 @@
       if(box?.dataset.unaffordable==='true'){e.preventDefault();auWarningUntil=performance.now()+2200;dialog.dataset.auWarning='true';auWarning.textContent='not enough Auxiliary power';}
     });
     form.addEventListener('input',e=>{if([q,r].includes(e.target)){locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
-    for(const zoom of form.querySelectorAll('[data-zoom]'))zoom.onclick=()=>{const v=svg.viewBox.baseVal,w=Math.max(8,Math.min(80000,v.width*Number(zoom.dataset.zoom))),h=w*originalBox[3]/originalBox[2],x=v.x+(v.width-w)/2,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${x} ${y} ${w} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [k,val] of Object.entries({x,y,width:w,height:h}))rect.setAttribute(k,val);redraw();};
+    for(const zoom of form.querySelectorAll('[data-zoom]'))zoom.onclick=()=>{const v=svg.viewBox.baseVal,w=Math.max(8,Math.min(80000,v.width*Number(zoom.dataset.zoom))),h=w*(svg.clientWidth?svg.clientHeight/svg.clientWidth:originalBox[3]/originalBox[2]),x=v.x+(v.width-w)/2,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${x} ${y} ${w} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [k,val] of Object.entries({x,y,width:w,height:h}))rect.setAttribute(k,val);redraw();};
     form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',destination:{...destination},boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
     const rememberDismissal=()=>{combatViews.add(seatKey(bridge.state().units.find(u=>u.id===pilotId)));};
     form.querySelector('[data-leave]').onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;rememberDismissal();dialog.close();window.SACombatMap.openMove(pilot);};
@@ -171,7 +173,7 @@
     dialog.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     dialog.addEventListener('keydown',bridge.resumeAudio);
     dialog.addEventListener('cancel',rememberDismissal);
-    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
+    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);mapObserver.disconnect();chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
     dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();
   }
   function sync(unit){

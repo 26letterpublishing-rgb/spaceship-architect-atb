@@ -81,16 +81,25 @@ test('failed analysis adds a retry bonus, while successful detection clears unce
   assert.equal(a.sensorState.failures.b,0);assert.equal(unit.queuedEffects.length,1);
 });
 
-test('area life scan asks the GM, and console input cannot overlap an AU command',()=>{
+test('hex life scan resolves automatically, and console input cannot overlap an AU command',()=>{
   const {room,a,unit}=fixture();a.auCommands=[{unitId:unit.id}];
-  const body={sicId:'sn',kind:'lifeArea',area:'Landing site',requestId:'life-area-report'};
+  const body={sicId:'sn',kind:'life',hex:{q:0,r:0},requestId:'life-area-report'};
   assert.equal(sensors.queue(room,unit,body).ok,false);a.auCommands=[];
   assert.equal(sensors.queue(room,unit,body).ok,true);sensors.resolveInput(room,unit,()=>1);
-  assert.equal(a.sensorState.reports[0].pending,true);assert.match(a.sensorState.reports[0].text,/50-mile radius around Landing site/);
+  assert.equal(a.sensorState.reports[0].pending,undefined);assert.match(a.sensorState.reports[0].text,/Life Scan at 0, 0/);
 });
 
 test('sensor mode survives loss of all hardware, and all tier assets exist',()=>{
   const fs=require('node:fs'),path=require('node:path'),{room,a,b}=fixture();sensors.refresh(room);
   a.ship.sicInventory=[];b.ship.sicInventory=[];sensors.refresh(room);assert.equal(room.sensorMode,true);assert.deepEqual(a.sensorState.contacts,{});
   for(let tier=1;tier<=9;tier++)for(const suffix of ['card.png','floor-plan.png','card-web.webp','floor-plan-web.webp'])assert.ok(fs.statSync(path.join(__dirname,'..',`sensors-${tier}-${suffix}`)).size>0);
+});
+
+test('Life Scan combines other ships in the hex, excluding own crew and Androids',()=>{
+  const {room,a,b,unit}=fixture();room.shipPositions[1].q=0;
+  const c=structuredClone(b);c.id='c';room.starships.push(c);room.shipPositions.push({id:'c',q:0,r:0});
+  room.units.push({id:'android',raceId:'android',location:{starshipId:'b'}},{id:'other',raceId:'human',location:{starshipId:'c'}});
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'life',hex:{q:0,r:0},requestId:'life-count-test'}).ok,true);
+  sensors.resolveInput(room,unit,()=>4);assert.equal(a.sensorState.reports[0].count,2);
+  assert.equal(a.sensorState.reports[0].pending,undefined);
 });

@@ -15,9 +15,6 @@
       <main><section class="sensor-chart"><h3>Contact Plot <small data-range></small></h3><div data-map></div><div class="sensor-coordinates"><label>Hex Q<input data-q type="number" step="1" min="-10000" max="10000" value="0"></label><label>Hex R<input data-r type="number" step="1" min="-10000" max="10000" value="0"></label><output data-destination></output></div><div class="sensor-readout"><img src="${initial.item.type}-card.png" alt="${esc(initial.definition.name)}"><div><h3>${esc(initial.definition.name)}</h3><p data-dice></p><div data-factors></div><progress data-input max="100" value="0" aria-label="Sensor input"></progress><p data-input-text></p></div></div></section>
       <section class="sensor-controls"><h3>Operations</h3><button type="button" data-order="area">Scan Area</button><button type="button" data-order="hex">Scan Hex</button><label>Detected Contact<select data-target aria-label="Detected contact"></select></label><button type="button" data-order="analysis">Systems Analysis</button><button type="button" data-order="life">Life Scan</button><button type="button" data-order="share">Share Data</button><p data-error role="alert"></p><div class="sensor-seat-actions"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section>
       <section class="sensor-reports"><h3>Intelligence Reports</h3><div data-reports></div></section><section class="sensor-timeline"><div class="pilot-rings" data-rings></div></section></main>`;
-    const areaButton = host.createElement('button');
-    areaButton.type='button';areaButton.dataset.order='lifeArea';areaButton.textContent='Life Scan: 50-mile Area';
-    view.querySelector('[data-order="life"]').after(areaButton);
     view.querySelectorAll('[data-order]').forEach(button=>window.SAActionHelp.attach(button,button.dataset.order));
     const recipients=host.createElement('fieldset');recipients.className='sensor-share-recipients';recipients.innerHTML='<legend>Share Recipients</legend><div data-recipients></div>';
     view.querySelector('[data-order="share"]').before(recipients);
@@ -37,7 +34,7 @@
       if (!access || access.seat.key!==initial.seat.key) {view.close();return;}
       const sensor=window.SAShipSensors.installed(access.ship),settings=window.SAShipSensors.inputSettings(access.ship);
       const ready=state.activeId===person.id&&!person.delayedAction&&!person.delayTimer&&!person.timedAction&&!person.consoleHold;
-      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':ready?'YOUR TURN':person.delayedAction?.sensorOrder?'SCANNING':'SENSORS ONLINE';
+      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayedAction?.awaitingRoll?'ROLL REQUIRED':ready?'YOUR TURN':person.delayedAction?.sensorOrder?'SCANNING':'SENSORS ONLINE';
       const command=state.command?.unitId===person.id?state.command:null;
       get('[data-command]').value=command?.total&&!command.expired?command.remaining/command.total:0;
       const alerting=ready&&!state.hardPaused&&!state.holdPaused&&!command?.expired&&!host.hidden,now=Math.floor(performance.now()/1000);
@@ -47,7 +44,7 @@
       get('[data-dice]').textContent=`${sensor.dice.length}D${sensor.dice[0]} + Sensor Systems ${window.SAShipSensors.skill(person)}`;
       get('[data-factors]').innerHTML=`<span class="pilot-factor">${bridge.delayIcon(settings.factors.Quality)}</span> Signal Quality`;
       get('[data-input]').value=person.delayedAction?.sensorOrder?100-person.delayedAction.remaining:0;
-      get('[data-input-text]').textContent=person.delayedAction?.sensorOrder?`${person.delayedAction.label} / ${(person.delayedAction.remaining/person.delayedAction.rate).toFixed(1)} sec`:`Input ${(100/settings.rate).toFixed(1)} sec`;
+      get('[data-input-text]').textContent=person.delayedAction?.awaitingRoll?'Roll required':person.delayedAction?.sensorOrder?`${person.delayedAction.label} / ${(person.delayedAction.remaining/person.delayedAction.rate).toFixed(1)} sec`:`Input ${(100/settings.rate).toFixed(1)} sec`;
       // A GM operator uses the same contact picture as that crew; GM overview remains omniscient.
       const picture=window.SAShipSensors.view(state,access.ship.id);
       const mapKey=JSON.stringify([picture.starships.map(s=>[s.id,s.title,s.contactLevel]),picture.shipPositions]);
@@ -61,11 +58,13 @@
         get('[data-recipients]').innerHTML=contacts.map(c=>`<label><input type="checkbox" data-recipient value="${esc(c.id)}" ${chosen.includes(c.id)?'checked':''}>${esc(c.title)}</label>`).join('');lastTargets=targets;}
       const selectedContact=contacts.find(contact=>contact.id===get('[data-target]').value);
       contactInfo.textContent=selectedContact?[selectedContact.nature,`${selectedContact.size} hull squares`,selectedContact.faction].filter(Boolean).join(' / '):'';
-      for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(['analysis','life'].includes(button.dataset.order)&&!get('[data-target]').value)||(button.dataset.order==='share'&&!get('[data-target]').value&&!view.querySelector('[data-recipient]:checked'));
+      for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(button.dataset.order==='analysis'&&!get('[data-target]').value)||(button.dataset.order==='share'&&!get('[data-target]').value&&!view.querySelector('[data-recipient]:checked'));
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
       get('[data-leave]').disabled=busy||!ready;
       const reports=(access.ship.sensorState?.reports||[]).map(entry=>`<article><time>${esc(new Date(entry.at).toLocaleTimeString())}</time><p>${esc(entry.text)}</p>${entry.values?`<small>Dice ${entry.values.join(' / ')} | Total ${entry.total}</small>`:''}${entry.analysis?`<div>${window.SAHealthDisplay.track('hull',entry.hull.current,entry.hull.maximum,true)}${window.SAHealthDisplay.track('shield',entry.shield.current,entry.shield.maximum,true)}</div><small>Snapshot at scan completion</small><ul>${entry.components.map(c=>`<li>${esc(c.name)}</li>`).join('')}</ul>`:''}${entry.pending&&bridge.mode()==='gm'?`<button type="button" data-reading="${esc(entry.at)}">Enter Biological Reading</button>`:''}${entry.sharedBy?`<small>Shared by ${esc(entry.sharedBy)}</small>`:''}</article>`).join('')||'<p>No completed scans.</p>';
-      if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;}
+      if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;
+        [...get('[data-reports]').children].forEach((article,index)=>{const entry=access.ship.sensorState.reports[index];article.classList.toggle('sensor-detection-alert',Boolean(entry?.detected&&Date.now()-Date.parse(entry.at)<30000));});
+      }
       const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
     }
     get('[data-map]').onclick=event=>{
@@ -84,8 +83,7 @@
       let payload;
       if(reading){const text=host.defaultView.prompt('Approximate biological life reading (artificial life is excluded):');if(!text)return;payload={action:'sensorLifeReading',starshipId:initial.ship.id,reportAt:reading.dataset.reading,reading:text};}
       else {if(order.dataset.order==='share'&&!host.defaultView.confirm('Transmit your current sensor intelligence to the selected recipients?'))return;
-        const area = order.dataset.order==='lifeArea' ? host.defaultView.prompt('Center of the 50-mile scan (place or coordinates for the GM):') : '';
-        if(order.dataset.order==='lifeArea'&&!area?.trim())return;
+        const area = '';
         const targetIds=[...view.querySelectorAll('[data-recipient]:checked')].map(i=>i.value);
         payload={action:'sensorCommand',id:unit.id,sicId,kind:order.dataset.order,targetId:get('[data-target]').value,targetIds:targetIds.length?targetIds:[get('[data-target]').value],area,hex:{q:Number(q.value),r:Number(r.value)},requestId:crypto.randomUUID()};}
       if(order)payload.trigger=window.SAShipCommandUI.conditionalPayload(view);

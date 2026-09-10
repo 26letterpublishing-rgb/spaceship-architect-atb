@@ -177,3 +177,6 @@
   background-image:linear-gradient(to right,transparent calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 + .5px),transparent calc(100% / 3 + .5px),transparent calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 + .5px),transparent calc(200% / 3 + .5px)),linear-gradient(to bottom,transparent calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 - .5px),var(--mesh-ink) calc(100% / 3 + .5px),transparent calc(100% / 3 + .5px),transparent calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 - .5px),var(--mesh-ink) calc(200% / 3 + .5px),transparent calc(200% / 3 + .5px));
 }
 .inline-map-toolbar input,.combat-map-view-controls input,.player-starship-view-controls input {min-height:0;min-width:0}
+.high-resolution :is(.sic-grid-label,.player-ship-label,.combat-map-label){color:#ffe66a!important;text-shadow:0 1px 3px #000,0 0 4px #000}
+:is(.sic-grid-label,.player-ship-label,.combat-map-label){white-space:normal;text-align:center;line-height:1.15;overflow-wrap:anywhere}
+.combat-map-label{z-index:10;font-size:11px}

@@ -300,7 +300,8 @@
       const originColumn = origin % GRID_SIZE;
       for (let row = 0; row < entry.height; row += 1) for (let column = 0; column < entry.width; column += 1) {
         const square = (originRow + row) * GRID_SIZE + originColumn + column;
-        footprint.set(square, { placement, item, sicId: placement.sicId, type, exterior: Boolean(entry.exterior), width: entry.width, height: entry.height, label: entry.label, color: entry.color, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column, blocked: Boolean(entry.exterior) || blocksMovement(type, entry.width, entry.height, column, row) });
+        const label=entry.name||type.replace(/^en-engine/,'Power Engine').replace(/^au-engine/,'Action Engine').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase());
+        footprint.set(square, { placement, item, sicId: placement.sicId, type, exterior: Boolean(entry.exterior), width: entry.width, height: entry.height, label, color: entry.color, image: entry.image, stations: entry.stations || [], offset: row * entry.width + column, row, column, blocked: Boolean(entry.exterior) || blocksMovement(type, entry.width, entry.height, column, row) });
       }
     }
 

@@ -56,7 +56,8 @@ test('conditional orders charge once, survive leaving after input, and expire wi
   const body={kind:'evade',trigger:{kind:'movement',targetId:'b'},requestId:'conditional-test'};
   assert.equal(commands.queue(room,pilot,body).ok,true);commands.resolveInput(room,pilot,()=>4);assert.equal(a.auState.current,0);assert.ok(a.commandSystems.armed);
   pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
-  commands.advance(room,1,before,()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(a.commandSystems.evasions.length,1);
+  commands.advance(room,1,before,()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(pilot.pendingShipRolls.length,1);
+  const ready=pilot.pendingShipRolls.shift();commands.resolveInput(room,{...pilot,location:ready.armed.location},()=>4,ready.armed.order);assert.equal(a.commandSystems.evasions.length,1);
   pilot.location={starshipId:'a',square:42,mesh:0,sicId:'c',stationed:true};a.auState.current=2;
   assert.equal(commands.queue(room,pilot,{...body,requestId:'conditional-expire'}).ok,true);commands.resolveInput(room,pilot,()=>4);commands.advance(room,12,structuredClone(room.shipPositions),()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(a.commandSystems.evasions.length,1);
 });
@@ -84,7 +85,9 @@ test('conditional analysis keeps the queued report on the real operator',()=>{
   assert.equal(sensors.queue(room,pilot,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'conditional-analysis'}).ok,true);
   pilot.delayedAction.sensorOrder.trigger={kind:'movement',targetId:'b'};commands.armExternal(room,pilot,'sensor');
   pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
-  commands.advance(room,1,before,()=>4);assert.ok(pilot.queuedEffects.some(e=>e.sensorReport));assert.equal(pilot.delayedAction,null);
+  commands.advance(room,1,before,()=>4);assert.equal(pilot.pendingShipRolls.length,1);assert.equal(pilot.delayedAction,null);
+  const ready=pilot.pendingShipRolls.shift(),operator={...pilot,location:ready.armed.location,delayedAction:ready.armed.delayed,queuedEffects:pilot.queuedEffects ||= []};
+  sensors.resolveInput(room,operator,()=>4);assert.ok(pilot.queuedEffects.some(e=>e.sensorReport));
 });
 
 test('powered-down shield reserves cannot absorb a collision',()=>{

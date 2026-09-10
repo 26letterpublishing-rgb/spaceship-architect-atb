@@ -47,7 +47,19 @@ async function main(){
   const consoleView=pc.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();
   assert.equal(await gm.locator('.sensor-console').count(),0,'No automatic player console for GM');
   async function ready(){await act({action:'nudge',id:operator.id,amount:100});await consoleView.locator('[data-turn]').filter({hasText:'YOUR TURN'}).waitFor();}
-  async function step(count){for(let i=0;i<count;i++)await act({action:'step'});}
+  async function step(count){for(let i=0;i<count;i++)await act({action:'step'});
+    const pending=(await state()).units.find(u=>u.id===operator.id)?.delayedAction;
+    if(pending?.awaitingRoll){
+      const roll=pc.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();
+      await gm.getByRole('status').filter({hasText:'roll required'}).waitFor();
+      await act({action:'step'});assert.equal((await state()).units.find(u=>u.id===operator.id).delayedAction.id,pending.id,'Waits for an explicit roll');
+      await post('action',{roomCode:code,characterId:people[1].id,characterToken:tokens[1],action:'rollShipAction',id:operator.id,rollId:pending.id},403);
+      await pc.screenshot({path:path.join(artifacts,'roll-prompt.png')});
+      await roll.getByRole('button',{name:'Roll Dice',exact:true}).click();await roll.getByRole('button',{name:'Continue',exact:true}).click();
+      const first=(await state()).units.find(u=>u.id===operator.id).lastShipRoll;
+      await act({action:'rollShipAction',id:operator.id,rollId:pending.id});assert.deepEqual((await state()).units.find(u=>u.id===operator.id).lastShipRoll,first,'Retry preserves the original result');
+    }
+  }
   await ready();await consoleView.locator('[data-q]').fill('7');await consoleView.locator('[data-r]').fill('0');await pc.waitForTimeout(500);assert.equal(await consoleView.locator('[data-q]').inputValue(),'7');
   const scan=consoleView.getByRole('button',{name:'Scan Hex',exact:true}),rect=await scan.boundingBox();
   await pc.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(350);await pc.mouse.up();await pc.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
@@ -66,10 +78,20 @@ async function main(){
   await pc.screenshot({path:path.join(artifacts,'sensor-console-1366.png')});
   await pc.setViewportSize({width:1920,height:1080});await pc.screenshot({path:path.join(artifacts,'sensor-console-1920.png')});
   await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
-  const reading=frame.getByRole('button',{name:'Enter Biological Reading',exact:true});await reading.waitFor();gm.once('dialog',d=>d.accept('Approximately two biological life signs.'));await reading.click();await consoleView.locator('[data-reports]').filter({hasText:'Approximately two biological'}).waitFor();
+  await consoleView.locator('[data-reports]').filter({hasText:'1 lifeform detected'}).waitFor();
   await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');
   const pilotConsole=pc.getByRole('dialog',{name:'Pilot console',exact:true});await pilotConsole.waitFor();
+  for(const size of [{width:1366,height:768},{width:1920,height:1080}]){
+    await pc.setViewportSize(size);await pc.waitForTimeout(500);
+    const chart=pilotConsole.locator('[data-navigation-map] svg');
+    for(const zoom of [null,'1.25','0.8']){
+      if(zoom)await pilotConsole.locator('[data-zoom]').nth(zoom==='1.25'?1:0).click();
+      const ratios=await chart.evaluate(svg=>({actual:svg.clientWidth/svg.clientHeight,view:svg.viewBox.baseVal.width/svg.viewBox.baseVal.height}));
+      assert.ok(Math.abs(ratios.actual-ratios.view)<.02,'Navigation fills the chart at every zoom');
+    }
+    await pc.screenshot({path:path.join(artifacts,`navigation-${size.width}.png`)});
+  }
   await pilotConsole.getByRole('button',{name:'Command',exact:true}).click();
   await pilotConsole.getByRole('tab',{name:'Preparation',exact:true}).click();
   await pilotConsole.getByRole('button',{name:'About Team Execution',exact:true}).click();
@@ -131,6 +153,18 @@ async function main(){
   token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;
   tokens[0]=(await post('campaign/join/status',{code,characterId:people[0].id,pcCode:people[0].access.pcCode})).token;
   assert.ok((await state()).starships[0].sensorState.reports.some(r=>r.analysis));assert.equal((await state(tokens[0])).starships.length,0);
-  console.log('Browser checks passed: fresh GM/two PCs, sensor privacy, held mouse clicks, queued analysis, GM life reading, share, Command help and preparation, enlarged movement, campaign diagnostics/time, reload, cards, demo contacts and server restart.');console.log(artifacts);
+  await act({action:'prepareEncounter',preparationId:'pending-roll-restart',mode:'starship',starships:ships,shipPositions:[{id:ships[0].id,q:0,r:0},{id:ships[1].id,q:7,r:0}],units:[{characterId:people[0].id,characterName:'Observer',team:'pc',speed:.1,commandWindow:120,sensorSkill:6,location:{starshipId:ships[0].id,square:42,mesh:0,stationed:true}}]});
+  const restoredActor=(await state()).units[0];
+  await act({action:'nudge',id:restoredActor.id,amount:100});
+  await act({action:'sensorCommand',id:restoredActor.id,sicId:'sn',kind:'hex',hex:{q:7,r:0},requestId:'restart-roll-test'});
+  for(let i=0;i<12;i++)await act({action:'step'});
+  const pending=(await state()).units[0].delayedAction;assert.equal(pending.awaitingRoll,true);
+  await new Promise(r=>setTimeout(r,600));const exit=once(child,'exit');child.kill();await exit;await start();
+  token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;
+  assert.equal((await state()).units[0].delayedAction.id,pending.id,'Pending roll survives restart');
+  await act({action:'rollShipAction',id:restoredActor.id,rollId:pending.id});
+  const result=(await state()).units[0].lastShipRoll;assert.equal(result.id,pending.id,'GM can resolve the restored player roll');
+  await act({action:'rollShipAction',id:restoredActor.id,rollId:pending.id});assert.deepEqual((await state()).units[0].lastShipRoll,result);
+  console.log('Browser checks passed: fresh GM/two PCs, sensor privacy, held mouse clicks, explicit retry-safe rolls, queued analysis, automatic hex Life Scan, share, full-chart zoom, Command help and preparation, enlarged movement, campaign diagnostics/time, reload, cards, demo contacts, pending-roll restart and GM recovery.');console.log(artifacts);
 }
 main().catch(async e=>{console.error(e);if(browser)for(const [i,c]of browser.contexts().entries())for(const [j,p]of c.pages().entries())await p.screenshot({path:path.join(artifacts,`failure-${i}-${j}.png`)}).catch(()=>{});process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(child&&child.exitCode===null){const stop=once(child,'exit');child.kill();await stop;}});
