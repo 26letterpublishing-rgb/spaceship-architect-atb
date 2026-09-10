@@ -17,7 +17,7 @@ Authorized by the latest #commit. Gold Standard and data/campaigns.json remain u
 
 132 unit/HTTP tests passed. Fresh campaign GM/two-PC sensor browser suite passed, including the shared physical dice window, roll retry/restart, Analysis/Life Scan, remembered console, bridge power cycle and read-only details. Cockpit browser suite passed all 12 orders and two desktop sizes; shield browser regressions passed. JavaScript syntax and diff whitespace checks passed.
 
-Fixtures are API-created; these checks are not a full new-user character creation playthrough. Render verification follows publishing. Browser screenshots are in ignored test-artifacts directories.
+Fixtures are API-created; these checks are not a full new-user character creation playthrough. Application commit 504a85a is pushed and verified on Render. All 30 checked code/style files and 19 optimized images matched; hosted cards, GM/PC perspective switch, action-first scan, shared skill dice, Command help and expanded interior passed. The first hosted attempt had an obsolete redundant Combat click after automatic console opening; the corrected test passed. Browser screenshots are in ignored test-artifacts directories.
 
 ## Maintenance Notes
 

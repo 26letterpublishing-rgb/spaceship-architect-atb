@@ -1,8 +1,8 @@
 # Current Recovery Handoff
 
-## Console Follow-Up: Publishing
+## Console Follow-Up Complete
 
-Latest #commit is implemented and locally verified. Read CONSOLE-FOLLOWUP-PASS.md. All 132 unit/HTTP tests, sensor GM/two-PC browser checks, cockpit 12-order suite and shield suite passed. Publishing and hosted verification are next. Mouse leave clears only unclicked routes. Anonymous crew use ACTUAL ATB progress. Prior completion below is historical.
+Latest #commit is complete. Application commit 504a85a is pushed and verified on Render: 30 code/style files and 19 optimized images match. Hosted cards, GM/PC switch, action-first hex scan, shared skill dice, Command help and expanded interior passed. All 132 unit/HTTP tests, sensor GM/two-PC browser checks, cockpit 12-order suite and shield suite passed. Read CONSOLE-FOLLOWUP-PASS.md. Mouse leave clears only unclicked routes. Anonymous crew use ACTUAL ATB progress. Gold Standard and campaign data remain untouched. Wait for user feedback and the next #commit. Prior completion below is historical.
 
 ## Latest Pass Complete
 
