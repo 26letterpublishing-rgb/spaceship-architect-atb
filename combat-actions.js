@@ -429,8 +429,9 @@
         ? `<span>Held Weapon</span><strong>${esc(current.name)}</strong><small>${chargeReadout}${mine?.aim ? ` | Aim: +highest PER die to Dexterity and Damage; +${Number(mine.aim.speedBonus) || 0} Speed` : ""}</small>`
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
     });
-    const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest || Boolean(mine?.delayedAction || mine?.delayTimer);
-    const seated=state && mine && window.SAShipNavigation.station(state,mine);
+    const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest || Boolean(mine?.delayedAction || mine?.delayTimer || mine?.shieldRestabilizing);
+    const consoles=state&&mine?window.SAStationAccess.consoles(state,mine):[];
+    const seated=consoles.length>0;
     document.body.classList.toggle('pilot-station-active',Boolean(seated));
     window.SAShipNavigationUI.sync(mine,isMyTurn);
     for(const group of document.querySelectorAll('.combat-action-grid'))group.classList.toggle('pilot-station-actions',Boolean(seated));
@@ -439,7 +440,7 @@
       let unavailable = disabled;
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
       if(kind==='holdConsole'){button.hidden=!seated;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
-      if (kind === 'moveStarship') {button.hidden=!seated;button.textContent='Move Ship';}
+      if (kind === 'moveStarship') {button.hidden=!consoles.some(a=>a.kind==='pilot');button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
       if(kind==='move')button.textContent=seated?'Leave Console':'Move';
@@ -528,6 +529,7 @@
     const charge = unit?.weaponCharge && current?.inventoryId === unit.weaponCharge.inventoryId ? unit.weaponCharge : null;
     const thrown = unit?.thrownEffects || [];
     const pieces = [];
+    if(unit?.shieldRestabilizing)pieces.push('<div class="combat-vehicle-state">RESTABILIZING SHIELDS / ATB FROZEN</div>');
     const aimText = unit?.aim ? `Aim +${Number(unit.aim.speedBonus) || 0} Speed${unit.aim.aimDie ? ` / 1D${unit.aim.aimDie}` : ""}` : "";
     pieces.push(`<div class="combat-loadout-line"><span>Held</span><strong>${esc(current?.name || "None")}</strong>${aimText ? `<i>${esc(aimText)}</i>` : ""}${unit?.movementChargeUnits ? `<i>${Number(unit.movementChargeUnits)} Move Charge</i>` : ""}${unit?.statuses?.intoxicated ? '<i class="combat-status-drunk">STILL DRUNK</i>' : ""}</div>`);
     if (unit?.location?.starshipId) pieces.push(`<div class="combat-vehicle-state">${unit.location.stationed ? "STATIONED" : "ABOARD SHIP"} | SQUARE ${Number(unit.location.square) + 1}</div>`);
@@ -560,6 +562,7 @@
 
   function structureSignature(unit) {
     return [
+      unit?.shieldRestabilizing?'restabilizing':'no-shield-work',
       unit?.heldWeaponId || "none",
       unit?.aim ? "aim" : "noaim",
       unit?.timedAction?.kind || "notimed",

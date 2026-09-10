@@ -1,5 +1,9 @@
 # Spaceship Architect: Source Understanding
 
+## Shield and Bridge Digital Rules
+
+The current user-approved Shield 1 and cockpit/bridge expansion is recorded in SHIELD-BRIDGE-PASS.md, including the exact override of printed burst restabilization to FULL Shield HP, 12-second SvS conversion, Engineering staffing overflow, 1.5-second AU input, remote access restrictions, and frozen local crew initiative. Guard/Shell/Stability/Core drafts belong to a different game and must not replace the current HP system. Printed bridge extra actions per round do not override real-time ATB. Communications, reboot and random station-destruction remain descriptive pending their corresponding systems.
+
 ## Pilot Console Follow-Up
 
 The user superseded immediate cockpit orders with Delayed Resolution input. The pilot cannot act or leave while typing; normal ATB is held. Very Fast base 14, Performance +4, Quality equals the ceiling average of the highest two operational thruster tiers (single thruster uses its tier; existing radial caps at four), Pilot/Helm whole levels 0/1-2/3-4/5/6+ yield Ingenuity 0/1/2/3/4. All other factors neutral. Existing movement continues during input; the replacement route begins at input completion from the then-current position. Leaving the station uses normal character movement, not free Get Up. Launched movement remains independent. See `PILOT-CONSOLE-PASS.md` for implementation and print-resolution decisions.

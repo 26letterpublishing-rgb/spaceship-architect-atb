@@ -5,6 +5,17 @@
 }(typeof window !== "undefined" ? window : null, function (maps) {
   const AU_SPEED_FACTOR = 1;
   const nonnegative = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  function demand(record){
+    const ship=record.ship||record,installed=new Set((ship.placements||[]).map(p=>p.sicId));
+    let total=0,shields=0;
+    for(const item of ship.sicInventory||[]){
+      if(!installed.has(item.id)||item.disabled||['offline','powered-down','destroyed'].includes(item.status))continue;
+      const d=maps.definition(item.type);
+      total+=nonnegative(d.energyCost??({'life-support':2,'nutritional-supplement':3}[item.type]||0));
+      if(d.shield)total+=5*shields++;
+    }
+    return total;
+  }
 
   function output(record, units = []) {
     const ship = record.ship || record;
@@ -58,7 +69,8 @@
       const maximum = output(record, room.units).au;
       const previous = record.auState;
       const current = reset || !previous ? maximum : Math.min(maximum, Math.floor(nonnegative(previous.current)));
-      record.auState = { current, maximum, rate: maximum * AU_SPEED_FACTOR,
+      const reserved = (record.auCommands || []).reduce((sum, command) => sum + nonnegative(command.cost), 0);
+      record.auState = { current, maximum, reserved, available: Math.max(0, current - reserved), rate: maximum * AU_SPEED_FACTOR,
         progress: reset || !previous || current >= maximum ? 0 : Math.min(99.999999, nonnegative(previous.progress)) };
     }
   }
@@ -71,6 +83,7 @@
       const total = meter.progress + nonnegative(seconds) * meter.rate;
       const earned = Math.floor((total + 1e-9) / 100);
       meter.current = Math.min(meter.maximum, meter.current + earned);
+      meter.available = Math.max(0, meter.current - meter.reserved);
       meter.progress = meter.current >= meter.maximum ? 0 : Math.max(0, total - earned * 100);
     }
   }
@@ -78,9 +91,10 @@
   function spend(room, shipId, amount) {
     refresh(room);
     const ship = (room.starships || []).find(record => record.id === shipId);
-    if (!ship || !Number.isInteger(amount) || amount < 1 || amount > ship.auState.current) return false;
+    if (!ship || !Number.isInteger(amount) || amount < 1 || amount > ship.auState.available) return false;
     ship.auState.current -= amount;
+    ship.auState.available = Math.max(0, ship.auState.current - ship.auState.reserved);
     return true;
   }
-  return Object.freeze({ AU_SPEED_FACTOR, output, campaignUnits, refresh, advance, spend });
+  return Object.freeze({ AU_SPEED_FACTOR, output, demand, campaignUnits, refresh, advance, spend });
 }));

@@ -71,6 +71,34 @@
       emitters: tier === 1 ? [[50,80,42]] : [[26,80,32],[74,80,32]] };
   }
 
+  const bridgeRows = [
+    ["cockpit-2", "Cockpit 2", 1, 2, 1100, 1, 4, "Crystilium, 5 hrs", 25, "A-2", 7],
+    ["bridge-1", "Bridge 1", 2, 3, 1000, 2, 4, "Paradon, 8 hrs", 30, "A-3", 6],
+    ["bridge-2", "Bridge 2", 2, 4, 2250, 2, 5, "Mirium, 10 hrs", 35, "A-4", 6],
+    ["bridge-3", "Bridge 3", 3, 5, 4000, 3, 5, "Drakkonite, 16 hrs", 40, "A-5", 5],
+    ["bridge-4", "Bridge 4", 3, 6, 6500, 3, 5, "Phazon, 1 day", 45, "A-6", 5],
+    ["bridge-5", "Bridge 5", 4, 7, 10000, 4, 6, "Necronium, 2 days", 50, "B-1", 4],
+    ["bridge-6", "Bridge 6", 4, 8, 16000, 4, 6, "Endernium, 2 days", 55, "B-2", 4],
+    ["bridge-7", "Bridge 7", 5, 10, 24250, 5, 7, "Dark Phazon, 3 days", 60, "B-3", 3],
+    ["bridge-8", "Bridge 8", 5, 12, 40000, 5, 8, "Carmot, 2 hrs", 65, "B-4", 2],
+  ];
+  function perimeterStations(width, height, count) {
+    if(width===1&&height===1&&count===2)return [{x:0,y:0,mesh:0},{x:0,y:0,mesh:2}];
+    const points = [{ x: 0, y: 0, mesh: 0 }, { x: width - 1, y: height - 1, mesh: 8 },
+      { x: width - 1, y: 0, mesh: 2 }, { x: 0, y: height - 1, mesh: 6 }];
+    for (let x = 1; x < width - 1; x++) points.push({ x, y: 0, mesh: 0 }, { x, y: height - 1, mesh: 8 });
+    for (let y = 1; y < height - 1; y++) points.push({ x: 0, y, mesh: 0 }, { x: width - 1, y, mesh: 8 });
+    return points.slice(0, count);
+  }
+  for (const [type, name, size, seats, price, energyCost, security, crafting, threshold, cardNumber, rebootRounds] of bridgeRows) {
+    catalog[type] = { ...catalog["cockpit-1"], name, width: size, height: size, price, energyCost, security, crafting, threshold, cardNumber,
+      rebootSeconds: rebootRounds * 12, label: `${type.startsWith("cockpit") ? "CP" : "BR"} ${type.split("-")[1]}`,
+      image: image(`${type}-floor-plan.png`), stations: perimeterStations(size, size, seats) };
+  }
+  catalog["shield-1"] = { name: "Shield 1", width: 1, height: 1, label: "SH 1", color: "#277b62", image: image("shield-1-floor-plan.png"),
+    shield: true, energyCost: 5, price: 1000, security: 1, crafting: "Paradon, 6 hrs", threshold: 2, cardNumber: "A-51", output: 0,
+    shieldHp: 10, shieldReduction: 1, shieldRegeneration: 1, restabilizeSeconds: 120, restabilizeAu: 20, stations: [{ x: 0, y: 0, mesh: 0 }] };
+
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
@@ -80,8 +108,7 @@
     let { width, height } = entry, stations = entry.stations;
     // New purchases use corners; old saves retain their station coordinates and occupants.
     if (item?.stationLayout === "corners-v1" && stations.length) {
-      stations = [{ x: 0, y: 0, mesh: 0 }, { x: width - 1, y: height - 1, mesh: 8 },
-        { x: width - 1, y: 0, mesh: 2 }, { x: 0, y: height - 1, mesh: 6 }].slice(0, stations.length);
+      stations = perimeterStations(width, height, stations.length);
     }
     if (Number(item?.rotation) % 180 === 90) {
       stations = stations.map(s => ({ x: height - 1 - s.y, y: s.x, mesh: s.mesh % 3 * 3 + 2 - Math.floor(s.mesh / 3) }));
@@ -131,7 +158,7 @@
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).thruster).length > 4) return "A ship may have at most four installed thrusters.";
     for (const p of ship.placements || []) {
       const item = inventory.find(item => item.id === p.sicId);
-      if (item && definition(item.type).edge && !edgePlacement(ship,p.cell)) return "Cockpit 1 must be inside the ship, against an outer hull wall.";
+      if (item && definition(item.type).edge && !componentAtEdge(ship, p.cell, item)) return `${definition(item.type).name} must be inside the ship, against an outer hull wall.`;
       if (item && definition(item.type).exterior && !exteriorPlacement(ship, item.type, p.cell, item.id)) return "Exterior SICs must attach to an outer hull wall, outside the ship and clear of other SICs.";
     }
     return "";
@@ -149,6 +176,13 @@
       if (!hull.has(next) && !seen.has(next)) {seen.add(next);frontier.push(next);}
     }
     return false;
+  }
+
+  function componentAtEdge(ship, origin, item) {
+    const { width, height } = componentDefinition(item), hull = new Set(ship.gridCells || []), cells = [];
+    if (!Number.isInteger(origin) || origin < 0 || origin % 20 + width > 20 || Math.floor(origin / 20) + height > 20) return false;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) cells.push(origin + y * 20 + x);
+    return cells.every(cell => hull.has(cell)) && cells.some(cell => edgePlacement(ship, cell));
   }
 
   function masking(record) {
@@ -314,5 +348,5 @@
     }).join("");
   }
 
-  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, edgePlacement, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
+  return Object.freeze({ ASSET_VERSION, GRID_SIZE, SIDES, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, boundaryMarkup, image, exteriorPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, exteriorFacing, surfaceMarkup, viewDisabled, viewControls });
 }));

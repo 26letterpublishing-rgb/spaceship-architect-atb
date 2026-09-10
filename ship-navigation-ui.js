@@ -1,6 +1,20 @@
 (function(){
   let activeDialog=null;
   const combatViews=new Set();
+  const selectedConsoles=new Map();
+  function remember(unit){combatViews.add(seatKey(unit));}
+  function mountSelector(container,unit,currentId,close){
+    const select=container.ownerDocument.createElement('select');select.className='station-console-select';select.setAttribute('aria-label','Station console');
+    const choices=window.SAStationAccess.consoles(window.SACombatBridge.state(),unit);
+    select.innerHTML=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.remote?' / REMOTE':''}</option>`).join('');select.value=currentId;
+    select.onchange=()=>{
+      selectedConsoles.set(seatKey(unit),select.value);
+      // Wait for the old dialog's cleanup before opening the next console.
+      select.closest('dialog').addEventListener('close',()=>setTimeout(()=>open(unit),0),{once:true});
+      close();
+    };
+    container.prepend(select);
+  }
   async function toggleHold(unit){
     const bridge=window.SACombatBridge;
     if(!unit||!bridge.confirmGmPlayerAction(unit,unit.consoleHold?'resumeConsole':'holdConsole'))return;
@@ -13,8 +27,12 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
   function open(unit,{compact=false}={}){
-    const bridge=window.SACombatBridge, initial=bridge.state(), seated=window.SAShipNavigation.station(initial,unit);
-    if(!seated||activeDialog)return;
+    const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
+    if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen())return;
+    const selected=choices.find(a=>a.item.id===selectedConsoles.get(seatKey(unit)))||choices.find(a=>!a.remote)||choices[0];
+    if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
+    const seated=window.SAShipNavigation.station(initial,unit);
+    if(!seated)return;
     const pilotId=unit.id,shipId=seated.ship.id;
     if(!compact)combatViews.delete(seatKey(unit));
     let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
@@ -28,6 +46,7 @@
       <section class="pilot-input"><h3>Command Processor</h3><div data-factors></div><div class="pilot-input-progress"><i data-input-progress></i></div><output data-input-status></output><output data-estimate></output><div class="pilot-rings" data-rings></div></section>
       <footer><p role="alert" data-error></p><p data-availability></p><button type="submit">Move Ship</button><button type="button" data-leave>Leave Console</button><div class="pilot-vector-array" aria-hidden="true"><small>VECTOR ARRAY</small><svg viewBox="0 0 160 90"><path class="vector-axis" d="M15 45H145M80 5V85"/><g class="vector-orbit"><ellipse cx="80" cy="45" rx="48" ry="24"/><ellipse cx="80" cy="45" rx="26" ry="38"/><circle cx="128" cy="45" r="3"/></g><circle class="vector-core" cx="80" cy="45" r="9"/></svg></div></footer></form>`;
     host.body.append(dialog);dialog.showModal();
+    if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
     let destination=null,locked=false,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
@@ -79,14 +98,14 @@
       for(const box of form.querySelectorAll('[name=boost]')){if(box.checked){const d=window.SAShipMap.definition(thrusters.find(t=>t.id===box.value).type);cost+=d.auCost;speed+=d.auBoost;}}
       const au=seat.ship.auState||{current:0,maximum:0,progress:0},length=destination?window.SAShipDistances.hexDistance(start,destination):0;
       for(const box of form.querySelectorAll('[name=boost]')){
-        const d=window.SAShipMap.definition(thrusters.find(t=>t.id===box.value).type),unaffordable=!box.checked&&cost+d.auCost>au.current;
+        const d=window.SAShipMap.definition(thrusters.find(t=>t.id===box.value).type),unaffordable=!box.checked&&cost+d.auCost>(au.available??au.current);
         box.disabled=!available;box.dataset.unaffordable=String(unaffordable);box.setAttribute('aria-disabled',String(!available||unaffordable));box.closest('label').classList.toggle('boost-unaffordable',unaffordable);
       }
       dialog.dataset.auWarning=performance.now()<auWarningUntil?'true':'false';
       auWarning.textContent=performance.now()<auWarningUntil?'not enough Auxiliary power':'';
       q.disabled=r.disabled=!available;
-      submit.disabled=!available||!access||!locked||!destination||speed<=0||length<1e-6||cost>au.current;
-      form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?'Coordinates are being entered.':state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>au.current?`Boosts need ${cost} AU; ${au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
+      submit.disabled=!available||!access||!locked||!destination||speed<=0||length<1e-6||cost>(au.available??au.current);
+      form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?'Coordinates are being entered.':state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>(au.available??au.current)?`Boosts need ${cost} AU; ${au.available??au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
       submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Move Ship';
       form.querySelector('[data-leave]').disabled=!available;
       const settings=delay?.shipOrder?delay.settings:window.SAShipNavigation.inputSettings(state,pilot);
@@ -144,12 +163,12 @@
     const bridge=window.SACombatBridge;
     if(bridge.mode()!=='player'||unit?.id!==bridge.myUnitId())return;
     let owner=window;try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)return;owner=owner.parent;}}catch{return;}
-    if(window.SAShipNavigation.station(bridge.state(),unit)&&!combatViews.has(seatKey(unit)))open(unit);
+    if(window.SAStationAccess.consoles(bridge.state(),unit).length&&!combatViews.has(seatKey(unit)))open(unit);
   }
   const observe=state=>{
-    for(const key of combatViews){if(!state.units.some(unit=>seatKey(unit)===key&&window.SAShipNavigation.station(state,unit)))combatViews.delete(key);}
+    for(const key of combatViews){if(!state.units.some(unit=>seatKey(unit)===key&&window.SAStationAccess.consoles(state,unit).length)){combatViews.delete(key);selectedConsoles.delete(key);}}
     // State updates continue when the ordinary action panel is hidden between turns.
     queueMicrotask(()=>{const bridge=window.SACombatBridge;if(bridge?.mode()==='player')sync(bridge.state()?.units.find(unit=>unit.id===bridge.myUnitId()));});
   };
-  window.SAShipNavigationUI={open,sync,observe,toggleHold};
+  window.SAShipNavigationUI={open,sync,observe,toggleHold,mountSelector,remember};
 }());

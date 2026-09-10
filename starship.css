@@ -330,3 +330,23 @@ body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;pad
 .sic-family-stack[open] .sic-stack-preview{display:none}
 .sic-family-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,340px));gap:18px;justify-content:start}
 [data-propulsion-summary]{display:block;padding:10px;color:#b8f0dd;text-align:center;font-size:.9rem}
+.construction-summary{display:flex;flex-wrap:wrap;gap:10px 24px;padding:12px 16px;border-bottom:1px solid #567782;background:#09151c}
+.construction-summary span{font-size:12px;color:#a5bcc6}.construction-summary strong{font-size:17px;color:#e5f4f2;margin-left:5px}.construction-summary [data-live-stat=shield]{color:#7ce7a2}.construction-summary [data-live-stat=hull]{color:#d7dce2}
+.construction-budget-note{font-size:12px;color:#a8bfbd;margin:8px 0}.ship-details-view .construction-summary,.ship-details-view .construction-budget-note{display:none}
+.construction-summary>span{display:flex;align-items:baseline;gap:3px}.construction-summary strong{display:inline!important;margin:0}.construction-summary [data-live-stat=shield]{color:#7ce7a2!important}
+@media(min-width:821px){
+  .starship-header{padding:8px 12px!important;min-height:0!important}.starship-header img{width:240px!important;height:48px!important;object-fit:contain}.starship-heading h1{font-size:24px!important}.prototype-notice{display:none}.starship-library{padding:8px 10px!important}.ship-identity-strip{padding:8px 10px!important}.ship-identity-strip input{height:30px!important}
+  body:not(.ship-details-view) .desktop-sheet{aspect-ratio:auto;display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;padding:12px;box-sizing:border-box;overflow:visible;box-shadow:none}
+  body:not(.ship-details-view) .desktop-sheet>.blueprint-source,body:not(.ship-details-view) .desktop-sheet>svg,body:not(.ship-details-view) .desktop-sheet>output{display:none}
+  body:not(.ship-details-view) .desktop-construction-sidebar{position:relative;inset:auto;width:auto;height:auto;max-height:none;overflow:visible;box-sizing:border-box}
+  .starship-header h1{margin:3px 0!important}.starship-library label{display:flex;align-items:center;gap:8px}.starship-library select{height:32px;min-height:32px}
+  body:not(.ship-details-view) .desktop-grid-viewport{position:sticky;inset:auto;top:12px;width:100%;max-width:min(850px,calc(100dvh - 370px));aspect-ratio:1;height:auto;border:1px solid #42616a;justify-self:center;align-self:start}
+  body:not(.ship-details-view) .construction-sidebar-header h2{font-size:19px}
+  body:not(.ship-details-view) .construction-sidebar-header{flex-wrap:wrap;gap:8px}
+  body:not(.ship-details-view) .construction-sidebar-header>div:first-child{flex:1 0 100%}
+  body:not(.ship-details-view) .construction-sidebar :is(button,input,select){font-size:12px}
+  body:not(.ship-details-view) .construction-sidebar :is(label,small,.empty-inventory){font-size:11px}
+  body:not(.ship-details-view) .construction-finances strong{font-size:18px}
+  body:not(.ship-details-view) .map-view-controls span{font-size:11px}
+  body.view-only-starship:not(.ship-details-view) .desktop-sheet{grid-template-columns:1fr}
+}

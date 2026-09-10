@@ -304,7 +304,7 @@ function resetVehicleAcceleration(room, unit) {
 }
 
 function effectiveSpeed(unit) {
-  if (unit?.consoleHold) return 0;
+  if (unit?.consoleHold || unit?.shieldRestabilizing) return 0;
   return Math.max(0, Number(unit?.speed) || 0) + Math.max(0, Number(unit?.aim?.speedBonus) || 0);
 }
 
@@ -467,12 +467,13 @@ function beginTimedAction(room, unit, timedAction, logText, helpers, { resetAtb 
 
 function resolvePlayerCombatAction(room, unit, body, helpers) {
   const kind = safeText(body?.kind, "", 30);
+  if (unit?.shieldRestabilizing) return {ok:false,error:'Finish shield restabilization before taking another action.'};
   if (['holdConsole','resumeConsole'].includes(kind)) return require('./console-hold').resolve(room,unit,kind,helpers);
   if (!unit || room.activeId !== unit.id || !ACTION_KINDS.has(kind)) {
     return { ok: false, error: "That combat action is not currently available." };
   }
   if(unit.delayedAction || unit.delayTimer)return {ok:false,error:'Finish the current delay first.'};
-  if(navigation.station(room,unit) && !['moveStarship','move'].includes(kind))return {ok:false,error:'Leave the station to use standard combat actions.'};
+  if(require('./station-access').consoles(room,unit).length && !['moveStarship','move'].includes(kind))return {ok:false,error:'Leave the station to use standard combat actions.'};
 
   const weapon = heldWeapon(unit);
   room.vehicles = Array.isArray(room.vehicles) ? room.vehicles : [];

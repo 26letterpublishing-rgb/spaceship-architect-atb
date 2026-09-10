@@ -51,18 +51,22 @@ for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; t
 }
 
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-{
-  const type = "cockpit-1", data = window.SAShipMap.definition(type);
+for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),'shield-1']) {
+  const data = window.SAShipMap.definition(type);
   SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
   const card = document.createElement("section"); card.className="sic-market-item";
-  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Cockpit 1 details"><header class="sic-poker-heading"><span>Bridge <small>A-1</small></span><div><h3>Cockpit 1</h3><strong>Price: 750</strong></div></header><img class="sic-poker-art" src="cockpit-1-card.png" alt="Single pilot cockpit console" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security Level</dt><dd>4</dd></div><div><dt>Size</dt><dd>1x1 EDG</dd></div><div><dt>Skill</dt><dd>CPU Systems</dd></div><div><dt>Crafting</dt><dd>Transpherion, 4 hrs</dd></div></dl><section class="sic-poker-rules"><p>Single-person control center. Install inside an outer hull edge. Limit one Bridge per ship.</p><strong>Stations 1</strong><p>Stationed pilot: Move Starship with installed thrusters, including AU boosts. Orders continue after leaving the station.</p><p>Audio communication with detected ships. Local air and temperature control.</p></section><footer><span><small>If Impaired</small>Occupant also takes damage inflicted, reduced by 20.</span><span><small>Damage Threshold</small>20</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  const isShield=Boolean(data.shield);
+  const rules=isShield?`<strong>10 Shield HP / Reduction 1</strong><p>Regenerates 1 HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: 120 powered seconds and 20 AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${(data.rebootSeconds||96)/12} SvS rounds.</p>`;
+  const impairment=isShield?'Damage received is doubled. No AU abilities.':type==='cockpit-1'?'Occupant takes damage, reduced by 20.':`Random station destroyed; occupant damage reduced by ${data.threshold}.`;
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${isShield?'Shield':'Bridge'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}${isShield?'+':''}</dd></div><div><dt>Security Level</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}${data.edge?' EDG':''}</dd></div><div><dt>Skill</dt><dd>${isShield?'Engineering':'CPU Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  SIC_CATALOG[type].category=isShield?'shield':'bridge';
   document.querySelector(".sic-card-gallery").prepend(card);
 }
 for (const card of document.querySelectorAll('[data-sic-card^="ionic-pulse-thruster-"]')) card.querySelector(".sic-poker-art").src = `${card.dataset.sicCard}-card.png`;
 function cardAccent(type) {
   if (type === "life-support") return "#42e0d0";
   if (type === "nutritional-supplement") return "#e9ef4d";
-  return ["#82ddff", "#b58aff", "#679dff", "#52edcb", "#ff6679", "#cc87ff"][(Number(type.match(/\d+$/)?.[0]) || 1) - 1];
+  return ["#82ddff", "#b58aff", "#679dff", "#52edcb", "#ff6679", "#cc87ff", "#e9c877", "#e8f6ff"][(Number(type.match(/\d+$/)?.[0]) || 1) - 1]||'#8fffbf';
 }
 function previewSicCard(source) {
   const card = source.cloneNode(true);
@@ -433,7 +437,7 @@ function validateSicPlacement(sicId, cell) {
   if (!item) return { legal: false, reason: "That SIC is no longer available.", cells: [] };
   const definition = sicDefinition(item); const cells = candidateCells(sicId, cell);
   if (cells.length !== definition.width * definition.height) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
-  if (definition.edge && !window.SAShipMap.edgePlacement(draft,cell)) return {legal:false,reason:"Cockpit 1 must be inside the ship, against an outer hull wall.",cells};
+  if (definition.edge && !window.SAShipMap.componentAtEdge(draft,cell,item)) return {legal:false,reason:`${definition.name} must be inside the ship, against an outer hull wall.`,cells};
   if (definition.bridge && draft.placements.some(p=>p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i=>i.id===p.sicId)).bridge)) return {legal:false,reason:"A ship may have only one Bridge or Cockpit.",cells};
   if (definition.exterior) {
     const others = draft.placements.filter(p => p.sicId !== sicId && sicDefinition(draft.sicInventory.find(i => i.id === p.sicId)).thruster);
@@ -852,8 +856,10 @@ function renderLiveStats() {
   const powerRecord = { ...linked, id: draft.id, ship: confirmed };
   const power = window.SAShipPower.output(powerRecord, window.SAShipPower.campaignUnits(powerRecord, linkedCampaignState?.characters));
   const enMax = power.en;
-  const enAvailable = enMax - installed.reduce((total, item) => total + sicDefinition(item).energyCost, 0);
+  const enAvailable = enMax - window.SAShipPower.demand(powerRecord);
   const au = power.au;
+  const shields=installed.filter(item=>sicDefinition(item).shield).reduce((sum,item)=>sum+sicDefinition(item).shieldHp,0);
+  document.querySelectorAll('[data-live-stat="shield"]').forEach(element=>{element.textContent=String(shields);});
   document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(au); });
   const scale = shipScaleStats(hull);
   const propulsion = window.SAShipMap.propulsion(confirmed);
@@ -1033,9 +1039,10 @@ confirmButtons.forEach((button) => button.addEventListener("click", confirmConst
 document.querySelectorAll("[data-starship-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.starshipTab;
+    document.body.classList.toggle('ship-details-view',target==='details');
     document.querySelectorAll("[data-starship-tab]").forEach((tab) => tab.classList.toggle("is-active", tab === button));
     document.querySelectorAll("[data-starship-panel]").forEach((panel) => {
-      const active = panel.dataset.starshipPanel === target; panel.classList.toggle("is-active", active); panel.hidden = !active;
+      const active = panel.dataset.starshipPanel === (target==='details'?'sheet':target); panel.classList.toggle("is-active", active); panel.hidden = !active;
     });
   });
 });

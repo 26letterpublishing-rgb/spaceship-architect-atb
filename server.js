@@ -22,6 +22,7 @@ const {
 const combatRules = require("./combat-rules");
 const shipPower = require("./ship-power");
 const shipNavigation = require("./ship-navigation");
+const shipShields = require("./ship-shields");
 const shipDistances = require("./ship-distances");
 const shipMapCore = require("./ship-map-core");
 const { validatePreparation, preparationFingerprint } = require("./encounter-preparation");
@@ -173,7 +174,10 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
-    room.starships.forEach(ship => { ship.navigation = clone(snapshot.starships?.find(s => s.id === ship.id)?.navigation || null); });
+    room.starships.forEach(ship => {
+      const saved = snapshot.starships?.find(s => s.id === ship.id);
+      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts']) ship[key] = clone(saved?.[key] || null);
+    });
     room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
     room.units = Array.isArray(snapshot.units) ? clone(snapshot.units) : [];
@@ -223,7 +227,7 @@ function scheduleRoomPersist(room, delay = 250) {
 }
 
 function publicState(room) {
-  shipPower.refresh(room);
+  shipShields.refresh(room);
   migrateRoomDelays(room);
   const command = commandState(room);
   return {
@@ -934,7 +938,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !unit.consoleHold && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !unit.consoleHold && !unit.shieldRestabilizing && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -1276,7 +1280,8 @@ function moveToNextTurnOrClock(room, previousSource = null) {
 
 function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const multiplier = slow ? 0.2 : 1;
-  shipPower.advance(room, seconds * multiplier);
+  const shieldBusy = new Set(room.units.filter(u => u.shieldRestabilizing).map(u => u.id));
+  shipShields.advance(room, seconds * multiplier);
   shipNavigation.advance(room, seconds * multiplier);
   const completedEvents = [];
   tickAreaEffects(room, seconds, multiplier);
@@ -1348,7 +1353,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
       }
       continue;
     }
-    if (wasTimed || hasTimedAction(unit)) continue;
+    if (wasTimed || hasTimedAction(unit) || shieldBusy.has(unit.id) || unit.shieldRestabilizing) continue;
     if (unit.atb < room.threshold) unit.atb += effectiveSpeed(unit) * seconds * multiplier;
   }
   return completedEvents;
@@ -1464,8 +1469,17 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    const inputNow = Date.now(), inputElapsed = (inputNow - (room.lastInputTick || inputNow)) / 1000;
+    room.lastInputTick = inputNow;
     if (roomPreparations.has(room.roomCode)) { room.lastTick = Date.now(); continue; }
     migrateRoomDelays(room);
+    const hadAuInput = room.starships.some(s => s.auCommands?.length);
+    const completedAu = shipShields.advanceInputs(room, inputElapsed);
+    for (const event of completedAu) {
+      const operator = room.units.find(u => u.id === event.unitId);
+      pushLog(room, `${operator?.characterName || 'Operator'} completed shield ${event.kind === 'restore' ? 'restoration' : 'reinforcement'}.`, { starshipId: event.shipId });
+    }
+    if (hadAuInput) { broadcast(room); if (!roomPersistTimers.has(room.roomCode)) scheduleRoomPersist(room); }
     if (room.hardPaused) continue;
     const defenseCommand = attackCommandState(room);
     if (defenseCommand && room.attackResolution?.defenderCommandDeadline) {
@@ -1689,7 +1703,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1774,10 +1788,10 @@ async function handleRoomAction(body, res) {
   if (action === "syncEncounterStarships") {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
-    const previous = new Map((room.starships || []).map(ship => [ship.id, {auState:ship.auState,navigation:ship.navigation}]));
+    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
     room.starships = normalizeEncounterStarships(body.starships);
-    room.starships.forEach(ship => { ship.auState = previous.get(ship.id)?.auState || null; ship.navigation = previous.get(ship.id)?.navigation || null; });
-    shipPower.refresh(room);
+    room.starships.forEach(ship => { if (previous.has(ship.id)) Object.assign(ship, previous.get(ship.id)); });
+    shipShields.refresh(room);
     room.shipPositions = shipDistances.positions(room.starships, room.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
     pushLog(room, `${room.starships.length} starship${room.starships.length === 1 ? "" : "s"} synchronized for combat.`);
@@ -1788,8 +1802,18 @@ async function handleRoomAction(body, res) {
     if (!unit) { sendJson(res, 404, { error: "Combatant not found." }); return; }
     const destination = body.location || {};
     const occupied = room.units.filter((entry) => entry.id !== unit.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
+    const destinationShip=room.starships.find(s=>s.id===destination.starshipId);
+    const cell=destinationShip&&shipMapCore.buildLayout(destinationShip.ship).footprint.get(Number(destination.square));
+    const isStation=cell?.stations.some(p=>p.x===cell.column&&p.y===cell.row&&p.mesh===Number(destination.mesh));
+    if(occupied&&isStation){sendJson(res,409,{error:'That station is already occupied.'});return;}
     if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
-    syncUnitCombat(unit, { location: body.location });
+    syncUnitCombat(unit, { location: { ...destination, sicId: cell?.sicId || '', stationed: Boolean(isStation) } });
+    shipShields.refresh(room);
+    if (unit.shieldRestabilizing && room.activeId === unit.id) {
+      const source = room.activeSource;
+      room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
+      moveToNextTurnOrClock(room, source);
+    }
     if(unit.delayedAction?.shipOrder){
       const seated=shipNavigation.station(room,unit),pending=unit.delayedAction.shipOrder;
       if(!seated||seated.ship.id!==pending.shipId||seated.cell.sicId!==pending.sicId){
@@ -1807,6 +1831,23 @@ async function handleRoomAction(body, res) {
     }
     const ship = room.starships.find(record => record.id === body.starshipId);
     pushLog(room, `${ship.title} spent ${Number(body.amount)} AU.`, { starshipId: ship.id });
+  }
+
+  if (action === 'shieldCommand') {
+    const result = shipShields.command(room, playerUnit, body);
+    if (!result.ok) { sendJson(res, 409, { error: result.error }); return; }
+    if (!result.duplicate) {
+      pushLog(room, `${playerUnit.characterName} ${body.kind === 'restabilize' ? 'started shield restabilization' : 'is entering a shield command'}.`, { starshipId: result.ship.id });
+      if (room.units.some(u => u.id === room.activeId && u.shieldRestabilizing)) {
+        const source = room.activeSource;
+        room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
+        moveToNextTurnOrClock(room, source);
+      }
+    }
+  }
+  if (action === 'damageStarship') {
+    if (!shipShields.damage(room, String(body.starshipId || ''), Number(body.amount))) { sendJson(res,400,{error:'Choose a ship and a nonnegative damage amount.'}); return; }
+    pushLog(room, 'The GM applied damage to a starship.', { starshipId: String(body.starshipId) });
   }
 
   if (action === "setShipDistances") {
@@ -1984,6 +2025,7 @@ async function handleRoomAction(body, res) {
   }
 
   if (action === "playerCombatAction") {
+    shipShields.refresh(room);
     if (body.kind === "move" && Array.isArray(body.route) && body.route.length) {
       const destination = body.route.at(-1) || {};
       const occupied = room.units.filter((entry) => entry.id !== playerUnit?.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
@@ -2363,6 +2405,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "requestDelay") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if(unit?.shieldRestabilizing){sendJson(res,409,{error:'Finish shield restabilization first.'});return;}
     requestDelay(room, unit, body.kind, body.requestedBy);
   }
 
@@ -2372,6 +2415,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "startDelay") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if(unit?.shieldRestabilizing){sendJson(res,409,{error:'Finish shield restabilization first.'});return;}
     startUnitDelay(room, unit, {
       kind: body.kind,
       rate: body.rate,
@@ -2394,6 +2438,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "instantDelay") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if (unit?.shieldRestabilizing) { sendJson(res,409,{error:'Finish shield restabilization first.'}); return; }
     resolveInstantDelay(room, unit, {
       kind: body.kind,
       label: body.label,
@@ -2450,6 +2495,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "reset") {
     room.starships.forEach(ship => {ship.navigation=null;});
+    shipShields.refresh(room, { reset: true });
     shipPower.refresh(room, { reset: true });
     room.attackResolution = null;
     room.itemResolution = null;
@@ -2620,6 +2666,7 @@ async function handleRoomAction(body, res) {
 
   if (action === "nudge") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    if(unit?.shieldRestabilizing){sendJson(res,409,{error:'Shield restabilization freezes this character\'s initiative.'});return;}
     if(unit?.consoleHold){sendJson(res,409,{error:'Resume this character before advancing their initiative.'});return;}
     if (unit && !room.pausedForTurn) {
       unit.atb = Math.min(room.threshold, unit.atb + Math.max(1, Number(body.amount) || 1));

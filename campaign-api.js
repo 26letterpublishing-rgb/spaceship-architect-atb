@@ -489,6 +489,9 @@ function normalizeStarshipRecord(raw) {
   ship.gridCells = cleanCells;
   ship.placements = cleanPlacements;
   ship.sicInventory = Array.isArray(ship.sicInventory) ? ship.sicInventory.slice(0, 400) : [];
+  const installedIds = new Set(cleanPlacements.map(entry => entry.sicId));
+  ship.maximumShieldHp = ship.sicInventory.reduce((total, item) => total + (installedIds.has(item.id) && !item.disabled && !['disabled', 'offline', 'destroyed', 'powered-down'].includes(item.status) ? Number(SHIP_MAP.definition(item.type).shieldHp) || 0 : 0), 0);
+  ship.currentShieldHp = Math.max(0, Math.min(ship.maximumShieldHp, Number(ship.currentShieldHp ?? ship.maximumShieldHp) || 0));
   ship.title = String(ship.title || source.title || "Untitled Starship").trim().slice(0, 100) || "Untitled Starship";
   ship.affiliation = String(ship.affiliation || "").slice(0, 100);
   ship.class = String(ship.class || "").slice(0, 100);

@@ -230,7 +230,8 @@ async function main() {
 
   const builder=await context.newPage();await builder.goto(base+'/starship.html');
   await builder.getByRole('button',{name:'SICs',exact:true}).click();
-  await builder.locator('[data-purchase-sic="cockpit-1"]').click();
+  await builder.locator('summary[aria-label="Cockpit: expand 2 cards"]').click();
+  await builder.locator('[data-purchase-type="cockpit-1"]').click();
   await builder.getByRole('button',{name:'SICs',exact:true}).click();
   await builder.locator('.sic-family-stack summary').filter({hasText:'Ionic Pulse Thruster'}).click();
   const picker=builder.getByRole('dialog',{name:/Ionic Pulse/});
@@ -241,7 +242,7 @@ async function main() {
   await builder.screenshot({path:path.join(artifacts,'ionic-cards.png')});
   await picker.getByRole('button',{name:'Purchase',exact:true}).first().click();
   await picker.waitFor({state:'detached'});
-  await builder.getByRole('button',{name:'Starship',exact:true}).click();
+  await builder.getByRole('button',{name:'Construction',exact:true}).click();
   const thumb=builder.getByRole('button',{name:'Open Cockpit 1 card',exact:true});await thumb.scrollIntoViewIfNeeded();
   const size=await thumb.locator('article').evaluate(el=>[el.offsetWidth,el.offsetHeight,getComputedStyle(el).transform]);
   assert.deepEqual(size,[350,490,'matrix(0.333333, 0, 0, 0.333333, 0, 0)']);

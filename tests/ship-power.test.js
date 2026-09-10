@@ -38,7 +38,7 @@ test("all six AU SICs match printed ratings, footprints, stations, and supplied 
 test("25 AU recharges one point in four combat seconds, caps, and preserves fractional progress", () => {
   const room = { starships: [ship()], units: [] };
   power.refresh(room);
-  assert.deepEqual(room.starships[0].auState, { current: 25, maximum: 25, rate: 25, progress: 0 });
+  assert.deepEqual(room.starships[0].auState, { current: 25, maximum: 25, rate: 25, progress: 0, reserved: 0, available: 25 });
   assert.ok(power.spend(room, "ship", 3));
   power.advance(room, 3.9);
   assert.equal(room.starships[0].auState.current, 22);
@@ -74,7 +74,7 @@ test("lower output clamps AU, impairment stops recharge, and repairs do not refi
   assert.equal(record.auState.current, 7);
   record.ship.sicInventory[0].impaired = true;
   power.advance(room, 1000);
-  assert.deepEqual(record.auState, { current: 0, maximum: 0, rate: 0, progress: 0 });
+  assert.deepEqual(record.auState, { current: 0, maximum: 0, rate: 0, progress: 0, reserved: 0, available: 0 });
   record.ship.sicInventory[0].impaired = false;
   power.refresh(room);
   assert.equal(record.auState.current, 0);

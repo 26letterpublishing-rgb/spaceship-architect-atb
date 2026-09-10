@@ -335,6 +335,230 @@
     "webBytes": 29638,
     "alpha": false
   },
+  "bridge-1-card.png": {
+    "file": "bridge-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2072645,
+    "webBytes": 32342,
+    "alpha": false
+  },
+  "bridge-1-floor-plan.png": {
+    "file": "bridge-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2642780,
+    "webBytes": 134008,
+    "alpha": false
+  },
+  "bridge-2-card.png": {
+    "file": "bridge-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2197343,
+    "webBytes": 33776,
+    "alpha": false
+  },
+  "bridge-2-floor-plan.png": {
+    "file": "bridge-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2461168,
+    "webBytes": 118534,
+    "alpha": false
+  },
+  "bridge-3-card.png": {
+    "file": "bridge-3-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2121812,
+    "webBytes": 35132,
+    "alpha": false
+  },
+  "bridge-3-floor-plan.png": {
+    "file": "bridge-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      768,
+      768
+    ],
+    "sourceBytes": 2563227,
+    "webBytes": 152908,
+    "alpha": false
+  },
+  "bridge-4-card.png": {
+    "file": "bridge-4-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2267763,
+    "webBytes": 35450,
+    "alpha": false
+  },
+  "bridge-4-floor-plan.png": {
+    "file": "bridge-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1024,
+      1024
+    ],
+    "sourceBytes": 2881415,
+    "webBytes": 316064,
+    "alpha": false
+  },
+  "bridge-5-card.png": {
+    "file": "bridge-5-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2064848,
+    "webBytes": 32656,
+    "alpha": false
+  },
+  "bridge-5-floor-plan.png": {
+    "file": "bridge-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2642170,
+    "webBytes": 387042,
+    "alpha": false
+  },
+  "bridge-6-card.png": {
+    "file": "bridge-6-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2154592,
+    "webBytes": 33036,
+    "alpha": false
+  },
+  "bridge-6-floor-plan.png": {
+    "file": "bridge-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2417398,
+    "webBytes": 298602,
+    "alpha": false
+  },
+  "bridge-7-card.png": {
+    "file": "bridge-7-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2157484,
+    "webBytes": 36156,
+    "alpha": false
+  },
+  "bridge-7-floor-plan.png": {
+    "file": "bridge-7-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2499205,
+    "webBytes": 348176,
+    "alpha": false
+  },
+  "bridge-8-card.png": {
+    "file": "bridge-8-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2331524,
+    "webBytes": 36436,
+    "alpha": false
+  },
+  "bridge-8-floor-plan.png": {
+    "file": "bridge-8-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2606058,
+    "webBytes": 377794,
+    "alpha": false
+  },
   "cockpit-1-card.png": {
     "file": "cockpit-1-card-web.webp",
     "sourcePixels": [
@@ -361,6 +585,34 @@
     ],
     "sourceBytes": 2806437,
     "webBytes": 157938,
+    "alpha": false
+  },
+  "cockpit-2-card.png": {
+    "file": "cockpit-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2055847,
+    "webBytes": 29764,
+    "alpha": false
+  },
+  "cockpit-2-floor-plan.png": {
+    "file": "cockpit-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2558707,
+    "webBytes": 130204,
     "alpha": false
   },
   "en-au-engine-1-floor-plan.png": {
@@ -1145,6 +1397,48 @@
     ],
     "sourceBytes": 1675060,
     "webBytes": 26346,
+    "alpha": false
+  },
+  "shield-1-card.png": {
+    "file": "shield-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1717699,
+    "webBytes": 27218,
+    "alpha": false
+  },
+  "shield-1-floor-plan.png": {
+    "file": "shield-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2788920,
+    "webBytes": 157234,
+    "alpha": false
+  },
+  "shield-console-background.png": {
+    "file": "shield-console-background-web.webp",
+    "sourcePixels": [
+      1672,
+      941
+    ],
+    "webPixels": [
+      1672,
+      941
+    ],
+    "sourceBytes": 1518224,
+    "webBytes": 98654,
     "alpha": false
   },
   "starship-hull-plating.png": {

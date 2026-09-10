@@ -2,15 +2,15 @@
 
 ## Start Here
 
-Read this file, then `AGENTS.md`, then `PILOT-CONSOLE-FOLLOWUP.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
+Read this file, then `AGENTS.md`, then `SHIELD-BRIDGE-PASS.md`. Read `PILOT-CONSOLE-PASS.md` for delayed-input implementation and `RULEBOOK-REFERENCE.md` for game rules. Load relevant code/tests instead of rereading every PDF or reconstructing the entire conversation.
 
-The user authorized the integrated-console/Hold pass with #commit. Previous published baseline: `44634e6dcc0c4ba20da73b82209aabcba638cd50`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
+The user authorized the Shield / Bridge / Usability pass with #commit. Previous published baseline: `e1df477`. Inspect git status/log and the task completion message to establish whether publishing finished; this document alone is not proof of a push or Render deployment.
 
 ## Latest Pass
 
-Integrated front-facing console artwork, ellipse-following vector marker, one-second red turn flashes/soft ticks, unaffordable AU feedback, and console Hold/Resume. Browser assets now use pilot-console-4. See CONSOLE-HOLD-PASS.md for rules and checks.
+Shield 1, local and remote shield console, Cockpit 2 and Bridges 1-8, shared AU reservations, shield restabilization and staffing, construction-first ship workspace, and creation clarity. See SHIELD-BRIDGE-PASS.md for approved rules, deferred source features and actual verification. Asset provenance is in SHIELD-BRIDGE-ART.md.
 
-After GitHub upload, the user requested a separate live, fresh-browser, UI-only usability test: construct one new character and one functional ship, using no source or documentation during that test. Keep a chronological log of assumptions/confusion and report findings without fixing them. Completion notification comes after that report and cleanup. Do not claim the usability test is done based on the scripted regression checks.
+The earlier UI-only usability audit was completed in the prior pass; its three follow-up improvements are part of this pass. Do not restart that historical audit automatically. This pass's browser scripts use API-created finalized PC fixtures, then exercise actual GM/player interfaces. They are not full character-creation playthroughs.
 
 ## Retained Features
 

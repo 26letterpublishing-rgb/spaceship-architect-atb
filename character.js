@@ -1360,7 +1360,7 @@ function draftHasProgress(characterObject) {
     "playerName", "characterName", "race", "raceId", "raceType", "classId",
     "homePlanet", "sex", "age", "height", "weight", "hair", "eyes", "description",
   ];
-  const identityStarted = identityFields.some((field) => String(identity[field] || "").trim());
+  const identityStarted = Boolean(identity.classChosen) || identityFields.some((field) => String(identity[field] || "").trim());
   const attributesChanged = Object.values(characterObject.attributes || {}).some((rows) => (
     JSON.stringify(rows) !== JSON.stringify([0, 0, -1, -1])
   ));
@@ -1737,7 +1737,7 @@ function renderCharacterHeader() {
   const linked = Boolean(campaignCode && (campaignState || character.campaignLink?.status === "linked"));
   const gm = campaignState?.role === "gm" || GM_ADJUSTMENT_MODE;
   const role = gm ? "(GM)" : "(PC)";
-  const title = linked ? String(campaignState?.name || character.campaignLink?.campaignName || "Campaign").toUpperCase() : "JOIN A GAME";
+  const title = linked ? String(campaignState?.name || character.campaignLink?.campaignName || "Campaign").toUpperCase() : character.phase==='draft'?'CREATE CHARACTER':'CHARACTER LIBRARY';
   dom.creatorRoleLabel.textContent = "";
   dom.creatorCampaignTitle.innerHTML = `${escapeHtml(title)} <small>${role}</small>`;
   const activeCampaignSession = linked && ["character", "gm"].includes(campaignState?.role);
@@ -3452,6 +3452,7 @@ function applyClassSelection(value) {
   if (character.phase !== "draft") return;
   const previousMaxHp = maximumHp();
   character.identity.classId = value;
+  character.identity.classChosen = true;
   character.identity.className = classById(value).name;
   character.creation.classAttributeChoice = "";
   syncDerivedResources(previousMaxHp);
@@ -3569,8 +3570,8 @@ function renderClass() {
   dom.classPicker.disabled = character.phase !== "draft";
   const classDefinition = classById(character.identity.classId);
   dom.classCardPickerButton.disabled = character.phase !== "draft";
-  dom.classCardPickerButton.textContent = character.identity.classId ? classDefinition.name : "Choose Class";
-  dom.classCardPickerButton.classList.toggle("has-selection", Boolean(character.identity.classId));
+  dom.classCardPickerButton.textContent = character.identity.classId || character.identity.classChosen ? classDefinition.name : "Choose Class";
+  dom.classCardPickerButton.classList.toggle("has-selection", Boolean(character.identity.classId || character.identity.classChosen));
   const raceDefinition = selectedRace();
   const raceType = selectedRaceType();
   const customRace = character.identity.raceKind === "other";
@@ -3679,7 +3680,7 @@ function renderWorkflow() {
     const race = selectedRace();
     requirements.push({ key: "race", label: `Choose ${race?.name || "Race"} Type`, target: "#raceTypePicker" });
   }
-  if (!character.identity.classId) requirements.push({ key: "class", label: "Choose Class", target: "#classCardPickerButton" });
+  if (!character.identity.classId&&!character.identity.classChosen) requirements.push({ key: "class", label: "Choose Class (optional)", target: "#classCardPickerButton" });
   if (!validation.raceClassCompatible) requirements.push({ key: "compatibility", label: "Change incompatible Race or Class", tone: "warning", target: "#raceCardPickerButton" });
   if (!validation.attributesComplete) {
     const difference = validation.attributeBudget - validation.attributeSpent;
@@ -3698,8 +3699,8 @@ function renderWorkflow() {
       target: ".skills-panel",
     });
   }
-  if (!identityComplete()) requirements.push({ key: "identity", label: "Fill in Identity", target: !validation.homePlanetComplete ? "#homePlanetPicker" : firstIncompleteIdentityTarget() });
-  if (!backgroundComplete()) requirements.push({ key: "backstory", label: "Write Backstory", target: ".notes-panel" });
+  if (!identityComplete()) requirements.push({ key: "identity", label: "Complete Identity (optional)", target: !validation.homePlanetComplete ? "#homePlanetPicker" : firstIncompleteIdentityTarget() });
+  if (!backgroundComplete()) requirements.push({ key: "backstory", label: "Write Backstory (optional)", target: ".notes-panel" });
   else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ key: "fubs", label: "Roll on FUBS Chart", target: "#fubsButton" });
   dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
@@ -3926,6 +3927,7 @@ function renderSkillRow(name, skill, key) {
   const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
   const canIncrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE || (draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && (usingAwardedSkillPoints || advancementFunds >= nextCost)));
   const canDecrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE ? skill.tenths > 0 : character.phase === "draft" && level > 0 && !manualDraft);
+  const increaseReason=canIncrease?'':character.pendingRoll?'Finish the pending roll first.':character.phase==='draft'&&!validation.attributesComplete?'Spend the full Attribute allocation before buying skills.':character.phase==='draft'&&level>=MAX_STARTING_SKILL?`Creation maximum: ${MAX_STARTING_SKILL}. Race and class bonuses apply separately.`:draftBuying?'Not enough Skill Points for this increase.':advancement?'Not enough advancement points.':'Open Spend EXP to advance this skill.';
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement || manualDraft);
   const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll && (!campaignCode || campaignEditable);
@@ -3933,12 +3935,12 @@ function renderSkillRow(name, skill, key) {
   const markerMarkup = `${indicators.positive.length ? `<b class="skill-rule-sign positive" aria-label="Race or Class bonus">+</b>` : ""}${indicators.negative.length ? `<b class="skill-rule-sign negative" aria-label="Race or Class penalty">-</b>` : ""}`;
   const indicatorDetails = [...indicators.positive, ...indicators.negative].join(" | ");
   return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
-    <span class="skill-name" title="${escapeAttribute(name)}"><span>${formatSkillName(name)}</span>${markerMarkup}</span>
+    <span class="skill-name" title="${escapeAttribute(increaseReason||name)}"><span>${formatSkillName(name)}</span>${markerMarkup}${character.phase==='draft'&&level>=MAX_STARTING_SKILL?'<small class="skill-cap-note">Creation cap</small>':''}</span>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value">${directSkillEntry
       ? `<input class="manual-skill-rating${GM_ADJUSTMENT_MODE ? " gm-skill-rating" : ""}" ${GM_ADJUSTMENT_MODE ? `data-gm-skill-key="${escapeAttribute(key)}"` : `data-manual-skill-key="${escapeAttribute(key)}"`} type="number" min="0" step="0.1" inputmode="decimal" value="${GM_ADJUSTMENT_MODE ? ratingText(displayed) : (Number(skill.tenths || 0) / 10).toFixed(1)}" aria-label="${escapeAttribute(name)} rating" />`
       : `<strong>${ratingText(displayed)}</strong><small>${[bonus ? bonusParts.map((part) => `+${ratingText(part.value)} ${part.source.toUpperCase()}`).join(" ") : "", indicatorDetails].filter(Boolean).join(" | ")}</small>`}</span>
-    <button class="skill-buy${GM_ADJUSTMENT_MODE ? " gm-skill-step" : ""}" type="button" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="${GM_ADJUSTMENT_MODE ? `Increase ${escapeAttribute(name)} by 0.1` : `Spend ${nextCost} ${usingAwardedSkillPoints ? "Skill Points" : advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}`}" ${canIncrease ? "" : "disabled"}>${GM_ADJUSTMENT_MODE ? "<strong>+</strong>" : `<strong>${nextCost}</strong><small>${usingAwardedSkillPoints ? "SP" : advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small>`}</button>
+    <button class="skill-buy${GM_ADJUSTMENT_MODE ? " gm-skill-step" : ""}" type="button" title="${escapeAttribute(increaseReason || `Increase ${name}`)}" data-skill-action="increase" data-skill-key="${escapeAttribute(key)}" aria-label="${GM_ADJUSTMENT_MODE ? `Increase ${escapeAttribute(name)} by 0.1` : `Spend ${nextCost} ${usingAwardedSkillPoints ? "Skill Points" : advancement && mechanical ? "mechanical XP" : advancement ? "XP" : "Skill Points"} to increase ${escapeAttribute(name)}`}" ${canIncrease ? "" : "disabled"}>${GM_ADJUSTMENT_MODE ? "<strong>+</strong>" : `<strong>${nextCost}</strong><small>${usingAwardedSkillPoints ? "SP" : advancement && mechanical ? "MXP" : advancement ? "XP" : "SP"}</small>`}</button>
   </div>`;
 }
 

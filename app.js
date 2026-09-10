@@ -1505,7 +1505,7 @@ function shipCombatColumnsMarkup(units) {
       ? tacticalRingSingleMarkup(shipUnits, ship.id)
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
-      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div></header>
+      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button>`:''}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
@@ -1555,7 +1555,12 @@ function updateShipAuMeters() {
     panel.querySelector('[data-au-rate]').textContent = meter.maximum ? `${meter.rate}%/sec · ${full ? "Full" : state.hardPaused || !state.running ? "Paused" : "Recharging"}` : "No AU output";
     panel.querySelector('[data-au-meter]').value = full && meter.maximum ? 100 : meter.progress;
     const spend = panel.querySelector('[data-spend-au]');
-    if (spend) spend.disabled = meter.current < 1 || spend.dataset.pending === "true";
+    if (spend) spend.disabled = (meter.available??meter.current) < 1 || spend.dataset.pending === "true";
+    let consoles=panel.querySelector('[data-console-operator]');
+    if(!consoles){consoles=document.createElement('select');consoles.dataset.consoleOperator=ship.id;consoles.setAttribute('aria-label',`${ship.title} consoles`);panel.firstElementChild.append(consoles);}
+    const operators=(state.units||[]).filter(u=>u.location?.starshipId===ship.id&&(mode==='gm'?u.team==='npc':u.id===myUnitId)&&window.SAStationAccess.consoles(state,u).length);
+    const options='<option value="">Open console...</option>'+operators.map(u=>`<option value="${escapeHtml(u.id)}">${escapeHtml(u.characterName)}</option>`).join('');
+    if(consoles.innerHTML!==options)consoles.innerHTML=options;consoles.hidden=!operators.length;
   }
 }
 
@@ -4131,6 +4136,12 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if(button.dataset.damageShip&&mode==='gm'){
+    const text=window.prompt('Incoming damage for one hit (before shield reduction):','1');
+    if(text===null)return;const amount=Number(text);
+    if(!text.trim()||!Number.isFinite(amount)||amount<0){window.alert('Enter a nonnegative damage amount.');return;}
+    action({action:'damageStarship',starshipId:button.dataset.damageShip,amount},'danger');return;
+  }
   if (button.dataset.spendAu && mode === "gm") {
     button.dataset.pending = "true";
     button.disabled = true;
@@ -4189,6 +4200,11 @@ function commitUnitEdit(event) {
     .finally(() => pendingUnitEdits.delete(key));
 }
 unitList.addEventListener("change", commitUnitEdit);
+unitList.addEventListener('change',event=>{
+  const select=event.target.closest('[data-console-operator]');if(!select?.value)return;
+  const unit=state.units.find(u=>u.id===select.value);select.value='';
+  if(unit&&(mode==='gm'?unit.team==='npc':unit.id===myUnitId))window.SAShipNavigationUI.open(unit);
+});
 unitList.addEventListener("focusout", commitUnitEdit);
 unitList.addEventListener("input", event => {
   const input = event.target.closest('input[data-action="speed"], input[data-action="commandWindow"]');

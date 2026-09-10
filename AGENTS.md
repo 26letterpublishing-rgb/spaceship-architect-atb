@@ -10,6 +10,8 @@ Station occupancy is entered through movement, not a free-text Station action. K
 
 ## Product Direction
 
+Latest shield/bridge expansion: read SHIELD-BRIDGE-PASS.md. station-access.js authorizes physical and remote console access; ship-shields.js owns shared shield HP, reinforcement, AU input reservations and restabilization. Cockpit 2 and Bridges 1-8 are installed-SIC options; one cockpit/bridge total per ship. Only local shield occupants contribute Engineering, and restabilization freezes their ATB. AU input is 1.5 seconds and uses a shared reserved pool; never allow spending reservations twice or reset damage in routine ship synchronization. Console switching must wait for dialog close cleanup. Out-of-turn Open Console selectors expose only the player's own stationed character or GM-controlled NPCs.
+
 Spaceship Architect is a multiplayer tabletop RPG companion for campaign management, character creation, starship construction, and real-time ATB combat. The GM desktop workflow is the primary development target. Keep mobile broadly functional, especially page scrolling and core controls, but postpone mobile-only refinement until the desktop experience is stable.
 
 Treat the existing application as one shared product. Do not create separate desktop and mobile implementations unless the user explicitly requests that architecture.
