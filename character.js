@@ -4898,6 +4898,7 @@ function rollCombatDamage() {
     title: activeCombatDamageRequest.weaponName + " Damage",
     subtitle: "Add every die. No fusion.",
     fusion: false,
+    damage: true,
     onResolved: () => {},
     onSettled: (results) => {
       document.body.classList.remove("skill-roll-active");
@@ -5031,6 +5032,12 @@ function calculateManualSkillResult() {
     return;
   }
   if (!commitSkillCheckCosts()) return;
+  if (skillCheck.damage) {
+    showSkillResult({score, equation: "Manual damage total", outcome: "Damage", manual: true, diceResults: []});
+    dom.skillResultLabel.textContent = "DAMAGE";
+    dom.skillResultOutcome.textContent = "Confirm to apply damage";
+    return;
+  }
   skillCheck.difficulty = dom.skillDifficulty.value;
   const outcome = adjustedSkillOutcome(score, Number(skillCheck.difficulty));
   const committed = skillCheck.committedExertion ? ` | ${skillCheck.committedExertion} Exertion committed` : "";
@@ -5047,6 +5054,14 @@ function calculateManualSkillResult() {
 
 function rollSkillCheck() {
   if (!skillCheck || !skillCheck.attributeKey) return;
+  if(skillCheck.damage){
+    skillCheck.currentRollSides=[...skillCheck.activeSides];dom.skillCheckModal.hidden=true;document.body.classList.add('skill-roll-active');
+    diceRoller.rollPool({sides:skillCheck.currentRollSides,title:'Damage Roll',subtitle:'Add every red die. No fusion.',fusion:false,damage:true,onSettled:values=>{
+      diceRoller.stop();document.body.classList.remove('skill-roll-active');dom.skillCheckModal.hidden=false;
+      const score=values.reduce((a,b)=>a+b,0);showSkillResult({score,equation:values.join(' + ')+' = '+score,outcome:'Damage',diceResults:values});
+      dom.skillResultLabel.textContent='DAMAGE';dom.skillResultScore.textContent=score;dom.skillResultOutcome.textContent='Confirm to apply damage';
+    }});return;
+  }
   skillCheck.difficulty = dom.skillDifficulty.value;
   if (!commitSkillCheckCosts()) return;
   skillCheck.currentRollSides = [...skillCheck.activeSides];
@@ -8948,8 +8963,9 @@ if(PAGE_PARAMS.has('shipRoll')){
     if(event.origin!==location.origin||event.data?.type!=='sa-ship-skill-open')return;
     let source=event.source;try{while(source&&source!==parent&&source!==source.parent)source=source.parent;}catch{return;}if(source!==parent)return;
     const request=event.data;character=blankCharacter();character.phase='finalized';character.identity.characterName=request.name;
-    openSkillCheck(skillKeyForBase(request.skill||'Sensor Systems'),request.attributeKey||'intellect');if(!skillCheck)return;
+    openSkillCheck(skillKeyForBase(request.damage?'Weapon Systems':request.skill||'Sensor Systems'),request.attributeKey||'intellect');if(!skillCheck)return;
     skillCheck.combatRequest={attackId:request.rollId,rollRole:'ship'};skillCheck.overrideBonus=Number(request.bonus)||0;skillCheck.activeSides=request.sides;skillCheck.difficulty=Number.isFinite(request.difficulty)?String(request.difficulty):'';
+    skillCheck.damage=Boolean(request.damage);
     renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.skill||'System';dom.skillCheckSubtitle.textContent=(request.retryBonus?`Retry bonus +${request.retryBonus} included. `:'')+(request.difficultyLabel||'Unknown difficulty');dom.skillDifficulty.placeholder=request.difficultyLabel?.replace('Difficulty unknown','Unknown difficulty')||'Unknown difficulty';dom.skillDifficulty.closest('label').firstChild.textContent=Number.isFinite(request.difficulty)?'Difficulty':'Unknown difficulty';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
   });
   parent.postMessage({type:'sa-ship-skill-ready'},location.origin);

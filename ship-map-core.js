@@ -13,6 +13,7 @@
   ]);
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
   const catalog = {
+    "lock-on-1": { name:"Lock-On System 1", width:1, height:1, label:"LO 1", color:"#9d7138", image:image("lock-on-1-floor-plan.png"), lockOn:true, tier:1, energyCost:1, price:560, security:1, crafting:"Paradon, 6 hrs", threshold:3, cardNumber:"A-37", output:0, stations:[] },
     "cockpit-1": { name: "Cockpit 1", width: 1, height: 1, label: "CP 1", color: "#346f91", image: image("cockpit-1-floor-plan.png"), shipControl: true, bridge: true, edge: true, energyCost: 1, price: 750, security: 4, crafting: "Transpherion, 4 hrs", threshold: 20, cardNumber: "A-1", output: 0, stations: [{x:0,y:0,mesh:0}] },
     "rapid-laser-1": { name: "Rapid Laser 1", width: 1, height: 1, label: "RL 1", color: "#88dfff", image: image("rapid-laser-1-sprite.png"), sprite: "rapid-laser-1-sprite.png", exterior: true, weapon: true, tier: 1, energyCost: 1, price: 450, security: 1, crafting: "Crystilium, 4 hrs", threshold: 4, cardNumber: "A-100", output: 0, stations: [] },
     "exhaust-thruster-1": { name: "Exhaust Thruster 1", width: 1, height: 1, label: "ET 1", color: "#568da4", image: image("exhaust-thruster-1-graphic.png"), exterior: true, thruster: true, impulseBonus: 1, exhaust: -2, energyCost: 2, price: 200, security: 2, crafting: "Dianium, 2 hrs", threshold: 10, cardNumber: "A-23", output: 0, stations: [] },

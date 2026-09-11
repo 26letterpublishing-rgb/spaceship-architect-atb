@@ -18,6 +18,7 @@
     if(!relevant.length&&receiver)notice.textContent+=' | Accept incoming call';
     notice.hidden=!notice.textContent;notice.onclick=async()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){dismissed.delete(request(u).id);forced=u.id;}else if(receiver){const ship=state.starships.find(s=>s.id===receiver.location.starshipId),call=ship.commandSystems.calls.find(c=>c.status==='incoming');try{await bridge.action({action:'shipCommand',id:receiver.id,kind:'accept',callId:call.id,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){result=e.message;until=Date.now()+7000;}}};
     const parent=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
+    notice.classList.toggle('console-status-toast',parent.matches?.('.ship-navigation-dialog,.shared-console-layout'));
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
     const unit=waiting.find(u=>(gm?u.team==='npc'||u.id===forced:u.id===mine?.id)&&!dismissed.has(request(u).id));if(!unit)return;
     const pending=request(unit);if(!pending.rollSpec)return;

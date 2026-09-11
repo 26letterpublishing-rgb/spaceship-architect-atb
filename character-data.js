@@ -311,7 +311,7 @@ export const RACE_DEFS = [
     name: "Human",
     effects: { xpOnFinalize: 200 },
     disadvantages: [],
-    advantages: ["Start with +200 Experience."],
+    advantages: ["Gain +200 Experience when character creation is finalized."],
   },
   {
     id: "kabuto",

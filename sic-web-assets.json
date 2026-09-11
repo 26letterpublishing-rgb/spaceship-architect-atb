@@ -1273,6 +1273,34 @@
     "webBytes": 31242,
     "alpha": false
   },
+  "lock-on-1-card.png": {
+    "file": "lock-on-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1855108,
+    "webBytes": 21414,
+    "alpha": false
+  },
+  "lock-on-1-floor-plan.png": {
+    "file": "lock-on-1-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2730770,
+    "webBytes": 154236,
+    "alpha": false
+  },
   "nutritional-supplement-floor-plan.png": {
     "file": "nutritional-supplement-floor-plan-web.webp",
     "sourcePixels": [

@@ -502,7 +502,7 @@
       if (event.target.closest("[data-interior-back]")) return closeExpandedMap();
       const zoom = event.target.closest("[data-interior-zoom]");
       if (zoom && expandedMap) {
-        expandedMap.cellSize = Math.max(72, Math.min(180, expandedMap.cellSize + Number(zoom.dataset.interiorZoom) * 24));
+        expandedMap.cellSize = Math.max(1, expandedMap.cellSize * (Number(zoom.dataset.interiorZoom)>0?1.25:.8));
         shell.style.setProperty("--expanded-cell-size", `${expandedMap.cellSize}px`);
         centerInterior(mapHost);
       }
@@ -756,7 +756,7 @@
   function handleInlineClick(event) {
     const inlineHost = event.target.closest?.("[data-inline-ship-map]");
     if (inlineHost) {
-      const zoom=event.target.closest('[data-preview-zoom]');if(zoom){inlineZoom.set(inlineHost.dataset.inlineShipMap,Math.max(72,Math.min(180,(inlineZoom.get(inlineHost.dataset.inlineShipMap)||72)+Number(zoom.dataset.previewZoom)*24)));renderInlineMaps(document,true);return;}
+      const zoom=event.target.closest('[data-preview-zoom]');if(zoom){inlineZoom.set(inlineHost.dataset.inlineShipMap,Math.max(1,(inlineZoom.get(inlineHost.dataset.inlineShipMap)||72)*(Number(zoom.dataset.previewZoom)>0?1.25:.8)));renderInlineMaps(document,true);return;}
       const expand = event.target.closest("[data-expand-interior]");
       if (expand) { if (expandedMap?.host !== inlineHost) expandInterior(inlineHost, expand); return; }
       const view = event.target.closest("[data-inline-map-view]");

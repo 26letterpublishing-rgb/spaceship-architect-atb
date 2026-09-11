@@ -8,6 +8,7 @@ scripts.push('action-help.js','maintenance-ui.js','ship-command-ui.js','ship-coo
 let browser;
 scripts.push('ship-roll-ui.js','ship-map-presentation.css','console-feedback.js','gm.css');
 scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css');
+scripts.push('ship-locks.js','lock-console-ui.js','console-common.js','console-common.css','combat-feedback.js','combat-feedback.css','dice-roller.js','character-data.js','ship-explosion.mp3');
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){
@@ -20,9 +21,9 @@ async function main(){
     }catch{deployed=false;}
     if(deployed)break;await new Promise(r=>setTimeout(r,15000));
   }
-  assert.ok(deployed,'Render has not deployed the Defense/console release');
+  assert.ok(deployed,'Render has not deployed the Lock-On/console release');
   for(const name of scripts){const response=await fetch(base+'/'+name+'?verify='+Date.now());assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,name))),name);}
-  const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-')||n.startsWith('rapid-laser-')||n.startsWith('weapon-console-'));
+  const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-')||n.startsWith('rapid-laser-')||n.startsWith('weapon-console-')||n.startsWith('lock-on-'));
   for(const name of images){const response=await fetch(base+'/'+name);assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,manifest[name].file))),name);}
   console.log(`${scripts.length} code/style files and ${images.length} optimized images match Render.`);
   browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({viewport:{width:1366,height:768}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -34,6 +35,7 @@ async function main(){
   const initial=await state();assert.equal(initial.starships.length,2);assert.equal(initial.starships[0].sensorState.contacts[initial.starships[1].id].level,'detected');assert.deepEqual(initial.units.map(u=>u.characterName).sort(),['Nova Vale','Space Slug']);assert.equal(initial.units.find(u=>u.characterName==='Nova Vale').weaponSystemsSkill,2.5);
   assert.ok(initial.starships.every(s=>!s.ship.sicInventory.some(i=>i.type.startsWith('shield-'))),'Fresh Explore ships have no shields');
   assert.ok(initial.starships.every(s=>s.ship.sicInventory.some(i=>i.type==='rapid-laser-1')),'Fresh Explore ships have Rapid Laser 1');
+  assert.ok(initial.starships.every(s=>s.ship.sicInventory.some(i=>i.type==='lock-on-1')),'Fresh Explore ships have Lock-On System 1');
   assert.ok(initial.starships.every(s=>s.ship.class==='8x7 Systems Test Craft'),'Class survives encounter preparation');
   const unit=initial.units.find(u=>u.characterName==='Nova Vale'),ship=initial.starships.find(s=>s.id===unit.location.starshipId),cp=ship.ship.sicInventory.find(i=>i.type==='bridge-1'),placement=ship.ship.placements.find(p=>p.sicId===cp.id),sensor=ship.ship.sicInventory.find(i=>i.type==='sensors-3');
   if(initial.activeId)await act({action:'completeTurn',id:initial.activeId});

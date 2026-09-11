@@ -187,7 +187,7 @@ async function main(){
   await new Promise(r=>setTimeout(r,600));const exit=once(child,'exit');child.kill();await exit;await start();
   token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;
   assert.equal((await state()).units[0].delayedAction.id,pending.id,'Pending roll survives restart');
-  await act({action:'rollShipAction',id:restoredActor.id,rollId:pending.id});
+  await act({action:'rollShipAction',id:restoredActor.id,rollId:pending.id,score:10});
   const result=(await state()).units[0].lastShipRoll;assert.equal(result.id,pending.id,'GM can resolve the restored player roll');
   await act({action:'rollShipAction',id:restoredActor.id,rollId:pending.id});assert.deepEqual((await state()).units[0].lastShipRoll,result);
   console.log('Browser checks passed: fresh GM/two PCs, sensor privacy, held mouse clicks, explicit retry-safe rolls, queued analysis, automatic hex Life Scan, share, full-chart zoom, Command help and preparation, enlarged movement, campaign diagnostics/time, reload, cards, demo contacts, pending-roll restart and GM recovery.');console.log(artifacts);

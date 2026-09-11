@@ -6,10 +6,11 @@
     node ? require('./delay-rules') : root.SADelayRules,
     node ? require('./ship-power') : root.SAShipPower,
     node ? require('./ship-shields') : root.SAShipShields,
-    node ? require('./ship-sensors') : root.SAShipSensors);
+    node ? require('./ship-sensors') : root.SAShipSensors,
+    node ? require('./ship-locks') : root.SAShipLocks);
   if (node) module.exports = api;
   if (root) root.SAShipWeapons = api;
-}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, power, shields, sensors) {
+}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, power, shields, sensors, locks) {
   const skill = unit => Math.max(0, Number(unit.weaponSystemsSkill ?? (unit.team === 'npc' ? unit.mentalSkill : 0)) || 0);
   const bars = value => value >= 6 ? 4 : value >= 5 ? 3 : value >= 3 ? 2 : value >= 1 ? 1 : 0;
   function settings(unit) {
@@ -51,6 +52,8 @@
     unit.delayedAction = {id:`laser-${receipt}`,kind:'action',label:'Fire Rapid Laser 1',rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings:input,
       weaponOrder:{shipId:access.ship.id,sicId:access.id,station:access.seat.key,targetId:target.id,sacrifice}};
     unit.delayedAction.rollSpec = rollSpec(room,unit,unit.delayedAction.weaponOrder);
+    locks.refresh(room);
+    if(locks.locked(room,access.ship,target.id)){unit.delayedAction.weaponOrder.locked=true;unit.delayedAction.weaponOrder.targetSicId=locks.state(access.ship).targets.find(t=>t.targetId===target.id)?.sicId;unit.delayedAction.rollConfirmed=true;}
     data.receipts = [...data.receipts,receipt].slice(-256);
     return {ok:true,ship:access.ship};
   }
@@ -71,20 +74,42 @@
       post({text:'Laser input interrupted. Committed AU was consumed.'}); return;
     }
     const spec = pending.rollSpec || rollSpec(room,unit,order);
-    const total = Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(attackRoll)) + spec.bonus;
+    const total = order.locked ? 0 : Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(attackRoll)) + spec.bonus;
     const defense = sensors.defense(room,target);
-    const hit = total > defense;
+    locks.refresh(room);
+    if(order.locked&&!locks.locked(room,ship,target.id)){post({text:'Shot cancelled: target lock was lost during input. Committed AU was consumed.'});return;}
+    const hit = order.locked || total > defense;
     const maximum = access.item.impaired || access.item.status === 'impaired' ? 1 : 4;
-    const count = hit ? Math.max(0,Math.min(maximum,1+Math.min(3,Math.floor((total-defense)/2)))-order.sacrifice) : 0;
-    const dice = Array.from({length:count},() => damageRoll(4)), damage = dice.reduce((sum,n) => sum+n,0);
-    if (damage) shields.damage(room,target.id,damage);
-    const report = post({text:`Rapid Laser 1: ${hit ? 'HIT' : 'MISSED'} ${target.title}.${hit ? ` ${count}D4: ${damage} damage rolled${count ? '' : ' (power conservation removed all damage dice)'}.` : ''}`,hit,damage,dice,total,targetId:target.id,shot:true});
+    const count = hit ? Math.max(0,Math.min(maximum,order.locked?4:1+Math.min(3,Math.floor((total-defense)/2)))-order.sacrifice) : 0;
+    const report = post({text:`Rapid Laser 1: ${hit ? 'HIT' : 'MISSED'} ${target.title}.${hit ? ` ${count?`Roll ${count}D4 damage.`:'No damage dice remain after conserving AU.'}` : ''}`,hit,damage:0,total:order.locked?null:total,defense,targetId:target.id,shot:true,operatorId:unit.id,awaitingDamage:Boolean(count)});
+    if(count)unit.delayedAction={id:pending.id+'-damage',kind:'action',label:`Rapid Laser damage: ${count}D4`,remaining:0,total:100,rate:1,resolving:true,awaitingRoll:true,rollBeforeDelay:false,consumeTurn:false,weaponDamage:{...order,count,attackId:pending.id,total:order.locked?null:total,defense},rollSpec:{sides:Array(count).fill(4),bonus:0,skill:'Damage',damage:true,difficulty:null,difficultyLabel:'Add all damage dice. No fusion.'}};
     const incoming = {id:report.id,at:report.at,shot:true,hit,targetId:target.id,text:hit?'Incoming laser hit.':'Incoming laser missed.'};
     state(target).reports = [incoming,...state(target).reports].slice(0,30);
     sensors.knowledge(target).reports = [incoming,...sensors.knowledge(target).reports].slice(0,30);
   }
+  function resolveDamage(room,unit,values,manualScore){
+    const pending=unit.delayedAction,order=pending?.weaponDamage;if(!order)return;
+    const ship=room.starships.find(s=>s.id===order.shipId),target=room.starships.find(s=>s.id===order.targetId);
+    if(!ship||!target)return;
+    const damage=values.length?values.reduce((a,b)=>a+b,0):manualScore;
+    if(!Number.isInteger(damage)||damage<order.count||damage>order.count*4)throw Error('Enter the total of the indicated damage dice.');
+    const beforeHull=target.currentHullHp,beforeShield=target.currentShieldHp;
+    shields.damage(room,target.id,damage);
+    const hullDamage=Math.max(0,beforeHull-target.currentHullHp),shieldDamage=Math.max(0,beforeShield-target.currentShieldHp);
+    const lock=locks.state(ship).targets.find(l=>l.targetId===target.id),item=target.ship.sicInventory.find(i=>i.id===order.targetSicId);
+    let impairments=0;
+    if(hullDamage&&item&&lock?.sicId===item.id&&stations.online(item)){
+      impairments=Math.floor(hullDamage/Math.max(1,maps.definition(item.type).threshold||1));
+      if(impairments){item.impairmentPoints=Math.min(4,(Number(item.impairmentPoints)||(item.impaired?1:0))+impairments);item.impaired=true;if(item.impairmentPoints>=4)item.status='destroyed';}
+    }
+    unit.delayedAction=null;
+    const entry={id:pending.id,at:new Date().toISOString(),text:`Rapid Laser: ${damage} rolled; ${shieldDamage} shield damage, ${hullDamage} hull damage.${impairments?` ${impairments} component impairment(s).`:''}`,damage,dice:values,hit:true,impact:true,targetId:target.id,operatorId:unit.id,hullDamage,shieldDamage,impairments,total:order.total,defense:order.defense};
+    state(ship).reports=[entry,...state(ship).reports].slice(0,30);sensors.knowledge(ship).reports=[entry,...sensors.knowledge(ship).reports].slice(0,40);
+    const incoming={id:entry.id,at:entry.at,impact:true,hit:true,targetId:target.id,text:'Incoming weapon damage.',damage};state(target).reports=[incoming,...state(target).reports].slice(0,30);sensors.knowledge(target).reports=[incoming,...sensors.knowledge(target).reports].slice(0,40);
+    locks.refresh(room);return entry;
+  }
   function advance(room, seconds) {
     for(const ship of room.starships || [])for(const id of Object.keys(ship.weaponState?.repeatWindow || {}))ship.weaponState.repeatWindow[id]=Math.max(0,ship.weaponState.repeatWindow[id]-Math.max(0,seconds));
   }
-  return {settings,skill,rollSpec,queue,resolveInput,advance};
+  return {settings,skill,rollSpec,queue,resolveInput,resolveDamage,advance};
 }));

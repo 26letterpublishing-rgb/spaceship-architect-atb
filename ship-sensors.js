@@ -43,7 +43,7 @@
     if(state.contacts[target.id]?.level!=='detected')report(observer,{detected:true,targetId:target.id,text:`${target.title}${target.ship.class?` Class ${target.ship.class}`:''} Starship detected. Affiliation: ${target.ship.affiliation||'Unknown'}`});
     return state.contacts[target.id] = { ...state.contacts[target.id],uncertainty:undefined,id:target.id, level:'detected', title:target.title,
       position:point(room,target.id), size:(target.ship.gridCells || []).length,
-      faction:target.ship.affiliation || '', nature:'Starship', defenseScore:defense(room,target), evasionRemaining:Math.max(0,...(target.commandSystems?.evasions||[]).map(e=>e.remaining??20)) };
+      faction:target.ship.affiliation || '', nature:'Starship', destroyedAt:target.destroyedAt, defenseScore:defense(room,target), evasionRemaining:Math.max(0,...(target.commandSystems?.evasions||[]).map(e=>e.remaining??20)) };
   }
   function refresh(room) {
     room.sensorMode ||= (room.starships || []).some(ship => (ship.ship?.sicInventory || []).some(item => maps.definition(item.type).sensor));
@@ -198,7 +198,7 @@
     for (const contact of Object.values(contacts)) {
       // Contacts contain intelligence only, never enemy inventories, layout, movement orders or crew.
       const analysis=data.reports.find(r=>r.analysis&&r.targetId===contact.id&&r.layout);
-      own.push({id:contact.id,title:contact.title,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:analysis?.hull.current,maximumHullHp:analysis?.hull.maximum,currentShieldHp:analysis?.shield.current,maximumShieldHp:analysis?.shield.maximum,contactLevel:contact.level,uncertainty:contact.uncertainty,
+      own.push({id:contact.id,title:contact.title,destroyedAt:contact.destroyedAt,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:analysis?.hull.current,maximumHullHp:analysis?.hull.maximum,currentShieldHp:analysis?.shield.current,maximumShieldHp:analysis?.shield.maximum,contactLevel:contact.level,uncertainty:contact.uncertainty,
         ship:analysis?copy(analysis.layout):{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:copy(contact)});
       positions.push({...contact.position,id:contact.id});
     }
@@ -208,6 +208,7 @@
     for(const ship of own.filter(s=>s.analyzedContact)){
       const p=point(state,ship.id),reading=data.reports.find(r=>r.lifeScan&&r.hex&&distances.hexDistance(r.hex,p)<.01);
       if(!reading)continue;
+      ship.lifeScanKnown=true;
       const key=reading.at+JSON.stringify(reading.hex),remaining=Math.max(0,reading.count-(allocated.get(key)||0));
       const crew=state.units.filter(u=>u.location?.starshipId===ship.id&&String(u.raceId||u.race||'').toLowerCase()!=='android').slice(0,remaining);
       allocated.set(key,(allocated.get(key)||0)+crew.length);

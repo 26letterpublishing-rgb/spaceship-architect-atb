@@ -1,0 +1,51 @@
+(function(){
+  let dialog=null;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function open(unit,sicId){
+    const b=window.SACombatBridge,a=window.SAStationAccess.access(b.state(),unit,sicId);if(dialog||a?.kind!=='lock')return;
+    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    const view=doc.createElement('dialog');dialog=view;view.className='lock-console';view.dataset.operatorId=unit.id;view.setAttribute('aria-label','Lock-On console');
+    view.innerHTML=`<header><div><small>REMOTE TARGET ACQUISITION / ${esc(unit.characterName)}</small><h2>${esc(a.ship.title)}</h2></div><div class="weapon-turn"><strong data-turn role="status"></strong><progress data-command max="1"></progress></div><div data-selector><button type="button" data-sound>Sound</button><button type="button" data-close>Combat View</button></div></header><section class="lock-chart"><h3>Target Acquisition</h3><div class="lock-scope"><img src="lock-on-1-card.png" alt="Lock-On targeting computer"><div class="lock-reticle" aria-hidden="true"></div></div><output data-track></output><progress data-input max="100" value="0" aria-label="Lock input progress"></progress><p data-input-note></p></section><section class="lock-controls"><h3>Lock-On System 1</h3><label>Target ship<select data-target aria-label="Lock target"></select></label><p data-difficulty></p><button type="button" data-lock>Lock-On</button><label>Target component<select data-component aria-label="Target component"></select></label><button type="button" data-sic>Lock Component</button><p data-sic-note></p><h3>Incoming Locks</h3><select data-enemy aria-label="Incoming lock"></select><button type="button" data-break>Break Lock-On</button><p data-break-note></p><p data-error role="alert"></p><div class="lock-seat"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section><section class="lock-reports"><h3>Targeting Reports</h3><div data-reports></div></section>`;
+    doc.body.append(view);view.showModal();window.SAShipNavigationUI.mountSelector(view.querySelector('[data-selector]'),unit,sicId,()=>view.close());
+    const get=s=>view.querySelector(s);let busy=false,lastTargets='',lastComponents='',lastEnemy='';
+    const release=doc.createElement('button');release.type='button';release.textContent='Release Target';release.dataset.release='';get('[data-lock]').after(release);
+    const tabs=doc.createElement('div');tabs.className='lock-mode-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Targeting operation');
+    const groups=[['Ship',[get('[data-difficulty]'),get('[data-lock]'),release]],['Component',[get('[data-component]').closest('label'),get('[data-sic]'),get('[data-sic-note]')]],['Incoming',[get('[data-enemy]').previousElementSibling,get('[data-enemy]'),get('[data-break]'),get('[data-break-note]')]]];
+    get('[data-target]').closest('label').after(tabs);
+    const pages=groups.map(([name,children],index)=>{const page=doc.createElement('div');page.className='lock-mode-page';page.hidden=index!==0;page.append(...children);get('.lock-controls').append(page);const button=doc.createElement('button');button.type='button';button.setAttribute('role','tab');button.setAttribute('aria-selected',String(index===0));button.textContent=name;button.onclick=()=>{pages.forEach((p,i)=>p.hidden=i!==index);[...tabs.children].forEach((b,i)=>b.setAttribute('aria-selected',String(i===index)));};tabs.append(button);return page;});
+    get('.lock-controls').append(get('[data-error]'));
+    for(const [selector,key] of [['[data-lock]','lock'],['[data-sic]','sicLock'],['[data-break]','break']]){const button=get(selector);window.SAActionHelp.attach(button,key);const row=doc.createElement('div');row.className='lock-action-row';button.before(row);row.append(button,button.nextElementSibling);}
+    const options=(select,html,previous)=>{if(html===previous)return previous;const value=select.value;select.innerHTML=html;if([...select.options].some(o=>o.value===value))select.value=value;return html;};
+    function redraw(){
+      const state=b.state(),person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);if(!access){view.close();return;}
+      const ship=access.ship,locks=ship.lockState?.targets||[],pending=person.delayedAction,ready=state.activeId===unit.id&&!pending&&!person.delayTimer&&!person.timedAction&&!person.consoleHold&&!busy;
+      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'ACQUIRING TARGET':ready?'YOUR TURN':'TARGETING STANDBY';
+      get('[data-command]').value=state.command?.unitId===unit.id?state.command.remaining/state.command.total:0;
+      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');lastTargets=options(get('[data-target]'),contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('')||'<option value="">No detected ships</option>',lastTargets);
+      const targetId=get('[data-target]').value,target=state.starships.find(s=>s.id===targetId),lock=locks.find(l=>l.targetId===targetId),analysis=ship.sensorState?.reports?.find(r=>r.analysis&&r.targetId===targetId&&r.layout),failure=ship.lockState?.failures?.[targetId]||0;
+      get('[data-difficulty]').textContent=target?`${access.item.impaired?'2D2':'2D4'} + Weapon Systems${failure?` + ${failure} retry`:''}. Meet Defense ${target.defenseScore??'?'}. ${locks.length?'Second target: 4 AU / 12 sec.':'First target: no AU upkeep.'}`:'Detect a ship using Sensors first.';
+      get('[data-lock]').disabled=!ready||!targetId||Boolean(lock)||locks.length>=2;get('[data-lock]').textContent=lock?'Target Locked':'Lock-On';
+      release.disabled=!lock||Boolean(pending)||busy;
+      const components=analysis?.layout.sicInventory||[];lastComponents=options(get('[data-component]'),components.filter(i=>window.SAStationAccess.online(i)).map(i=>`<option value="${esc(i.id)}">${esc(window.SAShipMap.definition(i.type).name||i.type)}</option>`).join('')||'<option value="">Analyze ship first</option>',lastComponents);
+      get('[data-sic]').disabled=!ready||!lock||!analysis||target?.currentShieldHp>0||!get('[data-component]').value;
+      get('[data-sic-note]').textContent=!analysis?'Systems Analysis reveals components.':!lock?'Lock onto the ship first.':target?.currentShieldHp>0?'Lower the target shields first.':lock.sicId?'Component lock active. Fire a weapon to damage that component.':'Adds impairment to the selected component when hull damage is dealt.';
+      const incoming=ship.incomingLocks||[];lastEnemy=options(get('[data-enemy]'),incoming.map(l=>`<option value="${esc(l.shipId)}">${esc(l.title||'Unknown attacker')}</option>`).join('')||'<option value="">No incoming locks</option>',lastEnemy);
+      const mask=window.SAShipSensors.masking(state,ship);get('[data-break]').disabled=!ready||!incoming.length||mask<=0;get('[data-break-note]').textContent=mask<=0?'Masking is zero or below: escape enemy sensor range to break a lock.':'Evade Dice + Pilot/Helm must meet 13.';
+      get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!ready&&!person.consoleHold);get('[data-leave]').disabled=!ready;
+      get('[data-input]').value=pending?.lockOrder&&!pending.awaitingRoll?100-pending.remaining:0;get('[data-input-note]').textContent=pending?.awaitingRoll?'Confirm your dice roll to begin acquisition.':pending?.lockOrder?`Acquiring in ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Choose a detected target.';
+      view.dataset.acquiring=String(Boolean(pending?.lockOrder&&!pending.awaitingRoll));view.dataset.locked=String(Boolean(lock));
+      get('[data-track]').textContent=locks.length?locks.map(l=>`${contacts.find(c=>c.id===l.targetId)?.title||'Target'} LOCKED${locks.indexOf(l)?` / upkeep in ${Math.ceil(l.remaining)}s`:''}`).join(' | '):'NO TARGET LOCK';
+      get('[data-reports]').innerHTML=(ship.lockState?.reports||[]).slice(0,12).map(r=>`<p class="${r.success?'success':r.lockResult?'failure':''}">${esc(r.text)}</p>`).join('')||'No targeting activity.';
+      get('[data-sound]').textContent=b.soundEnabled()?'Sound On':'Sound Off';
+    }
+    async function submit(kind){if(busy||!b.confirmGmPlayerAction(b.state().units.find(u=>u.id===unit.id),'lockCommand'))return;busy=true;get('[data-error]').textContent='';redraw();try{await b.action({action:'lockCommand',id:unit.id,kind,targetId:get(kind==='break'?'[data-enemy]':'[data-target]').value,targetSicId:get('[data-component]').value,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){get('[data-error]').textContent=e.message;}finally{busy=false;if(view.isConnected)redraw();}}
+    release.onclick=()=>submit('release');
+    get('[data-lock]').onclick=()=>submit('lock');get('[data-sic]').onclick=()=>submit('sic');get('[data-break]').onclick=()=>submit('break');view.onchange=redraw;
+    const dismiss=()=>window.SAShipNavigationUI.remember(unit);get('[data-close]').onclick=()=>{dismiss();view.close();};get('[data-sound]').onclick=()=>b.toggleSound();
+    get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(b.state().units.find(u=>u.id===unit.id));}catch(e){get('[data-error]').textContent=e.message;}};
+    get('[data-leave]').onclick=()=>{const person=b.state().units.find(u=>u.id===unit.id);if(!b.confirmGmPlayerAction(person,'leaveStation'))return;dismiss();view.close();window.SACombatMap.openMove(person);};view.addEventListener('cancel',dismiss);
+    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>b.requestRender(),0);};
+    view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();
+  }
+  window.SALockConsoleUI={open,isOpen:()=>Boolean(dialog)};
+}());

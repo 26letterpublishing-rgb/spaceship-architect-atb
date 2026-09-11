@@ -10,7 +10,7 @@ for source in sorted(root.glob('*.png')):
     name = source.name
     if not (re.match(r'(?:au-|en-|power-)?(?:en-|au-)?engine-\d-', name)
             or re.match(r'(?:exhaust|ionic-pulse)-thruster-\d-', name)
-            or name.startswith(('rapid-laser-', 'weapon-console-', 'cockpit-', 'bridge-', 'shield-', 'sensors-', 'sensor-console-', 'life-support-', 'nutritional-supplement-'))
+            or name.startswith(('lock-on-', 'rapid-laser-', 'weapon-console-', 'cockpit-', 'bridge-', 'shield-', 'sensors-', 'sensor-console-', 'life-support-', 'nutritional-supplement-'))
             or name in ('hallway.png', 'starship-hull-plating.png', 'pilot-console-art.png')):
         continue
     floor = 'floor-plan' in name or name in ('hallway.png', 'starship-hull-plating.png')

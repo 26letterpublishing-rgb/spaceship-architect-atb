@@ -260,7 +260,7 @@ function polyVisual(sides, { color = 0x17354e, accent = "#b9f4ff" } = {}) {
     12: () => new THREE.DodecahedronGeometry(1.02, 0),
     20: () => new THREE.IcosahedronGeometry(1.04, 0),
   };
-  const geometry = geometryBySides[sides]();
+  const geometry = geometryBySides[sides === 2 ? 4 : sides]();
   const definition = geometryDefinition(geometry);
   const group = new THREE.Group();
   group.add(new THREE.Mesh(geometry, materialFor(color, 0x071725)));
@@ -268,9 +268,9 @@ function polyVisual(sides, { color = 0x17354e, accent = "#b9f4ff" } = {}) {
     new THREE.EdgesGeometry(geometry, 18),
     new THREE.LineBasicMaterial({ color: new THREE.Color(accent), transparent: true, opacity: 0.72 }),
   ));
-  const labelSize = { 4: 0.86, 8: 0.72, 12: 0.58, 20: 0.46 }[sides];
+  const labelSize = { 2: 0.86, 4: 0.86, 8: 0.72, 12: 0.58, 20: 0.46 }[sides];
   const normals = groupedFaceData(definition.faceData).map((face, index) => {
-    const value = index + 1;
+    const value = sides === 2 ? index % 2 + 1 : index + 1;
     const tip = face.points.reduce((best, point) => point.y > best.y || (point.y === best.y && point.x < best.x) ? point : best, face.points[0]);
     const label = faceLabel(value, face.normal, face.center, accent, labelSize, undefined, tip.clone().sub(face.center));
     group.add(label);
@@ -437,7 +437,7 @@ export class PhysicalDiceRoller {
     });
   }
 
-  rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true }) {
+  rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true, damage = false }) {
     const palette = {
       4: { color: 0x3f1955, accent: "#eac5ff" },
       6: { color: 0x18354e, accent: "#b9f4ff" },
@@ -447,7 +447,7 @@ export class PhysicalDiceRoller {
       20: { color: 0x28396c, accent: "#c7d3ff" },
     };
     return this.rollDice({
-      dice: sides.map((dieSides) => ({ sides: dieSides, ...(palette[dieSides] || palette[6]) })),
+      dice: sides.map((dieSides) => ({ sides: dieSides, ...(damage?{color:0xa40d20,alternate:0x670817,accent:'#fff0e9'}:palette[dieSides] || palette[6]) })),
       title,
       subtitle,
       onResolved,

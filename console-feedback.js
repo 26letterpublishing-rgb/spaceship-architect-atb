@@ -30,11 +30,11 @@
   style.textContent=style.textContent.replace('[data-atb-charging=true] .pilot-rings{outline:1px solid #d8af49;box-shadow:0 0 15px #eebd4166; border-radius:4px}','[data-atb-charging=true] .ring-backplate{stroke:#ffd55f;stroke-width:3;filter:drop-shadow(0 0 7px #ffc838)}');
   style.textContent+='.console-pause-notice{position:absolute;top:13%;left:25%;right:25%;z-index:20;background:#22080eee;border:1px solid #ff596b;color:#ff5b6e;font:bold 22px Arial;text-align:center;padding:12px;pointer-events:none;overflow-wrap:anywhere}.console-pause-notice[hidden]{display:none}@media(max-width:850px){.console-pause-notice{top:0;left:0;right:0;font-size:17px}}';
   const timer=setInterval(()=>{
-    const b=bridge(),state=b?.state(),view=doc.querySelector('.ship-navigation-dialog[open],.sensor-console[open],.shield-console-dialog[open],.weapon-console[open]');
+    const b=bridge(),state=b?.state(),view=doc.querySelector('.ship-navigation-dialog[open],.sensor-console[open],.shield-console-dialog[open],.weapon-console[open],.lock-console[open]');
     const unit=state?.units.find(u=>u.id===(view?.dataset.operatorId||b?.myUnitId()));
     const running=Boolean(view&&unit&&state.running&&!state.pausedForTurn&&!state.hardPaused&&!state.holdPaused&&!doc.hidden);
     if(view){
-      let notice=view.querySelector('.console-pause-notice');if(!notice){notice=doc.createElement('div');notice.className='console-pause-notice';notice.setAttribute('role','status');view.append(notice);}
+      let notice=view.querySelector('.console-pause-notice');if(!notice){notice=doc.createElement('div');notice.className='console-pause-notice';notice.setAttribute('role','status');(view.querySelector('.pilot-command,.weapon-turn,.sensor-command,.shield-command')||view).append(notice);}
       const active=state.units.find(u=>u.id===state.activeId),other=active&&active.id!==unit?.id;
       const paused=state.hardPaused||state.holdPaused||state.hiddenActiveTurn||((state.pausedForTurn||!state.running)&&(other||state.activeAction||state.delayRequest));
       const name=!state.hardPaused&&!state.holdPaused&&other&&active.team==='pc'?(active.playerName||active.characterName):'GM';

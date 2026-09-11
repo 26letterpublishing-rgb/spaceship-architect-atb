@@ -1,5 +1,9 @@
 # Current Recovery Handoff
 
+## In Progress: Lock-On And Combat Clarity
+
+Authorized September 11 #commit, up to 2.5 hours starting 05:06 UTC (target finish by 07:36 UTC). Implementation and newcomer audit are complete; see LOCK-ON-COMBAT-PASS.md and NEWCOMER-AUDIT-2026-09-11.md. 156 unit/HTTP tests, browser normal/locked/impaired targeting, explicit/manual red damage, misses, direct shortcuts/console arrows/Auto Zoom, destruction/Victory, sensor GM/two-PC, shields and cockpit regressions passed locally. NOT YET PUBLISHED: finish final tests, GitHub/Render verification, stop owned processes, then ntfy as final action. Newcomer server session 94640 uses port 60946; in-app tabs 3/4 belong to the task. Gold Standard and data/campaigns.json remain untouched. Earlier complete sections below are historical.
+
 ## Complete: Defense And Console Follow-Up
 
 Latest #commit is complete: application ad22fc7 is pushed and verified on Render. Read DEFENSE-CONSOLE-PASS.md. All 145 automated tests passed, plus local laser, sensor GM/two-PC, 12 cockpit mouse orders and shield browser checks. Hosted verification matched 35 code/style files and 22 optimized images and passed Explore scanning/console/interior checks and a real shared-dice laser attack. Evasion protects all attacks for 20 combat seconds. Fresh/reset Explore has only Nova (six spacecraft skills 2.5) and Space Slug, with real Masking/Defense and no Masking 18 override. Browser scripts closed their test servers and browsers. Gold Standard and existing campaign files remain untouched. Previous sections are historical; wait for user feedback and the next #commit.

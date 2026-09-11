@@ -23,6 +23,7 @@
     const panel = dialog.ownerDocument.createElement('div');panel.className='pilot-command-operations';panel.hidden=true;
     panel.innerHTML=`<div class="command-controls"><label>Detected Ship<select data-command-target></select></label><div class="command-coordinate"><label>Disclosed Q<input type="number" step="1" data-disclosed-q></label><label>Disclosed R<input type="number" step="1" data-disclosed-r></label></div><div class="command-action-row"><button type="button" data-command="hail">Hail Ship</button></div><label>Prepare For<select data-prepared-action>${Object.entries(actions).map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select></label><div class="command-action-row"><button type="button" data-command="team">Team Execution</button></div><div class="command-action-row"><button type="button" data-command="calculation">Preemptive Calculation</button></div></div><div class="command-controls"><h3>Maneuvers</h3><div class="command-action-row"><button type="button" data-command="evade">Evasive Maneuvers</button></div><div class="command-action-row"><button type="button" data-command="ram">Ram</button></div><div class="command-action-row"><button type="button" data-command="skim">Skim</button></div><div data-command-calls></div><p data-command-error role="alert"></p><div data-command-preparations></div></div>`;
     chart.append(panel);
+    const lockControls=dialog.ownerDocument.createElement('div');lockControls.innerHTML='<label>Incoming Lock<select data-break-target aria-label="Incoming targeting ship"></select></label><div class="command-action-row"><button type="button" data-command="break">Break Lock-On</button></div>';panel.querySelectorAll('.command-controls')[1].append(lockControls);
     const stepButton=dialog.ownerDocument.createElement('button');stepButton.type='button';stepButton.textContent='Evade Step';stepButton.hidden=true;
     panel.querySelectorAll('.command-controls')[1].append(stepButton);
     stepButton.onclick=()=>{
@@ -46,15 +47,15 @@
       if(['ram','skim'].includes(body.kind)&&!window.confirm('Confirm collision order? Both ships can take damage, including your own.'))return;
       busy=true;redraw();panel.querySelector('[data-command-error]').textContent='';
       try {
-        if(!body.callId&&body.kind!=='evadeStep')body.trigger=conditionalPayload(dialog);
-        await bridge.action({action:'shipCommand',id:unitId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});
+        if(!body.callId&&!['evadeStep','break'].includes(body.kind))body.trigger=conditionalPayload(dialog);
+        await bridge.action({action:body.kind==='break'?'lockCommand':'shipCommand',id:unitId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});
       }
       catch(error){panel.querySelector('[data-command-error]').textContent=error.message;}
       finally{busy=false;redraw();}
     }
     panel.addEventListener('click',event=>{
       const button=event.target.closest('[data-command]');
-      if(button&&!button.disabled)void send({kind:button.dataset.command,targetId:panel.querySelector('[data-command-target]').value,preparedAction:panel.querySelector('[data-prepared-action]').value,disclosedPosition:{q:Number(panel.querySelector('[data-disclosed-q]').value),r:Number(panel.querySelector('[data-disclosed-r]').value)}});
+      if(button&&!button.disabled)void send({kind:button.dataset.command,targetId:panel.querySelector(button.dataset.command==='break'?'[data-break-target]':'[data-command-target]').value,preparedAction:panel.querySelector('[data-prepared-action]').value,disclosedPosition:{q:Number(panel.querySelector('[data-disclosed-q]').value),r:Number(panel.querySelector('[data-disclosed-r]').value)}});
       const call=event.target.closest('[data-call-action]');if(call&&!call.disabled)void send({kind:call.dataset.callAction,callId:call.dataset.callId});
     });
     function redraw() {
@@ -69,11 +70,13 @@
       }
       const ready=state.activeId===unitId&&!person.delayedAction&&!person.timedAction&&!person.delayTimer&&!person.consoleHold&&!person.shieldRestabilizing;
       const propulsion=window.SAShipNavigation.access(state,person);
+      const incoming=ship.incomingLocks||[],enemy=panel.querySelector('[data-break-target]'),old=enemy.value,enemyHtml=incoming.map(l=>`<option value="${esc(l.shipId)}">${esc(l.title)}</option>`).join('')||'<option value="">No incoming locks</option>';if(enemy.innerHTML!==enemyHtml){enemy.innerHTML=enemyHtml;if(incoming.some(l=>l.shipId===old))enemy.value=old;}
       const mathematics=person.mathematicsSkill??(person.team==='npc'?person.mentalSkill:0);
       panel.querySelectorAll('[data-command]').forEach(button=>{
         const kind=button.dataset.command;
         const reason=busy?'Sending order.':!ready?'Wait for your turn and finish the current action.':['ram','skim','evade'].includes(kind)&&!propulsion?'Operational engines and thrusters required.':['ram','skim','hail'].includes(kind)&&!contacts.length?'No detected ships.':kind==='calculation'&&!(mathematics>=1)?'Requires Mathematics 1 or higher.':'';
         button.disabled=Boolean(reason);button.title=reason||window.SAActionHelp.descriptions[kind]?.[1]||'';
+        if(kind==='break'){const why=!incoming.length?'No incoming locks.':!propulsion?'Working thrusters required.':window.SAShipSensors.masking(state,ship)<=0?'Masking is zero or below: escape enemy sensor range instead.':'';button.disabled ||= Boolean(why);if(why)button.title=why;}
       });
       const calls=(ship.commandSystems?.calls||[]).filter(c=>c.status!=='closed').map(c=>`<div class="command-call"><strong>${esc(c.title)}</strong><span>${esc(c.status)}</span>${c.disclosedPosition?`<small>Disclosed ${c.disclosedPosition.q}, ${c.disclosedPosition.r}</small>`:''}${(c.status==='incoming'?['accept','decline']:['endCall']).map(action=>`<button type="button" data-call-id="${esc(c.id)}" data-call-action="${action}">${({accept:'Accept',decline:'Decline',endCall:'End Call'})[action]}</button>`).join('')}</div>`).join('');
       if(calls!==lastCalls){panel.querySelector('[data-command-calls]').innerHTML=calls;lastCalls=calls;}

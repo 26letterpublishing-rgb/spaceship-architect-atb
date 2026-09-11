@@ -1,5 +1,8 @@
 (function() {
   const descriptions = {
+    lock:['Lock-On','Roll 2D4 + Weapon Systems to meet or exceed target Defense. Failed attempts add +1 to the next attempt against that ship. Locked shots hit automatically but still require a damage roll. One target is free; a second costs 4 AU per 12 combat seconds.'],
+    sicLock:['Lock Component','Requires a ship lock, completed Systems Analysis and shields at zero. Roll Lock-On dice + Sensor Systems against Defense. Hull damage also impairs the selected component once per damage threshold. Restored shields or a lost ship lock removes the component lock.'],
+    break:['Break Lock-On','Roll Evade dice + Pilot/Helm to meet 13. Requires working thrusters. If your Masking is zero or below, maneuvers cannot break the lock: leave enemy sensor range instead.'],
     team:['Team Execution','Prepare a shared roll for a stationed teammate. For 12 combat seconds after input completes, the selected action combines participants\' dice before fusion, uses the highest associated skill, and adds +1 per participant. Your own later roll cannot consume your preparation.'],
     calculation:['Preemptive Calculation','Prepare +2 for the next selected action roll by anyone aboard your ship. Bonuses stack. Expires after your Mathematics skill (rounded down) times 12 combat seconds, measured after input completes. Requires Mathematics 1 or higher.'],
     hail:['Hail Ship','Call a detected ship. Its crew may accept or decline between turns. The call stays open until either side ends it. Choose a disclosed location within 5 Units of your ship; a hidden caller does not reveal its true coordinates.'],

@@ -35,14 +35,16 @@
       const targetId=get('[data-target]').value,spec=window.SAShipWeapons.rollSpec(state,person,{shipId:access.ship.id,targetId}),settings=window.SAShipWeapons.settings(person);
       get('[data-au]').textContent=`${access.ship.auState?.available??access.ship.auState?.current??0} AU AVAILABLE`;
       const surcharge=access.ship.weaponState?.repeatWindow?.[sicId]>0?1:0;
+      const cost=5-Number(get('[data-sacrifice]').value)+surcharge,available=access.ship.auState?.available??access.ship.auState?.current??0,lock=access.ship.lockState?.targets?.find(l=>l.targetId===targetId);
+      get('[data-warning]').textContent=cost>available?`Not enough Auxiliary power: need ${cost}, have ${available}.`:`${cost} AU committed on fire; ${Number((available-cost).toFixed(1))} AU left. ${lock?'Locked shot: automatic hit, then roll damage.':'Accuracy roll, input delay, then damage roll if it hits.'}`;
       [...get('[data-sacrifice]').options].forEach(option=>{const count=Number(option.value);option.textContent=`${count?`Sacrifice ${count}D4`:'Full burst'} / ${5-count+surcharge} AU${surcharge?' (repeat fire)':''}`;});
       get('[data-sound]').textContent=bridge.soundEnabled()?'Sound On':'Sound Off';
-      get('[data-formula]').textContent=`Dexterity + Weapon Systems + Hull Size Modifier - range (${spec.range.toFixed(1)} Units). ${spec.difficultyLabel}.`;
-      get('[data-target-status]').textContent=targetId?`TARGET / ${contacts.find(c=>c.id===targetId)?.title}`:'Detect a contact with Sensors before firing.';
+      get('[data-formula]').textContent=lock?`LOCKED / ${Math.max(0,(access.item.impaired?1:4)-Number(get('[data-sacrifice]').value))}D4 damage. No accuracy roll required.`:`Dexterity + Weapon Systems + Hull Size Modifier - range (${spec.range.toFixed(1)} Units). ${spec.difficultyLabel}.`;
+      get('[data-target-status]').textContent=targetId?`TARGET / ${contacts.find(c=>c.id===targetId)?.title} / ${lock?'LOCKED':'MANUAL'} / Defense ${spec.difficulty??'?'}`:'Detect a contact with Sensors before firing.';
       get('[data-factors]').innerHTML=`<span>${bridge.delayIcon(1)} Weapon Grade</span><span>${bridge.delayIcon(settings.factors.Ingenuity)} Operator Sync</span><span>FAST<br>${(100/settings.rate).toFixed(1)} SEC</span>`;
       get('[data-input]').value=pending?.weaponOrder&&!pending.awaitingRoll?100-pending.remaining:0;
       get('[data-input-text]').textContent=pending?.awaitingRoll?'Awaiting dice confirmation':pending?.weaponOrder?`Firing in ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Fire control ready';
-      get('[data-fire]').disabled=busy||!ready||!targetId;get('[data-sacrifice]').disabled=busy||Boolean(pending);
+      get('[data-fire]').disabled=busy||!ready||!targetId||cost>available;get('[data-sacrifice]').disabled=busy||Boolean(pending);
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!ready&&!person.consoleHold);get('[data-leave]').disabled=busy||!ready;
       const reports=(access.ship.weaponState?.reports||[]).map(e=>`<article class="${e.hit?'weapon-hit':e.shot?'weapon-miss':''}"><time>${esc(new Date(e.at).toLocaleTimeString())}</time><p>${esc(e.text)}</p>${e.dice?.length?`<small>Damage dice ${e.dice.join(' + ')}</small>`:''}</article>`).join('')||'<p>No shots fired.</p>';
       if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;}
@@ -60,6 +62,7 @@
   window.SAWeaponConsoleUI={open,isOpen:()=>Boolean(dialog)};
   const seen=new Set();let initialized=false;
   function effects(){
+    if(window.SACombatFeedback)return;
     const state=window.SACombatBridge?.state();if(!state)return;
     const reports=state.starships.flatMap(s=>(s.weaponState?.reports||[]).map(e=>({...e,shipId:s.id})));
     for(const e of reports){if(seen.has(e.id))continue;seen.add(e.id);if(!initialized||!e.shot||Date.now()-Date.parse(e.at)>3000)continue;

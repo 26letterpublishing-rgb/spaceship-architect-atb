@@ -1781,8 +1781,9 @@ window.SACombatBridge = {
   soundEnabled: () => mode === 'gm' ? !gmSoundsMuted : alertsEnabled,
   soundIcon: () => gmMuteSound.innerHTML,
   toggleSound: () => gmMuteSound.click(),
-  pilotRings: () => (state?.starships || []).filter(ship=>!ship.contactOnly).map(ship => tacticalRingSingleMarkup(
-    state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
+  pilotRings: () => (state?.starships || []).filter(ship=>!ship.contactOnly).map(ship => ship.analyzedContact&&!ship.lifeScanKnown
+    ? `<section class="tactical-ring-group"><h3>${escapeHtml(ship.title)}</h3><p>Life Scan required for crew timeline.</p></section>`
+    : tacticalRingSingleMarkup(state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
   state: () => state,
   mode: () => mode,
   myUnitId: () => myUnitId,
