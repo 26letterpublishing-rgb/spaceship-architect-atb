@@ -181,5 +181,6 @@
 :is(.sic-grid-label,.player-ship-label,.combat-map-label){white-space:normal;text-align:center;line-height:1.15;overflow-wrap:anywhere}
 .combat-map-label{z-index:10;font-size:11px}
 .sa-offline-shade{position:absolute;inset:0;background:#74797b;z-index:2;pointer-events:none}
+.ship-grid .ship-grid-cell.has-sic:has(>.sa-exterior-weapon),.player-starship-map .player-ship-cell.sic:has(>.sa-exterior-weapon),.combat-map-grid .combat-map-square.sic:has(>.sa-exterior-weapon){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
 .sa-reboot-status{position:absolute;left:2px;bottom:3px;z-index:18;color:#fff;background:#152329;padding:2px;font:10px Arial;white-space:nowrap;pointer-events:none}
 .sa-exterior-weapon{display:block;pointer-events:none;z-index:9}.sa-exterior-weapon img{filter:brightness(.6) grayscale(1)}:is(.high-resolution,.hull-view) .sa-exterior-weapon img{filter:none}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon)::after{display:none!important}.sa-exterior-weapon~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}

@@ -13,10 +13,12 @@
       if(!view.querySelector('[data-rings]')){const rings=doc.createElement('section');rings.className='shared-timeline';rings.innerHTML='<h3>Combat Timeline</h3><div class="pilot-rings" data-rings></div>';view.append(rings);}
       const seat=view.querySelector('.weapon-seat,.sensor-seat-actions,.shield-navigation-actions,.lock-seat');if(seat){seat.classList.add('shared-seat');view.append(seat);}
     }
+    const defense=doc.createElement('strong');defense.className='console-defense';defense.setAttribute('aria-label','Own ship Defense');view.querySelector('header>div')?.append(defense);
     let lastRings='',lastFleet='';
     function tick(){
       const state=b.state(),person=state.units.find(u=>u.id===unit.id),ship=state.starships.find(s=>s.id===person?.location?.starshipId);if(!ship)return;
       const au=ship.auState||{},available=au.available??au.current??0;
+      defense.textContent=`DEFENSE ${ship.defenseScore??'?'}`+(view.classList.contains('combat-order-dialog')?` / AU ${Number(available.toFixed(1))} of ${au.maximum||0}`:'');
       if(!pilot){
         view.querySelector('[data-common-au]').textContent=`${Number(available.toFixed(1))} / ${au.maximum||0} AU`;
         view.querySelector('[data-common-recharge]').value=au.current>=au.maximum?100:au.progress||0;

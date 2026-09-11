@@ -30,6 +30,8 @@ async function main(){
   const pcs=[];
   for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);}
   const [pc,eng]=pcs;
+  await pc.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(pilot.id);
+  await eng.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(engineer.id);
   await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   await eng.getByRole('dialog',{name:'Shield console',exact:true}).waitFor();
   assert.equal(await gm.locator('.ship-navigation-dialog,.shield-console-dialog').count(),0,'PC consoles do not appear for the GM');
@@ -41,6 +43,7 @@ async function main(){
   await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sh');
   const remote=pc.getByRole('dialog',{name:'Shield console',exact:true}),local=eng.getByRole('dialog',{name:'Shield console',exact:true});
+  assert.match(await remote.locator('.console-defense').innerText(),/DEFENSE -?\d/);
   await remote.waitFor();assert.match(await remote.locator('[data-connection]').innerText(),/REMOTE ACCESS/);assert.match(await local.locator('[data-connection]').innerText(),/LOCAL STATION/);
   assert.equal(await local.getByRole('button',{name:'Restabilize Shield',exact:true}).isEnabled(),false);
   assert.equal(await local.getByRole('button',{name:'Reinforce Field',exact:true}).isEnabled(),true);

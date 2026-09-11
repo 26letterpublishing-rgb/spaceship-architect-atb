@@ -1301,6 +1301,258 @@
     "webBytes": 154236,
     "alpha": false
   },
+  "lock-on-10-card.png": {
+    "file": "lock-on-10-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 2087215,
+    "webBytes": 42920,
+    "alpha": false
+  },
+  "lock-on-10-floor-plan.png": {
+    "file": "lock-on-10-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2640549,
+    "webBytes": 395218,
+    "alpha": false
+  },
+  "lock-on-2-card.png": {
+    "file": "lock-on-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1795047,
+    "webBytes": 29844,
+    "alpha": false
+  },
+  "lock-on-2-floor-plan.png": {
+    "file": "lock-on-2-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2565929,
+    "webBytes": 140482,
+    "alpha": false
+  },
+  "lock-on-3-card.png": {
+    "file": "lock-on-3-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1967359,
+    "webBytes": 35254,
+    "alpha": false
+  },
+  "lock-on-3-floor-plan.png": {
+    "file": "lock-on-3-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2527322,
+    "webBytes": 144276,
+    "alpha": false
+  },
+  "lock-on-4-card.png": {
+    "file": "lock-on-4-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1985144,
+    "webBytes": 35506,
+    "alpha": false
+  },
+  "lock-on-4-floor-plan.png": {
+    "file": "lock-on-4-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2676019,
+    "webBytes": 160114,
+    "alpha": false
+  },
+  "lock-on-5-card.png": {
+    "file": "lock-on-5-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1892497,
+    "webBytes": 33294,
+    "alpha": false
+  },
+  "lock-on-5-floor-plan.png": {
+    "file": "lock-on-5-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2799302,
+    "webBytes": 305720,
+    "alpha": false
+  },
+  "lock-on-6-card.png": {
+    "file": "lock-on-6-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1893457,
+    "webBytes": 32760,
+    "alpha": false
+  },
+  "lock-on-6-floor-plan.png": {
+    "file": "lock-on-6-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2840458,
+    "webBytes": 321832,
+    "alpha": false
+  },
+  "lock-on-7-card.png": {
+    "file": "lock-on-7-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1614581,
+    "webBytes": 27242,
+    "alpha": false
+  },
+  "lock-on-7-floor-plan.png": {
+    "file": "lock-on-7-floor-plan-web.webp",
+    "sourcePixels": [
+      1774,
+      887
+    ],
+    "webPixels": [
+      1440,
+      720
+    ],
+    "sourceBytes": 2736859,
+    "webBytes": 304024,
+    "alpha": false
+  },
+  "lock-on-8-card.png": {
+    "file": "lock-on-8-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1969353,
+    "webBytes": 36590,
+    "alpha": false
+  },
+  "lock-on-8-floor-plan.png": {
+    "file": "lock-on-8-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2605907,
+    "webBytes": 381192,
+    "alpha": false
+  },
+  "lock-on-9-card.png": {
+    "file": "lock-on-9-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1973716,
+    "webBytes": 36624,
+    "alpha": false
+  },
+  "lock-on-9-floor-plan.png": {
+    "file": "lock-on-9-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 2721399,
+    "webBytes": 413516,
+    "alpha": false
+  },
   "nutritional-supplement-floor-plan.png": {
     "file": "nutritional-supplement-floor-plan-web.webp",
     "sourcePixels": [
@@ -1453,6 +1705,118 @@
     ],
     "sourceBytes": 1017631,
     "webBytes": 61264,
+    "alpha": true
+  },
+  "rapid-laser-2-card.png": {
+    "file": "rapid-laser-2-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1266733,
+    "webBytes": 25548,
+    "alpha": true
+  },
+  "rapid-laser-2-sprite.png": {
+    "file": "rapid-laser-2-sprite-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 1266733,
+    "webBytes": 81136,
+    "alpha": true
+  },
+  "rapid-laser-3-card.png": {
+    "file": "rapid-laser-3-card-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      180,
+      360
+    ],
+    "sourceBytes": 1452165,
+    "webBytes": 17764,
+    "alpha": true
+  },
+  "rapid-laser-3-sprite.png": {
+    "file": "rapid-laser-3-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      720,
+      1440
+    ],
+    "sourceBytes": 1452165,
+    "webBytes": 174456,
+    "alpha": true
+  },
+  "rapid-laser-4-card.png": {
+    "file": "rapid-laser-4-card-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      180,
+      360
+    ],
+    "sourceBytes": 1546187,
+    "webBytes": 19460,
+    "alpha": true
+  },
+  "rapid-laser-4-sprite.png": {
+    "file": "rapid-laser-4-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      720,
+      1440
+    ],
+    "sourceBytes": 1546187,
+    "webBytes": 174650,
+    "alpha": true
+  },
+  "rapid-laser-5-card.png": {
+    "file": "rapid-laser-5-card-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      180,
+      360
+    ],
+    "sourceBytes": 1621381,
+    "webBytes": 19806,
+    "alpha": true
+  },
+  "rapid-laser-5-sprite.png": {
+    "file": "rapid-laser-5-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      720,
+      1440
+    ],
+    "sourceBytes": 1621381,
+    "webBytes": 177586,
     "alpha": true
   },
   "sensor-console-background.png": {

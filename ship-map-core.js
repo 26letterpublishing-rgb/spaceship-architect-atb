@@ -27,6 +27,19 @@
     "nutritional-supplement": { width: 1, height: 1, label: "NUT.", color: "#197a6f", image: image("nutritional-supplement-floor-plan.png"), output: 0, stations: [] },
   };
 
+  const lockDice = [[2,4],[3,4],[2,6],[3,6],[2,8],[3,8],[2,10],[3,10],[2,12],[4,12]];
+  const impairedLockDice = [[2,2],[3,2],[2,4],[3,4],[2,6],[3,6],[2,8],[3,8],[2,10],[2,12]];
+  const lockSizes = [[1,1],[1,1],[1,1],[1,1],[2,1],[2,1],[2,1],[2,2],[2,2],[2,2]];
+  const lockCraft = ['Paradon, 6 hrs','Argol, 10 hrs','Mirium, 16 hrs','Drakkonite, 2 days','Phazon, 3 days','Necronium, 3 days','Endernium, 1 week','Dark Phazon, 1 week','Infinium, 10 days','Aethion, 3 weeks'];
+  for(let tier=1;tier<=10;tier++){
+    const n=tier-1,type=`lock-on-${tier}`;
+    catalog[type]={...catalog['lock-on-1'],name:`Lock-On System ${tier}`,label:`LO ${tier}`,tier,width:lockSizes[n][0],height:lockSizes[n][1],price:[560,1600,3300,4500,8000,22000,24000,68000,108000,236000][n],energyCost:[1,1,1,2,2,2,3,3,3,4][n],security:Math.ceil(tier/2),threshold:tier*3,crafting:lockCraft[n],cardNumber:tier<=8?`A-${36+tier}`:`B-${22+tier}`,lockDice:Array(lockDice[n][0]).fill(lockDice[n][1]),impairedLockDice:Array(impairedLockDice[n][0]).fill(impairedLockDice[n][1]),breakDifficulty:12+tier,extraTargetAu:[4,4,3,3,2,2,1,1,0,0][n],maxTargets:tier>=9?6:2,unlimitedTargets:tier>=9,image:image(`${type}-floor-plan.png`)};
+  }
+  for(let tier=1;tier<=5;tier++){
+    const n=tier-1,type=`rapid-laser-${tier}`;
+    catalog[type]={...catalog['rapid-laser-1'],name:`Rapid Laser ${tier}`,label:`RL ${tier}`,tier,width:1,height:tier>=3?2:1,price:[450,850,2200,4100,5300][n],energyCost:tier,security:[1,1,2,3,4][n],threshold:2+tier*2,crafting:['Crystilium, 4 hrs','Crystilium, 4 hrs','Drakkonite, 10 hrs','Xpidinium, 1 day','Ragnaron, 1 day'][n],cardNumber:tier<=3?`A-${99+tier}`:`B-${78+tier}`,damageDie:[4,6,8,10,12][n],fireAu:5,image:image(`${type}-sprite.png`),sprite:`${type}-sprite.png`};
+  }
+
   Object.assign(catalog, {
     "au-engine-1": { ...catalog["en-engine-1"], label: "AU 1", color: "#886b28", output: 0, auOutput: 3, price: 1200, security: 3, crafting: "Drakkonite, 16 hrs", threshold: 8, cardNumber: "A-19", image: image("au-engine-1-floor-plan.png") },
     "au-engine-2": { ...catalog["en-engine-2"], label: "AU 2", color: "#886b28", output: 0, auOutput: 7, price: 2800, security: 3, crafting: "Phazon, 16 hrs", threshold: 11, cardNumber: "A-20", image: image("au-engine-2-floor-plan.png") },
@@ -268,7 +281,7 @@
     if (sic.offset) return '<span class="sa-exterior-tile" aria-hidden="true"></span>';
     const data = definition(sic.type), angle = exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
-    if (data.weapon) return `<span class="sa-exterior-weapon" style="position:absolute;inset:0;transform:rotate(${angle + 180}deg);opacity:${active ? 1 : .35}" aria-hidden="true"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"></span>`;
+    if (data.weapon) return `<span class="sa-exterior-weapon" style="position:absolute;left:0;top:0;width:${sic.width*100}%;height:${sic.height*100}%;opacity:${active ? 1 : .35}" aria-hidden="true"><span style="position:absolute;left:50%;top:50%;width:${sideways?sic.height/sic.width*100:100}%;height:${sideways?sic.width/sic.height*100:100}%;transform:translate(-50%,-50%) rotate(${angle+180}deg)"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"></span></span>`;
     const jetClass = data.ionic ? "sa-ion-pulse" : "sa-thruster-flame";
     // Emission points are measured in the sprite frame, then transformed with the complete assembly.
     const jets = (data.emitters || []).map(([x,y,width], index) => `<i class="${jetClass}" style="left:${8 + .84 * (x - width / 2)}%;top:${-2 + .76 * y}%;width:${.84 * width}%;animation-delay:${index * -.8}s"></i>`).join("");

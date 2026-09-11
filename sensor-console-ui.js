@@ -99,7 +99,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
         payload={action:'sensorCommand',id:unit.id,sicId,kind:order.dataset.order,targetId:get('[data-target]').value,targetIds:targetIds.length?targetIds:[get('[data-target]').value],area,hex:{q:Number(q.value),r:Number(r.value)},requestId:crypto.randomUUID()};}
       if(order)payload.trigger=window.SAShipCommandUI.conditionalPayload(view);
       busy=true;get('[data-error]').textContent='';redraw();
-      try{await bridge.action(payload,'resolve',{throwOnError:true});}catch(error){get('[data-error]').textContent=error.message;}finally{busy=false;if(view.isConnected)redraw();}
+      try{await bridge.action(payload,'resolve',{throwOnError:true});if(view.classList.contains('combat-order-dialog'))view.close();}catch(error){get('[data-error]').textContent=error.message;}finally{busy=false;if(view.isConnected)redraw();}
     });
     const dismiss=()=>window.SAShipNavigationUI.remember(bridge.state().units.find(u=>u.id===unit.id));
     get('[data-close]').onclick=()=>{dismiss();view.close();};

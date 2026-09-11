@@ -27,3 +27,56 @@ test('breaking an incoming lock does not require owning a Lock-On SIC',()=>{
   const {room,a,b,unit}=fixture();a.ship.sicInventory=a.ship.sicInventory.filter(i=>i.id!=='lock');
   locks.state(b).targets.push({targetId:'a',remaining:12});assert.ok(queue(room,unit,'b','break').ok);resolve(room,unit,13);assert.equal(b.lockState.targets.length,0);
 });
+
+test('all targeting grades use printed dice, impairment dice, break difficulty and Quality',()=>{
+  const normal=[[4,4],[4,4,4],[6,6],[6,6,6],[8,8],[8,8,8],[10,10],[10,10,10],[12,12],[12,12,12,12]];
+  const impaired=[[2,2],[2,2,2],[4,4],[4,4,4],[6,6],[6,6,6],[8,8],[8,8,8],[10,10],[12,12]];
+  for(let tier=1;tier<=10;tier++){
+    const {room,a,unit}=fixture(),item=a.ship.sicInventory.find(i=>i.id==='lock');item.type=`lock-on-${tier}`;
+    assert.ok(queue(room,unit).ok);assert.deepEqual(unit.delayedAction.rollSpec.sides,normal[tier-1]);assert.equal(unit.delayedAction.settings.factors.Quality,Math.min(4,tier));
+    unit.delayedAction=null;item.impaired=true;assert.ok(queue(room,unit).ok);assert.deepEqual(unit.delayedAction.rollSpec.sides,impaired[tier-1]);
+    assert.equal(maps.definition(item.type).breakDifficulty,12+tier);
+  }
+});
+
+test('tiered upkeep and unlimited locks retain source hardware across save and impairment',()=>{
+  for(let tier=1;tier<=10;tier++){
+    const {room,a,unit}=fixture();a.ship.sicInventory.find(i=>i.id==='lock').type=`lock-on-${tier}`;
+    queue(room,unit);resolve(room,unit,10);const before=a.auState.current,cost=maps.definition(`lock-on-${tier}`).extraTargetAu;
+    assert.ok(queue(room,unit,'c').ok);assert.equal(a.auState.current,before-cost);resolve(room,unit,10);
+    a.auState.current=0;locks.refresh(room,12);assert.equal(a.lockState.targets.length,tier>=9?2:1);
+    if(tier>=9){const saved=JSON.parse(JSON.stringify(room));locks.refresh(saved,3600);assert.equal(saved.starships[0].lockState.targets.length,2);}
+  }
+});
+
+test('separate targeting hardware retains independent capacity and impairment state',()=>{
+  const {room,a,unit}=fixture();a.ship.sicInventory.push({id:'lock2',type:'lock-on-2'});a.ship.placements.push({sicId:'lock2',cell:45});
+  assert.ok(queue(room,unit,'b','lock',{sicId:'lock'}).ok);resolve(room,unit,10);const before=a.auState.current;
+  assert.ok(queue(room,unit,'c','lock',{sicId:'lock2'}).ok);resolve(room,unit,10);assert.equal(a.auState.current,before);
+  a.ship.sicInventory.find(i=>i.id==='lock').impairmentPoints=1;locks.refresh(room);assert.deepEqual(a.lockState.targets.map(l=>l.targetId),['c']);
+});
+
+test('higher lasers explicitly request their actual damage dice and validate manual totals',()=>{
+  for(let tier=1;tier<=5;tier++){
+    const {room,a,b,unit}=fixture();a.ship.sicInventory.find(i=>i.id==='gun').type=`rapid-laser-${tier}`;if(tier>=3)a.ship.placements.find(p=>p.sicId==='gun').cell=2;
+    queue(room,unit);resolve(room,unit,10);assert.ok(weapons.queue(room,unit,{sicId:'gun',targetId:'b',requestId:`tier-fire-${tier}`}).ok);
+    assert.equal(unit.delayedAction.settings.factors.Quality,Math.min(4,tier));weapons.resolveInput(room,unit,()=>{throw Error('Automatic roll');});
+    const sides=2+tier*2;assert.deepEqual(unit.delayedAction.rollSpec.sides,Array(4).fill(sides));assert.equal(b.currentHullHp,40);
+    assert.throws(()=>weapons.resolveDamage(room,unit,[],4*sides+1));weapons.resolveDamage(room,unit,[],4*sides);assert.equal(b.currentHullHp,Math.max(0,40-4*sides));
+  }
+});
+
+test('rectangular lasers keep one complete transparent assembly on every mount',()=>{
+  for(let tier=3;tier<=5;tier++)for(const rotation of [0,90]){
+    const item={id:'laser',type:`rapid-laser-${tier}`,rotation},d=maps.componentDefinition(item),origin=126;
+    for(const [mount,angle] of [[origin-20,0],[origin+d.width,90],[origin+d.height*20,180],[origin-1,270]]){
+      const ship={gridCells:[mount],sicInventory:[item],placements:[{sicId:item.id,cell:origin}]},layout=maps.buildLayout(ship);
+      assert.equal(maps.exteriorError(ship),'');assert.equal(layout.footprint.size,2);
+      assert.equal(maps.exteriorFacing(layout,origin),angle);
+      const markup=maps.surfaceMarkup(layout,origin);
+      assert.ok(markup.includes(`width:${d.width*100}%;height:${d.height*100}%`));
+      assert.ok(markup.includes(`rotate(${angle+180}deg)`));
+      const next=origin+(d.width>1?1:20);assert.doesNotMatch(maps.surfaceMarkup(layout,next),/<img/);
+    }
+  }
+});

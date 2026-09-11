@@ -1759,7 +1759,8 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
   }
   try {
     const nextState = await response.json();
-    receiveState(nextState, { force: true });
+    // A slow action response must not replace a newer live encounter update.
+    receiveState(nextState);
   } catch {
     setConnected(false, "The ATB room server sent an unreadable response. Try again.");
     if (throwOnError) throw new Error("The response was interrupted. Check the ship's current order before retrying.");
@@ -4382,12 +4383,14 @@ window.addEventListener("sa-npc-dice-ready", () => {
 let visibleRecoveryTimer = null;
 async function recoverVisibleCombatState() {
   if (document.hidden || !currentRoomCode || mode === "welcome" || mode === "roomJoin" || mode === "join") return;
+  const startingRevision = state?.revision;
   try {
     const response = await fetch(encounterStateUrl()+`&recover=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) return;
     lastCombatPromptKey = "";
     gmNpcPromptSignature = "";
-    receiveState(await response.json(), { force: true });
+    const recovered = await response.json();
+    receiveState(recovered, { force: state?.revision === startingRevision });
     connectEvents();
   } catch { /* The normal connection banner reports unavailable service. */ }
 }

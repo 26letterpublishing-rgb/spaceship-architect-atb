@@ -48,7 +48,7 @@
       busy=true;redraw();panel.querySelector('[data-command-error]').textContent='';
       try {
         if(!body.callId&&!['evadeStep','break'].includes(body.kind))body.trigger=conditionalPayload(dialog);
-        await bridge.action({action:body.kind==='break'?'lockCommand':'shipCommand',id:unitId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});
+        await bridge.action({action:body.kind==='break'?'lockCommand':'shipCommand',id:unitId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});if(dialog.classList.contains('combat-order-dialog'))dialog.close();
       }
       catch(error){panel.querySelector('[data-command-error]').textContent=error.message;}
       finally{busy=false;redraw();}

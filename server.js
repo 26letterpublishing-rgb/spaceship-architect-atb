@@ -261,7 +261,7 @@ function publicState(room) {
   if(room.starships.length>1&&survivors.length===1&&room.units.some(u=>u.team==='pc'&&u.location?.starshipId===survivors[0].id)&&!survivors[0].victoryAt){survivors[0].victoryAt=new Date().toISOString();pushLog(room,`VICTORY: ${survivors[0].title} is the last surviving ship.`,{starshipId:survivors[0].id,victory:true});}
   recordShipReports(room,()=>shipSensors.refresh(room));
   recordShipReports(room,()=>shipLocks.refresh(room));
-  for(const ship of room.starships)ship.incomingLocks=room.starships.flatMap(other=>(other.lockState?.targets||[]).filter(t=>t.targetId===ship.id).map(()=>({shipId:other.id,title:ship.sensorState?.contacts?.[other.id]?.level==='detected'?other.title:'Unknown attacker'})));
+  for(const ship of room.starships)ship.incomingLocks=room.starships.flatMap(other=>(other.lockState?.targets||[]).filter(t=>t.targetId===ship.id).map(()=>({shipId:other.id,breakDifficulty:shipLocks.breakDifficulty(other,ship.id),title:ship.sensorState?.contacts?.[other.id]?.level==='detected'?other.title:'Unknown attacker'})));
   for(const ship of room.starships){ship.defenseScore=shipSensors.defense(room,ship);ship.evasionRemaining=Math.max(0,...(ship.commandSystems?.evasions||[]).map(e=>e.remaining??20));}
   migrateRoomDelays(room);
   const command = commandState(room);
@@ -2028,7 +2028,7 @@ async function handleRoomAction(body, res) {
       const ship=room.starships.find(s=>s.id===(queued?.armed.order.shipId||playerUnit.location?.starshipId)),previous=ship?.sensorState?.reports?.[0];
       if(pending?.weaponDamage){
         const count=pending.weaponDamage.count,score=submitted.length?submitted.reduce((a,b)=>a+b,0):body.score;
-        if(!Number.isInteger(score)||score<count||score>count*4){sendJson(res,400,{error:'Damage total is outside the requested dice range.'});return;}
+        if(!Number.isInteger(score)||score<count||score>count*(pending.weaponDamage.dieSides||4)){sendJson(res,400,{error:'Damage total is outside the requested dice range.'});return;}
         recordShipReports(room,()=>shipWeapons.resolveDamage(room,playerUnit,submitted,score));
       }else if(queued){
         const retry=queued.rollSpec?.retryBonus||0;if(Number.isFinite(rollDie.submittedScore))rollDie.submittedScore-=retry;rollDie.retryBonus=retry;

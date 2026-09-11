@@ -3,7 +3,8 @@
   const combatViews=new Set();
   const selectedConsoles=new Map();
   const rememberedConsole=key=>{try{return sessionStorage.getItem('sa-console:'+key);}catch{return null;}};
-  function remember(unit){combatViews.add(seatKey(unit));}
+  function remember(unit){combatViews.add(seatKey(unit));try{sessionStorage.setItem('sa-console-view:'+seatKey(unit),'combat');}catch{}}
+  const rememberedView=key=>{try{return sessionStorage.getItem('sa-console-view:'+key);}catch{return null;}};
   function mountSelector(container,unit,currentId,close){
     const select=container.ownerDocument.createElement('select');select.className='station-console-select';select.setAttribute('aria-label','Station console');
     const choices=window.SAStationAccess.consoles(window.SACombatBridge.state(),unit);
@@ -32,8 +33,12 @@
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
   function open(unit,{compact=false}={}){
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
+    let root=document;try{while(root.defaultView.frameElement)root=root.defaultView.parent.document;}catch{}
+    const closing=root.querySelector('dialog[data-operator-id]:not([open])');
+    if(closing){closing.addEventListener('close',()=>setTimeout(()=>open(unit,{compact}),0),{once:true});return;}
     if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen()||window.SAWeaponConsoleUI?.isOpen()||window.SALockConsoleUI?.isOpen())return;
     const selected=choices.find(a=>a.item.id===(selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
+    if(!compact){selectedConsoles.set(seatKey(unit),selected.item.id);try{sessionStorage.setItem('sa-console:'+seatKey(unit),selected.item.id);sessionStorage.setItem('sa-console-view:'+seatKey(unit),'console');}catch{}}
     if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
     if(!compact&&selected.kind==='sensor'){combatViews.delete(seatKey(unit));window.SASensorConsoleUI.open(unit,selected.item.id);return;}
     if(!compact&&selected.kind==='weapon'){combatViews.delete(seatKey(unit));window.SAWeaponConsoleUI.open(unit,selected.item.id);return;}
@@ -185,7 +190,7 @@
     form.addEventListener('input',e=>{if([q,r].includes(e.target)){locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
     for(const zoom of form.querySelectorAll('[data-zoom]'))zoom.onclick=()=>{autoFit=false;auto.setAttribute('aria-pressed','false');const v=svg.viewBox.baseVal,w=Math.max(.01,Math.min(10000000,v.width*Number(zoom.dataset.zoom))),h=w*(svg.clientWidth?svg.clientHeight/svg.clientWidth:originalBox[3]/originalBox[2]),x=v.x+(v.width-w)/2,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${x} ${y} ${w} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [k,val] of Object.entries({x,y,width:w,height:h}))rect.setAttribute(k,val);redraw();};
     form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',destination:{...destination},boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
-    const rememberDismissal=()=>{combatViews.add(seatKey(bridge.state().units.find(u=>u.id===pilotId)));};
+    const rememberDismissal=()=>remember(bridge.state().units.find(u=>u.id===pilotId));
     form.querySelector('[data-leave]').onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;rememberDismissal();dialog.close();window.SACombatMap.openMove(pilot);};
     form.querySelector('[data-close]').onclick=()=>{rememberDismissal();dialog.close();};
     form.querySelector('[data-sound]').onclick=()=>{bridge.toggleSound();redraw();};
@@ -200,7 +205,7 @@
     const bridge=window.SACombatBridge;
     if(bridge.mode()!=='player'||unit?.id!==bridge.myUnitId())return;
     let owner=window;try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)return;owner=owner.parent;}}catch{return;}
-    if(window.SAStationAccess.consoles(bridge.state(),unit).length&&!combatViews.has(seatKey(unit)))open(unit);
+    if(window.SAStationAccess.consoles(bridge.state(),unit).length&&rememberedView(seatKey(unit))==='console'&&!combatViews.has(seatKey(unit)))open(unit);
   }
   const observe=state=>{
     for(const key of combatViews){if(!state.units.some(unit=>seatKey(unit)===key&&window.SAStationAccess.consoles(state,unit).length)){combatViews.delete(key);selectedConsoles.delete(key);}}
@@ -208,13 +213,14 @@
     queueMicrotask(()=>{const bridge=window.SACombatBridge;if(bridge?.mode()==='player')sync(bridge.state()?.units.find(unit=>unit.id===bridge.myUnitId()));});
   };
   function openAction(unit,sicId,selector,tab){
+    if(selector==='[data-move-ship]'){open(unit,{compact:true});return;}
+    if(selector==='[data-command="evade"]'){void window.SACombatOrderUI.evade(unit);return;}
     selectedConsoles.set(seatKey(unit),sicId);open(unit);
     let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
     const view=doc.querySelector('dialog[data-operator-id="'+CSS.escape(unit.id)+'"]');if(!view)return;
     if(tab){view.querySelector('[data-command-page]')?.click();[...view.querySelectorAll('.command-tabs button')].find(b=>b.textContent===tab)?.click();}
     if(view.classList.contains('lock-console')){const name=selector==='[data-break]'?'Incoming':selector==='[data-sic]'?'Component':'Ship';[...view.querySelectorAll('.lock-mode-tabs button')].find(b=>b.textContent===name)?.click();}
-    const control=view.querySelector(selector);control?.scrollIntoView({block:'nearest'});control?.focus();
-    if(control){control.animate([{boxShadow:'0 0 18px #ffde68'},{boxShadow:'0 0 0 transparent'}],{duration:1100});}
+    remember(unit);window.SACombatOrderUI.prepare(view,unit,selector,tab);
   }
   window.SAShipNavigationUI={open,sync,observe,toggleHold,mountSelector,remember,openAction};
 }());

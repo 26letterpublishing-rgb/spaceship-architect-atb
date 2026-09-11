@@ -1,8 +1,8 @@
 (function() {
   const descriptions = {
-    lock:['Lock-On','Roll 2D4 + Weapon Systems to meet or exceed target Defense. Failed attempts add +1 to the next attempt against that ship. Locked shots hit automatically but still require a damage roll. One target is free; a second costs 4 AU per 12 combat seconds.'],
+    lock:['Lock-On','Roll the selected system\'s Lock-On dice + Weapon Systems to meet or exceed target Defense. Failed attempts add +1 to the next attempt against that ship. Locked shots hit automatically but still require a damage roll. Each system\'s first target is free; its card lists additional-target AU upkeep per 12 combat seconds. Systems 9 and 10 have no target upkeep.'],
     sicLock:['Lock Component','Requires a ship lock, completed Systems Analysis and shields at zero. Roll Lock-On dice + Sensor Systems against Defense. Hull damage also impairs the selected component once per damage threshold. Restored shields or a lost ship lock removes the component lock.'],
-    break:['Break Lock-On','Roll Evade dice + Pilot/Helm to meet 13. Requires working thrusters. If your Masking is zero or below, maneuvers cannot break the lock: leave enemy sensor range instead.'],
+    break:['Break Lock-On','Roll Evade dice + Pilot/Helm against the incoming Lock-On system\'s break difficulty, shown with that lock. Requires working thrusters. If your Masking is zero or below, maneuvers cannot break the lock: leave enemy sensor range instead.'],
     team:['Team Execution','Prepare a shared roll for a stationed teammate. For 12 combat seconds after input completes, the selected action combines participants\' dice before fusion, uses the highest associated skill, and adds +1 per participant. Your own later roll cannot consume your preparation.'],
     calculation:['Preemptive Calculation','Prepare +2 for the next selected action roll by anyone aboard your ship. Bonuses stack. Expires after your Mathematics skill (rounded down) times 12 combat seconds, measured after input completes. Requires Mathematics 1 or higher.'],
     hail:['Hail Ship','Call a detected ship. Its crew may accept or decline between turns. The call stays open until either side ends it. Choose a disclosed location within 5 Units of your ship; a hidden caller does not reveal its true coordinates.'],
@@ -20,9 +20,11 @@
   function open(key, owner = document) {
     const copy = descriptions[key];
     if (!copy) return;
+    try { while (owner.defaultView.frameElement) owner = owner.defaultView.parent.document; } catch {}
     if (active) {active.close();active.remove();}
     const dialog = owner.createElement('dialog'); active = dialog;
     dialog.className = 'ship-action-help';
+    dialog.setAttribute('aria-label',copy[0]);
     dialog.style.cssText = 'max-width:440px;width:calc(100vw - 48px);padding:22px;background:#08191f;color:#e9f7fb;border:1px solid #57c8db;border-radius:6px;font:15px/1.5 Arial,sans-serif';
     const heading=owner.createElement('h2');heading.textContent=copy[0];heading.style.cssText='font-size:20px;margin:0 0 12px';
     const text=owner.createElement('p');text.textContent=copy[1];

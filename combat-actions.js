@@ -437,18 +437,37 @@
     window.SAShipNavigationUI.sync(mine,isMyTurn);
     for(const group of document.querySelectorAll('.combat-action-grid'))group.classList.toggle('pilot-station-actions',Boolean(seated));
     for(const group of document.querySelectorAll('.combat-action-grid')){
-      let shortcuts=group.querySelector('[data-station-shortcuts]');if(!shortcuts){shortcuts=document.createElement('div');shortcuts.dataset.stationShortcuts='';shortcuts.style.cssText='display:grid;grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-height:170px;overflow:auto';group.append(shortcuts);}
-      const entries=consoles.flatMap(a=>a.kind==='weapon'?[[`Fire ${a.definition.name}`,'[data-fire]','',a.id]]:a.kind==='sensor'?['area','hex','analysis','life','share'].map((kind,i)=>[['Scan Area','Scan Hex','Systems Analysis','Life Scan','Share Data'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='shield'?['restore','reinforce','restabilize'].map((kind,i)=>[['Restore Shield HP','Reinforce Field','Restabilize Shield'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='lock'?[['Lock-On','[data-lock]','',a.id],['Lock Component','[data-sic]','',a.id],['Break Lock-On','[data-break]','',a.id]]:a.kind==='pilot'?[['Hail Ship','[data-command="hail"]','Hail',a.id],['Team Execution','[data-command="team"]','Preparation',a.id],['Preemptive Calculation','[data-command="calculation"]','Preparation',a.id],['Evasive Maneuvers','[data-command="evade"]','Maneuvers',a.id],['Ram','[data-command="ram"]','Maneuvers',a.id],['Skim','[data-command="skim"]','Maneuvers',a.id]]:[]);
+      let shortcuts=group.querySelector('[data-station-shortcuts]');if(!shortcuts){shortcuts=document.createElement('div');shortcuts.dataset.stationShortcuts='';group.append(shortcuts);}
+      const entries=consoles.flatMap(a=>a.kind==='weapon'?[[`Fire ${a.definition.name}`,'[data-fire]','',a.id]]:a.kind==='sensor'?['area','hex','analysis','life','share'].map((kind,i)=>[['Scan Area','Scan Hex','Systems Analysis','Life Scan','Share Data'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='shield'?['restore','reinforce','restabilize'].map((kind,i)=>[['Restore Shield HP','Reinforce Field','Restabilize Shield'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='lock'?[['Lock-On','[data-lock]','',a.id],['Lock Component','[data-sic]','',a.id],['Break Lock-On','[data-break]','',a.id]]:a.kind==='pilot'?[['Move Ship','[data-move-ship]','',a.id],['Hail Ship','[data-command="hail"]','Hail',a.id],['Team Execution','[data-command="team"]','Preparation',a.id],['Preemptive Calculation','[data-command="calculation"]','Preparation',a.id],['Evasive Maneuvers','[data-command="evade"]','Maneuvers',a.id],['Ram','[data-command="ram"]','Maneuvers',a.id],['Skim','[data-command="skim"]','Maneuvers',a.id]]:[]);
       const helm=consoles.find(a=>a.kind==='pilot');if(helm&&!consoles.some(a=>a.kind==='lock'))entries.push(['Break Lock-On','[data-command="break"]','Maneuvers',helm.id]);
-      const key=JSON.stringify(entries);if(shortcuts.dataset.key!==key){shortcuts.replaceChildren();for(const [label,selector,tab,id] of entries){const button=document.createElement('button');button.type='button';button.textContent=label;button.title=`Choose target and confirm ${label}`;button.onclick=()=>window.SAShipNavigationUI.openAction(currentUnit,id,selector,tab);shortcuts.append(button);}shortcuts.dataset.key=key;}
-      for(const button of shortcuts.children)button.disabled=disabled;
+      const key=JSON.stringify(entries);
+      if(shortcuts.dataset.key!==key){
+        shortcuts.replaceChildren();
+        const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div');resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';secondary.className='station-secondary-actions';shortcuts.append(resources,primary,secondary);
+        for(const [index,[label,selector,tab,id]] of entries.entries()){
+          const button=document.createElement('button'),row=document.createElement('div');row.className='station-action-choice';button.type='button';button.textContent=label;button.dataset.stationOrder=index;
+          button.onclick=()=>window.SAShipNavigationUI.openAction(currentUnit,id,selector,tab);
+          (label.startsWith('Fire ')||['Move Ship','Evasive Maneuvers'].includes(label)?primary:secondary).append(row);row.append(button);
+          const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
+          if(helpKey)window.SAActionHelp.attach(button,helpKey);
+        }
+        shortcuts.dataset.key=key;
+      }
+      const ownShip=consoles[0]?.ship,au=ownShip?.auState||{};
+      shortcuts.querySelector('[data-station-resources]').textContent=ownShip?`DEFENSE ${ownShip.defenseScore??'?'}   |   AU ${Number(Number(au.available??au.current??0).toFixed(1))} / ${au.maximum||0}${au.reserved?` (${au.reserved} reserved)`:''}`:'';
+      for(const button of shortcuts.querySelectorAll('[data-station-order]')){
+        const [label,selector,,id]=entries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
+        const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
+        button.disabled=disabled||Boolean(reason);button.title=reason||(disabled?'Available during your active turn.':label==='Evasive Maneuvers'?'Roll evasion; Defense lasts 20 combat seconds.':`Choose target and confirm ${label}`);
+        button.closest('.station-action-choice').hidden=selector==='[data-order="restabilize"]'&&access?.remote;
+      }
     }
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
       if(kind==='holdConsole'){button.hidden=!seated;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
-      if (kind === 'moveStarship') {button.hidden=!consoles.some(a=>a.kind==='pilot');button.textContent='Move Ship';}
+      if (kind === 'moveStarship') {button.hidden=true;button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
       if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});

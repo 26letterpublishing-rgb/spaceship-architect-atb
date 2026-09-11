@@ -68,7 +68,7 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'shieldCommand'))return;
       if(button.dataset.order==='restabilize'&&!host.defaultView.confirm(`Restabilize this shield? All crew physically at this shield will stop their ATB until recovery completes. The system needs ${initial.definition.restabilizeAu} AU in total and pauses if power runs out.`))return;
       busy=true;get('[data-error]').textContent='';redraw();
-      try{await bridge.action({action:'shieldCommand',id:person.id,sicId,kind:button.dataset.order,amount:Number(amount.value),requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}
+      try{await bridge.action({action:'shieldCommand',id:person.id,sicId,kind:button.dataset.order,amount:Number(amount.value),requestId:crypto.randomUUID()},'resolve',{throwOnError:true});if(view.classList.contains('combat-order-dialog'))view.close();}
       catch(err){get('[data-error]').textContent=err.message;if(/Auxiliary/.test(err.message)){view.classList.remove('shield-au-error');void view.offsetWidth;view.classList.add('shield-au-error');}}
       finally{busy=false;if(view.isConnected)redraw();}
     });

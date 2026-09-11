@@ -152,10 +152,16 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const demo = await post("showcase/start", {});
   const demoAction = payload => combat({roomCode:demo.code,gmToken:demo.gmToken,...payload});
   let demoState = await (await fetch(`${base}/api/state?room=${demo.code}&token=${demo.gmToken}`)).json();
+  const veteran=demoState.units.find(u=>u.characterName==='Nova Vale');
+  assert.deepEqual(veteran.dexterityDice,[10,8,6]);assert.deepEqual(veteran.intellectDice,[12,10,6]);
+  assert.deepEqual([veteran.weaponSystemsSkill,veteran.pilotSkill,veteran.sensorSkill,veteran.engineeringSkill],[6,6,5.5,5]);
+  assert.deepEqual([veteran.speed,veteran.commandWindow,veteran.moveSpeed,veteran.maximumHp],[15,120,3,30]);
   for(const ship of demoState.starships){
     const maps=require('../ship-map-core'),nav=require('../ship-navigation');
     assert.equal(maps.exteriorError(ship.ship),'');
     assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,2);
+    assert.ok(ship.ship.sicInventory.some(item=>item.type==='lock-on-10'));
+    assert.ok(ship.ship.sicInventory.some(item=>item.type==='rapid-laser-5'));
     const cockpit=ship.ship.sicInventory.find(item=>maps.definition(item.type).shipControl);
     const cell=ship.ship.placements.find(p=>p.sicId===cockpit.id).cell;
     const pilot={location:{starshipId:ship.id,square:cell,mesh:0,sicId:cockpit.id,stationed:true}};

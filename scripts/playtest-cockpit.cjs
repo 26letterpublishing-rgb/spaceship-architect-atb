@@ -94,6 +94,7 @@ async function main() {
     if(unit.team==='npc'){await page.waitForTimeout(300);assert.equal(await dialog.count(),0,'GM NPC defaults to standard controls');}
     if(!(await dialog.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
     await dialog.waitFor();
+    assert.match(await dialog.locator('.console-defense').innerText(),/DEFENSE -?\d/);
     assert.equal(await frame.locator('[data-combat-action="station"]').count(),0);
     await dialog.locator('[data-turn-announcement]').filter({hasText:unit.team==='pc'?'YOUR TURN':`${unit.characterName.toUpperCase()}'S TURN`}).waitFor();
     assert.ok(Number(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'))>0 || unit.team==='npc');
@@ -320,7 +321,7 @@ async function main() {
     let current=await readDemo(),seated=current.units.find(u=>u.id===unit.id);
     assert.ok(navigation.access(current,seated),'Demo cockpit has functioning propulsion');
     const full=demo.getByRole('dialog',{name:'Pilot console',exact:true});
-    if(isPc)await full.waitFor();else assert.equal(await full.count(),0);
+    assert.equal(await full.count(),0,'Entering a station starts with combat actions, not a forced console');
     for(let i=0;i<3;i++){
       await advanceDemoUntil(s=>!s.activeId);
       await demoAct({action:'nudge',id:unit.id,amount:100});

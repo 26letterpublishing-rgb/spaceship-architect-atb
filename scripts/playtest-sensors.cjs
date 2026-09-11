@@ -45,9 +45,10 @@ async function main(){
   for(let i=0;i<30&&(await state()).units.every(u=>beforeAdd.has(u.id));i++)await gm.waitForTimeout(100);const added=(await state()).units.find(u=>!beforeAdd.has(u.id));assert.ok(added,'GM added a combatant after choosing a square');assert.equal(added.location.square,64);assert.equal(added.location.starshipId,ships[1].id);await act({action:'removeUnit',id:added.id});
   const pcs=[];
   for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);}
-  const pc=pcs[0];await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
+  const pc=pcs[0];await pc.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(operator.id);await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sn');
   const consoleView=pc.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();
+  assert.match(await consoleView.locator('.console-defense').innerText(),/DEFENSE -?\d/);
   await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await consoleView.waitFor();
   assert.equal(await gm.locator('.sensor-console').count(),0,'No automatic player console for GM');
   async function ready(){await act({action:'nudge',id:operator.id,amount:100});await consoleView.locator('[data-turn]').filter({hasText:'YOUR TURN'}).waitFor();}
@@ -142,7 +143,7 @@ async function main(){
   maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});await maintenance.getByRole('button',{name:'Restart SIC',exact:true}).click();await maintenance.waitFor({state:'detached'});
   assert.ok((await state()).starships[0].ship.sicInventory.find(i=>i.id==='sn').bootRemaining>0);
   await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:42,mesh:0,stationed:true}});
-  await pc.getByRole('dialog',{name:'Pilot console',exact:true}).getByRole('button',{name:'Combat View',exact:true}).click();
+  assert.equal(await pc.getByRole('dialog',{name:'Pilot console',exact:true}).count(),0,'Returning to a station preserves Combat View');
   await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
   maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});pc.once('dialog',d=>d.accept());await maintenance.getByRole('button',{name:'Power Off',exact:true}).click();await maintenance.waitFor({state:'detached'});
   await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
@@ -150,6 +151,7 @@ async function main(){
   await interiors.locator('.sa-reboot-status').filter({hasText:'Restart'}).first().waitFor();await pc.screenshot({path:path.join(artifacts,'bridge-reboot.png')});
   const reboot=(await state()).starships[0].ship.sicInventory.find(i=>i.id==='cp').bootRemaining;
   for(let i=0;i<Math.ceil(reboot)+1;i++)await act({action:'step'});
+  await interiors.locator('[data-console-operator]').first().selectOption(operator.id);
   await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   assert.equal((await state()).units.find(u=>u.id===operator.id).location.stationed,true);
   await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4,stationed:false}});

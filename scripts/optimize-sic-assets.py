@@ -19,6 +19,10 @@ for source in sorted(root.glob('*.png')):
     limit = max(720, tier * 256) if floor or sprite else 360
     if name.startswith('sensors-') and floor:
         limit = 720 if tier <= 4 else 1440
+    if name.startswith('lock-on-') and floor:
+        limit = 720 if tier <= 4 else 1440
+    if name.startswith('rapid-laser-') and sprite:
+        limit = 720 if tier <= 2 else 1440
     if name in ('weapon-console-background.png', 'pilot-console-art.png', 'shield-console-background.png', 'sensor-console-background.png'):
         limit = 1920
     target = source.with_name(source.stem + '-web.webp')

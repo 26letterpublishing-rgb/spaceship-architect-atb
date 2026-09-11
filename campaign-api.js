@@ -86,14 +86,14 @@ function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewN
       placements: [{ sicId: engineId, cell: engineCell }, { sicId: `${id}-cockpit`, cell: startCell + 3 },
         { sicId: `${id}-exhaust`, cell: startCell - 20 }, { sicId: `${id}-ionic`, cell: startCell - 16 },
         { sicId: `${id}-sensors`, cell:startCell+1 },
-        { sicId: `${id}-laser`, cell:startCell-18 },
-        { sicId: `${id}-lock`, cell:startCell+5 },
+        { sicId: `${id}-laser`, cell:startCell-38 },
+        { sicId: `${id}-lock`, cell:startCell+85 },
         { sicId: `${id}-life`, cell:startCell+25 }, {sicId:`${id}-nutrition`,cell:startCell+6}],
       sicInventory: [{ id: engineId, type: "en-au-engine-4", status: "installed", stationLayout: "corners-v1" },
         { id: `${id}-cockpit`, type: "bridge-1", status: "installed", stationLayout: "corners-v1" },
         { id: `${id}-sensors`, type:"sensors-3",status:"installed"},
-        { id: `${id}-laser`, type:"rapid-laser-1",status:"installed"},
-        { id: `${id}-lock`, type:"lock-on-1",status:"installed"},
+        { id: `${id}-laser`, type:"rapid-laser-5",status:"installed"},
+        { id: `${id}-lock`, type:"lock-on-10",status:"installed"},
         { id: `${id}-life`, type:"life-support",status:"installed"},
         { id: `${id}-nutrition`, type:"nutritional-supplement",status:"installed"},
         { id: `${id}-exhaust`, type: "exhaust-thruster-1", status: "installed" },
@@ -1196,8 +1196,12 @@ class CampaignApi {
         { id: "showcase-mira", playerName: "Player Three", characterName: "Mira Quill", color: "#a86cff", speed: 5.4, commandWindow: 40, moveSpeed: 3, hp: 40, damageReduction: 1, weaponId: "phazor", attributes: { strength: [0, 0, -1, -1], health: [1, 1, -1, -1], perception: [1, 0, -1, -1], dexterity: [1, 0, -1, -1], luck: [1, 0, -1, -1], charisma: [1, 1, -1, -1], intellect: [2, 2, -1, -1], willpower: [1, 1, -1, -1] }, skills: { Initiative: 2.4, Awareness: 2, Projectile: 1.6, "Dodge/Block": 1.5, Melee: 0.5, "Weapon Mechanics": 2.8, Engineering: 2.7, "Anatomy/First Aid": 2.2 } },
       ];
       pcDefinitions.splice(1);
-      Object.assign(pcDefinitions[0].skills,Object.fromEntries(['Computer Systems','Engineering','Hacking','Pilot/Helm','Sensor Systems','Weapon Systems'].map(name=>[name,2.5])));
+      Object.assign(pcDefinitions[0].skills,{'Computer Systems':5,Engineering:5,Hacking:4,'Pilot/Helm':6,'Sensor Systems':5.5,'Weapon Systems':6,Mathematics:4,Awareness:4,Initiative:4,'Dodge/Block':3.5});
+      Object.assign(pcDefinitions[0].attributes,{dexterity:[3,2,1,-1],intellect:[4,3,1,-1],perception:[3,2,1,-1]});
+      Object.assign(pcDefinitions[0],{speed:15,commandWindow:120,moveSpeed:3,hp:30,damageReduction:0});
       const characters = pcDefinitions.map(showcaseCharacter);
+      characters[0].character.experience.available+=2000;characters[0].character.experience.totalGained+=2000;
+      characters[0].character.resources.exertionCurrent=1;characters[0].character.resources.exertionMax=1;
       for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
       const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
       const showcaseNpcUnitIds = ['unit-showcase-npc-0'];
@@ -1216,8 +1220,8 @@ class CampaignApi {
         commandWindow: entry.commandWindow, atb: 0, encounterSpeedBonus: 0, regenerationRate: 0,
         regenerationProgress: 0, recurringHealingProgress: 0, delay: null, delayTimer: null, delayedAction: null, queuedEffects: [],
         controlledBy: "player", team: "pc", allyNpc: false, actorType: "character", color: entry.color, tieSeed: index / 10,
-        characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: 4, highestPerceptionDie: 8,
-        weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: [8, 8, 6], strengthDice: index === 1 ? [8, 8, 6] : [6, 4],
+        characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: entry.attributes.dexterity.reduce((n,v)=>n+Math.max(0,v+1),0), highestPerceptionDie: Math.max(...entry.attributes.perception.filter(v=>v>=0).map(v=>[4,6,8,10,12][v])),
+        weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: entry.attributes.dexterity.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),strengthDice:entry.attributes.strength.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),intellectDice:entry.attributes.intellect.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),
         projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
         engineeringSkill: entry.skills.Engineering || 0,
         pilotSkill: entry.skills['Pilot/Helm'] || 0,

@@ -1,5 +1,7 @@
 # Spaceship Architect: Source Understanding
 
+Latest numbered targeting/weapon expansion: see TARGETING-FAMILIES-PASS.md for Lock-On Systems 1-10 and Rapid Lasers 1-5, source card IDs, dice, upkeep and approved digital timing. Its explicit-damage, Combat View and Explore conventions supersede older deferred/tier-one notes in this reference. No FTL Lock-On, Triangulator, hacking or hull-breach simulation was added.
+
 ## Shield and Bridge Digital Rules
 
 The current user-approved Shield 1 and cockpit/bridge expansion is recorded in SHIELD-BRIDGE-PASS.md, including the exact override of printed burst restabilization to FULL Shield HP, 12-second SvS conversion, Engineering staffing overflow, 1.5-second AU input, remote access restrictions, and frozen local crew initiative. Guard/Shell/Stability/Core drafts belong to a different game and must not replace the current HP system. Printed bridge extra actions per round do not override real-time ATB. Communications, reboot and random station-destruction remain descriptive pending their corresponding systems.
