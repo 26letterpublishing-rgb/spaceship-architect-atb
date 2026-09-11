@@ -49,6 +49,7 @@ Nova has 2,012 unspent/total XP, including the requested additional 2,000. Pilot
 5. Nova's previous demo HP/timing values disagreed with recalculation after opening the character sheet. The new seed uses consistent derived values.
 6. Tier-one-only Lock-On help and weapon repeat-cost text were generalized to the selected hardware.
 7. Reopening a console during its close animation now waits for cleanup instead of silently dropping the click.
+8. Locked fire is labeled correctly, targeting status acknowledges an acquired lock, and repeat-fire AU surcharge shows its remaining combat seconds. Weapon grade indicators and damage reports identify the actual selected grade.
 
 ## Verification
 

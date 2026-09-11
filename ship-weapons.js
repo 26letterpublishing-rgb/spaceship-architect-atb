@@ -104,7 +104,7 @@
       if(impairments){item.impairmentPoints=Math.min(4,(Number(item.impairmentPoints)||(item.impaired?1:0))+impairments);item.impaired=true;if(item.impairmentPoints>=4)item.status='destroyed';}
     }
     unit.delayedAction=null;
-    const entry={id:pending.id,at:new Date().toISOString(),text:`Rapid Laser: ${damage} rolled; ${shieldDamage} shield damage, ${hullDamage} hull damage.${impairments?` ${impairments} component impairment(s).`:''}`,damage,dice:values,hit:true,impact:true,targetId:target.id,operatorId:unit.id,hullDamage,shieldDamage,impairments,total:order.total,defense:order.defense};
+    const entry={id:pending.id,at:new Date().toISOString(),text:`${order.weaponName||'Rapid Laser'}: ${damage} rolled; ${shieldDamage} shield damage, ${hullDamage} hull damage.${impairments?` ${impairments} component impairment(s).`:''}`,damage,dice:values,hit:true,impact:true,targetId:target.id,operatorId:unit.id,hullDamage,shieldDamage,impairments,total:order.total,defense:order.defense};
     state(ship).reports=[entry,...state(ship).reports].slice(0,30);sensors.knowledge(ship).reports=[entry,...sensors.knowledge(ship).reports].slice(0,40);
     const incoming={id:entry.id,at:entry.at,impact:true,hit:true,targetId:target.id,text:'Incoming weapon damage.',damage};state(target).reports=[incoming,...state(target).reports].slice(0,30);sensors.knowledge(target).reports=[incoming,...sensors.knowledge(target).reports].slice(0,40);
     locks.refresh(room);return entry;

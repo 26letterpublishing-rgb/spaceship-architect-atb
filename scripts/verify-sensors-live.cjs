@@ -14,7 +14,7 @@ async function main(){
   for(let n=0;n<40;n++){
     try{
       deployed=true;
-      for(const name of ['app.js','ship-sensors.js','console-common.js','console-common.css','combat-feedback.js']){
+      for(const name of ['app.js','ship-sensors.js','console-common.js','console-common.css','combat-feedback.js','weapon-console-ui.js','lock-console-ui.js','ship-weapons.js']){
         const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
         deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
       }
@@ -60,6 +60,27 @@ async function main(){
   await interior.locator('[data-inline-map-view="highResolution"]').check();
   await page.waitForTimeout(700);assert.equal(await bridgeLabel.evaluate(e=>getComputedStyle(e).color),'rgb(255, 230, 106)');
   await page.screenshot({path:path.join(artifacts,'live-expanded-interior.png')});await interior.getByRole('button',{name:'Back',exact:true}).click();
+  if(process.env.SA_VERIFY_WEAPONS==='1'){
+    async function ready(){const s=await state();if(s.activeId&&s.activeId!==unit.id)await act({action:'completeTurn',id:s.activeId});await act({action:'nudge',id:unit.id,amount:100});}
+    await ready();await combat.locator('[data-console-operator]').first().selectOption(unit.id);
+    await page.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
+    const targetingId=ship.ship.sicInventory.find(i=>i.type==='lock-on-10').id,gunId=ship.ship.sicInventory.find(i=>i.type==='rapid-laser-5').id;
+    await page.getByRole('combobox',{name:'Station console',exact:true}).selectOption(targetingId);
+    const targeting=page.getByRole('dialog',{name:'Lock-On console',exact:true});await targeting.getByRole('button',{name:'Lock-On',exact:true}).click();
+    async function confirmDice(){const d=page.getByRole('dialog',{name:'Ship action dice roll'});await d.waitFor();await d.frameLocator('iframe').getByRole('button',{name:'Roll for Me',exact:true}).click();await d.frameLocator('iframe').getByRole('button',{name:'Confirm and Submit',exact:true}).click();await d.waitFor({state:'detached'});}
+    assert.deepEqual((await state()).units.find(u=>u.id===unit.id).delayedAction.rollSpec.sides,[12,12,12,12]);await confirmDice();
+    for(let i=0;i<30&&(await state()).units.find(u=>u.id===unit.id).delayedAction;i++)await act({action:'step'});
+    assert.equal((await state()).starships.find(s=>s.id===ship.id).lockState.targets.length,1);
+    await page.screenshot({path:path.join(artifacts,'live-lock-on-10.png')});
+    await targeting.getByRole('combobox',{name:'Station console',exact:true}).selectOption(gunId);await ready();
+    const weapons=page.getByRole('dialog',{name:'Weapons console',exact:true}),before=(await state()).starships.find(s=>s.id!==ship.id).currentHullHp;
+    await weapons.getByRole('button',{name:'Fire Rapid Laser',exact:true}).click();
+    for(let i=0;i<30&&!(await state()).units.find(u=>u.id===unit.id).delayedAction?.weaponDamage;i++)await act({action:'step'});
+    const damageState=await state();assert.equal(damageState.starships.find(s=>s.id!==ship.id).currentHullHp,before);assert.deepEqual(damageState.units.find(u=>u.id===unit.id).delayedAction.rollSpec.sides,[12,12,12,12]);
+    await confirmDice();assert.ok((await state()).starships.find(s=>s.id!==ship.id).currentHullHp<before);
+    await page.locator('[data-laser-effect]').first().waitFor({state:'attached'});await page.screenshot({path:path.join(artifacts,'live-rapid-laser-5.png')});
+    console.log('Live Lock-On 10, explicit 4D12 damage, Rapid Laser 5 hit and visible burst passed.');
+  }
   assert.deepEqual(errors,[]);console.log('Live Render cards, demo GM/PC switch, scan, Command help and expanded interior passed.');
 }
 main().catch(async error=>{console.error(error);process.exitCode=1;if(browser)for(const c of browser.contexts())for(const p of c.pages())await p.screenshot({path:path.join(artifacts,'failure.png')}).catch(()=>{});}).finally(async()=>{if(browser)await browser.close();});

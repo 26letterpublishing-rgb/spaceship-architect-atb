@@ -70,6 +70,7 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
     await targeting.getByRole('combobox',{name:'Station console',exact:true}).selectOption('gun');await consoleView.waitFor();await act({action:'nudge',id:unit.id,amount:100});
   }
   const before=(await state()).starships[1].currentHullHp;
+  if(lockTest)assert.equal(await consoleView.locator('.weapon-plot h3 span').innerText(),'LOCKED FIRE');
   await consoleView.getByRole('button',{name:'Fire Rapid Laser',exact:true}).click();
   const roll=pc.getByRole('dialog',{name:'Ship action dice roll'}),skill=roll.frameLocator('iframe');let pending=(await state()).units[0].delayedAction;assert.ok(pending.weaponOrder);assert.equal(pending.remaining,100);if(!lockTest){await roll.waitFor();await act({action:'step'});assert.equal((await state()).units[0].delayedAction.remaining,100);}else assert.equal(pending.rollConfirmed,true);assert.equal((await state()).starships[1].currentHullHp,before);
   await post('action',{roomCode:code,characterId:'wrong',characterToken:playerToken,action:'weaponCommand',id:unit.id,sicId:'gun',targetId:ships[1].id,requestId:'unauthorized-laser'},403);

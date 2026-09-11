@@ -37,11 +37,13 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       const surcharge=access.ship.weaponState?.repeatWindow?.[sicId]>0?access.definition.energyCost:0;
       const cost=5-Number(get('[data-sacrifice]').value)+surcharge,available=access.ship.auState?.available??access.ship.auState?.current??0,lock=access.ship.lockState?.targets?.find(l=>l.targetId===targetId);
       get('[data-warning]').textContent=cost>available?`Not enough Auxiliary power: need ${cost}, have ${available}.`:`${cost} AU committed on fire; ${Number((available-cost).toFixed(1))} AU left. ${lock?'Locked shot: automatic hit, then roll damage.':'Accuracy roll, input delay, then damage roll if it hits.'}`;
+      if(surcharge)get('[data-warning]').textContent+=` Repeat fire: +${surcharge} AU for ${Math.ceil(access.ship.weaponState.repeatWindow[sicId])} more combat seconds.`;
+      get('.weapon-plot h3 span').textContent=lock?'LOCKED FIRE':'MANUAL FIRE';
       [...get('[data-sacrifice]').options].forEach(option=>{const count=Number(option.value);option.textContent=`${count?`Sacrifice ${count}D${access.definition.damageDie}`:'Full burst'} / ${5-count+surcharge} AU${surcharge?' (repeat fire)':''}`;});
       get('[data-sound]').textContent=bridge.soundEnabled()?'Sound On':'Sound Off';
       get('[data-formula]').textContent=lock?`LOCKED / ${Math.max(0,(access.item.impaired?1:4)-Number(get('[data-sacrifice]').value))}D${access.definition.damageDie} damage. No accuracy roll required.`:`Dexterity + Weapon Systems + Hull Size Modifier - range (${spec.range.toFixed(1)} Units). ${spec.difficultyLabel}.`;
       get('[data-target-status]').textContent=targetId?`TARGET / ${contacts.find(c=>c.id===targetId)?.title} / ${lock?'LOCKED':'MANUAL'} / Defense ${spec.difficulty??'?'}`:'Detect a contact with Sensors before firing.';
-      get('[data-factors]').innerHTML=`<span>${bridge.delayIcon(1)} Weapon Grade</span><span>${bridge.delayIcon(settings.factors.Ingenuity)} Operator Sync</span><span>FAST<br>${(100/settings.rate).toFixed(1)} SEC</span>`;
+      get('[data-factors]').innerHTML=`<span>${bridge.delayIcon(settings.factors.Quality)} Weapon Grade</span><span>${bridge.delayIcon(settings.factors.Ingenuity)} Operator Sync</span><span>FAST<br>${(100/settings.rate).toFixed(1)} SEC</span>`;
       get('[data-input]').value=pending?.weaponOrder&&!pending.awaitingRoll?100-pending.remaining:0;
       get('[data-input-text]').textContent=pending?.awaitingRoll?'Awaiting dice confirmation':pending?.weaponOrder?`Firing in ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Fire control ready';
       get('[data-fire]').disabled=busy||!ready||!targetId||cost>available;get('[data-sacrifice]').disabled=busy||Boolean(pending);
