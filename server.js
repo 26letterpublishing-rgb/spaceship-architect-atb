@@ -24,6 +24,7 @@ const shipPower = require("./ship-power");
 const shipNavigation = require("./ship-navigation");
 const shipShields = require("./ship-shields");
 const shipSensors = require("./ship-sensors");
+const shipWeapons = require("./ship-weapons");
 const shipCommands = require("./ship-commands");
 const shipMaintenance = require("./ship-maintenance");
 const shipDistances = require("./ship-distances");
@@ -182,7 +183,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.starships = normalizeEncounterStarships(snapshot.starships);
     room.starships.forEach(ship => {
       const saved = snapshot.starships?.find(s => s.id === ship.id);
-      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts', 'sensorState', 'sensorScenarioMasking', 'commandSystems', 'maintenanceReceipts']) ship[key] = clone(saved?.[key] ?? null);
+      for (const key of ['navigation', 'shieldSystems', 'auCommands', 'shieldReceipts', 'sensorState', 'weaponState', 'sensorScenarioMasking', 'commandSystems', 'maintenanceReceipts']) ship[key] = clone(saved?.[key] ?? null);
     });
     room.shipPositions = shipDistances.positions(room.starships, snapshot.shipPositions);
     room.shipDistances = shipDistances.fromPositions(room.starships, room.shipPositions);
@@ -235,7 +236,7 @@ function scheduleRoomPersist(room, delay = 250) {
 function publicState(room) {
   for(const unit of room.units){
     const pending=unit.delayedAction;
-    if(pending&&!pending.rollConfirmed&&!pending.rollBeforeDelay&&(pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind))&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
+    if(pending&&!pending.rollConfirmed&&!pending.rollBeforeDelay&&(pending.weaponOrder||pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind))&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
       pending.rollBeforeDelay=true;pending.awaitingRoll=true;pending.resolving=true;
     }
     if(unit.delayedAction?.awaitingRoll)unit.delayedAction.rollSpec ||= shipRollSpec(room,unit,unit.delayedAction);
@@ -1331,6 +1332,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   const shieldBusy = new Set(room.units.filter(u => u.shieldRestabilizing).map(u => u.id));
   for (const ship of room.starships || []) shipMaintenance.advance(ship,seconds*multiplier);
   shipShields.advance(room, seconds * multiplier);
+  shipWeapons.advance(room, seconds * multiplier);
   const beforeShipMovement=shipDistances.positions(room.starships,room.shipPositions).map(p=>({...p}));
   shipNavigation.advance(room, seconds * multiplier);
   recordShipReports(room,()=>shipCommands.advance(room, seconds * multiplier,beforeShipMovement));
@@ -1413,6 +1415,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
 }
 
 function shipRollSpec(room,unit,pending){
+  if(pending.weaponOrder)return shipWeapons.rollSpec(room,unit,pending.weaponOrder);
   const order=pending.sensorOrder||pending.commandOrder||pending.maintenanceOrder,ship=room.starships.find(s=>s.id===order?.shipId);
   let sides=[],bonus=0,skill='Sensor Systems',difficulty={value:null,label:'Difficulty unknown'};
   if(!ship)return {sides,bonus,skill,difficulty:null,difficultyLabel:'System unavailable'};
@@ -1428,7 +1431,7 @@ function resolveCompletedEvent(room, event, source) {
   const stored=event.unit?.delayedAction?.submittedRoll;
   if(stored&&!event.rollDie){let index=0;event.rollDie=sides=>stored.values[index++]??require('node:crypto').randomInt(1,sides+1);event.rollDie.submittedScore=stored.score;event.rollDie.retryBonus=stored.retryBonus;}
   const pending=event.type==='delayed'&&event.unit.delayedAction;
-  const needsRoll=pending&&(pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind));
+  const needsRoll=pending&&(pending.weaponOrder||pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind));
   if(needsRoll&&!pending.rollConfirmed&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
     pending.awaitingRoll=true;pending.resolving=true;
     if(!pending.rollAnnounced){pending.rollAnnounced=true;pushLog(room,`${event.unit.characterName}: roll required for ${pending.label}.`,{starshipId:event.unit.location?.starshipId});}
@@ -1436,6 +1439,12 @@ function resolveCompletedEvent(room, event, source) {
   }
   if (event.type === 'delayed' && (event.unit.delayedAction?.shipOrder?.trigger || event.unit.delayedAction?.sensorOrder?.trigger)) {
     recordShipReports(room,()=>shipCommands.armExternal(room,event.unit,event.unit.delayedAction.shipOrder ? 'pilot' : 'sensor'));
+    event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
+    return false;
+  }
+  if (event.type === 'delayed' && event.unit.delayedAction?.weaponOrder) {
+    const random = sides => require('node:crypto').randomInt(1,sides+1);
+    recordShipReports(room,()=>shipWeapons.resolveInput(room,event.unit,event.rollDie || random,random));
     event.unit.atb=Math.max(0,event.unit.atb-room.threshold);
     return false;
   }
@@ -1807,7 +1816,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["weaponCommand", "rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -1893,7 +1902,7 @@ async function handleRoomAction(body, res) {
     if (!Array.isArray(body.starships) || body.starships.length > 6 || new Set(body.starships.map(ship => ship.id)).size !== body.starships.length) { sendJson(res, 400, { error: "Choose up to six different starships." }); return; }
     for (const record of body.starships) { const error=shipMapCore.exteriorError(record.ship); if(error) {sendJson(res,400,{error});return;} }
     const conditions=new Map((room.starships||[]).map(s=>[s.id,new Map((s.ship.sicInventory||[]).map(i=>[i.id,i]))]));
-    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','sensorScenarioMasking','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
+    const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','weaponState','sensorScenarioMasking','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { if (previous.has(ship.id)) Object.assign(ship, previous.get(ship.id)); });
     for(const ship of room.starships)for(const item of ship.ship.sicInventory||[]){
@@ -1942,6 +1951,16 @@ async function handleRoomAction(body, res) {
     pushLog(room, `${ship.title} spent ${Number(body.amount)} AU.`, { starshipId: ship.id });
   }
 
+  if (action === 'weaponCommand') {
+    const result=shipWeapons.queue(room,playerUnit,body);
+    if(!result.ok){sendJson(res,409,{error:result.error});return;}
+    if(!result.duplicate){
+      const source=room.activeSource;
+      room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);
+      pushLog(room,`${playerUnit.characterName} committed a laser firing order.`,{starshipId:result.ship.id});
+      moveToNextTurnOrClock(room,source);
+    }
+  }
   if (action === 'sensorCommand') {
     const ship=room.starships.find(s=>s.id===playerUnit?.location?.starshipId);
     const duplicate=ship?.sensorState?.receipts?.includes(String(body.requestId||''));

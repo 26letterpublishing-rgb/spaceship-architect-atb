@@ -14,6 +14,7 @@
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
   const catalog = {
     "cockpit-1": { name: "Cockpit 1", width: 1, height: 1, label: "CP 1", color: "#346f91", image: image("cockpit-1-floor-plan.png"), shipControl: true, bridge: true, edge: true, energyCost: 1, price: 750, security: 4, crafting: "Transpherion, 4 hrs", threshold: 20, cardNumber: "A-1", output: 0, stations: [{x:0,y:0,mesh:0}] },
+    "rapid-laser-1": { name: "Rapid Laser 1", width: 1, height: 1, label: "RL 1", color: "#88dfff", image: image("rapid-laser-1-sprite.png"), sprite: "rapid-laser-1-sprite.png", exterior: true, weapon: true, tier: 1, energyCost: 1, price: 450, security: 1, crafting: "Crystilium, 4 hrs", threshold: 4, cardNumber: "A-100", output: 0, stations: [] },
     "exhaust-thruster-1": { name: "Exhaust Thruster 1", width: 1, height: 1, label: "ET 1", color: "#568da4", image: image("exhaust-thruster-1-graphic.png"), exterior: true, thruster: true, impulseBonus: 1, exhaust: -2, energyCost: 2, price: 200, security: 2, crafting: "Dianium, 2 hrs", threshold: 10, cardNumber: "A-23", output: 0, stations: [] },
     "en-engine-1": { width: 1, height: 1, label: "EN 1", color: "#2d873b", image: image("en-engine-1-floor-plan.png"), output: 5, stations: [{ x: 0, y: 0, mesh: 1 }] },
     "en-engine-2": { width: 2, height: 2, label: "EN 2", color: "#2d873b", image: image("en-engine-2-floor-plan.png"), output: 13, stations: [{ x: 0, y: 0, mesh: 1 }, { x: 1, y: 1, mesh: 7 }] },
@@ -266,6 +267,7 @@
     if (sic.offset) return '<span class="sa-exterior-tile" aria-hidden="true"></span>';
     const data = definition(sic.type), angle = exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
+    if (data.weapon) return `<span class="sa-exterior-weapon" style="position:absolute;inset:0;transform:rotate(${angle + 180}deg);opacity:${active ? 1 : .35}" aria-hidden="true"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"></span>`;
     const jetClass = data.ionic ? "sa-ion-pulse" : "sa-thruster-flame";
     // Emission points are measured in the sprite frame, then transformed with the complete assembly.
     const jets = (data.emitters || []).map(([x,y,width], index) => `<i class="${jetClass}" style="left:${8 + .84 * (x - width / 2)}%;top:${-2 + .76 * y}%;width:${.84 * width}%;animation-delay:${index * -.8}s"></i>`).join("");

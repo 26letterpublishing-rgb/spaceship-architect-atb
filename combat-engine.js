@@ -174,6 +174,8 @@ function syncUnitCombat(unit, source = {}) {
   unit.pilotSkill = pilot == null ? null : Math.max(0,Number(pilot)||0);
   const sensor = source.sensorSkill ?? unit.sensorSkill;
   unit.sensorSkill = sensor == null ? null : Math.max(0,Number(sensor)||0);
+  const weapon = source.weaponSystemsSkill ?? unit.weaponSystemsSkill;
+  unit.weaponSystemsSkill = weapon == null ? null : Math.max(0,Number(weapon)||0);
   for(const key of ['mathematicsSkill','computerSkill']){
     const rating=source[key]??unit[key];unit[key]=rating==null?null:Math.max(0,Number(rating)||0);
   }
@@ -245,6 +247,7 @@ function migrateUnitCombat(unit) {
     engineeringSkill: unit.engineeringSkill,
     pilotSkill: unit.pilotSkill,
     sensorSkill: unit.sensorSkill,
+    weaponSystemsSkill: unit.weaponSystemsSkill,
     mathematicsSkill: unit.mathematicsSkill,
     computerSkill: unit.computerSkill,
     meleeSkill: unit.meleeSkill,

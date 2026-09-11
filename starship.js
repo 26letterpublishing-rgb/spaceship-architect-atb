@@ -59,6 +59,13 @@ card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex
 }
 
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+{
+  const type='rapid-laser-1',data=window.SAShipMap.definition(type);
+  SIC_CATALOG[type]={...data,category:'weapon',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
+  const card=document.createElement('section');card.className='sic-market-item';
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Rapid Laser 1 details"><header class="sic-poker-heading"><span>Laser <small>A-100</small></span><div><h3>Rapid Laser 1</h3><strong>Price: 450</strong></div></header><img class="sic-poker-art" src="rapid-laser-1-card.png" alt="Rapid Laser 1" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security Level</dt><dd>1</dd></div><div><dt>Size</dt><dd>1x1 EXT</dd></div><div><dt>Skill</dt><dd>Weapon Systems</dd></div><div><dt>Crafting</dt><dd>Crystilium, 4 hrs</dd></div></dl><section class="sic-poker-rules"><strong>5 AU: Fire / 1D4 damage</strong><p>Rapid-fire short-burst laser. Requires Bridge/Cockpit.</p><p>Manual Fire: +1D4 per 2 over Defense, up to +3D4.</p><p>Reduce damage by 1D4 to reduce AU cost by 1. Locked-On: 4D4 (Lock-On not yet available).</p></section><footer><span><small>If Impaired</small>Maximum damage 1D4.</span><span><small>Damage Threshold</small>4</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  document.querySelector('.sic-card-gallery').append(card);
+}
 for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),...Array.from({length:10},(_,i)=>`shield-${i+1}`)]) {
   const data = window.SAShipMap.definition(type);
   SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};

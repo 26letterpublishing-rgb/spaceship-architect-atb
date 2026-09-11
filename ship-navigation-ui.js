@@ -30,10 +30,11 @@
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
   function open(unit,{compact=false}={}){
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
-    if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen())return;
+    if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen()||window.SAWeaponConsoleUI?.isOpen())return;
     const selected=choices.find(a=>a.item.id===(selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
     if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
     if(!compact&&selected.kind==='sensor'){combatViews.delete(seatKey(unit));window.SASensorConsoleUI.open(unit,selected.item.id);return;}
+    if(!compact&&selected.kind==='weapon'){combatViews.delete(seatKey(unit));window.SAWeaponConsoleUI.open(unit,selected.item.id);return;}
     const seated=window.SAShipNavigation.station(initial,unit);
     if(!seated)return;
     const pilotId=unit.id,shipId=seated.ship.id;

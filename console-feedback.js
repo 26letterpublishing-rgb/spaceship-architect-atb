@@ -27,7 +27,7 @@
   }
   doc.addEventListener('pointermove',pointer);doc.addEventListener('click',click,true);
   const timer=setInterval(()=>{
-    const b=bridge(),state=b?.state(),view=doc.querySelector('.ship-navigation-dialog[open],.sensor-console[open],.shield-console-dialog[open]');
+    const b=bridge(),state=b?.state(),view=doc.querySelector('.ship-navigation-dialog[open],.sensor-console[open],.shield-console-dialog[open],.weapon-console[open]');
     const unit=state?.units.find(u=>u.id===(view?.dataset.operatorId||b?.myUnitId()));
     const running=Boolean(view&&unit&&!state.hardPaused&&!state.holdPaused&&!doc.hidden);
     const delay=unit?.delayedAction,processing=unit?.queuedEffects?.find(e=>e.sensorReport);

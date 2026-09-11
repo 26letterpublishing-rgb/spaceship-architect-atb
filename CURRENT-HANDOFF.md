@@ -1,5 +1,9 @@
 # Current Recovery Handoff
 
+## In Progress: Rapid Laser 1
+
+Latest authorization is Rapid Laser 1 #commit. Implementation and local browser firing test are complete; finishing regression checks and publication. Read RAPID-LASER-PASS.md. New ship-weapons.js and weapon-console-ui.js must remain in public-assets.js. Card and console originals have optimized derivatives. Both fresh Explore ships now have a laser. Gold Standard remains frozen. Do not mistake historical completed passes below for this pass's completion. Final ntfy has NOT yet been sent for this pass.
+
 ## Complete: Console Feedback And Roll Timing
 
 Latest #commit is complete. Application c22f6a2 is pushed and verified on Render: 32 code/style files and 19 optimized images matched; hosted cards, GM/PC switch, roll-first scan, shared dice, Command help and expanded interior passed. Read CONSOLE-FEEDBACK-PASS.md. All 134 tests, sensor GM/two-PC checks (actual GM Add and out-of-turn hail acceptance), 12 cockpit orders and shield suite passed. Roll first; pause the actor's ATB/input while awaiting dice, then run input and reveal outcome. New console-feedback.js MUST be in public-assets.js. Wait for user feedback and next #commit. Prior completion below is historical. Gold Standard remains frozen.

@@ -1399,6 +1399,34 @@
     "webBytes": 26346,
     "alpha": false
   },
+  "rapid-laser-1-card.png": {
+    "file": "rapid-laser-1-card-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      360,
+      360
+    ],
+    "sourceBytes": 1017631,
+    "webBytes": 18932,
+    "alpha": true
+  },
+  "rapid-laser-1-sprite.png": {
+    "file": "rapid-laser-1-sprite-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 1017631,
+    "webBytes": 61264,
+    "alpha": true
+  },
   "sensor-console-background.png": {
     "file": "sensor-console-background-web.webp",
     "sourcePixels": [
@@ -1971,6 +1999,20 @@
     ],
     "sourceBytes": 2766833,
     "webBytes": 136356,
+    "alpha": false
+  },
+  "weapon-console-background.png": {
+    "file": "weapon-console-background-web.webp",
+    "sourcePixels": [
+      1672,
+      941
+    ],
+    "webPixels": [
+      1672,
+      941
+    ],
+    "sourceBytes": 1054912,
+    "webBytes": 82116,
     "alpha": false
   }
 }

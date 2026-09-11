@@ -7,6 +7,7 @@ const scripts=['app.js','character.js','gm.js','combat-actions.js','combat-engin
 scripts.push('action-help.js','maintenance-ui.js','ship-command-ui.js','ship-cooperation.js','ship-combat-map.css','ship-navigation-ui.css','combat-workspace.css','gm.html','character.html');
 let browser;
 scripts.push('ship-roll-ui.js','ship-map-presentation.css','console-feedback.js','gm.css');
+scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css');
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){
@@ -21,7 +22,7 @@ async function main(){
   }
   assert.ok(deployed,'Render has not deployed the scan-feedback release');
   for(const name of scripts){const response=await fetch(base+'/'+name+'?verify='+Date.now());assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,name))),name);}
-  const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-'));
+  const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-')||n.startsWith('rapid-laser-')||n.startsWith('weapon-console-'));
   for(const name of images){const response=await fetch(base+'/'+name);assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,manifest[name].file))),name);}
   console.log(`${scripts.length} code/style files and ${images.length} optimized images match Render.`);
   browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({viewport:{width:1366,height:768}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -32,6 +33,7 @@ async function main(){
   const gm=page.frameLocator('#showcaseFrame');await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();await gm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
   const initial=await state();assert.equal(initial.starships.length,2);assert.equal(initial.starships[0].sensorState.contacts[initial.starships[1].id].level,'unknown');
   assert.ok(initial.starships.every(s=>!s.ship.sicInventory.some(i=>i.type.startsWith('shield-'))),'Fresh Explore ships have no shields');
+  assert.ok(initial.starships.every(s=>s.ship.sicInventory.some(i=>i.type==='rapid-laser-1')),'Fresh Explore ships have Rapid Laser 1');
   assert.ok(initial.starships.every(s=>s.ship.class==='8x7 Systems Test Craft'),'Class survives encounter preparation');
   const unit=initial.units.find(u=>u.characterName==='Nova Vale'),ship=initial.starships.find(s=>s.id===unit.location.starshipId),cp=ship.ship.sicInventory.find(i=>i.type==='bridge-1'),placement=ship.ship.placements.find(p=>p.sicId===cp.id),sensor=ship.ship.sicInventory.find(i=>i.type==='sensors-3');
   if(initial.activeId)await act({action:'completeTurn',id:initial.activeId});

@@ -496,6 +496,7 @@
       engineeringSkill: skillValue("Engineering"),
       pilotSkill: skillValue("Pilot/Helm"),
       sensorSkill: skillValue("Sensor Systems"),
+      weaponSystemsSkill: skillValue("Weapon Systems"),
       mathematicsSkill: skillValue("Mathematics"),
       computerSkill: skillValue("Computer Systems"),
       meleeSkill: skillValue("Melee"),

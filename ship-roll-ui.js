@@ -11,7 +11,7 @@
     const calls=state.starships.filter(s=>gm||s.id===mine?.location?.starshipId).flatMap(s=>(s.commandSystems?.calls||[]).filter(c=>c.status==='incoming').map(c=>s.title+': you are being Hailed by '+c.title));
     const awaiting=mine&&(state.delayRequest?.unitId===mine.id||state.activeAction?.unitId===mine.id||(state.itemResolution?.healerId===mine.id&&state.itemResolution.phase==='gmDifficulty')||(state.attackResolution?.attackerId===mine.id&&state.attackResolution.phase==='gmDamage'));
     const logs=state.log||[],index=logs.findIndex(e=>e.id===lastLog),fresh=lastLog?logs.slice(index+1):[];lastLog=logs.at(-1)?.id||lastLog;
-    const updates=fresh.filter(e=>gm?/scan complete|detected|Life Scan|succeeded|failed|connected|prepared|analysis|repair|reboot|Hail/i.test(e.text):/Hail answered|Hail ended/i.test(e.text));
+    const updates=fresh.filter(e=>gm?/laser|scan complete|detected|Life Scan|succeeded|failed|connected|prepared|analysis|repair|reboot|Hail/i.test(e.text):/laser|Hail answered|Hail ended/i.test(e.text));
     if(updates.length){result=updates.map(e=>e.text).join(' | ');until=Date.now()+7000;}
     notice.textContent=relevant.map(u=>u.characterName+': '+request(u).label+' roll required').join(' | ')||calls.join(' | ')||(!gm&&awaiting?'Awaiting GM':'')||(Date.now()<until?result:'');
     const receiver=(gm?state.units.filter(u=>u.team==='npc'):[mine]).find(u=>{const seat=window.SAStationAccess.station(state,u);return seat&&window.SAShipMap.definition(seat.cell.type).bridge&&seat.ship.commandSystems?.calls?.some(c=>c.status==='incoming');});
