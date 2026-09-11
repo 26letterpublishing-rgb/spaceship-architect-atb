@@ -24,7 +24,7 @@
       const ready=state.activeId===person.id&&!person.delayedAction&&!person.delayTimer&&!person.timedAction&&!person.shieldRestabilizing;
       const command=ready&&state.command?.unitId===person.id?state.command:null;
       const fraction=command?.total>0&&!command.expired?Math.max(0,Math.min(1,command.remaining/command.total)):0;
-      get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person.consoleHold?'HOLDING / 99%':ready?'YOUR TURN':'SHIELD CONTROL ONLINE';
+get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person.consoleHold?'HOLDING / 99%':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
       get('[data-turn]').style.color=person.color||'#8fffbf';get('[data-turn-progress]').value=fraction;
       const turnKey=`${state.turnSerial}:${person.id}`;
       if(turnKey!==lastTurn){lastTurn=turnKey;lastBeat=-1;}

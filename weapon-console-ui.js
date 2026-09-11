@@ -19,7 +19,7 @@
       const state=bridge.state(),person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);
       if(!access || access.seat.key!==initial.seat.key){view.close();return;}
       const pending=person.delayedAction,ready=state.activeId===person.id&&!pending&&!person.delayTimer&&!person.timedAction&&!person.consoleHold;
-      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'FIRE CONTROL INPUT':ready?'YOUR TURN':state.hiddenActiveTurn?'Awaiting GM action':'WEAPONS STANDBY';
+get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'FIRE CONTROL INPUT':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
       const command=state.command?.unitId===person.id?state.command:null;
       get('[data-command]').value=command?.total&&!command.expired?command.remaining/command.total:0;
       const now=Math.floor(performance.now()/1000),alerting=ready&&!state.hardPaused&&!state.holdPaused&&!host.hidden;

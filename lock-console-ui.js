@@ -19,7 +19,7 @@
     function redraw(){
       const state=b.state(),person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);if(!access){view.close();return;}
       const ship=access.ship,locks=ship.lockState?.targets||[],pending=person.delayedAction,ready=state.activeId===unit.id&&!pending&&!person.delayTimer&&!person.timedAction&&!person.consoleHold&&!busy;
-      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'ACQUIRING TARGET':ready?'YOUR TURN':'TARGETING STANDBY';
+get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'ACQUIRING TARGET':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
       get('[data-command]').value=state.command?.unitId===unit.id?state.command.remaining/state.command.total:0;
       const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');lastTargets=options(get('[data-target]'),contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('')||'<option value="">No detected ships</option>',lastTargets);
       const targetId=get('[data-target]').value,target=state.starships.find(s=>s.id===targetId),lock=locks.find(l=>l.targetId===targetId),analysis=ship.sensorState?.reports?.find(r=>r.analysis&&r.targetId===targetId&&r.layout),failure=ship.lockState?.failures?.[targetId]||0;

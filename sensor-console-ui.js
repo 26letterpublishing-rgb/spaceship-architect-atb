@@ -35,7 +35,7 @@
       if (!access || access.seat.key!==initial.seat.key) {view.close();return;}
       const sensor=window.SAShipSensors.installed(access.ship),settings=window.SAShipSensors.inputSettings(access.ship);
       const ready=state.activeId===person.id&&!person.delayedAction&&!person.delayTimer&&!person.timedAction&&!person.consoleHold;
-      get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayedAction?.awaitingRoll?'ROLL REQUIRED':ready?'YOUR TURN':person.delayedAction?.sensorOrder?'SCANNING':'SENSORS ONLINE';
+get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayedAction?.awaitingRoll?'ROLL REQUIRED':ready?'YOUR TURN':person.delayedAction?.sensorOrder?'SCANNING':window.SAConsoleCommon.standby(state,person);
       const command=state.command?.unitId===person.id?state.command:null;
       get('[data-command]').value=command?.total&&!command.expired?command.remaining/command.total:0;
       const alerting=ready&&!state.hardPaused&&!state.holdPaused&&!command?.expired&&!host.hidden,now=Math.floor(performance.now()/1000);

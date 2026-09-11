@@ -1,5 +1,6 @@
 (function(){
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function standby(state,person){const active=state.units.find(u=>u.id===state.activeId);return state.hiddenActiveTurn?'Awaiting GM action':active&&active.id!==person.id?`STANDBY / ${active.characterName}'s turn`:state.running&&!state.hardPaused&&!state.holdPaused?'STANDBY / ATB charging':'STANDBY / ATB paused';}
   function mount(view,unit){
     if(!view||view.dataset.commonMounted)return;view.dataset.commonMounted='1';
     const doc=view.ownerDocument,b=window.SACombatBridge;
@@ -26,9 +27,8 @@
       }
       const busy=Boolean(person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
       for(const control of view.querySelectorAll('.console-swipe,.station-console-select')){control.disabled=busy||(control.classList.contains('console-swipe')&&window.SAStationAccess.consoles(state,person).length<2);control.title=busy?'Finish the current action before switching consoles':control.classList.contains('previous')?'Previous console':control.classList.contains('next')?'Next console':'Choose a console';}
-      if(!pilot){const status=view.querySelector('[data-turn]'),active=state.units.find(u=>u.id===state.activeId);if(status&&!busy&&!person.consoleHold&&state.activeId!==person.id)status.textContent=state.hiddenActiveTurn?'Awaiting GM action':active?`STANDBY / ${active.characterName}'s turn`:'STANDBY / ATB charging';}
     }
     tick();const timer=setInterval(tick,250);view.addEventListener('close',()=>clearInterval(timer),{once:true});
   }
-  window.SAConsoleCommon={mount};
+  window.SAConsoleCommon={mount,standby};
 }());
