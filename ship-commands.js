@@ -203,7 +203,7 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
       if(unit){
         if((armed.system==='sensor'&&['area','hex','analysis'].includes(armed.order.kind))||(!armed.system&&['evade','ram','skim'].includes(armed.order.kind))){
           unit.pendingShipRolls ||= [];
-          unit.pendingShipRolls.push({id:`trigger-${armed.order.receipt||armed.delayed?.id||unit.id}-${Date.now()}`,label:armed.delayed?.label||names[armed.order.kind],armed});
+          unit.pendingShipRolls.push({id:`trigger-${armed.order.receipt||armed.delayed?.id||unit.id}-${Date.now()}`,label:armed.delayed?.label||names[armed.order.kind],rollController:armed.delayed?.rollController||armed.order.rollController,armed});
           report(ship,`${unit.characterName}: conditional order triggered; roll required.`);
           continue;
         }

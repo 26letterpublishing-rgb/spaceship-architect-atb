@@ -22,6 +22,7 @@ function showPerspective(kind, player = null) {
   const source = isGm
     ? `gm.html?campaign=${encodeURIComponent(room.code)}&showcase=1`
     : `character.html?campaign=${encodeURIComponent(room.code)}&character=${encodeURIComponent(player.id)}&showcase=1`;
+  if(frame.getAttribute('src')===source)return;
   frame.hidden = false;
   statusNode.hidden = true;
   frame.src = source;

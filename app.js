@@ -375,12 +375,16 @@ function syncEmbeddedModalViewport() {
       offset += child.frameElement.getBoundingClientRect().top + child.frameElement.clientTop;
       const parent = child.parent;
       visibleTop = Math.max(visibleTop, -offset);
+      for(const hud of parent.document.querySelectorAll('#globalCharacterHud,.showcase-toolbar')){
+        const bounds=hud.getBoundingClientRect();
+        if(bounds.height&&bounds.top<parent.innerHeight&&bounds.bottom>0)visibleTop=Math.max(visibleTop,bounds.bottom-offset);
+      }
       visibleBottom = Math.min(visibleBottom, parent.innerHeight - offset);
       child = parent;
     }
     if (visibleBottom <= visibleTop) return;
     document.body.classList.add("embedded-modal-host");
-    document.body.style.setProperty("--embedded-visible-top", `${visibleTop}px`);
+    document.body.style.setProperty("--embedded-visible-top", `${Math.max(0,visibleTop)}px`);
     document.body.style.setProperty("--embedded-hidden-bottom", `${Math.max(0,window.innerHeight-visibleBottom)}px`);
     document.body.style.setProperty("--embedded-modal-center", `${(visibleTop + visibleBottom) / 2}px`);
     document.body.style.setProperty("--embedded-modal-max-height", `${Math.max(180, visibleBottom - visibleTop - 24)}px`);
@@ -1822,10 +1826,16 @@ function encounterStateUrl(code = currentRoomCode) {
 function connectEvents() {
   if (events) events.close();
   if (!currentRoomCode) return;
-  events = new EventSource(`/events?room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}&token=${encodeURIComponent(mode === 'gm' || embeddedGm ? gmCampaignToken : campaignCharacterToken)}`);
+  let streamState=null;
+  events = new EventSource(`/events?delta=1&room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}&token=${encodeURIComponent(mode === 'gm' || embeddedGm ? gmCampaignToken : campaignCharacterToken)}`);
   events.addEventListener("state", (event) => {
     setConnected(true);
-    receiveState(JSON.parse(event.data));
+    streamState=JSON.parse(event.data);
+    receiveState(streamState);
+  });
+  events.addEventListener('state-delta',event=>{
+    try{streamState=window.SACombatWire.apply(streamState,JSON.parse(event.data));setConnected(true);receiveState(streamState);}
+    catch{connectEvents();}
   });
   events.addEventListener("error", () => {
     setConnected(false, "Cannot reach this ATB room. It may have expired or the server may be waking up.");
@@ -2302,6 +2312,7 @@ function escapeHtml(value) {
 function statusText() {
   if (!state) return "Connecting";
   if (state.hardPaused) return "Paused";
+  if (state.rollPaused) return "Paused: Awaiting Dice";
   if (state.attackResolution || state.itemResolution) return "Resolution Paused";
   if (state.pausedForTurn) return "Turn Paused";
   return state.running ? "Clock Engaged" : "Waiting for GM";
@@ -2919,10 +2930,10 @@ function setNpcRollControlsDisabled(disabled) {
 
 function renderGmNpcRollPrompts(attack, attacker, defender) {
   const prompts = [];
-  if (attack.phase === "checks" && !attack.attackerRoll && attacker?.team === "npc") prompts.push({ role: "attacker", unit: attacker });
+  if (attack.phase === "checks" && !attack.attackerRoll && (attacker?.team === "npc" || attack.rollController === "gm")) prompts.push({ role: "attacker", unit: attacker });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "npc") prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && gmForcedDefenseEntry) prompts.push({ role: "defender", unit: defender });
-  if (attack.phase === "damage" && !attack.damageRoll && attacker?.team === "npc") prompts.push({ role: "damage", unit: attacker });
+  if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm")) prompts.push({ role: "damage", unit: attacker });
   const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
   if (signature === gmNpcPromptSignature) return;
   gmNpcPromptSignature = signature;
@@ -2949,7 +2960,7 @@ function renderAttackResolution(mine) {
 
   if (mode === "player" && mine) {
     let request = null;
-    if (attack.phase === "checks" && mine.id === attack.attackerId && !attack.attackerRoll) {
+    if (attack.phase === "checks" && mine.id === attack.attackerId && !attack.attackerRoll && attack.rollController!=='gm') {
       const attackSkill = attack.plan?.attackSkill || (attack.attackType === "melee" ? "Melee" : "Projectile");
       request = {
         type: "sa-combat-roll-request",
@@ -2976,7 +2987,7 @@ function renderAttackResolution(mine) {
           expired: attack.defenderCommand.expired,
         });
       }
-    } else if (attack.phase === "damage" && mine.id === attack.attackerId && !attack.damageRoll) {
+    } else if (attack.phase === "damage" && mine.id === attack.attackerId && !attack.damageRoll && attack.rollController!=='gm') {
       request = {
         type: "sa-combat-damage-request",
         attackId: attack.id,
@@ -3077,7 +3088,7 @@ function renderItemResolution(mine) {
     firstAidResolutionPanel?.classList.add("hidden");
     return;
   }
-  if (mode === "player" && mine?.id === resolution.healerId) {
+  if (mode === "player" && mine?.id === resolution.healerId && resolution.rollController!=='gm') {
     let request = null;
     if (resolution.phase === "roll" && !resolution.roll) request = {
       type: "sa-combat-roll-request", attackId: resolution.id, resolutionId: resolution.id, rollRole: "firstAid",
@@ -3150,7 +3161,7 @@ function render() {
   document.body.classList.toggle("welcome-mode", mode === "welcome");
   document.body.classList.toggle("player-mode", mode === "player");
   document.body.classList.toggle("ring-view-mode", visualMode === "ring");
-  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused && !state?.attackResolution && !state?.itemResolution);
+  document.body.classList.toggle("clock-active", Boolean(state?.running) && !state?.rollPaused && !state?.pausedForTurn && !state?.holdPaused && !state?.hardPaused && !state?.attackResolution && !state?.itemResolution);
   document.body.classList.toggle("hard-paused", Boolean(state?.hardPaused));
   renderPcBuilder();
   renderGmCampaignPcPicker();
@@ -3297,11 +3308,11 @@ function render() {
     renderItemResolution(mine || null);
   }
 
-  logList.innerHTML = state.log
+  window.SALiveDOM.render(logList, state.log
     .slice()
     .reverse()
     .map((entry) => `<div><strong>${escapeHtml(entry.at)}</strong> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</div>`)
-    .join("");
+    .join(""));
 
   if (!state.pausedForTurn && turnPanelOpen()) closeTurnPanel();
   if (!playerDeathSequence) notifyTurnIfNeeded();
@@ -4313,7 +4324,7 @@ document.addEventListener("pointermove", (event) => {
 document.addEventListener("pointerup", clearRingDrag);
 document.addEventListener("pointercancel", clearRingDrag);
 
-fetch("data/weapons.json", { cache: "no-store" }).then((response) => response.json()).then((catalog) => {
+fetch("data/weapons.json").then((response) => response.json()).then((catalog) => {
   npcWeaponCatalog = Array.isArray(catalog) ? catalog : [];
   if (state) render();
 }).catch(() => {});

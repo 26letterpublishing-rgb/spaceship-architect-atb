@@ -32,12 +32,13 @@
   const timer=setInterval(()=>{
     const b=bridge(),state=b?.state(),view=doc.querySelector('.ship-navigation-dialog[open],.sensor-console[open],.shield-console-dialog[open],.weapon-console[open],.lock-console[open]');
     const unit=state?.units.find(u=>u.id===(view?.dataset.operatorId||b?.myUnitId()));
-    const running=Boolean(view&&unit&&state.running&&!state.pausedForTurn&&!state.hardPaused&&!state.holdPaused&&!doc.hidden);
+    const running=Boolean(view&&unit&&state.running&&!state.rollPaused&&!state.pausedForTurn&&!state.hardPaused&&!state.holdPaused&&!doc.hidden);
     if(view){
       let notice=view.querySelector('.console-pause-notice');if(!notice){notice=doc.createElement('div');notice.className='console-pause-notice';notice.setAttribute('role','status');(view.querySelector('.pilot-command,.weapon-turn,.sensor-command,.shield-command')||view).append(notice);}
       const active=state.units.find(u=>u.id===state.activeId),other=active&&active.id!==unit?.id;
-      const paused=state.hardPaused||state.holdPaused||state.hiddenActiveTurn||((state.pausedForTurn||!state.running)&&(other||state.activeAction||state.delayRequest));
-      const name=!state.hardPaused&&!state.holdPaused&&other&&active.team==='pc'?(active.playerName||active.characterName):'GM';
+      const pending=state.units.find(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length),roll=pending?.delayedAction?.awaitingRoll?pending.delayedAction:pending?.pendingShipRolls?.[0];
+      const paused=state.rollPaused||state.hardPaused||state.holdPaused||state.hiddenActiveTurn||((state.pausedForTurn||!state.running)&&(other||state.activeAction||state.delayRequest));
+      const name=state.rollPaused?pending&&roll?.rollController!=='gm'&&pending.team==='pc'?(pending.playerName||pending.characterName):'GM':!state.hardPaused&&!state.holdPaused&&other&&active.team==='pc'?(active.playerName||active.characterName):'GM';
       notice.hidden=!paused;notice.textContent=`Paused: Awaiting ${name}`;
     }
     if(state){for(const ship of state.starships)for(const report of ship.sensorState?.reports||[]){if(!report.detected)continue;const key=ship.id+report.at+report.targetId;if(detections.has(key))continue;detections.add(key);if(detectionReady&&view&&!doc.hidden&&b.soundEnabled()&&Date.now()-Date.parse(report.at)<10000){b.consoleTick();setTimeout(()=>{if(view.isConnected&&b.soundEnabled()&&!doc.hidden)b.consoleTick();},160);}}detectionReady=true;}

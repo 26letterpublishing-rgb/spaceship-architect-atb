@@ -7,9 +7,9 @@
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;
     const doc=host(),gm=bridge.mode()==='gm',mine=state.units.find(u=>u.id===bridge.myUnitId()),waiting=state.units.filter(request);
     if(!notice){notice=doc.createElement('button');notice.type='button';notice.setAttribute('role','status');notice.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#260d13;color:#ff7887;border:1px solid #ff7686;padding:9px 16px;max-width:70vw;font:700 14px Arial';doc.body.append(notice);}
-    const relevant=gm?waiting:waiting.filter(u=>u.id===mine?.id);
+    const relevant=gm?waiting:waiting.filter(u=>u.id===mine?.id&&request(u).rollController!=='gm');
     const calls=state.starships.filter(s=>gm||s.id===mine?.location?.starshipId).flatMap(s=>(s.commandSystems?.calls||[]).filter(c=>c.status==='incoming').map(c=>s.title+': you are being Hailed by '+c.title));
-    const awaiting=mine&&(state.delayRequest?.unitId===mine.id||state.activeAction?.unitId===mine.id||(state.itemResolution?.healerId===mine.id&&state.itemResolution.phase==='gmDifficulty')||(state.attackResolution?.attackerId===mine.id&&state.attackResolution.phase==='gmDamage'));
+    const awaiting=mine&&(request(mine)?.rollController==='gm'||state.delayRequest?.unitId===mine.id||state.activeAction?.unitId===mine.id||(state.itemResolution?.healerId===mine.id&&(state.itemResolution.phase==='gmDifficulty'||state.itemResolution.rollController==='gm'))||(state.attackResolution?.attackerId===mine.id&&(state.attackResolution.phase==='gmDamage'||state.attackResolution.rollController==='gm')));
     const logs=state.log||[],index=logs.findIndex(e=>e.id===lastLog),fresh=lastLog?logs.slice(index+1):[];lastLog=logs.at(-1)?.id||lastLog;
     const updates=fresh.filter(e=>gm?/laser|scan complete|detected|Life Scan|succeeded|failed|connected|prepared|analysis|repair|reboot|Hail/i.test(e.text):/laser|Hail answered|Hail ended/i.test(e.text));
     if(updates.length){result=updates.map(e=>e.text).join(' | ');until=Date.now()+7000;}
@@ -20,7 +20,7 @@
     const parent=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
     notice.classList.toggle('console-status-toast',parent.matches?.('.ship-navigation-dialog,.shared-console-layout'));
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
-    const unit=waiting.find(u=>(gm?u.team==='npc'||u.id===forced:u.id===mine?.id)&&!dismissed.has(request(u).id));if(!unit)return;
+    const unit=waiting.find(u=>(gm?u.team==='npc'||request(u).rollController==='gm'||u.id===forced:u.id===mine?.id&&request(u).rollController!=='gm')&&!dismissed.has(request(u).id));if(!unit)return;
     const pending=request(unit);if(!pending.rollSpec)return;
     const view=doc.createElement('dialog');dialog=view;view.setAttribute('aria-label','Ship action dice roll');
     view.dataset.rollId=pending.id;

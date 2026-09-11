@@ -5125,6 +5125,7 @@ function beginSkillReroll() {
 }
 
 function animateSpeedPreview(now) {
+  if(document.hidden||!dom.speedPreview.getClientRects().length){speedPreviewFrame=null;return;}
   const speed = Math.max(0, Number(speedPreviewValue) || 0);
   let progress = 0;
   let ready = false;
@@ -5194,6 +5195,8 @@ function renderDerived() {
       .filter(Boolean).forEach((element) => { element.dataset.gmDirectEdit = element.id; });
   }
 }
+new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&speedPreviewFrame===null)syncSpeedPreview(speedPreviewValue);}).observe(dom.speedPreview);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&speedPreviewFrame===null&&dom.speedPreview.getClientRects().length)syncSpeedPreview(speedPreviewValue);});
 
 function requestGmNumber(label, current, { min = -999999, max = 999999, step = "0.1" } = {}) {
   return new Promise((resolve) => {

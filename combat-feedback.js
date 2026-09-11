@@ -53,7 +53,7 @@
       for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){marker.classList.toggle('ship-wreck',Boolean(ship.destroyedAt));if(ship.destroyedAt){const label=marker.querySelector('text');if(label&&!label.textContent.endsWith(' [DESTROYED]'))label.textContent+=' [DESTROYED]';}}
       const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)setTimeout(()=>popup('VICTORY',`${ship.title} is the last surviving ship.`),2200);}
     }
-    for(const d of surfaces())for(const p of d.querySelectorAll('.combat-log-entry,[data-activity] p,.ship-lane-log p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');
+    for(const d of surfaces())for(const p of d.querySelectorAll('[data-activity] p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');
     if(seen.size>3000){seen.clear();events.forEach(e=>seen.add(e.id));}
     initialized=true;
   }

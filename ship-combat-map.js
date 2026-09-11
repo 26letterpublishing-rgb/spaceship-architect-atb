@@ -28,10 +28,15 @@
   let moveSubmitting = false;
   let moveError = "";
   let expandedMap = null;
+  const layouts=new WeakMap();
+  function layoutFor(ship){
+    if(!layouts.has(ship))layouts.set(ship,window.SAShipMap.buildLayout(ship));
+    return layouts.get(ship);
+  }
   const mapView = { labels: true, highResolution: false, combatMesh: false, walls: true, stations: true };
 
   function stationAt(ship, square, mesh) {
-    const sic = window.SAShipMap.buildLayout(ship?.ship || {}).footprint.get(Number(square));
+    const sic = layoutFor(ship?.ship || {}).footprint.get(Number(square));
     return sic?.stations?.find((station) => station.x === sic.column && station.y === sic.row && station.mesh === Number(mesh)) || null;
   }
 
@@ -132,7 +137,7 @@
   }
 
   function footprint(ship) {
-    return window.SAShipMap.buildLayout(ship?.ship || {}).footprint;
+    return layoutFor(ship?.ship || {}).footprint;
   }
 
   function locationFor(unit, ship = selectedShip()) {
@@ -183,7 +188,7 @@
     const startNode = nodeId(start.square, start.mesh);
     const endNode = nodeId(destination.square, destination.mesh);
     if (startNode === endNode) return [];
-    const layout = window.SAShipMap.buildLayout(ship.ship);
+    const layout = layoutFor(ship.ship);
     const queue = [startNode];
     const parent = new Map([[startNode, null]]);
     while (queue.length) {
@@ -205,7 +210,7 @@
   }
 
   function completeLocation(ship, point) {
-    const sic = window.SAShipMap.buildLayout(ship?.ship || {}).footprint.get(point.square);
+    const sic = layoutFor(ship?.ship || {}).footprint.get(point.square);
     return { environment: "starship", starshipId: ship.id, square: point.square, mesh: point.mesh, sicId: sic?.sicId || "", stationed: false, stationSlot: null, doorKey: point.doorKey || "" };
   }
 
@@ -216,7 +221,7 @@
     if(moveSubmitting)return;
     moveError='';
     if (!locked && preview && preview.square === square && preview.mesh === mesh) return;
-    if (window.SAShipMap.buildLayout(ship.ship).footprint.get(Number(square))?.blocked) {
+    if (layoutFor(ship.ship).footprint.get(Number(square))?.blocked) {
       preview = { square, mesh, path: [], color: "red", locked };
       confirm.disabled = true;
       status.textContent = "The engine core blocks movement through that square.";
@@ -290,7 +295,7 @@
     if (!ship) { grid.innerHTML = ""; return; }
     const hull = new Set(ship.ship.gridCells || []);
     const footprints = footprint(ship);
-    const layout = window.SAShipMap.buildLayout(ship.ship);
+    const layout = layoutFor(ship.ship);
     const routeNodes = new Set((preview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === ship.id);
     grid.classList.toggle("show-labels", mapView.labels);
@@ -378,7 +383,7 @@
 
   function inlineMapMarkup(record) {
     const ship = record.ship || {};
-    const cells = [...new Set([...(ship.gridCells || []), ...window.SAShipMap.buildLayout(ship).footprint.keys()])];
+    const cells = [...new Set([...(ship.gridCells || []), ...layoutFor(ship).footprint.keys()])];
     if (!cells.length) return '<p class="inline-map-empty">This starship has no confirmed floorplan.</p>';
     const rows = cells.map((cell) => Math.floor(cell / 20));
     const cols = cells.map((cell) => cell % 20);
@@ -388,7 +393,7 @@
     const colCount = maxCol - minCol + 1;
     const hull = new Set(ship.gridCells || []);
     const footprints = footprint(record);
-    const layout = window.SAShipMap.buildLayout(ship);
+    const layout = layoutFor(ship);
     const activePreview = selectedShipId === record.id ? preview : null;
     const routeNodes = new Set((activePreview?.path || []).map((point) => `${point.square}:${point.mesh}`));
     const units = (combatState?.units || []).filter((unit) => unit.location?.starshipId === record.id);
@@ -437,9 +442,9 @@
     const prompt = isSelected && interaction === "move"
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.")
       : "Live interior view";
-    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}<button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>
+    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div></div>
       <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
+      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -536,8 +541,6 @@
       const markup = inlineMapMarkup(record);
       if (inlineMarkupCache.get(host) !== markup) {
         host.innerHTML = markup;
-        const actions=host.querySelector('.inline-map-actions');
-        if(actions)host.prepend(actions);
         inlineMarkupCache.set(host, markup);
       }
     });
@@ -564,7 +567,7 @@
       targetCell?.insertAdjacentHTML("beforeend", `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>`);
     }
     if (preview?.path?.length) {
-      const cells = [...new Set([...(record.ship.gridCells || []), ...window.SAShipMap.buildLayout(record.ship).footprint.keys()])];
+      const cells = [...new Set([...(record.ship.gridCells || []), ...layoutFor(record.ship).footprint.keys()])];
       const rows = cells.map((cell) => Math.floor(cell / 20));
       const cols = cells.map((cell) => cell % 20);
       const minRow = Math.min(...rows), maxRow = Math.max(...rows), minCol = Math.min(...cols), maxCol = Math.max(...cols);
@@ -837,7 +840,7 @@
         view.innerHTML=`<h2>Starting location: ${esc(name)}</h2><label>Starship <select aria-label="Starting starship">${state.starships.map(s=>`<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('')}</select></label><p role="status">Choose a starting square.</p><div data-start-grid style="overflow:auto;max-height:60vh;margin:12px 0"></div><button type="button" data-back>Back</button> <button type="button" data-start disabled>Confirm starting location</button>`;
         const select=view.querySelector('select'),grid=view.querySelector('[data-start-grid]'),confirm=view.querySelector('[data-start]');let chosen=null;
         if(state.starships.some(s=>s.id===preferred))select.value=preferred;
-        const draw=()=>{chosen=null;confirm.disabled=true;const ship=state.starships.find(s=>s.id===select.value),cells=ship.ship.gridCells,minX=Math.min(...cells.map(c=>c%20)),minY=Math.min(...cells.map(c=>Math.floor(c/20))),layout=window.SAShipMap.buildLayout(ship.ship);
+        const draw=()=>{chosen=null;confirm.disabled=true;const ship=state.starships.find(s=>s.id===select.value),cells=ship.ship.gridCells,minX=Math.min(...cells.map(c=>c%20)),minY=Math.min(...cells.map(c=>Math.floor(c/20))),layout=layoutFor(ship.ship);
           grid.innerHTML=`<div style="display:grid;grid-auto-columns:72px;grid-auto-rows:72px;width:max-content">${cells.map(c=>`<button type="button" data-start-square="${c}" title="${esc(layout.footprint.get(c)?.label||'Hull')}" style="grid-column:${c%20-minX+1};grid-row:${Math.floor(c/20)-minY+1};border-radius:0;background:#184550;color:white;font-size:11px;padding:3px">${esc(layout.footprint.get(c)?.label||'Hull')}</button>`).join('')}</div>`;};
         select.onchange=draw;grid.onclick=event=>{const button=event.target.closest('[data-start-square]');if(!button)return;const square=Number(button.dataset.startSquare),occupied=new Set(state.units.filter(u=>u.location?.starshipId===select.value&&u.location.square===square).map(u=>u.location.mesh));const mesh=[4,0,1,2,3,5,6,7,8].find(m=>!occupied.has(m));if(mesh===undefined){view.querySelector('[role=status]').textContent='That square is full. Choose another.';return;}chosen={environment:'starship',starshipId:select.value,square,mesh,sicId:'',stationed:false};grid.querySelectorAll('button').forEach(b=>b.style.outline='');button.style.outline='3px solid #ffe16a';confirm.disabled=false;view.querySelector('[role=status]').textContent='Starting square selected.';};
         confirm.onclick=()=>{view.returnValue='confirmed';view.close();};view.querySelector('[data-back]').onclick=()=>view.close();view.addEventListener('close',()=>{const result=view.returnValue==='confirmed'?chosen:null;view.remove();resolve(result);},{once:true});doc.body.append(view);draw();view.showModal();

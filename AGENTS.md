@@ -123,6 +123,10 @@ Optional desktop mouse regression: `node scripts/playtest-cockpit.cjs` with Play
 
 ## Publishing
 
+- Preserve conditional static caching/gzip and private API no-store. The reported 5 GB quota is Render outbound bandwidth, not Git storage; do not delete print masters or rewrite history as a bandwidth fix.
+- combat-wire.js patches must be generated from the authorized per-viewer snapshot, never raw GM state. Keep full-snapshot reconnect and legacy stream support. Cached combat layouts assume immutable ship objects.
+- Pending ship rolls freeze simulation and decision timers. Carry GM roll ownership into follow-up rolls; never auto-roll damage. See COMBAT-PERFORMANCE-PASS.md and its HTTP/Chrome regressions.
+
 When the user says `#commit`, complete the requested work, verify it, commit it, and push `main` to `origin`. Report the commit hash and any checks that could not be run. Gold Standard remains frozen; do not refresh it.
 
 After all task work, verification, publishing, and cleanup are complete, send the user's completion notification as the final tool action. Do not send intermediate or incomplete-task notifications:

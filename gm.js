@@ -2592,7 +2592,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
   }
 });
 
-builtinNpcTemplates = await fetch("data/npc-templates.json", { cache: "no-store" }).then((response) => response.json()).catch(() => [NPC_BLANK]);
+builtinNpcTemplates = await fetch("data/npc-templates.json").then((response) => response.json()).catch(() => [NPC_BLANK]);
 populateRulesControls();
 renderScriptEditor("");
 const initialCode = new URLSearchParams(location.search).get("campaign")?.toUpperCase() || (!SHOWCASE_MODE ? localStorage.getItem("sa-current-campaign-code") : "") || "";

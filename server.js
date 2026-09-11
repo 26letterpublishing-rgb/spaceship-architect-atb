@@ -269,6 +269,7 @@ function publicState(room) {
     revision: ++stateSequence,
     roomCode: room.roomCode,
     running: room.running,
+    rollPaused: room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length),
     pausedForTurn: room.pausedForTurn,
     activeId: room.activeId,
     activeAction: room.activeAction,
@@ -909,12 +910,24 @@ async function encounterViewer(room, params) {
 }
 
 function sendEvent(res, event, data) {
-  if (event === 'state') data = visibleEncounter(data,res.sensorViewer);
+  if (event === 'state') {
+    data = visibleEncounter(data,res.sensorViewer);
+    if(res.deltaState){
+      // Diff only the authorized view; never diff raw GM state for a player.
+      const snapshot=JSON.parse(JSON.stringify(data));
+      if(res.previousState){
+        const packet={base:res.previousState.revision,changes:require('./combat-wire').diff(res.previousState,snapshot)};
+        res.previousState=snapshot;event='state-delta';data=packet;
+      }else res.previousState=snapshot;
+    }
+  }
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-function broadcast(room) {
+function broadcast(room, clock = false) {
+  if(clock&&Date.now()-(room.lastBroadcastAt||0)<200)return;
+  room.lastBroadcastAt=Date.now();
   const data = publicState(room);
   for (const res of clients.get(room.roomCode) || []) sendEvent(res, "state", data);
 }
@@ -1536,6 +1549,7 @@ function resolveCompletedEvent(room, event, source) {
 }
 
 function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } = {}) {
+  if(room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length))return;
   if (room.pausedForTurn || room.holdPaused) return;
 
   const interruptedId = room.commandExpired ? room.activeId : null;
@@ -1615,6 +1629,11 @@ setInterval(() => {
     }
     if (hadAuInput) { broadcast(room); if (!roomPersistTimers.has(room.roomCode)) scheduleRoomPersist(room); }
     if (room.hardPaused) continue;
+    if(room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length)){
+      if(room.commandDeadline)room.commandDeadline+=inputElapsed*1000;
+      if(room.attackResolution?.defenderCommandDeadline)room.attackResolution.defenderCommandDeadline+=inputElapsed*1000;
+      room.lastTick=Date.now();broadcast(room,true);continue;
+    }
     const defenseCommand = attackCommandState(room);
     if (defenseCommand && room.attackResolution?.defenderCommandDeadline) {
       if (Date.now() >= room.attackResolution.defenderCommandDeadline) {
@@ -1624,7 +1643,7 @@ setInterval(() => {
         const defender = room.units.find((entry) => entry.id === room.attackResolution.defenderId);
         if (defender) pushLog(room, defender.characterName + "'s Defense Command Window expired; the GM may resolve it.");
       }
-      broadcast(room);
+      broadcast(room,true);
       if (Date.now() - room.lastPersistRequestAt >= 2000) {
         room.lastPersistRequestAt = Date.now();
         scheduleRoomPersist(room, 0);
@@ -1642,7 +1661,7 @@ setInterval(() => {
         room.lastTick = Date.now();
         if (unit) pushLog(room, `${unit.characterName}'s Command Window expired.`);
       }
-      broadcast(room);
+      broadcast(room,true);
       if (Date.now() - room.lastPersistRequestAt >= 2000) {
         room.lastPersistRequestAt = Date.now();
         scheduleRoomPersist(room, 0);
@@ -1655,7 +1674,7 @@ setInterval(() => {
     if (elapsed < 80) continue;
     room.lastTick = now;
     advanceSeconds(room, elapsed / 1000, { exact: true, source: "clock" });
-    broadcast(room);
+    broadcast(room,true);
     if (now - room.lastPersistRequestAt >= 2000) {
       room.lastPersistRequestAt = now;
       scheduleRoomPersist(room, 0);
@@ -1686,15 +1705,7 @@ function serveStatic(req, res) {
     res.end("Not found");
     return;
   }
-  fs.readFile(absolute, (error, data) => {
-    if (error) {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
-    }
-    res.writeHead(200, { "Content-Type": contentType(absolute), "Cache-Control": "no-store" });
-    res.end(data);
-  });
+  require('./static-response').serve(req,res,absolute,contentType(absolute));
 }
 
 function readBody(req) {
@@ -1716,7 +1727,7 @@ function readBody(req) {
 
 function sendJson(res, status, data) {
   data = visibleEncounter(data,res.sensorViewer);
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "private, no-store" });
   res.end(JSON.stringify(data));
 }
 
@@ -1826,6 +1837,8 @@ async function handleRoomAction(body, res) {
   migrateRoomDelays(room);
 
   const action = body.action;
+  const previousRolls=new Map(room.units.map(u=>[u.id,u.delayedAction?.id]));
+  const previousAttack=room.attackResolution?.id,previousItem=room.itemResolution?.id;
   const gmAuthorized = await campaignApi?.verifyGmAccess(room.roomCode, body.gmToken);
   const playerUnit = body.id
     ? room.units.find((entry) => entry.id === body.id)
@@ -1836,6 +1849,9 @@ async function handleRoomAction(body, res) {
     && playerUnit.characterId === String(body.characterId || "")
     && characterAuthorized;
   res.sensorViewer = { gm:Boolean(gmAuthorized), characterId:characterAuthorized ? String(body.characterId) : null };
+  if(!gmAuthorized&&((room.attackResolution?.rollController==='gm'&&playerUnit?.id===room.attackResolution.attackerId&&['submitAttackRoll','submitAttackDamage'].includes(action))||(room.itemResolution?.rollController==='gm'&&['submitFirstAidRoll','submitFirstAidHealing'].includes(action)))){
+    sendJson(res,403,{error:'The GM is resolving this action.'});return;
+  }
   const joiningPlayer = action === "join" && body.controlledBy === "player";
   if (joiningPlayer) {
     const allowed = body.characterId && await campaignApi?.verifyCharacterAccess(room.roomCode, String(body.characterId), body.characterToken);
@@ -2023,6 +2039,7 @@ async function handleRoomAction(body, res) {
       const queued=playerUnit?.pendingShipRolls?.find(r=>r.id===body.rollId);
       if(!queued&&(!pending?.awaitingRoll||pending.id!==body.rollId)){sendJson(res,409,{error:'That roll is no longer waiting.'});return;}
       const spec=queued?.rollSpec||pending?.rollSpec;
+      if((queued?.rollController||pending?.rollController)==='gm'&&!gmAuthorized){sendJson(res,403,{error:'The GM is resolving this action.'});return;}
       if(!Number.isFinite(body.score)&&!submitted.length){sendJson(res,400,{error:'Roll the dice or enter your result before confirming.'});return;}
       if(submitted.length&&(submitted.length!==spec?.sides.length||submitted.some((v,i)=>v>spec.sides[i]))){sendJson(res,400,{error:'Dice do not match the requested roll.'});return;}
       const ship=room.starships.find(s=>s.id===(queued?.armed.order.shipId||playerUnit.location?.starshipId)),previous=ship?.sensorState?.reports?.[0];
@@ -2937,6 +2954,16 @@ async function handleRoomAction(body, res) {
     }
   }
 
+  if(gmAuthorized&&playerUnit){
+    const pending=playerUnit.delayedAction;
+    if(pending&&pending.id!==previousRolls.get(playerUnit.id)){
+      pending.rollController='gm';
+      if(pending.commandOrder)pending.commandOrder.rollController='gm';
+      if(pending.sensorOrder)pending.sensorOrder.rollController='gm';
+    }
+    if(room.attackResolution&&room.attackResolution.id!==previousAttack)room.attackResolution.rollController='gm';
+    if(room.itemResolution&&room.itemResolution.id!==previousItem)room.itemResolution.rollController='gm';
+  }
   if(action==='exitEncounter')await campaignApi?.saveEncounter(room.roomCode,snapshotRoom(room));
   sendJson(res, 200, publicState(room));
   broadcast(room);
@@ -3019,6 +3046,7 @@ const server = http.createServer(async (req, res) => {
       Connection: "keep-alive",
       "Access-Control-Allow-Origin": "*",
     });
+    res.deltaState = url.searchParams.get('delta') === '1';
     const roomClients = clients.get(room.roomCode) || new Set();
     clients.set(room.roomCode, roomClients);
     roomClients.add(res);
