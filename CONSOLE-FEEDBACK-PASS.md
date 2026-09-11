@@ -14,7 +14,7 @@
 
 134 unit/HTTP tests passed; syntax and whitespace checks passed. Browser suites passed for sensors (fresh GM/two PCs, actual GM Add picker, out-of-turn hail acceptance, hover highlight, roll-first ATB/input freeze, retry/restart, Analysis and Life Scan), all 12 cockpit mouse orders, and shield regressions. Screenshots inspected for hover selection, skill difficulty and sensor reports. Audio lifecycle is instrumented in the cockpit tests; subjective volume/timbre still needs human playtesting.
 
-Fixtures use API-created characters, not a complete new-user character creation walkthrough. Render verification follows publishing. Gold Standard and data/campaigns.json are untouched.
+Fixtures use API-created characters, not a complete new-user character creation walkthrough. Application c22f6a2 is pushed and verified on Render: 32 code/style files and 19 optimized images matched. Hosted cards, GM/PC switch, roll-first scan, shared dice prompt, Command help and expanded interior passed. Gold Standard and data/campaigns.json are untouched.
 
 ## Maintenance
 

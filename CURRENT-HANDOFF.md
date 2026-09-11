@@ -1,8 +1,8 @@
 # Current Recovery Handoff
 
-## Active Pass: Console Feedback And Roll Timing
+## Complete: Console Feedback And Roll Timing
 
-Latest #commit is implemented and locally verified; publishing next. Read CONSOLE-FEEDBACK-PASS.md. All 134 tests, sensor GM/two-PC browser checks (including actual GM Add and out-of-turn hail acceptance), 12 cockpit orders and shield suite passed. Roll first; pause the actor's ATB/input while awaiting dice, then run input and reveal outcome. New console-feedback.js MUST be in public-assets.js. Finish commit/push/Render verification and final ntfy. Prior completion below is historical. Gold Standard remains frozen.
+Latest #commit is complete. Application c22f6a2 is pushed and verified on Render: 32 code/style files and 19 optimized images matched; hosted cards, GM/PC switch, roll-first scan, shared dice, Command help and expanded interior passed. Read CONSOLE-FEEDBACK-PASS.md. All 134 tests, sensor GM/two-PC checks (actual GM Add and out-of-turn hail acceptance), 12 cockpit orders and shield suite passed. Roll first; pause the actor's ATB/input while awaiting dice, then run input and reveal outcome. New console-feedback.js MUST be in public-assets.js. Wait for user feedback and next #commit. Prior completion below is historical. Gold Standard remains frozen.
 
 ## Console Follow-Up Complete
 
