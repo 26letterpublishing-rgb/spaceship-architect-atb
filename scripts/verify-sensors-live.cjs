@@ -7,7 +7,7 @@ const scripts=['app.js','character.js','gm.js','combat-actions.js','combat-engin
 scripts.push('action-help.js','maintenance-ui.js','ship-command-ui.js','ship-cooperation.js','ship-combat-map.css','ship-navigation-ui.css','combat-workspace.css','gm.html','character.html');
 let browser;
 scripts.push('ship-roll-ui.js','ship-map-presentation.css','console-feedback.js','gm.css');
-scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css','ship-commands.js');
+scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css');
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){

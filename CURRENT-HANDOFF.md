@@ -1,8 +1,8 @@
 # Current Recovery Handoff
 
-## In Progress: Defense And Console Follow-Up
+## Complete: Defense And Console Follow-Up
 
-Latest #commit implements DEFENSE-CONSOLE-PASS.md. All 145 automated tests pass; final browser checks and publication remain underway. Evasion now protects all attacks for 20 combat seconds. Fresh Explore has only Nova (six spacecraft skills 2.5) and Space Slug, with real Masking/Defense and no Masking 18 override. Previous completed sections below are historical. Notification for this pass has not been sent.
+Latest #commit is complete: application ad22fc7 is pushed and verified on Render. Read DEFENSE-CONSOLE-PASS.md. All 145 automated tests passed, plus local laser, sensor GM/two-PC, 12 cockpit mouse orders and shield browser checks. Hosted verification matched 35 code/style files and 22 optimized images and passed Explore scanning/console/interior checks and a real shared-dice laser attack. Evasion protects all attacks for 20 combat seconds. Fresh/reset Explore has only Nova (six spacecraft skills 2.5) and Space Slug, with real Masking/Defense and no Masking 18 override. Browser scripts closed their test servers and browsers. Gold Standard and existing campaign files remain untouched. Previous sections are historical; wait for user feedback and the next #commit.
 
 ## Complete: Rapid Laser 1
 
