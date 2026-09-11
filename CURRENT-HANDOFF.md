@@ -1,8 +1,10 @@
 # Current Recovery Handoff
 
-## In Progress: Lock-On And Combat Clarity
+## Complete: Lock-On And Combat Clarity
 
-Authorized September 11 #commit, up to 2.5 hours starting 05:06 UTC (target finish by 07:36 UTC). Implementation and newcomer audit are complete; see LOCK-ON-COMBAT-PASS.md and NEWCOMER-AUDIT-2026-09-11.md. 156 unit/HTTP tests, browser normal/locked/impaired targeting, explicit/manual red damage, misses, direct shortcuts/console arrows/Auto Zoom, destruction/Victory, sensor GM/two-PC, shields and cockpit regressions passed locally. NOT YET PUBLISHED: finish final tests, GitHub/Render verification, stop owned processes, then ntfy as final action. Newcomer server session 94640 uses port 60946; in-app tabs 3/4 belong to the task. Gold Standard and data/campaigns.json remain untouched. Earlier complete sections below are historical.
+September 11 #commit is complete. Application commits 53d62ba, ffa408a and 6af4f51 are pushed and verified on Render. Read LOCK-ON-COMBAT-PASS.md and NEWCOMER-AUDIT-2026-09-11.md. All 156 unit/HTTP tests passed. Browser checks covered normal/locked/impaired targeting, explicit/manual red damage, rejected empty/invalid rolls, misses/OK, direct shortcuts/console arrows/Auto Zoom, visible charging halo, destruction/Victory, sensor GM/two-PC, shields and 12 cockpit orders. Final hosted verification matched 44 public assets and 24 optimized images; hosted scan/Command/interior and locked laser through visible burst, impact and Victory passed. The newcomer UI audit created Aster Reed and functional First Light in isolated storage; source was not consulted during that walkthrough. Its three future suggestions are not yet authorized implementation work.
+
+The newcomer server and in-app audit tabs are closed. Browser scripts close their own test servers and browsers. Gold Standard and data/campaigns.json were untouched. The last operational step is the requested ntfy completion notification. Wait for user feedback and the next #commit; earlier sections below are historical, not unfinished tasks.
 
 ## Complete: Defense And Console Follow-Up
 
