@@ -4404,7 +4404,7 @@ function renderSkillSetup() {
   dom.selectedAttributeName.textContent = definition.label;
   dom.selectedAttributeName.style.color = definition.color;
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
-  dom.selectedSkillBonus.textContent = Number.isFinite(skillCheck.overrideBonus)?`+${skillCheck.overrideBonus}`:skillCheck.attributeOnly ? "NO SKILL" : `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
+  dom.selectedSkillBonus.textContent = Number.isFinite(skillCheck.overrideBonus)?`${skillCheck.overrideBonus<0?'':'+'}${Number(skillCheck.overrideBonus.toFixed(2))}`:skillCheck.attributeOnly ? "NO SKILL" : `+${ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`;
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.manualSkillScore.value = "";
   renderSkillExertion();

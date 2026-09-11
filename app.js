@@ -275,7 +275,7 @@ const myUnitCard = document.querySelector("#myUnitCard");
 const activePanel = document.querySelector("#activePanel");
 const consoleHoldTray = document.createElement('div');
 consoleHoldTray.className='console-hold-tray';consoleHoldTray.hidden=true;activePanel.after(consoleHoldTray);
-consoleHoldTray.addEventListener('click',async event=>{
+document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-resume-console]');if(!button)return;
   button.disabled=true;
   try {await window.SAShipNavigationUI.toggleHold(state.units.find(u=>u.id===button.dataset.resumeConsole));}
@@ -291,6 +291,8 @@ const turnDialogKicker = document.querySelector("#turnDialogKicker");
 const collapseNpcTurn = document.querySelector("#collapseNpcTurn");
 const restoreNpcTurn = document.querySelector("#restoreNpcTurn");
 const collapsePlayerTurn = document.querySelector("#collapsePlayerTurn");
+// Keep the slide control outside the transformed turn panel's positioning context.
+if(collapsePlayerTurn)document.body.append(collapsePlayerTurn);
 const restorePlayerTurn = document.querySelector("#restorePlayerTurn");
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
@@ -379,6 +381,7 @@ function syncEmbeddedModalViewport() {
     if (visibleBottom <= visibleTop) return;
     document.body.classList.add("embedded-modal-host");
     document.body.style.setProperty("--embedded-visible-top", `${visibleTop}px`);
+    document.body.style.setProperty("--embedded-hidden-bottom", `${Math.max(0,window.innerHeight-visibleBottom)}px`);
     document.body.style.setProperty("--embedded-modal-center", `${(visibleTop + visibleBottom) / 2}px`);
     document.body.style.setProperty("--embedded-modal-max-height", `${Math.max(180, visibleBottom - visibleTop - 24)}px`);
   } catch {
@@ -1507,7 +1510,7 @@ function shipCombatColumnsMarkup(units) {
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
       <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button>`:''}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
-      <div class="ship-lane-atb">${atb}</div>
+      <div class="ship-lane-atb">${shipUnits.filter(u=>u.consoleHold).map(u=>`<div class="ship-hold-control">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</div>`).join('')}${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
@@ -1571,6 +1574,9 @@ function updateShipHeaders() {
     const header = unitList.querySelector(`[data-ship-vitals="${CSS.escape(ship.id)}"]`);
     if (!header) continue;
     header.parentElement.querySelector("h2").textContent = ship.title || ship.ship?.title || "Unnamed Starship";
+    let defense=header.parentElement.querySelector('[data-ship-defense]');
+    if(!defense){defense=document.createElement('strong');defense.dataset.shipDefense='';header.after(defense);}
+    defense.textContent=`DEFENSE ${Number.isFinite(ship.defenseScore)?Number(ship.defenseScore.toFixed(2)):'Unknown'}${ship.evasionRemaining>0?` / EVADING ${Math.ceil(ship.evasionRemaining)}s`:''}`;
     const hullMax = Number(ship.maximumHullHp ?? ship.ship?.maximumHullHp ?? ship.ship?.gridCells?.length) || 0;
     const hull = Number(ship.currentHullHp ?? ship.ship?.currentHullHp ?? hullMax) || 0;
     const shieldMax = Number(ship.maximumShieldHp ?? ship.ship?.maximumShieldHp) || 0;
@@ -3205,7 +3211,7 @@ function render() {
   renderQueuedEffectDialog();
   renderActivePanel();
   const holding=state.units.filter(u=>u.consoleHold);
-  consoleHoldTray.hidden=!holding.length;
+  consoleHoldTray.hidden=!holding.length||state.starships?.length>0;
   window.SALiveDOM.render(consoleHoldTray,holding.map(u=>`<span style="color:${/^#[0-9a-f]{6}$/i.test(u.color)?u.color:'#75ffc4'}">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</span>`).join(''));
   renderRejoinOptions();
   const active = activeUnit();

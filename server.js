@@ -245,6 +245,7 @@ function publicState(room) {
   room.showcase ||= Boolean(campaignApi?.isShowcase(room.roomCode));
   shipShields.refresh(room);
   shipSensors.refresh(room);
+  for(const ship of room.starships){ship.defenseScore=shipSensors.defense(room,ship);ship.evasionRemaining=Math.max(0,...(ship.commandSystems?.evasions||[]).map(e=>e.remaining??20));}
   migrateRoomDelays(room);
   const command = commandState(room);
   return {

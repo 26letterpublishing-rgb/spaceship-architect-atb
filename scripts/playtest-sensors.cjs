@@ -18,7 +18,7 @@ async function main(){
   const people=['Observer','Other Crew'].map((name,i)=>({id:'sensor-pc-'+i,phase:'finalized',access:{pcCode:'sensor-code-'+i},identity:{characterName:name,playerName:name},attributes:{health:[1,0,-1,-1],intellect:[1,0,-1,-1],perception:[1,0,-1,-1],dexterity:[1,0,-1,-1]},computed:{maximumHp:30,moveSpeed:2,speed:.1,commandWindow:120,skills:{'Sensor Systems':6}},health:{current:30}}));
   const tokens=[];
   for(const character of people){const join=await post('campaign/join/request',{code,character},201);await post('campaign/join/respond',{code,token,requestId:join.requestId,decision:'approve'});tokens.push((await post('campaign/join/status',{code,characterId:character.id,pcCode:character.access.pcCode})).token);}
-  const ships=people.map((person,i)=>({id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',crewCharacterIds:[person.id],ship:{id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',confirmedOnce:true,defenseScore:1,gridCells:Array.from({length:9},(_,n)=>42+Math.floor(n/3)*20+n%3),sicInventory:[{id:'cp',type:'cockpit-1'},{id:'sn',type:'sensors-3'},{id:'en',type:'en-engine-1'}],placements:[{sicId:'cp',cell:42},{sicId:'sn',cell:43},{sicId:'en',cell:64}]}}));
+  const ships=people.map((person,i)=>({id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',crewCharacterIds:[person.id],ship:{id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',confirmedOnce:true,gridCells:Array.from({length:56},(_,n)=>42+Math.floor(n/8)*20+n%8),sicInventory:[{id:'cp',type:'cockpit-1'},{id:'sn',type:'sensors-3'},{id:'en',type:'en-engine-1'}],placements:[{sicId:'cp',cell:42},{sicId:'sn',cell:43},{sicId:'en',cell:64}]}}));
   for(const ship of ships){await post('campaign/starship/link',{code,token,starship:ship.ship},201);await post('campaign/starship/crew',{code,token,starshipId:ship.id,crewCharacterIds:ship.crewCharacterIds});}
   const act=(body,status=200)=>post('action',{roomCode:code,gmToken:token,...body},status);
   const state=(viewer=token)=>fetch(`${base}/api/state?room=${code}&token=${viewer}`).then(r=>r.json());
@@ -154,7 +154,7 @@ async function main(){
   assert.equal((await state()).units.find(u=>u.id===operator.id).location.stationed,true);
   await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4,stationed:false}});
   await gm.getByRole('button',{name:'Starships',exact:true}).click();await gm.locator('[data-view-starship]').first().click();
-  const details=gm.frameLocator('#gmStarshipViewerFrame');await details.locator('body.ship-details-only').waitFor();assert.equal(await details.locator('[data-starship-tab="details"]').getAttribute('class'),'starship-tab is-active');assert.equal(await details.locator('[data-live-stat="hull"]').first().textContent(),'9');assert.equal(await details.locator('.starship-library').isVisible(),false);await gm.screenshot({path:path.join(artifacts,'gm-view-details.png')});
+  const details=gm.frameLocator('#gmStarshipViewerFrame');await details.locator('body.ship-details-only').waitFor();assert.equal(await details.locator('[data-starship-tab="details"]').getAttribute('class'),'starship-tab is-active');assert.equal(await details.locator('[data-live-stat="hull"]').first().textContent(),'56');assert.equal(await details.locator('.starship-library').isVisible(),false);await gm.screenshot({path:path.join(artifacts,'gm-view-details.png')});
   await post('campaign/starship/diagnostics',{code,token:tokens[0],characterId:people[0].id,starshipId:ships[0].id},409);
   await act({action:'exitEncounter'});
   await pc.getByRole('button',{name:'Starships',exact:true}).click();
@@ -172,7 +172,7 @@ async function main(){
   await builder.reload();await builder.getByRole('button',{name:'Ship Details',exact:true}).click();
   assert.equal(await builder.locator('.desktop-live-stats [data-sensor-range]').textContent(),'12');
   await builder.screenshot({path:path.join(artifacts,'sensor-ship-details.png')});
-  const demo=await post('campaign/showcase/start',{});const demoCode=demo.code;const demoState=await fetch(`${base}/api/state?room=${demoCode}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(demoState.starships.length,2);assert.ok(demoState.starships.every(s=>s.sensorState.contacts[demoState.starships.find(o=>o.id!==s.id).id]?.level==='unknown'));
+  const demo=await post('campaign/showcase/start',{});const demoCode=demo.code;const demoState=await fetch(`${base}/api/state?room=${demoCode}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(demoState.starships.length,2);assert.ok(demoState.starships.every(s=>s.sensorState.contacts[demoState.starships.find(o=>o.id!==s.id).id]?.level==='detected'));assert.deepEqual(demoState.units.map(u=>u.characterName).sort(),['Nova Vale','Space Slug']);
   assert.deepEqual(errors,[]);
   await new Promise(r=>setTimeout(r,600));await browser.close();browser=null;const stopped=once(child,'exit');child.kill();await stopped;await start();
   token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;

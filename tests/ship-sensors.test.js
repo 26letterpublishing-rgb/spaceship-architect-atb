@@ -91,19 +91,19 @@ test('analysis reveals layout but Life Scan gates anonymous real ATB and never r
   view=sensors.view(room,'a');assert.equal(view.units[1].atb,73);assert.equal(view.units[1].characterName,'Lifeform 1');assert.deepEqual(view.units[1].location,{starshipId:'b'});assert.ok(!JSON.stringify(view).includes('Secret Crew'));
   assert.equal(sensors.view(room,null).starships.length,0);
 });
-test('Masking difficulties use learned values and unknown defense remains unknown',()=>{
+test('unknown contacts hide defense; detected contacts reveal the current score',()=>{
   const {room,unit}=fixture();sensors.refresh(room);
   assert.equal(sensors.difficulty(room,'a','hex','b',{q:10,r:0}).value,null);
   sensors.queue(room,unit,{sicId:'sn',kind:'hex',hex:{q:10,r:0},requestId:'learn-mask'});sensors.resolveInput(room,unit,()=>6);
   assert.equal(sensors.difficulty(room,'a','hex','b',{q:10,r:0}).value,8);
-  assert.equal(sensors.difficulty(room,'a','analysis','b').value,null);
+  assert.equal(sensors.difficulty(room,'a','analysis','b').value,18);
 });
 
 test('failed analysis adds a retry bonus, while successful detection clears uncertainty',()=>{
   const {room,a,b,unit}=fixture();sensors.refresh(room);assert.equal(a.sensorState.contacts.b.uncertainty,5);
   sensors.queue(room,unit,{sicId:'sn',kind:'hex',hex:{q:10,r:0},requestId:'resolve-unknown'});sensors.resolveInput(room,unit,()=>6);
   assert.equal(a.sensorState.contacts.b.uncertainty,undefined);
-  b.ship.defenseScore=5;
+  b.sensorScenarioMasking=5;
   for(let attempt=0;attempt<2;attempt++){
     sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:`retry-analysis-${attempt}`});sensors.resolveInput(room,unit,()=>1);
   }

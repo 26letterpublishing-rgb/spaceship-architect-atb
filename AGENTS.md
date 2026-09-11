@@ -10,6 +10,8 @@ Station occupancy is entered through movement, not a free-text Station action. K
 
 ## Product Direction
 
+Latest Defense/console rules: read DEFENSE-CONSOLE-PASS.md. Defense uses actual Masking or the highest active evasion result. Evasive Maneuvers lasts 20 combat seconds for ALL attacks, never consumed on hit/miss. Detected contacts expose Defense. Fresh Explore contains only Nova Vale (six spacecraft skills at 2.5) and Space Slug; the old Masking 18 demo override is removed. This supersedes older demo/next-attack notes below.
+
 Rapid Laser 1: read RAPID-LASER-PASS.md. ship-weapons.js owns manual fire through a real cockpit/bridge, Fast input and Weapon Systems Ingenuity. Use the shared skill roll before input; preserve ATB freeze until roll confirmation. Damage resolves once at input completion, not through a queued effect. Weapon state and receipts survive restore/synchronization. Do not leak undetected attackers through incoming reports. Lock-On remains future work. Fresh Explore ships include one Rapid Laser 1 each.
 
 Latest scan feedback: read SCAN-FEEDBACK-PASS.md. Ship dice actions now stop at an explicit authenticated roll request after input; retain retry-safe results and pending requests through restart. Life Scan is automatic per selected hex, counts non-Android combatants on other ships, and excludes the scanning ship. New/reset Explore ships intentionally have no shields for Analysis testing. Preserve one full-name label per SIC footprint and high-resolution yellow labels.

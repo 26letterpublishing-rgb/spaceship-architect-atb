@@ -34,9 +34,9 @@ test('team fuses one pool and calculations stack then expire in combat time',()=
   assert.equal(cooperation.roll(room,a,pilot,'hex',[4,4],2,()=>1,sensors.fusedTotal).total,8);
   commands.queue(room,pilot,{kind:'calculation',preparedAction:'hex',requestId:'calc-test-expire'});commands.resolveInput(room,pilot,()=>4);commands.advance(room,36);assert.equal(a.commandSystems.preparations.length,0);
 });
-test('evasion persists until attacked, collision requires same hex',()=>{
+test('evasion expires after 20 combat seconds, collision requires same hex',()=>{
   const {room,pilot,a,b}=fixture();assert.equal(commands.queue(room,pilot,{kind:'evade',requestId:'evade-test'}).ok,true);commands.resolveInput(room,pilot,()=>4);
-  assert.ok(a.commandSystems.evasions[0].defense>=1);commands.advance(room,300);assert.equal(a.commandSystems.evasions.length,1);
+  assert.ok(a.commandSystems.evasions[0].defense>=1);commands.advance(room,19.5);assert.equal(a.commandSystems.evasions.length,1);assert.equal(a.commandSystems.evasions[0].remaining,.5);commands.advance(room,.5);assert.equal(a.commandSystems.evasions.length,0);
   room.shipPositions[1].q=2;assert.equal(commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'ram-test'}).ok,false);
   room.shipPositions[1].q=0;assert.equal(commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'ram-test'}).ok,true);commands.resolveInput(room,pilot,()=>12);assert.equal(a.currentHullHp,0);assert.equal(b.currentHullHp,0);
 });

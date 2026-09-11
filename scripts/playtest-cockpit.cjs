@@ -214,9 +214,10 @@ async function main() {
   await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});await pc.waitForTimeout(1200);await act({action:'setHardPaused',paused:true});
   assert.equal((await state()).units.find(u=>u.id===pilot.id).atb,99);assert.notDeepEqual((await state()).shipPositions[0],heldPosition);
   await helm.getByRole('button',{name:'Combat View',exact:true}).click();
-  await pcFrame.locator('.console-hold-tray').getByRole('button',{name:'Resume',exact:true}).click();
+  await pcFrame.locator('.ship-hold-control').getByRole('button',{name:'Resume',exact:true}).click();
   await pc.waitForTimeout(250);assert.equal((await state()).units.find(u=>u.id===pilot.id).consoleHold,null);assert.equal((await state()).hardPaused,true);
   await act({action:'nudge',id:pilot.id,amount:1});
+  const collapse=pcFrame.locator('#collapsePlayerTurn');await collapse.waitFor({state:'visible'});const collapseBounds=await collapse.boundingBox();assert.ok(collapseBounds.x>pc.viewportSize().width/2&&collapseBounds.y>pc.viewportSize().height/2,'PC collapse button sits in the visible bottom-right');
   await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
   await helm.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
   const tickCount=()=>pcFrame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]===.025).length);
@@ -330,7 +331,7 @@ async function main() {
       }else if(!(await full.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
       const order=demo.getByRole('dialog',{name:compact?'Move ship':'Pilot console',exact:true});await order.waitFor();
       const origin=initial.shipPositions.find(p=>p.id===ship.id);
-      const destination={q:Math.round(origin.q)+i+2,r:Math.round(origin.r)+2-i};
+      const destination={q:Math.round(origin.q)+i+2,r:Math.round(origin.r)+1-i};
       await hexClick(demo,destination.q,destination.r);
       const confirm=order.getByRole('button',{name:'Move Ship',exact:true});
       await confirm.hover();await demo.waitForTimeout(650);assert.equal(await confirm.isEnabled(),true);
@@ -345,6 +346,10 @@ async function main() {
   }
   await demoPilot(true);await demoPilot(false);
   const demoCombat=demo.frameLocator('#showcaseFrame').frameLocator('#atbFrame');
+  const slug=(await readDemo()).units.find(u=>u.characterName==='Space Slug');
+  await advanceDemoUntil(s=>!s.activeId);await demoAct({action:'nudge',id:slug.id,amount:100});await demoAct({action:'playerCombatAction',id:slug.id,kind:'holdConsole'});
+  const slugLane=demoCombat.locator(`[data-ship-combat-lane="${slug.location.starshipId}"]`);
+  await slugLane.getByRole('button',{name:'Resume',exact:true}).click();assert.equal((await readDemo()).units.find(u=>u.id===slug.id).consoleHold,null);
   await demoCombat.locator('.combat-space-map').scrollIntoViewIfNeeded();
   await demo.screenshot({path:path.join(artifacts,'combat-map-inset.png')});
   assert.deepEqual(errors,[]);

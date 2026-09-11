@@ -133,12 +133,12 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   const result = cooperation.roll(room,ship,unit,order.kind,Array(propulsion.evadeCount).fill(propulsion.evadeDie),skill(unit,order.kind),rollDie,sensors.fusedTotal);
   if (order.kind === 'evade') {
     data.evasions ||= [];
-    data.evasions.push({defense:Math.max(sensors.masking(room,ship),result.total+propulsion.hsm),unitId:unit.id});
-    return report(ship,`Evasive Maneuvers prepared: Defense ${data.evasions.at(-1).defense} against the next attack.`,result);
+    data.evasions.push({defense:Math.max(sensors.masking(room,ship),result.total+propulsion.hsm),unitId:unit.id,remaining:20});
+    return report(ship,`Evasive Maneuvers active: Defense ${data.evasions.at(-1).defense} against all attacks for 20 combat seconds.`,result);
   }
   if (!target || !sameHex(room,ship,target)) return report(ship,'Collision cancelled: ships no longer occupy the same hex.');
   const defenses = cooperation.state(target).evasions ||= [];
-  const prepared=defenses.shift(),defense=prepared?.defense??sensors.masking(room,target);
+  const prepared=defenses.filter(e=>e.remaining==null||e.remaining>0).sort((a,b)=>b.defense-a.defense)[0],defense=sensors.defense(room,target);
   if (result.total < defense) {
     if(prepared)cooperation.state(target).evadeStep={unitId:prepared.unitId,attackerId:ship.id};
     return report(ship,`${names[order.kind]} missed.`,result);
@@ -175,6 +175,7 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
   for (const ship of room.starships || []) {
     cooperation.advance(ship,seconds);
     const data=cooperation.state(ship),armed=data.armed;
+    data.evasions=(data.evasions||[]).map(e=>({...e,remaining:Math.max(0,(e.remaining??20)-Math.max(0,seconds))})).filter(e=>e.remaining>0);
     if(!armed)continue;
     const start=before?.find(p=>p.id===armed.order.trigger.targetId),end=position(room,armed.order.trigger.targetId);
     let triggered=false;

@@ -1193,10 +1193,12 @@ class CampaignApi {
         { id: "showcase-rex", playerName: "Player Two", characterName: "Rex Calder", color: "#ff5b58", speed: 4.8, commandWindow: 32, moveSpeed: 3, hp: 52, damageReduction: 3, weaponId: "murasama-blade", attributes: { strength: [2, 2, -1, -1], health: [2, 1, -1, -1], perception: [0, 0, -1, -1], dexterity: [1, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [0, 0, -1, -1], intellect: [0, 0, -1, -1], willpower: [2, 0, -1, -1] }, skills: { Initiative: 1.8, Awareness: 1.2, Projectile: 0.8, "Dodge/Block": 2.1, Melee: 2.6, "Weapon Mechanics": 0.7 } },
         { id: "showcase-mira", playerName: "Player Three", characterName: "Mira Quill", color: "#a86cff", speed: 5.4, commandWindow: 40, moveSpeed: 3, hp: 40, damageReduction: 1, weaponId: "phazor", attributes: { strength: [0, 0, -1, -1], health: [1, 1, -1, -1], perception: [1, 0, -1, -1], dexterity: [1, 0, -1, -1], luck: [1, 0, -1, -1], charisma: [1, 1, -1, -1], intellect: [2, 2, -1, -1], willpower: [1, 1, -1, -1] }, skills: { Initiative: 2.4, Awareness: 2, Projectile: 1.6, "Dodge/Block": 1.5, Melee: 0.5, "Weapon Mechanics": 2.8, Engineering: 2.7, "Anatomy/First Aid": 2.2 } },
       ];
+      pcDefinitions.splice(1);
+      Object.assign(pcDefinitions[0].skills,Object.fromEntries(['Computer Systems','Engineering','Hacking','Pilot/Helm','Sensor Systems','Weapon Systems'].map(name=>[name,2.5])));
       const characters = pcDefinitions.map(showcaseCharacter);
       for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
       const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
-      const showcaseNpcUnitIds = Array.from({ length: 5 }, (_, index) => `unit-showcase-npc-${index}`);
+      const showcaseNpcUnitIds = ['unit-showcase-npc-0'];
       const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 152, showcaseNpcUnitIds);
       const campaign = defaultCampaign({ code: showcaseCode, name: "Explore Features", gmCode: uid("showcase") });
       campaign.showcase = true;
@@ -1204,7 +1206,7 @@ class CampaignApi {
       campaign.starships = [pcShip, npcShip];
       campaign.shipCredits = 25000;
       campaign.settings.hideRoomCode = true;
-      const selectedNpcs = shuffle(SHOWCASE_NPCS).slice(0, 5);
+      const selectedNpcs = SHOWCASE_NPCS.filter(npc=>npc.name==='Space Slug').slice(0,1);
       const pcSquares = [146, 147, 166];
       const npcSquares = [152, 153, 172, 173, 192];
       const units = pcDefinitions.map((entry, index) => ({
@@ -1240,8 +1242,7 @@ class CampaignApi {
       normalized.showcase = true;
       normalized.encounter.showcase = true;
       normalized.encounter.shipPositions = [{id:pcShip.id,q:0,r:0},{id:npcShip.id,q:10,r:0}];
-      normalized.encounter.starships.forEach(ship=>{ship.sensorScenarioMasking=18;});
-      normalized.encounter.log.push({id:uid('log'),at:new Date().toLocaleTimeString(),text:'Sensor scenario: ships start 10 Units apart, with a demo-only Masking of 18. Both crews receive an unknown contact; scan to locate it.'});
+      normalized.encounter.log.push({id:uid('log'),at:new Date().toLocaleTimeString(),text:'Playtest: Nova Vale and Space Slug. Ships use their calculated Masking and Defense, without scenario overrides.'});
       const encounterTemplate = clone(normalized.encounter);
       this.showcases.set(showcaseCode, { campaign: normalized, encounterTemplate, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
       this.campaignCache.set(showcaseCode, normalized);

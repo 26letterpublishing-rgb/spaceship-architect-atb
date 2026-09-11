@@ -25,8 +25,8 @@
     if (unit.raceId === 'tamalori') sides = [...sides,...sides];
     if (unit.raceId === 'krax-gny-vtek' && unit.maximumHp-unit.currentHp >= 5) sides = sides.slice(0,3);
     const range = ship && target ? distances.hexDistance(point(room,ship.id),point(room,target.id)) : 0;
-    const bonus = skill(unit) + (ship ? maps.propulsion(ship).hsm : 0) - range;
-    const known = ship?.sensorState?.contacts?.[target?.id]?.analysisDifficulty;
+    const bonus = Number((skill(unit) + (ship ? maps.propulsion(ship).hsm : 0) - range).toFixed(6));
+    const known = ship?.sensorState?.contacts?.[target?.id]?.defenseScore;
     return {sides, bonus, skill:'Weapon Systems', attributeKey:'dexterity', difficulty:Number.isFinite(known) ? known : null,
       difficultyLabel:Number.isFinite(known) ? `Must exceed Defense ${known}` : 'Unknown defense', range};
   }
@@ -72,13 +72,12 @@
     }
     const spec = pending.rollSpec || rollSpec(room,unit,order);
     const total = Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(attackRoll)) + spec.bonus;
-    const defense = target.commandSystems?.evasions?.[0]?.defense ?? (Number.isFinite(target.ship.defenseScore) ? target.ship.defenseScore : sensors.masking(room,target));
+    const defense = sensors.defense(room,target);
     const hit = total > defense;
     const maximum = access.item.impaired || access.item.status === 'impaired' ? 1 : 4;
     const count = hit ? Math.max(0,Math.min(maximum,1+Math.min(3,Math.floor((total-defense)/2)))-order.sacrifice) : 0;
     const dice = Array.from({length:count},() => damageRoll(4)), damage = dice.reduce((sum,n) => sum+n,0);
     if (damage) shields.damage(room,target.id,damage);
-    if(target.commandSystems?.evasions?.length)target.commandSystems.evasions=[];
     const report = post({text:`Rapid Laser 1: ${hit ? 'HIT' : 'MISSED'} ${target.title}.${hit ? ` ${count}D4: ${damage} damage rolled${count ? '' : ' (power conservation removed all damage dice)'}.` : ''}`,hit,damage,dice,total,targetId:target.id,shot:true});
     const incoming = {id:report.id,at:report.at,shot:true,hit,targetId:target.id,text:hit?'Incoming laser hit.':'Incoming laser missed.'};
     state(target).reports = [incoming,...state(target).reports].slice(0,30);

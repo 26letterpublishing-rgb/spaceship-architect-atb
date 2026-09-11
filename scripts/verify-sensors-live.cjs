@@ -7,20 +7,20 @@ const scripts=['app.js','character.js','gm.js','combat-actions.js','combat-engin
 scripts.push('action-help.js','maintenance-ui.js','ship-command-ui.js','ship-cooperation.js','ship-combat-map.css','ship-navigation-ui.css','combat-workspace.css','gm.html','character.html');
 let browser;
 scripts.push('ship-roll-ui.js','ship-map-presentation.css','console-feedback.js','gm.css');
-scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css');
+scripts.push('ship-weapons.js','weapon-console-ui.js','weapon-console-ui.css','ship-commands.js');
 async function main(){
   let deployed=false;
   for(let n=0;n<40;n++){
     try{
       deployed=true;
-      for(const name of ['ship-roll-ui.js','index.html']){
+      for(const name of ['app.js','ship-sensors.js']){
         const response=await fetch(base+'/'+name+'?release='+Date.now(),{signal:AbortSignal.timeout(20000)});
         deployed=deployed&&response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(fs.readFileSync(path.join(root,name)));
       }
     }catch{deployed=false;}
     if(deployed)break;await new Promise(r=>setTimeout(r,15000));
   }
-  assert.ok(deployed,'Render has not deployed the scan-feedback release');
+  assert.ok(deployed,'Render has not deployed the Defense/console release');
   for(const name of scripts){const response=await fetch(base+'/'+name+'?verify='+Date.now());assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,name))),name);}
   const manifest=require('../sic-web-assets.json'),images=Object.keys(manifest).filter(n=>n.startsWith('sensors-')||n.startsWith('sensor-console-')||n.startsWith('rapid-laser-')||n.startsWith('weapon-console-'));
   for(const name of images){const response=await fetch(base+'/'+name);assert.equal(response.status,200,name);assert.equal(hash(Buffer.from(await response.arrayBuffer())),hash(fs.readFileSync(path.join(root,manifest[name].file))),name);}
@@ -31,7 +31,7 @@ async function main(){
   const act=async body=>{const response=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomCode:room.code,gmToken:room.gmToken,...body})});const json=await response.json();assert.equal(response.status,200,JSON.stringify(json));return json;};
   const state=()=>fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());
   const gm=page.frameLocator('#showcaseFrame');await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();await gm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
-  const initial=await state();assert.equal(initial.starships.length,2);assert.equal(initial.starships[0].sensorState.contacts[initial.starships[1].id].level,'unknown');
+  const initial=await state();assert.equal(initial.starships.length,2);assert.equal(initial.starships[0].sensorState.contacts[initial.starships[1].id].level,'detected');assert.deepEqual(initial.units.map(u=>u.characterName).sort(),['Nova Vale','Space Slug']);assert.equal(initial.units.find(u=>u.characterName==='Nova Vale').weaponSystemsSkill,2.5);
   assert.ok(initial.starships.every(s=>!s.ship.sicInventory.some(i=>i.type.startsWith('shield-'))),'Fresh Explore ships have no shields');
   assert.ok(initial.starships.every(s=>s.ship.sicInventory.some(i=>i.type==='rapid-laser-1')),'Fresh Explore ships have Rapid Laser 1');
   assert.ok(initial.starships.every(s=>s.ship.class==='8x7 Systems Test Craft'),'Class survives encounter preparation');
@@ -39,7 +39,7 @@ async function main(){
   if(initial.activeId)await act({action:'completeTurn',id:initial.activeId});
   await act({action:'setCombatLocation',id:unit.id,location:{starshipId:ship.id,square:placement.cell,mesh:0,stationed:true}});await act({action:'nudge',id:unit.id,amount:100});
   await page.getByRole('button',{name:'Nova Vale',exact:true}).click();await page.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();await page.getByRole('combobox',{name:'Station console',exact:true}).selectOption(sensor.id);
-  const consoleView=page.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();assert.ok((await consoleView.locator('[data-map]').innerText()).includes('Unknown contact'));assert.ok(!(await consoleView.locator('[data-map]').innerText()).includes('Red Horizon'));
+  const consoleView=page.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();assert.ok((await consoleView.locator('[data-map]').innerText()).includes('Red Horizon'));
   await consoleView.locator('[data-q]').fill('10');await consoleView.locator('[data-r]').fill('0');await consoleView.getByRole('button',{name:'Scan Hex',exact:true}).click();const point=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*10,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await page.mouse.click(point.x,point.y);await consoleView.locator('[data-turn]').filter({hasText:'ROLL REQUIRED'}).waitFor();
 
   const roll=page.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();
