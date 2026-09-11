@@ -36,3 +36,7 @@ Chrome UI auditing covers scrolled HUD clearance, collapse/restore, below-map co
 Run scripts/audit-combat-performance.cjs with SA_VERIFY_UI=1 for local regression. SA_AUDIT_BASE can target Render for one bounded disposable Explore smoke test. Avoid repeatedly downloading all artwork to verify deployments.
 
 New combat-wire.js is public browser code; static-response.js remains server-only. Gold Standard and data/campaigns.json are untouched.
+
+## Hosted Verification
+
+Application 71e093b is pushed to main and verified on Render. Hosted combat-wire.js matched the local source and its conditional request returned 304. The live Chrome walkthrough passed the compact map controls, HUD clearance, collapse/restore, slow-network console layout and both GM-owned dice prompts with no browser errors. Four live GM/PC switches transferred 463,030 bytes (not directly comparable to the controlled local baseline). The audit now waits for the current player frame instead of retaining a potentially detached frame during navigation. Temporary baseline checkout and test browsers/servers were closed.

@@ -1,8 +1,8 @@
 # Current Recovery Handoff
 
-## Publishing: Combat Performance And Layout
+## Complete: Combat Performance And Layout
 
-September 11 latest pass is implemented and locally verified; read COMBAT-PERFORMANCE-PASS.md. Includes below-map compact controls, PC panel positioning, nonflashing main combat log, GM follow-up roll ownership, roll-time ATB/decision pause, conditional static caching/gzip, private incremental combat streams, and slow-network console styling. All 166 tests plus Chrome UI, sensor, shield, cockpit and laser browser checks passed. Controlled four-switch Chrome transfer fell from 33 MB to 0.79 MB and average switch time from 2.93 to 1.60 seconds. Render bandwidth is not GitHub storage; artwork masters and campaign data remain untouched. Remaining: push, bounded live smoke test, temporary baseline-worktree cleanup, completion record, final ntfy notification.
+September 11 latest pass is complete. Application commit 71e093b is pushed and verified on Render; read COMBAT-PERFORMANCE-PASS.md. Includes below-map compact controls, PC panel positioning, nonflashing main combat log, GM follow-up roll ownership, roll-time ATB/decision pause, conditional static caching/gzip, private incremental combat streams, and slow-network console styling. All 166 tests plus Chrome UI, sensor, shield, cockpit and laser browser checks passed. Controlled four-switch Chrome transfer fell from 33 MB to 0.79 MB and average switch time from 2.93 to 1.60 seconds. Live Chrome passed HUD clearance, collapse/restore, map controls, slow-network console styles and GM-owned accuracy/damage dialogs; hosted code matched and conditional requests returned 304. An initial audit-script stale-frame race was corrected before the successful rerun. Temporary baseline worktree removed; browser/server tests exited. Render bandwidth is not GitHub storage; artwork masters and campaign data remain untouched. Final operational step after publishing this completion record is ntfy notification. Wait for user feedback; historical sections below are not pending work.
 
 ## Complete: Direct Combat Actions And Full Targeting Families
 

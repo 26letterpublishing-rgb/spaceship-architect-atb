@@ -24,7 +24,8 @@ async function main(){
   }
   const state=await fetch(base+`/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());const nova=state.units.find(u=>u.characterName==='Nova Vale');
   await act({action:'nudge',id:nova.id,amount:100});await page.getByRole('button',{name:'Nova Vale',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();
-  const frame=page.frames().find(f=>f.url().includes('embed=player'))||page.frames().find(f=>f.url().includes('index.html')&&f!==page.mainFrame());
+  const frame=page.frameLocator('#showcaseFrame').frameLocator('#playerAtbFrame').locator('body');
+  await frame.locator('#myTurnBanner').waitFor({state:'visible'});
   await page.waitForTimeout(1000);await page.screenshot({path:path.join(out,`${process.env.SA_AUDIT_LABEL||'current'}-turn.png`)});
   const metrics=await frame.evaluate(()=>({longTasks:window.auditLongTasks.length,longTaskMs:window.auditLongTasks.reduce((a,b)=>a+b,0),collapse:(()=>{const e=document.querySelector('#collapsePlayerTurn'),r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,display:getComputedStyle(e).display,z:getComputedStyle(e).zIndex};})()}));
   const report={switchMs:times,switchTransferBytes:bytes-before,...metrics,errors};fs.writeFileSync(path.join(out,`${process.env.SA_AUDIT_LABEL||'current'}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report));assert.deepEqual(errors,[]);
