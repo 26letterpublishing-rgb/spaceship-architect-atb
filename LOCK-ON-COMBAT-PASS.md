@@ -24,6 +24,7 @@ September 11, 2026. Authorized by #commit. Gold Standard and real campaign data 
 - Navigation Auto Zoom tracks visible ships only. Manual zoom removes the previous gameplay bounds, retaining numerical safety guards. Interior zoom can go down to a one-pixel cell and has no previous maximum cap.
 - Active ring outlines have a large pulsing gold halo. Five rapid blaster bolts replace the single laser stroke. Impacts shake/flash map icons, column ATB and console rings; destruction adds an explosion and wreck presentation.
 - Misses require an OK acknowledgement. Newly detected contacts enter the Combat Activity log with red emphasis. Unknown condition is explicit instead of looking like empty HP.
+- Damage is applied atomically at confirmation; the visible blaster burst follows the closing dice window, then impact, then Victory. Miss acknowledgement follows the burst. This keeps the effects visible instead of hiding them behind dialogs.
 - User-provided explosion audio is integrated, respects mute, and is attributed in AUDIO-CREDITS.md. No new subscription or paid API was used.
 - Shared timeline rendering avoids redundant redraws on consoles that already own their rings. Reduced-motion preferences suppress the large motion effects.
 

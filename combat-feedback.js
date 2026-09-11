@@ -37,14 +37,18 @@
     const damaged=new Set();
     const events=state.starships.flatMap(ship=>[...(ship.weaponState?.reports||[]),...(ship.lockState?.reports||[])].map(e=>({...e,source:ship.id}))).sort((a,b)=>Number(Boolean(b.operatorId))-Number(Boolean(a.operatorId)));
     for(const e of events){if(seen.has(e.id))continue;seen.add(e.id);if(!initialized||Date.now()-Date.parse(e.at)>15000)continue;
-      if(e.shot&&e.operatorId){bolts(e,e.source);if(!e.hit&&(b.mode()==='gm'||e.operatorId===b.myUnitId()))popup('Shot Missed',e.text);}
-      if(e.impact){damaged.add(e.targetId);impact(e.targetId,Boolean(state.starships.find(s=>s.id===e.targetId)?.destroyedAt));}
+      if(e.shot&&e.operatorId&&!e.awaitingDamage){bolts(e,e.source);if(!e.hit&&(b.mode()==='gm'||e.operatorId===b.myUnitId()))setTimeout(()=>popup('Shot Missed',e.text),750);}
+      if(e.impact){
+        damaged.add(e.targetId);const destroyed=Boolean(state.starships.find(s=>s.id===e.targetId)?.destroyedAt);
+        // Let the confirmed dice dialog close before the visible burst and impact.
+        setTimeout(()=>{if(e.operatorId)bolts(e,e.source);setTimeout(()=>impact(e.targetId,destroyed),700);},250);
+      }
       if(e.incomingLock||e.lockResult&&e.success)sound('lock');
     }
     for(const ship of state.starships){
       const total=(ship.currentHullHp??0)+(ship.currentShieldHp??0),previous=hp.get(ship.id);if(initialized&&previous!==undefined&&total<previous&&!damaged.has(ship.id))impact(ship.id,Boolean(ship.destroyedAt));hp.set(ship.id,total);
       for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){marker.classList.toggle('ship-wreck',Boolean(ship.destroyedAt));if(ship.destroyedAt){const label=marker.querySelector('text');if(label&&!label.textContent.endsWith(' [DESTROYED]'))label.textContent+=' [DESTROYED]';}}
-      const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)popup('VICTORY',`${ship.title} is the last surviving ship.`);}
+      const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)setTimeout(()=>popup('VICTORY',`${ship.title} is the last surviving ship.`),2200);}
     }
     for(const d of surfaces())for(const p of d.querySelectorAll('.combat-log-entry,[data-activity] p,.ship-lane-log p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');
     if(seen.size>3000){seen.clear();events.forEach(e=>seen.add(e.id));}
