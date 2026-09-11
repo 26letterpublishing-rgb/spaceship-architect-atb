@@ -25,8 +25,8 @@ function validateTrigger(room,ship,t){
   const data=cooperation.state(ship),enemy=room.starships.find(s=>s.id===t?.targetId&&s.id!==ship.id);
   if(data.armed||room.units.some(u=>u.location?.starshipId===ship.id&&[u.delayedAction?.commandOrder,u.delayedAction?.shipOrder,u.delayedAction?.sensorOrder].some(o=>o?.trigger)))return {ok:false,error:'Only one conditional order may be armed per ship.'};
   if(!enemy||!sensors.knowledge(ship).reports.some(r=>r.analysis&&r.targetId===enemy.id))return {ok:false,error:'Systems Analysis of the triggering ship is required.'};
-  if(!['movement','distance','hex'].includes(t.kind))return {ok:false,error:'Choose a movement trigger.'};
-  if(t.kind==='distance'&&(!Number.isFinite(t.distance)||t.distance<=0||t.distance>10000))return {ok:false,error:'Enter a positive trigger distance.'};
+  if(!['movement','distance','hex','range'].includes(t.kind))return {ok:false,error:'Choose a movement trigger.'};
+  if(['distance','range'].includes(t.kind)&&(!Number.isFinite(t.distance)||t.distance<=0||t.distance>10000))return {ok:false,error:'Enter a positive trigger distance.'};
   if(t.kind==='hex'&&(!t.hex||![t.hex.q,t.hex.r].every(n=>Number.isInteger(n)&&Math.abs(n)<=10000)))return {ok:false,error:'Choose a trigger hex.'};
   if((ship.auState?.current||0)-(ship.auCommands||[]).reduce((sum,c)=>sum+(Number(c.cost)||0),0)<2)return {ok:false,error:'A conditional order requires 2 extra AU.'};
   return {ok:true,trigger:{kind:t.kind,targetId:enemy.id,distance:t.distance,hex:t.hex?{q:t.hex.q,r:t.hex.r}:null}};
@@ -182,6 +182,10 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
       const fraction=seconds>0?Math.min(1,armed.remaining/seconds):1,stop={q:start.q+(end.q-start.q)*fraction,r:start.r+(end.r-start.r)*fraction};
       const traveled=distances.hexDistance(start,stop);armed.traveled+=traveled;
       const trigger=armed.order.trigger;
+      if(trigger.kind==='range'){
+        const ownStart=before?.find(p=>p.id===ship.id)||position(room,ship.id),ownEnd=position(room,ship.id),steps=Math.max(1,Math.ceil((traveled+distances.hexDistance(ownStart,ownEnd))*4));
+        for(let i=0;i<=steps&&!triggered;i++){const f=i/steps;triggered=distances.hexDistance({q:start.q+(stop.q-start.q)*f,r:start.r+(stop.r-start.r)*f},{q:ownStart.q+(ownEnd.q-ownStart.q)*f,r:ownStart.r+(ownEnd.r-ownStart.r)*f})<=trigger.distance;}
+      }
       if(traveled>1e-8){
         if(trigger.kind==='movement')triggered=true;
         if(trigger.kind==='distance')triggered=armed.traveled>=trigger.distance;

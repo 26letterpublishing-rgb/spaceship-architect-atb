@@ -142,13 +142,14 @@
       const count=room.units.filter(u=>targets.has(u.location?.starshipId)&&String(u.raceId||u.race||'').toLowerCase()!=='android').length;
       report(observer,{text:`Life Scan at ${order.hex.q}, ${order.hex.r}: ${count} lifeform${count===1?'':'s'} detected. Scanning ship excluded.`,lifeScan:true,count,hex:copy(order.hex)});return;
     }
-    const {values,total} = cooperation.roll(room,observer,unit,order.kind,sensor.dice,skill(unit),rollDie,fusedTotal);
+    const {values,total:rolledTotal} = cooperation.roll(room,observer,unit,order.kind,sensor.dice,skill(unit),rollDie,fusedTotal);
+    const total=rolledTotal+(order.kind==='analysis'?(rollDie.retryBonus??state.failures[target.id]??0):0);
     if (order.kind === 'analysis') {
       const difficulty = target.commandSystems?.evasions?.[0]?.defense ?? (Number.isFinite(target.ship.defenseScore) ? target.ship.defenseScore : masking(room,target));
       const penalty = state.failures[target.id] || 0;
-      if (total + penalty < difficulty) {
+      if (total < difficulty) {
         state.failures[target.id] = penalty+1;
-        state.contacts[target.id].analysisLowerBound=Math.max(state.contacts[target.id].analysisLowerBound||0,total+penalty);
+        state.contacts[target.id].analysisLowerBound=Math.max(state.contacts[target.id].analysisLowerBound||0,total);
         report(observer,{text:`Systems Analysis of ${target.title} failed. Next attempt roll +${penalty+1}.`,values,total});
       } else {
         state.failures[target.id] = 0;

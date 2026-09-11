@@ -12,6 +12,15 @@ test('all nine sensor tiers retain source dimensions and corrected impaired rang
   const ranges=[4,6,8,10,12,15,16,18,20];
   for(let i=1;i<=9;i++){const d=maps.definition(`sensors-${i}`);assert.equal(d.range,6+i*2);assert.equal(d.impairedRange,ranges[i-1]);assert.equal(d.stations.length,0);assert.equal(d.width,i<5?1:2);assert.equal(d.height,i<8?1:2);}
 });
+
+test('analysis retry bonus is included once in the reported total',()=>{
+  const {room,a,b,unit}=fixture();sensors.refresh(room);
+  const die=()=>4;die.submittedScore=40;
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'hex',hex:{q:10,r:0},requestId:'retry-detect'}).ok,true);sensors.resolveInput(room,unit,die);
+  b.ship.defenseScore=20;die.submittedScore=5;
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'retry-first'}).ok,true);sensors.resolveInput(room,unit,die);assert.equal(a.sensorState.reports[0].total,5);
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'retry-second'}).ok,true);sensors.resolveInput(room,unit,die);assert.equal(a.sensorState.reports[0].total,6);
+});
 test('sensor access requires a real bridge seat, not sensor room occupancy',()=>{
   const {room,unit}=fixture();assert.equal(stations.access(room,unit,'sn').kind,'sensor');
   unit.location={starshipId:'a',square:43,sicId:'sn',mesh:0,stationed:true};assert.equal(stations.consoles(room,unit).length,0);

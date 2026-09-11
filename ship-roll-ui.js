@@ -14,7 +14,9 @@
     const updates=fresh.filter(e=>gm?/scan complete|detected|Life Scan|succeeded|failed|connected|prepared|analysis|repair|reboot|Hail/i.test(e.text):/Hail answered|Hail ended/i.test(e.text));
     if(updates.length){result=updates.map(e=>e.text).join(' | ');until=Date.now()+7000;}
     notice.textContent=relevant.map(u=>u.characterName+': '+request(u).label+' roll required').join(' | ')||calls.join(' | ')||(!gm&&awaiting?'Awaiting GM':'')||(Date.now()<until?result:'');
-    notice.hidden=!notice.textContent;notice.onclick=()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){dismissed.delete(request(u).id);forced=u.id;}};
+    const receiver=(gm?state.units.filter(u=>u.team==='npc'):[mine]).find(u=>{const seat=window.SAStationAccess.station(state,u);return seat&&window.SAShipMap.definition(seat.cell.type).bridge&&seat.ship.commandSystems?.calls?.some(c=>c.status==='incoming');});
+    if(!relevant.length&&receiver)notice.textContent+=' | Accept incoming call';
+    notice.hidden=!notice.textContent;notice.onclick=async()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){dismissed.delete(request(u).id);forced=u.id;}else if(receiver){const ship=state.starships.find(s=>s.id===receiver.location.starshipId),call=ship.commandSystems.calls.find(c=>c.status==='incoming');try{await bridge.action({action:'shipCommand',id:receiver.id,kind:'accept',callId:call.id,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){result=e.message;until=Date.now()+7000;}}};
     const parent=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
     const unit=waiting.find(u=>(gm?u.team==='npc'||u.id===forced:u.id===mine?.id)&&!dismissed.has(request(u).id));if(!unit)return;

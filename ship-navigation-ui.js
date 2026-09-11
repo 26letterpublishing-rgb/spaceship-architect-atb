@@ -41,6 +41,7 @@
     let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
     const dialog=host.createElement('dialog');activeDialog=dialog;
     dialog.className=`ship-navigation-dialog${compact?' navigation-planner':''}`;dialog.setAttribute('aria-label',compact?'Move ship':'Pilot console');
+    dialog.dataset.operatorId=unit.id;
     dialog.innerHTML=`<form><header><div class="pilot-identity"><small>HELM / ${esc(unit.characterName)}</small><h2>${esc(seated.ship.title)}</h2></div><div class="pilot-command"><strong data-turn-announcement role="status" aria-live="polite"></strong><div class="pilot-command-track" role="progressbar" aria-label="Command window remaining" aria-valuemin="0" aria-valuemax="100"><i data-command-fill></i></div><small data-command-status></small></div><div class="pilot-header-actions"><button type="button" data-sound>${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
       <section class="pilot-fleet"><h3>Fleet Condition</h3><div data-fleet></div><div class="pilot-telemetry" aria-hidden="true">NAV LINK 07.14<br>PHASE SYNC / NOMINAL<br><i></i>VECTOR LOCK 0A:9F</div></section>
       <section class="pilot-chart"><div class="pilot-chart-title"><h3>Navigation</h3><span data-flight></span></div><div data-navigation-map>${window.SASpaceMap.markup(initial.starships,initial.shipPositions,false,{navigation:true})}</div><div class="navigation-fields"><label>Hex Q<input name="q" type="number" min="-10000" max="10000" step="1" required></label><label>Hex R<input name="r" type="number" min="-10000" max="10000" step="1" required></label><button type="button" data-zoom=".7" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-zoom="1.4" aria-label="Zoom out" title="Zoom out">&#8722;</button></div></section>
@@ -75,7 +76,7 @@
       const offline=seat.cell.item.disabled||['offline','powered-down'].includes(seat.cell.item.status);
       if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))b.disabled=!b.matches('[data-close],[data-sound]');return;}
       if(form.dataset.offline){delete form.dataset.offline;form.querySelectorAll('button,input,select').forEach(b=>b.disabled=false);}
-      const charging=delay?.shipOrder&&!state.hardPaused&&!state.holdPaused&&!host.hidden&&bridge.soundEnabled();
+      const charging=false&&delay?.shipOrder&&!state.hardPaused&&!state.holdPaused&&!host.hidden&&bridge.soundEnabled();
       if(charging){chargeSound ||= bridge.startEngineCharge();chargeSound?.update(1-delay.remaining/100);}
       else {chargeSound?.stop();chargeSound=null;}
       const ready=state.activeId===pilotId&&!delay&&!pilot.delayTimer&&!pilot.timedAction;

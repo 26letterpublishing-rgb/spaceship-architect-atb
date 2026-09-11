@@ -1629,7 +1629,7 @@ let characterLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY) === "tabs" ? "ta
 let resourceHudVisible = localStorage.getItem(HUD_VISIBILITY_KEY) !== "hidden";
 const storedPlayerBannerMode = localStorage.getItem(PLAYER_BANNER_MODE_KEY);
 let playerBannerMode = ["hidden", "show", "exit"].includes(storedPlayerBannerMode) ? storedPlayerBannerMode : "show";
-let playerSoundsEnabled = localStorage.getItem(PLAYER_SOUND_KEY) === "on";
+let playerSoundsEnabled = localStorage.getItem(PLAYER_SOUND_KEY) !== "off";
 const storedSkillSort = localStorage.getItem(SKILL_SORT_KEY);
 let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
 let joinStatusTimer = null;
@@ -4584,13 +4584,13 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillAttributeStage.hidden = true;
   dom.skillSetupStage.hidden = true;
   dom.skillResultStage.hidden = false;
-  dom.skillResultLabel.textContent = outcome || "Final Score";
-  dom.skillResultScore.textContent = formatNumber(score);
+  dom.skillResultLabel.textContent = PAGE_PARAMS.has('shipRoll')?'Roll recorded':outcome || "Final Score";
+  dom.skillResultScore.textContent = PAGE_PARAMS.has('shipRoll')?'Ready':formatNumber(score);
   dom.skillResultEquation.textContent = equation;
   const ruleLines = rollRuleExplanations();
   dom.skillResultRules.hidden = ruleLines.length === 0;
   dom.skillResultRules.innerHTML = ruleLines.map((line) => `<small>${escapeHtml(line)}</small>`).join("");
-  dom.skillResultOutcome.textContent = outcome;
+  dom.skillResultOutcome.textContent = PAGE_PARAMS.has('shipRoll')?'Outcome after input delay':outcome;
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
   dom.skillDiceTypes.textContent = manual
@@ -8950,7 +8950,7 @@ if(PAGE_PARAMS.has('shipRoll')){
     const request=event.data;character=blankCharacter();character.phase='finalized';character.identity.characterName=request.name;
     openSkillCheck(skillKeyForBase(request.skill||'Sensor Systems'),'intellect');if(!skillCheck)return;
     skillCheck.combatRequest={attackId:request.rollId,rollRole:'ship'};skillCheck.overrideBonus=Number(request.bonus)||0;skillCheck.activeSides=request.sides;skillCheck.difficulty=Number.isFinite(request.difficulty)?String(request.difficulty):'';
-    renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.skill||'System';dom.skillCheckSubtitle.textContent=request.difficultyLabel||'Difficulty unknown';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
+    renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.skill||'System';dom.skillCheckSubtitle.textContent=(request.retryBonus?`Retry bonus +${request.retryBonus} included. `:'')+(request.difficultyLabel||'Unknown difficulty');dom.skillDifficulty.placeholder=request.difficultyLabel?.replace('Difficulty unknown','Unknown difficulty')||'Unknown difficulty';dom.skillDifficulty.closest('label').firstChild.textContent=Number.isFinite(request.difficulty)?'Difficulty':'Unknown difficulty';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
   });
   parent.postMessage({type:'sa-ship-skill-ready'},location.origin);
 }else{

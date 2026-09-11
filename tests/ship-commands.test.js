@@ -69,6 +69,12 @@ test('restarting a powered-down SIC stays offline until the bridge timer complet
   const remaining=item.bootRemaining;maintenance.advance(a,remaining-.1);assert.equal(item.disabled,true);maintenance.advance(a,.1);assert.equal(item.disabled,false);
 });
 
+test('within-range conditional order triggers when the observing ship approaches a stationary target',()=>{
+  const {room,pilot,a}=fixture();a.ship.sicInventory.push({id:'au',type:'au-engine-1'});a.ship.placements.push({sicId:'au',cell:46});power.refresh(room,{reset:true});a.auState.current=2;a.sensorState.reports.push({analysis:true,targetId:'b'});room.shipPositions[1].q=5;
+  assert.equal(commands.queue(room,pilot,{kind:'evade',trigger:{kind:'range',targetId:'b',distance:2},requestId:'range-test'}).ok,true);commands.resolveInput(room,pilot,()=>4);
+  const before=structuredClone(room.shipPositions);room.shipPositions[0].q=4;commands.advance(room,1,before,()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(pilot.pendingShipRolls.length,1);
+});
+
 test('conditional navigation launches from the current position after the pilot leaves',()=>{
   const {room,pilot,a}=fixture();a.ship.sicInventory.push({id:'au',type:'au-engine-1'});a.ship.placements.push({sicId:'au',cell:46});power.refresh(room,{reset:true});a.auState.current=2;
   a.sensorState.reports.push({analysis:true,targetId:'b'});

@@ -99,6 +99,8 @@ async function main() {
     assert.ok(Number(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'))>0 || unit.team==='npc');
     if(unit.team==='pc'){
       if(index===0){
+        if(await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).isVisible())await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).click();
+        await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones=[]);
         await dialog.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
         assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]!==.025).length),3,'Enabling turn audio plays one cue, not two');
         assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.eval('audioContext.state')),'running');
@@ -142,6 +144,7 @@ async function main() {
     assert.equal(await dialog.getByRole('button',{name:'Leave Console',exact:true}).isEnabled(),false);
     const pending=(await state()).units.find(u=>u.id===unit.id);assert.ok(pending.delayedAction.shipOrder);assert.ok(pending.atb>=100);
     if(unit.team==='pc'&&index===0){
+      await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__charge={starts:0,updates:0,stops:0});
       await act({action:'setHardPaused',paused:false});await page.waitForTimeout(650);
       await act({action:'setHardPaused',paused:true});await page.waitForTimeout(300);
       const charge=await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__charge);

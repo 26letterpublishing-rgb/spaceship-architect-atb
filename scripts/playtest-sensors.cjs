@@ -40,6 +40,9 @@ async function main(){
   async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();p.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
   const gm=await page();await gm.goto(base+'/gm.html?campaign='+code);await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill('Sensor Test');await gm.getByRole('textbox',{name:'GM Code',exact:true}).fill('sensor-test-gm');await gm.getByRole('button',{name:'Open Campaign',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();
   const frame=gm.frameLocator('#atbFrame');await frame.getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
+  const beforeAdd=new Set((await state()).units.map(u=>u.id));await frame.locator('#gmAddUnit').click();
+  const starting=gm.getByRole('dialog',{name:'Starting location'});await starting.waitFor();await starting.getByRole('combobox',{name:'Starting starship'}).selectOption(ships[1].id);await starting.locator('[data-start-square="64"]').click();await starting.getByRole('button',{name:'Confirm starting location'}).click();await starting.waitFor({state:'detached'});
+  for(let i=0;i<30&&(await state()).units.every(u=>beforeAdd.has(u.id));i++)await gm.waitForTimeout(100);const added=(await state()).units.find(u=>!beforeAdd.has(u.id));assert.ok(added,'GM added a combatant after choosing a square');assert.equal(added.location.square,64);assert.equal(added.location.starshipId,ships[1].id);await act({action:'removeUnit',id:added.id});
   const pcs=[];
   for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);}
   const pc=pcs[0];await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
@@ -48,7 +51,7 @@ async function main(){
   await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await consoleView.waitFor();
   assert.equal(await gm.locator('.sensor-console').count(),0,'No automatic player console for GM');
   async function ready(){await act({action:'nudge',id:operator.id,amount:100});await consoleView.locator('[data-turn]').filter({hasText:'YOUR TURN'}).waitFor();}
-  async function step(count){for(let i=0;i<count;i++)await act({action:'step'});
+  async function step(count){
     const pending=(await state()).units.find(u=>u.id===operator.id)?.delayedAction;
     if(pending?.awaitingRoll){
       const roll=pc.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();
@@ -58,20 +61,22 @@ async function main(){
       await pc.screenshot({path:path.join(artifacts,'roll-prompt.png')});
       const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).waitFor();await pc.screenshot({path:path.join(artifacts,'shared-skill-prompt.png')});await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await pc.waitForTimeout(900);assert.ok(await skill.locator('#diceCanvas canvas').count());await pc.screenshot({path:path.join(artifacts,'shared-physical-dice.png')});await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
       const first=(await state()).units.find(u=>u.id===operator.id).lastShipRoll;
+      assert.equal((await state()).units.find(u=>u.id===operator.id).delayedAction.remaining,100,'Confirmed roll starts a fresh input countdown');
       await act({action:'rollShipAction',id:operator.id,rollId:pending.id});assert.deepEqual((await state()).units.find(u=>u.id===operator.id).lastShipRoll,first,'Retry preserves the original result');
     }
+    for(let i=0;i<count;i++)await act({action:'step'});
   }
   await ready();await consoleView.locator('[data-q]').fill('7');await consoleView.locator('[data-r]').fill('0');await pc.waitForTimeout(500);assert.equal(await consoleView.locator('[data-q]').inputValue(),'7');
   const scan=consoleView.getByRole('button',{name:'Scan Hex',exact:true}),rect=await scan.boundingBox();
   await pc.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(350);await pc.mouse.up();await pc.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
-  async function chooseHex(){const point=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*7,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await pc.mouse.click(point.x,point.y);}
+  async function chooseHex(){const point=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*7,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await pc.mouse.move(point.x,point.y);await consoleView.locator('[data-hex-feedback="hover"]').waitFor();await pc.screenshot({path:path.join(artifacts,'scan-hex-hover.png')});await pc.mouse.click(point.x,point.y);}
   await chooseHex();
-  await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();assert.equal(requests.length,1,'Held click and retry must submit once');
+  await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();assert.equal(requests.length,1,'Held click and retry must submit once');
   const frozenAtb=(await state()).units.find(u=>u.id===operator.id).atb;
   await act({action:'setHardPaused',paused:false});await pc.waitForTimeout(1250);await act({action:'setHardPaused',paused:true});
-  const typing=(await state()).units.find(u=>u.id===operator.id);assert.equal(typing.atb,frozenAtb);assert.ok(typing.delayedAction.remaining<100&&typing.delayedAction.remaining>0);
+  const typing=(await state()).units.find(u=>u.id===operator.id);assert.equal(typing.atb,frozenAtb);assert.equal(typing.delayedAction.remaining,100,'Input waits for roll; ATB frozen while rolling');
   await step(9);await consoleView.locator('[data-reports]').filter({hasText:'Hex scan complete'}).waitFor();
-  await ready();await consoleView.getByRole('combobox',{name:'Detected contact',exact:true}).selectOption(ships[1].id);await consoleView.getByRole('button',{name:'Systems Analysis',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
+  await ready();await consoleView.getByRole('combobox',{name:'Detected contact',exact:true}).selectOption(ships[1].id);await consoleView.getByRole('button',{name:'Systems Analysis',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);
   assert.ok((await state()).units.find(u=>u.id===operator.id).queuedEffects.some(e=>e.sensorReport));await step(13);
   await consoleView.locator('[data-reports]').filter({hasText:'Snapshot at scan completion'}).waitFor();assert.ok((await state(tokens[0])).starships[0].sensorState.reports.some(r=>r.analysis));assert.ok(!(await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.analysis));
   await ready();await consoleView.locator('.conditional-order-controls summary').click();await consoleView.locator('[data-conditional]').check();
@@ -80,9 +85,12 @@ async function main(){
   await consoleView.locator('[data-conditional]').uncheck();await consoleView.locator('.conditional-order-controls summary').click();
   await pc.screenshot({path:path.join(artifacts,'sensor-console-1366.png')});
   await pc.setViewportSize({width:1920,height:1080});await pc.screenshot({path:path.join(artifacts,'sensor-console-1920.png')});
-  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await chooseHex();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);
+  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await chooseHex();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);
   await consoleView.locator('[data-reports]').filter({hasText:'1 lifeform detected'}).waitFor();
-  await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:'SCANNING'}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
+  await ready();await act({action:'shipCommand',id:operator.id,kind:'hail',targetId:ships[1].id,disclosedPosition:{q:0,r:0},requestId:'browser-hail'});for(let i=0;i<90&&!(await state()).starships[1].commandSystems?.calls?.length;i++)await act({action:'step'});assert.equal((await state()).starships[1].commandSystems.calls[0].status,'incoming');
+  assert.notEqual((await state()).activeId,(await state()).units.find(u=>u.characterId===people[1].id).id);
+  await pcs[1].getByRole('status').filter({hasText:'Accept incoming call'}).click();await pc.getByRole('status').filter({hasText:'Hail answered'}).waitFor();assert.equal((await state()).starships[1].commandSystems.calls[0].status,'connected');
+  await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');
   const pilotConsole=pc.getByRole('dialog',{name:'Pilot console',exact:true});await pilotConsole.waitFor();
   for(const size of [{width:1366,height:768},{width:1920,height:1080}]){

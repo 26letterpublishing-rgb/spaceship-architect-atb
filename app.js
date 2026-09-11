@@ -14,7 +14,7 @@ let state = null;
 let mode = combatSessionGet("sa-atb-mode") || "welcome";
 let currentRoomCode = (combatSessionGet("sa-atb-room-code") || "").trim().toUpperCase();
 let myUnitId = combatSessionGet("sa-atb-unit-id") || "";
-let alertsEnabled = localStorage.getItem("sa-atb-alerts") === "on";
+let alertsEnabled = localStorage.getItem("sa-atb-alerts") !== "off";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
 let visualMode = "bars";
@@ -1717,6 +1717,11 @@ function receiveState(nextState, { force = false } = {}) {
 }
 
 async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
+  if(payload.action==='addUnit'&&mode==='gm'&&state?.starships?.length){
+    const location=await window.SACombatMap.chooseStartingLocation(state,payload.location?.starshipId,payload.characterName);
+    if(!location)return state;
+    payload={...payload,location};
+  }
   let response;
   try {
     response = await fetch("/api/action", {
@@ -2597,12 +2602,12 @@ function startEngineCharge() {
     });
     let stopped = false;
     return {
-      update(progress) {
+      update(progress,volume=1) {
         if (stopped) return;
         const p = Math.max(0, Math.min(1, progress));
         for (const node of nodes) {
           node.osc.frequency.setTargetAtTime(node.frequency * (1 + p * 1.2), audio.currentTime, .12);
-          node.gain.gain.setTargetAtTime(.025 + .025 * p, audio.currentTime, .08);
+          node.gain.gain.setTargetAtTime((.025 + .025 * p)*volume, audio.currentTime, .08);
         }
       },
       stop() {

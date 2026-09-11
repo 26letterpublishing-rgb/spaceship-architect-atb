@@ -1,5 +1,9 @@
 # Current Recovery Handoff
 
+## Active Pass: Console Feedback And Roll Timing
+
+Latest #commit is implemented and locally verified; publishing next. Read CONSOLE-FEEDBACK-PASS.md. All 134 tests, sensor GM/two-PC browser checks (including actual GM Add and out-of-turn hail acceptance), 12 cockpit orders and shield suite passed. Roll first; pause the actor's ATB/input while awaiting dice, then run input and reveal outcome. New console-feedback.js MUST be in public-assets.js. Finish commit/push/Render verification and final ntfy. Prior completion below is historical. Gold Standard remains frozen.
+
 ## Console Follow-Up Complete
 
 Latest #commit is complete. Application commit 504a85a is pushed and verified on Render: 30 code/style files and 19 optimized images match. Hosted cards, GM/PC switch, action-first hex scan, shared skill dice, Command help and expanded interior passed. All 132 unit/HTTP tests, sensor GM/two-PC browser checks, cockpit 12-order suite and shield suite passed. Read CONSOLE-FOLLOWUP-PASS.md. Mouse leave clears only unclicked routes. Anonymous crew use ACTUAL ATB progress. Gold Standard and campaign data remain untouched. Wait for user feedback and the next #commit. Prior completion below is historical.

@@ -437,12 +437,13 @@
     const prompt = isSelected && interaction === "move"
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Move across the map, then click a destination.")
       : "Live interior view";
-    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}<button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>
-      <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount}">${squares.join("")}${moving}${line}</div></div>
+    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}<button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>
+      <div class="inline-map-viewport"><div class="${classes}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
       <div class="inline-map-footer"><div class="combat-map-stats">${statsMarkup(record)}</div>${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
+  const inlineZoom = new Map();
 
   function closeExpandedMap() {
     if (!expandedMap) return;
@@ -755,6 +756,7 @@
   function handleInlineClick(event) {
     const inlineHost = event.target.closest?.("[data-inline-ship-map]");
     if (inlineHost) {
+      const zoom=event.target.closest('[data-preview-zoom]');if(zoom){inlineZoom.set(inlineHost.dataset.inlineShipMap,Math.max(72,Math.min(180,(inlineZoom.get(inlineHost.dataset.inlineShipMap)||72)+Number(zoom.dataset.previewZoom)*24)));renderInlineMaps(document,true);return;}
       const expand = event.target.closest("[data-expand-interior]");
       if (expand) { if (expandedMap?.host !== inlineHost) expandInterior(inlineHost, expand); return; }
       const view = event.target.closest("[data-inline-map-view]");
@@ -828,6 +830,19 @@
     render();
   });
   window.SACombatMap = {
+    chooseStartingLocation(state,preferred,name){
+      let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+      return new Promise(resolve=>{
+        const view=doc.createElement('dialog');view.setAttribute('aria-label','Starting location');view.style.cssText='width:min(900px,94vw);max-height:90dvh;background:#081923;color:#e5f8ff;border:1px solid #6de0ed;padding:18px';
+        view.innerHTML=`<h2>Starting location: ${esc(name)}</h2><label>Starship <select aria-label="Starting starship">${state.starships.map(s=>`<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('')}</select></label><p role="status">Choose a starting square.</p><div data-start-grid style="overflow:auto;max-height:60vh;margin:12px 0"></div><button type="button" data-back>Back</button> <button type="button" data-start disabled>Confirm starting location</button>`;
+        const select=view.querySelector('select'),grid=view.querySelector('[data-start-grid]'),confirm=view.querySelector('[data-start]');let chosen=null;
+        if(state.starships.some(s=>s.id===preferred))select.value=preferred;
+        const draw=()=>{chosen=null;confirm.disabled=true;const ship=state.starships.find(s=>s.id===select.value),cells=ship.ship.gridCells,minX=Math.min(...cells.map(c=>c%20)),minY=Math.min(...cells.map(c=>Math.floor(c/20))),layout=window.SAShipMap.buildLayout(ship.ship);
+          grid.innerHTML=`<div style="display:grid;grid-auto-columns:72px;grid-auto-rows:72px;width:max-content">${cells.map(c=>`<button type="button" data-start-square="${c}" title="${esc(layout.footprint.get(c)?.label||'Hull')}" style="grid-column:${c%20-minX+1};grid-row:${Math.floor(c/20)-minY+1};border-radius:0;background:#184550;color:white;font-size:11px;padding:3px">${esc(layout.footprint.get(c)?.label||'Hull')}</button>`).join('')}</div>`;};
+        select.onchange=draw;grid.onclick=event=>{const button=event.target.closest('[data-start-square]');if(!button)return;const square=Number(button.dataset.startSquare),occupied=new Set(state.units.filter(u=>u.location?.starshipId===select.value&&u.location.square===square).map(u=>u.location.mesh));const mesh=[4,0,1,2,3,5,6,7,8].find(m=>!occupied.has(m));if(mesh===undefined){view.querySelector('[role=status]').textContent='That square is full. Choose another.';return;}chosen={environment:'starship',starshipId:select.value,square,mesh,sicId:'',stationed:false};grid.querySelectorAll('button').forEach(b=>b.style.outline='');button.style.outline='3px solid #ffe16a';confirm.disabled=false;view.querySelector('[role=status]').textContent='Starting square selected.';};
+        confirm.onclick=()=>{view.returnValue='confirmed';view.close();};view.querySelector('[data-back]').onclick=()=>view.close();view.addEventListener('close',()=>{const result=view.returnValue==='confirmed'?chosen:null;view.remove();resolve(result);},{once:true});doc.body.append(view);draw();view.showModal();
+      });
+    },
     open,
     openMove(unit) {
       mapView.hull = false;

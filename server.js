@@ -234,6 +234,10 @@ function scheduleRoomPersist(room, delay = 250) {
 
 function publicState(room) {
   for(const unit of room.units){
+    const pending=unit.delayedAction;
+    if(pending&&!pending.rollConfirmed&&!pending.rollBeforeDelay&&(pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind))&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
+      pending.rollBeforeDelay=true;pending.awaitingRoll=true;pending.resolving=true;
+    }
     if(unit.delayedAction?.awaitingRoll)unit.delayedAction.rollSpec ||= shipRollSpec(room,unit,unit.delayedAction);
     for(const request of unit.pendingShipRolls||[])request.rollSpec ||= shipRollSpec(room,{...unit,location:request.armed.location},request.armed.delayed||{commandOrder:request.armed.order});
   }
@@ -1305,7 +1309,7 @@ function moveToNextTurnOrClock(room, previousSource = null) {
       resolveCompletedEvent(room, { type: "queued", unit, effect: queued }, nextTurnSource(room, previousSource));
       return;
     }
-    if (unit.delayedAction?.resolving) {
+    if (unit.delayedAction?.resolving && !unit.delayedAction.awaitingRoll) {
       resolveCompletedEvent(room, { type: "delayed", unit, delay: unit.delayedAction }, nextTurnSource(room, previousSource));
       return;
     }
@@ -1416,10 +1420,13 @@ function shipRollSpec(room,unit,pending){
   else if(pending.maintenanceOrder){const item=ship?.ship.sicInventory.find(i=>i.id===order.sicId),d=shipMapCore.definition(item?.type);skill=d.sensor?'Sensor Systems':d.bridge?'Computer Systems':'Engineering';bonus=Number(d.sensor?unit.sensorSkill:d.bridge?unit.computerSkill:unit.engineeringSkill)||Number(unit.mentalSkill)||0;sides=unit.team==='npc'?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];difficulty={value:Math.max(10,Number(item?.repairDifficulty)||10),label:'Repair difficulty '+Math.max(10,Number(item?.repairDifficulty)||10)};}
   else{const propulsion=shipMapCore.propulsion(ship);skill='Pilot/Helm';sides=Array(propulsion?.evadeCount||0).fill(propulsion?.evadeDie||4);bonus=Number(unit.pilotSkill??unit.mentalSkill)||0;}
   if(!pending.maintenanceOrder){const matching=(ship?.commandSystems?.preparations||[]).filter(p=>p.action===order.kind&&p.remaining>0),teams=matching.filter(p=>p.kind==='team'&&p.unitId!==unit.id&&room.units.some(u=>u.id===p.unitId&&!u.defeatedAt));sides=[...sides,...teams.flatMap(()=>sides)];bonus=Math.max(bonus,...teams.map(p=>p.skill))+matching.filter(p=>p.kind==='calculation').length*2+(teams.length?teams.length+1:0);}
-  return {sides,bonus,skill,difficulty:difficulty.value,difficultyLabel:difficulty.label};
+  const retryBonus=pending.sensorOrder?.kind==='analysis'?ship.sensorState?.failures?.[order.targetId]||0:0;
+  return {sides,bonus:bonus+retryBonus,retryBonus,skill,difficulty:difficulty.value,difficultyLabel:difficulty.label};
 }
 function resolveCompletedEvent(room, event, source) {
   if (!event) return false;
+  const stored=event.unit?.delayedAction?.submittedRoll;
+  if(stored&&!event.rollDie){let index=0;event.rollDie=sides=>stored.values[index++]??require('node:crypto').randomInt(1,sides+1);event.rollDie.submittedScore=stored.score;event.rollDie.retryBonus=stored.retryBonus;}
   const pending=event.type==='delayed'&&event.unit.delayedAction;
   const needsRoll=pending&&(pending.maintenanceOrder||['area','hex','analysis'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind));
   if(needsRoll&&!pending.rollConfirmed&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
@@ -1966,10 +1973,19 @@ async function handleRoomAction(body, res) {
       if(!queued&&(!pending?.awaitingRoll||pending.id!==body.rollId)){sendJson(res,409,{error:'That roll is no longer waiting.'});return;}
       const ship=room.starships.find(s=>s.id===(queued?.armed.order.shipId||playerUnit.location?.starshipId)),previous=ship?.sensorState?.reports?.[0];
       if(queued){
+        const retry=queued.rollSpec?.retryBonus||0;if(Number.isFinite(rollDie.submittedScore))rollDie.submittedScore-=retry;rollDie.retryBonus=retry;
         const operator={...playerUnit,defeatedAt:null,location:queued.armed.location,timedAction:null,delayedAction:queued.armed.delayed,queuedEffects:playerUnit.queuedEffects ||= []};
         recordShipReports(room,()=>queued.armed.system==='sensor'?shipSensors.resolveInput(room,operator,rollDie):shipCommands.resolveInput(room,operator,rollDie,queued.armed.order));
         playerUnit.pendingShipRolls=playerUnit.pendingShipRolls.filter(r=>r!==queued);shipShields.refresh(room);
-      }else{pending.rollConfirmed=true;resolveCompletedEvent(room,{type:'delayed',unit:playerUnit,rollDie},room.activeSource);}
+      }else{
+        pending.rollConfirmed=true;
+        if(pending.rollBeforeDelay){
+          const spec=pending.rollSpec||shipRollSpec(room,playerUnit,pending);
+          const values=submitted.length?submitted:spec.sides.map(sides=>rollDie(sides));
+          pending.submittedRoll={score:(Number.isFinite(body.score)?body.score:shipSensors.fusedTotal(values)+spec.bonus)-(spec.retryBonus||0),values,retryBonus:spec.retryBonus||0};
+          pending.awaitingRoll=false;pending.resolving=false;
+        }else resolveCompletedEvent(room,{type:'delayed',unit:playerUnit,rollDie},room.activeSource);
+      }
       const report=ship?.sensorState?.reports?.[0];
       const resolved=report&&report!==previous?report:null;
       playerUnit.lastShipRoll={id:body.rollId,label:queued?.label||pending.label,text:resolved?.text||'Action completed.',values:resolved?.values||[],total:resolved?.total};
