@@ -1,8 +1,8 @@
 # Current Recovery Handoff
 
-## In Progress: Rapid Laser 1
+## Complete: Rapid Laser 1
 
-Latest authorization is Rapid Laser 1 #commit. Implementation and local browser firing test are complete; finishing regression checks and publication. Read RAPID-LASER-PASS.md. New ship-weapons.js and weapon-console-ui.js must remain in public-assets.js. Card and console originals have optimized derivatives. Both fresh Explore ships now have a laser. Gold Standard remains frozen. Do not mistake historical completed passes below for this pass's completion. Final ntfy has NOT yet been sent for this pass.
+Rapid Laser 1 #commit is complete. Application commits 08bd87b and f18cce9 are pushed and verified on Render. Read RAPID-LASER-PASS.md. All 143 tests passed, plus fresh-campaign laser/shared-dice/red-impact checks, sensor GM/two-PC regressions, 12 cockpit mouse orders and shield browser regressions. Hosted verification matched 35 code/style assets and 22 optimized images, passed Explore sensor/Command/interior checks, and passed a real hosted laser firing test. The final compact-screen stylesheet was separately hash-verified after its correction, with the local laser suite rerun and screenshots reviewed. Test servers and browsers exited. New ship-weapons.js and weapon-console-ui.js must remain in public-assets.js. Both fresh Explore ships now have a laser. Gold Standard and existing campaign files were untouched. Wait for user feedback and the next #commit; historical sections below are not pending tasks.
 
 ## Complete: Console Feedback And Roll Timing
 
