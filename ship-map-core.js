@@ -274,7 +274,7 @@
       const canopy=def?.bridge?`<span class="sa-bridge-window" style="background-image:url('${def.image}');background-size:${cell.width*100}% ${cell.height*100}%;background-position:${cell.width>1?cell.column/(cell.width-1)*100:0}% ${cell.height>1?cell.row/(cell.height-1)*100:0}%"></span>`:'';
       const offline=cell&&(cell.item.disabled||['offline','powered-down','destroyed'].includes(cell.item.status));
       const status=offline?`<span class="sa-offline-shade"></span>${cell.offset===0?`<span class="sa-reboot-status">${cell.item.bootRemaining>0?`Restart ${Math.ceil(cell.item.bootRemaining)}s`:'OFFLINE'}</span>`:''}`:'';
-      return `${status}<span class="sa-hull-plate ${edges}" style="--plate-x:${square % 20 % 2 * 100}%;--plate-y:${Math.floor(square / 20) % 2 * 100}%" aria-hidden="true">${canopy}</span>`;
+      return `${status}${cell?.blocked?'<span class="sa-blocked-floor" aria-hidden="true"></span>':''}<span class="sa-hull-plate ${edges}" style="--plate-x:${square % 20 % 2 * 100}%;--plate-y:${Math.floor(square / 20) % 2 * 100}%" aria-hidden="true">${canopy}</span>`;
     }
     const sic = layout.footprint.get(square);
     if (!sic?.exterior) return "";

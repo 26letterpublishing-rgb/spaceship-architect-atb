@@ -1,0 +1,3 @@
+/* Reserve the page while authenticated state selects its initial view. */
+.view-starting body,.view-starting body *{visibility:hidden!important}
+.view-starting{background:#080f16}

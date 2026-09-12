@@ -44,7 +44,16 @@ async function main(){
   const starting=gm.getByRole('dialog',{name:'Starting location'});await starting.waitFor();await starting.getByRole('combobox',{name:'Starting starship'}).selectOption(ships[1].id);await starting.locator('[data-start-square="64"]').click();await starting.getByRole('button',{name:'Confirm starting location'}).click();await starting.waitFor({state:'detached'});
   for(let i=0;i<30&&(await state()).units.every(u=>beforeAdd.has(u.id));i++)await gm.waitForTimeout(100);const added=(await state()).units.find(u=>!beforeAdd.has(u.id));assert.ok(added,'GM added a combatant after choosing a square');assert.equal(added.location.square,64);assert.equal(added.location.starshipId,ships[1].id);await act({action:'removeUnit',id:added.id});
   const pcs=[];
-  for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);}
+  for(const character of people){const p=await page();await p.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);await p.getByRole('button',{name:'Enter PC Code',exact:true}).click();await p.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill(character.access.pcCode);await p.getByRole('button',{name:'Unlock Character',exact:true}).click();
+    if(character.id===people[0].id){
+      await p.getByRole('button',{name:'Starships',exact:true}).click();
+      await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4}});
+      await p.locator('[data-player-ship-square="43"] .player-ship-token.is-self').waitFor();
+      await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:42,mesh:0}});
+      await p.locator('[data-player-ship-square="42"] .player-ship-station.occupied').waitFor();
+    }
+    await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);
+  }
   const pc=pcs[0];await pc.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(operator.id);await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sn');
   const consoleView=pc.getByRole('dialog',{name:'Sensor console',exact:true});await consoleView.waitFor();
@@ -161,12 +170,15 @@ async function main(){
   await act({action:'exitEncounter'});
   await pc.getByRole('button',{name:'Starships',exact:true}).click();
   pc.once('dialog',dialog=>dialog.accept());
+  while(await pc.locator('.result-notifications article:visible').count())await pc.locator('.result-notifications article:visible button').click();
   await pc.getByRole('button',{name:'System Repairs and Diagnostics',exact:true}).click();
   await pc.getByText('Diagnostics: 55 minutes remaining',{exact:true}).waitFor();
   await post('campaign/time/pass',{code,token,amount:54,unit:'minutes',requestId:'diagnostics-54-test'});
   await pc.getByText('Diagnostics: 1 minutes remaining',{exact:true}).waitFor();
   await post('campaign/time/pass',{code,token,amount:1,unit:'minutes',requestId:'diagnostics-1-test'});
   await pc.getByText('Diagnostics: 1 minutes remaining',{exact:true}).waitFor({state:'detached'});
+  await pc.locator('.maintenance-history').getByText(/complete/).waitFor();
+  await pc.locator('.result-notifications article:visible').filter({hasText:'System Repairs and Diagnostics'}).waitFor();
   await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await pc.waitForTimeout(800);
   const builder=await page();await builder.goto(base+'/starship.html');await builder.getByRole('button',{name:'SICs',exact:true}).click();await builder.locator('summary').filter({hasText:'Sensors'}).click();await builder.getByRole('dialog',{name:'Sensors',exact:true}).waitFor();assert.equal(await builder.locator('.sic-picker-slot').count(),9);await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(i=>i.decode())));await builder.waitForTimeout(700);await builder.screenshot({path:path.join(artifacts,'sensor-cards-1366.png')});
   await builder.locator('[data-family-back]').click();

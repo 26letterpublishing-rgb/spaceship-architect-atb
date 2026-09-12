@@ -443,7 +443,7 @@ export class PhysicalDiceRoller {
       6: { color: 0x18354e, accent: "#b9f4ff" },
       8: { color: 0x174d42, accent: "#b9ffea" },
       10: { color: 0x5a3212, alternate: 0x3d210b, accent: "#ffe0a8" },
-      12: { color: 0x621d32, accent: "#ffc2d3" },
+      12: { color: 0x365517, accent: "#e0ffc2" },
       20: { color: 0x28396c, accent: "#c7d3ff" },
     };
     return this.rollDice({

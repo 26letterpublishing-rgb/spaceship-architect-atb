@@ -1805,7 +1805,7 @@ async function loadPlayerAtb({ reload = false } = {}) {
   dom.playerAtbStatus.textContent = "Synchronizing your character and opening the live encounter...";
   dom.launchPlayerAtb.disabled = true;
   try {
-    await saveCampaignCharacter({ force: true });
+    if (campaignDirty) await saveCampaignCharacter({ force: true });
     dom.playerAtbFrame.dataset.encounterBase = expectedBase;
     dom.playerAtbFrame.src = `${expectedBase}&view=${Date.now()}`;
   } catch (error) {
@@ -2133,7 +2133,8 @@ function renderPlayerStarships(force = false) {
     const visibleSquares = [];
     for (let row = minRow; row <= maxRow; row += 1) for (let col = minCol; col <= maxCol; col += 1) visibleSquares.push(row * 20 + col);
     const visualLocations = new Map(crew.map((entry, index) => {
-      const saved = record.characterLocations?.[entry.id];
+      const live=playerEncounterView?.encounterEndedAt?null:playerEncounterView?.units?.find(u=>u.characterId===entry.id&&u.location?.starshipId===record.id);
+      const saved = live?.location||record.characterLocations?.[entry.id];
       return [entry.id, saved || { square: hullSquares[Math.min(Math.floor(index / 2), Math.max(0, hullSquares.length - 1))], mesh: 4 }];
     }));
     const route = starshipMoveDraft?.starshipId === record.id ? new Set(starshipMoveDraft.path || []) : new Set();
@@ -2215,6 +2216,12 @@ function renderPlayerStarships(force = false) {
     }
   }
   dom.playerStarshipList.innerHTML = markup;
+  for(const ship of ships){
+    const history=dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(ship.id)}"]`);
+    if(!history)continue;
+    const reports=(ship.ship.maintenanceReports||[]).filter(r=>gmViewing||r.characterId===ownId);
+    if(reports.length){const section=document.createElement('section');section.className='maintenance-history';section.innerHTML='<h3>Maintenance Results</h3>'+reports.slice(0,5).map(r=>`<p>${escapeHtml(r.text)}</p>`).join('');history.append(section);}
+  }
   refreshPlayerShipPreview();
 }
 
@@ -2307,6 +2314,9 @@ function receiveCampaignState(nextState) {
   dom.playerAtbFrame?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
+  for(const ship of nextState.starships||[])for(const report of ship.ship?.maintenanceReports||[]){
+    if(report.characterId===nextState.ownCharacterId)window.SAResultFeedback?.push(`${nextState.code}:${report.id}`,'System Repairs and Diagnostics',report.text);
+  }
   cacheCampaign(nextState);
   if (!campaignCharacterId) {
     renderCampaignRoster();
@@ -2368,6 +2378,19 @@ function connectCampaignState() {
   if (!campaignCode) return;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
   campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
+  campaignEvents.addEventListener('encounter-locations',event=>{
+    const positions=JSON.parse(event.data);
+    playerEncounterView=positions;
+    if(campaignState){
+      campaignState.combatActive=positions.combatActive;
+      for(const ship of campaignState.starships||[])for(const unit of positions.units||[]){
+        if(ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)){
+          ship.characterLocations||={};ship.characterLocations[unit.characterId]=unit.location;
+        }
+      }
+    }
+    if(activeCharacterTab==='starships')renderPlayerStarships();
+  });
   campaignEvents.addEventListener("character-kicked", (event) => {
     const payload = JSON.parse(event.data);
     if (payload.character) character = normalizeCharacter(payload.character);
@@ -4634,6 +4657,11 @@ async function confirmSkillResult() {
   try {
     if (!await submitCampaignRollResult(check.pendingSubmission)) return;
     submitCombatRollResult(check.pendingSubmission);
+    if(!PAGE_PARAMS.has('shipRoll')){
+      const result=check.pendingSubmission;
+      window.SAResultFeedback?.push(`${campaignCode||'local'}:${crypto.randomUUID()}`,dom.skillCheckTitle.textContent,
+        `Roll total ${formatNumber(result.score)}. ${check.combatRequest?'Submitted; awaiting combat resolution.':result.outcome||'No difficulty specified.'}`);
+    }
     if (skillCheck === check) closeSkillCheck({ discardCombat: true });
   } finally {
     check.submitting = false;
@@ -8169,6 +8197,11 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if(event.data?.type==='sa-encounter-view'){
+    playerEncounterView=event.data.state;
+    if(activeCharacterTab==='starships')renderPlayerStarships();
+    return;
+  }
   if (event.data?.type === 'sa-request-campaign-state') {
     dom.playerAtbFrame.contentWindow.postMessage({type:'sa-campaign-state',campaign:campaignState},location.origin);
     return;
@@ -8239,13 +8272,15 @@ window.addEventListener("message", (event) => {
   }
 });
 let playerAtbResizeObserver = null;
+let playerEncounterView = null;
 
 function syncPlayerAtbHeight() {
   if (!dom.playerAtbFrame) return;
   const frameDocument = dom.playerAtbFrame.contentDocument;
   if (!frameDocument) return;
-  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, 540);
-  dom.playerAtbFrame.style.height = `${height}px`;
+  const shell=frameDocument.querySelector('main.shell');
+  const height = Math.ceil(Math.max(shell?.getBoundingClientRect().bottom + (frameDocument.defaultView?.scrollY||0) || 540,540));
+  if(dom.playerAtbFrame.style.height!==`${height}px`)dom.playerAtbFrame.style.height = `${height}px`;
 }
 
 function watchPlayerAtbHeight() {
@@ -8434,6 +8469,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   }
   if (!record || (!ownId && campaignState?.role !== "gm")) return;
   if (begin) {
+    if(campaignState?.combatActive){showCharacterPanel('atb');notice('Choose Move from your combat actions when your turn is ready.','info');return;}
     const firstHull = record.ship?.gridCells?.[0];
     const currentLocation = record.characterLocations?.[ownId] || {};
     const start = Number(currentLocation.square);
@@ -8888,8 +8924,8 @@ async function initializeCharacterApp() {
         enableGmAdjustmentMode();
         if (editable && character.phase === "finalizing") window.setTimeout(processFinalization, 120);
         else if (editable && character.pendingRoll) window.setTimeout(rollPending, 120);
-        else if (params.get("showcase") === "1") window.setTimeout(() => showCharacterPanel("atb"), 120);
-        else if (params.get("tab") === "starships") window.setTimeout(() => showCharacterPanel("starships"), 120);
+        else if (params.get("showcase") === "1") showCharacterPanel("atb");
+        else if (params.get("tab") === "starships") showCharacterPanel("starships");
         return;
       }
     } catch (error) {
@@ -8922,6 +8958,7 @@ async function initializeCharacterApp() {
   if (requestedCode && !requestedCharacter) {
     localStorage.removeItem("sa-character-campaign-code");
   }
+  if (PAGE_PARAMS.get('campaign')) renderAll();
   renderCharacterNavigation();
   showCharacterPanel("sheet");
   if (character.campaignLink?.status === "pending") scheduleJoinStatusCheck(800);
@@ -8972,15 +9009,18 @@ if(PAGE_PARAMS.has('shipRoll')){
     renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.skill||'System';dom.skillCheckSubtitle.textContent=(request.retryBonus?`Retry bonus +${request.retryBonus} included. `:'')+(request.difficultyLabel||'Unknown difficulty');dom.skillDifficulty.placeholder=request.difficultyLabel?.replace('Difficulty unknown','Unknown difficulty')||'Unknown difficulty';dom.skillDifficulty.closest('label').firstChild.textContent=Number.isFinite(request.difficulty)?'Difficulty':'Unknown difficulty';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
   });
   parent.postMessage({type:'sa-ship-skill-ready'},location.origin);
+  window.SAViewReady?.();
 }else{
-renderAll();
-if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
+if (!PAGE_PARAMS.get('campaign')) {
+  renderAll();
+  if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
+}
 initializeCharacterApp().then(() => {
 if (!SHOWCASE_MODE && !PAGE_PARAMS.has("character") && !CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !draftHasProgress(character) && sessionStorage.getItem(`sa-draft-guide-${character.id}`) !== "shown") {
   sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
   showDraftIntroduction();
 }
-});
+}).finally(()=>window.SAViewReady?.());
 
 }
 

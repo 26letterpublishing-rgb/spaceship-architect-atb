@@ -23,6 +23,18 @@ async function main(){
     await side.frameLocator(player?'#playerAtbFrame':'#atbFrame').locator('[data-ship-combat-lane]').first().waitFor();times.push(Date.now()-start);
   }
   const state=await fetch(base+`/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());const nova=state.units.find(u=>u.characterName==='Nova Vale');
+  if(process.env.SA_VERIFY_UI==='1'){
+    const npc=state.units.find(u=>u.team==='npc'),combat=gm.frameLocator('#atbFrame');
+    for(let turn=0;turn<3;turn++){
+      await act({action:'nudge',id:npc.id,amount:100});
+      await combat.locator('#turnDialog').waitFor({state:'visible'});
+      const tab=combat.locator('#collapseNpcTurn');await tab.waitFor({state:'visible'});
+      assert.ok((await tab.boundingBox()).height>=80,'Large NPC side tab');
+      await tab.click();await combat.locator('#restoreNpcTurn').waitFor({state:'visible'});
+      await act({action:'completeTurn',id:npc.id});
+    }
+    console.log('PASS three consecutive NPC turns reopen their action panel without perspective switching.');
+  }
   await act({action:'nudge',id:nova.id,amount:100});await page.getByRole('button',{name:'Nova Vale',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();
   const frame=page.frameLocator('#showcaseFrame').frameLocator('#playerAtbFrame').locator('body');
   await frame.locator('#myTurnBanner').waitFor({state:'visible'});
@@ -39,6 +51,10 @@ async function main(){
     await map.getByRole('button',{name:'Zoom in interior'}).click();await map.getByRole('button',{name:'Zoom out interior'}).click();await page.screenshot({path:path.join(out,'movement-controls.png')});await map.getByRole('button',{name:'Cancel',exact:true}).click();
     const ship=state.starships.find(s=>s.id===nova.location.starshipId),cp=ship.ship.placements.find(p=>ship.ship.sicInventory.find(i=>i.id===p.sicId)?.type==='bridge-1'),gun=ship.ship.sicInventory.find(i=>i.type==='rapid-laser-5'),target=state.starships.find(s=>s.id!==ship.id);
     await act({action:'setCombatLocation',id:nova.id,location:{starshipId:ship.id,square:cp.cell,mesh:0}});
+    await pc.getByRole('button',{name:'Starships',exact:true}).click();
+    const ownToken=pc.locator(`[data-player-starship="${ship.id}"] [data-player-ship-square="${cp.cell}"] .player-ship-station.occupied[title="Nova Vale is stationed here"]`);
+    await ownToken.waitFor();assert.ok(await ownToken.count(),'Starship tab uses live combat position');
+    await pc.getByRole('button',{name:'Combat',exact:true}).click();
     const consoleButton=combat.getByRole('button',{name:'Console View',exact:true});await consoleButton.waitFor();assert.equal(await consoleButton.evaluate(e=>getComputedStyle(e).color),'rgb(22, 18, 0)');
     await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:200,downloadThroughput:500000,uploadThroughput:500000});
     await consoleButton.click();await page.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();await page.getByRole('combobox',{name:'Station console'}).selectOption(gun.id);
@@ -48,7 +64,11 @@ async function main(){
     if(!await page.getByRole('dialog',{name:'Ship action dice roll'}).count()){await side.getByRole('button',{name:'Combat',exact:true}).click();if(await side.getByRole('button',{name:'Resume Encounter',exact:true}).isVisible())await side.getByRole('button',{name:'Resume Encounter',exact:true}).click();}
     const roll=page.getByRole('dialog',{name:'Ship action dice roll'});await roll.waitFor();const skill=roll.frameLocator('iframe');await skill.getByRole('spinbutton',{name:'Manual Final Score',exact:true}).fill('100');await skill.getByRole('button',{name:'Calculate Manual Result',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
     for(let i=0;i<35;i++){const s=await act({action:'step'});if(s.units.find(u=>u.id===nova.id).delayedAction?.weaponDamage)break;}
-    await roll.waitFor();await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});console.log('PASS Chrome: sticky HUD, collapse/restore, compact lower map controls, throttled console styling and GM-owned accuracy/damage dialogs.');assert.deepEqual(errors,[]);
+    await roll.waitFor();await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
+    const result=page.locator('.result-notifications article').filter({hasText:'Damage confirmed'});await result.waitFor();
+    await page.waitForTimeout(7500);assert.ok(await result.isVisible(),'Result persists until acknowledged');
+    await result.getByRole('button',{name:/Dismiss/}).click();await result.waitFor({state:'detached'});
+    console.log('PASS Chrome: sticky HUD, collapse/restore, live positions, compact lower map controls, throttled console styling, GM-owned dice and persistent results.');assert.deepEqual(errors,[]);
   }
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();child?.kill();});

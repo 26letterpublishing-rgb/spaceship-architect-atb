@@ -99,3 +99,7 @@ body.embedded-player .collapse-player-turn,.player-mode .collapse-player-turn{to
 body.player-mode .collapse-player-turn,body.player-mode .restore-player-turn{position:fixed!important;top:auto!important;left:auto!important;right:10px!important;bottom:calc(10px + var(--embedded-hidden-bottom,0px))!important;z-index:12000!important;width:42px!important;height:42px!important;min-height:42px!important;border:1px solid #aabccb!important;border-radius:5px!important;transform:none!important}
 body.embedded-player .turn-banner{top:calc(var(--embedded-visible-top,0px) + 10px)!important;bottom:auto!important;max-height:var(--embedded-modal-max-height,calc(100dvh - 24px))!important;overflow:auto!important}
 button[data-combat-action="consoleView"],button[data-player-combat-action="consoleView"]{background:linear-gradient(#fff0a3,#d5ac30)!important;color:#161200!important;border-color:#ffe887!important;text-shadow:none!important}
+body .turn-edge-control{position:fixed!important;width:42px!important;height:82px!important;min-height:82px!important;padding:0!important;font-size:26px!important;border-radius:6px!important;z-index:12000!important;transform:none!important;transition:background-color .15s!important}
+body .turn-edge-control::before,body .turn-edge-control::after{display:none!important}
+body .turn-dialog,body .turn-banner{transition-property:transform,opacity!important;animation:none!important}
+body.embedded-gm .turn-dialog:not(.npc-collapsed){transform:none!important}

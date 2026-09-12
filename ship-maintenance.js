@@ -69,12 +69,15 @@ function diagnostics(ship, characterId) {
   ship.ship.diagnostics.push({sicId:item.id,characterId,remainingMinutes:55});
 }
 function passTime(ship,minutes){
+  const report=(job,text)=>{
+    ship.ship.maintenanceReports=[{id:require('node:crypto').randomUUID(),at:new Date().toISOString(),characterId:job.characterId,sicId:job.sicId,text},...(ship.ship.maintenanceReports||[])].slice(0,30);
+  };
   ship.ship.diagnostics=(ship.ship.diagnostics||[]).filter(job=>{
     const item=local(ship,ship.characterLocations?.[job.characterId]);
-    if(!item||item.id!==job.sicId)return false;
+    if(!item||item.id!==job.sicId){report(job,'Diagnostics cancelled: the operator left the SIC room. No repair was completed.');return false;}
     job.remainingMinutes-=minutes;
     if(job.remainingMinutes>0)return true;
-    restore(item);return false;
+    restore(item);report(job,`${maps.definition(item.type).name}: System Repairs and Diagnostics complete. All impairment cleared; repair difficulty reset to 10. Power state is unchanged.`);return false;
   });
   advance(ship,minutes*60);
 }

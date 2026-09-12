@@ -1,6 +1,7 @@
 const startupParams = new URLSearchParams(window.location.search);
 const embeddedGm = startupParams.get("embedded") === "gm";
 const embeddedPlayer = startupParams.get("embedded") === "player";
+let embeddedViewInitializing = embeddedGm || embeddedPlayer;
 const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
 const requestedCampaignCharacter = String(startupParams.get("character") || "");
 const embeddedCombat = embeddedGm || embeddedPlayer;
@@ -294,6 +295,29 @@ const collapsePlayerTurn = document.querySelector("#collapsePlayerTurn");
 // Keep the slide control outside the transformed turn panel's positioning context.
 if(collapsePlayerTurn)document.body.append(collapsePlayerTurn);
 const restorePlayerTurn = document.querySelector("#restorePlayerTurn");
+for(const control of [collapseNpcTurn,restoreNpcTurn,collapsePlayerTurn,restorePlayerTurn]){
+  if(control){document.body.append(control);control.classList.add('turn-edge-control');}
+}
+let panelTurnKey='';
+let lastLocationMessage='';
+function positionTurnControls(){
+  if(!state)return;
+  const player=mode==='player',active=activeUnit(),right=!player&&active?.team==='npc';
+  const panel=player?myTurnBanner:turnDialog;
+  const controls=player?[collapsePlayerTurn,restorePlayerTurn]:[collapseNpcTurn,restoreNpcTurn];
+  const rect=panel.getBoundingClientRect(),style=getComputedStyle(document.body);
+  const top=Number.parseFloat(style.getPropertyValue('--embedded-visible-top'))||0;
+  const bottom=innerHeight-(Number.parseFloat(style.getPropertyValue('--embedded-hidden-bottom'))||0);
+  const y=Math.max(top+6,Math.min(bottom-88,rect.top+Math.min(100,rect.height/2)-41));
+  controls.forEach((control,index)=>{
+    if(!control)return;
+    const x=index?(right?innerWidth-42:0):(right?rect.left-42:rect.right);
+    control.style.setProperty('left',Math.max(0,Math.min(innerWidth-42,x))+'px','important');
+    control.style.setProperty('top',y+'px','important');
+    control.style.setProperty('right','auto','important');control.style.setProperty('bottom','auto','important');
+    control.style.setProperty('height','82px','important');control.style.setProperty('min-height','82px','important');
+  });
+}
 const activeName = document.querySelector("#activeName");
 const activeOwner = document.querySelector("#activeOwner");
 const completeTurn = document.querySelector("#completeTurn");
@@ -388,6 +412,7 @@ function syncEmbeddedModalViewport() {
     document.body.style.setProperty("--embedded-hidden-bottom", `${Math.max(0,window.innerHeight-visibleBottom)}px`);
     document.body.style.setProperty("--embedded-modal-center", `${(visibleTop + visibleBottom) / 2}px`);
     document.body.style.setProperty("--embedded-modal-max-height", `${Math.max(180, visibleBottom - visibleTop - 24)}px`);
+    positionTurnControls();
   } catch {
     document.body.classList.remove("embedded-modal-host");
   }
@@ -1723,6 +1748,10 @@ function receiveState(nextState, { force = false } = {}) {
   }
   render();
   window.dispatchEvent(new CustomEvent("sa-combat-state", { detail: { state, mode, myUnitId } }));
+  if(embeddedPlayer&&parent!==window){
+    const positions={encounterEndedAt:state.encounterEndedAt,units:state.units.map(u=>({characterId:u.characterId,location:u.location}))},key=JSON.stringify(positions);
+    if(key!==lastLocationMessage){lastLocationMessage=key;parent.postMessage({type:'sa-encounter-view',state:positions},location.origin);}
+  }
   return true;
 }
 
@@ -1834,8 +1863,9 @@ function connectEvents() {
     receiveState(streamState);
   });
   events.addEventListener('state-delta',event=>{
-    try{streamState=window.SACombatWire.apply(streamState,JSON.parse(event.data));setConnected(true);receiveState(streamState);}
-    catch{connectEvents();}
+    try{streamState=window.SACombatWire.apply(streamState,JSON.parse(event.data));}
+    catch{connectEvents();return;}
+    setConnected(true);receiveState(streamState);
   });
   events.addEventListener("error", () => {
     setConnected(false, "Cannot reach this ATB room. It may have expired or the server may be waking up.");
@@ -3142,6 +3172,8 @@ function renderAreaEffects() {
 }
 
 function render() {
+  const nextPanelKey=state?.activeId?`${state.activeId}:${activeUnit()?.turnSerial||0}`:'';
+  if(nextPanelKey!==panelTurnKey){collapsedNpcTurnId='';collapsedPlayerTurnId='';panelTurnKey=nextPanelKey;}
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
     mode = "welcome";
     safeLocalStorageSet("sa-atb-mode", mode);
@@ -3319,6 +3351,9 @@ function render() {
   notifyInterruptionIfNeeded();
   notifyDamageIfNeeded();
   queueGmDelayRequestPrompt();
+  syncEmbeddedModalViewport();
+  positionTurnControls();
+  if(!embeddedViewInitializing)window.SAViewReady?.();
 }
 
 function renderPlayerCommand(mine) {
@@ -4419,8 +4454,10 @@ document.addEventListener("touchend", resumeAudio, { passive: true });
 async function initializeEmbeddedPlayer() {
   document.body.classList.add("embedded-player");
   if (!campaignCharacterToken) {
+    embeddedViewInitializing=false;
     setConnected(false, "Open this character again from the campaign login.");
     setMode("player");
+    window.SAViewReady?.();
     return;
   }
   try {
@@ -4444,6 +4481,9 @@ async function initializeEmbeddedPlayer() {
   } catch (error) {
     setConnected(false, error.message);
     setMode("player");
+  } finally {
+    embeddedViewInitializing=false;
+    window.SAViewReady?.();
   }
 }
 
@@ -4458,7 +4498,8 @@ if (embeddedGm && currentRoomCode) {
       return campaignRequest(`/api/campaign/state?code=${encodeURIComponent(currentRoomCode)}&token=${encodeURIComponent(gmCampaignToken)}`);
     })
     .then((nextCampaign) => { if (nextCampaign) { campaignState = nextCampaign; render(); } })
-    .catch(() => setConnected(false, "Open this campaign again from the GM Control Panel."));
+    .catch(() => setConnected(false, "Open this campaign again from the GM Control Panel."))
+    .finally(()=>{embeddedViewInitializing=false;window.SAViewReady?.();});
 }
 
 if (embeddedPlayer && currentRoomCode && campaignCharacterId) {

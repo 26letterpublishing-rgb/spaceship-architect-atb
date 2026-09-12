@@ -815,7 +815,7 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {} }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, characterMoved = () => {} }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = connectedCharacterIds;
@@ -823,6 +823,8 @@ class CampaignApi {
     this.deleteEncounter = deleteEncounter;
     this.canPassTime = canPassTime;
     this.timePassed = timePassed;
+    this.liveEncounter = liveEncounter;
+    this.characterMoved = characterMoved;
     this.sessions = new Map();
     this.clients = new Map();
     this.campaignCache = new Map();
@@ -961,6 +963,7 @@ class CampaignApi {
       storageMode: this.storageMode,
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
+      combatActive: !this.canPassTime(campaign.code),
       script: gm ? campaign.script : undefined,
       scriptChapters: gm ? clone(campaign.scriptChapters) : undefined,
       conditionalActions: gm ? clone(campaign.conditionalActions) : undefined,
@@ -1000,7 +1003,17 @@ class CampaignApi {
       })),
       starships: campaign.starships
         .filter((record) => gm || record.controlType === "pc")
-        .map(publicStarship),
+        .map(record=>{
+          const visible=publicStarship(record),encounter=this.liveEncounter(campaign.code)||campaign.encounter;
+          if(!this.canPassTime(campaign.code)&&!encounter?.encounterEndedAt){
+            visible.characterLocations=clone(visible.characterLocations||{});
+            for(const unit of encounter?.units||[]){
+              if(!record.crewCharacterIds?.includes(unit.characterId))continue;
+              if(unit.location?.starshipId===record.id)visible.characterLocations[unit.characterId]=clone(unit.location);
+            }
+          }
+          return visible;
+        }),
       rollRequests: clone(requests.slice(-50)),
     };
   }
@@ -1019,6 +1032,8 @@ class CampaignApi {
     const previous = this.saveQueues.get(code) || Promise.resolve();
     const queued = previous.catch(() => {}).then(async () => {
       const npcRoster = [...new Map([...(campaign.npcRoster || []), ...(encounter.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, clone(unit)])).values()].slice(-200);
+      const positions = value => JSON.stringify([value?.hasEngagedClock,value?.encounterEndedAt,(value?.units||[]).map(u=>[u.characterId,u.location])]);
+      const locationsChanged=positions(campaign.encounter)!==positions(encounter);
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
@@ -1038,6 +1053,13 @@ class CampaignApi {
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
       Object.assign(campaign, { encounter: next.encounter, starships:next.starships, npcRoster, updatedAt, revision });
+      if(locationsChanged)for(const client of this.clients.get(code)||[]){
+        const gm=this.session(client.token,code)?.role==='gm';
+        const ships=campaign.starships.filter(ship=>gm||ship.controlType==='pc');
+        const units=(encounter.units||[]).filter(unit=>ships.some(ship=>ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)))
+          .map(unit=>({characterId:unit.characterId,location:clone(unit.location)}));
+        writeEvent(client.response,'encounter-locations',{units,encounterEndedAt:encounter.encounterEndedAt,combatActive:!this.canPassTime(code)});
+      }
     });
     this.saveQueues.set(code, queued);
     try { await queued; }
@@ -1489,6 +1511,7 @@ class CampaignApi {
       const selfAccess = Boolean(characterId && this.characterSession(token, code, characterId));
       if (!record || !record.crewCharacterIds.includes(characterId)) { sendJson(res, 404, { error: "That character is not assigned to this starship." }); return true; }
       if (!gmAccess && !selfAccess) { sendJson(res, 403, { error: "You may only move your own character." }); return true; }
+      if (!this.canPassTime(code)) { sendJson(res,409,{error:'Combat is active. Use Move in Combat so movement follows the turn and timing rules.'}); return true; }
       if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
       record.characterLocations ||= {};
       const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
@@ -1499,6 +1522,7 @@ class CampaignApi {
       require('./ship-maintenance').passTime(record,0);
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
+      this.characterMoved(code,record.id,characterId,record.characterLocations[characterId]);
       sendJson(res, 200, { moved: true, starship: publicStarship(record), campaign: this.state(campaign, token) });
       return true;
     }

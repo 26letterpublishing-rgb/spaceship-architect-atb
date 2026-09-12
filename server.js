@@ -899,8 +899,10 @@ const gmClockOnlyActions = new Set(["setRunning", "setHardPaused", "toggleClock"
 function visibleEncounter(data, viewer) {
   if (!data?.units || !data?.starships || viewer?.gm) return data;
   const sensorEncounter = data.starships.some(s => (s.ship?.sicInventory || []).some(i => shipMapCore.definition(i.type).sensor));
-  if (!data.sensorMode && !sensorEncounter) return data;
-  return shipSensors.view(data,data.units.find(u => u.characterId === viewer?.characterId)?.location?.starshipId);
+  const visible=data.sensorMode||sensorEncounter
+    ?shipSensors.view(data,data.units.find(u => u.characterId === viewer?.characterId)?.location?.starshipId):data;
+  return {...visible,units:visible.units.map(unit=>({...unit,actionResults:unit.characterId===viewer?.characterId
+    ?(unit.actionResults||[]).filter(result=>result.controller!=='gm'):[]}))};
 }
 
 async function encounterViewer(room, params) {
@@ -1464,7 +1466,24 @@ function shipRollSpec(room,unit,pending){
   const retryBonus=pending.sensorOrder?.kind==='analysis'?ship.sensorState?.failures?.[order.targetId]||0:0;
   return {sides,bonus:bonus+retryBonus,retryBonus,skill,difficulty:difficulty.value,difficultyLabel:difficulty.label};
 }
-function resolveCompletedEvent(room, event, source) {
+function recordActionResult(unit, value) {
+  unit.actionResults=[...(unit.actionResults||[]).filter(r=>r.id!==value.id),{...value,at:new Date().toISOString()}].slice(-40);
+}
+function resolveCompletedEvent(room,event,source){
+  const pending=event?.type==='delayed'?event.unit?.delayedAction:null,effect=event?.effect;
+  const ship=room.starships.find(s=>s.id===event?.unit?.location?.starshipId);
+  const reports=()=>[...(ship?.sensorState?.reports||[]),...(ship?.weaponState?.reports||[]),...(ship?.lockState?.reports||[])];
+  const previous=new Set(reports());
+  const result=resolveCompletedEventInner(room,event,source);
+  if(event?.unit&&((pending?.rollConfirmed&&event.unit.delayedAction!==pending)||(event?.type==='queued'&&effect?.sensorReport))){
+    const fresh=reports().filter(r=>!previous.has(r));
+    recordActionResult(event.unit,{id:`${pending?.id||effect.id}:complete`,label:pending?.label||effect.label,
+      text:fresh.map(r=>r.text).join(' ')||'Action resolved.',total:pending?.submittedRoll?pending.submittedRoll.score+(pending.submittedRoll.retryBonus||0):fresh[0]?.total,
+      controller:pending?.rollController||effect?.rollController||'player',stage:'complete'});
+  }
+  return result;
+}
+function resolveCompletedEventInner(room, event, source) {
   if (!event) return false;
   const stored=event.unit?.delayedAction?.submittedRoll;
   if(stored&&!event.rollDie){let index=0;event.rollDie=sides=>stored.values[index++]??require('node:crypto').randomInt(1,sides+1);event.rollDie.submittedScore=stored.score;event.rollDie.retryBonus=stored.retryBonus;}
@@ -2064,6 +2083,12 @@ async function handleRoomAction(body, res) {
       const report=ship?.sensorState?.reports?.[0];
       const resolved=report&&report!==previous?report:null;
       playerUnit.lastShipRoll={id:body.rollId,label:queued?.label||pending.label,text:resolved?.text||'Action completed.',values:resolved?.values||[],total:resolved?.total};
+      const entering=Boolean(pending?.rollBeforeDelay&&playerUnit.delayedAction===pending);
+      const damage=pending?.weaponDamage;
+      recordActionResult(playerUnit,{id:`${body.rollId}:${entering?'input':'complete'}`,label:queued?.label||pending.label,
+        text:entering?'Roll submitted. Operating the console; outcome follows input.':damage?`Damage confirmed: ${submitted.length?submitted.reduce((a,b)=>a+b,0):body.score}.`:resolved?.text||'Roll submitted.',
+        total:Number.isFinite(body.score)?body.score:damage?submitted.reduce((a,b)=>a+b,0):shipSensors.fusedTotal(submitted)+(spec.bonus||0),
+        controller:gmAuthorized?'gm':'player',stage:entering?'input':'complete'});
     }
   }
   if (action === 'shipCommand') {
@@ -3096,6 +3121,15 @@ const server = http.createServer(async (req, res) => {
 async function startServer() {
   await campaignStore.init();
   campaignApi = new CampaignApi({
+    liveEncounter: code => rooms.get(code),
+    characterMoved: (code,shipId,characterId,location) => {
+      const room=rooms.get(code),unit=room?.units.find(u=>u.characterId===characterId),ship=room?.starships.find(s=>s.id===shipId);
+      if(!unit||!ship)return;
+      const cell=shipMapCore.buildLayout(ship.ship).footprint.get(location.square);
+      unit.location={...location,starshipId:shipId,sicId:location.stationed?cell?.sicId:null};
+      unit.timedAction=null;unit.travelRoute=[];
+      broadcast(room);scheduleRoomPersist(room,0);
+    },
     store: campaignStore,
     storageMode: campaignStore.mode,
     canPassTime: code => {

@@ -218,7 +218,7 @@ async function main() {
   await pcFrame.locator('.ship-hold-control').getByRole('button',{name:'Resume',exact:true}).click();
   await pc.waitForTimeout(250);assert.equal((await state()).units.find(u=>u.id===pilot.id).consoleHold,null);assert.equal((await state()).hardPaused,true);
   await act({action:'nudge',id:pilot.id,amount:1});
-  const collapse=pcFrame.locator('#collapsePlayerTurn');await collapse.waitFor({state:'visible'});const collapseBounds=await collapse.boundingBox();assert.ok(collapseBounds.x>pc.viewportSize().width/2&&collapseBounds.y>pc.viewportSize().height/2,'PC collapse button sits in the visible bottom-right');
+  const collapse=pcFrame.locator('#collapsePlayerTurn');await collapse.waitFor({state:'visible'});const collapseBounds=await collapse.boundingBox(),panelBounds=await pcFrame.locator('#myTurnBanner').boundingBox();assert.ok(collapseBounds.x>=panelBounds.x+panelBounds.width-2&&collapseBounds.height>=80&&collapseBounds.y>=0&&collapseBounds.y+collapseBounds.height<=pc.viewportSize().height,'Large PC collapse tab hangs from the panel right edge within the viewport');
   await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
   await helm.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
   const tickCount=()=>pcFrame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]===.025).length);

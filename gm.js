@@ -1127,6 +1127,7 @@ function selectGmTab(tabName = "script") {
     panel.classList.toggle("active", active);
   });
   document.querySelector("#gmSettingsToggle")?.classList.toggle("active", activeTab === "settings");
+  renderCampaign();
   if (activeTab === "atb") showEncounterSetup();
   if (activeTab === "starships") void refreshEncounterState().catch(error => showMessage(dom.message, error.message, "error"));
   updateExitEncounterVisibility();
@@ -1210,14 +1211,14 @@ async function resumeEncounterWithFreshCharacters() {
 }
 
 async function exitCampaignEncounter() {
-  if (!await confirmGm({ title: "End Combat?", message: "End this encounter for every player and return everyone to the campaign roster?", acceptLabel: "End Combat", danger: true })) return;
+  if (!await confirmGm({ title: "End Combat?", message: "End this encounter for every player and return to Prepare Combat?", acceptLabel: "End Combat", danger: true })) return;
   try {
     encounterState = await encounterAction("exitEncounter");
     dom.atbFrame.removeAttribute("src");
     stagedNpcs = [];
     encounterNpcDraft = randomBuiltinNpc();
     renderEncounterStatus();
-    selectGmTab("script");
+    selectGmTab("atb");showEncounterSetup({forceBuilder:true});
     showMessage(dom.message, "Combat ended for the entire campaign. Character and campaign data remain saved.", "success");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
@@ -1386,14 +1387,12 @@ function renderCampaign() {
   if (!scriptDirty && document.activeElement !== dom.script && scriptSource() !== (chapter?.script || "")) {
     renderScriptEditor(chapter?.script || "");
   }
-  renderCharacters();
-  renderStarships();
-  renderPremadeNpcConsole();
-  renderInbox();
-  renderSettings();
-  renderTargets();
-  renderRollResults();
-  renderEncounterBuilder();
+  if(!document.querySelector('#charactersTab')?.hidden)renderCharacters();
+  if(!document.querySelector('#starshipsTab')?.hidden)renderStarships();
+  if(!document.querySelector('#inboxTab')?.hidden)renderInbox();
+  if(!document.querySelector('#settingsTab')?.hidden)renderSettings();
+  if(!document.querySelector('#promptTab')?.hidden){renderTargets();renderRollResults();}
+  if(!document.querySelector('#atbTab')?.hidden&&dom.atbLive.hidden){renderPremadeNpcConsole();renderEncounterBuilder();}
 }
 
 function receiveCampaign(next) {
@@ -2489,8 +2488,9 @@ function syncAtbFrameHeight() {
   const frameDocument = dom.atbFrame.contentDocument;
   if (!frameDocument) return;
   const minimum = matchMedia("(max-width: 650px)").matches ? 560 : 700;
-  const height = Math.max(frameDocument.documentElement?.scrollHeight || 0, frameDocument.body?.scrollHeight || 0, minimum);
-  dom.atbFrame.style.height = `${height}px`;
+  const shell=frameDocument.querySelector('main.shell');
+  const height = Math.ceil(Math.max(shell?.getBoundingClientRect().bottom + (frameDocument.defaultView?.scrollY||0) || minimum, minimum));
+  if(dom.atbFrame.style.height!==`${height}px`)dom.atbFrame.style.height = `${height}px`;
 }
 
 function watchAtbFrameHeight() {
@@ -2519,7 +2519,7 @@ window.addEventListener("message", async (event) => {
   stagedNpcs = [];
   encounterNpcDraft = randomBuiltinNpc();
   await refreshEncounterState().catch(() => null);
-  selectGmTab("script");
+  selectGmTab("atb");showEncounterSetup({forceBuilder:true});
   showMessage(dom.message, "Combat ended for the entire campaign. Character and campaign data remain saved.", "success");
 });
 updateSoundButton();
@@ -2610,6 +2610,10 @@ if (initialCode) {
           showEncounterLive();
         }
       }
-    }).catch(() => {});
+    }).catch(error => showMessage(dom.message,error.message,'error')).finally(()=>window.SAViewReady?.());
+  } else {
+    window.SAViewReady?.();
   }
+} else {
+  window.SAViewReady?.();
 }

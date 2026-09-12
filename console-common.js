@@ -18,6 +18,12 @@
     function tick(){
       const state=b.state(),person=state.units.find(u=>u.id===unit.id),ship=state.starships.find(s=>s.id===person?.location?.starshipId);if(!ship)return;
       const au=ship.auState||{},available=au.available??au.current??0;
+      for(const button of view.querySelectorAll('[data-sound]')){
+        const enabled=b.soundEnabled();button.setAttribute('aria-pressed',String(!enabled));button.setAttribute('aria-label',enabled?'Mute sounds':'Unmute sounds');button.title=enabled?'Mute sounds':'Unmute sounds';
+        button.classList.toggle('muted',!enabled);
+        if(button.querySelector('svg')){button.querySelectorAll('.sound-wave').forEach(e=>e.style.display=enabled?'':'none');button.querySelectorAll('.mute-slash').forEach(e=>e.style.display=enabled?'none':'');}
+        else button.textContent=enabled?'Sound On':'Sound Muted';
+      }
       defense.textContent=`DEFENSE ${ship.defenseScore??'?'}`+(view.classList.contains('combat-order-dialog')?` / AU ${Number(available.toFixed(1))} of ${au.maximum||0}`:'');
       if(!pilot){
         view.querySelector('[data-common-au]').textContent=`${Number(available.toFixed(1))} / ${au.maximum||0} AU`;

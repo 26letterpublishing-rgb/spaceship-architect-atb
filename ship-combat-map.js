@@ -689,7 +689,9 @@
       && nextUnit?.location?.starshipId === submittedDestination.starshipId
       && Number(nextUnit?.location?.square) === submittedDestination.square
       && Number(nextUnit?.location?.mesh) === submittedDestination.mesh;
-    const moveAccepted = interaction === "move" && nextUnit?.timedAction?.kind === "move";
+    const arrived=nextUnit?.location?.starshipId===submittedDestination.starshipId
+      &&Number(nextUnit.location.square)===submittedDestination.square&&Number(nextUnit.location.mesh)===submittedDestination.mesh;
+    const moveAccepted = interaction === "move" && (nextUnit?.timedAction?.kind === "move"||arrived);
     moveSubmitting = false;
     if (relocationAccepted || moveAccepted) {
       clearMoveSelection();
@@ -697,7 +699,7 @@
       requestAppRender();
       return;
     }
-    if (!nextUnit) {
+    if (!nextUnit || (interaction==='move'&&bridge()?.state?.()?.activeId!==unit.id)) {
       clearMoveSelection();
       requestAppRender();
       return;
