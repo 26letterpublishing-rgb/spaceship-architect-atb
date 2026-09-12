@@ -42,5 +42,6 @@ Browser testing found and fixed preview focus recovery overwriting preview state
 - Shield suite: remote/local access, shared AU, occupancy, restabilization and restart.
 - Laser/Lock-On suite: direct root actions, explicit damage dice, anchored impact, destruction, Victory and responsive consoles.
 - New `scripts/playtest-ship-workflows.cjs`: shared PC details, crew marker, print modes, read-only preview, movement entry, centering/doors/crew persistence, negative EN, desktop/mobile, preparation drag/zoom/range rings. Both PDFs were inspected and contain one Letter page.
+- Published application e1b389e: 24 hosted code/style/page files matched and conditional requests returned 304. The hosted Chrome audit passed the same NPC prompt, perspective, layout and GM-owned dice checks; four switches transferred 0.48 MB and took 1.44-2.16 seconds under 4x CPU throttling.
 
 These are API-created fixtures followed by browser interaction, not a new source-blind character-creation usability run. Browser timing is not a guarantee of identical laptop performance. No personal campaign data, artwork masters or Gold Standard files were edited. Hosted publication verification is recorded in CURRENT-HANDOFF.md.
