@@ -24,7 +24,7 @@ September 11, 2026. First of the two requested passes. The second feature/rules 
 
 Initial test iterations caught notification stacking over controls, stale test expectations for the old bottom-right arrow, and selectors that expected a free-standing token instead of the occupied station marker. These were corrected and the affected suites rerun.
 
-Deployment verification is performed after pushing, separately from these local checks. No claim that every source of laptop lag is eliminated: iframe navigation and artwork/layout work still incur a cost.
+Application b811ac0 was pushed and then verified on Render. Eighteen hosted code/style files matched, conditional caching returned 304, and the expanded Chrome audit passed on the live site. Hosted four-switch timings were 1774, 1518, 1334 and 1412 ms with about 0.48 MB transferred. No claim that every source of laptop lag is eliminated: iframe navigation and artwork/layout work still incur a cost. Test browsers and isolated local servers exited.
 
 ## Next Pass
 
