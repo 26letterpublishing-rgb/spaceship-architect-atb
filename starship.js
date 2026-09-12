@@ -157,8 +157,10 @@ function constructionState(source) {
   const placedIds = new Set(placements.map((item) => item.sicId));
   return {
     groupCredits: Number.isFinite(Number(source?.groupCredits)) ? Number(source.groupCredits) : 999999,
+    zoneRows: Math.min(60,Math.max(20,Number(source?.zoneRows)||20,Math.floor(Math.max(0,...(source?.gridCells||[]))/20)+1)),
+    originOffset: Number.isInteger(source?.originOffset)?source.originOffset:0,
     gridCells: Array.isArray(source?.gridCells)
-      ? [...new Set(source.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 400))].sort((a, b) => a - b)
+      ? [...new Set(source.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 1200))].sort((a, b) => a - b)
       : [],
     sicInventory: Array.isArray(source?.sicInventory)
       ? source.sicInventory.filter((item) => item?.id && SIC_CATALOG[item.type]).map((item) => ({
@@ -271,7 +273,9 @@ function formatCredits(value) { return Math.round(value).toLocaleString("en-US")
 function getWorkingState() { return constructionState(draft); }
 function restoreWorkingState(state) {
   const restored = constructionState(state);
+  const offset=restored.originOffset-(draft.originOffset||0);if(offset)shiftDoorKeys(offset);draft.originOffset=restored.originOffset;
   draft.groupCredits = restored.groupCredits;
+  draft.zoneRows = restored.zoneRows;
   draft.gridCells = restored.gridCells;
   draft.sicInventory = restored.sicInventory;
   draft.placements = restored.placements;
@@ -300,7 +304,7 @@ function placementCells(placement) {
   const row = Math.floor(placement.cell / GRID_SIZE); const column = placement.cell % GRID_SIZE;
   const cells = [];
   for (let y = 0; y < definition.height; y += 1) for (let x = 0; x < definition.width; x += 1) {
-    if (row + y >= GRID_SIZE || column + x >= GRID_SIZE) return [];
+    if (row + y >= (draft.zoneRows||20) || column + x >= GRID_SIZE) return [];
     cells.push(placement.cell + (y * GRID_SIZE) + x);
   }
   return cells;
@@ -433,7 +437,7 @@ function orthogonalNeighbors(cell) {
   const column = cell % GRID_SIZE;
   const neighbors = [];
   if (row > 0) neighbors.push(cell - GRID_SIZE);
-  if (row < GRID_SIZE - 1) neighbors.push(cell + GRID_SIZE);
+  if (row < (draft.zoneRows||20) - 1) neighbors.push(cell + GRID_SIZE);
   if (column > 0) neighbors.push(cell - 1);
   if (column < GRID_SIZE - 1) neighbors.push(cell + 1);
   return neighbors;
@@ -492,6 +496,9 @@ function disconnectedHullCells() {
 }
 function inspectConstruction() {
   const errors = [];
+  const powerRecord={...(linkedCampaignState?.starships||[]).find(s=>s.id===draft.id),ship:draft};
+  if(window.SAShipPower.output(powerRecord,window.SAShipPower.campaignUnits(powerRecord,linkedCampaignState?.characters)).en-window.SAShipPower.demand(powerRecord)<0)errors.push('Not enough EN. Add power or remove power demand before confirming.');
+  if(draft.gridCells.length>400)errors.push('The current hull scale table supports up to 400 hull squares.');
   const cells = new Set();
   const disconnected = disconnectedHullCells();
   if (disconnected.length) {
@@ -703,9 +710,9 @@ function fitShipToViewport() {
     const minRow = Math.min(...rows); const maxRow = Math.max(...rows);
     const minColumn = Math.min(...columns); const maxColumn = Math.max(...columns);
     const span = Math.max(maxRow - minRow + 1, maxColumn - minColumn + 1);
-    mapView.zoom = Math.max(1, Math.min(4, 18 / span));
+    mapView.zoom = Math.max(.2, Math.min(4, 18 / span));
     mapView.panX = 50 - (((minColumn + maxColumn + 1) / 2) / GRID_SIZE * 100);
-    mapView.panY = 50 - (((minRow + maxRow + 1) / 2) / GRID_SIZE * 100);
+    mapView.panY = 50 - (((minRow + maxRow + 1) / 2) / (draft.zoneRows||20) * 100);
   }
   saveMapView(); applyGridTransform();
 }
@@ -746,7 +753,7 @@ function inventoryButton(label, className, handler) {
 function locateInstalledSic(item) {
   const placement = placementForSic(item.id);
   if (!placement) return;
-  document.querySelector('[data-starship-tab="sheet"]')?.click();
+  if(!document.body.classList.contains('ship-details-only'))document.querySelector('[data-starship-tab="sheet"]')?.click();
   shipGrids.forEach((grid) => {
     if (grid.offsetParent === null) return;
     const cells = placementCells(placement).map((index) => grid.querySelector(`[data-grid-index="${index}"]`)).filter(Boolean);
@@ -871,7 +878,7 @@ function renderInventory() {
   });
 }
 function renderLiveStats() {
-  const confirmed = constructionState(draft.confirmed);
+  const confirmed = constructionState(document.body.classList.contains('ship-details-view')?draft.confirmed:draft);
   const hull = confirmed.gridCells.length;
   const installed = confirmed.placements.map((placement) => confirmed.sicInventory.find((item) => item.id === placement.sicId)).filter(Boolean);
   const linked = linkedCampaignState?.starships?.find(record => record.id === draft.id);
@@ -901,6 +908,7 @@ function renderLiveStats() {
   document.querySelectorAll('[data-live-stat="en"]').forEach((element) => {
     const value = String(element.dataset.enPart === "max" ? enMax : enAvailable);
     element.textContent = value;
+    element.classList.toggle('stat-attention',Number(value)<0);
     element.classList.toggle("is-long-value", value.length >= 3);
   });
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
@@ -921,26 +929,33 @@ function renderConstructionControls() {
   document.querySelectorAll("[data-working-scale]").forEach((element) => { element.textContent = String(workingScale.scale); });
   const changed = !statesMatch(draft, draft.confirmed);
   confirmButtons.forEach((confirmButton) => {
-    confirmButton.disabled = !changed;
+    confirmButton.disabled = !changed||validation.errors.length>0;
+    confirmButton.title=validation.errors.join(' ');
     confirmButton.classList.toggle("has-error", validation.errors.length > 0);
     const costLabel = cost === 0 ? "" : ` (${cost < 0 ? "+" : "-"}${formatCredits(Math.abs(cost))})`;
-    confirmButton.textContent = validation.errors.length ? "ERROR" : `Confirm Changes${changed ? costLabel : ""}`;
+    confirmButton.textContent = `Confirm Changes${changed ? costLabel : ""}`;
   });
+  const commandBar=document.querySelector('.construction-command-bar');
+  if(commandBar){let note=commandBar.querySelector('output');if(!note){note=document.createElement('output');note.setAttribute('role','status');commandBar.append(note);}note.textContent=validation.errors[0]||'';note.hidden=!note.textContent;}
   undoButtons.forEach((button) => { button.disabled = !undoState; });
   discardButtons.forEach((button) => { button.disabled = !changed; });
 }
 function renderAll() {
+  buildConstructionZone();
   renderGridCells(); renderMapViewControls(); renderGridNavigation(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
+  drawDetailsCrew();
 }
 
 shipFields.forEach((field) => {
   const key = field.dataset.shipField; field.value = draft[key] || "";
   field.addEventListener("input", () => syncShipField(key, field.value, field));
 });
-shipGrids.forEach((grid) => {
+function buildConstructionZone(){shipGrids.forEach((grid) => {
   const mobile = grid.classList.contains("mobile-grid");
   const fragment = document.createDocumentFragment();
-  for (let index = 0; index < 400; index += 1) {
+  const count=(draft.zoneRows||20)*20;
+  while(grid.children.length>count)grid.lastElementChild.remove();
+  for (let index = grid.children.length; index < count; index += 1) {
     const cell = document.createElement("span");
     cell.className = "ship-grid-cell"; cell.dataset.gridIndex = String(index); cell.tabIndex = 0;
     cell.setAttribute("role", "gridcell"); cell.setAttribute("aria-label", `Ship grid square ${index + 1}`);
@@ -961,7 +976,22 @@ shipGrids.forEach((grid) => {
     fragment.append(cell);
   }
   grid.append(fragment);
-});
+  grid.style.setProperty('grid-template-rows',`repeat(${draft.zoneRows||20},1fr)`,'important');
+  grid.style.setProperty('height',`${(draft.zoneRows||20)*5}%`,'important');
+  grid.style.top=`${(20-(draft.zoneRows||20))*2.5}%`;
+});}
+buildConstructionZone();
+function shiftDoorKeys(offset){draft.doorStates=Object.fromEntries(Object.entries(draft.doorStates||{}).map(([key,value])=>[key.split(':').map(Number).map(n=>n+offset).join(':'),value]));}
+for(const toolbar of document.querySelectorAll('.construction-summary')){
+  const expand=document.createElement('button'),center=document.createElement('button');expand.type=center.type='button';expand.textContent='Expand Zone +10 Rows';center.textContent='Center Ship in Construction Zone';
+  expand.onclick=()=>{if(draft.zoneRows>=60){showMessage('Maximum construction zone: 20 columns by 60 rows.');return;}rememberForUndo();draft.zoneRows=Math.min(60,(draft.zoneRows||20)+10);saveDraft();renderAll();};
+  center.onclick=()=>{
+    if(linkedCampaignState?.combatActive){showMessage('Center the ship outside combat.','error');return;}
+    const cells=[...new Set([...draft.gridCells,...window.SAShipMap.buildLayout(draft).footprint.keys()])];if(!cells.length)return;
+    const xs=cells.map(n=>n%20),ys=cells.map(n=>Math.floor(n/20)),dx=Math.floor((20-Math.max(...xs)-Math.min(...xs)-1)/2),dy=Math.floor(((draft.zoneRows||20)-Math.max(...ys)-Math.min(...ys)-1)/2),offset=dy*20+dx;
+    rememberForUndo();draft.gridCells=draft.gridCells.map(n=>n+offset);draft.placements.forEach(p=>p.cell+=offset);shiftDoorKeys(offset);draft.originOffset=(draft.originOffset||0)+offset;saveDraft();renderAll();fitShipToViewport();
+  };const controls=document.createElement('div');controls.className='construction-zone-controls';controls.append(expand,center);toolbar.append(controls);
+}
 window.addEventListener("pointerup", finishHullPaint);
 window.addEventListener("pointercancel", finishHullPaint);
 document.querySelector("[data-mobile-place]")?.addEventListener("click", () => { if (mobilePreviewCell !== null) placeSelectedSic(mobilePreviewCell); });
@@ -1075,6 +1105,7 @@ document.querySelectorAll("[data-starship-tab]").forEach((button) => {
     document.querySelectorAll("[data-starship-panel]").forEach((panel) => {
       const active = panel.dataset.starshipPanel === (target==='details'?'sheet':target); panel.classList.toggle("is-active", active); panel.hidden = !active;
     });
+    renderLiveStats();
   });
 });
 
@@ -1396,7 +1427,14 @@ async function initializeStarshipPage() {
   const parameters = new URLSearchParams(location.search);
   const requestedShipId = parameters.get("ship") || "";
   const campaignCode = (parameters.get("campaign") || "").toUpperCase();
-  if (parameters.get("new") === "1") {
+  if(parameters.has('embeddedRecord')){
+    const value=await new Promise((resolve,reject)=>{
+      let attempts=0;const request=()=>{if(++attempts>20){clearInterval(timer);window.removeEventListener('message',receive);reject(Error('Ship details could not be loaded. Reopen the Starships tab.'));return;}parent.postMessage({type:'sa-ship-detail-ready'},location.origin);};
+      const receive=event=>{if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-detail-data')return;clearInterval(timer);window.removeEventListener('message',receive);resolve(event.data);};
+      window.addEventListener('message',receive);const timer=setInterval(request,500);request();
+    });
+    draft={...defaultDraft(),...clone(value.record.ship),id:value.record.id,title:value.record.title,confirmed:constructionState(value.record.ship),confirmedOnce:true,campaignLink:null};linkedCampaignState=value.campaign;
+  } else if (parameters.get("new") === "1") {
     localStorage.removeItem(ACTIVE_STARSHIP_KEY);
     resetNewShipMapView();
     draft = defaultDraft();
@@ -1431,4 +1469,24 @@ async function initializeStarshipPage() {
     new ResizeObserver(notify).observe(document.body);notify();
   }
 }
-initializeStarshipPage();
+initializeStarshipPage().catch(error=>{const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=error.message;document.querySelector('main').replaceChildren(message);}).finally(()=>window.SAViewReady?.());
+const shipPrintButton=document.createElement('button');shipPrintButton.type='button';shipPrintButton.textContent='Print Starship';shipPrintButton.className='ship-print-button';shipPrintButton.onclick=()=>window.SAShipPrint.open(draft,draft.title);document.querySelector('main').prepend(shipPrintButton);
+function drawDetailsCrew(){
+  if(!new URLSearchParams(location.search).has('embeddedRecord'))return;
+  const record=linkedCampaignState?.starships.find(s=>s.id===draft.id);
+  document.querySelectorAll('.ship-detail-crew').forEach(e=>e.remove());
+  for(const [id,loc] of Object.entries(record?.characterLocations||{}))for(const grid of shipGrids){
+    const cell=grid.querySelector(`[data-grid-index="${loc.square}"]`);if(!cell)continue;
+    const person=linkedCampaignState.characters.find(c=>c.id===id),marker=document.createElement('i');marker.className='ship-detail-crew';marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);marker.title=person?.character.identity?.characterName||'Crew';marker.style.left=`${((loc.mesh%3)+.5)/3*100}%`;marker.style.top=`${(Math.floor(loc.mesh/3)+.5)/3*100}%`;cell.append(marker);
+  }
+}
+window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-detail-update'||!pageParameters.has('embeddedRecord'))return;
+  const record=event.data.record;if(!linkedCampaignState||!record||record.id!==draft.id)return;
+  const index=linkedCampaignState.starships.findIndex(s=>s.id===draft.id),previous=linkedCampaignState.starships[index];
+  if(index>=0)linkedCampaignState.starships[index]=record;
+  if(JSON.stringify(previous?.ship)!==JSON.stringify(record.ship)){
+    draft={...draft,...clone(record.ship),title:record.title,confirmed:constructionState(record.ship),campaignLink:null};
+    shipFields.forEach(field=>{field.value=draft[field.dataset.shipField]||'';});renderAll();
+  }else drawDetailsCrew();
+});

@@ -1,5 +1,6 @@
 (function(){
   let activeDialog=null;
+  let slidePending=0;
   const combatViews=new Set();
   const selectedConsoles=new Map();
   const rememberedConsole=key=>{try{return sessionStorage.getItem('sa-console:'+key);}catch{return null;}};
@@ -9,7 +10,11 @@
     const select=container.ownerDocument.createElement('select');select.className='station-console-select';select.setAttribute('aria-label','Station console');
     const choices=window.SAStationAccess.consoles(window.SACombatBridge.state(),unit);
     select.innerHTML=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.remote?' / REMOTE':''}</option>`).join('');select.value=currentId;
-    select.onchange=()=>{
+    select.onchange=async event=>{
+      const view=select.closest('dialog');if(view.dataset.switching)return;view.dataset.switching='true';
+      const direction=event?.slideDirection||(select.selectedIndex<choices.findIndex(a=>a.item.id===currentId)?-1:1);slidePending=direction;
+      try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished;}catch{slidePending=0;return;}
+      if(!view.isConnected||!view.open){slidePending=0;return;}
       selectedConsoles.set(seatKey(unit),select.value);
       try{sessionStorage.setItem('sa-console:'+seatKey(unit),select.value);}catch{}
       // Wait for the old dialog's cleanup before opening the next console.
@@ -17,8 +22,9 @@
       close();
     };
     container.prepend(select);
+    if(slidePending){const direction=slidePending;slidePending=0;if(!matchMedia('(prefers-reduced-motion: reduce)').matches)container.closest('dialog').animate([{transform:`translateX(${direction*100}vw)`,opacity:0},{transform:'translateX(0)',opacity:1}],{duration:500});}
     window.SAConsoleCommon?.mount(container.closest('dialog'),unit);
-    for(const direction of [-1,1]){const button=container.ownerDocument.createElement('button');button.type='button';button.className='console-swipe '+(direction<0?'previous':'next');button.textContent=direction<0?'\u2039':'\u203a';button.title=direction<0?'Previous console':'Next console';button.setAttribute('aria-label',button.title);button.disabled=choices.length<2;button.onclick=()=>{select.selectedIndex=(select.selectedIndex+direction+choices.length)%choices.length;select.onchange();};container.closest('dialog').append(button);}
+    for(const direction of [-1,1]){const button=container.ownerDocument.createElement('button');button.type='button';button.className='console-swipe '+(direction<0?'previous':'next');button.textContent=direction<0?'\u2039':'\u203a';button.title=direction<0?'Previous console':'Next console';button.setAttribute('aria-label',button.title);button.disabled=choices.length<2;button.onclick=()=>{select.selectedIndex=(select.selectedIndex+direction+choices.length)%choices.length;select.onchange({slideDirection:direction});};container.closest('dialog').append(button);}
   }
   async function toggleHold(unit){
     const bridge=window.SACombatBridge;
@@ -62,7 +68,9 @@
     if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
-    let destination=null,locked=false,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
+    let destination=null,locked=false,planning=compact,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
+    const begin=host.createElement('button'),cancel=host.createElement('button');begin.type=cancel.type='button';begin.textContent='Move Ship';cancel.textContent='Cancel Move';begin.dataset.beginMove='';submit.before(begin,cancel);
+    begin.onclick=()=>{planning=true;redraw();};cancel.onclick=()=>{planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';form.querySelector('[data-leave]').after(hold);
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
@@ -133,19 +141,20 @@
       }
       dialog.dataset.auWarning=performance.now()<auWarningUntil?'true':'false';
       auWarning.textContent=performance.now()<auWarningUntil?'not enough Auxiliary power':'';
-      q.disabled=r.disabled=!available;
+      q.disabled=r.disabled=!available||!planning;
+      begin.hidden=planning;begin.disabled=!available||!access;cancel.hidden=!planning;
       submit.disabled=!available||!access||!locked||!destination||speed<=0||length<1e-6||cost>(au.available??au.current);
-      submit.hidden=form.querySelector('.pilot-chart').classList.contains('command-page');
+      submit.hidden=!planning||form.querySelector('.pilot-chart').classList.contains('command-page');
       if(submit.hidden)submit.disabled=true;
       form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?(delay.shipOrder?'Coordinates are being entered.':`${delay.label||'Console action'} in progress.`):state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>(au.available??au.current)?`Boosts need ${cost} AU; ${au.available??au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
-      submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Move Ship';
+      submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Confirm Move';
       form.querySelector('[data-leave]').disabled=!available;
       const settings=delay?.settings||window.SAShipNavigation.inputSettings(state,pilot);
       const factors=Object.entries(factorNames).map(([name,label])=>`<div title="${name}: ${settings.factors[name]} of 4"><span class="pilot-factor" aria-label="${name} ${settings.factors[name]} of 4">${bridge.delayIcon(settings.factors[name])}</span><small>${label}</small></div>`).join('');
       if(factors!==lastFactors){form.querySelector('[data-factors]').innerHTML=factors;lastFactors=factors;}
       form.querySelector('[data-input-progress]').style.width=`${delay?100-delay.remaining:0}%`;
       form.querySelector('[data-input-status]').textContent=delay?`${delay.label||'Console input'} / ${(delay.remaining/delay.rate).toFixed(1)} sec`:available?`Input delay ${(100/settings.rate).toFixed(1)} sec`:'Awaiting pilot turn';
-      form.querySelector('[data-estimate]').textContent=`${speed} Units / 12 sec${destination?` | ${length.toFixed(1)} Units | Travel ${speed?(length*12/speed).toFixed(1):'--'} sec`:''} | Boost ${cost} AU`;
+      form.querySelector('[data-estimate]').textContent=`${speed} Units / 10 sec${destination?` | ${length.toFixed(1)} Units | Arrival ${speed?(100/settings.rate+length*10/speed).toFixed(1):'--'} sec | Drift ${window.SAShipNavigation.driftDistance(length)} Units / ${window.SAShipNavigation.driftSeconds(length)} sec`:''} | Boost ${cost} AU`;
       const auMarkup=`<strong>${au.current}<small> / ${au.maximum}</small></strong><span>${Array.from({length:12},(_,i)=>`<i class="${i<Math.round(12*au.current/Math.max(1,au.maximum))?'charged':''}"></i>`).join('')}</span>`;
       if(auMarkup!==lastAu){form.querySelector('[data-au]').innerHTML=auMarkup;lastAu=auMarkup;}
       form.querySelector('[data-recharge]').style.width=`${au.current>=au.maximum?100:au.progress}%`;
@@ -171,17 +180,18 @@
       const pixel=svg.viewBox.baseVal.width/Math.max(1,svg.clientWidth);
       for(const g of svg.querySelectorAll('[data-space-ship]')){const text=g.querySelector('text'),circle=g.querySelector('circle');text.setAttribute('font-size',16*pixel);text.setAttribute('stroke-width',3*pixel);text.setAttribute('y',-18*pixel);circle.setAttribute('r',8*pixel);circle.setAttribute('stroke-width',pixel);}
       const a=xy(start),b=destination&&xy(destination),scale=svg.viewBox.baseVal.width/200;
-      const nextMarker=b?`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="${locked?'#75ffc4':'#ffe191'}" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/>`:'';
+      const drift=window.SAShipNavigation.driftDistance(length),end=b&&length?{x:b.x+(b.x-a.x)*drift/length,y:b.y+(b.y-a.y)*drift/length}:b;
+      const nextMarker=b?`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="#75ffc4" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/><path d="M${b.x} ${b.y} L${end.x} ${end.y}" stroke="#ffe191" stroke-dasharray="${scale*3} ${scale*2}" stroke-width="${scale}"/><circle cx="${end.x}" cy="${end.y}" r="${scale*2}" fill="none" stroke="#ffe191" stroke-width="${scale}"/>`:'';
       if(nextMarker!==lastMarker){marker.innerHTML=nextMarker;lastMarker=nextMarker;}
     }
     function select(event,lock){
-      if(submitting||q.disabled||(!lock&&locked))return;
+      if(submitting||!planning||q.disabled||(!lock&&locked))return;
       const p=new host.defaultView.DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
       const rawQ=Math.sqrt(3)/3*p.x-p.y/3,rawR=2*p.y/3;let x=Math.round(rawQ),z=Math.round(rawR),y=Math.round(-rawQ-rawR);
       const dx=Math.abs(x-rawQ),dz=Math.abs(z-rawR),dy=Math.abs(y+rawQ+rawR);if(dx>dy&&dx>dz)x=-y-z;else if(dz>dy)z=-x-y;
       if(Math.abs(x)>10000||Math.abs(z)>10000)return;destination={q:x,r:z};locked=lock;q.value=x;r.value=z;error.textContent='';redraw();
     }
-    svg.addEventListener('pointermove',e=>select(e,false));svg.addEventListener('click',e=>select(e,true));
+    svg.addEventListener('click',e=>select(e,true));
     form.querySelector('.pilot-chart').addEventListener('pointerleave',()=>{if(!locked&&!submitting){destination=null;q.value='';r.value='';redraw();}});
     form.querySelector('[data-boosts]').addEventListener('click',e=>{
       const box=e.target.closest('input[name=boost]');
@@ -189,7 +199,7 @@
     });
     form.addEventListener('input',e=>{if([q,r].includes(e.target)){locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
     for(const zoom of form.querySelectorAll('[data-zoom]'))zoom.onclick=()=>{autoFit=false;auto.setAttribute('aria-pressed','false');const v=svg.viewBox.baseVal,w=Math.max(.01,Math.min(10000000,v.width*Number(zoom.dataset.zoom))),h=w*(svg.clientWidth?svg.clientHeight/svg.clientWidth:originalBox[3]/originalBox[2]),x=v.x+(v.width-w)/2,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${x} ${y} ${w} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [k,val] of Object.entries({x,y,width:w,height:h}))rect.setAttribute(k,val);redraw();};
-    form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',destination:{...destination},boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
+    form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',destination:{...destination},boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;destination=null;planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
     const rememberDismissal=()=>remember(bridge.state().units.find(u=>u.id===pilotId));
     form.querySelector('[data-leave]').onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;rememberDismissal();dialog.close();window.SACombatMap.openMove(pilot);};
     form.querySelector('[data-close]').onclick=()=>{rememberDismissal();dialog.close();};

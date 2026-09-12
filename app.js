@@ -1529,6 +1529,7 @@ function shipScopedLogEntries(shipId, units) {
 
 function shipCombatColumnsMarkup(units) {
   const ships = (state?.starships || []).slice(0, 6);
+  const emptyActivity=ships.filter(s=>!s.contactOnly).length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text,mode==='gm'))}</p>`).join('')}</article>`:'';
   return `<div class="ship-combat-columns" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="combat-space-map" style="grid-column:1/-1">${window.SASpaceMap.markup(ships,state.shipPositions)}</div>${ships.filter(s=>!s.contactOnly).map((ship) => {
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
     const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
@@ -1543,7 +1544,7 @@ function shipCombatColumnsMarkup(units) {
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${escapeHtml(window.SAHealthDisplay.logText(entry.text, mode === "gm"))}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
-  }).join("")}</div>`;
+  }).join("")}${emptyActivity}</div>`;
 }
 
 function renderShipCombatColumns() {
@@ -1559,6 +1560,7 @@ function renderShipCombatColumns() {
     [...current.children].forEach((lane, index) => {
       const replacement = next.children[index];
       if (lane.classList.contains("combat-space-map")) { window.SALiveDOM.render(lane,replacement.innerHTML); return; }
+      if(lane.classList.contains('empty-contact-activity')){window.SALiveDOM.render(lane,replacement.innerHTML);return;}
       for (const selector of [".ship-lane-atb", ".ship-lane-log"]) {
         const target = lane.querySelector(selector);
         const source = replacement.querySelector(selector);
@@ -1717,6 +1719,7 @@ function beginDefeatSequence() {
 }
 
 function receiveState(nextState, { force = false } = {}) {
+  if(startupParams.has('practice'))return;
   if (!nextState) return false;
   if (!force && state?.revision && nextState.revision && nextState.revision < state.revision) return false;
 
@@ -1804,7 +1807,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 }
 
 window.SACombatBridge = {
-  action,
+  action: (...args)=>state?.practice?Promise.reject(new Error('Combat actions are unavailable outside combat.')):action(...args),
   delayIcon: c4IconMarkup,
   resumeAudio,
   startEngineCharge,
@@ -1826,7 +1829,7 @@ window.SACombatBridge = {
     const label = String(kind || "action").replace(/([A-Z])/g, " $1").toLowerCase();
     return confirm(`Act for ${unit.characterName || unit.playerName || "this player"}?\n\nThis will use ${label} on the player's turn.`);
   },
-  requestRender: render,
+  requestRender: ()=>{if(state?.practice){setTimeout(()=>{let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('dialog[data-operator-id][open]'))parent.postMessage({type:'sa-close-console-preview'},location.origin);},300);}else render();},
 };
 
 function setMode(next) {
@@ -1844,8 +1847,10 @@ function setRoom(nextState) {
   state = nextState;
   currentRoomCode = state.roomCode;
   safeLocalStorageSet("sa-atb-room-code", currentRoomCode);
-  connectEvents();
-  connectCampaignEvents();
+  if (!startupParams.has('practice')) {
+    connectEvents();
+    connectCampaignEvents();
+  }
 }
 
 function encounterStateUrl(code = currentRoomCode) {
@@ -4428,6 +4433,7 @@ window.addEventListener("sa-npc-dice-ready", () => {
 });
 let visibleRecoveryTimer = null;
 async function recoverVisibleCombatState() {
+  if(startupParams.has('practice'))return;
   if (document.hidden || !currentRoomCode || mode === "welcome" || mode === "roomJoin" || mode === "join") return;
   const startingRevision = state?.revision;
   try {
@@ -4470,6 +4476,18 @@ async function initializeEmbeddedPlayer() {
     if (!encounterResponse.ok) throw new Error("The campaign Combat state is unavailable.");
     setRoom(await encounterResponse.json());
 
+    if(startupParams.has('practice')){
+      const ownShip=campaignState.starships.find(s=>(!startupParams.has('ship')||s.id===startupParams.get('ship'))&&s.crewCharacterIds?.includes(campaignCharacterId)&&s.characterLocations?.[campaignCharacterId]?.stationed);
+      const loc=ownShip?.characterLocations?.[campaignCharacterId],cell=loc&&window.SAShipMap.buildLayout(ownShip.ship).footprint.get(loc.square);
+      if(!loc||!cell)throw Error('Move to an operational console station first.');
+      const existing=state.units.find(u=>u.characterId===campaignCharacterId)||{};
+      const pilot={...existing,id:existing.id||'console-preview',characterId:campaignCharacterId,characterName:record.character.identity?.characterName||'Crew',team:'pc',atb:0,queuedEffects:[],delayedAction:null,timedAction:null,delayTimer:null,defeatedAt:null,location:{...loc,starshipId:ownShip.id,sicId:cell.sicId}};
+      state={...state,practice:true,running:false,hardPaused:false,holdPaused:false,pausedForTurn:false,activeId:null,command:null,units:[pilot],starships:campaignState.starships.map(s=>({...s,auState:{current:window.SAShipPower.output(s,[]).au,maximum:window.SAShipPower.output(s,[]).au}}))};
+      myUnitId=pilot.id;mode='player';
+      if(!window.SAStationAccess.consoles(state,pilot).length)throw Error('This station has no operational consoles.');
+      window.SAShipNavigationUI.open(pilot);return;
+    }
+
     const unit = state.units.find((entry) => entry.characterId === campaignCharacterId);
     myUnitId = unit?.id || "";
     if (myUnitId) safeLocalStorageSet("sa-atb-unit-id", myUnitId);
@@ -4481,6 +4499,7 @@ async function initializeEmbeddedPlayer() {
   } catch (error) {
     setConnected(false, error.message);
     setMode("player");
+    if(startupParams.has('practice'))parent.postMessage({type:'sa-close-console-preview',error:error.message},location.origin);
   } finally {
     embeddedViewInitializing=false;
     window.SAViewReady?.();

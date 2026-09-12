@@ -76,7 +76,7 @@ function normalizeEncounterStarships(value) {
   return (Array.isArray(value) ? value : []).slice(0, 24).map((record) => {
     const ship = record?.ship && typeof record.ship === "object" ? record.ship : {};
     const gridCells = [...new Set((Array.isArray(ship.gridCells) ? ship.gridCells : [])
-      .map(Number).filter((cell) => Number.isInteger(cell) && cell >= 0 && cell < 400))];
+      .map(Number).filter((cell) => Number.isInteger(cell) && cell >= 0 && cell < 1200))];
     const placements = (Array.isArray(ship.placements) ? ship.placements : []).slice(0, 400).flatMap((entry) => {
       const cell = Number(entry?.cell);
       const type = ship.sicInventory?.find(item => item.id === entry.sicId)?.type;
@@ -1878,7 +1878,7 @@ async function handleRoomAction(body, res) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["lockCommand", "weaponCommand", "rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
+  } else if (["acknowledgeVictory", "lockCommand", "weaponCommand", "rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -2866,8 +2866,14 @@ async function handleRoomAction(body, res) {
     pushLog(room, `${unit.characterName} spent 2 Exertion for +4 Speed this encounter.`);
   }
 
-  if (action === "exitEncounter") {
-    if (resetShowcaseRoom(room)) {
+  if (action === "exitEncounter" || action === "acknowledgeVictory") {
+    if(action === "acknowledgeVictory"){
+      const survivors=room.starships.filter(ship=>!ship.destroyedAt);
+      if(survivors.length!==1||!survivors[0].victoryAt||(!gmAuthorized&&playerUnit?.location?.starshipId!==survivors[0].id)){
+        sendJson(res,409,{error:'Only the victorious crew can acknowledge a completed battle.'});return;
+      }
+    }
+    if (action === "exitEncounter" && resetShowcaseRoom(room)) {
       room.undoSnapshot = null;
     } else {
     for(const unit of room.units){
@@ -2892,7 +2898,7 @@ async function handleRoomAction(body, res) {
     room.lastTick = Date.now();
     room.hasEngagedClock = false;
     room.encounterEndedAt = Date.now();
-    pushLog(room, "The GM ended the encounter.");
+    pushLog(room, action === "acknowledgeVictory" ? "Victory acknowledged. Combat ended." : "The GM ended the encounter.");
     }
   }
 

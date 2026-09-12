@@ -493,7 +493,7 @@ function applyConditionalDelivery(campaign, record, action) {
 function normalizeStarshipRecord(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const ship = source.ship && typeof source.ship === "object" ? clone(source.ship) : {};
-  const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 400))].slice(0, 400) : [];
+  const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 1200))].slice(0, 400) : [];
   const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => entry?.sicId && (cleanCells.includes(entry.cell) || (SHIP_MAP.definition(ship.sicInventory?.find(item => item.id === entry.sicId)?.type).exterior && SHIP_MAP.exteriorPlacement(ship, ship.sicInventory.find(item => item.id === entry.sicId).type, entry.cell, entry.sicId)))).slice(0, 400).map((entry) => ({ sicId: String(entry.sicId).slice(0, 120), cell: entry.cell })) : [];
   ship.gridCells = cleanCells;
   ship.placements = cleanPlacements;
@@ -1447,13 +1447,18 @@ class CampaignApi {
       if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
       const exteriorError = SHIP_MAP.exteriorError(body.starship);
       if (exteriorError) { sendJson(res, 400, { error: exteriorError }); return true; }
-      const updated = normalizeStarshipRecord({ ...record, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
+      const shift=(Number(body.starship?.originOffset)||0)-(Number(record.ship.originOffset)||0);
+      if(!Number.isInteger(shift)||Math.abs(shift)>=1200){sendJson(res,400,{error:'Invalid construction offset.'});return true;}
+      if(shift&&!this.canPassTime(code)){sendJson(res,409,{error:'Center the ship outside combat.'});return true;}
+      const locations=Object.fromEntries(Object.entries(record.characterLocations||{}).map(([id,location])=>[id,{...location,square:location.square+shift}]));
+      const updated = normalizeStarshipRecord({ ...record,characterLocations:locations, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;
       updated.crewNpcUnitIds = record.crewNpcUnitIds || [];
       updated.createdAt = record.createdAt;
       updated.updatedAt = new Date().toISOString();
       campaign.starships[campaign.starships.indexOf(record)] = updated;
+      if(shift)for(const npc of campaign.npcRoster||[]){if(npc.location?.starshipId===record.id&&Number.isInteger(npc.location.square))npc.location={...npc.location,square:npc.location.square+shift};}
       await this.save(campaign);
       sendJson(res, 200, { starship: publicStarship(updated) });
       return true;

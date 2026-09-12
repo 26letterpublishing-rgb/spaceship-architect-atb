@@ -1,5 +1,11 @@
 # Current Recovery Handoff
 
+## Locally Verified: Ship Workflow Pass 2
+
+The second #commit is implemented and locally verified; see SHIP-WORKFLOW-PASS-2.md for scope and limitations. Includes 10-second powered navigation (12-second inertia retained), sensor report 12-tier, explicit Move/Confirm planning and drift preview, expandable 20-column construction zone up to 60 rows (400-hull-square scale table retained), centering with originOffset, EN confirmation guard, larger stats, embedded PC Ship Details, readonly outside-combat consoles, one-page printing, preparation drag/zoom/ranges, Lock-On map/reticles, typing audio, one-second console slides, anchored debris/explosions, Resume glow, root hover help, storage and Victory navigation.
+
+174 unit/HTTP tests pass. Chrome cockpit (12 orders), sensors, shields, Laser/Lock-On and new ship-workflow suites pass. Print PDFs inspected in both modes, one page each. Shared sheet/crew, read-only preview, center/save/doors/crew, EN guard and preparation drag/ranges verified. Repeat performance check and publication are the remaining operational steps: commit/push, run scripts/verify-ship-workflows-live.cjs, hosted Chrome audit, update this completion record, cleanup, then ntfy LAST. data/campaigns.json and Gold Standard are untouched. Historical authorization boundaries below do not require a third #commit.
+
 ## Complete: Reliability Pass 1
 
 The FIRST of two passes is complete. Application b811ac0 is pushed and verified on Render; see RELIABILITY-PASS-1.md. Includes shared boot/layout work, missing NPC prompts and mirrored panel tabs, map synchronization, maintenance/roll result feedback, non-damage dice colors and existing-interface fixes. 170 automated tests and Chrome performance, sensors, cockpit, shields and lasers checks pass. Fresh-PC Starships updates work before Combat is opened. Hosted verification matched 18 code/style files and confirmed 304 caching; live Chrome passed three consecutive NPC turns, mirrored tabs, sticky HUD, map positions, slow-network consoles, GM-owned dice and persistent results. Test browsers/servers exited. Final operational step is ntfy; do not restart this pass. data/campaigns.json and Gold Standard are untouched.

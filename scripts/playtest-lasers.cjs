@@ -37,7 +37,12 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const before=circle.getBoundingClientRect(),transform=marker.getAttribute('transform');w.SACombatFeedback.impact(id);let maximum=0;
       await new Promise(resolve=>{const start=performance.now();function sample(){const p=circle.getBoundingClientRect();maximum=Math.max(maximum,Math.hypot(p.x-before.x,p.y-before.y));if(performance.now()-start<700)requestAnimationFrame(sample);else resolve();}sample();});
       results.push({maximum,unchanged:marker.getAttribute('transform')===transform});
-    }svg.remove();return results;
+    }
+    marker.classList.add('ship-wreck');w.SACombatFeedback.impact(id,true);
+    const burst=marker.querySelector('[data-explosion]'),center=new DOMPoint(0,0).matrixTransform(marker.getScreenCTM()),rectBurst=burst.getBoundingClientRect();
+    const assertAnchor=Math.hypot(rectBurst.x+rectBurst.width/2-center.x,rectBurst.y+rectBurst.height/2-center.y);
+    results.push({maximum:assertAnchor,unchanged:getComputedStyle(burst).visibility==='visible'});
+    svg.remove();return results;
   },ships[1].id);
   assert.ok(motion.every(m=>m.maximum<=1.7&&m.unchanged),'Ship shakes at most 1.5 screen pixels without changing its map position: '+JSON.stringify(motion));
   assert.ok(await lane.locator('.ship-lane-log').evaluate(e=>[e,...e.querySelectorAll('*')].every(n=>getComputedStyle(n).animationName==='none')),'Main activity log does not flash');
@@ -50,7 +55,7 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
   for(const [name,field] of [['Hail Ship','[data-command-target]'],['Team Execution','[data-prepared-action]'],['Preemptive Calculation','[data-prepared-action]'],['Ram','[data-command-target]'],['Skim','[data-command-target]'],['Scan Hex','[data-map]'],['Life Scan','[data-map]'],['Lock-On','[data-target]']]){
     await rootActions.getByRole('button',{name,exact:true}).click();const planner=pc.getByRole('dialog',{name,exact:true});await planner.waitFor();assert.ok((await planner.boundingBox()).width<700,name+' remains compact');await planner.locator(field).waitFor({state:'visible'});await planner.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal((await state()).units[0].delayedAction,null,'Cancel '+name+' does not consume a turn');
   }
-  await rootActions.getByRole('button',{name:'About Team Execution',exact:true}).click();await pc.getByRole('dialog',{name:'Team Execution',exact:true}).getByRole('button',{name:'Close',exact:true}).click();
+  assert.ok((await rootActions.getByRole('button',{name:'Team Execution',exact:true}).getAttribute('title')).length>20,'Help is directly on the action button');assert.equal(await rootActions.getByRole('button',{name:'About Team Execution',exact:true}).count(),0);
   await pc.screenshot({path:path.join(artifacts,'root-combat-actions.png')});
   await rootActions.getByRole('button',{name:'Evasive Maneuvers',exact:true}).click();
   const evadeRoll=pc.getByRole('dialog',{name:'Ship action dice roll'});await evadeRoll.waitFor();assert.equal(await pc.locator('.ship-navigation-dialog').count(),0,'Evasive Maneuvers goes straight to the shared roll');await evadeRoll.frameLocator('iframe').getByRole('button',{name:'Roll for Me',exact:true}).click();await evadeRoll.frameLocator('iframe').getByRole('button',{name:'Confirm and Submit',exact:true}).click();await evadeRoll.waitFor({state:'detached'});
@@ -92,7 +97,7 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
   const done=await state();assert.ok(done.starships[1].currentHullHp<before,'Damage applied only after damage confirmation');assert.ok(done.starships[0].weaponState.reports[0].hit);
   await pc.locator('[data-laser-effect]').first().waitFor({state:'attached'});assert.equal(await roll.count(),0,'Damage dialog is closed while bolts are visible');await pc.waitForTimeout(120);await pc.screenshot({path:path.join(artifacts,'visible-blaster-burst.png')});
   await pc.waitForTimeout(1300);assert.ok(await pc.evaluate(()=>laserAnimations.some(a=>a.options.duration===650||a.options.duration===1100)),'Red impact animation rendered');assert.ok(await pc.evaluate(()=>laserAnimations.some(a=>a.options.duration===320)),'Rapid blaster bursts rendered');
-  if(lockTest){assert.ok(done.starships[1].destroyedAt);assert.ok(done.starships[0].victoryAt);await pc.getByRole('dialog',{name:'VICTORY',exact:true}).waitFor();await pc.screenshot({path:path.join(artifacts,'victory.png')});await pc.getByRole('dialog',{name:'VICTORY',exact:true}).getByRole('button',{name:'OK',exact:true}).click();assert.ok(await pc.locator('.ship-wreck').count());}
+  if(lockTest){assert.ok(done.starships[1].destroyedAt);assert.ok(done.starships[0].victoryAt);await pc.getByRole('dialog',{name:'VICTORY',exact:true}).waitFor();assert.ok(await pc.locator('.ship-wreck [data-debris]').count());await pc.screenshot({path:path.join(artifacts,'victory.png')});await pc.getByRole('dialog',{name:'VICTORY',exact:true}).getByRole('button',{name:'OK',exact:true}).click();await pc.locator('[data-player-ship-details]').waitFor();assert.ok((await state()).encounterEndedAt);}
   if(!lockTest){await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});await pc.locator('.weapon-console[data-atb-charging="true"]').waitFor();await pc.waitForTimeout(650);assert.notEqual(await consoleView.locator('.ring-backplate').first().evaluate(e=>getComputedStyle(e).filter),'none');await pc.screenshot({path:path.join(artifacts,'charging-halo.png')});await act({action:'setHardPaused',paused:true});}
   await pc.screenshot({path:path.join(artifacts,'laser-result.png')});await pc.setViewportSize({width:1920,height:1080});await pc.waitForTimeout(300);await pc.screenshot({path:path.join(artifacts,'console-1920.png')});await pc.setViewportSize({width:390,height:844});await pc.waitForTimeout(300);await pc.screenshot({path:path.join(artifacts,'console-mobile.png')});
   assert.equal(await gm.locator('.weapon-console').count(),0);assert.deepEqual(errors,[]);

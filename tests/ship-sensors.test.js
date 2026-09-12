@@ -13,6 +13,18 @@ test('all nine sensor tiers retain source dimensions and corrected impaired rang
   for(let i=1;i<=9;i++){const d=maps.definition(`sensors-${i}`);assert.equal(d.range,6+i*2);assert.equal(d.impairedRange,ranges[i-1]);assert.equal(d.stations.length,0);assert.equal(d.width,i<5?1:2);assert.equal(d.height,i<8?1:2);}
 });
 
+test('Systems Analysis report processing uses 12 minus sensor grade, separately from input',()=>{
+  for(const tier of [1,3,5,9]){
+    const {room,b,unit}=fixture(tier);b.sensorScenarioMasking=1;
+    room.shipPositions[1].q=2;sensors.refresh(room);
+    assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'tier-analysis-'+tier}).ok,true);
+    assert.ok(unit.delayedAction);assert.equal(unit.queuedEffects,undefined);
+    sensors.resolveInput(room,unit,()=>6);
+    assert.equal(unit.queuedEffects[0].rate,100/(12-tier));
+    assert.match(unit.queuedEffects[0].label,/processing report/);
+  }
+});
+
 test('analysis retry bonus is included once in the reported total',()=>{
   const {room,a,b,unit}=fixture();sensors.refresh(room);
   const die=()=>4;die.submittedScore=40;
@@ -71,7 +83,7 @@ test('input cancellation, queued analysis survives leaving, and reports are time
   assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analysis-first'}).ok,true);
   unit.location.stationed=false;sensors.resolveInput(room,unit,()=>6);assert.equal(unit.queuedEffects,undefined);
   unit.location.stationed=true;sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analysis-second'});sensors.resolveInput(room,unit,()=>6);
-  assert.equal(unit.queuedEffects[0].rate,100/12);unit.location.stationed=false;sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+  assert.equal(unit.queuedEffects[0].rate,100/9);unit.location.stationed=false;sensors.resolveReport(room,unit,unit.queuedEffects[0]);
   assert.equal(a.sensorState.reports[0].hull.current,33);b.currentHullHp=1;assert.equal(a.sensorState.reports[0].hull.current,33);
   assert.ok(a.sensorState.reports[0].at);assert.equal(unit.queuedEffects.length,0);
 });

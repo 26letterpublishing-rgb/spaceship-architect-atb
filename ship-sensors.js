@@ -160,7 +160,8 @@
         state.contacts[target.id].masking=masking(room,target);
         state.contacts[target.id].analysisDifficulty=difficulty;
         unit.queuedEffects ||= [];
-        unit.queuedEffects.push({id:`analysis-${unit.id}-${Date.now()}`,label:'Systems Analysis',rollController,progress:0,rate:100/12,resolving:false,sensorReport:{shipId:observer.id,targetId:target.id,values,total}});
+        const reportSeconds=Math.max(1,12-(installed(observer)?.definition.tier||1));
+        unit.queuedEffects.push({id:`analysis-${unit.id}-${Date.now()}`,label:'Systems Analysis: processing report',rollController,progress:0,rate:100/reportSeconds,resolving:false,sensorReport:{shipId:observer.id,targetId:target.id,values,total}});
         report(observer,{text:`Systems Analysis of ${target.title}: processing (12 combat seconds).`,values,total});
       }
       return;

@@ -1,6 +1,6 @@
 (function(){
   const params=new URLSearchParams(location.search);
-  const pending=Boolean(params.get('campaign')||params.has('shipRoll'));
+  const pending=Boolean(params.get('campaign')||params.has('shipRoll')||params.has('embeddedRecord'));
   if(pending)document.documentElement.classList.add('view-starting');
   let ready=false;
   window.SAViewReady=()=>{

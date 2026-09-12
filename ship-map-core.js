@@ -8,7 +8,7 @@
   const SIDES = Object.freeze([
     { name: "top", offset: -GRID_SIZE, valid: (square) => square >= GRID_SIZE },
     { name: "right", offset: 1, valid: (square) => square % GRID_SIZE < GRID_SIZE - 1 },
-    { name: "bottom", offset: GRID_SIZE, valid: (square) => square < GRID_SIZE * (GRID_SIZE - 1) },
+    { name: "bottom", offset: GRID_SIZE, valid: (square) => square < GRID_SIZE * 59 },
     { name: "left", offset: -1, valid: (square) => square % GRID_SIZE > 0 },
   ]);
   const image = (filename) => `${filename}?v=${ASSET_VERSION}`;
@@ -169,15 +169,16 @@
   function exteriorPlacement(ship, type, origin, ignoreId = "") {
     const item = (ship.sicInventory || []).find(item => item.id === ignoreId);
     const entry = item ? componentDefinition(item) : definition(type), hull = new Set(ship.gridCells || []), cells = [];
-    if (!Number.isInteger(origin) || origin < 0 || origin >= 400 || origin % 20 + entry.width > 20 || Math.floor(origin / 20) + entry.height > 20) return false;
+    const rows=Math.min(60,Math.max(20,ship.zoneRows||20,Math.floor(Math.max(0,...(ship.gridCells||[]))/20)+1));
+    if (!Number.isInteger(origin) || origin < 0 || origin >= rows*20 || origin % 20 + entry.width > 20 || Math.floor(origin / 20) + entry.height > rows) return false;
     for (let y = 0; y < entry.height; y++) for (let x = 0; x < entry.width; x++) cells.push(origin + y * 20 + x);
     if (cells.some(cell => hull.has(cell))) return false;
     // Flood from the construction boundary: enclosed holes are not outer space.
     const outside = new Set(), queue = [];
-    for (let cell = 0; cell < 400; cell++) if ((cell < 20 || cell >= 380 || cell % 20 === 0 || cell % 20 === 19) && !hull.has(cell)) { outside.add(cell); queue.push(cell); }
+    for (let cell = 0; cell < rows*20; cell++) if ((cell < 20 || cell >= (rows-1)*20 || cell % 20 === 0 || cell % 20 === 19) && !hull.has(cell)) { outside.add(cell); queue.push(cell); }
     for (let i = 0; i < queue.length; i++) for (const side of SIDES) {
       const cell = queue[i], next = cell + side.offset;
-      if (side.valid(cell) && !hull.has(next) && !outside.has(next)) { outside.add(next); queue.push(next); }
+      if (side.valid(cell) && next<rows*20 && !hull.has(next) && !outside.has(next)) { outside.add(next); queue.push(next); }
     }
     if (cells.some(cell => !outside.has(cell))) return false;
     if (!cells.some(cell => SIDES.some(side => side.valid(cell) && hull.has(cell + side.offset)))) return false;
@@ -230,7 +231,8 @@
 
   function componentAtEdge(ship, origin, item) {
     const { width, height } = componentDefinition(item), hull = new Set(ship.gridCells || []), cells = [];
-    if (!Number.isInteger(origin) || origin < 0 || origin % 20 + width > 20 || Math.floor(origin / 20) + height > 20) return false;
+    const rows=Math.min(60,Math.max(20,ship.zoneRows||20,Math.floor(Math.max(0,...hull)/20)+1));
+    if (!Number.isInteger(origin) || origin < 0 || origin % 20 + width > 20 || Math.floor(origin / 20) + height > rows) return false;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) cells.push(origin + y * 20 + x);
     return cells.every(cell => hull.has(cell)) && cells.some(cell => edgePlacement(ship, cell));
   }

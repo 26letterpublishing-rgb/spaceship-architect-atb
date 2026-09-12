@@ -2110,6 +2110,7 @@ function renderPlayerStarships(force = false) {
   if (starshipMoveDraft?.submitting) return;
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const gmViewing = campaignState?.role === "gm";
+  const fullShipDetails=!gmViewing&&!CAMPAIGN_READ_ONLY_VIEW;
   const requestedShipId = gmViewing ? String(PAGE_PARAMS.get("ship") || "") : "";
   const ships = (campaignState?.starships || []).filter((record) => (
     (gmViewing || record.crewCharacterIds?.includes(ownId))
@@ -2119,7 +2120,7 @@ function renderPlayerStarships(force = false) {
     dom.playerStarshipList.innerHTML = '<p class="player-starship-empty">This character is not assigned to a starship yet.</p>';
     return;
   }
-  const markup = ships.map((record) => {
+  let markup = ships.map((record) => {
     const ship = record.ship || {}; const hull = new Set(ship.gridCells || []); const footprint = playerShipFootprint(record); const layout = window.SAShipMap.buildLayout(ship);
     const crew = (record.crewCharacterIds || []).map((id) => campaignState.characters.find((entry) => entry.id === id)).filter(Boolean);
     const hullSquares = [...hull];
@@ -2179,12 +2180,13 @@ function renderPlayerStarships(force = false) {
       const hullMax = Number(ship.maximumHullHp ?? ship.confirmed?.maximumHullHp ?? hull.size); const hullCurrent = Number(ship.currentHullHp ?? ship.confirmed?.currentHullHp ?? hullMax); const shieldMax = Number(ship.maximumShieldHp ?? ship.confirmed?.maximumShieldHp ?? 0); const shieldCurrent = Number(ship.currentShieldHp ?? ship.confirmed?.currentShieldHp ?? shieldMax);
       const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaignState.characters));
       const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.track("shield", shieldCurrent, shieldMax, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", ship.firewallLevel ?? ship.security ?? 0], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
-      const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : "";
+      const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-preview-console="${escapeAttribute(record.id)}">Console View</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
       const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
       return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}</aside></div></article>`;
   }).join("");
   const current = starshipMoveDraft && dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(starshipMoveDraft.starshipId)}"]`);
+  if(current && fullShipDetails) current.classList.add('is-moving');
   if (!force && current?.querySelector(".player-ship-mesh")) {
     const template = document.createElement("template");
     template.innerHTML = markup;
@@ -2215,10 +2217,20 @@ function renderPlayerStarships(force = false) {
       return;
     }
   }
-  dom.playerStarshipList.innerHTML = markup;
+  if(fullShipDetails){const template=document.createElement('template');template.innerHTML=markup;for(const record of ships){
+    const card=template.content.querySelector(`[data-player-starship="${CSS.escape(record.id)}"]`);
+    card.classList.add('full-ship-details');card.classList.toggle('is-moving',starshipMoveDraft?.starshipId===record.id);
+    const frame=document.createElement('iframe');frame.dataset.playerShipDetails=record.id;frame.title=`${record.title} ship details`;frame.src='starship.html?details=1&embeddedRecord=1';frame.style.height=dom.playerStarshipList.querySelector(`[data-player-ship-details="${CSS.escape(record.id)}"]`)?.style.height||'1200px';card.append(frame);
+  }markup=template.innerHTML;}
+  window.SALiveDOM.render(dom.playerStarshipList,markup);
+  for(const frame of dom.playerStarshipList.querySelectorAll('[data-player-ship-details]'))frame.contentWindow?.postMessage({type:'sa-ship-detail-update',record:ships.find(s=>s.id===frame.dataset.playerShipDetails)},location.origin);
   for(const ship of ships){
     const history=dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(ship.id)}"]`);
     if(!history)continue;
+    if(fullShipDetails&&(ship.ship.diagnostics||[]).length){
+      history.querySelectorAll('.player-starship-sidebar p').forEach(p=>{if(p.textContent.startsWith('Diagnostics:'))p.remove();});
+      const status=document.createElement('section');status.className='maintenance-history';status.innerHTML=ship.ship.diagnostics.map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('');history.prepend(status);
+    }
     const reports=(ship.ship.maintenanceReports||[]).filter(r=>gmViewing||r.characterId===ownId);
     if(reports.length){const section=document.createElement('section');section.className='maintenance-history';section.innerHTML='<h3>Maintenance Results</h3>'+reports.slice(0,5).map(r=>`<p>${escapeHtml(r.text)}</p>`).join('');history.append(section);}
   }
@@ -8197,6 +8209,7 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (event.source !== dom.playerAtbFrame?.contentWindow) return;
+  if(event.data?.type==='sa-victory-return'){showCharacterPanel('starships');return;}
   if(event.data?.type==='sa-encounter-view'){
     playerEncounterView=event.data.state;
     if(activeCharacterTab==='starships')renderPlayerStarships();
@@ -9020,6 +9033,30 @@ if (!SHOWCASE_MODE && !PAGE_PARAMS.has("character") && !CAMPAIGN_READ_ONLY_VIEW 
   sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
   showDraftIntroduction();
 }
+
+window.addEventListener('message',event=>{
+  if(event.origin!==location.origin)return;
+  const frame=[...document.querySelectorAll('[data-player-ship-details]')].find(f=>f.contentWindow===event.source);
+  if(frame){
+    if(event.data?.type==='sa-ship-detail-ready'){
+      const record=campaignState?.starships.find(s=>s.id===frame.dataset.playerShipDetails);
+      if(record)frame.contentWindow.postMessage({type:'sa-ship-detail-data',record,campaign:campaignState},location.origin);
+    }
+    if(event.data?.type==='sa-character-sheet-height')frame.style.height=`${Math.max(650,Math.min(5000,Number(event.data.height)||1200))}px`;
+  }
+  const preview=document.querySelector('[data-console-preview-frame]');
+  if(preview?.contentWindow===event.source&&event.data?.type==='sa-close-console-preview'){
+    preview.remove();if(event.data.error)notice(event.data.error,'error');
+  }
+});
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-preview-console]');if(!button)return;
+  if(campaignState?.combatActive){showCharacterPanel('atb');notice('Open Console View from your combat panel.','info');return;}
+  const record=campaignState?.starships.find(s=>s.id===button.dataset.previewConsole),own=campaignState?.ownCharacterId||campaignCharacterId,loc=record?.characterLocations?.[own];
+  if(!loc?.stationed){notice('Move onto a cockpit, bridge, or shield station first.','info');return;}
+  document.querySelector('[data-console-preview-frame]')?.remove();
+  const frame=document.createElement('iframe');frame.dataset.consolePreviewFrame='';frame.title='Console preview';frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';frame.src=`index.html?embedded=player&campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(own)}&practice=1&ship=${encodeURIComponent(button.dataset.previewConsole)}`;document.body.append(frame);
+});
 }).finally(()=>window.SAViewReady?.());
 
 }

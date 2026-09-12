@@ -1,5 +1,7 @@
 # Spaceship Architect Working Guide
 
+Latest ship workflow rules: SHIP-WORKFLOW-PASS-2.md supersedes older 12-second powered movement and flat Systems Analysis processing notes. Powered travel uses 10 seconds; inertia remains 12. Analysis processing is max(1,12-sensor tier), separate from operator input. Outside-combat consoles are read-only previews; do not connect their recovery path to live combat. PC Starships reuses the shared Ship Details sheet. Expanded construction retains 20-column cell IDs, up to 60 rows and the existing 400-hull-square scale limit. Preserve offset/door/crew translation, EN confirmation guard and outer-window printing.
+
 ## Resume Entry Point
 
 Read `CURRENT-HANDOFF.md` first for the current authorization boundary, pending requests, and a targeted reading order. This guide records durable conventions; the handoff records unfinished work. Do not mistake an earlier completed pass for verification of newly reported bugs.

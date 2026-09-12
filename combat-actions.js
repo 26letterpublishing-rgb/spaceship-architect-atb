@@ -449,7 +449,7 @@
           button.onclick=()=>window.SAShipNavigationUI.openAction(currentUnit,id,selector,tab);
           (label.startsWith('Fire ')||['Move Ship','Evasive Maneuvers'].includes(label)?primary:secondary).append(row);row.append(button);
           const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
-          if(helpKey)window.SAActionHelp.attach(button,helpKey);
+          if(helpKey){button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';button.style.cursor='help';}
         }
         shortcuts.dataset.key=key;
       }

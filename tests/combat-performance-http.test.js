@@ -44,7 +44,13 @@ test('cached assets, private incremental streams and GM-owned damage pause', {ti
   assert.equal(locationPacket.units.find(u=>u.characterId===player.id).location.mesh,1);
   assert.ok(!locationPacket.units.some(u=>u.location.starshipId===target.id),'Campaign position event excludes NPC ship crew');
   assert.ok(JSON.stringify(locationPacket).length<2000,'Position-only update stays small');locationAbort.abort();
-  await act({action:'exitEncounter'});
+  const acknowledge={roomCode:room.code,characterId:player.id,characterToken:player.token,action:'acknowledgeVictory',id:nova.id};
+  await post('/api/action',acknowledge,409);
+  await act({action:'damageStarship',starshipId:target.id,amount:9999});
+  assert.ok((await state()).starships.find(s=>s.id===ship.id).victoryAt);
+  await post('/api/action',{...acknowledge,characterToken:'invalid'},403);
+  await post('/api/action',acknowledge);
+  assert.ok((await state()).encounterEndedAt,'Acknowledging victory ends combat without resetting the victorious ship');
   const moved=await post('/api/campaign/starship/move-character',{code:room.code,token:player.token,starshipId:ship.id,characterId:player.id,square:cp.cell,mesh:2});
   assert.equal(moved.campaign.starships.find(s=>s.id===ship.id).characterLocations[player.id].mesh,2,'Saved out-of-combat movement is not overwritten by an old encounter');
   console.log(`Combat payload: ${fullBytes} initial bytes, ${deltaBytes} incremental bytes.`);

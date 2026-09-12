@@ -305,7 +305,9 @@
     grid.classList.toggle("show-combat-mesh", mapView.combatMesh);
     grid.classList.toggle("show-walls", mapView.walls);
     grid.classList.toggle("show-stations", mapView.stations);
-    const cellMarkup = Array.from({ length: 400 }, (_, square) => {
+    const rows=Math.max(20,Math.ceil((Math.max(0,...hull,...footprints.keys())+1)/20));
+    grid.style.gridTemplateRows=`repeat(${rows},1fr)`;grid.style.aspectRatio=`20 / ${rows}`;
+    const cellMarkup = Array.from({ length: rows*20 }, (_, square) => {
       const sic = footprints.get(square);
       const classes = ["combat-map-square", hull.has(square) ? "hull" : "", sic ? "sic" : "", preview?.square === square ? `preview-${preview.color}` : ""].filter(Boolean).join(" ");
       const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row) : ""}` : "";
@@ -334,7 +336,7 @@
         const column = point.square % 20; const row = Math.floor(point.square / 20);
         return `${column + ((point.mesh % 3) + .5) / 3},${row + (Math.floor(point.mesh / 3) + .5) / 3}`;
       }).join(" ");
-      grid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 20 20" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
+      grid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 20 ${rows}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
     }
   }
 

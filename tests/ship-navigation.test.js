@@ -17,6 +17,24 @@ function fixture() {
 }
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 
+test('powered travel is proportional over 10 seconds and preview predicts all drift',()=>{
+  for(const speed of [3,16]){
+    const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:100,r:0}});ship.navigation.baseSpeed=speed;
+    navigation.advance(room,10);near(room.shipPositions[0].q,speed);
+  }
+  assert.equal(navigation.PERIOD,12);assert.equal(navigation.POWERED_PERIOD,10);
+  assert.equal(navigation.driftDistance(20),10);assert.equal(navigation.driftSeconds(20),24);
+  assert.equal(navigation.driftDistance(1),0);assert.equal(navigation.driftSeconds(1),0);
+});
+
+test('expanded construction coordinates preserve EDG and exterior placement rules',()=>{
+  const {ship}=fixture();const moved=structuredClone(ship.ship);moved.zoneRows=40;
+  moved.gridCells=moved.gridCells.map(n=>n+500);moved.placements.forEach(p=>p.cell+=500);
+  assert.equal(maps.exteriorError(moved),'');assert.ok(maps.buildLayout(moved).hull.has(521));
+  moved.placements.find(p=>p.sicId==='thruster').cell=521;
+  assert.notEqual(maps.exteriorError(moved),'');
+});
+
 test('Cockpit 1 matches its printed construction stats and requires an outer interior edge',()=>{
   const def=maps.definition('cockpit-1');
   assert.deepEqual([def.price,def.energyCost,def.security,def.width,def.height,def.threshold,def.stations.length],[750,1,4,1,1,20,1]);
@@ -46,7 +64,7 @@ test('Move Starship freezes pilot ATB for input, then spends AU once and launche
   assert.equal(combat.resolvePlayerCombatAction(room,unit,{kind:'moveStarship',destination:{q:30,r:0},boostIds:['thruster']},helpers).ok,false);
   assert.equal(ship.auState.current,3);
   assert.equal(navigation.resolveInput(room,unit).ok,true);assert.equal(ship.auState.current,1);assert.equal(ship.navigation.speed,12);
-  navigation.advance(room,6);near(room.shipPositions[0].q,6);
+  navigation.advance(room,5);near(room.shipPositions[0].q,6);
 });
 
 test('invalid and unaffordable orders never consume AU or replace a current route',()=>{
@@ -62,23 +80,23 @@ test('invalid and unaffordable orders never consume AU or replace a current rout
 test('departure and cockpit or base thruster impairment do not interrupt a valid order',()=>{
   const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:11,r:0}});
   unit.location.stationed=false;ship.ship.sicInventory.forEach(i=>i.impaired=true);
-  navigation.advance(room,12);near(room.shipPositions[0].q,11);assert.equal(ship.navigation.phase,'drift');assert.equal(ship.navigation.speed,3);
+  navigation.advance(room,10);near(room.shipPositions[0].q,11);assert.equal(ship.navigation.phase,'drift');assert.equal(ship.navigation.speed,3);
   navigation.advance(room,12);near(room.shipPositions[0].q,14);assert.equal(ship.navigation.phase,'stopped');
 });
 
 test('lost boosts remove only remaining boosted speed and cannot reverse traveled distance',()=>{
   const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:24,r:0},boostIds:['thruster']});
-  navigation.advance(room,6);near(room.shipPositions[0].q,6);
+  navigation.advance(room,5);near(room.shipPositions[0].q,6);
   ship.ship.sicInventory.find(i=>i.id==='thruster').impaired=true;
-  navigation.advance(room,6);near(room.shipPositions[0].q,11.5);assert.equal(ship.navigation.speed,11);assert.equal(ship.navigation.boosts.length,0);
+  navigation.advance(room,5);near(room.shipPositions[0].q,11.5);assert.equal(ship.navigation.speed,11);assert.equal(ship.navigation.boosts.length,0);
   ship.ship.sicInventory.find(i=>i.id==='thruster').impaired=false;
-  navigation.advance(room,6);near(room.shipPositions[0].q,17);assert.equal(ship.navigation.speed,11);
+  navigation.advance(room,5);near(room.shipPositions[0].q,17);assert.equal(ship.navigation.speed,11);
 });
 
 test('inertia starts from distance and repeatedly decays every 12 combat seconds',()=>{
   const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:20,r:0}});
   ship.navigation.baseSpeed=20;
-  navigation.advance(room,12);near(room.shipPositions[0].q,20);assert.equal(ship.navigation.speed,8);
+  navigation.advance(room,10);near(room.shipPositions[0].q,20);assert.equal(ship.navigation.speed,8);
   navigation.advance(room,12);near(room.shipPositions[0].q,28);assert.equal(ship.navigation.speed,2);
   navigation.advance(room,12);near(room.shipPositions[0].q,30);assert.equal(ship.navigation.speed,0);
   navigation.advance(room,99);near(room.shipPositions[0].q,30);
@@ -94,7 +112,7 @@ test('short powered trips have no inertia regardless of engine speed',()=>{
 
 test('first drift uses distance, not maximum speed or duration',()=>{
   const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:12,r:0}});
-  ship.navigation.baseSpeed=48;navigation.advance(room,3);
+  ship.navigation.baseSpeed=48;navigation.advance(room,2.5);
   near(room.shipPositions[0].q,12);near(ship.navigation.traveled,12);assert.equal(ship.navigation.speed,4);
 });
 

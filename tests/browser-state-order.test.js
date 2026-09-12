@@ -8,6 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 function browser() {
   const context = vm.createContext({
     state: { revision: 20, units: [] }, embeddedPlayer: false, mode: 'gm', myUnitId: '',
+    startupParams: new URLSearchParams(),
     currentRoomCode: 'TEST', gmCampaignToken: '', campaignCharacterToken: '', campaignCharacterId: '',
     window: { dispatchEvent() {} }, document: { hidden: false },
     CustomEvent: class {}, render() {}, playGmSound() {}, setConnected() {}, connectEvents() {},
@@ -37,4 +38,11 @@ test('focus recovery preserves newer events but can recover a restarted server',
   c.fetch = async () => ({ ok: true, json: async () => ({ revision: 2, units: [] }) });
   await vm.runInContext('recoverVisibleCombatState()', c);
   assert.equal(c.state.revision, 2);
+});
+
+test('out-of-combat previews never reconnect or replace their read-only state on focus',async()=>{
+  const c=browser();c.startupParams.set('practice','1');
+  c.fetch=()=>{throw Error('Preview must not reconnect');};
+  await c.recoverVisibleCombatState();c.receiveState({revision:50,units:[]});
+  assert.equal(c.state.revision,20);
 });

@@ -48,9 +48,9 @@ async function main(){
     if(character.id===people[0].id){
       await p.getByRole('button',{name:'Starships',exact:true}).click();
       await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4}});
-      await p.locator('[data-player-ship-square="43"] .player-ship-token.is-self').waitFor();
+      await p.frameLocator('[data-player-ship-details]').locator('[data-grid-index="43"] .ship-detail-crew').first().waitFor();
       await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:42,mesh:0}});
-      await p.locator('[data-player-ship-square="42"] .player-ship-station.occupied').waitFor();
+      await p.frameLocator('[data-player-ship-details]').locator('[data-grid-index="42"] .ship-detail-crew').first().waitFor();
     }
     await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);
   }

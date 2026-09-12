@@ -53,7 +53,7 @@ async function main(){
     await act({action:'setCombatLocation',id:nova.id,location:{starshipId:ship.id,square:cp.cell,mesh:0}});
     await pc.getByRole('button',{name:'Starships',exact:true}).click();
     const ownToken=pc.locator(`[data-player-starship="${ship.id}"] [data-player-ship-square="${cp.cell}"] .player-ship-station.occupied[title="Nova Vale is stationed here"]`);
-    await ownToken.waitFor();assert.ok(await ownToken.count(),'Starship tab uses live combat position');
+    await ownToken.waitFor({state:'attached'});assert.ok(await ownToken.count(),'Starship tab uses live combat position');
     await pc.getByRole('button',{name:'Combat',exact:true}).click();
     const consoleButton=combat.getByRole('button',{name:'Console View',exact:true});await consoleButton.waitFor();assert.equal(await consoleButton.evaluate(e=>getComputedStyle(e).color),'rgb(22, 18, 0)');
     await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:200,downloadThroughput:500000,uploadThroughput:500000});

@@ -3,6 +3,7 @@ const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
   'combat-wire.js', 'view-ready.js', 'result-feedback.js',
+  'ship-print.js',
   'ship-locks.js','lock-console-ui.js','console-common.js','combat-feedback.js','combat-order-ui.js',
   "station-access.js", "ship-shields.js", "shield-console-ui.js", "ship-roll-ui.js", "console-feedback.js",
   "ship-weapons.js", "weapon-console-ui.js", "ship-sensors.js", "sensor-console-ui.js", "ship-cooperation.js", "ship-command-ui.js", "action-help.js", "maintenance-ui.js",

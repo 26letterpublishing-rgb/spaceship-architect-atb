@@ -122,12 +122,13 @@ async function main() {
       await dialog.locator('[data-au-warning]').filter({hasText:'not enough Auxiliary power'}).waitFor();
       assert.equal(await dialog.getAttribute('data-au-warning'),'true');
     }
+    await dialog.getByRole('button',{name:'Move Ship',exact:true}).click();
     if(index===1) {
       await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).fill(String(destination.q));
       await dialog.getByRole('spinbutton',{name:'Hex R',exact:true}).fill(String(destination.r));
     } else await hexClick(page,destination.q,destination.r);
     if(index===0)await dialog.getByRole('checkbox').check();
-    const confirm=dialog.getByRole('button',{name:'Move Ship',exact:true});
+    const confirm=dialog.getByRole('button',{name:'Confirm Move',exact:true});
     const rect=await confirm.boundingBox();await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2,{steps:20});
     await page.waitForTimeout(700);
     assert.equal(await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).inputValue(),String(destination.q));
@@ -138,7 +139,7 @@ async function main() {
     await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
     await page.mouse.down();await page.waitForTimeout(350);await page.mouse.up();
     if(index===0)await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
-    await dialog.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
+    await dialog.locator('[data-turn-announcement]').filter({hasText:'ENTERING COORDINATES'}).waitFor();
     assert.equal(await dialog.locator('[data-turn-announcement]').innerText(),'ENTERING COORDINATES');
     assert.equal(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'),'0');
     assert.equal(moveRequests.length,requestsBefore+1,'Held clicks and rapid retries submit one order');
@@ -149,7 +150,7 @@ async function main() {
       await act({action:'setHardPaused',paused:false});await page.waitForTimeout(650);
       await act({action:'setHardPaused',paused:true});await page.waitForTimeout(300);
       const charge=await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__charge);
-      assert.equal(charge.starts,1);assert.ok(charge.updates>=1);assert.equal(charge.stops,1,'Pausing stops the engine sound');
+      assert.equal(charge.starts,0,'Operating the console uses keyboard audio, not the engine charge sound');
     }
     for(let tick=0;tick<5&&(await state()).units.find(u=>u.id===unit.id).delayedAction;tick++)await act({action:'step'});
     const after=await state(), ship=after.starships.find(s=>s.id===unit.location.starshipId);
@@ -333,12 +334,13 @@ async function main() {
       const order=demo.getByRole('dialog',{name:compact?'Move ship':'Pilot console',exact:true});await order.waitFor();
       const origin=initial.shipPositions.find(p=>p.id===ship.id);
       const destination={q:Math.round(origin.q)+i+2,r:Math.round(origin.r)+1-i};
+      if(!compact)await order.getByRole('button',{name:'Move Ship',exact:true}).click();
       await hexClick(demo,destination.q,destination.r);
-      const confirm=order.getByRole('button',{name:'Move Ship',exact:true});
+      const confirm=order.getByRole('button',{name:'Confirm Move',exact:true});
       await confirm.hover();await demo.waitForTimeout(650);assert.equal(await confirm.isEnabled(),true);
-      await confirm.click();await order.getByRole('button',{name:'Entering Order',exact:true}).waitFor();
+      await confirm.click();await order.locator('[data-turn-announcement]').filter({hasText:'ENTERING COORDINATES'}).waitFor();
       await advanceDemoUntil(s=>!s.units.find(u=>u.id===unit.id).delayedAction);
-      await order.getByRole('button',{name:'Entering Order',exact:true}).waitFor({state:'hidden'});
+      await order.locator('[data-turn-announcement]').filter({hasText:'ENTERING COORDINATES'}).waitFor({state:'hidden'});
       assert.deepEqual((await readDemo()).starships.find(s=>s.id===ship.id).navigation.target,destination);
       await demo.screenshot({path:path.join(artifacts,`explore-${isPc?'pc':'npc'}-order-${i+1}.png`)});
       await order.getByRole('button',{name:'Combat View',exact:true}).click();

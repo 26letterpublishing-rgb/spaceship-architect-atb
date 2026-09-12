@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
     <script src="view-ready.js"></script>
     <link rel="stylesheet" href="result-feedback.css">
@@ -377,11 +378,6 @@
             </div>
           </div>
           <p class="weapon-table-note">Choose Purchase or Receive when adding a weapon. Only the held weapon is available during Combat.</p>
-          <section class="stored-weapons-panel" aria-label="Weapons in storage">
-            <h3>Weapons in Storage</h3>
-            <div id="storedWeaponInventory" class="stored-weapon-inventory"></div>
-            <p id="storedWeaponEmpty" class="gear-empty">No weapons are currently in storage.</p>
-          </section>
         </section>
 
         <section class="sheet-panel gear-panel" data-sheet-section="supplies">
@@ -394,6 +390,8 @@
         <section class="sheet-panel storage-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Items in Storage</span><button id="storeGearButton" class="compact-add" type="button" aria-label="Move an item to storage">+</button></div>
           <div id="storedGearInventory" class="stored-gear-inventory"></div>
+          <div id="storedWeaponInventory" class="stored-weapon-inventory"></div>
+          <p id="storedWeaponEmpty" class="gear-empty" hidden></p>
           <p id="storedGearEmpty" class="gear-empty">Nothing is currently in storage.</p>
         </section>
 
@@ -828,6 +826,7 @@
     <script src="ship-map-core.js?v=console-feedback-2"></script>
     <script src="ship-power.js?v=console-feedback-2"></script>
     <script src="health-display.js?v=console-feedback-2"></script>
+    <script src="live-dom.js"></script>
     <script type="module" src="character.js?v=console-feedback-2"></script>
   </body>
 </html>

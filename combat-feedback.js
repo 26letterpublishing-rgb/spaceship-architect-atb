@@ -12,7 +12,7 @@
       }
     }catch{}
   }
-  function popup(title,text){const doc=host(),d=doc.createElement('dialog');d.className='combat-result-popup';d.setAttribute('aria-label',title);const h=doc.createElement('h2'),p=doc.createElement('p'),ok=doc.createElement('button');h.textContent=title;p.textContent=text;ok.textContent='OK';ok.onclick=()=>d.close();d.append(h,p,ok);doc.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();ok.focus();}
+  function popup(title,text){const doc=host(),d=doc.createElement('dialog');d.className='combat-result-popup';d.setAttribute('aria-label',title);const h=doc.createElement('h2'),p=doc.createElement('p'),ok=doc.createElement('button');h.textContent=title;p.textContent=text;ok.textContent='OK';ok.onclick=async()=>{const bridge=window.SACombatBridge;if(title==='VICTORY'&&bridge.mode()==='player'){ok.disabled=true;try{await bridge.action({action:'acknowledgeVictory',id:bridge.myUnitId()},'resolve',{throwOnError:true});parent.postMessage({type:'sa-victory-return'},location.origin);}catch(error){p.textContent=error.message;ok.disabled=false;return;}}d.close();};d.append(h,p,ok);doc.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();ok.focus();}
   function surfaces(){return [...new Set([document,host()])];}
   function impact(id,explosion=false){
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -21,7 +21,7 @@
         const map=e.hasAttribute('data-space-ship'),matrix=e.getScreenCTM?.(),scale=matrix?Math.hypot(matrix.a,matrix.b):1,shift=(map?1.5:3)/Math.max(.0001,scale);
         e.animate([{filter:'none'},{filter:'brightness(1.5) sepia(1) saturate(6) hue-rotate(320deg)'},{filter:'none'}],{duration:explosion?1100:650});
         if(!reduced)e.animate([0,1,-1,.5,0].map(n=>({transform:`translateX(${n*shift}px)`})),{duration:map?320:450,composite:'add'});
-        if(explosion&&e.hasAttribute('data-space-ship')){const box=e.getBoundingClientRect(),burst=doc.createElement('div');burst.className='ship-explosion-burst';burst.style.left=box.x+box.width/2+'px';burst.style.top=box.y+box.height/2+'px';(doc.querySelector('dialog[open]')||doc.body).append(burst);setTimeout(()=>burst.remove(),1300);}
+        if(explosion&&map){const burst=doc.createElementNS('http://www.w3.org/2000/svg','circle');burst.dataset.explosion='';burst.setAttribute('r',12/Math.max(.0001,scale));burst.setAttribute('fill','#ffe7a0');burst.style.filter='drop-shadow(0 0 5px #ff732c)';e.append(burst);burst.animate([{opacity:1,scale:'.2'},{opacity:.9,scale:'2'},{opacity:0,scale:'3'}],{duration:1200,fill:'forwards'});setTimeout(()=>burst.remove(),1300);}
       }
     }
     sound(explosion?'explosion':'impact');
@@ -38,6 +38,11 @@
     const b=window.SACombatBridge,state=b?.state();if(!state)return;const doc=host();
     for(const d of surfaces())if(!d.querySelector('[data-combat-feedback-style]')){const link=d.createElement('link');link.rel='stylesheet';link.href=new URL('combat-feedback.css',location.href);link.dataset.combatFeedbackStyle='';d.head.append(link);}
     const damaged=new Set();
+    const locks=new Set(state.starships.flatMap(ship=>(ship.lockState?.targets||[]).map(lock=>lock.targetId)));
+    for(const surface of surfaces())for(const marker of surface.querySelectorAll('[data-space-ship]')){
+      const existing=marker.querySelector('[data-target-reticle]');if(!locks.has(marker.dataset.spaceShip)){existing?.remove();continue;}if(existing)continue;
+      const circle=surface.createElementNS('http://www.w3.org/2000/svg','circle'),radius=Number(marker.querySelector('circle')?.getAttribute('r'))||.3;circle.dataset.targetReticle='';circle.setAttribute('r',radius*1.8);circle.setAttribute('fill','none');circle.setAttribute('stroke','#ffdf58');circle.setAttribute('stroke-width',radius*.13);circle.setAttribute('stroke-dasharray',`${radius*.8} ${radius*.3}`);marker.append(circle);
+    }
     const events=state.starships.flatMap(ship=>[...(ship.weaponState?.reports||[]),...(ship.lockState?.reports||[])].map(e=>({...e,source:ship.id}))).sort((a,b)=>Number(Boolean(b.operatorId))-Number(Boolean(a.operatorId)));
     for(const e of events){if(seen.has(e.id))continue;seen.add(e.id);if(!initialized||Date.now()-Date.parse(e.at)>15000)continue;
       if(e.shot&&e.operatorId&&!e.awaitingDamage){bolts(e,e.source);if(!e.hit&&(b.mode()==='gm'||e.operatorId===b.myUnitId()))setTimeout(()=>popup('Shot Missed',e.text),750);}
@@ -50,7 +55,7 @@
     }
     for(const ship of state.starships){
       const total=(ship.currentHullHp??0)+(ship.currentShieldHp??0),previous=hp.get(ship.id);if(initialized&&previous!==undefined&&total<previous&&!damaged.has(ship.id))impact(ship.id,Boolean(ship.destroyedAt));hp.set(ship.id,total);
-      for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){marker.classList.toggle('ship-wreck',Boolean(ship.destroyedAt));if(ship.destroyedAt){const label=marker.querySelector('text');if(label&&!label.textContent.endsWith(' [DESTROYED]'))label.textContent+=' [DESTROYED]';}}
+      for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){marker.classList.toggle('ship-wreck',Boolean(ship.destroyedAt));if(ship.destroyedAt){const label=marker.querySelector('text');if(label&&!label.textContent.endsWith(' [DESTROYED]'))label.textContent+=' [DESTROYED]';if(!marker.querySelector('[data-debris]')){const debris=d.createElementNS('http://www.w3.org/2000/svg','g'),radius=Number(marker.querySelector('circle')?.getAttribute('r'))||.3;debris.dataset.debris='';for(let n=0;n<18;n++){const pixel=d.createElementNS(debris.namespaceURI,'rect');pixel.setAttribute('x',Math.sin(n*13.37)*radius*1.5);pixel.setAttribute('y',Math.cos(n*4.91)*radius);pixel.setAttribute('width',radius*.22);pixel.setAttribute('height',radius*.22);pixel.setAttribute('fill','currentColor');debris.append(pixel);}marker.append(debris);}}}
       const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)setTimeout(()=>popup('VICTORY',`${ship.title} is the last surviving ship.`),2200);}
     }
     for(const d of surfaces())for(const p of d.querySelectorAll('[data-activity] p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');

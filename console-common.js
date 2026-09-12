@@ -4,6 +4,8 @@
   function mount(view,unit){
     if(!view||view.dataset.commonMounted)return;view.dataset.commonMounted='1';
     const doc=view.ownerDocument,b=window.SACombatBridge;
+    const previewAllowed='[data-close],[data-sound],.console-swipe,.station-console-select,[data-zoom],[data-auto-zoom],[role=tab],[data-command-page],summary';
+    if(b.state()?.practice){view.dataset.practice='true';const badge=doc.createElement('strong');badge.className='console-preview-status';badge.textContent='OUT OF COMBAT / CONSOLE PREVIEW';view.querySelector('header').append(badge);view.addEventListener('click',event=>{if(!event.target.closest(previewAllowed)){event.preventDefault();event.stopImmediatePropagation();}},true);}
     if(!doc.querySelector('[data-common-console-style]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('console-common.css',location.href).href;link.dataset.commonConsoleStyle='';doc.head.append(link);}
     const pilot=view.classList.contains('ship-navigation-dialog');
     const manageRings=!pilot&&!view.querySelector('[data-rings]');
@@ -33,8 +35,10 @@
         const fleet=(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}</strong><span>${Number.isFinite(s.currentHullHp)?window.SAHealthDisplay.track('hull',s.currentHullHp,s.maximumHullHp,b.mode()==='gm')+window.SAHealthDisplay.track('shield',s.currentShieldHp,s.maximumShieldHp,b.mode()==='gm'):'Condition unknown'} / Defense ${s.defenseScore??'?'}</span></p>`).join('');if(fleet!==lastFleet){view.querySelector('[data-common-fleet]').innerHTML=fleet;lastFleet=fleet;}
         const rings=manageRings&&view.querySelector('[data-rings]');if(rings){const html=b.pilotRings();if(html!==lastRings){window.SALiveDOM.render(rings,html);lastRings=html;}}
       }
-      const busy=Boolean(person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
+      const busy=Boolean(view.dataset.switching||person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
       for(const control of view.querySelectorAll('.console-swipe,.station-console-select')){control.disabled=busy||(control.classList.contains('console-swipe')&&window.SAStationAccess.consoles(state,person).length<2);control.title=busy?'Finish the current action before switching consoles':control.classList.contains('previous')?'Previous console':control.classList.contains('next')?'Next console':'Choose a console';}
+      if(state.practice){for(const control of view.querySelectorAll('button,input,select'))if(!control.matches(previewAllowed)){control.disabled=true;control.title='Unavailable outside combat';}view.querySelector('[data-close]').textContent='Close Console';}
+      for(const button of view.querySelectorAll('[data-hold]'))button.classList.toggle('resume-ready',Boolean(person.consoleHold));
     }
     tick();const timer=setInterval(tick,250);view.addEventListener('close',()=>clearInterval(timer),{once:true});
   }

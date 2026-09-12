@@ -7,6 +7,9 @@
   if (root) root.SAShipNavigation = api;
 }(typeof window !== 'undefined' ? window : null, function(maps, distances, power, delays) {
   const PERIOD = 12;
+  const POWERED_PERIOD = 10;
+  function driftDistance(distance){let speed=Math.max(0,Math.floor(distance/2+1e-9)-2),total=0;while(speed>0){total+=speed;speed=Math.max(0,Math.floor(speed/2)-2);}return total;}
+  function driftSeconds(distance){let speed=Math.max(0,Math.floor(distance/2+1e-9)-2),seconds=0;while(speed>0){seconds+=PERIOD;speed=Math.max(0,Math.floor(speed/2)-2);}return seconds;}
   const online = item => item && !item.disabled && !item.impaired && !['offline','powered-down','destroyed','impaired'].includes(item.status);
   function station(room, unit) {
     const ship = (room?.starships || []).find(s => s.id === unit?.location?.starshipId);
@@ -57,7 +60,7 @@
     const start=distances.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id),length=distances.hexDistance(start,pending.target);
     if(length<1e-6 || speed<=0)return {ok:false,error:'Ship is already at the destination or cannot move.'};
     if(cost&&!power.spend(room,ship.id,cost))return {ok:false,error:'Insufficient AU when pilot input finished; previous route retained.'};
-    ship.navigation={phase:'powered',traveled:0,target:pending.target,direction:{q:(pending.target.q-start.q)/length,r:(pending.target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:PERIOD*length/speed,pilotId:unit.id};
+    ship.navigation={phase:'powered',traveled:0,target:pending.target,direction:{q:(pending.target.q-start.q)/length,r:(pending.target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:POWERED_PERIOD*length/speed,pilotId:unit.id};
     return {ok:true,ship,cost};
   }
   function order(room, unit, body) {
@@ -79,7 +82,7 @@
     const cost = boosts.reduce((n,b)=>n+b.cost,0);
     if (cost && !power.spend(room,allowed.ship.id,cost)) return {ok:false,error:'Not enough AU for the selected boosts.'};
     allowed.ship.navigation = { phase:'powered', traveled:0, target:{q:target.q,r:target.r}, direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},
-      baseSpeed:allowed.speed, boosts, speed, remaining:PERIOD*length/speed, pilotId:unit.id };
+      baseSpeed:allowed.speed, boosts, speed, remaining:POWERED_PERIOD*length/speed, pilotId:unit.id };
     return {ok:true,ship:allowed.ship,cost};
   }
   function advance(room, seconds) {
@@ -92,15 +95,16 @@
         // Losing a paid boost cannot undo distance already traveled or change the frozen base order.
         nav.boosts = (nav.boosts || []).filter(b=>(ship.ship.placements || []).some(p=>p.sicId===b.id) && online((ship.ship.sicInventory || []).find(i=>i.id===b.id)));
         nav.speed = nav.baseSpeed + nav.boosts.reduce((n,b)=>n+b.speed,0);
-        nav.remaining = nav.speed > 0 ? PERIOD*distances.hexDistance(position,nav.target)/nav.speed : 0;
+        nav.remaining = nav.speed > 0 ? POWERED_PERIOD*distances.hexDistance(position,nav.target)/nav.speed : 0;
       }
       let left = seconds;
       for (let step=0;left>1e-9 && step<64 && nav.phase !== 'stopped';step++) {
         if (!(nav.speed > 0)) { nav.phase='stopped'; nav.remaining=0; break; }
         const elapsed = Math.min(left,Math.max(0,nav.remaining));
-        if (nav.phase === 'powered') nav.traveled = (Number(nav.traveled) || 0) + nav.speed*elapsed/PERIOD;
-        position.q += nav.direction.q*nav.speed*elapsed/PERIOD;
-        position.r += nav.direction.r*nav.speed*elapsed/PERIOD;
+        const period=nav.phase==='powered'?POWERED_PERIOD:PERIOD;
+        if (nav.phase === 'powered') nav.traveled = (Number(nav.traveled) || 0) + nav.speed*elapsed/period;
+        position.q += nav.direction.q*nav.speed*elapsed/period;
+        position.r += nav.direction.r*nav.speed*elapsed/period;
         left -= elapsed; nav.remaining -= elapsed;
         if (Math.abs(position.q)>10000 || Math.abs(position.r)>10000) {
           position.q=Math.max(-10000,Math.min(10000,position.q)); position.r=Math.max(-10000,Math.min(10000,position.r)); nav.phase='stopped';nav.speed=0;nav.remaining=0;break;
@@ -114,5 +118,5 @@
     }
     room.shipDistances = distances.fromPositions(room.starships || [],room.shipPositions);
   }
-  return {PERIOD,station,access,inputSettings,queue,resolveInput,order,advance};
+  return {PERIOD,POWERED_PERIOD,driftDistance,driftSeconds,station,access,inputSettings,queue,resolveInput,order,advance};
 }));

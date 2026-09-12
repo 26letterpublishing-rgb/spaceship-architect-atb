@@ -1,5 +1,7 @@
 # Spaceship Architect: Source Understanding
 
+September 11 approved timing override: powered starship movement now covers Move Speed in 10 combat seconds, without changing inertia's 12-second periods or other SvS conversions. Systems Analysis report processing is max(1,12-sensor tier) seconds after operator input; keep both stages. For future comparable fixed SIC processing delays, apply that tier subtraction and notify the user rather than silently changing unrelated timing. See SHIP-WORKFLOW-PASS-2.md.
+
 Latest numbered targeting/weapon expansion: see TARGETING-FAMILIES-PASS.md for Lock-On Systems 1-10 and Rapid Lasers 1-5, source card IDs, dice, upkeep and approved digital timing. Its explicit-damage, Combat View and Explore conventions supersede older deferred/tier-one notes in this reference. No FTL Lock-On, Triangulator, hacking or hull-breach simulation was added.
 
 ## Shield and Bridge Digital Rules
