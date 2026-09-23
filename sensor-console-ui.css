@@ -19,7 +19,7 @@
 @media(max-width:900px){.sensor-console main{grid-template-columns:minmax(0,1fr) 210px;height:auto;grid-template-rows:auto auto auto}.sensor-reports{grid-row:2;grid-column:1/3}.sensor-timeline{grid-row:3}.sensor-console>header{flex-wrap:wrap}.sensor-console [data-selector]{flex-wrap:wrap}.sensor-command{width:40%}}
 @media(min-width:901px){
   .sensor-console main{height:calc(100% - 86px);min-height:0;grid-template-rows:minmax(0,1fr) 150px;padding:18px 3%;gap:18px}
-  .sensor-console .sensor-chart{display:grid;grid-template-rows:auto minmax(100px,1fr) auto 110px;gap:10px;overflow:hidden}
+  .sensor-console .sensor-chart{display:grid;grid-template-rows:auto minmax(100px,1fr) 38px auto 110px;gap:10px;overflow:auto}
   .sensor-chart h3{margin:0}.sensor-chart [data-map]{min-height:0}
   .sensor-console .sensor-chart .space-map{height:100%;aspect-ratio:auto;margin:0;padding:0;overflow:hidden}
   .sensor-chart [data-space-canvas]{height:100%;width:100%;display:block}
@@ -28,4 +28,102 @@
   .sensor-controls{gap:7px;padding:12px}.sensor-controls button{font-size:12px;min-height:30px;padding:6px;flex-shrink:0}
   .sensor-controls h3{margin:0}.sensor-controls label{font-size:11px}
   .sensor-seat-actions{grid-template-columns:1fr 1fr;position:sticky;bottom:0;background:#071318;padding:6px 0}
+}
+/* Map tools retain a compact footprint at every console width. */
+.sensor-map-zoom{display:flex;gap:6px;margin:6px 0;align-items:center}
+.sensor-map-zoom button{min-width:38px;min-height:32px;padding:4px 10px;border-radius:3px;font:700 14px Arial}
+.sensor-map-zoom{position:sticky;bottom:0;z-index:2;background:#081b20;padding:3px;margin:0;flex-shrink:0}
+.sensor-map-zoom button{background:#204448;color:#fff;border:1px solid #79c8cb}
+.sensor-chart [data-range]{display:block;font:700 15px Arial;line-height:1.5;color:#f8dc7b;white-space:normal}
+.sensor-console .sensor-coordinates label{display:grid;gap:4px;color:#d7eee9;font:12px/1.3 Arial,sans-serif}
+@media(min-width:901px){
+  .sensor-console.shared-console-layout .sensor-chart .space-map{height:100%;min-height:0}
+  .sensor-console.shared-console-layout .sensor-chart{grid-template-rows:auto minmax(100px,1fr) 38px auto 90px}
+}
+.sensor-console select option,.sensor-console select optgroup{background:#fff;color:#000;text-shadow:none}
+
+/* Give the decision map the available height; instruments stay compact below it. */
+dialog.sensor-console .sensor-chart{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+dialog.sensor-console .sensor-chart>h3{flex:none;margin:0}
+dialog.sensor-console .sensor-chart [data-map]{flex:1;min-height:220px;overflow:hidden}
+dialog.sensor-console .sensor-chart .space-map{height:100%;min-height:0;aspect-ratio:auto;margin:0;padding:0}
+dialog.sensor-console .sensor-chart [data-space-canvas]{display:block;width:100%;height:100%}
+dialog.sensor-console .sensor-map-zoom{position:relative;flex-wrap:wrap;bottom:auto;gap:5px;padding:2px;flex:none}
+dialog.sensor-console .sensor-map-zoom button{font-size:12px;min-height:34px}
+dialog.sensor-console .sensor-map-zoom [data-map-focus]{margin-left:auto}
+dialog.sensor-console .sensor-coordinates{flex:none;gap:8px;align-items:center}
+dialog.sensor-console .sensor-coordinates label{width:80px;font-size:11px}
+dialog.sensor-console .sensor-coordinates input{padding:5px}
+dialog.sensor-console .sensor-coordinates output{flex:1;min-width:150px;line-height:1.4}
+dialog.sensor-console .sensor-readout{flex:none;gap:9px;margin:0;font-size:12px}
+dialog.sensor-console .sensor-readout img{width:54px;height:54px}
+dialog.sensor-console .sensor-readout h3,dialog.sensor-console .sensor-readout p{margin:2px 0}
+dialog.sensor-console .sensor-readout [data-factors]{display:inline-flex;margin-right:6px}
+dialog.sensor-console .sensor-readout .pilot-factor{width:24px;height:24px}
+dialog.sensor-console .sensor-chart [data-range]{float:none;font-size:12px;line-height:1.4}
+dialog.sensor-console [data-scan-planner]{display:flex;flex-wrap:wrap;gap:6px;flex:none;padding:7px;border:1px solid #d6bc74;background:#292611}
+dialog.sensor-console [data-scan-planner][hidden]{display:none}
+dialog.sensor-console [data-scan-hint]{width:100%;font-size:12px;color:#fff0b2}
+dialog.sensor-console [data-scan-planner] button{min-height:34px;padding:6px 10px;border:1px solid #b6cdd0;background:#17353a;color:#fff;font-weight:700}
+dialog.sensor-console [data-confirm-scan]{border-color:#ecd57f;background:#504316}
+dialog.sensor-console [data-confirm-scan]:disabled{opacity:.45}
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout:not(.combat-order-dialog) .sensor-chart{grid-row:2/4!important}
+ dialog.sensor-console.shared-console-layout:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.sensor-console.shared-console-layout:not(.combat-order-dialog) .sensor-timeline{grid-column:1!important;grid-row:3!important}
+}
+/* Enlargement retains the real map and live operations, not a detached picture. */
+body dialog.sensor-console.shared-console-layout.map-focus:not(.combat-order-dialog){grid-template-columns:minmax(0,1fr) minmax(260px,330px)!important;grid-template-rows:88px minmax(0,1fr) 48px!important;padding:12px!important;gap:10px!important}
+body dialog.sensor-console.shared-console-layout.map-focus:not(.combat-order-dialog) .sensor-chart{grid-column:1!important;grid-row:2/4!important}
+body dialog.sensor-console.shared-console-layout.map-focus:not(.combat-order-dialog) .sensor-controls{grid-column:2!important;grid-row:2!important}
+body dialog.sensor-console.shared-console-layout.map-focus:not(.combat-order-dialog) .shared-seat{grid-column:2!important;grid-row:3!important}
+body dialog.sensor-console.map-focus .shared-power,body dialog.sensor-console.map-focus .sensor-reports,body dialog.sensor-console.map-focus .sensor-timeline{display:none!important}
+body dialog.sensor-console.combat-order-dialog.map-focus{width:calc(100vw - 24px)!important;height:calc(100dvh - 24px)!important;max-height:none!important;box-sizing:border-box;overflow:auto!important}
+body dialog.sensor-console.combat-order-dialog.map-focus [data-map]{height:clamp(240px,calc(100dvh - 370px),720px)!important}
+dialog.sensor-console.combat-order-dialog [data-scan-planner]{margin:8px 0}
+@media(max-width:900px){
+ dialog.sensor-console:not(.combat-order-dialog) .sensor-chart [data-map]{flex:none;height:clamp(280px,45dvh,500px)}
+ body dialog.sensor-console.map-focus:not(.combat-order-dialog){display:flex!important;padding:8px!important;overflow:auto!important}
+ body dialog.sensor-console.map-focus:not(.combat-order-dialog) .sensor-chart{flex:none}
+}
+
+/* Selection confirmation stays at the top of Operations rather than shrinking the chart. */
+dialog.sensor-console .sensor-controls [data-scan-planner]{position:sticky;top:0;z-index:3}
+dialog.sensor-console .sensor-chart [data-map]{min-height:160px}
+
+/* At larger widths coordinates share the toolbar; the default console wraps neatly. */
+dialog.sensor-console .sensor-map-tools{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;flex:none}
+dialog.sensor-console .sensor-map-tools .sensor-map-zoom{flex:0 1 auto}
+dialog.sensor-console .sensor-map-tools .sensor-coordinates{flex:1;min-width:280px}
+dialog.sensor-console .sensor-coordinates input{height:32px;min-height:32px;font-size:14px}
+dialog.sensor-console:not(.probe-console) .sensor-readout>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px}
+dialog.sensor-console:not(.probe-console) .sensor-readout h3,dialog.sensor-console:not(.probe-console) .sensor-readout [data-dice]{grid-column:1;margin:0;line-height:1.25}
+dialog.sensor-console:not(.probe-console) .sensor-readout [data-factors]{grid-column:2;grid-row:1/3;max-width:96px;font-size:11px;line-height:1.2;margin:0;gap:4px}
+dialog.sensor-console:not(.probe-console) .sensor-readout [data-input],dialog.sensor-console:not(.probe-console) .sensor-readout [data-input-text]{grid-column:1/-1;margin:0;line-height:1.25}
+
+dialog.sensor-console .sensor-chart [data-space-canvas]{aspect-ratio:auto}
+
+/* Compact scan orders keep the actual chart and confirmation within the viewport. */
+body dialog.sensor-console.combat-order-dialog:not(.map-focus){width:min(800px,calc(100vw - 24px))!important;max-height:calc(100dvh - 24px)!important;padding:14px!important}
+body dialog.sensor-console.combat-order-dialog:not(.map-focus) [data-map]{height:220px!important;min-height:0}
+body dialog.sensor-console.combat-order-dialog [data-map]>.space-map{height:100%!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}
+body dialog.sensor-console.combat-order-dialog [data-map] svg{height:100%!important;width:100%;aspect-ratio:auto}
+body dialog.sensor-console.combat-order-dialog .sensor-map-tools{margin:6px 0;gap:6px 10px}
+body dialog.sensor-console.combat-order-dialog .sensor-coordinates label{margin:0;width:64px}
+body dialog.sensor-console.combat-order-dialog .sensor-map-tools .sensor-coordinates{min-width:240px}
+body dialog.sensor-console.combat-order-dialog .sensor-coordinates output{min-width:90px;font-size:11px}
+body dialog.sensor-console.combat-order-dialog .sensor-readout{margin:4px 0!important}
+body dialog.sensor-console.combat-order-dialog .sensor-readout p{font-size:12px!important}
+body dialog.sensor-console.combat-order-dialog [data-scan-planner]{margin:5px 0;padding:6px}
+body dialog.sensor-console.combat-order-dialog [data-scan-hint]{font-size:11px;line-height:1.25}
+body dialog.sensor-console.combat-order-dialog[data-select-hex=true] .sensor-action-row:has([data-order="hex"]),body dialog.sensor-console.combat-order-dialog[data-select-hex=true] .sensor-action-row:has([data-order="life"]){display:none!important}
+body dialog.sensor-console.combat-order-dialog.map-focus{display:grid!important;grid-template-columns:1fr!important;grid-template-rows:auto minmax(0,1fr)!important;padding:14px!important;overflow:hidden!important}
+body dialog.sensor-console.combat-order-dialog.map-focus>main{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(245px,290px);grid-template-rows:minmax(0,1fr);gap:14px;width:100%!important;height:100%!important;min-height:0!important;grid-column:1!important;grid-row:2!important}
+body dialog.sensor-console.combat-order-dialog.map-focus .sensor-chart{display:flex!important;flex-direction:column;grid-column:1!important;grid-row:1!important;height:100%!important;min-height:0!important;overflow:hidden!important;gap:8px}
+body dialog.sensor-console.combat-order-dialog.map-focus .sensor-controls{grid-column:2!important;grid-row:1!important;overflow:auto!important;min-height:0!important}
+body dialog.sensor-console.combat-order-dialog.map-focus [data-map]{height:auto!important;flex:1;min-height:160px!important}
+@media(max-width:700px){
+ body dialog.sensor-console.combat-order-dialog.map-focus{overflow:auto!important}
+ body dialog.sensor-console.combat-order-dialog.map-focus>main{display:block!important;height:auto!important}
+ body dialog.sensor-console.combat-order-dialog.map-focus [data-map]{height:clamp(180px,35dvh,360px)!important}
 }

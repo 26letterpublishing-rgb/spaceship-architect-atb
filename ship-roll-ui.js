@@ -1,7 +1,6 @@
 (function(){
   let dialog=null,notice=null,lastLog='',result='',until=0,forced='',cleanupDialog=null;
-  const dismissed=new Set();
-  const request=u=>u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.[0];
+  const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.[0];
   const host=()=>{let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;};
   function poll(){
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;
@@ -16,32 +15,39 @@
     notice.textContent=relevant.map(u=>u.characterName+': '+request(u).label+' roll required').join(' | ')||calls.join(' | ')||(!gm&&awaiting?'Awaiting GM':'')||(Date.now()<until?result:'');
     const receiver=(gm?state.units.filter(u=>u.team==='npc'):[mine]).find(u=>{const seat=window.SAStationAccess.station(state,u);return seat&&window.SAShipMap.definition(seat.cell.type).bridge&&seat.ship.commandSystems?.calls?.some(c=>c.status==='incoming');});
     if(!relevant.length&&receiver)notice.textContent+=' | Accept incoming call';
-    notice.hidden=!notice.textContent;notice.onclick=async()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){dismissed.delete(request(u).id);forced=u.id;}else if(receiver){const ship=state.starships.find(s=>s.id===receiver.location.starshipId),call=ship.commandSystems.calls.find(c=>c.status==='incoming');try{await bridge.action({action:'shipCommand',id:receiver.id,kind:'accept',callId:call.id,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){result=e.message;until=Date.now()+7000;}}};
+    notice.hidden=!notice.textContent;notice.onclick=async()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){forced=u.id;}else if(receiver){const ship=state.starships.find(s=>s.id===receiver.location.starshipId),call=ship.commandSystems.calls.find(c=>c.status==='incoming');try{await bridge.action({action:'shipCommand',id:receiver.id,kind:'accept',callId:call.id,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){result=e.message;until=Date.now()+7000;}}};
     const parent=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
     notice.classList.toggle('console-status-toast',parent.matches?.('.ship-navigation-dialog,.shared-console-layout'));
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
-    const unit=waiting.find(u=>(gm?u.team==='npc'||request(u).rollController==='gm'||u.id===forced:u.id===mine?.id&&request(u).rollController!=='gm')&&!dismissed.has(request(u).id));if(!unit)return;
+    const unit=waiting.find(u=>(gm?u.team==='npc'||request(u).rollController==='gm'||u.id===forced:u.id===mine?.id&&request(u).rollController!=='gm'));if(!unit)return;
     const pending=request(unit);if(!pending.rollSpec)return;
     const view=doc.createElement('dialog');dialog=view;view.setAttribute('aria-label','Ship action dice roll');
     view.dataset.rollId=pending.id;
     view.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent';
     const frame=doc.createElement('iframe');frame.title='Skill Check';frame.style.cssText='width:100%;height:100%;border:0;background:transparent';frame.src=new URL('character.html?shipRoll=1',location.href).href;
+    const loading=doc.createElement('section');loading.setAttribute('role','status');loading.style.cssText='position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);padding:20px;background:#081922;border:1px solid #69c9da;color:#e5f7fc;text-align:center;font:16px Arial';
+    const loadText=doc.createElement('p');loadText.textContent='Loading dice...';const reload=doc.createElement('button');reload.type='button';reload.textContent='Retry Loading Dice';reload.hidden=true;loading.append(loadText,reload);
+    let loadTimer;
+    const watchLoad=()=>{clearTimeout(loadTimer);loading.hidden=false;reload.hidden=true;loadText.textContent='Loading dice...';loadTimer=setTimeout(()=>{loadText.textContent='The dice window has not finished loading.';reload.hidden=false;},3000);};
+    reload.onclick=()=>{watchLoad();frame.src=new URL('character.html?shipRoll=1',location.href).href;};
+    watchLoad();
     const error=doc.createElement('p');error.style.cssText='position:absolute;bottom:12px;left:25%;color:#ff798b;background:#081922';error.setAttribute('role','alert');
     let busy=false;
-    const close=()=>{dismissed.add(pending.id);view.close();};
+    const close=()=>view.close();
     const receive=async event=>{
       if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
       if(event.data?.type==='sa-ship-skill-ready')frame.contentWindow.postMessage({type:'sa-ship-skill-open',...pending.rollSpec,rollId:pending.id,name:unit.characterName,title:pending.label},location.origin);
-      if(event.data?.type==='sa-ship-skill-cancel')close();
+      if(event.data?.type==='sa-ship-skill-opened'&&event.data.rollId===pending.id){clearTimeout(loadTimer);loading.hidden=true;}
+      if(event.data?.type==='sa-ship-skill-cancel')return;
       if(event.data?.type==='sa-ship-skill-result'&&event.data.rollId===pending.id&&!busy){
         busy=true;
-        try{await bridge.action({action:'rollShipAction',id:unit.id,rollId:pending.id,score:event.data.score,diceResults:event.data.diceResults},'resolve',{throwOnError:true});close();}
-        catch(e){error.textContent=e.message;const retry=doc.createElement('button');retry.textContent='Retry Submit';retry.onclick=()=>{retry.remove();busy=false;receive(event);};error.append(retry);}
+        try{await bridge.action({action:'rollShipAction',id:unit.id,rollId:pending.id,score:event.data.score,diceResults:event.data.diceResults,exertion:event.data.exertion||0},'resolve',{throwOnError:true});close();}
+        catch(e){error.textContent=e.message;const retry=doc.createElement('button');retry.textContent='Retry Submit';retry.onclick=()=>{retry.remove();busy=false;receive(event);};retry.style.cssText='background:#183b4a;color:white;border:1px solid #90d8e9;padding:10px';error.append(retry);const revise=doc.createElement('button');revise.textContent='Reopen Dice';revise.style.cssText=retry.style.cssText;revise.onclick=()=>{busy=false;error.replaceChildren();watchLoad();frame.src=new URL('character.html?shipRoll=1',location.href).href;};error.append(revise);}
       }
     };
-    doc.defaultView.addEventListener('message',receive);view.addEventListener('cancel',event=>{event.preventDefault();close();});
-    cleanupDialog=()=>{doc.defaultView.removeEventListener('message',receive);if(notice.parentElement===view)doc.body.append(notice);view.remove();dialog=null;forced='';cleanupDialog=null;};
-    view.addEventListener('close',cleanupDialog,{once:true});view.append(frame,error);doc.body.append(view);view.showModal();
+    doc.defaultView.addEventListener('message',receive);view.addEventListener('cancel',event=>event.preventDefault());
+    cleanupDialog=()=>{clearTimeout(loadTimer);doc.defaultView.removeEventListener('message',receive);if(notice.parentElement===view)doc.body.append(notice);view.remove();dialog=null;forced='';cleanupDialog=null;};
+    view.addEventListener('close',cleanupDialog,{once:true});view.append(frame,loading,error);doc.body.append(view);view.showModal();
   }
   const timer=setInterval(poll,200);
   window.addEventListener('pagehide',()=>{clearInterval(timer);cleanupDialog?.();notice?.remove();});

@@ -206,3 +206,6 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 @media(max-width:650px){.gm-starship-crew-groups{grid-template-columns:1fr}}
 .gm-starship-card dl>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .gm-starship-card dl dt{font-size:14px}.gm-starship-card dl dd{font-size:20px;margin:0}
+
+/* Compact fleet summaries retain readable labels at narrow card widths. */
+.gm-starship-card dl>div{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:5px}.gm-starship-card dl dt{font-size:11px}.gm-starship-card dl dd{font-size:16px;line-height:1.1;max-width:100%;overflow-wrap:anywhere}

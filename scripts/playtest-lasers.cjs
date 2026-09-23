@@ -16,35 +16,43 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
   const act=(body,status=200)=>post('action',{roomCode:code,gmToken:token,...body},status),state=()=>fetch(`${base}/api/state?room=${code}&token=${token}`).then(r=>r.json());
   await act({action:'prepareEncounter',preparationId:'laser-browser-prep',mode:'starship',starships:ships,shipPositions:[{id:ships[0].id,q:0,r:0},{id:ships[1].id,q:1,r:0}],units:[{characterId:pcRecord.id,characterName:'Laser Operator',team:'pc',speed:.1,commandWindow:120,weaponSystemsSkill:6,mathematicsSkill:4,pilotSkill:6,dexterityDice:[10,10],location:{starshipId:ships[0].id,square:42,mesh:0,stationed:true}}]});
   const unit=(await state()).units[0];
-  browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({viewport:{width:1366,height:768}}),errors=[];
+  browser=await chromium.launch({channel:process.env.SA_BROWSER_CHANNEL||'chrome',headless:true});const context=await browser.newContext({viewport:{width:1366,height:768}}),errors=[];
   context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
   await context.addInitScript(()=>{window.laserAnimations=[];const animate=Element.prototype.animate;Element.prototype.animate=function(frames,options){if(options?.duration===650||options?.duration===1100||this.hasAttribute('data-laser-effect'))window.laserAnimations.push({frames,options});return animate.call(this,frames,options);};});
   const gm=await context.newPage();await gm.goto(base+'/gm.html?campaign='+code);await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill(campaignName);await gm.getByRole('textbox',{name:'GM Code',exact:true}).fill('laser-test-gm');await gm.getByRole('button',{name:'Open Campaign',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();await gm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
   const pc=await context.newPage();await pc.goto(`${base}/character.html?campaign=${code}&character=${pcRecord.id}`);await pc.getByRole('button',{name:'Enter PC Code',exact:true}).click();await pc.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill('laser-player');await pc.getByRole('button',{name:'Unlock Character',exact:true}).click();await pc.getByRole('button',{name:'Combat',exact:true}).click();await pc.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(unit.id);await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('gun');
   const consoleView=pc.getByRole('dialog',{name:'Weapons console',exact:true});await consoleView.waitFor();await act({action:'nudge',id:unit.id,amount:100});await consoleView.getByRole('button',{name:'Fire Rapid Laser',exact:true}).waitFor();await pc.waitForTimeout(1000);
   await consoleView.locator('.console-pause-notice').filter({hasText:'Paused: Awaiting GM'}).waitFor();
+  const sound=consoleView.locator('[data-sound]');
+  for(let i=0;i<4;i++){await sound.click();await pc.waitForTimeout(450);const label=await sound.getAttribute('aria-label'),pressed=await sound.getAttribute('aria-pressed');assert.equal(label,pressed==='true'?'Unmute sounds':'Mute sounds');assert.equal(await sound.locator('svg').count(),1);assert.ok((await sound.boundingBox()).width<=40);}
   const frame=gm.frameLocator('#atbFrame'),lane=frame.locator('[data-ship-combat-lane]').first(),grid=lane.locator('.inline-combat-map-grid');
   await frame.locator('#collapseNpcTurn').click();
   const initialCell=await grid.evaluate(e=>getComputedStyle(e).getPropertyValue('--cell-size').trim());
   await lane.getByRole('button',{name:'Zoom in interior',exact:true}).click();await gm.waitForTimeout(300);const zoomedCell=await grid.evaluate(e=>getComputedStyle(e).getPropertyValue('--cell-size').trim());assert.notEqual(zoomedCell,initialCell,'Minimap zoom changes actual square dimensions');await lane.getByRole('button',{name:'Zoom out interior',exact:true}).click();assert.equal(await grid.evaluate(e=>getComputedStyle(e).getPropertyValue('--cell-size').trim()),initialCell);
   assert.match(await lane.locator('[data-ship-defense]').innerText(),/DEFENSE 0/);
   assert.match(await consoleView.locator('.console-defense').innerText(),/DEFENSE 0/);
+  await gm.bringToFront();
   const motion=await frame.locator('body').evaluate(async(body,id)=>{
-    const w=body.ownerDocument.defaultView,source=body.querySelector(`[data-space-ship="${id}"]`).closest('svg'),svg=source.cloneNode(true),rect=source.getBoundingClientRect();svg.style.cssText=`position:fixed;left:0;top:0;width:${rect.width}px;height:${rect.height}px;z-index:99999`;body.append(svg);
+    const w=body.ownerDocument.defaultView;w.SACombatFeedback.impact(id);let host=body.ownerDocument;while(host.defaultView.frameElement)host=host.defaultView.parent.document;
+    const svg=host.querySelector('.combat-effect-stage [data-space-canvas]');await new Promise(r=>setTimeout(r,700));
     const marker=svg.querySelector(`[data-space-ship="${id}"]`),circle=marker.querySelector('circle'),original=svg.getAttribute('viewBox'),results=[];
+    // A throttled background frame can start its animation after the timeout.
+    // Measure from the settled map position, not halfway through the first hit.
+    await Promise.all(marker.getAnimations().map(a=>a.finished.catch(()=>{})));
     for(const zoom of [1,.5,2]){
       const v=original.split(' ').map(Number);svg.setAttribute('viewBox',`${v[0]} ${v[1]} ${v[2]*zoom} ${v[3]*zoom}`);
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const before=circle.getBoundingClientRect(),transform=marker.getAttribute('transform');w.SACombatFeedback.impact(id);let maximum=0;
-      await new Promise(resolve=>{const start=performance.now();function sample(){const p=circle.getBoundingClientRect();maximum=Math.max(maximum,Math.hypot(p.x-before.x,p.y-before.y));if(performance.now()-start<700)requestAnimationFrame(sample);else resolve();}sample();});
-      results.push({maximum,unchanged:marker.getAttribute('transform')===transform});
+      await new Promise(resolve=>{const start=performance.now();let repeated=false;function sample(){const elapsed=performance.now()-start;if(elapsed>70&&!repeated){repeated=true;w.SACombatFeedback.impact(id);}const p=circle.getBoundingClientRect();maximum=Math.max(maximum,Math.hypot(p.x-before.x,p.y-before.y));if(elapsed<800)requestAnimationFrame(sample);else resolve();}sample();});
+      const after=circle.getBoundingClientRect();results.push({maximum,unchanged:marker.getAttribute('transform')===transform,settledOffset:Math.hypot(after.x-before.x,after.y-before.y)});
     }
     marker.classList.add('ship-wreck');w.SACombatFeedback.impact(id,true);
     const burst=marker.querySelector('[data-explosion]'),center=new DOMPoint(0,0).matrixTransform(marker.getScreenCTM()),rectBurst=burst.getBoundingClientRect();
     const assertAnchor=Math.hypot(rectBurst.x+rectBurst.width/2-center.x,rectBurst.y+rectBurst.height/2-center.y);
     results.push({maximum:assertAnchor,unchanged:getComputedStyle(burst).visibility==='visible'});
-    svg.remove();return results;
+    return results;
   },ships[1].id);
-  assert.ok(motion.every(m=>m.maximum<=1.7&&m.unchanged),'Ship shakes at most 1.5 screen pixels without changing its map position: '+JSON.stringify(motion));
+  assert.ok(motion.every(m=>m.maximum<=1.7&&m.unchanged&&(m.settledOffset??0)<.1),'Repeated impacts shake at most 1.5 screen pixels and return to the same map position: '+JSON.stringify(motion));
+  await pc.bringToFront();
   assert.ok(await lane.locator('.ship-lane-log').evaluate(e=>[e,...e.querySelectorAll('*')].every(n=>getComputedStyle(n).animationName==='none')),'Main activity log does not flash');
   await lane.locator('[data-inline-map-view="highResolution"]').check();
   assert.ok(await grid.locator('.combat-map-square:has(>.sa-exterior-weapon)').evaluateAll(cells=>cells.length&&cells.every(e=>getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)')),'Exterior weapon cells have no opaque background');
@@ -61,7 +69,7 @@ const campaignName='Laser Verification '+Date.now();const made=await post('campa
   const evadeRoll=pc.getByRole('dialog',{name:'Ship action dice roll'});await evadeRoll.waitFor();assert.equal(await pc.locator('.ship-navigation-dialog').count(),0,'Evasive Maneuvers goes straight to the shared roll');await evadeRoll.frameLocator('iframe').getByRole('button',{name:'Roll for Me',exact:true}).click();await evadeRoll.frameLocator('iframe').getByRole('button',{name:'Confirm and Submit',exact:true}).click();await evadeRoll.waitFor({state:'detached'});
   for(let i=0;i<35&&(await state()).units[0].delayedAction;i++)await act({action:'step'});assert.ok((await state()).starships[0].defenseScore>0,'Direct evasion raises Defense');await act({action:'nudge',id:unit.id,amount:100});
   await pc.frameLocator('#playerAtbFrame').getByRole('button',{name:`Fire Rapid Laser ${laserTier}`,exact:true}).click();
-  const quick=pc.getByRole('dialog',{name:'Fire Rapid Laser',exact:true});await quick.waitFor();assert.equal((await state()).units[0].delayedAction,null,'Shortcut opens compact planning without firing');assert.ok((await quick.boundingBox()).width<700);await pc.screenshot({path:path.join(artifacts,'combat-fire-planner.png')});await quick.getByRole('button',{name:'Cancel',exact:true}).click();await pc.frameLocator('#playerAtbFrame').getByRole('button',{name:'Console View',exact:true}).click();await consoleView.waitFor();
+  const quick=pc.getByRole('dialog',{name:'Fire Rapid Laser',exact:true});await quick.waitFor();assert.equal((await state()).units[0].delayedAction,null,'Shortcut opens compact planning without firing');assert.ok((await quick.boundingBox()).width<700);await pc.screenshot({path:path.join(artifacts,'combat-fire-planner.png')});await quick.getByRole('button',{name:'Cancel',exact:true}).click();await pc.frameLocator('#playerAtbFrame').getByRole('button',{name:'Toggle Console',exact:true}).click();await consoleView.waitFor();
   await consoleView.getByRole('button',{name:'Next console',exact:true}).click();
   await pc.getByRole('dialog',{name:'Lock-On console'}).getByRole('button',{name:'Previous console',exact:true}).click();await consoleView.waitFor();
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');

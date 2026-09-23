@@ -8,12 +8,12 @@ function fixture(){
 }
 let receipt=0;const queue=(room,u,targetId='b',kind='lock',extra={})=>locks.queue(room,u,{targetId,kind,requestId:'lock-test-'+(++receipt),...extra});
 function resolve(room,u,score){const roll=()=>{throw Error('No automatic dice');};roll.submittedScore=score;return locks.resolve(room,u,roll);}
-test('Lock-On 1 uses source dimensions, cost, threshold and no physical station',()=>{const d=maps.definition('lock-on-1');assert.equal(d.price,560);assert.equal(d.threshold,3);assert.equal(d.energyCost,1);assert.deepEqual(d.stations,[]);});
+test('Lock-On 1 uses source dimensions, cost, threshold and a physical station',()=>{const d=maps.definition('lock-on-1');assert.equal(d.price,560);assert.equal(d.threshold,3);assert.equal(d.energyCost,1);assert.equal(d.stations.length,1);});
 test('failed locks add shared retry, equality succeeds and survives serialization',()=>{const {room,a,unit}=fixture();assert.ok(queue(room,unit).ok);assert.deepEqual(unit.delayedAction.rollSpec.sides,[4,4]);resolve(room,unit,9);assert.equal(a.lockState.failures.b,1);queue(room,unit);assert.equal(unit.delayedAction.rollSpec.bonus,3.5);assert.ok(resolve(room,unit,10).success);const saved=JSON.parse(JSON.stringify(room));assert.ok(locks.locked(saved,saved.starships[0],'b'));});
 test('second target pays 4 AU per 12 combat seconds and drops only extra target when empty',()=>{const {room,a,unit}=fixture();queue(room,unit);resolve(room,unit,10);const before=a.auState.current;assert.ok(queue(room,unit,'c').ok);assert.equal(a.auState.current,before-4);resolve(room,unit,10);a.auState.current=0;locks.refresh(room,11);assert.equal(a.lockState.targets.length,2);locks.refresh(room,1);assert.deepEqual(a.lockState.targets.map(t=>t.targetId),['b']);});
 test('power loss, new impairment and sensor range break locks and reset retry',()=>{for(const kind of ['power','impairment','range']){const {room,a,unit}=fixture();queue(room,unit);resolve(room,unit,10);const item=a.ship.sicInventory.find(i=>i.id==='lock');if(kind==='power')item.status='powered-down';if(kind==='impairment')item.impairmentPoints=1;if(kind==='range')room.shipPositions[1].q=100;locks.refresh(room);assert.equal(a.lockState.targets.length,0,kind);if(kind==='impairment'){queue(room,unit);assert.deepEqual(unit.delayedAction.rollSpec.sides,[2,2]);}}});
 test('SIC lock requires analyzed installed component, ship lock and shields down',()=>{const {room,a,b,unit}=fixture();assert.equal(queue(room,unit,'b','sic',{targetSicId:'lock'}).ok,false);queue(room,unit);resolve(room,unit,10);a.sensorState.reports.unshift({analysis:true,targetId:'b',layout:JSON.parse(JSON.stringify(b.ship))});assert.ok(queue(room,unit,'b','sic',{targetSicId:'lock'}).ok);resolve(room,unit,10);assert.equal(a.lockState.targets[0].sicId,'lock');b.currentShieldHp=1;locks.refresh(room);assert.equal(a.lockState.targets[0].sicId,null);assert.equal(queue(room,unit,'b','sic',{targetSicId:'lock'}).ok,false);});
-test('locked laser skips accuracy but still requests 4D4; SIC damage gives threshold impairments',()=>{const {room,a,b,unit}=fixture();queue(room,unit);resolve(room,unit,10);a.lockState.targets[0].sicId='lock';assert.ok(weapons.queue(room,unit,{sicId:'gun',targetId:'b',requestId:'locked-laser'}).ok);assert.equal(unit.delayedAction.rollConfirmed,true);weapons.resolveInput(room,unit,()=>{throw Error('Accuracy auto-roll');});assert.equal(unit.delayedAction.weaponDamage.count,4);assert.equal(b.currentHullHp,40);weapons.resolveDamage(room,unit,[3,3,3,3]);assert.equal(b.currentHullHp,28);assert.equal(b.ship.sicInventory.find(i=>i.id==='lock').status,'destroyed');assert.equal(room.units.length,1);});
+test('locked laser skips accuracy but still requests 4D4; SIC damage gives threshold impairments',()=>{const {room,a,b,unit}=fixture();queue(room,unit);resolve(room,unit,10);a.lockState.targets[0].sicId='lock';assert.ok(weapons.queue(room,unit,{sicId:'gun',targetId:'b',targetSicId:'lock',requestId:'locked-laser'}).ok);assert.equal(unit.delayedAction.rollConfirmed,true);weapons.resolveInput(room,unit,()=>{throw Error('Accuracy auto-roll');});assert.equal(unit.delayedAction.weaponDamage.count,4);assert.equal(b.currentHullHp,40);weapons.resolveDamage(room,unit,[3,3,3,3]);assert.equal(b.currentHullHp,28);assert.equal(b.ship.sicInventory.find(i=>i.id==='lock').status,'destroyed');assert.equal(room.units.length,1);});
 test('Break Lock-On respects zero Masking and normal 13 difficulty',()=>{const {room,a,b,unit}=fixture();locks.state(b).targets.push({targetId:'a',remaining:12});a.sensorScenarioMasking=0;assert.match(queue(room,unit,'b','break').error,/zero/);a.sensorScenarioMasking=10;assert.ok(queue(room,unit,'b','break').ok);assert.equal(unit.delayedAction.rollSpec.difficulty,13);resolve(room,unit,13);assert.equal(b.lockState.targets.length,0);});
 test('release is free, idempotent and never interrupts pending input',()=>{const {room,a,unit}=fixture();queue(room,unit);resolve(room,unit,10);room.activeId=null;assert.equal(queue(room,unit,'b','release').free,true);assert.equal(a.lockState.targets.length,0);unit.delayedAction={id:'other'};assert.equal(queue(room,unit,'b','release').ok,false);});
 
@@ -79,4 +79,24 @@ test('rectangular lasers keep one complete transparent assembly on every mount',
       const next=origin+(d.width>1?1:20);assert.doesNotMatch(maps.surfaceMarkup(layout,next),/<img/);
     }
   }
+});
+test('multiple SIC locks survive restore, reject duplicate orders and preserve whole-ship selection',()=>{
+ const {room,a,b,unit}=fixture();queue(room,unit);resolve(room,unit,10);
+ a.sensorState.analyses.b={layout:structuredClone(b.ship)};
+ for(const id of ['lock','gun']){assert.equal(queue(room,unit,'b','sic',{targetSicId:id}).ok,true);resolve(room,unit,10);}
+ assert.deepEqual(locks.components(a.lockState.targets[0]),['lock','gun']);
+ assert.equal(queue(room,unit).error,'Already Locked onto');
+ assert.equal(queue(room,unit,'b','sic',{targetSicId:'lock'}).error,'Already Locked onto');assert.equal(unit.delayedAction,null);
+ const restored=JSON.parse(JSON.stringify(room));locks.refresh(restored);assert.deepEqual(locks.components(restored.starships[0].lockState.targets[0]),['lock','gun']);
+ assert.equal(weapons.queue(room,unit,{sicId:'gun',targetId:'b',requestId:'whole-ship-choice'}).ok,true);assert.equal(unit.delayedAction.weaponOrder.targetSicId,null);
+});
+
+test('Scramble Box subtracts one from the existing manual component-lock roll only',()=>{
+ const {room,a,b,unit}=fixture();queue(room,unit);resolve(room,unit,10);
+ a.sensorState.analyses.b={layout:structuredClone(b.ship)};
+ b.ship.sicInventory.push({id:'scramble',type:'scramble-box'});b.ship.placements.push({sicId:'scramble',cell:45});
+ assert.ok(queue(room,unit,'b','sic',{targetSicId:'lock'}).ok);
+ assert.equal(unit.delayedAction.rollSpec.bonus,unit.sensorSkill-1);assert.match(unit.delayedAction.rollSpec.difficultyLabel,/Scramble/);
+ unit.delayedAction=null;b.ship.sicInventory.at(-1).impaired=true;
+ assert.ok(queue(room,unit,'b','sic',{targetSicId:'lock'}).ok);assert.equal(unit.delayedAction.rollSpec.bonus,unit.sensorSkill);
 });

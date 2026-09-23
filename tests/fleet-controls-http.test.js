@@ -1,0 +1,28 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
+const maps=require('../ship-map-core');
+test('cloak AU, room air and GM-only map colors survive campaign restore',{timeout:20000},async t=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'sa-fleet-controls-'));
+ const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:directory},stdio:['ignore','pipe','pipe']});
+ t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
+ const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),8000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timer);resolve(u);}});});
+ const post=async(p,b,status=200)=>{const r=await fetch(base+'/api/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+ const demo=await post('campaign/showcase/start',{}),auth={code:demo.code,token:demo.gmToken};
+ const backup=()=>fetch(`${base}/api/campaign/backup?code=${auth.code}&token=${auth.token}`).then(r=>r.json());
+ const data=await backup(),c=data.campaign,ship=c.starships[0],pc=c.characters[0];
+ const specs=[['bridge','bridge-1',42],['engine','en-engine-6',282],['au','au-engine-6',292],['life','life-support',124],['cloak','cloaking-device',254]];
+ ship.ship={id:ship.id,title:ship.title,confirmedOnce:true,gridCells:maps.rectangleCells({},42,16,16),sicInventory:specs.map(([id,type])=>({id,type})),placements:specs.map(([sicId,type,cell])=>({sicId,cell})),doorStates:{}};
+ ship.characterLocations={[pc.id]:{square:42,mesh:0,stationed:true}};
+ Object.assign(c.encounter,{running:false,hasEngagedClock:false,encounterEndedAt:Date.now()});
+ await post('campaign/restore',{...auth,backup:data});
+ const player=await post('campaign/character/unlock',{code:auth.code,characterId:pc.id,pcCode:pc.pcCode});
+ const body={...auth,token:player.token,characterId:pc.id,starshipId:ship.id,sicId:'cloak',kind:'cloak',enabled:true,receipt:'cloak-http-first'};
+ let response=await post('campaign/starship/utility',body);assert.equal(response.starship.auState.current,48);assert.equal(response.starship.ship.cloakState.active,true);
+ response=await post('campaign/starship/utility',body);assert.equal(response.starship.auState.current,48);
+ await post('campaign/starship/color',{...auth,token:player.token,starshipId:ship.id,color:'#77aabb'},403);
+ await post('campaign/starship/color',{...auth,starshipId:ship.id,color:'#77aabb'});
+ const editorCopy=(await backup()).campaign.starships.find(s=>s.id===ship.id).ship;
+ const edited=await post('campaign/starship/save',{...auth,starshipId:ship.id,starship:{...editorCopy,mapColor:'#aa77cc'}});
+ assert.equal(edited.starship.ship.mapColor,'#aa77cc');
+ const saved=await backup();await post('campaign/restore',{...auth,backup:saved});
+ response=await post('campaign/starship/utility',{...body,enabled:false,receipt:'cloak-http-off'});assert.equal(response.starship.auState.current,48);assert.equal(response.starship.ship.mapColor,'#aa77cc');assert.ok(response.starship.ship.atmosphereState);
+});

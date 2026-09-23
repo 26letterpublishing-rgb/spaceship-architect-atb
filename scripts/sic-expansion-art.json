@@ -1,0 +1,62 @@
+[
+  {
+    "file": "vr-training-room-3x3.webp",
+    "prompt": "Edit target image: compact this square VR training room into a believable 3x3 game-grid footprint instead of its oversized 5x5 scale. Retain overhead orthographic metallic floorplan, purple/cyan holographic projectors, open central training circle, exactly two usable operator chairs, outer walls and door access. Make chairs, consoles and door widths larger relative to the room (about five thirds previous size) so the room feels physically smaller; simplify clutter. Place two operator chairs near the upper left and upper right corners to match the game station positions, with usable access. No people, text, labels or visible grid. Square image, crisp readable floorplan. Transparent outside outer walls. Output a single asset.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-5651d955-6e7f-4a12-8216-79f01964edc5.png"
+  },
+  {
+    "file": "backup-generator.webp",
+    "prompt": "Generate a single square orthographic overhead floorplan tile for a 1x1 backup emergency generator in a detailed metallic starship tabletop game. Small extremely rugged enclosed power core, armored gray metal casing, green status lights, shielded conduits and yellow-black caution edging, three cyan power cells in its center. Fits entirely inside square tile; no workstation, no chairs, no people, no text or numerals. Industrial illustrated game art, strong readable silhouette, transparent outside tile.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-dab7cabd-20fc-4c5e-b358-dcee0bd02cba.png"
+  },
+  {
+    "file": "repair-drone-2-sprite.webp",
+    "prompt": "Use the reference as the style and family reference for a NEW grade 2 hull repair robot sprite. Orthographic overhead, transparent background. Retain friendly industrial robotic design but make grade visibly distinct in silhouette and equipment: two broad tracks, blue armor, twin welding claws and a rear spare-parts canister. One isolated robot, no bay or scene, no text or numbers. Clean sharp detailed illustration readable at small game-icon size. Full robot centered, no clipping.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-feeea881-37a3-49a0-b55e-9ebc7c89ac37.png"
+  },
+  {
+    "file": "repair-drone-3-sprite.webp",
+    "prompt": "Use the reference as the style and family reference for a NEW grade 3 hull repair robot sprite. Orthographic overhead, transparent background. Retain friendly industrial robotic design but make grade visibly distinct in silhouette and equipment: four compact magnetic wheel pods, green armor, triple tool manipulators and a repair reservoir. One isolated robot, no bay or scene, no text or numbers. Clean sharp detailed illustration readable at small game-icon size. Full robot centered, no clipping.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-616490c4-476a-4a93-a19a-e5bb6a97234e.png"
+  },
+  {
+    "file": "repair-drone-4-sprite.webp",
+    "prompt": "Use the reference as the style and family reference for a NEW grade 4 hull repair robot sprite. Orthographic overhead, transparent background. Retain friendly industrial robotic design but make grade visibly distinct in silhouette and equipment: six magnetic legs, purple armor, four slender precision arms and twin rear repair tanks. One isolated robot, no bay or scene, no text or numbers. Clean sharp detailed illustration readable at small game-icon size. Full robot centered, no clipping.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-eb589f30-60ec-40a3-bb78-bbe03db85664.png"
+  },
+  {
+    "file": "repair-drone-5-sprite.webp",
+    "prompt": "Use the reference as the style and family reference for a NEW grade 5 hull repair robot sprite. Orthographic overhead, transparent background. Retain friendly industrial robotic design but make grade visibly distinct in silhouette and equipment: wide armored gold-and-ivory chassis, four powerful magnetic track pods, six articulated repair tools and a central bright cyan fabrication core. One isolated robot, no bay or scene, no text or numbers. Clean sharp detailed illustration readable at small game-icon size. Full robot centered, no clipping.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-345acb5b-febd-441e-8d25-b34117e623e5.png"
+  },
+  {
+    "file": "antenna-1.webp",
+    "prompt": "Generate one orthographic overhead starship exterior sensor antenna game sprite for a tall narrow 1x2 grid footprint. a simple silver receiver dish and narrow telescoping mast with blue status lights. Detailed metallic industrial illustration for tabletop starship floorplan, matching realistic gray sci-fi machinery. Point outward toward top, hull mounting bracket at bottom. Fill narrow vertical composition, no room, no chairs, no background, genuinely transparent alpha. No text, no numerals, no grid. Single equipment asset.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-eeef5757-37d7-4c11-ba45-2ff660b9fb0e.png"
+  },
+  {
+    "file": "antenna-2.webp",
+    "prompt": "Generate one orthographic overhead starship exterior sensor antenna game sprite for a tall narrow 1x2 grid footprint. twin receiver dishes flanking a central blue sensor spine. Detailed metallic industrial illustration for tabletop starship floorplan, matching realistic gray sci-fi machinery. Point outward toward top, hull mounting bracket at bottom. Fill narrow vertical composition, no room, no chairs, no background, genuinely transparent alpha. No text, no numerals, no grid. Single equipment asset.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-081a3c47-d327-4e08-95c9-2d2ddd08c2a9.png"
+  },
+  {
+    "file": "antenna-3.webp",
+    "prompt": "Generate one orthographic overhead starship exterior sensor antenna game sprite for a tall narrow 1x2 grid footprint. a three-pronged purple sensor array with three small dishes. Detailed metallic industrial illustration for tabletop starship floorplan, matching realistic gray sci-fi machinery. Point outward toward top, hull mounting bracket at bottom. Fill narrow vertical composition, no room, no chairs, no background, genuinely transparent alpha. No text, no numerals, no grid. Single equipment asset.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c31b7f52-e4b2-4695-97a2-d3856e5591da.png"
+  },
+  {
+    "file": "antenna-4.webp",
+    "prompt": "Generate one orthographic overhead starship exterior sensor antenna game sprite for a tall narrow 1x2 grid footprint. a powerful gold and white phased sensor array with four receiver panels around a central cyan core. Detailed metallic industrial illustration for tabletop starship floorplan, matching realistic gray sci-fi machinery. Point outward toward top, hull mounting bracket at bottom. Fill narrow vertical composition, no room, no chairs, no background, genuinely transparent alpha. No text, no numerals, no grid. Single equipment asset.",
+    "tool": "built-in image_gen",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-369de43f-ee06-49a2-ac01-39c5fb18115d.png"
+  }
+]

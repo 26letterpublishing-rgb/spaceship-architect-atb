@@ -2,8 +2,18 @@ const path = require("path");
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
+  'cleanser-ui.js','cleanser-timeline.js',
+  'warp-effects.js','automation-ui.js','fleet-notices.js','drone-console.js','ship-probes.js','probe-console.js','drone-map.js','surveillance-console.js','skill-catalog.js',
+  'space-objects.js','space-object-editor.js',
+  'field-utility-console.js',
+  'field-utility-status.js',
+  'crew-room-console.js','crew-room-status.js',
+  'ship-targets.js','missile-ammunition.js','missile-ui.js',
+  'transit-console-ui.js','transit-status.js',
+  'hacking-practice-ui.js',
+  'hacking-console-ui.js',
   'combat-wire.js', 'view-ready.js', 'result-feedback.js',
-  'ship-print.js',
+  'ship-print.js','crew-tokens.js','utility-console-ui.js','oxygen-ui.js',
   'ship-locks.js','lock-console-ui.js','console-common.js','combat-feedback.js','combat-order-ui.js',
   "station-access.js", "ship-shields.js", "shield-console-ui.js", "ship-roll-ui.js", "console-feedback.js",
   "ship-weapons.js", "weapon-console-ui.js", "ship-sensors.js", "sensor-console-ui.js", "ship-cooperation.js", "ship-command-ui.js", "action-help.js", "maintenance-ui.js",

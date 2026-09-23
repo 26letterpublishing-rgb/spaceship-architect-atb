@@ -1,0 +1,20 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawn}=require('node:child_process'),{once}=require('node:events');
+test('practice API keeps secrets private, validates retries and cannot alter encounter state',{timeout:20000},async t=>{
+  const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-hack-http-'))},stdio:['ignore','pipe','pipe']});
+  t.after(async()=>{if(child.exitCode===null){const ended=once(child,'exit');child.kill();await ended;}});
+  const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),8000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});});
+  const post=async(url,body,token='',expected=200)=>{const response=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-Practice-Token':token},body:JSON.stringify(body)}),data=await response.json();assert.equal(response.status,expected,JSON.stringify(data));return data;};
+  const room=await post('/api/campaign/showcase/start',{}),before=await fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());
+  const a=await post('/api/hacking/practice',{operation:'create',security:3,firewall:2,tier:1}),b=await post('/api/hacking/practice',{operation:'create',security:3,firewall:2,tier:1});
+  const body={requestId:'http-guess-retry',guess:a.board.candidates.slice(0,3)},first=await post('/api/hacking/practice',body,a.token),again=await post('/api/hacking/practice',body,a.token);
+  assert.equal(first.history.length,1);assert.equal(again.history.length,1);assert.equal(again.duplicate,true);
+  const get=token=>fetch(base+'/api/hacking/practice',{headers:{'X-Practice-Token':token}}).then(r=>r.json());assert.equal((await get(b.token)).history.length,0);
+  for(const field of ['answer','password','secret','decoys','receipts'])assert.ok(!JSON.stringify(await get(a.token)).includes(`"${field}"`));
+  assert.equal((await fetch(base+'/hacking-puzzle.js')).status,404);assert.equal((await fetch(base+'/hacking-practice.js')).status,404);
+  await post('/api/hacking/practice',body,'invalid-token',404);
+  await post('/api/hacking/practice',{requestId:'invalid-letters',guess:['Z','Z','Z']},a.token,400);
+  assert.equal((await fetch(base+'/api/hacking/practice',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://unrelated.example'},body:JSON.stringify({operation:'create',security:3,firewall:2,tier:1})})).status,403);
+  const after=await fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());
+  for(const field of ['activeId','running','pausedForTurn','hardPaused','units','starships','log'])assert.deepEqual(after[field],before[field],field+' unchanged');
+  assert.equal((await fetch(base+'/api/hacking/practice',{method:'DELETE',headers:{'X-Practice-Token':a.token}})).status,200);assert.match((await get(a.token)).error,/session ended/);
+});

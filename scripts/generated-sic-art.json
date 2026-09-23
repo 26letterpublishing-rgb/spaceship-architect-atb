@@ -1,0 +1,137 @@
+[
+  {
+    "id": "tractor-beam",
+    "prompt": "Use case: stylized-concept. Production game sprite for Spaceship Architect: a highly detailed hard-surface TRACTOR BEAM projector, true orthographic top-down view, long narrow vertical assembly pointing toward the top. Large magnetic circular emitter in forward half, paired steel rails, copper coils, tiny teal power cells, articulated industrial base at bottom. Believable photorealistic painted game-asset materials, silver worn titanium and dark graphite with small luminous cyan accents. Entire object clearly lit, all mechanical edges sharp, not an icon or vector. Isolated on genuinely transparent background with alpha, no floor, no cast shadow beyond object, no text, no border, no grid, no perspective tilt. Full object fits canvas with very small transparent margins. Portrait 1:3 composition. This will sit outside a spaceship hull with its base touching the bottom edge.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-43d90ffb-2c7a-4108-829f-25c1a6dd4a7e.png"
+  },
+  {
+    "id": "manipulation-arm",
+    "prompt": "Use case: stylized-concept. Detailed production game sprite for Spaceship Architect. A long narrow industrial articulated robotic salvage arm, four mechanical joints and pistons, two open grasping fingers at the top, mounting plate at bottom, silver worn titanium, graphite and safety amber details. True orthographic top-down portrait 1:3. Believable photorealistic painted hard-surface game art, sharp readable mechanical details and even studio lighting. Full object centered, tiny margins, genuinely transparent background and alpha, no floor outside the object, no text, no border, no grid, no perspective tilt, not vector or flat icon.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-68fb200d-0f43-4f87-9d51-55aa56e6ebfb.png"
+  },
+  {
+    "id": "escape-pods",
+    "prompt": "Use case: stylized-concept. Detailed production game sprite for Spaceship Architect. One compact circular escape capsule cutaway showing three contoured seats arranged around a central control column, copper safety harnesses, reinforced silver outer rim, small red emergency housings and green status lights. True orthographic top-down square, no roof; retain transparent background around the capsule. Believable photorealistic painted hard-surface game art, sharp readable mechanical details and even studio lighting. Full object centered, tiny margins, genuinely transparent background and alpha, no floor outside the object, no text, no border, no grid, no perspective tilt, not vector or flat icon.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-b57d8d27-7875-45e4-b8dd-787f861fece8.png"
+  },
+  {
+    "id": "ripple-reflector",
+    "prompt": "Use case: stylized-concept. Detailed production game sprite for Spaceship Architect. A square spacecraft ripple reflector array, four silver articulated emitter petals around a dark iridescent circular dish, fine copper circuits, lime green status lights, multilayer hard-surface engineering detail. True orthographic top-down square. Believable photorealistic painted hard-surface game art, sharp readable mechanical details and even studio lighting. Full object centered, tiny margins, genuinely transparent background and alpha, no floor outside the object, no text, no border, no grid, no perspective tilt, not vector or flat icon.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-7123f21a-0d70-4c80-a3c9-c83e62acca90.png"
+  },
+  {
+    "id": "docking-bay",
+    "prompt": "Use case: stylized-concept. High detail production floorplan asset for Spaceship Architect. An empty square spaceship docking hangar floor module: metallic deck with central landing markings, recessed docking clamps at four corners, pressure bulkheads, segmented outer hatch at top, small gantry mechanisms along sides. No ships in bay. TRUE vertical orthographic top-down cutaway, NO roof, NO isometric angle, no perspective. Square room fills image, transparent outside a thin outer wall. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. All furniture visible from directly above. No people, words, labels, borders or game grid.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-609683a2-4695-4f7f-a877-ebfbaed6bbd3.png"
+  },
+  {
+    "id": "medbay",
+    "prompt": "Use case: stylized-concept. High detail production floorplan asset for Spaceship Architect. A square spaceship infirmary floor module: one central white medical bed with green mattress, two diagnostic consoles, medical supply drawers, small scanner arch viewed directly overhead, clean steel flooring with mint accents. TRUE vertical orthographic top-down cutaway, NO roof, NO isometric angle, no perspective. Square room fills image, transparent outside a thin outer wall. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. All furniture visible from directly above. No people, words, labels, borders or game grid.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-1bb72a09-fe38-4c08-9577-6d9b439128fc.png"
+  },
+  {
+    "id": "library",
+    "prompt": "Use case: stylized-concept. High detail production floorplan asset for Spaceship Architect. A square spaceship digital library floor module: two reading chairs, archive server shelving along side walls, angular desks with green luminous touchscreens, a small central archive projector, silver and graphite flooring with rich burgundy upholstery. TRUE vertical orthographic top-down cutaway, NO roof, NO isometric angle, no perspective. Square room fills image, transparent outside a thin outer wall. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. All furniture visible from directly above. No people, words, labels, borders or game grid.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-83797644-ba91-47cf-8257-7d81c8281a02.png"
+  },
+  {
+    "id": "meeting-room",
+    "prompt": "Use case: stylized-concept. High detail production game asset for Spaceship Architect. A square spaceship meeting room floor module: one central elongated oval conference table, six red upholstered chairs, perimeter wall monitor, silver flooring, small bronze trim, no people. True vertical ORTHOGRAPHIC TOP-DOWN cutaway, no roof, square room fills image, transparent outside thin wall. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. No isometric tilt, no people, words, labels, border or game grid. Do not use flat vector icon style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-a7b890f9-769d-49f2-bac0-daceb1eb37a7.png"
+  },
+  {
+    "id": "vr-training-room",
+    "prompt": "Use case: stylized-concept. High detail production game asset for Spaceship Architect. A square spaceship virtual-reality training room floor module: broad open training floor, four holographic emitter pillars at corners, two reclined training seats near the bottom, intricate silver technical walls, luminous cyan and violet projection strips, all machinery and floor clearly visible. True vertical ORTHOGRAPHIC TOP-DOWN cutaway, no roof, square room fills image, transparent outside thin wall. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. No isometric tilt, no people, words, labels, border or game grid. Do not use flat vector icon style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-9d9d2c05-1749-4624-b797-697b32622f05.png"
+  },
+  {
+    "id": "ship-ai",
+    "prompt": "Use case: stylized-concept. High detail production game asset for Spaceship Architect. A compact spaceship artificial intelligence core, concentric rings and silver processor plates surrounding a luminous teal crystalline spherical neural core, fine copper traces and server modules. True orthographic TOP-DOWN isolated machine, square composition, genuinely transparent background. Believable photorealistic painted sci-fi game art with fine panel seams, wiring, metal texture and bright readable lighting. No isometric tilt, no people, words, labels, border or game grid. Do not use flat vector icon style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-204e08f1-39c3-4de3-9e53-1c70239c35e3.png"
+  },
+  {
+    "id": "missile-launcher-1",
+    "prompt": "Use case: stylized-concept. Detailed Spaceship Architect game sprite: tier 1 spacecraft missile launcher, a narrow rack of three covered launch tubes, simple silver mounting frame and green status lights. True vertical orthographic top-down view, pointing toward top, mounting base at bottom. Portrait 1:2 composition, genuinely transparent background, full object with small margins. Worn titanium, dark graphite, realistic fine mechanical detail and crisp evenly lit surfaces. No perspective, people, text, grid, shadows outside object, flat icons or vector artwork.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-7f2629c7-ccca-4a0b-9efc-c9c78af1a6c4.png"
+  },
+  {
+    "id": "missile-launcher-2",
+    "prompt": "Use case: stylized-concept. Detailed Spaceship Architect game sprite: tier 2 spacecraft missile launcher, five covered launch tubes in a staggered armored rack, dual feed mechanisms, lime accents. True vertical orthographic top-down view, pointing toward top, mounting base at bottom. Portrait 1:2 composition, genuinely transparent background, full object with small margins. Worn titanium, dark graphite, realistic fine mechanical detail and crisp evenly lit surfaces. No perspective, people, text, grid, shadows outside object, flat icons or vector artwork.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-8943a25e-2215-448b-b5e9-3bf068707b25.png"
+  },
+  {
+    "id": "missile-launcher-3",
+    "prompt": "Use case: stylized-concept. Detailed Spaceship Architect game sprite: tier 3 spacecraft missile launcher, eight launch tubes in paired banks with a central armored loading spine, bronze safety panels. True vertical orthographic top-down view, pointing toward top, mounting base at bottom. Portrait 1:2 composition, genuinely transparent background, full object with small margins. Worn titanium, dark graphite, realistic fine mechanical detail and crisp evenly lit surfaces. No perspective, people, text, grid, shadows outside object, flat icons or vector artwork.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-8bbaade6-cb33-431e-ab67-ead26ab629c4.png"
+  },
+  {
+    "id": "missile-launcher-5",
+    "prompt": "Use case: stylized-concept. High-detail production game art for Spaceship Architect. An advanced heavy spacecraft missile battery with twenty-five compact launch hatches in a five by five square bank, thick titanium perimeter armor, twin articulated loading mechanisms, silver and dark graphite with red safety accents; true orthographic top-down, full isolated object, square. Genuinely transparent background, fine mechanical surface detail, readable even lighting, no perspective tilt, no labels, text, grid, border or flat vector styling.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-3ea1fce8-5130-495b-8636-52ac5b7b5ec4.png"
+  },
+  {
+    "id": "meeting-room-console",
+    "prompt": "Use case: stylized-concept. High-detail production game art for Spaceship Architect. Interior of an elegant functional spaceship conference room at seated eye level, wide cinematic 16:9 view, long dark oval table with six red chairs, silver metallic walls and small bronze trims. Large rectangular observation window in the upper left of the back wall from about x=5% to x=43%, y=12% to y=42%, black outer space with tiny stars. A rectangular television in the upper right back wall x=62% to x=88%, y=17% to y=37%, displaying a quiet green orbital diagram. No people. Clearly lit immersive believable sci-fi environment, not dark, no labels, no text. Opaque full-bleed scene, not transparent. Rich realistic materials, sharp coherent composition.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-82967ed3-5c28-490a-8540-104fa3480202.png"
+  },
+  {
+    "id": "missile-1",
+    "prompt": "Use case: stylized-concept. Detailed ammunition card asset for Spaceship Architect, a single tier 1 guided space missile. slim silver body, dark conical nose, simple tail fins, teal band. Full vertical object points up, true top-down orthographic view, portrait 1:3, genuinely transparent background, small margins. No launching fire. Photorealistic hard-surface game render with fine panel seams and even lighting, not vector, no text or labels, no grid or border.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-2bfdcfa2-1c59-448b-95f5-856e62368f8d.png"
+  },
+  {
+    "id": "missile-2",
+    "prompt": "Use case: stylized-concept. Detailed ammunition card asset for Spaceship Architect, a single tier 2 guided space missile. silver segmented body, rounded armored nose, swept tail fins, green band, twin sensor apertures. Full vertical object points up, true top-down orthographic view, portrait 1:3, genuinely transparent background, small margins. No launching fire. Photorealistic hard-surface game render with fine panel seams and even lighting, not vector, no text or labels, no grid or border.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-0f65e509-e9bc-4e28-a441-d973548469a5.png"
+  },
+  {
+    "id": "missile-3",
+    "prompt": "Use case: stylized-concept. Detailed ammunition card asset for Spaceship Architect, a single tier 3 guided space missile. broad reinforced silver body, bronze guidance collar, four angular tail fins, exposed technical access panels. Full vertical object points up, true top-down orthographic view, portrait 1:3, genuinely transparent background, small margins. No launching fire. Photorealistic hard-surface game render with fine panel seams and even lighting, not vector, no text or labels, no grid or border.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-d6bfd468-815f-4ced-ad19-6de3095b602f.png"
+  },
+  {
+    "id": "missile-4",
+    "prompt": "Use case: stylized-concept. Detailed ammunition card asset for Spaceship Architect, single tier 4 guided space missile with layered armored silver body, amber guidance collar, large folding fins, advanced twin-engine tail assembly. Full vertical object points up, true top-down orthographic view, portrait 1:3, genuinely transparent background, small margins. No launching fire. Photorealistic hard-surface game render with fine panel seams and even lighting, not vector, no text or labels, no grid or border.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-a0f6892c-57be-418d-a507-a85f5193cc8e.png"
+  },
+  {
+    "id": "missile-5",
+    "prompt": "Use case: stylized-concept. Detailed ammunition card asset for Spaceship Architect, single tier 5 guided space missile with sleek faceted silver and black stealth body, small ruby sensor lenses, red identification collar, angular folding fins and precision guidance vanes. Full vertical object points up, true top-down orthographic view, portrait 1:3, genuinely transparent background, small margins. No launching fire. Photorealistic hard-surface game render with fine panel seams and even lighting, not vector, no text or labels, no grid or border.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-7b7b0efe-0b27-476b-b6a6-818b2a6d7038.png"
+  },
+  {
+    "id": "missile-launcher-4",
+    "prompt": "Create a TRANSPARENT PNG GAME SPRITE with real alpha channel. A spacecraft missile launcher rack viewed vertically from directly above, fifteen silver mechanical launch hatches, hydraulic base, small yellow safety stripes. Full isolated machine centered on an empty transparent canvas. No background whatsoever: no gray studio backdrop, no checkerboard drawn into the image, no shadow, no floor. Highly detailed hard-surface metallic sci-fi painted game artwork, true orthographic top-down, crisp fine mechanical details. Square canvas, small transparent margin around silhouette. No text.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-9aeae768-30ce-48ca-9c0c-9e72e07873a8.png"
+  },
+  {
+    "id": "spread-missiles-1",
+    "prompt": "Use case: stylized-concept. Ammunition card game art for Spaceship Architect: FOUR distinct identical guided missiles belonging to tier 1 of a spread missile salvo, neatly side by side as one ammunition pack, simple silver bodies with teal collars and small tail fins. All four fully visible and pointing upward. True top-down orthographic view, portrait 2:3, genuine transparent alpha background, no drawn checkerboard, no floor. Detailed realistic titanium panel seams, even lighting, no flames, no text, no border, no vector illustration.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-26b15892-5dc7-4876-b8d7-c7e0ffbdf95e.png"
+  },
+  {
+    "id": "spread-missiles-2",
+    "prompt": "Use case: stylized-concept. Ammunition card game art for Spaceship Architect: FOUR distinct identical guided missiles belonging to tier 2 of a spread missile salvo, neatly side by side as one ammunition pack, reinforced silver bodies with green sensor collars and swept fins. All four fully visible and pointing upward. True top-down orthographic view, portrait 2:3, genuine transparent alpha background, no drawn checkerboard, no floor. Detailed realistic titanium panel seams, even lighting, no flames, no text, no border, no vector illustration.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-8516c7b6-0763-409d-b42b-e16c01553c48.png"
+  },
+  {
+    "id": "spread-missiles-3",
+    "prompt": "Use case: stylized-concept. Ammunition card game art for Spaceship Architect: FOUR distinct identical guided missiles belonging to tier 3 of a spread missile salvo, neatly side by side as one ammunition pack, broad silver bodies with bronze guidance collars and angular tail stabilizers. All four fully visible and pointing upward. True top-down orthographic view, portrait 2:3, genuine transparent alpha background, no drawn checkerboard, no floor. Detailed realistic titanium panel seams, even lighting, no flames, no text, no border, no vector illustration.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-4a091055-dc4e-4aad-a5ca-397788c359ec.png"
+  },
+  {
+    "id": "spread-missiles-4",
+    "prompt": "Use case: stylized-concept. Detailed production ammunition card artwork for Spaceship Architect. Four guided space missiles in a neatly arranged ammunition pack, all point upward, titanium armored bodies, amber guidance collars, twin engine assemblies, distinct advanced engineering. True orthographic top-down view of the complete objects, readable metallic hard-surface detail, even bright lighting, square canvas. Genuine transparent PNG alpha background, no drawn checkerboard, no floor, no text, no border, no flat vector style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-1d152479-62ac-4f50-a445-7396865e0495.png"
+  },
+  {
+    "id": "spread-missiles-5",
+    "prompt": "Use case: stylized-concept. Detailed production ammunition card artwork for Spaceship Architect. Four guided stealth space missiles in a neatly arranged ammunition pack, all point upward, faceted silver and black bodies, ruby sensor lenses, red collars, angular stabilizer vanes. True orthographic top-down view of the complete objects, readable metallic hard-surface detail, even bright lighting, square canvas. Genuine transparent PNG alpha background, no drawn checkerboard, no floor, no text, no border, no flat vector style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-d0800dc1-84a3-4b5f-8a57-36fa7db11f46.png"
+  },
+  {
+    "id": "missile-flares",
+    "prompt": "Use case: stylized-concept. Detailed production ammunition card artwork for Spaceship Architect. Three compact spacecraft decoy flare canisters fanned slightly apart, silver cylinders with copper rings, bright yellow safety collars, delicate emitter ports and tiny red status lights. No flames. True orthographic top-down view of the complete objects, readable metallic hard-surface detail, even bright lighting, square canvas. Genuine transparent PNG alpha background, no drawn checkerboard, no floor, no text, no border, no flat vector style.",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\019ee965-2234-7530-8f1f-00f3cc9c199b\\exec-6049b3c2-4430-4f29-8a0f-a1ad7942f149.png"
+  }
+]

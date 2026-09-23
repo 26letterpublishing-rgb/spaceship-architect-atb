@@ -48,7 +48,7 @@
       busy=true;redraw();panel.querySelector('[data-command-error]').textContent='';
       try {
         if(!body.callId&&!['evadeStep','break'].includes(body.kind))body.trigger=conditionalPayload(dialog);
-        await bridge.action({action:body.kind==='break'?'lockCommand':'shipCommand',id:unitId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});if(dialog.classList.contains('combat-order-dialog'))dialog.close();
+        await bridge.action({action:body.kind==='break'?'lockCommand':'shipCommand',id:unitId,sicId:dialog.dataset.sicId,requestId:crypto.randomUUID(),...body},'resolve',{throwOnError:true});if(dialog.classList.contains('combat-order-dialog'))dialog.close();
       }
       catch(error){panel.querySelector('[data-command-error]').textContent=error.message;}
       finally{busy=false;redraw();}
@@ -59,17 +59,17 @@
       const call=event.target.closest('[data-call-action]');if(call&&!call.disabled)void send({kind:call.dataset.callAction,callId:call.dataset.callId});
     });
     function redraw() {
-      const state=bridge.state(),person=state.units.find(u=>u.id===unitId),ship=state.starships.find(s=>s.id===person?.location?.starshipId);
+      const state=bridge.state(),person=state.units.find(u=>u.id===unitId),ship=window.SAShipNavigation.station(state,person,dialog.dataset.sicId)?.ship;
       if(!ship)return;
       stepButton.hidden=ship.commandSystems?.evadeStep?.unitId!==unitId;stepButton.disabled=busy;
-      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');
+      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&!c.isMissile);
       refreshConditional(dialog,contacts);
       const options=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
       if(options!==lastTargets){
         for(const select of panel.querySelectorAll('[data-command-target],[data-trigger-target]')){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;}lastTargets=options;
       }
       const ready=state.activeId===unitId&&!person.delayedAction&&!person.timedAction&&!person.delayTimer&&!person.consoleHold&&!person.shieldRestabilizing;
-      const propulsion=window.SAShipNavigation.access(state,person);
+      const propulsion=window.SAShipNavigation.access(state,person,dialog.dataset.sicId);
       const incoming=ship.incomingLocks||[],enemy=panel.querySelector('[data-break-target]'),old=enemy.value,enemyHtml=incoming.map(l=>`<option value="${esc(l.shipId)}">${esc(l.title)}</option>`).join('')||'<option value="">No incoming locks</option>';if(enemy.innerHTML!==enemyHtml){enemy.innerHTML=enemyHtml;if(incoming.some(l=>l.shipId===old))enemy.value=old;}
       const mathematics=person.mathematicsSkill??(person.team==='npc'?person.mentalSkill:0);
       panel.querySelectorAll('[data-command]').forEach(button=>{

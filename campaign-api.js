@@ -3,6 +3,33 @@ const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama
 const SHIP_MAP = require("./ship-map-core.js");
 const SHOWCASE_NPCS = require("./data/npc-templates.json");
 const CAMPAIGN_TIME = require("./campaign-time.js");
+const OXYGEN = require('./ship-oxygen');
+const TRANSIT = require('./ship-transit');
+const CREW_ROOMS=require('./ship-crew-rooms');
+const SHIP_POWER=require('./ship-power');
+const TRANSIT_FIELDS = ['cleanserState','atmosphereState','cloakState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','crewRoomState','fieldState','droneState','probeState','surveillanceState'];
+
+function transitRoom(campaign) {
+  const units=campaign.starships.flatMap(ship=>require('./ship-power').campaignUnits(ship,campaign.characters).map(unit=>{
+    const record=campaign.characters.find(c=>c.id===unit.id);
+    return {...unit,carryingId:unit.location?.carryingId,carriedBy:unit.location?.carriedBy,characterId:unit.id,characterName:safeCharacterName(record),team:'pc',currentHp:record?.character.health?.current??1};
+  }).filter(unit=>unit.location));
+  for(const record of campaign.characters)if(!units.some(u=>u.characterId===record.id))units.push({id:record.id,characterId:record.id,characterName:safeCharacterName(record),team:'pc',currentHp:record.character.health?.current??1});
+  for(const npc of campaign.npcRoster||[])if(!units.some(u=>u.id===npc.id))units.push(clone(npc));
+  for(const ship of campaign.starships){ship.maximumHullHp=ship.ship.maximumHullHp??SHIP_MAP.hullHp(ship);ship.currentHullHp=ship.ship.currentHullHp??ship.maximumHullHp;ship.currentShieldHp=ship.ship.currentShieldHp??0;}
+  const shipPositions=require('./ship-distances').positions(campaign.starships,campaign.encounter?.shipPositions||[]).map(p=>({...p,...campaign.starships.find(s=>s.id===p.id)?.ship.fieldState?.position,id:p.id}));
+  return {starships:campaign.starships,units,shipPositions,spaceObjects:campaign.encounter?.spaceObjects||[],outsideCombat:true,knownContacts:Object.fromEntries((campaign.encounter?.starships||[]).map(s=>[s.id,s.sensorState?.contacts||{}]))};
+}
+
+function syncCampaignCarry(campaign){
+  const room=transitRoom(campaign);require('./crew-carry').sync(room);let changed=false;
+  for(const unit of room.units){
+    const stored=unit.characterId?campaign.starships.find(s=>s.id===unit.location?.starshipId)?.characterLocations?.[unit.characterId]:campaign.npcRoster?.find(n=>n.id===unit.id);
+    if(!stored)continue;
+    for(const key of ['carryingId','carriedBy'])if((stored[key]||null)!==(unit[key]||null)){stored[key]=unit[key]||null;changed=true;}
+  }
+  return changed;
+}
 
 const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SCRIPT_LENGTH = 250000;
@@ -63,44 +90,8 @@ function showcaseCharacter({ id, playerName, characterName, color, speed, comman
   return { id, pcCode: character.access.pcCode, approved: true, imported: false, createdAt: now, updatedAt: now, character };
 }
 
-function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewNpcUnitIds = []) {
-  const row = Math.floor(startCell / 20);
-  const column = startCell % 20;
-  const gridCells = [];
-  for (let y = 0; y < 7; y += 1) for (let x = 0; x < 8; x += 1) gridCells.push((row + y) * 20 + column + x);
-  const engineCell = startCell + 61;
-  const engineId = `${id}-engine-1`;
-  return normalizeStarshipRecord({
-    id,
-    title,
-    controlType,
-    crewCharacterIds,
-    crewNpcUnitIds,
-    ship: {
-      id,
-      title,
-      affiliation: controlType === "pc" ? "Exploration Crew" : "Unknown Contact",
-      class: "8x7 Systems Test Craft",
-      confirmedOnce: true,
-      gridCells,
-      placements: [{ sicId: engineId, cell: engineCell }, { sicId: `${id}-cockpit`, cell: startCell + 3 },
-        { sicId: `${id}-exhaust`, cell: startCell - 20 }, { sicId: `${id}-ionic`, cell: startCell - 16 },
-        { sicId: `${id}-sensors`, cell:startCell+1 },
-        { sicId: `${id}-laser`, cell:startCell-38 },
-        { sicId: `${id}-lock`, cell:startCell+85 },
-        { sicId: `${id}-life`, cell:startCell+25 }, {sicId:`${id}-nutrition`,cell:startCell+6}],
-      sicInventory: [{ id: engineId, type: "en-au-engine-4", status: "installed", stationLayout: "corners-v1" },
-        { id: `${id}-cockpit`, type: "bridge-1", status: "installed", stationLayout: "corners-v1" },
-        { id: `${id}-sensors`, type:"sensors-3",status:"installed"},
-        { id: `${id}-laser`, type:"rapid-laser-5",status:"installed"},
-        { id: `${id}-lock`, type:"lock-on-10",status:"installed"},
-        { id: `${id}-life`, type:"life-support",status:"installed"},
-        { id: `${id}-nutrition`, type:"nutritional-supplement",status:"installed"},
-        { id: `${id}-exhaust`, type: "exhaust-thruster-1", status: "installed" },
-        { id: `${id}-ionic`, type: "ionic-pulse-thruster-1", status: "installed" }],
-      doorStates: {},
-    },
-  });
+function showcaseShip(...args) {
+  return normalizeStarshipRecord(require('./showcase-ships')(...args));
 }
 
 function showcaseLocation(starshipId, square, sicId = "") {
@@ -493,9 +484,12 @@ function applyConditionalDelivery(campaign, record, action) {
 function normalizeStarshipRecord(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const ship = source.ship && typeof source.ship === "object" ? clone(source.ship) : {};
-  const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < 1200))].slice(0, 400) : [];
-  const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => entry?.sicId && (cleanCells.includes(entry.cell) || (SHIP_MAP.definition(ship.sicInventory?.find(item => item.id === entry.sicId)?.type).exterior && SHIP_MAP.exteriorPlacement(ship, ship.sicInventory.find(item => item.id === entry.sicId).type, entry.cell, entry.sicId)))).slice(0, 400).map((entry) => ({ sicId: String(entry.sicId).slice(0, 120), cell: entry.cell })) : [];
-  ship.gridCells = cleanCells;
+  const cleanCells = Array.isArray(ship.gridCells) ? [...new Set(ship.gridCells.filter((value) => Number.isInteger(value) && value >= 0 && value < SHIP_MAP.gridColumns(ship)*SHIP_MAP.gridRows(ship)))].slice(0, 400) : [];
+  const cleanPlacements = Array.isArray(ship.placements) ? ship.placements.filter((entry) => {
+    const item=ship.sicInventory?.find(item=>item.id===entry?.sicId),def=SHIP_MAP.definition(item?.type);
+    return item&&(def.hullSystem?cleanCells.length>0:def.multiMount?SHIP_MAP.multiMountPlacement(ship,item,entry.mountCells):def.mixed?SHIP_MAP.mixedPlacement(ship,item,entry.cell,entry.exteriorCell):cleanCells.includes(entry.cell)||(def.exterior&&SHIP_MAP.exteriorPlacement(ship,item.type,entry.cell,item.id)));
+  }).slice(0,400).map(entry=>({sicId:String(entry.sicId).slice(0,120),cell:SHIP_MAP.definition(ship.sicInventory.find(i=>i.id===entry.sicId)?.type).hullSystem&&!cleanCells.includes(entry.cell)?cleanCells[0]:entry.cell,...(Number.isInteger(entry.exteriorCell)?{exteriorCell:entry.exteriorCell}:{}),...(Array.isArray(entry.mountCells)?{mountCells:[...entry.mountCells]}:{})})) : [];
+  ship.gridCells = cleanCells;ship.triangleCells=SHIP_MAP.triangleCells(ship);
   ship.placements = cleanPlacements;
   ship.sicInventory = Array.isArray(ship.sicInventory) ? ship.sicInventory.slice(0, 400) : [];
   const installedIds = new Set(cleanPlacements.map(entry => entry.sicId));
@@ -507,10 +501,12 @@ function normalizeStarshipRecord(raw) {
   ship.confirmedOnce = true;
   const validCrew = [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100);
   const characterLocations = {};
+  for(const pod of ship.fieldState?.pods||[])if(!pod.recovered)for(const passenger of pod.passengers||[])if(validCrew.includes(passenger.id))characterLocations[passenger.id]={escapePodId:pod.id,stationed:false};
   for (const [characterId, location] of Object.entries(source.characterLocations && typeof source.characterLocations === "object" ? source.characterLocations : ship.characterLocations || {})) {
+    if(characterLocations[characterId]?.escapePodId)continue;
     const square = Number(location?.square);
     const mesh = Number(location?.mesh);
-    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
+    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { carryingId:location?.carryingId?String(location.carryingId).slice(0,120):null,carriedBy:location?.carriedBy?String(location.carriedBy).slice(0,120):null, square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
   }
   return {
     id: String(source.id || ship.id || uid("starship")).slice(0, 120),
@@ -520,6 +516,7 @@ function normalizeStarshipRecord(raw) {
     crewCharacterIds: validCrew,
     crewNpcUnitIds: [...new Set((Array.isArray(source.crewNpcUnitIds) ? source.crewNpcUnitIds : ship.crewNpcUnitIds || []).map(String))].slice(0, 100),
     characterLocations,
+    auState:source.auState?{current:Math.max(0,Number(source.auState.current)||0),progress:Math.max(0,Number(source.auState.progress)||0)}:null,
     createdAt: source.createdAt || new Date().toISOString(),
     updatedAt: source.updatedAt || new Date().toISOString(),
     ship,
@@ -527,21 +524,17 @@ function normalizeStarshipRecord(raw) {
 }
 
 function starshipStationAt(record, square, mesh) {
-  const ship = record?.ship || {}; const targetRow = Math.floor(Number(square) / 20); const targetColumn = Number(square) % 20;
-  for (const placement of ship.placements || []) {
-    const item = (ship.sicInventory || []).find((entry) => entry.id === placement.sicId); const definition = SHIP_MAP.componentDefinition(item);
-    const originRow = Math.floor(Number(placement.cell) / 20); const originColumn = Number(placement.cell) % 20;
-    const x = targetColumn - originColumn; const y = targetRow - originRow;
-    if (x < 0 || y < 0 || x >= definition.width || y >= definition.height) continue;
-    const station = (definition.stations || []).find((entry) => entry.x === x && entry.y === y && Number(entry.mesh) === Number(mesh));
-    return station ? { ...station, sicId: placement.sicId, type: item.type } : null;
-  }
-  return null;
+  const cell=SHIP_MAP.buildLayout(record?.ship||{}).footprint.get(Number(square));
+  if(!cell||cell.exterior)return null;
+  const station=cell.stations.find(entry=>entry.x===cell.column&&entry.y===cell.row&&Number(entry.mesh)===Number(mesh));
+  return station?{...station,sicId:cell.sicId,type:cell.type}:null;
 }
 
 function publicStarship(record) {
   const copy = clone(record);
   delete copy.accessKey;
+  if(copy.ship)delete copy.ship.oxygenState;
+  if(copy.ship)delete copy.ship.surveillanceState;
   return copy;
 }
 
@@ -609,7 +602,7 @@ function normalizeCampaign(raw) {
     attribute: String(action?.attribute || "").slice(0, 40),
     skill: String(action?.skill || "").slice(0, 80),
     difficulty: Number.isFinite(Number(action?.difficulty)) ? Number(action.difficulty) : 0,
-    hideDifficulty: Boolean(action?.hideDifficulty),
+    hideDifficulty: false,
   })).filter((action) => action.keyword && action.attribute && action.skill && action.difficulty >= 0);
   campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
   campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
@@ -699,6 +692,11 @@ function normalizeCampaign(raw) {
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
     allyNpc: Boolean(template?.allyNpc ?? template?.ally),
   }));
+  campaign.npcRoster ||= [];
+  for(const template of campaign.npcTemplates){const id='roster-'+template.id;if(campaign.npcRoster.some(n=>n.templateId===template.id||n.id===id))continue;
+    const unit={...clone(template),id,templateId:template.id,characterName:template.name,playerName:'GM',team:'npc',controlledBy:'gm',currentHp:template.maximumHp,location:{starshipId:'',square:null,mesh:4,stationed:false},weapons:[{inventoryId:id+'-weapon',weaponId:template.heldWeaponId}],heldWeaponId:id+'-weapon'};
+    require('./combat-engine').migrateUnitCombat(unit);campaign.npcRoster.push(unit);
+  }
   campaign.sessionNumber = Math.max(0, Math.round(Number(campaign.sessionNumber) || 0));
   normalizeDramaDeck(campaign);
   trimPrivateNotes(campaign);
@@ -706,6 +704,15 @@ function normalizeCampaign(raw) {
 }
 
 function campaignBackup(campaign) {
+  const portableEncounter=clone(campaign.encounter || null);
+  if(portableEncounter){
+    delete portableEncounter.hackingPrivate;
+    for(const unit of portableEncounter.units||[]){
+      delete unit.hackingSessions;delete unit.counterHackSwap;
+      if(unit.delayedAction?.counterHack)unit.delayedAction=null;
+    }
+    for(const ship of portableEncounter.starships||[])ship.hackedSystems=[];
+  }
   const exportedAt = new Date().toISOString();
   return {
     format: "spaceship-architect-campaign",
@@ -747,7 +754,7 @@ function campaignBackup(campaign) {
       npcTemplates: campaign.npcTemplates,
       npcRoster: campaign.npcRoster,
       dramaDeck: campaign.dramaDeck,
-      encounter: campaign.encounter,
+      encounter: portableEncounter,
       sessionNumber: campaign.sessionNumber,
     }),
   };
@@ -815,7 +822,7 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, characterMoved = () => {} }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, characterMoved = () => {}, environmentChanged = () => {} }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = connectedCharacterIds;
@@ -825,6 +832,8 @@ class CampaignApi {
     this.timePassed = timePassed;
     this.liveEncounter = liveEncounter;
     this.characterMoved = characterMoved;
+    this.environmentChanged = environmentChanged;
+    this.environmentTicks = new Map();
     this.sessions = new Map();
     this.clients = new Map();
     this.campaignCache = new Map();
@@ -937,6 +946,39 @@ class CampaignApi {
     }
   }
 
+  environment(campaign,token=''){
+    const session=this.session(token,campaign.code),combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null;
+    const ships=room?.starships||campaign.starships;
+    OXYGEN.sync(ships,OXYGEN.people(campaign,room));
+    const paused=Boolean(room&&(!room.running||room.hardPaused||room.holdPaused||room.pausedForTurn||room.attackResolution||room.itemResolution||room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length)));
+    return {notices:require('./fleet-status').project(room||{starships:ships,units:[],encounterEndedAt:true},session),ships:OXYGEN.project(ships,{gm:session?.role==='gm',characterId:session?.role==='character'?session.characterId:null,paused}),combat};
+  }
+
+  async tickEnvironment(now=Date.now()){
+    if(this.environmentBusy)return;this.environmentBusy=true;
+    try{for(const campaign of this.campaignCache.values()){
+      const tick=this.environmentTicks.get(campaign.code)||{at:now,saved:now},seconds=Math.max(0,(now-tick.at)/1000);tick.at=now;this.environmentTicks.set(campaign.code,tick);
+      const combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null,ships=room?.starships||campaign.starships;
+      const transitActive=!combat&&ships.some(s=>['activating','traveling'].includes(s.ship.warpState?.phase)||['countdown','approvals'].includes(s.ship.destructState?.phase));
+      const fieldActive=!combat&&ships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.cooldown>0||d.tether));
+      const medicalActive=!combat&&(CREW_ROOMS.reconcile(transitRoom(campaign),campaign)||CREW_ROOMS.jobs({starships:ships}).some(({job})=>['preparing','recovering'].includes(job.phase))||CREW_ROOMS.actors(transitRoom(campaign),campaign).some(a=>!a.mechanical&&a.hp<=0&&ships.some(s=>s.id===a.loc?.starshipId&&(s.ship.crewRoomState?.down?.[a.id]||0)<=CREW_ROOMS.RECOVERY_SECONDS)));
+      if(!combat&&require('./ship-surveillance').reconcile(transitRoom(campaign)))await this.save(campaign);
+      if(!ships.some(s=>require('./ship-atmosphere').active(s))&&!tick.active&&!transitActive&&!medicalActive&&!fieldActive&&!combat)continue;
+      const actors=OXYGEN.people(campaign,room),before=OXYGEN.pending(ships);
+      const events=combat?[]:OXYGEN.advance(ships,actors,seconds);
+      const medicalChanged=!combat&&CREW_ROOMS.advance(transitRoom(campaign),campaign,seconds);
+      const carryChanged=!combat&&syncCampaignCarry(campaign);
+      const transitEvents=transitActive?TRANSIT.advance(transitRoom(campaign),seconds):[];
+      const fieldChanged=!combat&&require('./ship-field-utilities').advance(transitRoom(campaign),seconds);
+      for(const ship of ships)if(!combat&&ship.currentHullHp!=null)ship.ship.currentHullHp=ship.currentHullHp;
+      if(!combat&&(carryChanged||fieldChanged||medicalChanged||transitActive||transitEvents.length||events.length||before!==OXYGEN.pending(ships)||now-tick.saved>=((medicalActive||tick.active)?1000:5000))){
+        this.timePassed(campaign.code,campaign.characters);await this.save(campaign,{broadcast:Boolean(carryChanged||fieldChanged||medicalActive||medicalChanged||events.length||transitActive||transitEvents.length||tick.active)});tick.saved=now;
+      }
+      tick.active=ships.some(s=>require('./ship-atmosphere').active(s));
+      for(const client of this.clients.get(campaign.code)||[])writeEvent(client.response,'oxygen',this.environment(campaign,client.token));
+    }}finally{this.environmentBusy=false;}
+  }
+
   state(campaign, token = "") {
     const dramaDeck = normalizeDramaDeck(campaign);
     const session = this.session(token, campaign.code);
@@ -961,9 +1003,15 @@ class CampaignApi {
       updatedAt: campaign.updatedAt,
       revision: campaign.revision,
       storageMode: this.storageMode,
+      showcase: Boolean(campaign.showcase),
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
       combatActive: !this.canPassTime(campaign.code),
+      deployedShipIds: (campaign.encounter?.starships||[]).filter(s=>campaign.starships.some(record=>record.id===s.id&&(gm||record.controlType==='pc'||record.crewCharacterIds?.includes(ownId)))).map(s=>s.id),
+      libraryTargets: gm ? CREW_ROOMS.libraryTargets(campaign,!this.canPassTime(campaign.code)?this.liveEncounter(campaign.code):null) : undefined,
+      spaceObjects: clone((campaign.encounter?.spaceObjects||[]).filter(o=>!o.collectedBy)),
+      crewRoomRolls:CREW_ROOMS.rolls((!this.canPassTime(campaign.code)&&this.liveEncounter(campaign.code))||transitRoom(campaign)).filter(r=>gm||(r.characterId===ownId&&r.controller!=='gm')),
+      oxygen: this.environment(campaign,token),
       script: gm ? campaign.script : undefined,
       scriptChapters: gm ? clone(campaign.scriptChapters) : undefined,
       conditionalActions: gm ? clone(campaign.conditionalActions) : undefined,
@@ -1004,7 +1052,8 @@ class CampaignApi {
       starships: campaign.starships
         .filter((record) => gm || record.controlType === "pc")
         .map(record=>{
-          const visible=publicStarship(record),encounter=this.liveEncounter(campaign.code)||campaign.encounter;
+          const visible=publicStarship(record);if(!gm&&!record.crewCharacterIds?.includes(ownId)){delete visible.ship.cleanserState;delete visible.ship.atmosphereState;delete visible.ship.cloakState;delete visible.ship.crewRoomState;delete visible.ship.fieldState;delete visible.ship.droneState;delete visible.ship.probeState;}
+          const encounter=this.liveEncounter(campaign.code)||campaign.encounter;
           if(!this.canPassTime(campaign.code)&&!encounter?.encounterEndedAt){
             visible.characterLocations=clone(visible.characterLocations||{});
             for(const unit of encounter?.units||[]){
@@ -1014,6 +1063,7 @@ class CampaignApi {
           }
           return visible;
         }),
+      carryOptions:ownId?(()=>{const room=transitRoom(campaign),unit=room.units.find(u=>u.characterId===ownId);return unit&&unit.currentHp>0?{shipId:unit.location?.starshipId,carryingId:unit.carryingId,patients:require('./crew-carry').candidates(room,unit).map(p=>({id:p.id,name:p.characterName}))}:null;})():null,
       rollRequests: clone(requests.slice(-50)),
     };
   }
@@ -1037,7 +1087,12 @@ class CampaignApi {
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
-      if(encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt){
+      const ending=encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt;
+      const transitChanged=!encounter.encounterEndedAt&&encounter.hasEngagedClock&&next.starships.some(ship=>{
+        const live=encounter.starships?.find(s=>s.id===ship.id);return live&&TRANSIT_FIELDS.filter(key=>!['missileState','droneState','probeState'].includes(key)).some(key=>JSON.stringify(ship.ship[key]??null)!==JSON.stringify(live.ship[key]??null));
+      });
+      if(transitChanged)for(const ship of next.starships){const live=encounter.starships?.find(s=>s.id===ship.id);if(live){for(const key of TRANSIT_FIELDS)ship.ship[key]=clone(live.ship[key]??null);if(live.ship.surveillanceState)ship.ship.doorStates=clone(live.ship.doorStates||{});}}
+      if(ending){
         for(const ship of next.starships||[]){
           const live=encounter.starships?.find(s=>s.id===ship.id);if(!live)continue;
           for(const item of ship.ship.sicInventory||[]){
@@ -1045,6 +1100,11 @@ class CampaignApi {
             for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable'])if(key in current)item[key]=clone(current[key]);
           }
           ship.ship.currentHullHp=live.currentHullHp;ship.ship.currentShieldHp=live.currentShieldHp;
+          ship.ship.gravityEnabled=live.ship.gravityEnabled!==false;
+          ship.ship.oxygenEnabled=live.ship.oxygenEnabled!==false;
+          ship.ship.oxygenState=clone(live.ship.oxygenState||null);
+          for(const key of TRANSIT_FIELDS)ship.ship[key]=clone(live.ship[key]??null);
+          if(live.ship.surveillanceState)ship.ship.doorStates=clone(live.ship.doorStates||{});
           ship.characterLocations ||= {};
           for(const [id,location] of Object.entries(live.characterLocations||{}))if(ship.crewCharacterIds.includes(id))ship.characterLocations[id]=clone(location);
           for(const unit of encounter.units||[])if(ship.crewCharacterIds.includes(unit.characterId)&&unit.location?.starshipId===ship.id)ship.characterLocations[unit.characterId]=clone(unit.location);
@@ -1052,13 +1112,14 @@ class CampaignApi {
       }
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
-      Object.assign(campaign, { encounter: next.encounter, starships:next.starships, npcRoster, updatedAt, revision });
+      Object.assign(campaign, { encounter: next.encounter, ...(ending||transitChanged?{starships:next.starships}:{}), npcRoster, updatedAt, revision });
+      if(transitChanged)await this.broadcast(code,campaign);
       if(locationsChanged)for(const client of this.clients.get(code)||[]){
         const gm=this.session(client.token,code)?.role==='gm';
         const ships=campaign.starships.filter(ship=>gm||ship.controlType==='pc');
         const units=(encounter.units||[]).filter(unit=>ships.some(ship=>ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)))
           .map(unit=>({characterId:unit.characterId,location:clone(unit.location)}));
-        writeEvent(client.response,'encounter-locations',{units,encounterEndedAt:encounter.encounterEndedAt,combatActive:!this.canPassTime(code)});
+        writeEvent(client.response,'encounter-locations',{units,deployedShipIds:(encounter.starships||[]).filter(s=>ships.some(v=>v.id===s.id)).map(s=>s.id),encounterEndedAt:encounter.encounterEndedAt,combatActive:!this.canPassTime(code)});
       }
     });
     this.saveQueues.set(code, queued);
@@ -1214,10 +1275,7 @@ class CampaignApi {
 
       const pcDefinitions = [
         { id: "showcase-nova", playerName: "Player One", characterName: "Nova Vale", color: "#35c9ff", speed: 6.2, commandWindow: 44, moveSpeed: 4, hp: 36, damageReduction: 1, weaponId: "standard-sidearm", attributes: { strength: [0, 0, -1, -1], health: [1, 0, -1, -1], perception: [1, 1, -1, -1], dexterity: [2, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [1, 0, -1, -1], intellect: [1, 1, -1, -1], willpower: [1, 0, -1, -1] }, skills: { Initiative: 2.2, Awareness: 2, Projectile: 2.4, "Dodge/Block": 1.8, Melee: 0.8, "Weapon Mechanics": 1.2 } },
-        { id: "showcase-rex", playerName: "Player Two", characterName: "Rex Calder", color: "#ff5b58", speed: 4.8, commandWindow: 32, moveSpeed: 3, hp: 52, damageReduction: 3, weaponId: "murasama-blade", attributes: { strength: [2, 2, -1, -1], health: [2, 1, -1, -1], perception: [0, 0, -1, -1], dexterity: [1, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [0, 0, -1, -1], intellect: [0, 0, -1, -1], willpower: [2, 0, -1, -1] }, skills: { Initiative: 1.8, Awareness: 1.2, Projectile: 0.8, "Dodge/Block": 2.1, Melee: 2.6, "Weapon Mechanics": 0.7 } },
-        { id: "showcase-mira", playerName: "Player Three", characterName: "Mira Quill", color: "#a86cff", speed: 5.4, commandWindow: 40, moveSpeed: 3, hp: 40, damageReduction: 1, weaponId: "phazor", attributes: { strength: [0, 0, -1, -1], health: [1, 1, -1, -1], perception: [1, 0, -1, -1], dexterity: [1, 0, -1, -1], luck: [1, 0, -1, -1], charisma: [1, 1, -1, -1], intellect: [2, 2, -1, -1], willpower: [1, 1, -1, -1] }, skills: { Initiative: 2.4, Awareness: 2, Projectile: 1.6, "Dodge/Block": 1.5, Melee: 0.5, "Weapon Mechanics": 2.8, Engineering: 2.7, "Anatomy/First Aid": 2.2 } },
       ];
-      pcDefinitions.splice(1);
       Object.assign(pcDefinitions[0].skills,{'Computer Systems':5,Engineering:5,Hacking:4,'Pilot/Helm':6,'Sensor Systems':5.5,'Weapon Systems':6,Mathematics:4,Awareness:4,Initiative:4,'Dodge/Block':3.5});
       Object.assign(pcDefinitions[0].attributes,{dexterity:[3,2,1,-1],intellect:[4,3,1,-1],perception:[3,2,1,-1]});
       Object.assign(pcDefinitions[0],{speed:15,commandWindow:120,moveSpeed:3,hp:30,damageReduction:0});
@@ -1227,16 +1285,16 @@ class CampaignApi {
       for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
       const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
       const showcaseNpcUnitIds = ['unit-showcase-npc-0'];
-      const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 152, showcaseNpcUnitIds);
+      const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 148, showcaseNpcUnitIds);
       const campaign = defaultCampaign({ code: showcaseCode, name: "Explore Features", gmCode: uid("showcase") });
       campaign.showcase = true;
       campaign.characters = characters;
       campaign.starships = [pcShip, npcShip];
       campaign.shipCredits = 25000;
-      campaign.settings.hideRoomCode = true;
+      campaign.settings.hideRoomCode = false;
       const selectedNpcs = SHOWCASE_NPCS.filter(npc=>npc.name==='Space Slug').slice(0,1);
-      const pcSquares = [146, 147, 166];
-      const npcSquares = [152, 153, 172, 173, 192];
+      const pcSquares = [146];
+      const npcSquares = [148];
       const units = pcDefinitions.map((entry, index) => ({
         id: `unit-${entry.id}`, playerName: entry.playerName, characterName: entry.characterName, speed: entry.speed,
         commandWindow: entry.commandWindow, atb: 0, encounterSpeedBonus: 0, regenerationRate: 0,
@@ -1251,6 +1309,7 @@ class CampaignApi {
         weaponSystemsSkill: entry.skills['Weapon Systems'] || 0,
         mathematicsSkill: entry.skills.Mathematics || 0,
         computerSkill: entry.skills['Computer Systems'] || 0,
+        hackingSkill: entry.skills.Hacking || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
         location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],
@@ -1266,12 +1325,15 @@ class CampaignApi {
         location: showcaseLocation(npcShip.id, npcSquares[index]), travelRoute: [],
       })));
       campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: false, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared. Engage the clock when ready." }] };
+      campaign.starships=[...campaign.starships,...require('./showcase-variants')()];
       const normalized = normalizeCampaign(campaign);
       normalized.showcase = true;
       normalized.encounter.showcase = true;
       normalized.encounter.shipPositions = [{id:pcShip.id,q:0,r:0},{id:npcShip.id,q:10,r:0}];
       normalized.encounter.log.push({id:uid('log'),at:new Date().toLocaleTimeString(),text:'Playtest: Nova Vale and Space Slug. Ships use their calculated Masking and Defense, without scenario overrides.'});
       const encounterTemplate = clone(normalized.encounter);
+      normalized.encounter.encounterEndedAt = Date.now();
+      normalized.encounter.log = [];
       this.showcases.set(showcaseCode, { campaign: normalized, encounterTemplate, expiresAt: Date.now() + SHOWCASE_LIFETIME_MS });
       this.campaignCache.set(showcaseCode, normalized);
       this.restoreEncounter(showcaseCode, normalized.encounter);
@@ -1421,6 +1483,8 @@ class CampaignApi {
         controlType: body.controlType,
         crewCharacterIds: [],
       });
+      const powerError = SHIP_POWER.constructionError(supplied);
+      if (powerError) { sendJson(res, 400, { error: powerError }); return true; }
       if (!supplied.ship.gridCells.length) {
         sendJson(res, 400, { error: "Confirm the starship's construction before linking it." });
         return true;
@@ -1445,20 +1509,55 @@ class CampaignApi {
       const crewAccess = Boolean(characterId && record.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
       const ownerAccess = Boolean(!record.crewCharacterIds.length && body.accessKey && body.accessKey === record.accessKey);
       if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
+      if(JSON.stringify(body.starship?.resourceReceipts||[])!==JSON.stringify(record.ship.resourceReceipts||[])){sendJson(res,409,{error:'Ship stores changed while this builder was open. Reopen the ship before saving construction.'});return true;}
       const exteriorError = SHIP_MAP.exteriorError(body.starship);
       if (exteriorError) { sendJson(res, 400, { error: exteriorError }); return true; }
-      const shift=(Number(body.starship?.originOffset)||0)-(Number(record.ship.originOffset)||0);
-      if(!Number.isInteger(shift)||Math.abs(shift)>=1200){sendJson(res,400,{error:'Invalid construction offset.'});return true;}
-      if(shift&&!this.canPassTime(code)){sendJson(res,409,{error:'Center the ship outside combat.'});return true;}
-      const locations=Object.fromEntries(Object.entries(record.characterLocations||{}).map(([id,location])=>[id,{...location,square:location.square+shift}]));
+      const proposed=body.starship;
+      const legacyShift=(Number(proposed.originOffset)||0)-(Number(record.ship.originOffset)||0);
+      const remapping=SHIP_MAP.gridColumns(proposed)!==SHIP_MAP.gridColumns(record.ship)
+        || (Number(proposed.originX)||0)!==(Number(record.ship.originX)||0)
+        || (Number(proposed.originY)||0)!==(Number(record.ship.originY)||0) || legacyShift!==0;
+      if(!Number.isInteger(legacyShift)||Math.abs(legacyShift)>=3600
+        || ['originX','originY'].some(key=>proposed[key]!=null&&(!Number.isInteger(proposed[key])||Math.abs(proposed[key])>3600))
+        || ['zoneColumns','zoneRows'].some(key=>proposed[key]!=null&&(!Number.isInteger(proposed[key])||proposed[key]<20||proposed[key]>60))){
+        sendJson(res,400,{error:'Invalid construction dimensions.'});return true;
+      }
+      if(remapping&&!this.canPassTime(code)){sendJson(res,409,{error:'Expand or center the ship outside combat.'});return true;}
+      const remap=square=>SHIP_MAP.remapSquare(square,record.ship,proposed)+legacyShift;
+      const locations=Object.fromEntries(Object.entries(record.characterLocations||{}).map(([id,location])=>[id,{...location,square:remap(location.square)}]));
       const updated = normalizeStarshipRecord({ ...record,characterLocations:locations, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
+      const powerError = SHIP_POWER.constructionError(updated);
+      if (powerError) { sendJson(res, 400, { error: powerError }); return true; }
+      const hullSource=this.liveEncounter(code)?.starships.find(s=>s.id===record.id)||record,hullDelta=SHIP_MAP.hullHp(updated)-SHIP_MAP.hullHp(record);
+      updated.ship.maximumHullHp=Math.max(0,Number(hullSource.maximumHullHp??record.ship.maximumHullHp??SHIP_MAP.hullHp(record))+hullDelta);
+      updated.ship.currentHullHp=Math.max(0,Math.min(updated.ship.maximumHullHp,Number(hullSource.currentHullHp??record.ship.currentHullHp??updated.ship.maximumHullHp-hullDelta)+hullDelta));
+      updated.ship.gravityEnabled=record.ship.gravityEnabled!==false;
+      updated.ship.oxygenEnabled=record.ship.oxygenEnabled!==false;
+      updated.ship.oxygenState=clone(record.ship.oxygenState||null);
+      for(const key of TRANSIT_FIELDS)updated.ship[key]=clone(record.ship[key]??null);
+      if(/^#[0-9a-f]{6}$/i.test(body.starship?.mapColor||''))updated.ship.mapColor=body.starship.mapColor;updated.auState=clone(record.auState??null);
+      const cameraSource=(!this.canPassTime(code)&&this.liveEncounter(code)?.starships.find(s=>s.id===record.id))||record;
+      if(cameraSource.ship.surveillanceState){
+        updated.ship.surveillanceState=clone(cameraSource.ship.surveillanceState);
+        updated.ship.doorStates=Object.fromEntries(Object.entries(cameraSource.ship.doorStates||{}).map(([key,value])=>[remapping?key.split(':').map(n=>remap(Number(n))).sort((a,b)=>a-b).join(':'):key,value]));
+      }
+      for(const [id,loc]of Object.entries(record.characterLocations||{}))if(loc.escapePodId)updated.characterLocations[id]=clone(loc);
+      if(campaign.starships.some(s=>s.ship.fieldState?.dockedIn?.shipId===record.id&&!updated.ship.placements.some(p=>p.sicId===s.ship.fieldState.dockedIn.sicId))){sendJson(res,409,{error:'Undock the vessel before removing its occupied Docking Bay.'});return true;}
+      for(const item of updated.ship.sicInventory||[]){
+        const prior=(this.liveEncounter(code)?.starships.find(s=>s.id===record.id)||record).ship.sicInventory?.find(i=>i.id===item.id);if(!prior)continue;
+        for(const key of ['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable']){if(key in prior)item[key]=clone(prior[key]);else delete item[key];}
+      }
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;
       updated.crewNpcUnitIds = record.crewNpcUnitIds || [];
       updated.createdAt = record.createdAt;
       updated.updatedAt = new Date().toISOString();
       campaign.starships[campaign.starships.indexOf(record)] = updated;
-      if(shift)for(const npc of campaign.npcRoster||[]){if(npc.location?.starshipId===record.id&&Number.isInteger(npc.location.square))npc.location={...npc.location,square:npc.location.square+shift};}
+      if(remapping)for(const npc of campaign.npcRoster||[]){if(npc.location?.starshipId===record.id&&Number.isInteger(npc.location.square))npc.location={...npc.location,square:remap(npc.location.square)};}
+      // Synchronize the construction before any encounter snapshot can restore the old layout.
+      const liveRoom=this.liveEncounter(code),liveShip=liveRoom?.starships.find(s=>s.id===updated.id);
+      if(liveShip){liveShip.maximumHullHp=updated.ship.maximumHullHp;liveShip.currentHullHp=updated.ship.currentHullHp;liveShip.ship={...clone(updated.ship),...Object.fromEntries(TRANSIT_FIELDS.map(k=>[k,clone(liveShip.ship[k]??updated.ship[k]??null)]))};liveShip.ship.mapColor=updated.ship.mapColor;liveShip.title=updated.title;liveShip.characterLocations=clone(updated.characterLocations);if(remapping)for(const u of liveRoom.units)if(u.location?.starshipId===updated.id&&Number.isInteger(u.location.square))u.location.square=remap(u.location.square);}
+      const savedShip=campaign.encounter?.starships?.find(s=>s.id===updated.id);if(savedShip){savedShip.maximumHullHp=updated.ship.maximumHullHp;savedShip.currentHullHp=updated.ship.currentHullHp;savedShip.ship=clone(liveShip?.ship||updated.ship);savedShip.title=updated.title;}
       await this.save(campaign);
       sendJson(res, 200, { starship: publicStarship(updated) });
       return true;
@@ -1491,12 +1590,192 @@ class CampaignApi {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
       const characterId = String(body.characterId || ""); const key = String(body.doorKey || ""); const cells = key.split(":").map(Number);
       const gmAccess = Boolean(this.gmSession(token, code)); const crewAccess = Boolean(characterId && record?.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
-      const adjacent = cells.length === 2 && cells.every((cell) => Number.isInteger(cell) && record?.ship?.gridCells?.includes(cell)) && (Math.abs(cells[0] - cells[1]) === 20 || (Math.abs(cells[0] - cells[1]) === 1 && Math.floor(cells[0] / 20) === Math.floor(cells[1] / 20)));
+      const adjacent = cells.length === 2 && cells.every((cell) => Number.isInteger(cell) && record?.ship?.gridCells?.includes(cell)) && (Math.abs(cells[0] - cells[1]) === SHIP_MAP.gridColumns(record) || (Math.abs(cells[0] - cells[1]) === 1 && Math.floor(cells[0] / SHIP_MAP.gridColumns(record)) === Math.floor(cells[1] / SHIP_MAP.gridColumns(record))));
       if (!record || !adjacent || (!gmAccess && !crewAccess)) { sendJson(res, 403, { error: "Only assigned crew or the GM may operate that door." }); return true; }
       record.ship.doorStates ||= {}; record.ship.doorStates[key] = record.ship.doorStates[key] === "open" ? "closed" : "open"; record.updatedAt = new Date().toISOString();
       await this.save(campaign); sendJson(res, 200, { open: record.ship.doorStates[key] === "open", starship: publicStarship(record), campaign: this.state(campaign, token) }); return true;
     }
 
+    if(path==='/api/campaign/oxygen/roll'&&req.method==='POST'){
+      const actorId=String(body.actorId||''),gm=Boolean(this.gmSession(token,code));
+      if(!gm&&!this.characterSession(token,code,actorId)){sendJson(res,403,{error:'Only this character or the GM may resolve the oxygen check.'});return true;}
+      const room=this.canPassTime(code)?null:this.liveEncounter(code),ships=room?.starships||campaign.starships,actors=OXYGEN.people(campaign,room);
+      OXYGEN.sync(ships,actors);
+      const result=OXYGEN.resolve(ships,actors,body);
+      if(!result.ok){sendJson(res,409,{error:result.error});return true;}
+      if(room){const snapshot=this.environmentChanged(room,result.events);if(snapshot)campaign.encounter=snapshot;}
+      else this.timePassed(code,campaign.characters);
+      this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
+      await this.save(campaign);
+      sendJson(res,200,{ok:true,oxygen:this.environment(campaign,token),result:result.crew?.result});return true;
+    }
+    if(path==='/api/campaign/starship/resources'&&req.method==='POST'){
+      const record=campaign.starships.find(s=>s.id===body.starshipId),gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||'');
+      if(!record||(!gm&&!(record.crewCharacterIds.includes(characterId)&&this.characterSession(token,code,characterId)))){sendJson(res,403,{error:'Only registered crew or the GM may manage these stores.'});return true;}
+      if(!this.canPassTime(code)&&!(gm&&body.grantMineral)){sendJson(res,409,{error:'Manage ship stores outside combat.'});return true;}
+      try{
+        const receipt=String(body.requestId||'');if(!/^[\w-]{8,100}$/.test(receipt))throw Error('A stock transaction receipt is required.');
+        record.ship.resourceReceipts ||= [];
+        if(!record.ship.resourceReceipts.includes(receipt)){
+          if(body.grantMineral){
+            const name=String(body.grantMineral).trim(),quantity=Number(body.quantity);
+            if(!gm||!/^[A-Za-z][A-Za-z .-]{0,39}$/.test(name)||['constructor','prototype'].includes(name)||!Number.isInteger(quantity)||quantity<1||quantity>1000000)throw Error('Choose a mineral name and a positive whole quantity.');
+            const live=this.liveEncounter(code),liveShip=live?.starships.find(s=>s.id===record.id),stores={...(liveShip?.ship.minerals||record.ship.minerals||{})};
+            if((Number(stores[name])||0)+quantity>1000000)throw Error('Ship stores cannot exceed 1,000,000 of one mineral.');
+            stores[name]=(Number(stores[name])||0)+quantity;record.ship.minerals=stores;
+            if(liveShip){liveShip.ship.minerals=clone(stores);liveShip.ship.resourceReceipts=[...(liveShip.ship.resourceReceipts||[]),receipt].slice(-200);const snapshot=this.environmentChanged(live,[]);if(snapshot)campaign.encounter=snapshot;}
+          }else if(body.purchaseMissile){
+            if(['__proto__','constructor','prototype'].includes(body.launcherId))throw Error('Invalid launcher identifier.');
+            const ammo=require('./missile-ammunition'),round=ammo.catalog[body.purchaseMissile],item=record.ship.sicInventory.find(i=>i.id===body.launcherId),definition=require('./ship-map-core').definition(item?.type),quantity=Number(body.quantity);
+            if(!round||!definition.missileLauncher||!record.ship.placements.some(p=>p.sicId===item.id)||!Number.isInteger(quantity)||quantity<1||ammo.used(record.ship,item.id)+quantity>definition.capacity)throw Error('Choose an installed Missile Launcher with enough empty magazine slots.');
+            if(Number(record.ship.groupCredits||0)<round.price*quantity)throw Error('Not enough ship Group Credits.');
+            record.ship.missileAmmo||={};record.ship.missileAmmo[item.id]||={};record.ship.missileAmmo[item.id][round.id]=(record.ship.missileAmmo[item.id][round.id]||0)+quantity;record.ship.groupCredits-=round.price*quantity;
+          }else if(body.purchaseGrade){
+            const grade=String(body.purchaseGrade),price={F:50,D:100,C:300,B:800,A:2400,S:5000}[grade],quantity=Number(body.quantity);
+            if(!price||!Number.isInteger(quantity)||quantity<1||quantity>10000)throw Error('Choose a fuel grade and a whole quantity.');
+            if(Number(record.ship.groupCredits||0)<price*quantity)throw Error('Not enough ship Group Credits.');
+            record.ship.warpFuel ||= {};record.ship.warpFuel[grade]=(Number(record.ship.warpFuel[grade])||0)+quantity;record.ship.groupCredits-=price*quantity;
+          }else{
+            if(!gm)throw Error('Only the GM may adjust stock without purchasing fuel.');
+            const changes={};
+            for(const key of ['warpFuel','minerals'])if(body[key]){
+              if(typeof body[key]!=='object'||Array.isArray(body[key])||Object.keys(body[key]).length>50)throw Error('Invalid stock values.');
+              changes[key]={...(record.ship[key]||{})};
+              for(const [name,value] of Object.entries(body[key])){
+                if(!/^[A-Za-z][A-Za-z .-]{0,39}$/.test(name)||['constructor','prototype'].includes(name)||!Number.isInteger(value)||value<0||value>1000000||(key==='warpFuel'&&!['F','D','C','B','A','S'].includes(name)))throw Error('Stock must be a nonnegative whole number.');
+                changes[key][name]=value;
+              }
+            }
+            Object.assign(record.ship,changes);
+          }
+          record.ship.resourceReceipts=[...record.ship.resourceReceipts,receipt].slice(-200);
+          if(record.ship.confirmed)for(const key of ['warpFuel','minerals','missileAmmo','groupCredits','resourceReceipts'])record.ship.confirmed[key]=clone(record.ship[key]??{});
+          await this.save(campaign);
+        }
+        sendJson(res,200,{starship:publicStarship(record),campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}
+      return true;
+    }
+    if(path==='/api/campaign/starship/transit'&&req.method==='POST'){
+      const record=campaign.starships.find(s=>s.id===(body.starshipId||body.shipId)),characterId=String(body.characterId||''),gm=Boolean(this.gmSession(token,code));
+      if(!record||(!gm&&!(record.crewCharacterIds.includes(characterId)&&this.characterSession(token,code,characterId)))){sendJson(res,403,{error:'Registered crew or GM authorization is required.'});return true;}
+      const live=this.canPassTime(code)?null:this.liveEncounter(code);
+      if(live&&!['warpCancel','warpExit','destructCancel','blastRoll'].includes(body.kind)){sendJson(res,409,{error:'Use the combat console to start an operation.'});return true;}
+      const room=live||transitRoom(campaign),target=room.starships.find(s=>s.id===record.id);
+      const unit=room.units.find(u=>characterId&&u.characterId===characterId)||room.units.find(u=>gm&&u.id===body.id)||transitRoom(campaign).units.find(u=>characterId&&u.characterId===characterId);
+      const commandRoom=unit&&!room.units.some(u=>u.id===unit.id)&&body.kind==='destructCancel'?{...room,units:[...room.units,unit]}:room;
+      try{
+        let result;
+        if(!target)throw Error('Ship not found in the current encounter.');
+        if(body.kind==='warpPlan')result=TRANSIT.plan(target,Number(body.distanceLY),{sicId:body.sicId});
+        else if(body.kind==='blastRoll'){
+          const pending=target.ship.destructState;
+          if(!gm&&pending?.unitId!==unit?.id)throw Error('The initiating crewmember or GM must roll blast damage.');
+          if(pending?.id!==body.blastId)throw Error('That detonation is no longer pending.');
+          result=TRANSIT.resolveBlast(room,record.id,Number(body.score));
+        }else{
+          if(!unit)throw Error('Choose a registered crewmember aboard this ship.');
+          result=TRANSIT.command(commandRoom,unit,{...body,shipId:record.id},{outsideCombat:!live});
+        }
+        if(result?.ok===false)throw Error(result.error);
+        if(body.kind!=='warpPlan'){
+          if(live){const snapshot=this.environmentChanged(room,result.events||[]);if(snapshot)campaign.encounter=snapshot;}
+          for(const ship of room.starships){
+            ship.ship.currentHullHp=ship.currentHullHp;ship.ship.currentShieldHp=ship.currentShieldHp;
+            const saved=campaign.starships.find(s=>s.id===ship.id);if(saved&&live)for(const key of [...TRANSIT_FIELDS,'currentHullHp','currentShieldHp'])saved.ship[key]=clone(ship.ship[key]??null);
+          }
+          this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
+          await this.save(campaign);
+        }
+        sendJson(res,200,{result,campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}
+      return true;
+    }
+    if(path==='/api/campaign/starship/field-utility'&&req.method==='POST'){
+      const gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||''),own=Boolean(characterId&&this.characterSession(token,code,characterId));
+      const record=campaign.starships.find(s=>s.id===body.starshipId);
+      if(!record||(!gm&&!own)){sendJson(res,403,{error:'An authenticated operator or GM is required.'});return true;}
+      const live=!this.canPassTime(code)?this.liveEncounter(code):null,room=live||transitRoom(campaign);
+      const unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
+      try{
+        const field=require('./ship-field-utilities');let result;
+        if(['dock-clearance','decline-dock'].includes(body.kind)){
+          if(!gm)throw Error('Only the GM may issue docking clearance.');
+          const vessel=room.starships.find(s=>s.id===record.id),details=field.system(vessel,body.sicId),request=details.request;
+          if(!request||request.id!==body.clearanceId)throw Error('That docking request is no longer current.');
+          if(body.kind==='decline-dock'){details.request=null;result={text:'Docking request declined.'};}
+          else{
+            if(live&&(OXYGEN.pending(room.starships)||CREW_ROOMS.pending(room)||require('./ship-missiles').pending(room)||room.starships.some(s=>s.ship.destructState?.phase==='blastPending')||room.attackResolution||room.itemResolution||room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length)))throw Error('Resolve pending dice before docking.');
+            const operator=room.units.find(u=>request.characterId?u.characterId===request.characterId:u.id===request.unitId);
+            result=field.command(room,operator,{...body,kind:'dock',targetId:request.targetId},{gm:true,campaign,outsideCombat:!live,clearance:true});if(!result.ok)throw Error(result.error);
+          }
+          if(live){campaign.encounter=this.environmentChanged(room,[],{resolve:true});for(const vessel of room.starships){const saved=campaign.starships.find(s=>s.id===vessel.id);if(saved)saved.ship.fieldState=clone(vessel.ship.fieldState??null);}}
+          await this.save(campaign);
+        }else if(body.kind==='inspect')result=field.inspect(room,unit,body.sicId,gm);
+        else{
+          if(live)throw Error('Use the live combat console for this action.');
+          result=field.command(room,unit,body,{gm,campaign,outsideCombat:true});if(!result.ok)throw Error(result.error);
+          for(const p of room.shipPositions){const ship=room.starships.find(s=>s.id===p.id);field.state(ship).position={q:p.q,r:p.r};}await this.save(campaign);this.timePassed(code,campaign.characters);
+        }
+        sendJson(res,200,{result:body.kind==='inspect'?result:{text:result.text},campaign:body.kind==='inspect'?undefined:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}return true;
+    }
+    if(path==='/api/campaign/starship/surveillance'&&req.method==='POST'){
+      const gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||'');
+      if(!gm&&!(characterId&&this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Character or GM authorization required.'});return true;}
+      const live=!this.canPassTime(code)?this.liveEncounter(code):null,room=live||transitRoom(campaign);
+      if(live)require('./ship-hacking').refresh(room);
+      const unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
+      try{sendJson(res,200,{result:require('./ship-surveillance').inspect(room,unit,String(body.sicId||''))});}
+      catch(error){sendJson(res,409,{error:error.message});}return true;
+    }
+    if(path==='/api/campaign/starship/library-entry'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      const live=!this.canPassTime(code)?this.liveEncounter(code):null;
+      try{
+        const result=CREW_ROOMS.deliverLibrary(campaign,live,body);
+        const liveShip=live?.starships.find(s=>s.id===body.starshipId);
+        if(liveShip){
+          campaign.starships.find(s=>s.id===body.starshipId).ship.crewRoomState=clone(liveShip.ship.crewRoomState);
+          const snapshot=this.environmentChanged(live,[]);if(snapshot)campaign.encounter=snapshot;
+        }
+        await this.save(campaign);sendJson(res,200,{result,campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}return true;
+    }
+    if(path==='/api/campaign/starship/crew-room'&&req.method==='POST'){
+      const gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||''),own=Boolean(characterId&&this.characterSession(token,code,characterId));
+      const record=campaign.starships.find(s=>s.id===body.starshipId);
+      if(!record||(!gm&&(!own||!record.crewCharacterIds?.includes(characterId)))){sendJson(res,403,{error:'Only this ship crew or GM may access room records.'});return true;}
+      const live=!this.canPassTime(code)?this.liveEncounter(code):null,room=live||transitRoom(campaign);
+      const unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
+      try{
+        let result;
+        if(body.kind==='inspect'){result=CREW_ROOMS.inspect(room,campaign,unit,body.sicId,gm);if(result.shipId!==record.id)throw Error('Wrong ship.');}
+        else{
+          if(live&&!body.jobId)throw Error('Use the live combat console for treatment.');
+          if(body.jobId)result=CREW_ROOMS.resolve(room,campaign,body,{gm,characterId:own?characterId:null});
+          else result=CREW_ROOMS.command(room,unit,body,{campaign,gm,outsideCombat:true});
+          this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
+          if(live){const snapshot=this.environmentChanged(room,[],{resolve:true});if(snapshot)campaign.encounter=snapshot;}await this.save(campaign);this.timePassed(code,campaign.characters);
+        }
+        sendJson(res,200,{result,campaign:body.kind==='inspect'?undefined:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}
+      return true;
+    }
+    if(path==='/api/campaign/starship/utility'&&req.method==='POST'){
+      const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
+      if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only the assigned character or GM may operate this station.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'Use the combat console during combat.'});return true;}
+      if(Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot operate a console.'});return true;}
+      const loc=record.characterLocations?.[characterId],cell=loc&&SHIP_MAP.buildLayout(record.ship).footprint.get(loc.square);
+      const unit={id:characterId,characterId,location:{...loc,starshipId:record.id,sicId:cell?.sicId}};
+      const result=require('./ship-utilities').setGravity({starships:[record],units:[unit]},unit,body,{outsideCombat:true});
+      if(!result.ok){sendJson(res,409,{error:result.error});return true;}
+      OXYGEN.sync(campaign.starships,OXYGEN.people(campaign));
+      this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
+      record.updatedAt=new Date().toISOString();await this.save(campaign);
+      sendJson(res,200,{starship:publicStarship(record),campaign:this.state(campaign,token)});return true;
+    }
     if (path === "/api/campaign/starship/diagnostics" && req.method === "POST") {
       const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
       if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only the assigned character or GM may schedule diagnostics.'});return true;}
@@ -1506,6 +1785,15 @@ class CampaignApi {
         await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});
       }catch(error){sendJson(res,409,{error:error.message});}
       return true;
+    }
+    if(path==='/api/campaign/starship/carry'&&req.method==='POST'){
+      const id=String(body.characterId||'');
+      if(!this.gmSession(token,code)&&!this.characterSession(token,code,id)){sendJson(res,403,{error:'You may only direct your own character.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'Use Carry in Combat during an encounter.'});return true;}
+      try{const room=transitRoom(campaign),unit=room.units.find(u=>u.characterId===id),text=require('./crew-carry').command(room,unit,body.targetId);
+        for(const actor of room.units){const ship=campaign.starships.find(s=>s.id===actor.location?.starshipId);if(actor.characterId&&ship){ship.characterLocations[actor.characterId]={...actor.location,carryingId:actor.carryingId||null,carriedBy:actor.carriedBy||null};}else {const npc=campaign.npcRoster?.find(n=>n.id===actor.id);if(npc)Object.assign(npc,{location:actor.location,carryingId:actor.carryingId,carriedBy:actor.carriedBy});}}
+        await this.save(campaign);sendJson(res,200,{text,campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}return true;
     }
     if (path === "/api/campaign/starship/move-character" && req.method === "POST") {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
@@ -1517,13 +1805,20 @@ class CampaignApi {
       if (!record || !record.crewCharacterIds.includes(characterId)) { sendJson(res, 404, { error: "That character is not assigned to this starship." }); return true; }
       if (!gmAccess && !selfAccess) { sendJson(res, 403, { error: "You may only move your own character." }); return true; }
       if (!this.canPassTime(code)) { sendJson(res,409,{error:'Combat is active. Use Move in Combat so movement follows the turn and timing rules.'}); return true; }
+      if(record.characterLocations?.[characterId]?.escapePodId){sendJson(res,409,{error:'This character is in an escape pod and must be rescued before moving aboard.'});return true;}
+      if(CREW_ROOMS.inTreatment(transitRoom(campaign),characterId)){sendJson(res,409,{error:'Complete or cancel Medbay treatment before moving.'});return true;}
+      if(!gmAccess&&Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot move.'});return true;}
       if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
       record.characterLocations ||= {};
+      const previous=record.characterLocations[characterId];
+      if(previous&&!gmAccess&&!SHIP_MAP.meshRoute(SHIP_MAP.buildLayout(record.ship),{square:previous.square,mesh:previous.mesh??4},{square,mesh})){sendJson(res,409,{error:'No route through the doorways reaches that location.'});return true;}
       const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
       const station = body.stationed ? starshipStationAt(record, square, mesh) : null;
+      const aiSeat=require('./ship-ai').reservedSeat(record);if(aiSeat&&Number(aiSeat.square)===square&&Number(aiSeat.mesh)===mesh){sendJson(res,409,{error:'That station is reserved by Ship AI. Turn automation off to free it.'});return true;}
       if (station && occupied >= 1) { sendJson(res, 409, { error: "That station is already occupied." }); return true; }
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
-      record.characterLocations[characterId] = { square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
+      record.characterLocations[characterId] = { carryingId:previous?.carryingId||null, square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
+      if(previous?.carryingId){const target=previous.carryingId,loc={square,mesh,starshipId:record.id,stationed:false,carriedBy:characterId};if(record.crewCharacterIds.includes(target))record.characterLocations[target]=loc;else{const npc=campaign.npcRoster?.find(n=>n.id===target);if(npc)npc.location=loc;}}
       require('./ship-maintenance').passTime(record,0);
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
@@ -1532,6 +1827,13 @@ class CampaignApi {
       return true;
     }
 
+    if(path==='/api/campaign/starship/color'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM access required.'});return true;}
+      const record=campaign.starships.find(s=>s.id===body.starshipId);
+      if(!record||!/^#[0-9a-f]{6}$/i.test(body.color||'')){sendJson(res,400,{error:'Choose a starship and valid glow color.'});return true;}
+      record.ship.mapColor=body.color;const room=this.liveEncounter(code),live=room?.starships.find(s=>s.id===record.id);if(live){live.ship.mapColor=body.color;campaign.encounter=this.environmentChanged(room,[]);}
+      await this.save(campaign);sendJson(res,200,{ok:true});return true;
+    }
     if (path === "/api/campaign/starship/control" && req.method === "POST") {
       if (!this.gmSession(token, code)) { sendJson(res, 403, { error: "GM access required." }); return true; }
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
@@ -1874,6 +2176,11 @@ class CampaignApi {
         return true;
       }
       restored.backupKey = campaign.backupKey;
+      // Backups omit transient demo metadata. Preserve the destination's mode
+      // so restoring Explore updates its active campaign instead of a shadow
+      // record that campaign() will never read (or writing it to normal storage).
+      restored.showcase = Boolean(campaign.showcase);
+      if (restored.showcase && restored.encounter) restored.encounter.showcase = true;
       restored.revision = Math.max(Number(campaign.revision) || 1, Number(restored.revision) || 1);
       await this.save(restored);
       this.restoreEncounter(code, restored.encounter);
@@ -2091,16 +2398,23 @@ class CampaignApi {
           }
           if (!this.canPassTime(code)) throw new Error("End combat before passing campaign time.");
           const next = clone(campaign);
+          const actors=OXYGEN.people(next);OXYGEN.sync(next.starships,actors);
+          if(OXYGEN.pending(next.starships))throw new Error('Resolve the pending oxygen roll before passing time.');
+          const occupied=next.starships.filter(s=>actors.some(a=>a.shipId===s.id&&!a.immune&&a.hp>0));
+          const elapsed=Math.min(minutes,Math.max(.000001,OXYGEN.nextEvent(occupied))/60);
           let healed = 0, recharged = 0;
           for (const record of next.characters.filter(entry => entry.approved)) {
-            const result = CAMPAIGN_TIME.passCharacterTime(record.character, minutes);
+            const result = CAMPAIGN_TIME.passCharacterTime(record.character, elapsed);
             healed += result.healed; recharged += result.recharged.length;
             record.updatedAt = new Date().toISOString();
-            next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${body.amount} ${body.unit}. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
+            next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${Number(elapsed.toFixed(3))} minutes. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
           }
-          const result = { id: requestId, minutes, healed, recharged };
-          for(const ship of next.starships || []) require('./ship-maintenance').passTime(ship,minutes);
-          next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + minutes;
+          const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
+          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);TRANSIT.passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
+          OXYGEN.advance(next.starships,actors,elapsed*60);
+          syncCampaignCarry(next);
+          next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + elapsed;
           next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
           next.revision = (Number(next.revision) || 1) + 1;
           next.updatedAt = new Date().toISOString();
@@ -2159,6 +2473,7 @@ class CampaignApi {
         message: "",
       };
       next.resources ||= {};
+      next.vrTrainingDay=record.character.vrTrainingDay;
       next.health ||= { current: null, permanentBonus: 0 };
       next.health.recoveryMinutes = record.character.health?.recoveryMinutes || 0;
       const serverCredits = Number(record.character?.resources?.creditsBase) || 0;
@@ -2183,6 +2498,7 @@ class CampaignApi {
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
       sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase, currentHp: next.health.current });
+      this.timePassed(code,[record]);
       return true;
     }
 
@@ -2326,7 +2642,7 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization is required." });
         return true;
       }
-      campaign.npcTemplates = normalizeCampaign({ npcTemplates: body.templates }).npcTemplates;
+      const normalized=normalizeCampaign({...campaign,npcTemplates:body.templates});campaign.npcTemplates=normalized.npcTemplates;campaign.npcRoster=normalized.npcRoster;
       await this.save(campaign);
       sendJson(res, 200, { campaign: this.state(campaign, token) });
       return true;
@@ -2417,7 +2733,7 @@ class CampaignApi {
         sendJson(res, 409, { error: "That keyword is already assigned to another conditional action." });
         return true;
       }
-      const next = { id: actionId || uid("conditional"), keyword, kind, message, resource, amount, attribute, skill, difficulty, hideDifficulty: Boolean(body.hideDifficulty) };
+      const next = { id: actionId || uid("conditional"), keyword, kind, message, resource, amount, attribute, skill, difficulty, hideDifficulty: false };
       const index = campaign.conditionalActions.findIndex((entry) => entry.id === actionId);
       if (index >= 0) campaign.conditionalActions[index] = next;
       else campaign.conditionalActions.push(next);
@@ -3131,7 +3447,7 @@ class CampaignApi {
         attribute: String(body.attribute).slice(0, 40),
         skill: String(body.skill).slice(0, 80),
         difficulty: Number.isFinite(difficulty) ? difficulty : null,
-        hideDifficulty: Boolean(body.hideDifficulty),
+        hideDifficulty: false,
         targetIds,
         completionActionId: completionAction?.id || "",
         results: {},

@@ -10,6 +10,16 @@ const campaign = { starships: [ship], characters: [{ id: "pc-a", approved: true 
 const setup = { preparationId: "test-prepare-001", mode: "starship", starships: [ship], shipDistances: [], units: [{ team: "pc", characterId: "pc-a", location: { starshipId: ship.id, square: 0, mesh: 4 } }] };
 const validate = body => validatePreparation(body, campaign, ships => structuredClone(ships));
 
+test('a new encounter clears old missile flights but keeps the saved magazine',()=>{
+  const saved=structuredClone(campaign);
+  saved.starships[0].ship.missileAmmo={launcher:{'missile-1':2}};
+  saved.starships[0].ship.missileState={flights:[{id:'old',phase:'impact'}],cooldowns:{launcher:8},receipts:['old']};
+  const result=validatePreparation(setup,saved,ships=>structuredClone(ships));
+  assert.deepEqual(result.starships[0].ship.missileAmmo,saved.starships[0].ship.missileAmmo);
+  assert.deepEqual(result.starships[0].ship.missileState,{flights:[],cooldowns:{},receipts:[]});
+  assert.equal(saved.starships[0].ship.missileState.flights.length,1);
+});
+
 test("preparation validates a whole roster without changing its input", () => {
   const before = structuredClone(setup);
   assert.equal(validate(setup).units.length, 1);

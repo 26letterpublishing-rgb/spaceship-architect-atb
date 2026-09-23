@@ -1,0 +1,14 @@
+(function(){
+  let panel,signature='',submit;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function update(campaign,callback){
+    submit=callback;const requests=(campaign.starships||[]).flatMap(ship=>Object.entries(ship.ship?.fieldState?.systems||{}).filter(([,s])=>s.request).map(([sicId,s])=>({...s.request,shipId:ship.id,host:ship.title,target:campaign.starships.find(t=>t.id===s.request.targetId)?.title||'Incoming ship',sicId,shield:s.shield})));
+    if(!panel){panel=document.createElement('aside');panel.setAttribute('popover','manual');panel.setAttribute('aria-label','Docking clearance');panel.style.cssText='position:fixed;inset:auto auto 18px 18px;margin:0;max-width:min(350px,85vw);max-height:40vh;overflow:auto;padding:16px;background:#192b25;color:#fff;border:2px solid #dfbc70;font:14px Arial;z-index:2147483647';document.body.append(panel);}
+    if(!requests.length){if(panel.matches(':popover-open'))panel.hidePopover();signature='';return;}
+    const key=JSON.stringify(requests);if(key!==signature){signature=key;panel.innerHTML='<strong>DOCKING CLEARANCE</strong>'+requests.map(r=>`<section data-request="${esc(r.id)}" style="margin-top:12px"><p>${esc(r.target)} to ${esc(r.host)}</p><label style="display:flex;gap:8px;align-items:center"><input data-consent type="checkbox" style="width:20px;height:20px;min-width:20px">Both ships consent${r.shield?'':' / bay sealed and decompressed'}</label><button data-approve type="button" style="margin:8px;padding:8px">Approve Docking</button><button data-decline type="button" style="padding:8px">Decline</button><output role="status"></output></section>`).join('');
+      panel.onclick=async e=>{const button=e.target.closest('[data-approve],[data-decline]');if(!button)return;const section=button.closest('[data-request]'),request=requests.find(r=>r.id===section.dataset.request),decline=button.hasAttribute('data-decline'),consent=section.querySelector('[data-consent]').checked,status=section.querySelector('output');if(!decline&&!consent){status.textContent='Confirm consent and bay safety first.';return;}button.disabled=true;try{const result=await submit({kind:decline?'decline-dock':'dock-clearance',starshipId:request.shipId,sicId:request.sicId,clearanceId:request.id,decompressed:true,consent:true,receipt:crypto.randomUUID()});status.textContent=result.result?.text||'Confirmed';if(result.campaign)update(result.campaign,submit);}catch(error){status.textContent=error.message;}finally{button.disabled=false;}};
+    }
+    const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;if(panel.parentElement!==host)host.append(panel);if(!panel.matches(':popover-open'))panel.showPopover();
+  }
+  window.SAFieldUtilityStatus={update};window.addEventListener('pagehide',()=>panel?.remove());
+}());

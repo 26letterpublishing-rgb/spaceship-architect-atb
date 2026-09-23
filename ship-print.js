@@ -8,12 +8,12 @@
     dialog.querySelector('[data-print]').onclick=()=>{const high=dialog.querySelector('select').value==='high',win=window.open('','_blank');if(!win){dialog.querySelector('p').textContent='Allow this print window in your browser, then try again.';return;}render(win,ship,title,high);dialog.close();};
   }
   async function render(win,ship,title,high){
-    const maps=window.SAShipMap,layout=maps.buildLayout(ship),cells=[...new Set([...layout.hull,...layout.footprint.keys()])];
-    const xs=cells.map(n=>n%20),ys=cells.map(n=>Math.floor(n/20)),minX=cells.length?Math.min(...xs):0,minY=cells.length?Math.min(...ys):0;
+    const maps=window.SAShipMap,layout=maps.buildLayout(ship),cells=[...new Set([...layout.hull,...maps.triangleCells(ship),...layout.footprint.keys()])];
+    const columns=maps.gridColumns(ship),xs=cells.map(n=>n%columns),ys=cells.map(n=>Math.floor(n/columns)),minX=cells.length?Math.min(...xs):0,minY=cells.length?Math.min(...ys):0;
     const cols=cells.length?Math.max(...xs)-minX+1:1,rows=cells.length?Math.max(...ys)-minY+1:1,size=Math.min(1.5,9.7/cols,6.7/rows);
     const content=[];
     for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-      const square=(y+minY)*20+x+minX,part=layout.footprint.get(square),hull=layout.hull.has(square);
+      const square=(y+minY)*columns+x+minX,part=layout.footprint.get(square),hull=layout.hull.has(square);
       const style=part&&!part.exterior?(high?maps.floorplanStyle(part.type,part.column,part.row):`background:${part.color||'#477d83'}`):hull?(high?`background-image:url('hallway.png');background-size:cover`:'background:#e2e4d9'):'';
       content.push(`<div class="print-cell combat-map-square ${hull?'floor':''}" style="${style}">${maps.surfaceMarkup(layout,square)}${hull?maps.boundaryMarkup(layout,square):''}${part&&!part.offset?`<span class="print-label" style="width:${part.width*100}%;height:${part.height*100}%">${esc(maps.definition(part.type).name)}</span>`:''}</div>`);
     }

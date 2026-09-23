@@ -89,6 +89,7 @@ test('conditional navigation launches from the current position after the pilot 
 
 test('conditional analysis keeps the queued report on the real operator',()=>{
   const {room,pilot,a}=fixture();a.ship.sicInventory.push({id:'au',type:'au-engine-1'});a.ship.placements.push({sicId:'au',cell:46});power.refresh(room,{reset:true});a.auState.current=2;
+  room.starships[1].sensorScenarioMasking=10;
   assert.equal(sensors.queue(room,pilot,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'conditional-analysis'}).ok,true);
   pilot.delayedAction.sensorOrder.trigger={kind:'movement',targetId:'b'};commands.armExternal(room,pilot,'sensor');
   pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;

@@ -355,3 +355,12 @@ body.embedded-gm-starship .starship-shell{width:100%;max-width:none;margin:0;pad
 .construction-command-bar button:disabled{background:#1a563e;color:#b5d1c3;box-shadow:none}
 .ship-details-view .construction-command-bar,.ship-details-view .construction-sidebar,.view-only-starship .construction-command-bar{display:none!important}
 body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-action=confirm]{display:none}
+
+.ship-glow-field input[type=color]{min-height:32px;width:64px;padding:2px}
+
+.embedded-move-controls [data-embedded-station]{max-width:100%;font:13px Arial;white-space:normal;min-height:36px;color:#eefaff;background:#0b2734;border:1px solid #73acbd}
+.embedded-move-controls [data-embedded-station][hidden]{display:none!important}
+.embedded-move-route polyline{stroke-width:3!important;vector-effect:non-scaling-stroke;filter:drop-shadow(0 1px 2px #000)}
+.grid-toolbar button[aria-label="Enlarge ship interior"]{white-space:nowrap;min-width:90px}
+
+.embedded-move-controls.is-selecting :is([data-action="console"],[data-action="diagnostics"]){display:none!important}

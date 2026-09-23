@@ -1,0 +1,88 @@
+[
+  {
+    "id": "warp-drive-zero",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a compact square first-generation warp core with one exposed copper torus, heavy graphite mounting cradle, cyan ion chamber, simple rugged pipework. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-174bbe57-b4e1-454f-8939-2a8ec8908bfb.png"
+  },
+  {
+    "id": "warp-drive-1",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a narrow vertical warp engine with three transverse gold electromagnetic collars around a long titanium chamber, braided conduits and compact control terminals. True orthographic overhead top-down view, portrait 1:2 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-d1381e45-f322-4eed-8ca2-7ce5311a28d7.png"
+  },
+  {
+    "id": "warp-drive-2",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a square warp engine with two parallel green-lit reaction chambers joined by a thick armored crosspiece, silver cooling ribs and copper valves. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-c78db9a9-2278-491d-b8f1-d447f6b5d264.png"
+  },
+  {
+    "id": "warp-drive-3",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a vertical warp engine with a large central rose-lit containment ring, paired tall capacitor columns, complex silver fluid lines and segmented armor. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-fb6bd8e2-00e3-4ce7-b9c9-352fa298a60b.png",
+    "editPrompt": "Use case: background-extraction. Remove the entire gray/brown cloudy background from this warp-drive equipment image. Preserve the machinery exactly, its pink glow contained inside the chambers and its top-down shape. Output a clean cutout on genuinely transparent alpha, including the gaps between its pipes and outer equipment. No added background, shadows, halo, checkerboard, floor, border or text."
+  },
+  {
+    "id": "warp-drive-4",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a square advanced warp core with four concentric blue containment rings, four angular silver power couplers and dense precision machinery. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-95a1cbe2-6290-41d1-9333-a39f1dff750b.png"
+  },
+  {
+    "id": "warp-drive-5",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a large vertical high-end warp reactor with six orange energized collars around a spinal reaction chamber, multiple outer cooling assemblies and polished titanium housings. True orthographic overhead top-down view, portrait 3:4 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-8b43e982-26f4-48e9-a895-34afabb9110a.png"
+  },
+  {
+    "id": "warp-drive-x",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a square exotic top-grade warp engine with a brilliant white pearl reaction sphere held inside intersecting metallic containment rings, eight radial reactor banks, exceptionally intricate silver and graphite mechanisms with subtle violet circuitry. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-745c8aac-d22a-4498-af9b-1032cd96138d.png"
+  },
+  {
+    "id": "ballistic-rail-cannon",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a long narrow ballistic rail cannon, twin straight silver electromagnetic rails pointing toward the top, open channel between them, yellow capacitor bridges, heavy armored receiver and hull mounting base at bottom. No perspective tilt, no ammunition or bullets outside the device. True orthographic overhead top-down view, portrait 1:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-b8d5520a-7b80-4647-ad33-34e9f4626b01.png"
+  },
+  {
+    "id": "self-destruct",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a premium spaceship self-destruct authorization module, square heavy brushed-metal console with two physical key cylinders, a guarded red circular activation button under open safety cover, small rows of red status lights and intricate circuitry. No words, no numbers. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-ab42e53e-6978-4b1e-bdac-cda33dc014b5.png"
+  },
+  {
+    "id": "decent-hover",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a compact square atmospheric hover thruster, four titanium mounting brackets around a circular downward thrust fan seen from directly above, cyan ion glow, detailed concentric blades and exposed copper feed pipes. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-b3f76501-c5f1-4611-b994-7b8e02b21fd1.png"
+  },
+  {
+    "id": "decent-aerofoil",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a matched pair of folded metallic spaceship aerofoil wings with a compact central deployment mechanism, silver articulated swept wing panels, readable hinges and dark inset aerodynamic surfaces, symmetrical left and right. True orthographic overhead top-down view, square composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-82a03808-3932-4ddd-9652-46ddec9c9eb6.png"
+  },
+  {
+    "id": "warp-fuel-f",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade F warp fuel cartridge, small rugged copper canister with cyan liquid window. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-4e97ce15-bcfd-48ab-b86d-29a72e239954.png"
+  },
+  {
+    "id": "warp-fuel-d",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade D warp fuel cartridge, silver double-banded cylinder with gold energy window. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-3e3e6334-3338-44d7-9e76-f39469908a5c.png"
+  },
+  {
+    "id": "warp-fuel-c",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade C warp fuel cartridge, armored hexagonal canister with green containment core. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-cb807a1d-1973-43ed-92f7-b81171d884c7.png"
+  },
+  {
+    "id": "warp-fuel-b",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade B warp fuel cartridge, tall graphite cartridge with rose-lit plasma reservoir and three clamps. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-6d950913-3390-4bd7-bd22-8414721219e9.png"
+  },
+  {
+    "id": "warp-fuel-a",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade A warp fuel cartridge, advanced silver ribbed fuel capsule with blue containment cell and four cooling fins. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-5cdc56f5-548d-4282-bc01-cfeb12393ac8.png"
+  },
+  {
+    "id": "warp-fuel-s",
+    "prompt": "Use case: stylized-concept. Production raster game asset for Spaceship Architect equipment cards and top-down ship floorplans. Subject: a single sci-fi grade S warp fuel cartridge, premium compact crystal containment capsule in a white titanium cage with orange luminous core. Show only one device, no lettering. True orthographic overhead top-down view, portrait 2:3 composition, entire device centered with tiny clear margins. Detailed realistic hard-surface game art, worn titanium and graphite, readable fine mechanical detail, balanced neutral studio lighting. Genuinely transparent background with alpha, no floor beyond the device, no shadows outside the silhouette, no backdrop, no border, no grid, no text, no watermark. Not a schematic, vector or simple icon.",
+    "source": "C:/Users/zombi/.codex/generated_images/019ee965-2234-7530-8f1f-00f3cc9c199b/exec-e64c89ca-3dc9-4737-ba92-4ab717253da1.png"
+  }
+]

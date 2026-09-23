@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200">
+<defs><linearGradient id="metal" x2="0" y2="1"><stop stop-color="#d9e3e5"/><stop offset=".45" stop-color="#69828b"/><stop offset="1" stop-color="#273c47"/></linearGradient></defs>
+<path fill="url(#metal)" stroke="#0c1c23" stroke-width="5" d="M145 24h30l14 39 117 77v34l-114-31-17 33h-30l-17-33-114 31v-34L131 63z"/>
+<path fill="#253e48" stroke="#acbcbf" stroke-width="2" d="M145 53h30v93h-30z"/>
+<path fill="none" stroke="#a5c4ce" stroke-width="2" d="M132 85l-96 65 92-25m60-40 96 65-92-25M88 119l2 33m142-33-2 33"/>
+<path stroke="#e8c65e" stroke-width="5" d="M29 144l91-61m171 61-91-61"/>
+<path fill="#70c9db" d="M150 62h20v27h-20z"/>
+</svg>

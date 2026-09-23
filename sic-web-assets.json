@@ -2406,5 +2406,75 @@
     "sourceBytes": 1054912,
     "webBytes": 82116,
     "alpha": false
+  },
+  "beam-laser-sprite.png": {
+    "file": "beam-laser-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      360,
+      720
+    ],
+    "sourceBytes": 918130,
+    "webBytes": 38200,
+    "alpha": true
+  },
+  "darkveil-floor-plan.png": {
+    "file": "darkveil-floor-plan-web.webp",
+    "sourcePixels": [
+      1254,
+      1254
+    ],
+    "webPixels": [
+      720,
+      720
+    ],
+    "sourceBytes": 2775846,
+    "webBytes": 148342,
+    "alpha": false
+  },
+  "ion-pulse-cannon-sprite.png": {
+    "file": "ion-pulse-cannon-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      360,
+      720
+    ],
+    "sourceBytes": 1316920,
+    "webBytes": 47074,
+    "alpha": true
+  },
+  "ripple-cannon-sprite.png": {
+    "file": "ripple-cannon-sprite-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      360,
+      720
+    ],
+    "sourceBytes": 1244681,
+    "webBytes": 46274,
+    "alpha": true
+  },
+  "weapon-room-floor-plan.png": {
+    "file": "weapon-room-floor-plan-web.webp",
+    "sourcePixels": [
+      887,
+      1774
+    ],
+    "webPixels": [
+      360,
+      720
+    ],
+    "sourceBytes": 2477619,
+    "webBytes": 69464,
+    "alpha": false
   }
 }

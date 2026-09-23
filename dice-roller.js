@@ -437,7 +437,9 @@ export class PhysicalDiceRoller {
     });
   }
 
-  rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true, damage = false }) {
+  rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true, damage = false, values = null, color = null, presentation = null }) {
+    const avalanche = presentation === 'avalanche';
+    if (avalanche) sides = sides.slice(0, 192);
     const palette = {
       4: { color: 0x3f1955, accent: "#eac5ff" },
       6: { color: 0x18354e, accent: "#b9f4ff" },
@@ -447,7 +449,7 @@ export class PhysicalDiceRoller {
       20: { color: 0x28396c, accent: "#c7d3ff" },
     };
     return this.rollDice({
-      dice: sides.map((dieSides) => ({ sides: dieSides, ...(damage?{color:0xa40d20,alternate:0x670817,accent:'#fff0e9'}:palette[dieSides] || palette[6]) })),
+      dice: sides.map((dieSides, index) => ({ sides: dieSides, replayValue: values?.[index], ...(damage?{color:0xa40d20,alternate:0x670817,accent:'#fff0e9'}:color?{color,accent:'#ffffff'}:palette[dieSides] || palette[6]) })),
       title,
       subtitle,
       onResolved,
@@ -455,10 +457,11 @@ export class PhysicalDiceRoller {
       anchor,
       fusion,
       pool: true,
+      avalanche,
     });
   }
 
-  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor, fusion = false, pool = false }) {
+  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor, fusion = false, pool = false, avalanche = false }) {
     this.stop();
     try {
       this.onRollStart?.({ dice });
@@ -468,6 +471,7 @@ export class PhysicalDiceRoller {
     this.shell.hidden = false;
     this.shell.classList.remove("celebrating", "choices-ready");
     this.shell.classList.toggle("pool-roll", pool);
+    this.shell.classList.toggle("dice-avalanche", avalanche);
     this.title.textContent = title;
     this.subtitle.textContent = subtitle;
     this.result.hidden = true;
@@ -475,15 +479,18 @@ export class PhysicalDiceRoller {
     this.positionAt(pool ? null : anchor);
 
     this.scene = new THREE.Scene();
-    this.viewHalfHeight = pool ? Math.max(4.7, Math.ceil(dice.length / 4) * 1.15 + 1.35) : 2.9;
+    const aspect = Math.max(.4, window.innerWidth / Math.max(1, window.innerHeight));
+    const columns = Math.ceil(Math.sqrt(dice.length * aspect)), rows = Math.ceil(dice.length / columns);
+    this.avalancheArena = avalanche ? { width: columns * .95, depth: rows * .95 } : null;
+    this.viewHalfHeight = avalanche ? Math.max(rows * .95 + 1, (columns * .95 + 1) / aspect) : pool ? Math.max(4.7, Math.ceil(dice.length / 4) * 1.15 + 1.35) : 2.9;
     this.camera = new THREE.OrthographicCamera(-3.7, 3.7, this.viewHalfHeight, -this.viewHalfHeight, 0.1, 30);
     this.camera.position.set(0, 12, 0);
     this.camera.up.set(0, 0, -1);
     this.camera.lookAt(0, 0, 0);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, avalanche ? 1 : 2));
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = !avalanche;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.canvasHost.replaceChildren(this.renderer.domElement);
@@ -504,6 +511,7 @@ export class PhysicalDiceRoller {
 
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -34, 0) });
     this.world.allowSleep = true;
+    if(avalanche)this.world.broadphase = new CANNON.SAPBroadphase(this.world);
     this.world.defaultContactMaterial.friction = 0.44;
     this.world.defaultContactMaterial.restitution = 0.2;
     const floorBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
@@ -511,9 +519,26 @@ export class PhysicalDiceRoller {
     this.world.addBody(floorBody);
     this.addWalls(pool);
 
-    const throwConfigs = config || dice.map((_, index) => generatedThrow(index, dice.length));
+    const throwConfigs = config || dice.map((_, index) => {
+      const toss = generatedThrow(index, dice.length);
+      if(avalanche){
+        toss.position = [(index % columns - (columns - 1) / 2) * 1.9 + randomBetween(-.15,.15), randomBetween(3,5), (Math.floor(index / columns) - (rows - 1) / 2) * 1.9 + randomBetween(-.15,.15)];
+        toss.velocity = [randomBetween(-.35,.35), -2, randomBetween(-.35,.35)];
+      }
+      return toss;
+    });
+    // Reuse the normal numbered models and textures instead of making thousands
+    // of canvas textures. Materials remain independent for normal result fades.
+    const templates = new Map();
     const activeDice = dice.map((spec, index) => {
-      const visual = visualFor(spec);
+      let visual;
+      const key = JSON.stringify([spec.sides,spec.color,spec.alternate,spec.accent]);
+      const template = avalanche && templates.get(key);
+      if(template){
+        const group = template.group.clone(true);
+        group.traverse(child=>{if(child.material)child.material=Array.isArray(child.material)?child.material.map(m=>m.clone()):child.material.clone();});
+        visual = { group, shape:template.shape, normals:template.normals.map(face=>({...face,label:group.children[template.group.children.indexOf(face.label)]})) };
+      }else{visual=visualFor(spec);if(avalanche)templates.set(key,visual);}
       visual.group.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -529,13 +554,18 @@ export class PhysicalDiceRoller {
         sleepSpeedLimit: 0.1,
         sleepTimeLimit: 0.42,
       });
+      // Dice still tumble against the tray; omit costly dice-to-dice contacts
+      // only for this cosmetic crowd. Ordinary rolls retain all collisions.
+      if(avalanche){body.collisionFilterGroup=2;body.collisionFilterMask=1;}
       const throwConfig = throwConfigs[index] || generatedThrow(index, dice.length);
       body.position.set(...throwConfig.position);
       body.quaternion.set(...throwConfig.quaternion);
       body.velocity.set(...throwConfig.velocity);
       body.angularVelocity.set(...throwConfig.angularVelocity);
-      this.world.addBody(body);
-      return { body, visual, spec, winningFace: null };
+      const releaseAt = avalanche ? Math.floor(index / columns) * (1200 / Math.max(1, rows-1)) : 0;
+      if(!releaseAt)this.world.addBody(body);
+      visual.group.visible = !releaseAt;
+      return { body, visual, spec, winningFace: null, releaseAt, released: !releaseAt };
     });
     onConfig?.(throwConfigs);
 
@@ -549,6 +579,7 @@ export class PhysicalDiceRoller {
       results: null,
       fusion,
       pool,
+      avalanche,
       fusionPairs: [],
       fusedVisuals: [],
     };
@@ -561,8 +592,8 @@ export class PhysicalDiceRoller {
   }
 
   addWalls(pool = false) {
-    const halfWidth = pool ? 4.7 : 3.4;
-    const halfDepth = pool ? 3.15 : 2.45;
+    const halfWidth = this.avalancheArena?.width || (pool ? 4.7 : 3.4);
+    const halfDepth = this.avalancheArena?.depth || (pool ? 3.15 : 2.45);
     const walls = [
       { half: [halfWidth, 1.6, 0.12], position: [0, 1.5, -halfDepth] },
       { half: [halfWidth, 1.6, 0.12], position: [0, 1.5, halfDepth] },
@@ -586,19 +617,20 @@ export class PhysicalDiceRoller {
     this.lastTime = time;
 
     if (!this.active.resolved) {
+      for(const item of this.active.dice){if(!item.released&&time-this.startedAt>=item.releaseAt){this.world.addBody(item.body);item.released=true;item.visual.group.visible=true;}}
       this.world.step(1 / 60, elapsed, 4);
       for (const item of this.active.dice) {
         item.visual.group.position.copy(item.body.position);
         item.visual.group.quaternion.copy(item.body.quaternion);
       }
-      const slow = this.active.dice.every(({ body }) => body.velocity.length() < 0.14 && body.angularVelocity.length() < 0.2);
+      const slow = this.active.dice.every(({ body, released }) => released && body.velocity.length() < 0.14 && body.angularVelocity.length() < 0.2);
       if (slow && time - this.startedAt > 650) {
         if (!this.settleStart) this.settleStart = time;
         if (time - this.settleStart > 360) this.resolve(time);
       } else {
         this.settleStart = 0;
       }
-      if (time - this.startedAt > 1900) this.resolve(time);
+      if (time - this.startedAt > (this.active.avalanche ? 3500 : 1900)) this.resolve(time);
     } else {
       this.animateResolution(time);
     }
@@ -613,7 +645,7 @@ export class PhysicalDiceRoller {
     this.active.resolved = true;
     this.active.resolvedAt = time;
     this.active.results = this.active.dice.map((item) => {
-      item.winningFace = topFace(item.visual, item.body);
+      item.winningFace = item.visual.normals.find(face => face.value === item.spec.replayValue) || topFace(item.visual, item.body);
       item.settleQuaternion = item.visual.group.quaternion.clone();
       const winningNormal = item.winningFace.normal.clone().applyQuaternion(item.settleQuaternion).normalize();
       const correction = new THREE.Quaternion().setFromUnitVectors(winningNormal, UP);
@@ -786,8 +818,10 @@ export class PhysicalDiceRoller {
     this.camera = null;
     this.renderer = null;
     this.world = null;
+    this.avalancheArena = null;
     this.shell?.classList.remove("choices-ready");
     this.shell?.classList.remove("pool-roll");
+    this.shell?.classList.remove("dice-avalanche");
     if (this.shell) this.shell.hidden = true;
   }
 
@@ -797,7 +831,7 @@ export class PhysicalDiceRoller {
     const height = Math.max(140, this.canvasHost.clientHeight);
     this.renderer.setSize(width, height, false);
     const aspect = width / height;
-    const halfHeight = this.viewHalfHeight || 2.9;
+    const halfHeight = this.avalancheArena ? Math.max(this.avalancheArena.depth+1,(this.avalancheArena.width+1)/aspect) : this.viewHalfHeight || 2.9;
     this.camera.left = -halfHeight * aspect;
     this.camera.right = halfHeight * aspect;
     this.camera.top = halfHeight;

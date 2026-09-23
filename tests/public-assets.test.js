@@ -6,6 +6,10 @@ const root = path.resolve(__dirname, "..");
 
 test("only intended browser assets are public", () => {
   assert.ok(resolvePublicAsset(root, '/console-feedback.js'));
+  assert.ok(resolvePublicAsset(root, '/surveillance-console.js'));
+  assert.ok(resolvePublicAsset(root, '/skill-catalog.js'));
+  assert.equal(resolvePublicAsset(root, '/vr-simulations.js'), null);
+  assert.equal(resolvePublicAsset(root, '/ship-surveillance.js'), null);
   assert.equal(resolvePublicAsset(root, "/campaign-api.js"), null);
   for (const file of ["/", "/character.html", "/ship-map-presentation.css", "/ship-map-core.js", "/life-support-floor-plan.png", "/data/weapons.json", "/vendor/three.core.min.js", "/fonts/Orbitron.woff2"]) {
     assert.ok(resolvePublicAsset(root, file), file);

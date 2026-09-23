@@ -1,0 +1,23 @@
+.hacking-console{width:min(1100px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;background:#07161a;color:#eff8f3;border:1px solid #72bfa6;padding:18px;font:15px/1.5 Arial,sans-serif}
+.hacking-console header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid #3b7061;padding-bottom:10px}
+.hacking-console h2{font-size:24px;margin:3px 0}.hacking-console h3{font-size:18px}
+.hacking-console main{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px}
+.hacking-console label{display:grid;gap:4px;margin:10px 0}
+.hacking-console select{color:#ecf5ed;background:#132525;border:1px solid #5f8c85;min-height:38px;max-width:100%}
+.hacking-console button,.counter-hack-swap button{border:1px solid #6ea89b;border-radius:4px;background:#204d41;color:#fff;padding:9px 13px;font:700 14px Arial;min-height:38px}
+.hacking-console button:disabled{opacity:.45}.hacking-console [data-error]{color:#ff8491;grid-column:1/-1}
+.hacking-slots,.hacking-palette{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
+.hacking-slots label{width:48px;margin:0;text-align:center}.hacking-slots select{width:48px;font-size:21px;height:44px}
+.hacking-palette button{width:42px;height:42px;border-radius:4px;background:hsl(var(--letter-hue) 38% 24%);border:2px solid hsl(var(--letter-hue) 68% 70%);font-size:20px;padding:0}
+.hacking-history{display:flex;flex-wrap:wrap;gap:10px;padding:8px 0;border-bottom:1px solid #345046;margin:0}
+.hacking-history code{font-size:18px}.hacking-history span{margin-left:auto}.hacking-history.solved{color:#8cf0ae}
+.hacking-actions,.hacking-seat{display:flex;flex-wrap:wrap;gap:8px}.hacking-console [data-board-status]{display:block;color:#f2da89;min-height:44px}
+.hacking-seat{grid-column:1/-1}.counter-hack-swap{background:#091b1c;color:#ebfff2;max-width:440px;padding:22px;border:1px solid #78d0b5;font:16px Arial}.counter-hack-swap label{display:block;margin:16px 0}
+@media(max-width:700px){.hacking-console main{grid-template-columns:minmax(0,1fr)}.hacking-console{padding:12px}.hacking-targets{display:grid;grid-template-columns:1fr 1fr;gap:8px}.hacking-targets p{grid-column:1/-1}}
+.shared-console-layout.hacking-console .hacking-board{grid-column:2!important;grid-row:2!important}
+.shared-console-layout.hacking-console .hacking-targets{grid-column:3!important;grid-row:2/4!important}
+.hacking-console header h2{font-size:20px!important;line-height:1.15;margin:0!important}
+.hacking-console header small{font-size:11px;line-height:1.2}.hacking-console header [data-turn]{font-size:13px;line-height:1.2}
+.hacking-console .console-defense{font-size:15px;line-height:1.2}.hacking-slots select{padding:4px!important}
+@media(max-width:900px){.shared-console-layout.hacking-console .hacking-targets{order:2;display:block}.shared-console-layout.hacking-console .hacking-board{order:3;min-height:260px!important}.hacking-console header>div{min-width:0;max-width:100%}.hacking-console [data-selector]{display:flex;flex-wrap:wrap}.hacking-console .station-console-select{width:100%;min-width:0}.hacking-console .hacking-actions button{flex:1 1 120px}.hacking-console [data-error]{order:4}}
+@media(max-width:900px){.shared-console-layout.hacking-console .shared-power{max-height:none!important}.hacking-console .shared-power>h3:first-child{display:none}}

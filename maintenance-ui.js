@@ -29,6 +29,14 @@
         catch(e){error.textContent=e.message;busy=false;view.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.maintenanceKind?unavailable(b.dataset.maintenanceKind):false);}
       };view.append(button);
     }
+    const counter=doc.createElement('button');counter.type='button';counter.textContent='Counter-hack (1D6)';counter.dataset.maintenanceKind='counter';
+    counter.onclick=async()=>{
+      const person=bridge.state().units.find(u=>u.id===unit.id);
+      if(busy||!bridge.confirmGmPlayerAction(person,'counter-hack'))return;
+      busy=true;counter.disabled=true;
+      try{await bridge.action({action:'hackingCommand',id:unit.id,kind:'counter',sicId:item.id,turnSerial:person.turnSerial,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});view.close();}
+      catch(e){error.textContent=e.message;busy=false;}
+    };view.append(counter);
     const close=doc.createElement('button');close.type='button';close.textContent='Back';close.onclick=()=>view.close();view.append(error,close);
     close.style.cssText='padding:10px 22px;background:#173641;color:#fff;border:1px solid #71b7cc;border-radius:4px;font-weight:bold';
     const status=doc.createElement('p');status.setAttribute('role','status');view.insertBefore(status,error);

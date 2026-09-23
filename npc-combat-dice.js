@@ -37,6 +37,8 @@ function roll({ sides, title, subtitle, fusion, flat = 0, skill = 0 }) {
       title,
       subtitle,
       fusion,
+      damage:!fusion,
+      color:fusion?0x666a70:null,
       onResolved: () => {},
       onSettled: (results) => {
         const kept = fusion ? fusedTopTwo(results) : results;

@@ -187,3 +187,32 @@
 .conditional-order-controls summary{cursor:pointer;color:#e1cf8c;padding:6px 0}
 .conditional-order-controls label{margin:6px 0}
 .conditional-order-controls input[type=checkbox]{width:16px;height:16px}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart>[data-navigation-map]{position:relative;inset:auto;flex:1;min-height:70px;overflow:hidden}.ship-navigation-dialog:not(.navigation-planner) .navigation-fields{margin-top:0;flex-shrink:0}.ship-navigation-dialog [data-navigation-map]>.space-map{height:100%}.ship-navigation-dialog [data-navigation-map] svg{height:100%;aspect-ratio:auto}
+
+/* The starfield occupies the whole chart; controls float over its edges. */
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart>[data-navigation-map]{position:absolute;inset:0;min-height:0;overflow:hidden}
+.ship-navigation-dialog:not(.navigation-planner) .navigation-fields{margin-top:auto}
+.ship-navigation-dialog [data-navigation-map]>.space-map{position:absolute;inset:0;width:100%;height:100%;margin:0}
+
+.navigation-planner [data-navigation-map]{position:relative;flex:1;min-height:80px}
+.navigation-planner .navigation-fields{position:relative;z-index:1;flex-shrink:0;flex-wrap:wrap}
+.ship-navigation-dialog [data-enlarge-navigation]{min-width:0;padding:5px 8px;font-size:12px;white-space:nowrap}
+
+/* Give navigation the largest working area; details remain available beside it. */
+.ship-navigation-dialog:not(.navigation-planner):not(.map-focus) form{grid-template-rows:minmax(80px,auto) minmax(290px,1fr) minmax(160px,.55fr);min-height:600px;gap:12px 16px;padding:16px 38px}
+.ship-navigation-dialog .pilot-fleet,.ship-navigation-dialog .pilot-activity{margin-top:0}
+.ship-navigation-dialog .pilot-chart-title{align-items:center;flex-wrap:wrap}.ship-navigation-dialog .pilot-chart-title h3{margin:0}.ship-navigation-dialog .navigation-fields{flex-wrap:wrap;gap:7px}
+.ship-navigation-dialog.map-focus{background:#09191e;overflow:hidden}
+.ship-navigation-dialog.map-focus form{position:relative;top:0;left:0;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 245px;grid-template-rows:80px minmax(180px,1fr) auto;gap:12px;padding:16px 32px;min-height:0;height:100%}
+.ship-navigation-dialog.map-focus .pilot-chart{grid-column:1;grid-row:2/4;min-height:0}
+.ship-navigation-dialog.map-focus .pilot-fleet,.ship-navigation-dialog.map-focus .pilot-activity,.ship-navigation-dialog.map-focus .pilot-input,.ship-navigation-dialog.map-focus .pilot-vector-array,.ship-navigation-dialog.map-focus .pilot-waveform{display:none}
+.ship-navigation-dialog.map-focus .pilot-power{grid-column:2;grid-row:2;margin:0;overflow:auto}.ship-navigation-dialog.map-focus footer{grid-column:2;grid-row:3;margin:0;overflow:auto}
+.ship-navigation-dialog.map-focus .pilot-chart>[data-navigation-map]{position:relative!important;inset:auto!important;flex:1;min-height:80px}
+.ship-navigation-dialog.map-focus .navigation-fields{margin-top:0}
+.navigation-planner{width:min(1160px,calc(100vw - 24px));height:calc(100dvh - 24px)}
+.navigation-planner form{grid-template-columns:minmax(0,1fr) 220px;grid-template-rows:72px minmax(200px,1fr) auto}
+.navigation-planner .pilot-chart{grid-row:2/4}.navigation-planner .pilot-input{display:none}
+.ship-navigation-dialog [data-navigation-summary]{font:12px/1.5 Arial;color:#bce6dc;margin:0;padding:6px;border-top:1px solid #3f6468}
+@media(max-width:760px){.ship-navigation-dialog.map-focus form,.navigation-planner form{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(280px,1fr) auto auto;padding:12px 24px;height:auto;min-height:100%}.ship-navigation-dialog.map-focus,.navigation-planner{overflow:auto}.ship-navigation-dialog.map-focus .pilot-chart,.navigation-planner .pilot-chart{grid-row:2;grid-column:1}.ship-navigation-dialog.map-focus .pilot-power,.navigation-planner .pilot-power{display:block;grid-column:1;grid-row:3;max-height:180px;overflow:auto}.ship-navigation-dialog.map-focus footer,.navigation-planner footer{grid-row:4;grid-column:1;display:flex;flex-direction:row;flex-wrap:wrap}.ship-navigation-dialog.map-focus footer button,.navigation-planner footer button{flex:1}.ship-navigation-dialog.map-focus .pilot-identity h2,.navigation-planner .pilot-identity h2{font-size:16px}}
+.ship-navigation-dialog:not(.navigation-planner):not(.map-focus) [data-navigation-summary]{display:none}

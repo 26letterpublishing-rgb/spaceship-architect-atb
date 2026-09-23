@@ -1,0 +1,20 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+test('sheet HP changes immediately stop unconscious PC turns and movement, and healing resumes without switching views',{timeout:15000},async t=>{
+  const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-conscious-'))},stdio:['ignore','pipe','pipe']});
+  child.stderr.on('data',c=>process.stderr.write(c));t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
+  const base=await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Startup timed out')),8000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timeout);resolve(u);}});});
+  const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+  const start=await post('campaign/showcase/start',{}),p=start.players.find(p=>p.name==='Nova Vale');
+  const act=body=>post('action',{roomCode:start.code,gmToken:start.gmToken,...body}),state=()=>fetch(`${base}/api/state?room=${start.code}&token=${start.gmToken}`).then(r=>r.json());
+  const campaign=await fetch(`${base}/api/campaign/state?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
+  const character=campaign.characters.find(c=>c.id===p.id).character;
+  const hp=value=>post('campaign/character/save',{code:start.code,token:p.token,characterId:p.id,character:{...character,health:{...character.health,current:value}}});
+  let s=await state();const nova=s.units.find(u=>u.characterId===p.id),slug=s.units.find(u=>u.team==='npc');
+  await act({action:'setHardPaused',paused:true});await act({action:'nudge',id:nova.id,amount:100});
+  await hp(0);s=await state();assert.equal(s.units.find(u=>u.id===nova.id).atb,0);assert.notEqual(s.activeId,nova.id);assert.equal(s.hardPaused,true);
+  await post('action',{roomCode:start.code,characterId:p.id,characterToken:p.token,action:'playerCombatAction',id:nova.id,kind:'leaveStation'},409);
+  await act({action:'setSpeed',id:slug.id,speed:1});await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});
+  const before=(await state()).units.find(u=>u.id===slug.id).atb;await sleep(450);s=await state();assert.equal(s.units.find(u=>u.id===nova.id).atb,0);assert.ok(s.units.find(u=>u.id===slug.id).atb>before);
+  await hp(10);await sleep(450);s=await state();assert.ok(s.units.find(u=>u.id===nova.id).atb>0);assert.ok(!s.units.find(u=>u.id===nova.id).defeatedAt);
+});

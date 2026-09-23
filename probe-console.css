@@ -1,0 +1,35 @@
+.probe-console .sensor-controls [data-order]{width:100%}.probe-console [data-reason]{display:block;color:#e0c68e;font-size:12px;margin:4px 0 8px}.probe-console [data-error]{display:block;min-height:24px}.probe-console .sensor-chart [data-map]{cursor:crosshair}.probe-console .sensor-chart .space-map{min-height:200px}.probe-console .sensor-readout img{width:84px;height:84px}.probe-console [data-spec]{line-height:1.6}.probe-console .sensor-chart>p{font-size:12px;color:#b8d3dc}.probe-console .sensor-timeline{min-height:150px}
+@media(max-width:850px){.probe-console main{display:flex;flex-direction:column;height:auto}.probe-console section{overflow:visible}.probe-console header{flex-wrap:wrap}.probe-console .sensor-reports{max-height:300px;overflow:auto}}
+dialog.probe-console.shared-console-layout .sensor-controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;align-content:start}
+dialog.probe-console .sensor-controls>h3,dialog.probe-console .sensor-controls>label,dialog.probe-console [data-cooldown],dialog.probe-console [data-error]{grid-column:1/-1;margin:0}
+dialog.probe-console .sensor-controls button{min-height:36px;padding:5px;font-size:12px}
+dialog.probe-console [data-reason]{font-size:11px;line-height:1.3;margin-bottom:0}
+dialog.probe-console.shared-console-layout .sensor-chart .space-map{height:150px;min-height:150px}
+dialog.probe-console .sensor-chart [data-map] svg{height:100%;width:100%}
+dialog.probe-console .sensor-coordinates label{font-size:11px;width:80px}
+dialog.probe-console .sensor-coordinates input{padding:4px}
+dialog.probe-console .sensor-chart>p{margin:6px 0;line-height:1.25}
+dialog.probe-console .sensor-readout{margin-top:4px;gap:8px;font-size:12px}
+dialog.probe-console .sensor-readout p{margin:2px 0}
+
+dialog.probe-console [data-payload]{grid-column:1/-1;font-size:12px;color:#c5b2ef;margin:0;line-height:1.4}dialog.probe-console .sensor-controls>[hidden]{display:none!important}
+dialog.probe-console.shared-console-layout{grid-template-rows:96px minmax(300px,1fr) 150px 55px!important}
+dialog.probe-console.shared-console-layout .sensor-chart{grid-template-rows:auto 150px auto auto 70px;gap:6px}
+dialog.probe-console .sensor-coordinates{min-height:54px}
+dialog.probe-console.shared-console-layout .sensor-readout img{width:64px;height:64px}
+
+.probe-console [data-planner]{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap}.probe-console [data-planner] button{flex:1}.probe-console [data-confirm-flight]{border-color:#ead47c;color:#fff0a8}.probe-console [data-plot-hint]{min-height:30px}
+
+/* Match sensor navigation: the map grows, and route controls remain within reach. */
+body dialog.probe-console.shared-console-layout .sensor-chart{display:flex;grid-template-rows:none;gap:7px}
+body dialog.probe-console.shared-console-layout .sensor-chart .space-map{height:100%;min-height:0}
+body dialog.probe-console.shared-console-layout .sensor-chart [data-map]{min-height:220px}
+body dialog.probe-console .sensor-coordinates{min-height:0}
+body dialog.probe-console [data-plot-hint]{flex:none;min-height:0;margin:0;font-size:12px}
+body dialog.probe-console [data-planner]{position:sticky;bottom:0;padding:8px;background:#16272a;border:1px solid #dec56d;z-index:1}
+body dialog.probe-console [data-planner] button{min-height:38px}
+body dialog.probe-console [data-confirm-flight]{background:#514417;color:#fff2ab}
+body dialog.probe-console .sensor-map-zoom button{white-space:nowrap}
+
+body dialog.probe-console [data-planner]{top:0;bottom:auto;z-index:3}
+body dialog.probe-console.shared-console-layout .sensor-chart [data-map]{min-height:160px}

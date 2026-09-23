@@ -10,7 +10,7 @@
   }
   function track(kind, current, maximum, exact = false) {
     const label = kind === "shield" ? "Shields" : "Hull";
-    const value = `${Math.max(0, Number(current) || 0)}/${Math.max(0, Number(maximum) || 0)}`;
+    const value = `${Number(Math.max(0, Number(current) || 0).toFixed(1))}/${Number(Math.max(0, Number(maximum) || 0).toFixed(1))}`;
     return `<span class="sa-health-track" title="${label}${exact ? ` ${value}` : ""}" aria-label="${label}${exact ? ` ${value}` : " condition"}">${segments(current, maximum).map(fill => `<i class="sa-health-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}${exact ? `<small>${value}</small>` : ""}</span>`;
   }
   function logText(text, exact) {
@@ -18,5 +18,12 @@
     return String(text || "").replace(/;?\s*HP\s*:?\s*-?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\.?/gi, "")
       .replace(/\bto\s+-?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*HP\b/gi, "to updated health");
   }
-  return Object.freeze({ segments, track, logText });
+  function logMarkup(entry,exact=false){
+    const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const text=logText(entry.text,exact),refs=entry.objectRefs||[];
+    const suffix=' Objects within sensor range: '+refs.map(o=>o.label).join(', ')+'.';
+    if(!refs.length||!text.endsWith(suffix))return escape(text);
+    return escape(text.slice(0,-suffix.length))+' Objects within sensor range: '+refs.map(o=>`<span tabindex="0" data-log-space-object="${escape(o.id)}" title="Highlight on starmap" style="color:#ffe28c;text-decoration:underline dotted;cursor:crosshair">${escape(o.label)}</span>`).join(', ')+'.';
+  }
+  return Object.freeze({ segments, track, logText, logMarkup });
 }));

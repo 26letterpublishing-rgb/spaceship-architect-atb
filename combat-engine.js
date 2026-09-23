@@ -1,9 +1,11 @@
 const weaponCatalog = require("./data/weapons.json");
 const combatRules = require("./combat-rules");
 const navigation = require("./ship-navigation");
+const shipMaps = require('./ship-map-core');
 
 const weaponsById = new Map(weaponCatalog.map((weapon) => [weapon.id, weapon]));
 const ACTION_KINDS = new Set([
+  "carry",
   "wait3",
   "defense",
   "melee",
@@ -28,10 +30,11 @@ const DOOR_OPEN_SECONDS = 0.6;
 function normalizeCombatLocation(value) {
   const source = value && typeof value === "object" ? value : {};
   const starshipId = safeText(source.starshipId, "", 120);
-  const square = Number.isInteger(Number(source.square)) ? Math.max(0, Math.min(399, Number(source.square))) : null;
+  const square = Number.isInteger(Number(source.square)) ? Math.max(0, Math.min(3599, Number(source.square))) : null;
   const mesh = Number.isInteger(Number(source.mesh)) ? Math.max(0, Math.min(8, Number(source.mesh))) : 4;
   return {
-    environment: starshipId ? "starship" : "exterior",
+    environment: source.escapePodId ? 'escape-pod' : starshipId ? "starship" : "exterior",
+    ...(source.escapePodId ? {escapePodId:safeText(source.escapePodId,'',120)} : {}),
     starshipId,
     square: starshipId ? square : null,
     mesh,
@@ -107,6 +110,7 @@ function npcAttributeDice(value) {
 
 function applyNpcSimplifiedStats(unit, source = {}) {
   if (!unit || unit.team !== "npc") return unit;
+  if(unit.shipAi||source.shipAi){unit.shipAi=true;unit.dexterityDice=[6,6,6,6];unit.strengthDice=[6,6,6,6];unit.intellectDice=[6,6,6,6];unit.physicalSkill=unit.mentalSkill=unit.projectileSkill=unit.meleeSkill=unit.dodgeSkill=unit.weaponMechanics=2.5;return unit;}
   unit.physicalAttribute = Math.max(2, Math.min(20, Math.round(Number(source.physicalAttribute ?? unit.physicalAttribute) || 4)));
   unit.mentalAttribute = Math.max(2, Math.min(20, Math.round(Number(source.mentalAttribute ?? unit.mentalAttribute) || 4)));
   unit.physicalSkill = Math.max(0, Math.min(4, Number(source.physicalSkill ?? unit.physicalSkill) || 0));
@@ -176,7 +180,7 @@ function syncUnitCombat(unit, source = {}) {
   unit.sensorSkill = sensor == null ? null : Math.max(0,Number(sensor)||0);
   const weapon = source.weaponSystemsSkill ?? unit.weaponSystemsSkill;
   unit.weaponSystemsSkill = weapon == null ? null : Math.max(0,Number(weapon)||0);
-  for(const key of ['mathematicsSkill','computerSkill']){
+  for(const key of ['mathematicsSkill','computerSkill','hackingSkill']){
     const rating=source[key]??unit[key];unit[key]=rating==null?null:Math.max(0,Number(rating)||0);
   }
   unit.meleeSkill = Math.max(0, Number(source.meleeSkill) || 0);
@@ -250,6 +254,7 @@ function migrateUnitCombat(unit) {
     weaponSystemsSkill: unit.weaponSystemsSkill,
     mathematicsSkill: unit.mathematicsSkill,
     computerSkill: unit.computerSkill,
+    hackingSkill: unit.hackingSkill,
     meleeSkill: unit.meleeSkill,
     dodgeSkill: unit.dodgeSkill,
     raceId: unit.raceId,
@@ -303,10 +308,11 @@ function spendItemCharge(unit, itemIdOrCatalogId, quantity = 1) {
 }
 
 function effectiveMoveSpeed(room, unit, { jetPack = false } = {}) {
-  if (jetPack && carriedItem(unit, "jet-pack")?.charges > 0) return 4;
+  const scale=shipMaps.gravityEnabled(room?.starships?.find(s=>s.id===unit?.location?.starshipId))?1:.5;
+  if (jetPack && carriedItem(unit, "jet-pack")?.charges > 0) return 4*scale;
   const vehicle = (room?.vehicles || []).find((entry) => entry.id === unit?.mountedVehicleId);
-  if (vehicle && vehicle.driverId === unit.id) return Math.max(1, Number(vehicle.currentMoveSpeed) || Number(vehicle.moveSpeed) || 1);
-  return Math.max(1, Number(unit?.moveSpeed) || 1);
+  if (vehicle && vehicle.driverId === unit.id) return Math.max(1, Number(vehicle.currentMoveSpeed) || Number(vehicle.moveSpeed) || 1)*scale;
+  return Math.max(1, Number(unit?.moveSpeed) || 1)*scale;
 }
 
 function resetVehicleAcceleration(room, unit) {
@@ -315,7 +321,7 @@ function resetVehicleAcceleration(room, unit) {
 }
 
 function effectiveSpeed(unit) {
-  if (unit?.consoleHold || unit?.shieldRestabilizing) return 0;
+  if (unit?.defeatedAt || unit?.oxygenUnconscious || (unit?.currentHp != null && Number(unit.currentHp) <= 0) || unit?.consoleHold || unit?.shieldRestabilizing) return 0;
   return Math.max(0, Number(unit?.speed) || 0) + Math.max(0, Number(unit?.aim?.speedBonus) || 0);
 }
 
@@ -357,6 +363,7 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
   }
 
   if (unit.timedAction) {
+    if(room)shipMaps.updateMovementGravity(unit.timedAction,shipMaps.gravityEnabled(room.starships?.find(s=>s.id===unit.location?.starshipId))?1:.5);
     unit.timedAction.remaining = Math.max(0, (Number(unit.timedAction.remaining) || 0) - elapsed);
     if (unit.timedAction.remaining <= 0.0001) {
       const completedAction = unit.timedAction;
@@ -365,8 +372,8 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
         unit.location = normalizeCombatLocation(completedAction.destination);
         applyStationBenefits(unit);
         if (Array.isArray(unit.travelRoute) && unit.travelRoute.length) {
-          const moveSpeed = Math.max(1, Number(completedAction.moveSpeed) || Number(unit.moveSpeed) || 1);
-          const segment = unit.travelRoute.splice(0, moveSpeed);
+          const moveSpeed = Math.max(.1, Number(completedAction.moveSpeed) || Number(unit.moveSpeed) || 1);
+          const segment = unit.travelRoute.splice(0, Math.max(1,Math.floor(moveSpeed)));
           const destination = segment[segment.length - 1];
           if (destination) {
             const doorDelay = room ? routeDoorDelay(room, segment) : 0; const duration = Math.max(0.1, ceilTenth((3 * segment.length) / moveSpeed + doorDelay));
@@ -378,6 +385,7 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
               remaining: duration,
               units: segment.length,
               moveSpeed,
+              gravityScale: completedAction.gravityScale??1,
               destination,
               routed: true,
               routeSegment: segment,
@@ -499,6 +507,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     return {ok:true};
   }
   const requestedTarget = targetUnit(room, unit, safeText(body.targetId, "", 100));
+  if(kind==='carry'){
+    try{const text=require('./crew-carry').command(room,unit,body.targetId);helpers.pushLog(room,text,{starshipId:unit.location?.starshipId});return {ok:true};}
+    catch(error){return {ok:false,error:error.message};}
+  }
   const target = requestedTarget?.characterName || "the chosen target";
   if (kind === "wait3") {
     unit.movementChargeUnits = 0;
@@ -527,7 +539,14 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     const requestedRoute = Array.isArray(body.route)
       ? body.route.slice(0, 600).map(normalizeCombatLocation).filter((entry) => entry.starshipId && entry.starshipId === unit.location?.starshipId)
       : [];
-    const units = requestedRoute.length ? Math.min(maxUnits, requestedRoute.length) : clamp(body.units, 1, maxUnits, 1);
+    const units = requestedRoute.length ? Math.min(Math.max(1,Math.floor(maxUnits)), requestedRoute.length) : clamp(body.units, 1, Math.max(1,maxUnits), 1);
+    if(requestedRoute.length){
+      const ship=room.starships.find(s=>s.id===unit.location.starshipId),layout=ship&&shipMaps.buildLayout(ship.ship);let from=unit.location;
+      for(const point of requestedRoute){
+        if(!layout||!shipMaps.meshStepAllowed(layout,from,point))return {ok:false,error:'Movement must follow the mesh through actual doorways.'};
+        const edge=layout.edge(from.square,point.square);point.doorKey=from.square!==point.square&&edge.kind==='door'?edge.key:'';from=point;
+      }
+    }
     const routeSegment = requestedRoute.slice(0, units);
     const doorDelay = routeDoorDelay(room, routeSegment); const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits + doorDelay));
     clearAim(unit);
@@ -545,6 +564,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       remaining: duration,
       units,
       moveSpeed: maxUnits,
+      gravityScale: shipMaps.gravityEnabled(room.starships?.find(s=>s.id===unit.location?.starshipId))?1:.5,
       destination: routeSegment[routeSegment.length - 1] || null,
       routed: Boolean(requestedRoute.length),
       routeSegment,

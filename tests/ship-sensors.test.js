@@ -10,18 +10,38 @@ function fixture(tier=3){
 }
 test('all nine sensor tiers retain source dimensions and corrected impaired ranges',()=>{
   const ranges=[4,6,8,10,12,15,16,18,20];
-  for(let i=1;i<=9;i++){const d=maps.definition(`sensors-${i}`);assert.equal(d.range,6+i*2);assert.equal(d.impairedRange,ranges[i-1]);assert.equal(d.stations.length,0);assert.equal(d.width,i<5?1:2);assert.equal(d.height,i<8?1:2);}
+  for(let i=1;i<=9;i++){const d=maps.definition(`sensors-${i}`);assert.equal(d.range,6+i*2);assert.equal(d.impairedRange,ranges[i-1]);assert.equal(d.stations.length,1);assert.equal(d.width,i<5?1:2);assert.equal(d.height,i<8?1:2);}
+});
+
+test('Scan Area reaches 50 percent farther for two active seconds and retains successful contacts',()=>{
+ const {room,a,b,unit}=fixture(3);room.shipPositions[1].q=15;sensors.refresh(room);assert.notEqual(a.sensorState.contacts.b?.level,'detected');
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'pulse-range-scan'}).ok,true);assert.equal(a.sensorState.pulse,undefined);
+ const roll=()=>6;roll.submittedScore=16;sensors.resolveInput(room,unit,roll);
+ assert.equal(a.sensorState.contacts.b.level,'detected');assert.equal(sensors.pulseRange(a),18);assert.equal(sensors.rangeAgainst(room,a,b),12,'Lock and hacking ranges remain normal');
+ sensors.advance(room,.5,()=>3);assert.equal(a.sensorState.pulse.remaining,1.5);
+ const restored=JSON.parse(JSON.stringify(room)),own=restored.starships[0];sensors.advance(restored,1.5,()=>3);assert.equal(own.sensorState.pulse,undefined);sensors.refresh(restored);assert.equal(own.sensorState.contacts.b.level,'detected');assert.equal(sensors.pulseRange(own),12);
+ assert.equal(sensors.view(room,'b').starships.find(s=>s.id==='a')?.sensorState,undefined);
+});
+
+test('pulse reuses the check for arriving targets, requires a sufficient score, expires, and does not stack',()=>{
+ const {room,a,b,unit}=fixture(3);room.shipPositions[1].q=20;const roll=()=>6;roll.submittedScore=16;
+ sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'pulse-arrival-one'});sensors.resolveInput(room,unit,roll);assert.notEqual(a.sensorState.contacts.b?.level,'detected');
+ room.shipPositions[1].q=17;sensors.advance(room,.5,()=>3);assert.notEqual(a.sensorState.contacts.b?.level,'detected');
+ room.shipPositions[1].q=15;sensors.advance(room,.5,()=>3);assert.equal(a.sensorState.contacts.b.level,'detected');
+ sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'pulse-arrival-two'});sensors.resolveInput(room,unit,roll);assert.equal(a.sensorState.pulse.remaining,2);assert.equal(sensors.pulseRange(a),18);
+ sensors.advance(room,2,()=>3);delete a.sensorState.contacts.b;room.shipPositions[1].q=13;sensors.refresh(room);sensors.advance(room,.1,()=>3);assert.notEqual(a.sensorState.contacts.b?.level,'detected');
 });
 
 test('Systems Analysis report processing uses 12 minus sensor grade, separately from input',()=>{
   for(const tier of [1,3,5,9]){
-    const {room,b,unit}=fixture(tier);b.sensorScenarioMasking=1;
+    const {room,a,b,unit}=fixture(tier);b.sensorScenarioMasking=1;
     room.shipPositions[1].q=2;sensors.refresh(room);
     assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'tier-analysis-'+tier}).ok,true);
     assert.ok(unit.delayedAction);assert.equal(unit.queuedEffects,undefined);
     sensors.resolveInput(room,unit,()=>6);
     assert.equal(unit.queuedEffects[0].rate,100/(12-tier));
     assert.match(unit.queuedEffects[0].label,/processing report/);
+    assert.ok(a.sensorState.reports[0].text.includes(`${12-tier} combat seconds`));
   }
 });
 
@@ -45,7 +65,7 @@ test('passive unknown contacts never reveal identity, crew, layout, route or tru
   const {room,b}=fixture();room.starships[0].ship.affiliation='Own faction';room.shipPositions[1].q=9;b.navigation={target:{q:40,r:10}};sensors.refresh(room);
   assert.equal(room.starships[0].sensorState.contacts.b.level,'unknown');
   const state=sensors.view({...room,shipDistances:[]},'a'),text=JSON.stringify(state);
-  assert.equal(state.starships[1].title,'Unknown contact');assert.equal(state.shipPositions[1].q,10);
+  assert.equal(state.starships[1].title,'Unknown Object');assert.equal(state.shipPositions[1].q,10);
   for(const hidden of ['Secret b','Secret Crew','Hidden Faction','"q":40'])assert.ok(!text.includes(hidden));
   assert.equal(state.units.length,1);assert.deepEqual(state.starships[1].ship.sicInventory,[]);
 });
@@ -94,8 +114,22 @@ test('knowledge persists through serialization and disappears from unrelated shi
   assert.equal(saved.starships[0].sensorState.reports[0].hull.current,33);
   assert.ok(!JSON.stringify(sensors.view(saved,'b')).includes('"hull":{"current":33'));
 });
+
+test('analysis survives feed overflow, serialization and Share Data without exposing new enemy equipment',()=>{
+  const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;sensors.refresh(room);
+  sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'persistent-layout'});sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+  const captured=structuredClone(sensors.analysis(a,'b'));
+  for(let i=0;i<35;i++){sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'overflow-scan-'+i});sensors.resolveInput(room,unit,()=>6);}
+  assert.equal(a.sensorState.reports.some(r=>r.analysis),false);assert.deepEqual(sensors.analysis(a,'b'),captured);
+  b.ship.sicInventory.push({id:'secret-new',type:'darkveil-10'});b.ship.placements.push({sicId:'secret-new',cell:44});
+  const saved=structuredClone(room),visible=sensors.view(saved,'a');assert.equal(visible.starships.find(s=>s.id==='b').analyzedContact,true);assert.ok(!JSON.stringify(visible).includes('secret-new'));
+  sensors.queue(room,unit,{sicId:'sn',kind:'share',targetIds:['b'],requestId:'share-archived-analysis'});sensors.resolveInput(room,unit,()=>6);
+  assert.equal(sensors.analysis(b,'b').sharedBy,a.title);
+  const legacy=structuredClone(a);delete legacy.sensorState.analyses;legacy.sensorState.reports=[captured];assert.deepEqual(sensors.analysis(legacy,'b'),captured);
+});
 test('analysis reveals layout but Life Scan gates anonymous real ATB and never reveals locations',()=>{
   const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;room.units[1].atb=73;room.units[1].speed=4;room.activeId='enemy';sensors.refresh(room);
+  room.units.unshift({id:'hidden-ai',shipAi:true,characterName:'Secret AI',atb:99,speed:5,location:{starshipId:'b'}});
   assert.equal(sensors.view(room,'a').hiddenActiveTurn,true);room.activeId=unit.id;
   sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'layout-analysis'});sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
   let view=sensors.view(room,'a');assert.equal(view.starships[1].analyzedContact,true);assert.equal(view.units.length,1);
@@ -138,11 +172,44 @@ test('sensor mode survives loss of all hardware, and all tier assets exist',()=>
   for(let tier=1;tier<=9;tier++)for(const suffix of ['card.png','floor-plan.png','card-web.webp','floor-plan-web.webp'])assert.ok(fs.statSync(path.join(__dirname,'..',`sensors-${tier}-${suffix}`)).size>0);
 });
 
-test('Life Scan combines other ships in the hex, excluding own crew and Androids',()=>{
+test('Life Scan combines other ships in the hex, excluding own crew, Androids and digital AI',()=>{
   const {room,a,b,unit}=fixture();room.shipPositions[1].q=0;
   const c=structuredClone(b);c.id='c';room.starships.push(c);room.shipPositions.push({id:'c',q:0,r:0});
   room.units.push({id:'android',raceId:'android',location:{starshipId:'b'}},{id:'other',raceId:'human',location:{starshipId:'c'}});
+  room.units.push({id:'ai',shipAi:true,location:{starshipId:'b'}});
   assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'life',hex:{q:0,r:0},requestId:'life-count-test'}).ok,true);
   sensors.resolveInput(room,unit,()=>4);assert.equal(a.sensorState.reports[0].count,2);
   assert.equal(a.sensorState.reports[0].pending,undefined);
+});
+
+test('analysis preserves expanded split-mount geometry without exposing crew or cargo',()=>{
+  const {room,b,unit}=fixture();b.sensorScenarioMasking=1;
+  b.ship={zoneColumns:28,zoneRows:28,thrusterDirection:90,gridCells:[292,293],placements:[{sicId:'gun',cell:292,exteriorCell:264}],
+    sicInventory:[{id:'gun',type:'beam-laser-3',rotation:90,exteriorRotation:270,stationLayout:'corners-v1'},{id:'secret-cargo',type:'rapid-laser-1'}],doorStates:{},secret:'hidden'};
+  sensors.refresh(room);assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'expanded-analysis'}).ok,true);
+  sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+  const view=sensors.view(room,'a'),scanned=view.starships.find(s=>s.id==='b').ship;
+  assert.equal(scanned.zoneColumns,28);assert.equal(scanned.zoneRows,28);assert.equal(scanned.thrusterDirection,90);
+  assert.deepEqual(scanned.placements,b.ship.placements);assert.equal(scanned.sicInventory[0].exteriorRotation,270);
+  assert.equal(maps.exteriorError(scanned),'');const geometry=ship=>[...maps.buildLayout(ship).footprint].map(([n,{sicId,column,row,width,height,segment,rotation,stations}])=>[n,{sicId,column,row,width,height,segment,rotation,stations}]);assert.deepEqual(geometry(scanned),geometry(b.ship));
+  assert.equal(scanned.secret,undefined);assert.equal(scanned.sicInventory.length,1);assert.equal(view.units.length,1);
+});
+test('completed analysis blocks repeated actions and condition icons follow live damage privately',()=>{
+ const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;sensors.refresh(room);
+ sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analyze-once'});sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analyze-again'}).error,'Ship Already Analyzed');assert.equal(unit.delayedAction,null);
+ b.currentHullHp=21;b.maximumHullHp=56;sensors.refresh(room);const contact=sensors.view(room,'a').starships.find(s=>s.id==='b');
+ assert.deepEqual(require('../health-display').segments(contact.currentHullHp,contact.maximumHullHp),require('../health-display').segments(21,56));assert.notEqual(contact.maximumHullHp,56);
+ assert.equal(a.sensorState.analyses.b.hull.current,33,'Historical analysis remains a snapshot');
+});
+
+
+test('area reports include scenery within pulse range, exclude collected and distant objects, and retain IDs',()=>{
+ const {room,a,unit}=fixture(3);room.shipPositions[1].q=100;
+ room.spaceObjects=[{id:'mineral',kind:'mineral',name:'Iron',q:1,r:0},{id:'planet',kind:'planet',name:'Twin',q:18,r:0},{id:'asteroid',kind:'asteroid',name:'Twin',q:0,r:18},{id:'debris',kind:'planet',name:'Vesper',q:2,r:0,destroyedAt:123},{id:'outside',name:'Far',q:19,r:0},{id:'collected',name:'Gone',q:0,r:0,collectedBy:'a'}];
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'scenery-area'}).ok,true);
+ sensors.resolveInput(room,unit,()=>{throw Error('Scenery must not require an extra roll');});
+ const report=a.sensorState.reports[0];assert.deepEqual(report.objectRefs,[{id:'mineral',label:'Iron'},{id:'planet',label:'Twin'},{id:'asteroid',label:'Twin'},{id:'debris',label:'Vesper / Destroyed'}]);
+ assert.match(report.text,/Objects within sensor range: Iron, Twin, Twin, Vesper \/ Destroyed\./);
+ const restored=JSON.parse(JSON.stringify(room));assert.deepEqual(sensors.view(restored,'a').starships.find(s=>s.id==='a').sensorState.reports[0].objectRefs,report.objectRefs);
 });

@@ -1,16 +1,20 @@
 """Build web-only derivatives. Original PNGs remain unchanged for future printing."""
 import json
 import re
+import sys
 from pathlib import Path
 from PIL import Image
 
 root = Path(__file__).resolve().parents[1]
-manifest = {}
+prefixes = sys.argv[1:]
+manifest = json.loads((root / 'sic-web-assets.json').read_text(encoding='utf-8')) if prefixes else {}
 for source in sorted(root.glob('*.png')):
     name = source.name
+    if prefixes and not name.startswith(tuple(prefixes)):
+        continue
     if not (re.match(r'(?:au-|en-|power-)?(?:en-|au-)?engine-\d-', name)
             or re.match(r'(?:exhaust|ionic-pulse)-thruster-\d-', name)
-            or name.startswith(('lock-on-', 'rapid-laser-', 'weapon-console-', 'cockpit-', 'bridge-', 'shield-', 'sensors-', 'sensor-console-', 'life-support-', 'nutritional-supplement-'))
+            or name.startswith(('darkveil-', 'beam-laser-', 'ripple-cannon-', 'ion-pulse-cannon-', 'weapon-room-', 'lock-on-', 'rapid-laser-', 'weapon-console-', 'cockpit-', 'bridge-', 'shield-', 'sensors-', 'sensor-console-', 'life-support-', 'nutritional-supplement-'))
             or name in ('hallway.png', 'starship-hull-plating.png', 'pilot-console-art.png')):
         continue
     floor = 'floor-plan' in name or name in ('hallway.png', 'starship-hull-plating.png')

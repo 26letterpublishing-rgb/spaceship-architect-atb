@@ -2,25 +2,32 @@
   const api = factory(typeof module !== 'undefined' && module.exports ? require('./ship-map-core') : root.SAShipMap,
     typeof module !== 'undefined' && module.exports ? require('./ship-distances') : root.SAShipDistances,
     typeof module !== 'undefined' && module.exports ? require('./ship-power') : root.SAShipPower,
-    typeof module !== 'undefined' && module.exports ? require('./delay-rules') : root.SADelayRules);
+    typeof module !== 'undefined' && module.exports ? require('./delay-rules') : root.SADelayRules,
+    typeof module !== 'undefined' && module.exports ? require('./station-access') : root.SAStationAccess);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SAShipNavigation = api;
-}(typeof window !== 'undefined' ? window : null, function(maps, distances, power, delays) {
+}(typeof window !== 'undefined' ? window : null, function(maps, distances, power, delays, stations) {
   const PERIOD = 12;
   const POWERED_PERIOD = 10;
   function driftDistance(distance){let speed=Math.max(0,Math.floor(distance/2+1e-9)-2),total=0;while(speed>0){total+=speed;speed=Math.max(0,Math.floor(speed/2)-2);}return total;}
   function driftSeconds(distance){let speed=Math.max(0,Math.floor(distance/2+1e-9)-2),seconds=0;while(speed>0){seconds+=PERIOD;speed=Math.max(0,Math.floor(speed/2)-2);}return seconds;}
   const online = item => item && !item.disabled && !item.impaired && !['offline','powered-down','destroyed','impaired'].includes(item.status);
-  function station(room, unit) {
+  function station(room, unit, sicId) {
+    if(sicId&&sicId!==unit?.location?.sicId){
+      const remote=stations.access(room,unit,sicId);
+      if(!remote?.controlled||remote.kind!=='pilot')return null;
+      const cell=[...maps.buildLayout(remote.ship.ship).footprint.values()].find(c=>c.sicId===sicId);
+      return cell?{ship:remote.ship,cell,key:remote.seat.key,controlled:true}:null;
+    }
     const ship = (room?.starships || []).find(s => s.id === unit?.location?.starshipId);
-    if (!ship || unit.defeatedAt || !unit.location?.stationed || unit.timedAction?.kind === 'move') return null;
+    if (!ship || unit.defeatedAt || unit.oxygenUnconscious || (unit.currentHp!=null&&Number(unit.currentHp)<=0) || ship.hackedSystems?.some(h=>h.bridge||h.sicId===unit.location?.sicId) || !unit.location?.stationed || unit.timedAction?.kind === 'move') return null;
     const layout = maps.buildLayout(ship.ship || ship), cell = layout.footprint.get(Number(unit.location.square));
     if (!cell || !maps.definition(cell.type).shipControl || cell.sicId !== unit.location.sicId) return null;
     if (!cell.stations.some(s => s.x === cell.column && s.y === cell.row && s.mesh === Number(unit.location.mesh))) return null;
-    return {ship,cell};
+    return {ship,cell,key:stations.station(room,unit)?.key};
   }
-  function access(room, unit) {
-    const seated=station(room,unit);
+  function access(room, unit, sicId) {
+    const seated=station(room,unit,sicId);
     if(!seated || !online(seated.cell.item))return null;
     const {ship}=seated;
     if(power.output(ship,room.units).en<=0)return null;
@@ -28,8 +35,8 @@
     const thrusters = inventory.filter(i => installed.has(i.id) && online(i) && maps.definition(i.type).thruster && maps.exteriorPlacement(ship.ship,i.type,ship.ship.placements.find(p=>p.sicId===i.id).cell,i.id));
     return thrusters.length ? { ship, thrusters, speed: maps.propulsion(ship).moveSpeed } : null;
   }
-  function inputSettings(room,unit){
-    const tiers=(access(room,unit)?.thrusters||[]).map(t=>maps.definition(t.type).auBoost).sort((a,b)=>b-a).slice(0,2);
+  function inputSettings(room,unit,sicId){
+    const tiers=(access(room,unit,sicId)?.thrusters||[]).map(t=>maps.definition(t.type).auBoost).sort((a,b)=>b-a).slice(0,2);
     const quality=tiers.length?Math.ceil(tiers.reduce((a,b)=>a+b,0)/tiers.length):0;
     const skill=Math.floor(Math.max(0,Number(unit?.pilotSkill ?? (unit?.team==='npc'?unit.mentalSkill:0))||0));
     const ingenuity=skill>=6?4:skill>=5?3:skill>=3?2:skill>=1?1:0;
@@ -43,18 +50,19 @@
     const copy=JSON.parse(JSON.stringify(room)), pilot=copy.units.find(u=>u.id===unit.id);
     const result=order(copy,pilot,body);
     if(!result.ok)return result;
-    const settings=inputSettings(room,unit);
+    const settings=inputSettings(room,unit,body.sicId);
     unit.delayedAction={id:`pilot-${unit.id}-${Date.now()}`,kind:'action',label:'Input ship movement',settings,rate:settings.rate,remaining:100,total:100,consumeTurn:true,resolving:false,
-      shipOrder:{shipId:result.ship.id,sicId:unit.location.sicId,target:{...body.destination},baseSpeed:result.ship.navigation.baseSpeed,boosts:result.ship.navigation.boosts}};
+      shipOrder:{shipId:result.ship.id,sicId:body.sicId||unit.location.sicId,station:stations.station(room,unit)?.key,target:{...body.destination},baseSpeed:result.ship.navigation.baseSpeed,boosts:result.ship.navigation.boosts}};
     return {ok:true,ship:result.ship};
   }
   function resolveInput(room,unit){
     const pending=unit.delayedAction?.shipOrder;
     if(!pending)return {ok:false,error:'No pilot input pending.'};
-    const seated=station(room,unit);
+    const seated=station(room,unit,pending.sicId);
     unit.delayedAction=null;
-    if(!seated || seated.ship.id!==pending.shipId || seated.cell.sicId!==pending.sicId || !online(seated.cell.item))return {ok:false,error:'Pilot input interrupted.'};
+    if(!seated || (pending.station&&seated.key!==pending.station) || seated.ship.id!==pending.shipId || seated.cell.sicId!==pending.sicId || !online(seated.cell.item))return {ok:false,error:'Pilot input interrupted.'};
     const ship=seated.ship;
+    if(room.starships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.tether?.targetId===ship.id)))return {ok:false,error:'Ship movement cancelled: held by a Tractor Beam.'};
     const boosts=pending.boosts.filter(b=>(ship.ship.placements||[]).some(p=>p.sicId===b.id)&&online(ship.ship.sicInventory.find(i=>i.id===b.id)));
     const cost=boosts.reduce((n,b)=>n+b.cost,0),speed=pending.baseSpeed+boosts.reduce((n,b)=>n+b.speed,0);
     const start=distances.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id),length=distances.hexDistance(start,pending.target);
@@ -64,8 +72,10 @@
     return {ok:true,ship,cost};
   }
   function order(room, unit, body) {
-    const allowed = access(room, unit);
+    const allowed = access(room, unit, body.sicId);
     if (!allowed) return {ok:false,error:'Remain at an operational cockpit station on a ship with operational thrusters.'};
+    if(room.starships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.tether?.targetId===allowed.ship.id)))return {ok:false,error:'Release or disable the Tractor Beam holding this ship before moving.'};
+    if(allowed.ship.escapedAt||['activating','traveling'].includes(allowed.ship.ship.warpState?.phase))return {ok:false,error:'Cancel warp activation before moving. Ships in warp have left the battlefield.'};
     const target = body.destination;
     if (!target || ![target.q,target.r].every(n => Number.isInteger(n) && Math.abs(n) <= 10000)) return {ok:false,error:'Choose a destination hex.'};
     const ids = body.boostIds || [];
@@ -91,6 +101,7 @@
     for (const ship of room.starships || []) {
       const nav = ship.navigation, position = room.shipPositions.find(p=>p.id===ship.id);
       if (!nav || !position || !['powered','drift'].includes(nav.phase)) continue;
+      ship.ship.mapHeading=maps.shipHeading(ship);
       if (nav.phase === 'powered') {
         // Losing a paid boost cannot undo distance already traveled or change the frozen base order.
         nav.boosts = (nav.boosts || []).filter(b=>(ship.ship.placements || []).some(p=>p.sicId===b.id) && online((ship.ship.sicInventory || []).find(i=>i.id===b.id)));

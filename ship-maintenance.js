@@ -53,9 +53,9 @@ function resolve(room,unit,rollDie){
   unit.delayedAction=null;
   const ship=room.starships.find(s=>s.id===order.shipId),item=ship&&local(ship,unit.location);
   if(!item||item.id!==order.sicId||unit.location.starshipId!==ship.id)return;
-  const d=maps.definition(item.type),rating=d.sensor?unit.sensorSkill:d.bridge?unit.computerSkill:unit.engineeringSkill;
-  const dice=unit.team==='npc'?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];
-  const values=dice.map(rollDie),total=Number.isFinite(rollDie.submittedScore)?rollDie.submittedScore:sensors.fusedTotal(values)+(Number(rating??(unit.team==='npc'?unit.mentalSkill:0))||0);
+  const d=maps.definition(item.type),rating=d.sensor||d.darkveil||d.lockOn?unit.sensorSkill:d.weapon?unit.weaponSystemsSkill:d.bridge?unit.computerSkill:unit.engineeringSkill;
+  const dice=unit.team==='npc'&&!unit.shipAi?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];
+  const values=Number.isFinite(rollDie.submittedScore)?[]:dice.map(rollDie),total=Number.isFinite(rollDie.submittedScore)?rollDie.submittedScore:sensors.fusedTotal(values)+(Number(rating??(unit.team==='npc'?unit.mentalSkill:0))||0);
   const difficulty=Math.max(10,Number(item.repairDifficulty)||10);
   const success=points(item)>0&&total>=difficulty;
   if(success){item.impairmentPoints=points(item)-1;item.impaired=item.impairmentPoints>0;if(!item.impaired&&item.status==='impaired')item.status='online';item.repairDifficulty=difficulty+1;}

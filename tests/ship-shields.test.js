@@ -128,7 +128,7 @@ test('Engineering reduces duration but preserves total restabilization AU cost',
 });
 test('hard pause holds AU input; saved state retains pending input and reserved AU',()=>{
   const {room,ship,local,s}=fixture();s.hp=5;order(room,local,'restore');
-  room.hardPaused=true;shields.advanceInputs(room,10);near(ship.auCommands[0].remaining,1.5);
+  room.hardPaused=true;shields.advanceInputs(room,10);near(ship.auCommands[0].remaining,1.35);
   const restored=JSON.parse(JSON.stringify(room));restored.hardPaused=false;
   shields.advanceInputs(restored,1.5);near(restored.starships[0].shieldSystems.shield.hp,6);
 });

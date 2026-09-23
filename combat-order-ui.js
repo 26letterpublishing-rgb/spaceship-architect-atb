@@ -1,9 +1,13 @@
 (function(){
   function unavailable(state,unit,access,label,selector){
     const ship=access?.ship;if(!ship)return 'Console unavailable.';
+    if(access.definition.crewRoom&&access.definition.utility!=='medbay')return 'Available outside combat.';
+    if(access.blocked)return 'Console compromised. Move to the SIC for local power-off or reboot.';
+    if(selector==='[data-utility]'&&access.definition.utility==='life-support'&&(access.item.impaired||access.item.status==='impaired'))return 'Repair Life Support before changing gravity.';
     const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');
     if(['Move Ship','Evasive Maneuvers','Ram','Skim','Break Lock-On'].includes(label)&&!window.SAShipNavigation.access(state,unit))return 'Operational engines and thrusters required.';
-    if(['Hail Ship','Ram','Skim','Systems Analysis','Lock-On','Lock Component'].includes(label)&&!contacts.length)return 'Detect a ship first.';
+    if(['Hail Ship','Ram','Skim','Systems Analysis','Lock Component'].includes(label)&&!contacts.some(c=>!c.isMissile&&!c.isDrone&&!c.isProbe&&!['Probe','Repair Drone','Missile'].includes(c.nature)))return 'Detect a ship first.';
+    if(label==='Lock-On'&&!contacts.length)return 'Detect a target first.';
     if(label.startsWith('Fire ')&&!contacts.length)return 'Detect a target first.';
     if(label==='Preemptive Calculation'&&!((unit.mathematicsSkill??unit.mentalSkill)>=1))return 'Requires Mathematics 1 or higher.';
     if(label==='Break Lock-On')return !ship.incomingLocks?.length?'No incoming locks.':window.SAShipSensors.masking(state,ship)<=0?'Masking is zero or below: escape enemy sensor range instead.':'';
@@ -25,10 +29,10 @@
     retain(button?.closest('.sensor-action-row,.command-action-row,.lock-action-row,.shield-order')||button);
     for(const s of ['header>div:first-child','[data-close]','[data-error]','[data-command-error]'])retain(view.querySelector(s));
     const action=button?.dataset.order||button?.dataset.command;
-    if(view.classList.contains('weapon-console'))for(const s of ['[data-target]','[data-sacrifice]','[data-au]','[data-formula]','[data-warning]'])retain(view.querySelector(s)?.closest('label')||view.querySelector(s));
+    if(view.classList.contains('weapon-console'))for(const s of ['[data-target]','[data-sacrifice]','[data-boosts]','[data-au]','[data-formula]','[data-warning]','[data-missile-fields]'])retain(view.querySelector(s)?.closest('label')||view.querySelector(s));
     if(view.classList.contains('sensor-console')){
-      for(const s of ['[data-dice]','[data-destination]'])retain(view.querySelector(s));
-      if(['hex','life'].includes(action))retain(view.querySelector('[data-map]'));
+      for(const s of ['[data-dice]','[data-destination]','[data-range]'])retain(view.querySelector(s));
+      if(['hex','life'].includes(action))for(const s of ['[data-map]','[data-scan-planner]','.sensor-coordinates','.sensor-map-zoom'])retain(view.querySelector(s));
       if(action==='analysis')retain(view.querySelector('[data-target]')?.closest('label'));
       if(action==='share')retain(view.querySelector('.sensor-share-recipients'));
     }

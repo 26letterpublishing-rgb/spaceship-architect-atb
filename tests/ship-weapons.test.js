@@ -20,8 +20,22 @@ test('laser modifiers suppress floating point noise and use currently revealed d
 test('repeat activation surcharge expires in combat seconds and survives serialization',()=>{const {room,a,unit}=fixture();weapons.queue(room,unit,order);resolve(room,unit,11);a.auState.current=a.auState.maximum;const before=a.auState.current;assert.equal(weapons.queue(room,unit,{...order,requestId:'repeat-laser'}).ok,true);assert.equal(a.auState.current,before-6);const saved=JSON.parse(JSON.stringify(room));weapons.advance(saved,12);assert.equal(saved.starships[0].weaponState.repeatWindow.gun,0);});
 test('Fast input quality one and Weapon Systems ingenuity mapping',()=>{for(const [skill,bars] of [[0,0],[1,1],[2,1],[3,2],[4,2],[5,3],[6,4],[9,4]]){const s=weapons.settings({weaponSystemsSkill:skill});assert.equal(s.base,10);assert.equal(s.factors.Quality,1);assert.equal(s.factors.Ingenuity,bars);}});
 test('laser queue spends once, freezes resolution until submitted, preserves hull before completion',()=>{const {room,a,b,unit}=fixture(),before=a.auState.current;assert.equal(weapons.queue(room,unit,order).ok,true);assert.equal(a.auState.current,before-5);assert.equal(b.currentHullHp,40);assert.equal(unit.delayedAction.remaining,100);assert.equal(weapons.queue(room,unit,order).duplicate,true);assert.equal(a.auState.current,before-5);resolve(room,unit,16);assert.equal(b.currentHullHp,24);assert.equal(a.weaponState.reports[0].dice.length,4);});
-test('equal defense misses and no damage die is rolled',()=>{const {room,b,unit}=fixture();weapons.queue(room,unit,order);resolve(room,unit,10);assert.equal(b.currentHullHp,40);assert.equal(b.weaponState.reports[0].hit,false);});
+test('equal Defense hits under the approved ties-to-attacker rule',()=>{const {room,b,unit}=fixture();weapons.queue(room,unit,order);resolve(room,unit,10);assert.equal(b.currentHullHp,36);assert.equal(b.weaponState.reports[0].hit,true);});
 test('impaired lasers cap at 1D4 and sacrificed dice reduce damage rather than improve it',()=>{const {room,a,b,unit}=fixture();a.ship.sicInventory.find(i=>i.id==='gun').impaired=true;weapons.queue(room,unit,order);resolve(room,unit,50);assert.equal(b.currentHullHp,36);room.activeId=unit.id;a.auState.current=a.auState.maximum;weapons.queue(room,unit,{...order,requestId:'laser-second',sacrifice:1});resolve(room,unit,50);assert.equal(b.currentHullHp,36);});
 test('cannot fire without a bridge seat, a detected contact, AU, or outside own turn',()=>{const {room,a,unit}=fixture();unit.location.stationed=false;assert.equal(weapons.queue(room,unit,order).ok,false);unit.location.stationed=true;room.activeId='other';assert.equal(weapons.queue(room,unit,order).ok,false);room.activeId='u';a.auState.current=0;assert.match(weapons.queue(room,unit,order).error,/Auxiliary/);assert.equal(unit.delayedAction,undefined);});
 test('forced departure cancels input without damage; incoming reports do not reveal unknown attacker',()=>{const {room,a,b,unit}=fixture();weapons.queue(room,unit,order);unit.location.stationed=false;resolve(room,unit,30);assert.equal(b.currentHullHp,40);assert.match(a.weaponState.reports[0].text,/interrupted/);unit.location.stationed=true;a.auState.current=a.auState.maximum;weapons.queue(room,unit,{...order,requestId:'laser-resume'});resolve(room,unit,30);assert.equal(b.weaponState.reports[0].shipId,undefined);assert.equal(b.weaponState.reports[0].total,undefined);});
 test('damage respects shields and discards overflow',()=>{const {room,b,unit}=fixture();b.ship.sicInventory.push({id:'shield',type:'shield-1'});b.ship.placements.push({sicId:'shield',cell:44});shields.refresh(room);shields.entries(b)[0].state.hp=1;weapons.queue(room,unit,order);resolve(room,unit,30);assert.equal(b.currentHullHp,40);assert.equal(b.currentShieldHp,0);});
+
+test('component reports name analyzed SICs for attacker and own SICs for defender without exposing hidden types',()=>{
+ for(const analyzed of [true,false]){
+  const {room,a,b,unit}=fixture(),locks=require('../ship-locks');
+  a.ship.sicInventory.push({id:'lock',type:'lock-on-1'});a.ship.placements.push({sicId:'lock',cell:44});
+  locks.state(a).targets=[{targetId:b.id,systemId:'lock',sicId:'gun'}];
+  if(analyzed)sensors.knowledge(a).analyses[b.id]={layout:{sicInventory:[{id:'gun',type:'rapid-laser-1'}]}};
+  unit.delayedAction={id:'component-report',weaponDamage:{shipId:a.id,targetId:b.id,targetSicId:'gun',count:4,dieSides:4,weaponName:'Rapid Laser'}};
+  const result=weapons.resolveDamage(room,unit,[4,4,4,4]);
+  assert.match(result.text,analyzed?/Rapid Laser 1 damaged/:/Targeted SIC damaged/);
+  if(!analyzed)assert.ok(!result.text.includes('Rapid Laser 1'));
+  assert.match(b.weaponState.reports[0].text,/Incoming weapon damage to Rapid Laser 1/);
+ }
+});

@@ -2,6 +2,7 @@
 setlocal
 title Spaceship Architect ATB Multiplayer Server
 cd /d "%~dp0"
+set "PORT=8790"
 
 set "NODE_PATH=%~dp0..\SA-ATB Local Development Files\node_modules"
 set "SA_LOCAL_DATA_DIR=%~dp0..\SA-ATB Local Development Files\campaign-data"
@@ -14,7 +15,7 @@ echo.
 echo Keep this window open while phones are using the ATB app.
 echo.
 echo Computer URL:
-echo   http://127.0.0.1:8787
+echo   http://127.0.0.1:8790
 echo.
 echo Phone URL:
 echo   Use the address shown below after the server starts.

@@ -1,0 +1,57 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawn}=require('node:child_process'),{once}=require('node:events');
+const root=path.resolve(__dirname,'..'),out=path.join(root,'test-artifacts','hacking-practice');fs.mkdirSync(out,{recursive:true});
+let child,browser,page;const errors=[];
+const permutations=(letters,n)=>n?letters.flatMap(letter=>permutations(letters.filter(c=>c!==letter),n-1).map(rest=>[letter,...rest])):[[]];
+const feedback=(answer,guess)=>({exact:guess.filter((c,i)=>c===answer[i]).length,misplaced:guess.filter(c=>answer.includes(c)).length-guess.filter((c,i)=>c===answer[i]).length});
+async function main(){
+  child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-hack-chrome-'))},stdio:['ignore','pipe','pipe']});
+  const base=await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Server timeout')),10000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(t);resolve(url);}});});
+  browser=await chromium.launch({channel:'chrome',headless:true});const context=await browser.newContext({viewport:{width:1366,height:768}});context.on('page',p=>{p.on('pageerror',e=>errors.push(e.stack));p.on('dialog',d=>d.accept());});
+  page=await context.newPage();await page.goto(base+'/hacking-practice.html');await page.waitForFunction(()=>document.querySelectorAll('#palette button').length===5);
+  const get=()=>page.evaluate(async()=>fetch('/api/hacking/practice',{headers:{'X-Practice-Token':JSON.parse(sessionStorage.getItem('sa-hacking-practice-v1')).token}}).then(r=>r.json()));
+  const type=async guess=>{await page.locator('#slots button').first().click();await page.keyboard.type(guess.join(''));};
+  let board=await get();await type(board.candidates.slice(0,3));
+  await page.route('**/api/hacking/practice',async route=>{if(route.request().method()==='POST'&&!route.request().postDataJSON().operation){await route.fetch();await route.abort('failed');}else await route.continue();},{times:1});
+  await page.getByRole('button',{name:'Submit Guess',exact:true}).click();await page.getByRole('button',{name:'Retry Submit',exact:true}).waitFor();assert.match(await page.locator('#error').textContent(),/retained/);assert.equal((await get()).history.length,1);
+  await page.getByRole('button',{name:'Retry Submit',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.hacking-history-row').length===1);assert.equal((await get()).history.length,1);
+  console.log('PASS real browser lost acknowledgment retries the same guess exactly once.');
+  await page.getByRole('button',{name:'New Puzzle',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.hacking-history-row').length===0);
+  board=await get();await type(board.candidates.slice(0,3));await page.reload();await page.waitForFunction(()=>document.querySelectorAll('#slots .filled').length===3);assert.deepEqual(await page.locator('#slots .filled').allTextContents(),board.candidates.slice(0,3));
+  await page.getByRole('button',{name:'Clear Row',exact:true}).click();
+  const candidates=permutations(board.candidates,board.length);let remaining=candidates;
+  for(let attempt=0;attempt<12;attempt++){
+    board=await get();if(board.solved)break;
+    remaining=remaining.filter(answer=>board.history.every(row=>{const result=feedback(answer,row.guess);return result.exact===row.exact&&result.misplaced===row.misplaced;}));assert.ok(remaining.length,'public clues retain at least one solution');
+    await type(remaining[0]);await page.getByRole('button',{name:'Submit Guess',exact:true}).click();await page.waitForFunction(n=>document.querySelectorAll('.hacking-history-row').length===n,attempt+1);
+  }
+  assert.equal((await get()).solved,true);assert.equal(await page.locator('#feedback').textContent(),'Access granted.');await page.screenshot({path:path.join(out,'deduction-solved-desktop.png')});
+  console.log('PASS solve the actual board using only public feedback; keyboard entry, reload and access notification.');
+  await page.getByRole('button',{name:'New Puzzle',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.hacking-history-row').length===0);board=await get();await type(board.candidates.slice(0,3));
+  await page.route('**/api/hacking/practice',async route=>{await route.fetch();await route.abort('failed');},{times:1});await page.getByRole('button',{name:'Submit Guess',exact:true}).click();await page.getByRole('button',{name:'Retry Submit',exact:true}).waitFor();await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.hacking-history-row').length===1);assert.equal(await page.getByRole('button',{name:'Retry Submit',exact:true}).count(),0);
+  const other=await browser.newContext();const otherPage=await other.newPage();await otherPage.goto(base+'/hacking-practice.html');await otherPage.waitForFunction(()=>document.querySelectorAll('#palette button').length===5);assert.equal(await otherPage.locator('.hacking-history-row').count(),0);await other.close();
+  await page.locator('#security').selectOption('3');await page.locator('#firewall').selectOption('2');await page.locator('#module').selectOption('5');await page.getByRole('button',{name:'New Puzzle',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('#slots button').length===1);await page.getByRole('button',{name:/Letter /}).click();await page.getByRole('button',{name:'Submit Guess',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#feedback').textContent==='Access granted.');
+  await page.locator('#security').selectOption('1');await page.locator('#firewall').selectOption('0');await page.getByRole('button',{name:'New Puzzle',exact:true}).click();await page.waitForFunction(async()=>{const saved=JSON.parse(sessionStorage.getItem('sa-hacking-practice-v1'));const board=await fetch('/api/hacking/practice',{headers:{'X-Practice-Token':saved.token}}).then(r=>r.json());return board.security===1&&board.firewall===0&&board.length===1;});assert.equal((await get()).length,1,'approved minimum is one letter');
+  await page.locator('#security').selectOption('8');await page.locator('#firewall').selectOption('8');await page.locator('#module').selectOption('1');await page.getByRole('button',{name:'New Puzzle',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('#palette button').length===16);
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'mobile-maximum-board.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#feedback').evaluate(e=>getComputedStyle(e).animationName),'none');
+  const bounds=await page.locator('button,select').evaluateAll(elements=>elements.filter(e=>e.getBoundingClientRect().width).map(e=>({left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,width:innerWidth})));assert.ok(bounds.every(b=>b.left>=0&&b.right<=b.width));
+  console.log('PASS reload after lost acknowledgment, separate browsers, Module 5, one-letter minimum, mobile bounds and reduced motion.');
+  await page.setViewportSize({width:1600,height:1000});await page.goto(base+'/starship.html');
+  await page.evaluate(()=>{draft={...defaultDraft(),title:'Hacking Hardware Test',groupCredits:999999,gridCells:SAShipMap.rectangleCells({},42,14,14),sicInventory:[{id:'power',type:'en-engine-6'}],placements:[{sicId:'power',cell:166}]};draft.confirmed=constructionState(draft);saveDraft();applyDraftToUi();});
+  for(const [family,label,count,chosen,cell] of [['cpu-security','CPU Security System',8,8,42],['hacking-module','Hacking Module',5,5,46]]){
+    await page.getByRole('button',{name:'SICs',exact:true}).click();await page.locator(`summary[aria-label="${label}: expand ${count} cards"]`).click();const picker=page.getByRole('dialog',{name:label,exact:true});
+    const hashes=await picker.locator('img').evaluateAll(async elements=>{const hashes=[];for(const img of elements){await img.decode();const canvas=document.createElement('canvas');canvas.width=90;canvas.height=90;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,90,90);const data=ctx.getImageData(0,0,90,90).data;hashes.push([...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].join(','));}return hashes;});assert.equal(hashes.length,count);assert.equal(new Set(hashes).size,count);
+    await page.screenshot({path:path.join(out,`${family}-market.png`)});await picker.locator(`[data-purchase-type="${family}-${chosen}"]`).click();await picker.waitFor({state:'detached'});
+    await page.locator(`.ship-grid:not(.mobile-grid) [data-grid-index="${cell}"]`).click();assert.ok(await page.evaluate(type=>draft.placements.some(p=>draft.sicInventory.find(i=>i.id===p.sicId)?.type===type),`${family}-${chosen}`));
+  }
+  await page.locator('[data-construction-action=confirm]').first().click();assert.equal(await page.evaluate(()=>statesMatch(draft,draft.confirmed)),true);assert.equal(await page.evaluate(()=>draft.groupCredits),999999-192000-25000);
+  await page.reload();assert.equal(await page.evaluate(()=>draft.sicInventory.filter(i=>i.type.startsWith('cpu-security')||i.type.startsWith('hacking-module')).length),2);
+  await page.getByRole('button',{name:'Ship Details',exact:true}).click();await page.locator('.desktop-map-display [data-map-display=highResolution]').locator('..').click();await page.locator('.ship-grid:not(.mobile-grid)').screenshot({path:path.join(out,'installed-hardware.png')});
+  console.log('PASS all 13 actual market images differ; real purchases, legal placement, exact credits, confirm/save/reload and ship sheet.');
+  await page.goto(base+'/showcase.html');await page.locator('.hacking-practice-link').waitFor();const frame=page.frameLocator('#showcaseFrame');await frame.locator('[data-tab="script"].active').waitFor();
+  const popup=page.waitForEvent('popup');await page.locator('.hacking-practice-link').click();const practice=await popup;await practice.waitForFunction(()=>document.querySelectorAll('#palette button').length===5);await practice.close();assert.equal(await frame.locator('[data-tab="script"].active').count(),1);
+  console.log('PASS Explore practice entry leaves the campaign on Script without starting combat.');
+  await page.goto(base+'/hacking-practice.html');await page.waitForFunction(()=>document.querySelectorAll('#palette button').length>0);const endedToken=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('sa-hacking-practice-v1')).token);await page.getByRole('link',{name:'End Practice',exact:true}).click();await page.waitForURL('**/index.html');assert.equal((await fetch(base+'/api/hacking/practice',{headers:{'X-Practice-Token':endedToken}})).status,404);
+  console.log('PASS End Practice releases its server session and returns to the main menu.');assert.deepEqual(errors,[]);
+}
+main().catch(async e=>{console.error(e);await page?.screenshot({path:path.join(out,'failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();if(child?.exitCode===null){const ended=once(child,'exit');child.kill();await ended;}});

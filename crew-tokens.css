@@ -1,0 +1,12 @@
+body .crew-token{background:transparent!important;box-shadow:none!important;border:0!important;border-radius:0!important;overflow:visible!important;color:var(--token-color,#50dfff)!important;min-width:24px;min-height:24px;aspect-ratio:1}
+.crew-figure{display:block;width:100%;height:100%;min-width:20px;min-height:24px;overflow:visible;transform:rotate(var(--crew-heading,0deg));filter:drop-shadow(0 1px 1px #000)}
+.crew-figure path,.crew-figure ellipse{stroke:#102129;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;fill:currentColor}
+.crew-figure .crew-left-limb path,.crew-figure .crew-right-limb path{stroke:currentColor;stroke-width:4;fill:none}
+.crew-figure .crew-heading-mark{stroke:#eaffff;stroke-width:2;fill:none}.crew-figure .crew-foot{fill:#263c47;stroke:currentColor;stroke-width:2}.crew-figure .crew-body{fill:currentColor;stroke:#102129}.crew-figure .crew-head{fill:currentColor;stroke:#c9faff;stroke-width:1}
+.crew-walking .crew-left-limb{animation:crew-stride .42s ease-in-out infinite alternate}
+.crew-walking .crew-right-limb{animation:crew-stride .42s ease-in-out infinite alternate-reverse}
+.crew-walking .crew-left-foot{animation:crew-step .42s ease-in-out infinite alternate-reverse}.crew-walking .crew-right-foot{animation:crew-step .42s ease-in-out infinite alternate}
+.crew-token.stationed .crew-figure,.occupied.crew-token .crew-figure{filter:drop-shadow(0 0 3px currentColor)}
+@keyframes crew-stride{from{transform:translateY(-2px)}to{transform:translateY(2px)}}
+@keyframes crew-step{from{transform:translateY(-5px)}to{transform:translateY(4px)}}
+@media(prefers-reduced-motion:reduce){.crew-walking .crew-left-limb,.crew-walking .crew-right-limb,.crew-walking .crew-foot{animation:none}}

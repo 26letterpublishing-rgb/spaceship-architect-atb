@@ -84,14 +84,14 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     assert.deepEqual(assigned.starship.crewCharacterIds, [owner]);
   }
   await post("starship/crew", { code, token: playerTokens[1], characterId: "http-bram", starshipId: "http-gm-ship", crewCharacterIds: ["http-bram"] }, 403);
-  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'ionic-pulse-thruster-2',rotation:90},...Array.from({length:6},(_,i)=>({id:`stored-${i}`,type:'exhaust-thruster-1',storage:true}))],placements:[{sicId:'thruster',cell:20}]};
+  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'ionic-pulse-thruster-2',rotation:90},{id:'power',type:'en-engine-2'},...Array.from({length:6},(_,i)=>({id:`stored-${i}`,type:'exhaust-thruster-1',storage:true}))],placements:[{sicId:'thruster',cell:20},{sicId:'power',cell:21}]};
   await post('starship/link',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:21}]}},400);
   const exteriorLinked=await post('starship/link',{code,token,starship:exteriorShip},201);
   assert.equal(exteriorLinked.starship.ship.placements[0].cell,20);
   const exteriorSaved=await post('starship/save',{code,token,starship:exteriorShip});
   assert.equal(exteriorSaved.starship.ship.placements[0].cell,20);
   assert.equal(exteriorSaved.starship.ship.sicInventory[0].rotation,90);
-  assert.equal(exteriorSaved.starship.ship.sicInventory.length,7);
+  assert.equal(exteriorSaved.starship.ship.sicInventory.length,8);
   await post('starship/save',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:200}]}},400);
   const combat = async (payload, expected = 200) => {
     const response = await fetch(`${base}/api/action`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -108,7 +108,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(exteriorEncounter.starships[0].ship.placements[0].cell,20);
   assert.equal(exteriorEncounter.starships[0].ship.gridCells.length,4);
   assert.equal(exteriorEncounter.starships[0].ship.sicInventory[0].rotation,90);
-  assert.equal(exteriorEncounter.starships[0].ship.sicInventory.length,7);
+  assert.equal(exteriorEncounter.starships[0].ship.sicInventory.length,8);
   let encounter = await combat({ action: "syncEncounterStarships", starships: [auShip] });
   assert.equal(encounter.starships[0].auState.current, 25);
   await combat({ action: "addUnit", characterName: "AU Clock Test", playerName: "GM", team: "npc", speed: 1, commandWindow: 10,
@@ -160,8 +160,8 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     const maps=require('../ship-map-core'),nav=require('../ship-navigation');
     assert.equal(maps.exteriorError(ship.ship),'');
     assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,2);
-    assert.ok(ship.ship.sicInventory.some(item=>item.type==='lock-on-10'));
-    assert.ok(ship.ship.sicInventory.some(item=>item.type==='rapid-laser-5'));
+    assert.ok(ship.ship.sicInventory.some(item=>item.type==='lock-on-9'));
+    assert.ok(ship.ship.sicInventory.some(item=>item.type===`rapid-laser-${ship.controlType==='pc'?5:4}`));
     const cockpit=ship.ship.sicInventory.find(item=>maps.definition(item.type).shipControl);
     const cell=ship.ship.placements.find(p=>p.sicId===cockpit.id).cell;
     const pilot={location:{starshipId:ship.id,square:cell,mesh:0,sicId:cockpit.id,stationed:true}};
@@ -214,7 +214,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(disconnected.units[0].playerConnected, false, "disconnect callbacks must update the replacement unit, not the discarded one");
   const flightShips=['http-gm-ship','http-menu-ship'].map((id,i)=>({id,title:`Flight ${i+1}`,crewCharacterIds:[i?'http-bram':'http-aster'],ship:{
     id,title:`Flight ${i+1}`,confirmedOnce:true,gridCells:[21,22,41,42],
-    sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'},{id:'en',type:'en-engine-1'}],
+    sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'},{id:'en',type:'en-engine-2'}],
     placements:[{sicId:'cp',cell:21},{sicId:'th',cell:20},{sicId:'au',cell:42},{sicId:'en',cell:22}]}}));
   for(const ship of flightShips) await post('starship/save',{code,token,starship:ship.ship});
   await post('starship/save',{code,token,starship:{...flightShips[0].ship,gridCells:[0,1,2,20,21,22,40,41,42]}},400);
@@ -270,7 +270,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(resumed.starships[0].auState.current,flightSave.starships[0].auState.current);
   assert.equal(resumed.running,false);assert.equal(resumed.hardPaused,true);
   token=(await post('open',{name:'HTTP Crew Regression',gmCode:'local-test-gm'})).token;
-  flight=await combat({action:'reset'});assert.equal(flight.starships[0].navigation,null);
+  const noUndo=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomCode:code,gmToken:token,action:'reset'})});assert.equal(noUndo.status,409);assert.match((await noUndo.json()).error,/No previous action/);flight=await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();assert.deepEqual(flight.starships[0].navigation,flightSave.starships[0].navigation);
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }

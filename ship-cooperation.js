@@ -12,7 +12,7 @@
     const data = state(ship), matching = data.preparations.filter(p => p.action === action && p.remaining > 0);
     const teams = matching.filter(p => p.kind === 'team' && p.unitId !== unit.id && room.units.some(u => u.id === p.unitId && !u.defeatedAt));
     const calculations = matching.filter(p => p.kind === 'calculation');
-    const values = [...dice, ...teams.flatMap(() => dice)].map(rollDie);
+    const values = (unit.shipAi?[6,6,6,6]:[...dice, ...teams.flatMap(() => dice)]).map(rollDie);
     const rating = Math.max(skill, ...teams.map(p => p.skill));
     const bonus = calculations.length * 2 + (teams.length ? teams.length + 1 : 0);
     const consumed = new Set([...teams, ...calculations]);

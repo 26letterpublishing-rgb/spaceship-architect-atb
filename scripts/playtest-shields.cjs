@@ -53,6 +53,7 @@ async function main(){
   assert.equal(await remote.getByRole('button',{name:'Restabilize Shield',exact:true}).isVisible(),false);
   assert.equal(await remote.locator('[data-condition]').innerText(),'','Player shield condition must not expose exact HP');
   await act({action:'damageStarship',starshipId:ship.id,amount:6});
+  await pc.locator('.combat-effect-stage').waitFor();await pc.locator('.combat-effect-stage').waitFor({state:'detached'});
   const before=(await state()).starships[0].auState.current;
   const button=remote.getByRole('button',{name:'Restore Shield HP',exact:true}),box=await button.boundingBox();
   await pc.mouse.move(box.x+box.width/2,box.y+box.height/2,{steps:20});await pc.mouse.down();await pc.waitForTimeout(350);await pc.mouse.up();await pc.mouse.click(box.x+box.width/2,box.y+box.height/2);
@@ -87,7 +88,7 @@ async function main(){
   await eng.screenshot({path:path.join(artifacts,'restabilization.png')});
   await act({action:'setCombatLocation',id:engineer.id,location:{starshipId:ship.id,square:83,mesh:4,stationed:false}});await local.waitFor({state:'hidden'});
   const progress=(await state()).starships[0].shieldSystems.sh.restabilization.progress;await act({action:'step'});assert.equal((await state()).starships[0].shieldSystems.sh.restabilization.progress,progress);
-  await act({action:'nudge',id:npc.id,amount:100});await gmFrame.getByRole('button',{name:'Console View',exact:true}).click();await gm.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sh');
+  await act({action:'nudge',id:npc.id,amount:100});await gmFrame.getByRole('button',{name:'Toggle Console',exact:true}).click();await gm.getByRole('combobox',{name:'Station console',exact:true}).selectOption('sh');
   const gmConsole=gm.getByRole('dialog',{name:'Shield console',exact:true});await gmConsole.waitFor();assert.match(await gmConsole.locator('[data-connection]').innerText(),/REMOTE ACCESS/);assert.match(await gmConsole.locator('[data-condition]').innerText(),/0/);await gm.screenshot({path:path.join(artifacts,'gm-remote-shield.png')});
   const builder=await page();await builder.goto(base+'/starship.html');await builder.getByRole('button',{name:'Construction',exact:true}).waitFor();assert.equal(await builder.locator('.desktop-grid-viewport').isVisible(),true);await builder.screenshot({path:path.join(artifacts,'construction-workspace.png')});await builder.getByRole('button',{name:'Ship Details',exact:true}).click();assert.equal(await builder.locator('.blueprint-source').isVisible(),true);await builder.getByRole('button',{name:'SICs',exact:true}).click();await builder.locator('summary[aria-label="Bridge: expand 8 cards"]').click();await builder.getByRole('dialog',{name:'Bridge',exact:true}).waitFor();assert.equal(await builder.locator('.sic-picker-slot').count(),8);await builder.screenshot({path:path.join(artifacts,'bridge-roster.png')});
   await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(image=>image.decode())));

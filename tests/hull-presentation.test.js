@@ -4,7 +4,7 @@ const maps = require('../ship-map-core');
 
 test('compact map fits distant and co-located ships without the old headings', () => {
   const fs=require('node:fs'), vm=require('node:vm');
-  const context={window:{SAShipDistances:require('../ship-distances')},document:{addEventListener(){}}};
+  const context={window:{SAShipMap:maps,SAShipDistances:require('../ship-distances')},document:{addEventListener(){}}};
   vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../space-map.js'),'utf8'),context);
   const ships=Array.from({length:6},(_,i)=>({id:String(i),title:`Ship ${i}`}));
   const points=ships.map(ship=>({id:ship.id,q:9000,r:9000}));

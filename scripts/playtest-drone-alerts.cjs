@@ -1,0 +1,91 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
+const droneTier=Number(process.env.SA_DRONE_TIER||1),droneType='repair-drone-'+droneTier,droneName='Repair Drone '+droneTier,droneDie=2+droneTier*2;
+const root=path.resolve(__dirname,'..'),out=path.join(root,'test-artifacts','drone-alerts-'+droneTier);fs.mkdirSync(out,{recursive:true});
+let child,browser,gm,pc,base;const errors=[];
+const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'sa-drone-alerts-'));
+async function boot(){
+ child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe']});
+ base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server startup timeout')),10000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});child.stderr.on('data',c=>process.stderr.write(c));});
+}
+async function main(){
+ await boot();
+ const post=async(route,body)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await r.json();assert.ok(r.ok,JSON.stringify(data));return data;};
+ const demo=await post('campaign/showcase/start',{}),template=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());
+ const made=await post('campaign/create',{name:'Drone and Alerts Browser',gmCode:'test-drone-only'}),code=made.campaign.code;let token=made.token;
+ template.campaign.code=code;template.campaign.name='Drone and Alerts Browser';template.campaign.showcase=false;
+ const person=template.campaign.characters[0],ships=template.campaign.starships;
+ const own=ships.find(s=>s.controlType==='pc'),enemy=ships.find(s=>s.id!==own.id);
+ for(const s of ships){const id=s.id;s.ship={...s.ship,gridCells:Array.from({length:56},(_,n)=>42+Math.floor(n/8)*20+n%8),sicInventory:[{id:id+'-cp',type:'cockpit-1'},{id:id+'-sn',type:'sensors-3'},{id:id+'-en',type:'en-au-engine-4'},{id:id+'-bay',type:droneType},{id:id+'-life',type:'life-support',impaired:s===enemy,impairmentPoints:s===enemy?1:0},{id:id+'-lock',type:'lock-on-1'},{id:id+'-gun',type:'rapid-laser-1'}],placements:[{sicId:id+'-cp',cell:42},{sicId:id+'-sn',cell:43},{sicId:id+'-lock',cell:44},{sicId:id+'-bay',cell:49},{sicId:id+'-life',cell:45},{sicId:id+'-en',cell:85},{sicId:id+'-gun',cell:22}],doorStates:{},currentHullHp:40,maximumHullHp:56,oxygenEnabled:true};
+  s.currentHullHp=40;s.maximumHullHp=56;s.characterLocations={};if(s===own)s.characterLocations[person.id]={square:42,mesh:0,stationed:true,sicId:id+'-cp'};
+ }
+ const units=template.campaign.encounter.units;
+ for(const u of units){const s=u.characterId===person.id?own:enemy;u.location={starshipId:s.id,square:42,mesh:0,stationed:true,sicId:s.id+'-cp'};u.speed=.01;u.atb=0;u.delayedAction=null;u.timedAction=null;}
+ template.campaign.encounter={...template.campaign.encounter,starships:ships,shipPositions:ships.map(s=>({id:s.id,q:0,r:0})),units,running:false,hardPaused:true,hasEngagedClock:true,encounterEndedAt:null,activeId:null,pausedForTurn:false};
+ enemy.lockState={targets:[{targetId:own.id,systemId:enemy.id+'-lock',remaining:12}],receipts:[],reports:[],failures:{}};
+ await post('campaign/restore',{code,token,backup:template});
+ const player={id:person.id,...await post('campaign/character/unlock',{code,characterId:person.id,pcCode:person.pcCode})};
+ const act=body=>post('action',{roomCode:code,gmToken:token,...body}),state=()=>fetch(`${base}/api/state?room=${code}&token=${token}`).then(r=>r.json());
+ const campaign=auth=>fetch(`${base}/api/campaign/state?code=${code}&token=${auth||token}`).then(r=>r.json());
+ let live=await state();const unit=live.units.find(u=>u.characterId===person.id);assert.ok(live.starships.some(s=>s.isDrone));
+ browser=await chromium.launch({channel:'chrome',headless:true});const gc=await browser.newContext({viewport:{width:1440,height:1000}}),cc=await browser.newContext({viewport:{width:1440,height:1000}});
+ await gc.addInitScript(({code,token})=>localStorage.setItem(`sa-gm-token-${code}`,token),{code,token});await cc.addInitScript(({code,player})=>localStorage.setItem(`sa-character-token-${code}-${player.id}`,player.token),{code,player});
+ gm=await gc.newPage();pc=await cc.newPage();for(const p of [gm,pc]){p.on('pageerror',e=>errors.push(e.stack));p.on('dialog',d=>d.accept());}
+ await gm.goto(`${base}/gm.html?campaign=${code}`);await pc.goto(`${base}/character.html?campaign=${code}&character=${player.id}`);
+ await pc.locator('.enemy-lock-banner:popover-open').waitFor();assert.equal(await pc.locator('.enemy-lock-banner').innerText(),'Enemy Locked On');
+ await gm.locator('.oxygen-panel:popover-open').waitFor();assert.match(await gm.locator('.oxygen-panel').innerText(),/Red Horizon/);assert.equal(await pc.locator('.oxygen-panel:popover-open').count(),0);
+ const before=(await campaign()).oxygen.ships[0].graceRemaining;await pc.waitForTimeout(1100);assert.equal((await campaign()).oxygen.ships[0].graceRemaining,before);
+ await gm.screenshot({path:path.join(out,'gm-npc-oxygen.png')});
+ await gm.locator('.damaged-systems-warning:popover-open').waitFor();assert.match(await gm.locator('.damaged-systems-warning').innerText(),/Red Horizon.*Life Support/);assert.equal(await pc.locator('.damaged-systems-warning:popover-open').count(),0);
+ console.log('PASS GM NPC impairment countdown, paused time, private PC projection and exact lock warning.');
+ await pc.getByRole('button',{name:'Starships',exact:true}).click();await pc.locator('.enemy-lock-banner:popover-open').waitFor();
+ const sheet=pc.frameLocator('[data-player-ship-details]');await sheet.locator('[data-drone-id]').first().waitFor();
+ await sheet.locator('[data-drone-id]').first().scrollIntoViewIfNeeded();
+ const pos=await sheet.locator('[data-drone-id]').first().getAttribute('style');
+ await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});
+ await pc.waitForTimeout(2000);assert.notEqual(await sheet.locator('[data-drone-id]').first().getAttribute('style'),pos);
+ await pc.locator('.drone-repair-notice:popover-open').waitFor({timeout:20000});
+ assert.equal(await pc.locator('.drone-repair-notice').evaluate(e=>getComputedStyle(e).pointerEvents),'none');
+ const repaired=(await state()).starships.find(s=>s.id===own.id);assert.ok(repaired.currentHullHp>40&&repaired.currentHullHp<=40+droneDie);
+ await act({action:'setHardPaused',paused:true});await pc.waitForTimeout(500);
+ assert.ok(await sheet.locator('[data-drone-id]').first().evaluate(img=>{const grid=img.closest('.ship-grid'),cells=draft.gridCells.map(n=>grid.querySelector(`[data-grid-index="${n}"]`).getBoundingClientRect()),r=img.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;return x<=Math.min(...cells.map(c=>c.left))+5||x>=Math.max(...cells.map(c=>c.right))-5||y<=Math.min(...cells.map(c=>c.top))+5||y>=Math.max(...cells.map(c=>c.bottom))-5;}),'repair robot stays on exterior at current map zoom');await pc.screenshot({path:path.join(out,'player-drone-repair.png')});
+ assert.equal(await pc.locator('.repair-d4').getAttribute('data-sides'),String(droneDie));console.log('PASS grade '+droneTier+' natural repair, D'+droneDie+' feedback, nonblocking feedback and exterior robot.');
+ await pc.getByRole('button',{name:'Combat',exact:true}).click();
+ await pc.frameLocator('#playerAtbFrame').locator('[data-drone-id]').first().waitFor();await pc.frameLocator('#playerAtbFrame').locator('[data-drone-id]').first().scrollIntoViewIfNeeded();await pc.screenshot({path:path.join(out,'combat-interior-drone.png')});
+
+ await pc.frameLocator('#playerAtbFrame').locator('[data-console-operator]').first().selectOption(unit.id);await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();await pc.locator('[data-space-drone]').first().waitFor();await pc.screenshot({path:path.join(out,'targetable-starmap-drone.png')});
+ await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption(own.id+'-bay');const consoleView=pc.getByRole('dialog',{name:droneName+' console',exact:true});await consoleView.waitFor();await pc.locator('.enemy-lock-banner:popover-open').waitFor();await pc.waitForTimeout(350);assert.ok(await consoleView.locator('header').evaluate(e=>e.getBoundingClientRect().top>=document.querySelector('.enemy-lock-banner').getBoundingClientRect().bottom));
+ await act({action:'nudge',id:unit.id,amount:100});await consoleView.getByRole('button',{name:'Repair Red Horizon',exact:true}).waitFor();
+ await consoleView.getByRole('button',{name:'Repair Red Horizon',exact:true}).click();
+ await consoleView.getByText('Repair order confirmed.',{exact:true}).waitFor();assert.equal((await state()).starships.find(s=>s.id===own.id).ship.droneState.drones[own.id+'-bay'].targetId,enemy.id);
+ await pc.screenshot({path:path.join(out,'drone-console.png')});
+ console.log('PASS player opens drone console and orders same-hex repair with an ATB action.');
+ await consoleView.getByRole('button',{name:'Combat View',exact:true}).click();
+ await pc.reload();await pc.locator('.enemy-lock-banner:popover-open').waitFor();
+ const saved=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());
+ const d=saved.campaign.encounter.starships.find(s=>s.id===own.id).ship.droneState;assert.ok(d&&d.drones[own.id+'-bay'].cycle>=1);
+ saved.campaign.encounter.shipPositions.find(p=>p.id===enemy.id).q=2;saved.campaign.encounter.starships.find(s=>s.id===enemy.id).lockState.targets=[];
+ await post('campaign/restore',{code,token,backup:saved});await state();await pc.locator('.enemy-lock-banner:popover-open').waitFor({state:'hidden'});
+ const returned=(await state()).starships.find(s=>s.id===own.id).ship.droneState.drones[own.id+'-bay'];assert.equal(returned.targetId,own.id);
+ assert.deepEqual((await campaign(player.token)).oxygen.ships,[]);
+ console.log('PASS reload preserves drone progress; separation returns it home and losing lock clears the banner.');
+ const damagedBackup=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());
+ damagedBackup.campaign.encounter.starships.find(s=>s.id===own.id).ship.sicInventory.find(i=>i.id===own.id+'-gun').impaired=true;
+ await post('campaign/restore',{code,token,backup:damagedBackup});await pc.locator('.damaged-systems-warning:popover-open').waitFor();assert.match(await pc.locator('.damaged-systems-warning').innerText(),/Wayfinder.*Rapid Laser 1/);
+ assert.equal(await pc.locator('.damaged-system-light').evaluate(e=>getComputedStyle(e).animationName),'damaged-system-pulse');
+ await pc.emulateMedia({reducedMotion:'reduce'});assert.equal(await pc.locator('.damaged-system-light').evaluate(e=>getComputedStyle(e).animationName),'none');await pc.emulateMedia({reducedMotion:'no-preference'});
+ await pc.reload();await pc.locator('.damaged-systems-warning:popover-open').waitFor();await pc.getByRole('button',{name:'Starships',exact:true}).click();await pc.locator('.damaged-systems-warning:popover-open').waitFor();await pc.screenshot({path:path.join(out,'persistent-sic-warning.png')});
+ const fixedBackup=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());fixedBackup.campaign.encounter.starships.find(s=>s.id===own.id).ship.sicInventory.find(i=>i.id===own.id+'-gun').impaired=false;await post('campaign/restore',{code,token,backup:fixedBackup});await pc.locator('.damaged-systems-warning:popover-open').waitFor({state:'hidden'});
+ console.log('PASS named damage warning survives tabs/reload, respects reduced motion and disappears after repair.');
+ const market=await cc.newPage();await market.goto(base+'/starship.html');await market.getByRole('button',{name:'SICs',exact:true}).click();await market.locator('summary[aria-label="Repair Drone: expand 5 cards"]').click();
+ const card=market.locator(`.sic-family-picker [data-sic-preview="${droneType}"]`);await card.locator('img').evaluate(e=>e.decode());await market.waitForTimeout(700);await card.screenshot({path:path.join(out,'repair-drone-card.png')});
+ await market.locator(`.sic-family-picker [data-purchase-type="${droneType}"]`).click();assert.ok(await market.evaluate(type=>JSON.parse(localStorage.getItem('sa-starship-layout-draft')).sicInventory.some(i=>i.type===type),droneType));
+ assert.deepEqual(errors,[]);console.log('PASS drone market artwork and purchase; no GM or PC browser errors.');
+ const persisted=(await state()).starships.find(s=>s.id===own.id);
+ await pc.waitForTimeout(1200);await browser.close();browser=null;
+ const exited=once(child,'exit');child.kill();await exited;await boot();
+ token=(await post('campaign/open',{name:'Drone and Alerts Browser',gmCode:'test-drone-only'})).token;
+ const restarted=(await state()).starships.find(s=>s.id===own.id);
+ assert.equal(restarted.currentHullHp,persisted.currentHullHp);assert.deepEqual(restarted.ship.droneState,persisted.ship.droneState);
+ console.log('PASS actual server restart preserves Hull, repair results, drone identity and paused progress without rerolling.');
+}
+main().catch(async e=>{console.error(e);for(const [name,page] of [['gm',gm],['pc',pc]])await page?.screenshot({path:path.join(out,'failure-'+name+'.png')}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});

@@ -103,3 +103,45 @@ body .turn-edge-control{position:fixed!important;width:42px!important;height:82p
 body .turn-edge-control::before,body .turn-edge-control::after{display:none!important}
 body .turn-dialog,body .turn-banner{transition-property:transform,opacity!important;animation:none!important}
 body.embedded-gm .turn-dialog:not(.npc-collapsed){transform:none!important}
+/* The GM frame can extend above the visible browser after scrolling. Keep the
+   prompt below both the combat toolbar and the enclosing viewport's top edge. */
+body.embedded-gm #turnDialog{
+  --gm-turn-top:max(64px,calc(var(--embedded-visible-top,0px) + 10px));
+  top:var(--gm-turn-top);
+  bottom:auto!important;
+  max-height:min(var(--embedded-modal-max-height,calc(100dvh - 24px)),calc(100dvh - var(--embedded-hidden-bottom,0px) - var(--gm-turn-top) - 12px))!important;
+}
+.gm-unknown-ship .ship-lane-map,.gm-unknown-ship .ship-combat-title h2{filter:grayscale(1);opacity:.5}
+[data-npc-knowledge],[data-sensor-range]{display:block;color:#ebdfaf;font-size:13px;line-height:1.5}
+[data-knowledge-picker]{font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+[data-knowledge-picker]{position:relative;padding:6px 10px;background:#0c171e;border-bottom:1px solid #37515c}
+[data-knowledge-picker] select{font-size:13px;min-height:30px;padding:3px 24px 3px 8px;max-width:100%}
+#campaignCombatStatus[data-active=true] strong{color:#ffd76b}
+#campaignCombatStatus{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;min-width:0;padding:6px;font-size:13px;letter-spacing:0;background:#101a1b}
+#campaignCombatStatus[hidden]{display:none}
+#campaignCombatStatus span{font-size:10px;color:#a5babc}
+#campaignCombatStatus strong{margin:0;text-align:center}
+#campaignCombatStatus[data-active=false] strong{color:#7de4bb}
+
+.station-action-choice [data-disabled-reason]{display:block;font:12px/1.35 Arial;color:#e6cda5;margin:4px 2px 7px;text-transform:none}
+.station-action-choice [data-disabled-reason][hidden]{display:none}
+[data-combat-action="wait3"],[data-player-combat-action="wait3"]{grid-column:1/-1;margin-top:12px;border-top:2px solid #a1b4c5!important}
+.starship-combat-mode.player-mode.own-turn-active .ship-lane-log{display:block!important;visibility:visible!important;opacity:1!important;position:relative;z-index:1}
+@media(min-width:901px){
+ body.starship-combat-mode.player-mode.own-turn-active #initiativePanel{display:block!important;position:fixed!important;left:12px!important;right:auto!important;top:max(12px,var(--embedded-visible-top,12px))!important;bottom:calc(var(--embedded-hidden-bottom,0px) + 12px)!important;width:calc(50% - 36px)!important;max-height:none!important;min-height:0!important;margin:0!important;transform:none!important;overflow:auto!important}
+ body.starship-combat-mode.player-mode.own-turn-active #myTurnBanner.turn-banner{left:auto!important;right:12px!important;top:max(12px,var(--embedded-visible-top,12px))!important;bottom:auto!important;width:calc(50% - 36px)!important;max-width:none!important;min-height:0!important;padding:12px!important;align-content:start!important;overflow:auto!important}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-combat-columns{display:flex!important;flex-direction:column}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-combat-lane{grid-template-columns:minmax(0,1fr)!important;order:1}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-lane-atb{grid-column:1;grid-row:3}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-lane-log{grid-column:1;grid-row:4}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-lane-map{grid-column:1;grid-row:5;margin:8px}
+ body.starship-combat-mode.player-mode.own-turn-active .ring-stage{height:140px}
+ body.starship-combat-mode.player-mode.own-turn-active .tactical-ring-svg{width:145px!important;height:145px!important}
+ body.starship-combat-mode.player-mode.own-turn-active .combat-space-map{order:2!important}
+ body.starship-combat-mode.player-mode.own-turn-active .empty-contact-activity{order:3}
+ body.starship-combat-mode.player-mode.own-turn-active .ship-lane-log>div{height:80px;max-height:80px}
+}
+.station-action-choice{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important}
+.station-action-choice>[data-disabled-reason]{grid-column:1/-1}
+.station-action-choice>[data-station-order]{width:100%!important}
+button [data-action-reason]{display:block;font:11px/1.35 Arial;text-transform:none;color:#edd8ad;margin-top:4px}

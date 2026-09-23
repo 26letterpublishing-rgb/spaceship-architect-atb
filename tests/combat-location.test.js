@@ -52,7 +52,7 @@ function fixture() {
     location: location(0, 0),
   };
   const unit = syncUnitCombat({ ...source }, source);
-  const room = { units: [unit], vehicles: [], starships: [], activeId: unit.id, activeSource: "pc", threshold: 100, pausedForTurn: true };
+  const room = { units: [unit], vehicles: [], starships: [{id:"ship-1",ship:{gridCells:[0,1,2],sicInventory:[],placements:[]}}], activeId: unit.id, activeSource: "pc", threshold: 100, pausedForTurn: true };
   const helpers = {
     id: () => "action-1",
     clearActiveCommand: () => {},
@@ -93,14 +93,14 @@ test("extended starship movement is divided into Move Speed segments", () => {
 
 test("closed ship doors delay movement and station destinations seat the character", () => {
   const { unit, room, helpers } = fixture();
-  room.starships = [{ id: "ship-1", ship: { doorStates: { "0:1": "closed" } } }];
-  const destination = { ...location(1, 1), sicId: "engine-1", doorKey: "0:1" };
+  room.starships = [{ id: "ship-1", ship: { gridCells:[0,1],sicInventory:[{id:"engine-1",type:"en-engine-1",rotation:270}],placements:[{sicId:"engine-1",cell:1}],doorStates: { "0:1": "closed" } } }];unit.location=location(0,5);
+  const destination = { ...location(1, 3), sicId: "engine-1", doorKey: "0:1" };
   const result = resolvePlayerCombatAction(room, unit, {
     kind: "move",
     route: [destination],
     stationOnArrival: true,
     stationName: "EN Engine 1",
-    stationSlot: 1,
+    stationSlot: 3,
   }, helpers);
 
   assert.equal(result.ok, true);
@@ -109,7 +109,7 @@ test("closed ship doors delay movement and station destinations seat the charact
   tickCombatTimers(unit, 2.1, 1, room);
   assert.equal(unit.location.square, 1);
   assert.equal(unit.location.stationed, true);
-  assert.equal(unit.location.stationSlot, 1);
+  assert.equal(unit.location.stationSlot, 3);
 });
 
 test("a station rejects a second character at its exact location", () => {
@@ -173,4 +173,26 @@ test("a player can resolve an active turn after the Command Window expires", () 
   assert.equal(result.ok, true);
   assert.equal(room.activeId, null);
   assert.equal(unit.atb, 0);
+});
+
+test("combat walking at Move 9 covers the same route three times faster than Move 3",()=>{
+  const times=[];
+  for(const speed of [3,9]){
+    const {unit,room,helpers}=fixture();unit.moveSpeed=speed;
+    const route=[location(0,1),location(0,2),location(1,0)];
+    assert.equal(resolvePlayerCombatAction(room,unit,{kind:"move",route},helpers).ok,true);
+    times.push(unit.timedAction.total);tickCombatTimers(unit,unit.timedAction.total);
+    assert.equal(unit.location.square,route.at(-1).square);assert.equal(unit.location.mesh,route.at(-1).mesh);
+  }
+  assert.deepEqual(times,[3,1]);
+});
+
+test("fractional Move Speed times only actual mesh steps in the first and subsequent segments",()=>{
+  const {unit,room,helpers}=fixture();unit.moveSpeed=3.5;
+  const route=Array.from({length:7},(_,i)=>location(Math.floor((i+1)/3),(i+1)%3));
+  resolvePlayerCombatAction(room,unit,{kind:"move",route},helpers);
+  assert.equal(unit.timedAction.units,3);assert.equal(unit.timedAction.total,2.6);
+  tickCombatTimers(unit,2.6);assert.equal(unit.timedAction.units,3);assert.equal(unit.timedAction.total,2.6);
+  tickCombatTimers(unit,2.6);assert.equal(unit.timedAction.units,1);assert.equal(unit.timedAction.total,.9);
+  tickCombatTimers(unit,.9);assert.equal(unit.location.square,route.at(-1).square);assert.equal(unit.location.mesh,route.at(-1).mesh);assert.equal(unit.timedAction,null);
 });

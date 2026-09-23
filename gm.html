@@ -1,9 +1,12 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
+  <link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
+  <link rel="stylesheet" href="oxygen-ui.css">
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
-    <script src="view-ready.js"></script>
+    <script src="warp-effects.js"></script>
+  <script src="view-ready.js"></script>
     <link rel="stylesheet" href="result-feedback.css">
     <link rel="stylesheet" href="combat-feedback.css" data-combat-feedback-style>
     <meta charset="UTF-8" />
@@ -100,7 +103,7 @@
               <label>Attribute<select id="scriptAttribute"></select></label>
               <label>Skill<select id="scriptSkill"></select></label>
               <label>Difficulty (Optional)<input id="scriptDifficulty" type="number" min="0" step="0.1" /></label>
-              <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
+              <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
             <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
@@ -119,7 +122,7 @@
               <label>Attribute<select id="conditionalAttribute"></select></label>
               <label>Skill<select id="conditionalSkill"></select></label>
               <label>Difficulty<input id="conditionalDifficulty" type="number" min="0" step="0.1" required /></label>
-              <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" /> Hide Difficulty</label>
+              <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
             </div>
             <div class="conditional-action-buttons">
               <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
@@ -221,13 +224,30 @@
               <label>Message<textarea id="privateNoteMessage" rows="7" maxlength="4000" placeholder="Only the selected player and GM can read this note."></textarea></label>
               <button class="primary" type="submit">Send Private Note</button>
             </form>
+            <form id="giveMineralsForm" class="tool-card">
+              <h3>Give Minerals</h3>
+              <label>Destination ship<select id="giveMineralsShip" required></select></label>
+              <label>Mineral<input id="giveMineralsName" maxlength="40" required placeholder="Iron" /></label>
+              <label>Quantity<input id="giveMineralsQuantity" type="number" min="1" max="1000000" step="1" value="1" required /></label>
+              <button class="primary" type="submit">Give Minerals</button>
+              <p id="giveMineralsStatus" role="status"></p>
+            </form>
+            <form id="libraryEntryForm" class="tool-card" hidden>
+              <h3>Send to Library</h3>
+              <p>Archive information aboard a ship. Its assigned PCs receive an inbox notice to visit the Library.</p>
+              <label>Destination Library<select id="libraryEntryTarget" aria-label="Destination Library" required></select></label>
+              <label>Entry title<input id="libraryEntryTitle" maxlength="100" required /></label>
+              <label>Library information<textarea id="libraryEntryText" rows="7" maxlength="4000" required placeholder="Write the information the crew can read at the Library."></textarea></label>
+              <button class="primary" type="submit">Send Library Entry</button>
+              <p id="libraryEntryStatus" class="tool-message" role="status"></p>
+            </form>
             <form id="rollPromptForm" class="tool-card roll-tool-card">
               <h3>Request Dice Roll</h3>
               <div class="roll-grid">
                 <label>Attribute<select id="promptAttribute"></select></label>
                 <label>Skill<select id="promptSkill"></select></label>
                 <label>Difficulty (Optional)<input id="promptDifficulty" type="number" min="0" step="0.1" /></label>
-                <label class="check-field"><input id="promptHideDifficulty" type="checkbox" /> Hide Difficulty</label>
+                <label class="check-field"><input id="promptHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
               </div>
               <button class="primary" type="submit">Send Roll Request</button>
             </form>
@@ -379,9 +399,16 @@
   <script src="ship-map-core.js?v=console-feedback-2"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="ship-distances.js?v=console-feedback-2"></script>
+  <script src="space-objects.js"></script>
+  <script src="space-object-editor.js"></script>
   <script src="space-map.js?v=console-feedback-2"></script>
   <script src="live-dom.js?v=console-feedback-2"></script>
   <script src="crew-overview.js?v=console-feedback-2"></script>
+  <script src="fleet-notices.js"></script>
+  <script src="oxygen-ui.js"></script>
+  <script src="transit-status.js"></script>
+  <script src="crew-room-status.js"></script>
+  <script src="field-utility-status.js"></script>
   <script type="module" src="gm.js?v=console-feedback-2"></script>
   </body>
 </html>

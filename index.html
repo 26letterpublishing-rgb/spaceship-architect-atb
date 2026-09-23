@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
+  <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
     <script src="view-ready.js"></script>
@@ -266,6 +268,7 @@
             <select id="gmCampaignPc"><option value="">Choose a PC</option></select>
           </label>
           <button id="gmAddCampaignPc" class="hidden" type="button">Add PC</button>
+          <label>NPC Template<select id="gmNpcTemplate"><option value="">Quick Custom NPC</option></select></label>
           <label id="gmCombatShipWrap" class="hidden">
             Aboard Ship
             <select id="gmCombatShip"><option value="">Choose Ship</option></select>
@@ -616,6 +619,7 @@
 
   <script src="combat-rules.js?v=console-feedback-2"></script>
     <script src="ship-distances.js?v=console-feedback-2"></script>
+    <script src="space-objects.js"></script>
     <script src="space-map.js?v=console-feedback-2"></script>
     <script src="combat-wire.js"></script>
     <script src="live-dom.js?v=console-feedback-2"></script>
@@ -624,14 +628,21 @@
   <script src="ship-map-core.js?v=console-feedback-2"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="delay-rules.js?v=console-feedback-2"></script>
-  <script src="ship-navigation.js?v=console-feedback-2"></script>
   <script src="station-access.js?v=console-feedback-2"></script>
+  <script src="ship-navigation.js?v=console-feedback-2"></script>
   <script src="ship-cooperation.js?v=console-feedback-2"></script>
   <script src="action-help.js?v=console-feedback-2"></script>
   <script src="maintenance-ui.js?v=console-feedback-2"></script>
   <script src="ship-command-ui.js?v=console-feedback-2"></script>
+  <script src="automation-ui.js"></script>
+  <script src="cleanser-timeline.js"></script>
+  <script src="cleanser-ui.js"></script>
   <script src="ship-roll-ui.js?v=console-feedback-2"></script>
   <script src="console-feedback.js?v=console-feedback-2"></script>
+  <script src="ship-targets.js"></script>
+  <script src="missile-ammunition.js"></script>
+  <script src="fleet-notices.js"></script>
+  <script src="missile-ui.js"></script>
   <script src="ship-sensors.js?v=console-feedback-2"></script>
   <script src="sensor-console-ui.js?v=console-feedback-2"></script>
   <script src="ship-locks.js?v=lock-on-1"></script>
@@ -642,8 +653,19 @@
   <script src="console-common.js?v=lock-on-1"></script>
   <script src="combat-order-ui.js?v=targeting-roster"></script>
   <script src="lock-console-ui.js?v=lock-on-1"></script>
+  <script src="transit-console-ui.js"></script>
+  <script src="crew-room-status.js"></script>
+  <script src="crew-room-console.js"></script>
+  <script src="field-utility-console.js"></script>
+  <script src="drone-console.js"></script>
+  <script src="ship-probes.js"></script>
+  <script src="probe-console.js"></script>
+  <script src="surveillance-console.js"></script>
+  <script src="utility-console-ui.js?v=decent-utilities-1"></script>
+  <script src="hacking-console-ui.js"></script>
   <script src="combat-feedback.js?v=lock-on-1"></script>
   <script src="ship-navigation-ui.js?v=console-feedback-2"></script>
+  <script src="drone-map.js"></script>
   <script src="ship-combat-map.js?v=console-feedback-2"></script>
   <script src="combat-actions.js?v=console-feedback-2"></script>
   <script type="module" src="npc-combat-dice.js?v=console-feedback-2"></script>

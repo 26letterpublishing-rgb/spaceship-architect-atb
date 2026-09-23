@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hacking Practice | Spaceship Architect</title>
+  <link rel="stylesheet" href="hacking-practice.css">
+  <script src="hacking-practice-ui.js" defer></script>
+</head>
+<body>
+  <main class="hacking-workspace">
+    <header class="hacking-header"><div><small>SPACESHIP ARCHITECT / SIMULATION</small><h1>Hacking Practice</h1></div><a id="endPractice" href="index.html">End Practice</a></header>
+    <div class="hacking-layout">
+      <aside class="hacking-hardware">
+        <form id="setup">
+          <h2>Hardware</h2>
+          <img id="moduleArt" src="hacking-module-tiers.svg#tier-1" alt="Hacking Module 1">
+          <label>Hacking Module<select id="module" name="tier"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+          <label>Target SIC Security<select id="security" name="security"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+          <label>CPU Firewall<select id="firewall" name="firewall"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+          <button type="submit" id="newPuzzle">New Puzzle</button>
+        </form>
+      </aside>
+      <section class="hacking-board" aria-label="Password board">
+        <div class="hacking-connection"><span id="connection">Connecting...</span><span id="attempts">0 attempts</span></div>
+        <dl class="hacking-stats"><div><dt>Code positions</dt><dd id="length">--</dd></div><div><dt>Available letters</dt><dd id="choices">--</dd></div><div><dt>Module reduction</dt><dd id="reduction">--</dd></div></dl>
+        <form id="guessForm">
+          <h2>Candidate Letters</h2><div id="palette" class="hacking-palette" role="group" aria-label="Candidate letters"></div>
+          <h2 id="guessHeading">Current Guess</h2><div id="slots" class="hacking-slots" role="group" aria-label="Ordered code positions"></div>
+          <div class="hacking-submit"><button type="submit" id="submitGuess" disabled>Submit Guess</button><button type="button" id="clearGuess">Clear Row</button></div>
+        </form>
+        <p id="error" role="alert"></p>
+        <output id="feedback" role="status" aria-live="polite"></output>
+        <section class="hacking-history"><h2>Attempt History</h2><div id="history"><p>No attempts yet.</p></div></section>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

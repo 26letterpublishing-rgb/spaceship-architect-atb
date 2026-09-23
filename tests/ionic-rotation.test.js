@@ -69,7 +69,7 @@ test('Masking includes HSM and installed Exhaust, including negative totals', ()
 
 test('builder normalization retains rotation and pending storage through save and undo snapshots', () => {
   const source=fs.readFileSync(require.resolve('../starship.js'),'utf8');
-  const context={SIC_CATALOG:maps.catalog}; vm.createContext(context);
+  const context={SIC_CATALOG:maps.catalog,window:{SAShipMap:maps}}; vm.createContext(context);
   vm.runInContext(source.slice(source.indexOf('function constructionState('),source.indexOf('function defaultDraft(')),context);
   const input={sicInventory:[{id:'t',type:'ionic-pulse-thruster-3',rotation:90,stationLayout:'corners-v1',pendingPurchase:true,storage:true}],placements:[]};
   const restored=context.constructionState(context.constructionState(input));

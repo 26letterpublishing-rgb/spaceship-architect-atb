@@ -51,6 +51,7 @@
   function render(target, markup) {
     const template = target.ownerDocument.createElement("template");
     template.innerHTML = markup;
+    root.SACrewTokens?.decorate(template.content);
     children(target, template.content);
   }
   root.SALiveDOM = Object.freeze({ render });

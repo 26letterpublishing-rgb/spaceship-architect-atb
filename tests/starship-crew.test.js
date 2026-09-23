@@ -61,6 +61,41 @@ function ship(id, title) {
   };
 }
 
+test('link and save reject negative design EN without altering the saved ship',async()=>{
+  const api=new CampaignApi({store:memoryStore(),storageMode:'memory'});
+  const made=await request(api,'POST','/api/campaign/create',{name:'EN validation',gmCode:'en-test'});
+  const {token,campaign:{code}}=made.payload;
+  const starship={...ship('power-test','Power Test'),sicInventory:[{id:'engine',type:'en-engine-1'},{id:'shield',type:'shield-1'}],placements:[{sicId:'engine',cell:189},{sicId:'shield',cell:190}]};
+  const invalid=structuredClone(starship);invalid.sicInventory.push({id:'life',type:'life-support'});invalid.placements.push({sicId:'life',cell:209});
+  const rejected=await request(api,'POST','/api/campaign/starship/link',{code,token,starship:invalid});
+  assert.equal(rejected.status,400);assert.match(rejected.payload.error,/Not enough EN/);
+  assert.equal((await request(api,'POST','/api/campaign/starship/link',{code,token,starship})).status,201,'Exactly zero spare EN is valid');
+  const outside=structuredClone(starship);outside.placements[0].cell=999;
+  assert.equal((await request(api,'POST','/api/campaign/starship/save',{code,token,starship:outside})).status,400,'An engine removed by normalization cannot supply EN');
+  const saved=await request(api,'POST','/api/campaign/starship/save',{code,token,starship:invalid});
+  assert.equal(saved.status,400);assert.match(saved.payload.error,/Not enough EN/);
+  assert.equal((await api.campaign(code)).starships[0].ship.sicInventory.length,2);
+  invalid.sicInventory.find(i=>i.id==='engine').type='en-engine-2';
+  assert.equal((await request(api,'POST','/api/campaign/starship/save',{code,token,starship:invalid})).status,200);
+});
+
+test('restoring Explore updates its active campaign and stays out of normal campaign storage',async()=>{
+  const store=memoryStore();let durableSaves=0;const save=store.save;
+  store.save=async c=>{durableSaves++;return save(c);};
+  const api=new CampaignApi({store,storageMode:'memory'});
+  const made=await request(api,'POST','/api/campaign/showcase/start');
+  const {code,gmToken:token}=made.payload;
+  const before=await api.campaign(code);
+  const backup=await request(api,'GET',`/api/campaign/backup?code=${code}&token=${token}`);
+  backup.payload.campaign.starships[0].ship.title='Restored Explorer';
+  backup.payload.campaign.starships[0].title='Restored Explorer';
+  assert.equal((await request(api,'POST','/api/campaign/restore',{code,token,backup:backup.payload})).status,200);
+  const after=await api.campaign(code);
+  assert.notEqual(after,before);assert.equal(after.starships[0].title,'Restored Explorer');
+  assert.equal(after.showcase,true);assert.equal(durableSaves,0);
+  assert.equal(await store.get(code),null);
+});
+
 test("player ship movement preserves corner mesh zero", async () => {
   const api = new CampaignApi({ store: memoryStore(), storageMode: "memory" });
   const created = await request(api, "POST", "/api/campaign/create", { name: "Corner Move", gmCode: "gm-corner" });
@@ -188,4 +223,26 @@ test("fresh GM and two player sessions join, link ships, and survive a storage r
     if (oldDir === undefined) delete process.env.SA_LOCAL_DATA_DIR; else process.env.SA_LOCAL_DATA_DIR = oldDir;
     if (oldUrl === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = oldUrl;
   }
+});
+test("expanded split mounts preserve crew, NPCs, stations and doors in campaign saves", async()=>{
+  const maps=require('../ship-map-core'),api=new CampaignApi({store:memoryStore(),storageMode:'memory'});
+  const made=await request(api,'POST','/api/campaign/create',{name:'Flexible Campaign',gmCode:'flex-gm'}),{token,campaign:{code}}=made.payload;
+  const campaign=await api.campaign(code);campaign.characters=[character('aster','Aster Reed')];
+  campaign.npcRoster=[{id:'flex-npc',characterName:'Engineer',team:'npc',location:{starshipId:'flex',square:188,mesh:4}}];await api.save(campaign);
+  const original={id:'flex',title:'Flexible Ship',confirmedOnce:true,gridCells:[168,169,188,189],sicInventory:[{id:'gun',type:'beam-laser-3',rotation:90,exteriorRotation:90},{id:'en',type:'en-engine-1'}],placements:[{sicId:'gun',cell:168,exteriorCell:148},{sicId:'en',cell:188}],doorStates:{'168:188':'closed'}};
+  assert.equal((await request(api,'POST','/api/campaign/starship/link',{code,token,starship:original})).status,201);
+  await request(api,'POST','/api/campaign/starship/crew',{code,token,starshipId:'flex',crewCharacterIds:['aster']});
+  const layout=maps.buildLayout(original),seat=[...layout.footprint].flatMap(([square,c])=>c.stations.filter(s=>s.x===c.column&&s.y===c.row).map(s=>({square,...s})))[0];
+  const playerToken=api.newSession(code,'character','aster');
+  assert.equal((await request(api,'POST','/api/campaign/starship/move-character',{code,token:playerToken,starshipId:'flex',characterId:'aster',square:seat.square,mesh:seat.mesh,stationed:true,stationSlot:0})).status,200);
+  const expanded=maps.resizeZone(original,24,24,2,2);
+  const saved=await request(api,'POST','/api/campaign/starship/save',{code,token:playerToken,characterId:'aster',starship:expanded});
+  assert.equal(saved.status,200);assert.equal(saved.payload.starship.ship.placements[0].exteriorCell,226);
+  assert.equal(saved.payload.starship.ship.sicInventory[0].exteriorRotation,90);
+  assert.equal(saved.payload.starship.characterLocations.aster.square,maps.remapSquare(seat.square,original,expanded));
+  assert.equal(saved.payload.starship.characterLocations.aster.stationed,true);
+  assert.equal((await api.campaign(code)).npcRoster[0].location.square,274);
+  assert.equal((await request(api,'POST','/api/campaign/starship/door',{code,token:playerToken,starshipId:'flex',characterId:'aster',doorKey:'250:274'})).status,200);
+  const invalid=structuredClone(expanded);invalid.placements[0].exteriorCell=202;
+  assert.equal((await request(api,'POST','/api/campaign/starship/save',{code,token:playerToken,characterId:'aster',starship:invalid})).status,400,'Detached mount rejected by server');
 });

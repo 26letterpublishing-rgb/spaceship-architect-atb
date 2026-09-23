@@ -1,6 +1,7 @@
 // Isolated browser regression for construction, PC details, previews and print output.
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const maps=require('../ship-map-core');
 const {spawn}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'test-artifacts','ship-workflows');
 fs.mkdirSync(out,{recursive:true});
@@ -21,7 +22,22 @@ async function main(){
   page=await context.newPage();await page.goto(`${base}/character.html?campaign=${code}&character=${character.id}`);
   await page.getByRole('button',{name:'Enter PC Code',exact:true}).click();await page.getByRole('textbox',{name:'Enter PC Code',exact:true}).fill('workflow-pc-code');await page.getByRole('button',{name:'Unlock Character',exact:true}).click();
   await page.getByRole('button',{name:'Starships',exact:true}).click();
-  const details=page.frameLocator('[data-player-ship-details]');await details.locator('.ship-details-only').waitFor();await details.locator('.ship-detail-crew[title="Test Pilot"]').first().waitFor();
+  const details=page.frameLocator('[data-player-ship-details]');await details.locator('.ship-details-only').waitFor();await details.locator('.ship-detail-crew[title^="Test Pilot"]').first().waitFor();
+  const toggles=details.locator('.desktop-map-display');await toggles.waitFor();
+  const classes={labels:'show-sic-labels',highResolution:'high-resolution',combatMesh:'combat-mesh',walls:'show-walls',hull:'hull-view'};
+  for(const key of ['labels','highResolution','combatMesh','walls','stations','hull']){
+    const input=toggles.locator(`[data-map-display="${key}"]`),before=await input.isChecked();
+    await input.locator('..').click();assert.equal(await input.isChecked(),!before,`${key} responds in PC sheet`);
+    if(classes[key])assert.equal(await details.locator('.ship-grid:not(.mobile-grid)').evaluate((e,c)=>e.classList.contains(c),classes[key]),!before,`${key} reaches actual PC map`);
+    if(key==='stations')assert.equal(await details.locator('.ship-grid:not(.mobile-grid) .sic-station-marker').count(),0);
+    await input.locator('..').click();assert.equal(await input.isChecked(),before);
+    if(key==='stations')assert.ok(await details.locator('.ship-grid:not(.mobile-grid) .sic-station-marker').count()>0,'Stations return to the real map');
+  }
+  await toggles.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'pc-left-map-controls.png')});
+  await toggles.locator('[data-map-display=highResolution]').locator('..').click();
+  await page.getByRole('button',{name:'Character Sheet',exact:true}).click();await page.getByRole('button',{name:'Starships',exact:true}).click();
+  assert.equal(await toggles.locator('[data-map-display=highResolution]').isChecked(),true,'PC map settings survive tab switching');
+  await toggles.locator('[data-map-display=highResolution]').locator('..').click();
   assert.ok(await details.locator('.purchased-sic-card').count()||await details.locator('[data-owned-sic]').count()||await details.getByText('Purchased SICs',{exact:true}).count());
   await page.screenshot({path:path.join(out,'pc-ship-details.png'),fullPage:true});
   const draftBefore=await page.evaluate(()=>localStorage.getItem('sa-starship-layout-draft'));
@@ -30,16 +46,54 @@ async function main(){
   await details.getByRole('button',{name:'Print Starship',exact:true}).click();popupPromise=context.waitForEvent('page');await page.getByRole('button',{name:'Print',exact:true}).click();popup=await popupPromise;await popup.locator('body[data-print-ready=true]').waitFor();await popup.pdf({path:path.join(out,'ship-high.pdf'),preferCSSPageSize:true,printBackground:true});await popup.screenshot({path:path.join(out,'ship-high.png'),fullPage:true});await popup.close();
   assert.equal(await page.evaluate(()=>localStorage.getItem('sa-starship-layout-draft')),draftBefore,'Read-only details do not overwrite a construction draft');
   const apiActions=[];page.on('request',r=>{if(r.url().endsWith('/api/action'))apiActions.push(r.postDataJSON());});
-  await page.getByRole('button',{name:'Console View',exact:true}).click();const preview=page.getByRole('dialog',{name:'Pilot console',exact:true});await preview.waitFor();await preview.locator('.console-preview-status').waitFor();
+  await details.getByRole('button',{name:'Toggle Console',exact:true}).click();const preview=page.getByRole('dialog',{name:'Pilot console',exact:true});await preview.waitFor();await preview.locator('.console-preview-status').waitFor();
   assert.equal(await preview.getByRole('button',{name:'Move Ship',exact:true}).isDisabled(),true);
   await preview.getByRole('combobox',{name:'Station console'}).selectOption('sn');const sensor=page.getByRole('dialog',{name:'Sensor console',exact:true});await sensor.waitFor();await page.waitForTimeout(700);assert.equal(await sensor.locator('[data-order="hex"]').isDisabled(),true);await page.screenshot({path:path.join(out,'console-preview.png')});
   await sensor.getByRole('button',{name:'Close Console',exact:true}).click();await page.locator('[data-console-preview-frame]').waitFor({state:'detached'});assert.deepEqual(apiActions,[],'Preview sends no combat commands');
-  await page.getByRole('button',{name:'Move',exact:true}).first().click();await page.locator('.full-ship-details.is-moving .player-starship-map').waitFor();await page.getByRole('button',{name:'Cancel',exact:true}).click();await details.locator('.ship-details-only').waitFor();
+  await details.getByRole('button',{name:'Move',exact:true}).first().click();
+  await details.locator('.embedded-move-controls [data-action=cancel]').first().waitFor();
+  await details.locator('.ship-grid:not(.mobile-grid) [data-grid-index="44"]').click();
+  await details.locator('.embedded-move-controls [data-action=confirm]:not([disabled])').first().waitFor();
+  const moveBox=await details.locator('.embedded-move-controls').first().boundingBox(),mapBox=await details.locator('.desktop-grid-viewport').boundingBox();
+  assert.ok(moveBox.x>=mapBox.x+mapBox.width,'Move controls sit to the right, outside the ship map');
+  assert.ok(moveBox.x+moveBox.width<=1440,'Move controls remain within the PC viewport');
+  assert.equal(await page.locator('[data-player-ship-details]').isVisible(),true,'Main map remains visible during movement');
+  await page.screenshot({path:path.join(out,'main-map-move-preview.png'),fullPage:true});
+  await details.locator('.embedded-move-controls [data-action=confirm]').first().click();
+  await details.locator('.player-ship-moving-token [data-perspective=overhead]').waitFor();
+  await page.screenshot({path:path.join(out,'pc-overhead-walking.png')});
+  await details.locator('.ship-grid:not(.mobile-grid) [data-grid-index="44"] [data-crew-id="workflow-pc"]').waitFor();
+  assert.ok(await details.locator('.ship-grid:not(.mobile-grid) .crew-token svg').count(),'Crew renders as a humanoid');
+  const walkTimings=await details.locator('.ship-grid:not(.mobile-grid)').evaluate(async()=>{
+    const original=Element.prototype.animate,records=[];let speed;
+    Element.prototype.animate=function(frames,options){if(this.classList.contains('player-ship-moving-token'))records.push({speed,duration:options.duration});return original.call(this,frames,options);};
+    try{for(speed of [3,9])await window.SAEmbeddedShipMovement.animate('workflow-pc',44,4,[45],4,speed);}finally{Element.prototype.animate=original;}
+    return records;
+  });
+  assert.deepEqual(walkTimings,[{speed:3,duration:3000},{speed:9,duration:1000}]);console.log('PASS actual PC sheet walking animation: Move 9 crosses the same square in one second versus three seconds at Move 3.');
+  await details.getByRole('button',{name:'Move',exact:true}).first().click();await details.locator('.embedded-move-controls [data-action=cancel]').first().click();
+  await page.getByRole('button',{name:'Upgrade Ship',exact:true}).click();
+  const upgrade=page.frameLocator('[data-player-ship-editor]');await upgrade.getByRole('button',{name:'SICs',exact:true}).waitFor();
+  await upgrade.getByRole('button',{name:'SICs',exact:true}).click();await upgrade.locator('.sic-market').waitFor();
+  await upgrade.getByRole('button',{name:'Construction',exact:true}).click();
+  const copy=upgrade.locator('.desktop-construction-sidebar .inventory-sic').filter({hasText:'Rapid Laser 1'});
+  await copy.getByRole('button',{name:/Purchase Duplicate/}).click();
+  await upgrade.locator('[data-construction-action=confirm]').first().click();
+  await page.waitForFunction(async({base,code,token})=>{const s=await fetch(`${base}/api/campaign/state?code=${code}&token=${token}`).then(r=>r.json());return s.starships[0].ship.sicInventory.filter(i=>i.type==='rapid-laser-1').length===2;},{base,code,token});
+  await page.screenshot({path:path.join(out,'pc-upgrade-builder.png')});
+  await page.getByRole('button',{name:'Return to Ship',exact:true}).click();await details.locator('.ship-details-only').waitFor();
+  console.log('PASS PC upgrades, real purchase/confirmation and return to shared ship details.');
   console.log('PASS PC details, crew position, two print modes, read-only multi-console preview and movement entry.');
   const builder=await context.newPage();page=builder;await builder.goto(base+'/starship.html');await builder.evaluate(data=>{localStorage.setItem('sa-starship-layout-draft',JSON.stringify({...data,buildVersion:3,confirmed:null,confirmedOnce:false}));localStorage.removeItem('sa-starship-active-v1');},ship);await builder.reload();
-  await builder.getByRole('button',{name:'Expand Zone +10 Rows',exact:true}).first().click();assert.equal(await builder.locator('.ship-grid:not(.mobile-grid) [data-grid-index]').count(),600);
-  await builder.getByRole('button',{name:'Center Ship in Construction Zone',exact:true}).first().click();const centered=await builder.evaluate(()=>JSON.parse(localStorage.getItem('sa-starship-layout-draft')));assert.equal(centered.gridCells.length,ship.gridCells.length);assert.equal(centered.placements[0].cell,42+centered.originOffset);assert.ok(centered.doorStates[`${42+centered.originOffset}:${43+centered.originOffset}`]);
-  await post('campaign/starship/save',{code,token,starshipId:ship.id,starship:centered});const saved=await fetch(`${base}/api/campaign/state?code=${code}&token=${token}`).then(r=>r.json());assert.equal(saved.starships[0].characterLocations[character.id].square,centered.placements[0].cell);
+  for(const tab of ['Construction','Ship Details']){
+    await builder.getByRole('button',{name:tab,exact:true}).click();const controls=builder.locator(tab==='Construction'?'.desktop-construction-sidebar [data-map-view-controls]':'.desktop-map-display');await controls.waitFor();
+    for(const label of ['Labels','High Resolution','Combat Mesh','Walls','Stations','Hull']){const input=controls.getByRole('checkbox',{name:label,exact:true}),before=await input.isChecked();await input.locator('..').click();assert.equal(await input.isChecked(),!before);await input.locator('..').click();}
+    const c=await controls.boundingBox(),m=await builder.locator('.desktop-grid-viewport').boundingBox();assert.ok(c.x+c.width<=m.x+2,'Map controls are left of map');await controls.scrollIntoViewIfNeeded();await builder.screenshot({path:path.join(out,tab==='Construction'?'construction-left-controls.png':'details-left-controls.png')});
+  }
+  await builder.getByRole('button',{name:'Construction',exact:true}).click();
+  await builder.getByRole('button',{name:'Expand Zone +2 Each Side',exact:true}).first().click();assert.equal(await builder.locator('.ship-grid:not(.mobile-grid) [data-grid-index]').count(),576);
+  await builder.getByRole('button',{name:'Center Ship in Construction Zone',exact:true}).first().click();const centered=await builder.evaluate(()=>JSON.parse(localStorage.getItem('sa-starship-layout-draft')));assert.equal(centered.gridCells.length,ship.gridCells.length);assert.equal(centered.placements[0].cell,maps.remapSquare(42,ship,centered));assert.ok(centered.doorStates[`${maps.remapSquare(42,ship,centered)}:${maps.remapSquare(43,ship,centered)}`]);
+  await post('campaign/starship/save',{code,token,starshipId:ship.id,starship:centered});const saved=await fetch(`${base}/api/campaign/state?code=${code}&token=${token}`).then(r=>r.json());assert.equal(saved.starships[0].characterLocations[character.id].square,maps.remapSquare(44,ship,centered));
   await builder.screenshot({path:path.join(out,'construction-expanded.png'),fullPage:true});
   await builder.evaluate(()=>{const d=JSON.parse(localStorage.getItem('sa-starship-layout-draft'));d.placements=d.placements.filter(p=>p.sicId!=='en');localStorage.setItem('sa-starship-layout-draft',JSON.stringify(d));});await builder.reload();assert.equal(await builder.locator('[data-construction-action="confirm"]').first().isDisabled(),true);await builder.locator('.stat-attention').first().waitFor();
   await builder.setViewportSize({width:390,height:844});await builder.screenshot({path:path.join(out,'construction-mobile.png'),fullPage:true});
@@ -58,5 +112,14 @@ async function main(){
   assert.equal(await builder.evaluate(()=>preparationPoints[0].q),0,'Drag commits on release only');await builder.mouse.up();
   assert.deepEqual(await builder.evaluate(()=>preparationPoints[0]),{id:'a',q:-3,r:2});assert.equal(await svg.getAttribute('viewBox'),box,'Dragging preserves zoom');
   await builder.screenshot({path:path.join(out,'preparation-map.png')});assert.deepEqual(errors,[]);console.log('PASS preparation drag/drop, preserved zoom and sensor overlays.');
+  await builder.goto(base+'/starship.html');await builder.evaluate(()=>{const d=JSON.parse(localStorage.getItem('sa-starship-layout-draft'));for(let i=0;i<20;i++)d.sicInventory.push({id:'readable-card-'+i,type:i%2?'en-au-engine-4':'hacking-module-5'});localStorage.setItem('sa-starship-layout-draft',JSON.stringify(d));});await builder.reload();
+  await builder.getByRole('button',{name:'Ship Details',exact:true}).click();
+  for(const width of [1920,1366,390]){
+    await builder.setViewportSize({width,height:1000});const shelf=builder.locator('.purchased-sic-grid:visible').first();await shelf.scrollIntoViewIfNeeded();
+    const boxes=await shelf.locator('.purchased-sic-thumbnail').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect(),face=n.querySelector('.sic-poker-card').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,faceW:face.width,faceH:face.height};}));
+    assert.ok(boxes.length>=20,'No purchased items disappear');const rows=new Map();for(const b of boxes)rows.set(Math.round(b.y),(rows.get(Math.round(b.y))||0)+1);assert.ok(Math.max(...rows.values())<=10);assert.ok(boxes.every(b=>b.w>=150&&Math.abs(b.w-b.faceW)<2&&Math.abs(b.h-b.faceH)<2),JSON.stringify(boxes));
+    await builder.screenshot({path:path.join(out,`purchased-cards-${width}.png`)});
+  }
+  console.log('PASS purchased cards: maximum ten per row, all items retained, uniform poker proportions and enlarged names at desktop/mobile sizes.');
 }
 main().catch(async e=>{console.error(e);await page?.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();child?.kill();});

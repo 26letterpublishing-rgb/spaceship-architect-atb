@@ -3539,7 +3539,7 @@ body.embedded-player .shell{width:min(1120px,calc(100% - 12px));padding-top:6px}
 .pc-login-matches button strong { color: #ecfbff; font-size: 0.82rem; }
 .pc-login-matches button span { color: var(--muted); font-size: 0.64rem; }
 
-body.embedded-player .connection-status {
+body.embedded-player .connection-status:not(.disconnected) {
   display: none !important;
 }
 body.embedded-player .topbar {

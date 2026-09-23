@@ -1,5 +1,5 @@
 .combat-map-open{min-height:36px;padding:7px 16px;border-color:#7c63c8;background:linear-gradient(180deg,#453375,#1b1834)}
-.inline-map-viewport.inline-map-viewport{overflow:auto;display:block;place-items:start;max-height:360px;min-width:0}
+.inline-map-viewport.inline-map-viewport{overflow:auto;display:grid;place-items:safe center;height:clamp(300px,42vh,440px);max-height:none;min-width:0;min-height:0}
 .inline-combat-map-grid.inline-combat-map-grid{--cell-size:var(--preview-cell-size,72px)}
 .expanded-interior-dialog{box-sizing:border-box;position:fixed;inset:12px;margin:auto;width:calc(100vw - 24px);height:calc(100dvh - 24px);max-width:none;max-height:none;padding:0;border:1px solid #54dced;border-radius:6px;color:#e6f3f6;background:#06121a;font:14px Arial,sans-serif}
 .expanded-interior-dialog[open]{display:grid;grid-template-rows:auto minmax(0,1fr)}
@@ -93,3 +93,30 @@
 .inline-map-footer .combat-map-stats>span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;flex-wrap:wrap}
 .inline-map-footer .combat-map-stats span,.inline-map-footer .combat-map-stats small{font-size:11px}
 .inline-map-footer .combat-map-stats strong{font-size:16px}
+
+/* A movement surface uses vertical room before asking the player to zoom. */
+.inline-ship-move-selecting .inline-map-viewport.inline-map-viewport{height:clamp(360px,58vh,620px)}
+.expanded-interior-dialog .inline-map-viewport.inline-map-viewport{height:100%;min-height:0}
+.expanded-interior-dialog>header{flex-wrap:wrap}.expanded-interior-dialog>header>div{flex-wrap:wrap}
+.inline-map-toolbar>.interior-station-choice{display:flex;align-items:center;gap:10px;font:700 13px Arial;color:#e6f6ff}
+.interior-station-choice select{flex:1;min-width:0;max-width:460px;min-height:36px;color:#e8f8ff;background:#102c38;border:1px solid #68adbd;padding:6px;font:14px Arial}
+.inline-map-zoom button[data-interior-fit]{width:auto!important;font-size:13px!important}
+.inline-combat-map-grid .combat-move-line polyline{stroke-width:3;vector-effect:non-scaling-stroke;filter:drop-shadow(0 1px 2px #000)}
+.interior-selecting .combat-station-marker:not(.occupied){background:#ffe684;box-shadow:0 0 0 1px #001,0 0 8px #ffc942;min-width:9px;min-height:9px}
+.interior-selecting .combat-mesh button:focus-visible{outline:3px solid #ffe684;outline-offset:-3px;background:#ffe68444}
+@media(max-width:600px){.inline-ship-move-selecting .inline-map-viewport.inline-map-viewport{height:clamp(300px,52vh,480px)}.expanded-interior-dialog{inset:0;width:100vw;height:100dvh}.expanded-interior-dialog button{padding:6px 9px}}
+
+.combat-map-header-actions [data-combat-interior-zoom="fit"]{width:auto;padding:0 10px}
+.combat-move-line polyline{stroke-width:3;vector-effect:non-scaling-stroke;filter:drop-shadow(0 1px 2px #000)}
+
+/* Use the real browser viewport, not the content-sized embedded ATB frame. */
+.inline-ship-move-selecting .inline-map-viewport.inline-map-viewport{height:var(--movement-map-height,420px)}
+.inline-ship-move-selecting .inline-map-toolbar>div{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+.inline-ship-move-selecting .inline-map-footer .combat-map-stats.combat-map-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+.inline-ship-move-selecting .inline-map-footer .combat-map-stats>span{display:grid;grid-template-rows:auto auto;place-items:center;gap:2px;min-height:34px;padding:3px 4px}
+.inline-ship-move-selecting .inline-map-footer .combat-map-stats strong{font-size:13px}
+.inline-ship-move-selecting .inline-map-footer .combat-map-stats small{font-size:10px}
+.inline-ship-move-selecting .inline-map-actions{position:sticky;bottom:0;z-index:25}
+@media(max-width:600px){.inline-ship-move-selecting .inline-map-toolbar>div{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(min-width:1000px){.inline-ship-move-selecting .inline-map-footer .combat-map-stats.combat-map-stats{grid-template-columns:repeat(9,minmax(0,1fr))}}
+@media(max-width:600px){.inline-ship-move-selecting .inline-map-footer .combat-map-stats.combat-map-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}

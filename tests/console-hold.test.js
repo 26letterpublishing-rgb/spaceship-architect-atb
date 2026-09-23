@@ -20,8 +20,8 @@ test('Hold freezes initiative at 99%, preserves command remainder and releases t
   assert.equal(unit.atb,99);assert.equal(combat.effectiveSpeed(unit),4);assert.ok(unit.commandCarrySeconds<=12);
   assert.equal(hold.resolve(room,unit,'resumeConsole',helpers).ok,false);
 });
-test('Hold rejects unfinished actions, unstationed, defeated and out-of-turn actors',()=>{
-  for(const change of [({unit})=>unit.location.stationed=false,({unit})=>unit.defeatedAt=1,({unit})=>unit.delayedAction={},({unit})=>unit.delayTimer={},({unit})=>unit.timedAction={},({room})=>room.activeId='other',({room})=>room.delayRequest={}]){
+test('Hold rejects unfinished actions, defeated and out-of-turn actors',()=>{
+  for(const change of [({unit})=>unit.defeatedAt=1,({unit})=>unit.delayedAction={},({unit})=>unit.delayTimer={},({unit})=>unit.timedAction={},({room})=>room.activeId='other',({room})=>room.delayRequest={}]){
     const f=fixture();change(f);assert.equal(hold.resolve(f.room,f.unit,'holdConsole',f.helpers).ok,false);assert.equal(f.unit.atb,100);
   }
 });
@@ -34,4 +34,8 @@ test('Hold obeys paused command remainder and survives serialization; forced dep
 test('Expired command time is not replenished by Hold',()=>{
   const {unit,room,helpers}=fixture();room.commandExpired=true;
   hold.resolve(room,unit,'holdConsole',helpers);hold.resolve(room,unit,'resumeConsole',helpers);assert.equal(unit.commandCarrySeconds,0);
+});
+
+test('an unstationed character can hold and resume without acquiring a station',()=>{
+ const {unit,room,helpers}=fixture();unit.location.stationed=false;unit.location.sicId='';assert.equal(hold.resolve(room,unit,'holdConsole',helpers).ok,true);hold.reconcile(unit);assert.ok(unit.consoleHold);assert.equal(unit.atb,99);assert.equal(hold.resolve(room,unit,'resumeConsole',helpers).ok,true);assert.equal(unit.location.stationed,false);
 });

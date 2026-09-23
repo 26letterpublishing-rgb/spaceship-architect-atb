@@ -9,7 +9,7 @@
     const ship=record.ship||record,installed=new Set((ship.placements||[]).map(p=>p.sicId));
     let total=0,shields=0;
     for(const item of ship.sicInventory||[]){
-      if(!installed.has(item.id)||item.disabled||['offline','powered-down','destroyed'].includes(item.status))continue;
+      if(!installed.has(item.id)||item.disabled||['disabled','offline','powered-down','destroyed'].includes(item.status))continue;
       const d=maps.definition(item.type);
       total+=nonnegative(d.energyCost??({'life-support':2,'nutritional-supplement':3}[item.type]||0));
       if(d.shield)total+=5*shields++;
@@ -24,10 +24,10 @@
     const online = new Map();
     for (const placement of ship.placements || []) {
       const item = inventory.get(placement.sicId);
-      if (!item || item.disabled || ["destroyed", "offline", "powered-down"].includes(item.status)) continue;
+      if (!item || item.disabled || ["disabled", "destroyed", "offline", "powered-down"].includes(item.status)) continue;
       const definition = maps.componentDefinition(item);
       const impaired = item.impaired || item.status === "impaired";
-      if (impaired && !definition.impairedAuOnly) continue;
+      if (impaired && !definition.impairedAuOnly && !definition.impairmentImmune) continue;
       en += nonnegative(definition.output);
       if (!impaired) au += nonnegative(definition.auOutput);
       if (!impaired) online.set(placement.sicId, { placement, definition });
@@ -38,7 +38,7 @@
       if (unit.defeatedAt || !loc?.stationed || loc.starshipId !== record.id) continue;
       const entry = online.get(loc.sicId);
       if (!entry) continue;
-      const station = entry.definition.stations?.find(point => entry.placement.cell + point.y * 20 + point.x === Number(loc.square) && point.mesh === Number(loc.mesh));
+      const station = entry.definition.stations?.find(point => entry.placement.cell + point.y * maps.gridColumns(ship) + point.x === Number(loc.square) && point.mesh === Number(loc.mesh));
       const key = `${loc.square}:${loc.mesh}`;
       if (!station || occupied.has(key)) continue;
       occupied.add(key);
@@ -48,6 +48,19 @@
       if (unit.classId === "engineer") au += Math.max(0, ...(unit.intellectDice || []).map(nonnegative));
     }
     return { en, au: Math.floor(au) };
+  }
+
+  // A build must power every installed SIC without relying on temporary crew
+  // staffing, shutdowns or damage. Combat output still uses live condition.
+  function designBudget(record) {
+    const ship=record.ship||record;
+    const design={...ship,sicInventory:(ship.sicInventory||[]).map(i=>({...i,disabled:false,impaired:false,status:'installed'}))};
+    const supply=output(design),required=demand(design);
+    return {output:supply.en,demand:required,available:supply.en-required,au:supply.au};
+  }
+
+  function constructionError(record) {
+    return designBudget(record).available < 0 ? 'Not enough EN. Add power or remove power demand before confirming.' : '';
   }
 
   function campaignUnits(record, characters = []) {
@@ -66,11 +79,14 @@
 
   function refresh(room, { reset = false } = {}) {
     for (const record of room.starships || []) {
-      const maximum = output(record, room.units).au;
+      const supply=output(record,room.units);
+      if(record.ship?.cloakState?.active&&(!maps.cloaked(record)||supply.en<demand(record)))record.ship.cloakState.active=false;
+      const maximum = supply.au;
       const previous = record.auState;
       const current = reset || !previous ? maximum : Math.min(maximum, Math.floor(nonnegative(previous.current)));
+      const charging=record.ship.cleanserState?.phase==='charging';
       const reserved = (record.auCommands || []).reduce((sum, command) => sum + nonnegative(command.cost), 0);
-      record.auState = { current, maximum, reserved, available: Math.max(0, current - reserved), rate: maximum * AU_SPEED_FACTOR,
+      record.auState = { current:charging?0:current, maximum, reserved:charging?maximum:reserved, available:charging?0:Math.max(0, current - reserved), rate:charging?0:maximum * AU_SPEED_FACTOR,
         progress: reset || !previous || current >= maximum ? 0 : Math.min(99.999999, nonnegative(previous.progress)) };
     }
   }
@@ -91,10 +107,10 @@
   function spend(room, shipId, amount) {
     refresh(room);
     const ship = (room.starships || []).find(record => record.id === shipId);
-    if (!ship || !Number.isInteger(amount) || amount < 1 || amount > ship.auState.available) return false;
+    if (!ship || maps.cloaked(ship) || ship.ship?.warpState?.phase==='traveling' || !Number.isInteger(amount) || amount < 1 || amount > ship.auState.available) return false;
     ship.auState.current -= amount;
     ship.auState.available = Math.max(0, ship.auState.current - ship.auState.reserved);
     return true;
   }
-  return Object.freeze({ AU_SPEED_FACTOR, output, demand, campaignUnits, refresh, advance, spend });
+  return Object.freeze({ AU_SPEED_FACTOR, output, demand, designBudget, constructionError, campaignUnits, refresh, advance, spend });
 }));

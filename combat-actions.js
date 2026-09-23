@@ -41,7 +41,7 @@
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance']){
+    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
@@ -50,6 +50,7 @@
   let currentState = null;
   let currentUnit = null;
   let pendingKind = "";
+  let pendingTurn = null;
   let lastLoadoutSync = "";
   let actionSubmitting = false;
 
@@ -177,8 +178,9 @@
     defense: { title: "Defense", amount: "Defense Duration", min: 1, max: 15, value: 5, note: "Dodge is doubled. A Critical Success against a melee attack delays the attacker by twice the elapsed Defense time." },
     move: { title: "Move", amount: "Units Moved", min: 1, max: () => {
       const vehicle = selectedVehicle();
-      return Math.max(1, jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1);
-    }, value: () => configurations.move.max(), jetPack: true, note: "Movement takes up to 3 seconds, then grants an immediate turn. Moving clears Aim." },
+      const scale=window.SAShipMap.gravityEnabled(currentState?.starships?.find(s=>s.id===currentUnit?.location?.starshipId))?1:.5;
+      return Math.max(1,(jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1)*scale);
+    }, value: () => configurations.move.max(), jetPack: true, note: "Movement time follows Move Speed. Zero gravity halves movement speed. Moving clears Aim." },
     melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Movement from the immediately previous action adds one Charge per unit, limited by Move Speed and the card's Max Charge." },
     wrestle: { title: "Wrestle / Disarm", target: true, note: "The GM and player resolve this nearby contest manually." },
     fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
@@ -237,6 +239,7 @@
   }
   function closeDialog() {
     pendingKind = "";
+    pendingTurn = null;
     dialog?.classList.add("hidden");
     error.textContent = "";
   }
@@ -245,6 +248,7 @@
     const config = configurations[kind];
     if (!config || !dialog || !currentUnit) return;
     pendingKind = kind;
+    pendingTurn = { id: currentUnit.id, serial: currentUnit.turnSerial || 0, epoch: currentState.stateEpoch, room: currentState.roomCode };
     title.textContent = config.title;
     const heldCurrent = held();
     const current = actionWeapon(kind);
@@ -301,13 +305,24 @@
     if (panel) panel.scrollTop = 0;
   }
 
-  async function send(kind, details = {}) {
-    if (actionSubmitting || !currentUnit || currentState?.activeId !== currentUnit.id) return;
+  function matchesTurn(turn) {
+    return turn && currentState?.activeId === turn.id && currentUnit?.id === turn.id &&
+      (currentUnit.turnSerial || 0) === turn.serial && currentState.roomCode === turn.room && currentState.stateEpoch === turn.epoch;
+  }
+  async function send(kind, details = {}, expectedTurn = null) {
+    if (actionSubmitting || !currentUnit || currentState?.activeId !== currentUnit.id) return false;
+    const turn = expectedTurn || { id: currentUnit.id, serial: currentUnit.turnSerial || 0, epoch: currentState.stateEpoch, room: currentState.roomCode };
+    if (!matchesTurn(turn)) { error.textContent = 'This turn has ended. Cancel to return to the current turn.'; return false; }
     actionSubmitting = true;
     actionButtons.forEach((button) => { button.disabled = true; });
     form?.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = true; });
     try {
-      await action({ action: "playerCombatAction", id: currentUnit.id, kind, ...details }, "resolve");
+      await action({ action: "playerCombatAction", id: turn.id, turnSerial: turn.serial, kind, ...details }, "resolve", { throwOnError: true });
+      return true;
+    } catch (failure) {
+      if (pendingKind) error.textContent = failure.message;
+      else window.alert(failure.message);
+      return false;
     } finally {
       actionSubmitting = false;
       form?.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = false; });
@@ -323,9 +338,17 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(kind==='carry'){
+        if(currentUnit.carryingId){send('carry');return;}
+        const patients=currentState.units.filter(p=>p.id!==currentUnit.id&&Number(p.currentHp)<=0&&!p.carriedBy&&p.location?.starshipId===currentUnit.location?.starshipId&&p.location?.square===currentUnit.location?.square);
+        if(patients.length===1){send('carry',{targetId:patients[0].id});return;}
+        const view=document.createElement('dialog');view.innerHTML='<h2>Carry patient</h2>';
+        for(const patient of patients){const choice=document.createElement('button');choice.textContent=patient.characterName;choice.onclick=()=>{view.close();send('carry',{targetId:patient.id});};view.append(choice);}
+        const close=document.createElement('button');close.textContent='Back';close.onclick=()=>view.close();view.append(close);view.onclose=()=>view.remove();document.body.append(view);view.showModal();return;
+      }
       if(kind==='maintenance'){window.SAMaintenanceUI.open(currentUnit);return;}
       if(kind==='holdConsole'){window.SAShipNavigationUI.toggleHold(currentUnit).catch(err=>window.alert(err.message));return;}
-      if(kind==='consoleView'){window.SAShipNavigationUI.open(currentUnit);return;}
+      if(kind==='consoleView'){window.SAShipNavigationUI.toggle(currentUnit);return;}
       if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit,{compact:true});return;}
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
@@ -340,6 +363,7 @@
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!pendingKind) return;
+    if (!matchesTurn(pendingTurn)) { error.textContent = 'This turn has ended. Cancel to return to the current turn.'; return; }
     const details = {};
     if (!targetWrap.hidden) {
       if (!target.value) { error.textContent = "Choose a valid target."; return; }
@@ -388,8 +412,7 @@
       details.calledShotDetail = calledShotDetail.value.trim();
       details.smokePenalty = !smokeWrap.hidden && smokeAffected.checked ? Number((currentState?.areaEffects || []).find((entry) => entry.kind === "smoke")?.penalty) || 0 : 0;
     }
-    closeDialog();
-    await send(actualKind, details);
+    if (await send(actualKind, details, pendingTurn)) closeDialog();
   });
 
   cancel?.addEventListener("click", closeDialog);
@@ -408,6 +431,11 @@
   function renderControls({ mine, state, isMyTurn, hasPendingDelayRequest }) {
     currentState = state;
     currentUnit = mine;
+    if (pendingTurn && !dialog.classList.contains('hidden')) {
+      const stale = !matchesTurn(pendingTurn);
+      form.querySelector('[type="submit"]').disabled = stale || actionSubmitting;
+      if (stale) error.textContent = 'This turn has ended. Cancel to return to the current turn.';
+    }
     const current = held(mine);
     const charges = chargeCount(mine);
     if (statusChips) {
@@ -440,13 +468,21 @@
       let shortcuts=group.querySelector('[data-station-shortcuts]');if(!shortcuts){shortcuts=document.createElement('div');shortcuts.dataset.stationShortcuts='';group.append(shortcuts);}
       const entries=consoles.flatMap(a=>a.kind==='weapon'?[[`Fire ${a.definition.name}`,'[data-fire]','',a.id]]:a.kind==='sensor'?['area','hex','analysis','life','share'].map((kind,i)=>[['Scan Area','Scan Hex','Systems Analysis','Life Scan','Share Data'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='shield'?['restore','reinforce','restabilize'].map((kind,i)=>[['Restore Shield HP','Reinforce Field','Restabilize Shield'][i],`[data-order="${kind}"]`,'',a.id]):a.kind==='lock'?[['Lock-On','[data-lock]','',a.id],['Lock Component','[data-sic]','',a.id],['Break Lock-On','[data-break]','',a.id]]:a.kind==='pilot'?[['Move Ship','[data-move-ship]','',a.id],['Hail Ship','[data-command="hail"]','Hail',a.id],['Team Execution','[data-command="team"]','Preparation',a.id],['Preemptive Calculation','[data-command="calculation"]','Preparation',a.id],['Evasive Maneuvers','[data-command="evade"]','Maneuvers',a.id],['Ram','[data-command="ram"]','Maneuvers',a.id],['Skim','[data-command="skim"]','Maneuvers',a.id]]:[]);
       const helm=consoles.find(a=>a.kind==='pilot');if(helm&&!consoles.some(a=>a.kind==='lock'))entries.push(['Break Lock-On','[data-command="break"]','Maneuvers',helm.id]);
+      for(const a of consoles.filter(a=>a.kind==='utility'))entries.push([a.definition.utility==='life-support'?(window.SAShipMap.gravityEnabled(a.ship)?'Disable Gravity':'Enable Gravity'):a.definition.name,'[data-utility]','',a.id]);
+      for(const a of consoles.filter(a=>a.kind==='hacking'))entries.push(['Hack SIC','[data-hack]','',a.id]);
       const key=JSON.stringify(entries);
       if(shortcuts.dataset.key!==key){
         shortcuts.replaceChildren();
         const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div');resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';secondary.className='station-secondary-actions';shortcuts.append(resources,primary,secondary);
         for(const [index,[label,selector,tab,id]] of entries.entries()){
           const button=document.createElement('button'),row=document.createElement('div');row.className='station-action-choice';button.type='button';button.textContent=label;button.dataset.stationOrder=index;
-          button.onclick=()=>window.SAShipNavigationUI.openAction(currentUnit,id,selector,tab);
+          button.onclick=async()=>{
+            const access=window.SAStationAccess.access(window.SACombatBridge.state(),currentUnit,id);
+            if(access?.kind!=='utility'){window.SAShipNavigationUI.openAction(currentUnit,id,selector,tab);return;}
+            if(access.definition.utility!=='life-support'){window.SAUtilityConsoleUI.open(currentUnit,id);return;}
+            const b=window.SACombatBridge;if(!b.confirmGmPlayerAction(currentUnit,'changeGravity'))return;
+            try{await b.utilityAction({id:currentUnit.id,sicId:id,kind:'gravity',enabled:!window.SAShipMap.gravityEnabled(access.ship),receipt:crypto.randomUUID()});}catch(error){window.alert(error.message);}
+          };
           (label.startsWith('Fire ')||['Move Ship','Evasive Maneuvers'].includes(label)?primary:secondary).append(row);row.append(button);
           const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
           if(helpKey){button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';button.style.cursor='help';}
@@ -459,6 +495,7 @@
         const [label,selector,,id]=entries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
         const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
         button.disabled=disabled||Boolean(reason);button.title=reason||(disabled?'Available during your active turn.':label==='Evasive Maneuvers'?'Roll evasion; Defense lasts 20 combat seconds.':`Choose target and confirm ${label}`);
+        let explanation=button.parentElement.querySelector('[data-disabled-reason]');if(!explanation){explanation=document.createElement('small');explanation.dataset.disabledReason='';button.after(explanation);}explanation.hidden=!button.disabled;explanation.textContent=button.disabled?button.title:'';
         button.closest('.station-action-choice').hidden=selector==='[data-order="restabilize"]'&&access?.remote;
       }
     }
@@ -466,9 +503,11 @@
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
-      if(kind==='holdConsole'){button.hidden=!seated;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
+
+      if(kind==='carry'){button.textContent=mine?.carryingId?'Place patient down':'Carry';button.hidden=!mine?.carryingId&&!state.units.some(p=>p.id!==mine?.id&&Number(p.currentHp)<=0&&!p.carriedBy&&p.location?.starshipId===mine?.location?.starshipId&&p.location?.square===mine?.location?.square);}
+      if(kind==='holdConsole'){button.hidden=false;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
       if (kind === 'moveStarship') {button.hidden=true;button.textContent='Move Ship';}
-      if (kind === 'consoleView') {button.hidden=!seated;button.textContent='Console View';unavailable=false;}
+      if (kind === 'consoleView') {button.hidden=true;unavailable=false;}
       if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
       if(kind==='move')button.textContent=seated?'Leave Console':'Move';
@@ -489,8 +528,10 @@
       const vehicle = (state?.vehicles || []).find((entry) => entry.id === mine?.mountedVehicleId);
       if (kind === "move" && mine?.powerShield?.active) { unavailable = true; reason = "Deactivate Power Shields before moving."; }
       if (kind === "move" && vehicle && vehicle.driverId !== mine.id) { unavailable = true; reason = "Passengers cannot choose Move; the driver controls the vehicle."; }
+      button.querySelector('[data-action-reason]')?.remove();
       button.disabled = Boolean(unavailable);
-      button.title = unavailable ? reason : button.textContent.trim();
+      button.title = unavailable ? (reason||'No usable item is available for this action.') : button.textContent.trim();
+      if(unavailable&&!button.hidden){const note=document.createElement('small');note.dataset.actionReason='';note.textContent=button.title;button.append(note);}
     });
   }
 
@@ -525,6 +566,8 @@
       weaponSystemsSkill: skillValue("Weapon Systems"),
       mathematicsSkill: skillValue("Mathematics"),
       computerSkill: skillValue("Computer Systems"),
+      hackingSkill: skillValue("Hacking"),
+      hackingSkill: skillValue('Hacking'),
       meleeSkill: skillValue("Melee"),
       dodgeSkill: skillValue("Dodge/Block"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),

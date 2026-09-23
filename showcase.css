@@ -11,6 +11,8 @@ body { display: grid; grid-template-rows: auto 1fr; background: #02070d; }
 .showcase-toolbar nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
 .showcase-toolbar nav button { flex: 0 0 auto; border-radius: 4px; border-color: #405a73; background: #0a1623; }
 .showcase-toolbar nav button.active { border-color: #ffe07a; color: #171103; background: linear-gradient(180deg, #ffe99b, #c99d28); box-shadow: 0 0 12px rgba(255, 211, 79, .5); }
+.hacking-practice-link { flex:0 0 auto; align-self:center; padding:8px 12px; border:1px solid #92bea5; border-radius:4px; color:#c8efdb; font-size:13px; text-decoration:none; background:#16362d; }
+.hacking-practice-link:focus-visible { outline:3px solid #ffe07a; outline-offset:2px; }
 #resetShowcase { border-color: #c785ff; background: linear-gradient(180deg, #63358a, #271338); }
 .showcase-status { display: grid; place-items: center; padding: 20px; color: #9fc4d7; font-weight: 800; text-align: center; }
 .showcase-status.error { color: #ff8e9d; }

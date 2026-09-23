@@ -17,8 +17,12 @@ async function main(){
   let token=created.token;
   const people=['Observer','Other Crew'].map((name,i)=>({id:'sensor-pc-'+i,phase:'finalized',access:{pcCode:'sensor-code-'+i},identity:{characterName:name,playerName:name},attributes:{health:[1,0,-1,-1],intellect:[1,0,-1,-1],perception:[1,0,-1,-1],dexterity:[1,0,-1,-1]},computed:{maximumHp:30,moveSpeed:2,speed:.1,commandWindow:120,skills:{'Sensor Systems':6}},health:{current:30}}));
   const tokens=[];
+  for(const character of people)character.skills={'Sensor Systems':{tenths:60}};
   for(const character of people){const join=await post('campaign/join/request',{code,character},201);await post('campaign/join/respond',{code,token,requestId:join.requestId,decision:'approve'});tokens.push((await post('campaign/join/status',{code,characterId:character.id,pcCode:character.access.pcCode})).token);}
   const ships=people.map((person,i)=>({id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',crewCharacterIds:[person.id],ship:{id:'scan-ship-'+i,title:i?'Hidden Rival':'Observatory',confirmedOnce:true,gridCells:Array.from({length:56},(_,n)=>42+Math.floor(n/8)*20+n%8),sicInventory:[{id:'cp',type:'cockpit-1'},{id:'sn',type:'sensors-3'},{id:'en',type:'en-engine-1'}],placements:[{sicId:'cp',cell:42},{sicId:'sn',cell:43},{sicId:'en',cell:64}]}}));
+  // Keep manual-roll recovery coverage uncertain under guaranteed-outcome scans.
+  ships[1].ship.sicInventory.push({id:'concealment',type:'darkveil-6'});ships[1].ship.placements.push({sicId:'concealment',cell:44});
+  ships[1].ship.sicInventory.find(i=>i.id==='en').type='en-engine-2';
   for(const ship of ships){await post('campaign/starship/link',{code,token,starship:ship.ship},201);await post('campaign/starship/crew',{code,token,starshipId:ship.id,crewCharacterIds:ship.crewCharacterIds});}
   const act=(body,status=200)=>post('action',{roomCode:code,gmToken:token,...body},status);
   const state=(viewer=token)=>fetch(`${base}/api/state?room=${code}&token=${viewer}`).then(r=>r.json());
@@ -37,7 +41,7 @@ async function main(){
   } finally {controller.abort();}
   browser=await chromium.launch({channel:process.env.SA_BROWSER_CHANNEL||'msedge',headless:true});
   const errors=[],requests=[];
-  async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();p.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
+  async function page(){const c=await browser.newContext({viewport:{width:1366,height:768}}),p=await c.newPage();await p.addInitScript(()=>{const Native=window.EventSource;window.__campaignStreams=[];window.EventSource=class extends Native{constructor(url,options){super(url,options);if(String(url).startsWith('/campaign-events?'))window.__campaignStreams.push(this);}};});p.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});p.on('request',r=>{if(r.url().endsWith('/api/action')&&r.postDataJSON()?.action==='sensorCommand')requests.push(r.postDataJSON());});return p;}
   const gm=await page();await gm.goto(base+'/gm.html?campaign='+code);await gm.getByRole('textbox',{name:'Campaign Name',exact:true}).fill('Sensor Test');await gm.getByRole('textbox',{name:'GM Code',exact:true}).fill('sensor-test-gm');await gm.getByRole('button',{name:'Open Campaign',exact:true}).click();await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.getByRole('button',{name:'Resume Encounter',exact:true}).click();
   const frame=gm.frameLocator('#atbFrame');await frame.getByRole('button',{name:'Engage Clock',exact:true}).click();await act({action:'setHardPaused',paused:true});
   const beforeAdd=new Set((await state()).units.map(u=>u.id));await frame.locator('#gmAddUnit').click();
@@ -50,6 +54,11 @@ async function main(){
       await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4}});
       await p.frameLocator('[data-player-ship-details]').locator('[data-grid-index="43"] .ship-detail-crew').first().waitFor();
       await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:42,mesh:0}});
+      await p.frameLocator('[data-player-ship-details]').locator('[data-grid-index="42"] .ship-detail-crew').first().waitFor();
+      const stale=await fetch(`${base}/api/campaign/state?code=${code}&token=${tokens[0]}`).then(r=>r.json());
+      stale.starships.find(s=>s.id===ships[0].id).characterLocations[people[0].id]={starshipId:ships[0].id,square:43,mesh:4};
+      await p.evaluate(stale=>window.__campaignStreams.at(-1).dispatchEvent(new MessageEvent('campaign',{data:JSON.stringify(stale)})),stale);
+      await p.waitForTimeout(300);
       await p.frameLocator('[data-player-ship-details]').locator('[data-grid-index="42"] .ship-detail-crew').first().waitFor();
     }
     await p.getByRole('button',{name:'Combat',exact:true}).click();pcs.push(p);
@@ -69,11 +78,13 @@ async function main(){
       await act({action:'step'});assert.equal((await state()).units.find(u=>u.id===operator.id).delayedAction.id,pending.id,'Waits for an explicit roll');
       await post('action',{roomCode:code,characterId:people[1].id,characterToken:tokens[1],action:'rollShipAction',id:operator.id,rollId:pending.id},403);
       await pc.screenshot({path:path.join(artifacts,'roll-prompt.png')});
-      const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).waitFor();await pc.screenshot({path:path.join(artifacts,'shared-skill-prompt.png')});await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await pc.waitForTimeout(900);assert.ok(await skill.locator('#diceCanvas canvas').count());await pc.screenshot({path:path.join(artifacts,'shared-physical-dice.png')});await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
+      const skill=roll.frameLocator('iframe');await skill.getByRole('button',{name:'Roll for Me',exact:true}).waitFor();await pc.screenshot({path:path.join(artifacts,'shared-skill-prompt.png')});await skill.getByRole('button',{name:'Roll for Me',exact:true}).click();await pc.waitForTimeout(900);assert.ok(await skill.locator('#diceCanvas canvas').count());await pc.screenshot({path:path.join(artifacts,'shared-physical-dice.png')});assert.equal(await skill.getByRole('button',{name:'Close Skill Check',exact:true}).isVisible(),false);await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await roll.waitFor();await skill.getByRole('spinbutton',{name:'Manual Final Score',exact:true}).fill('20');await skill.getByRole('button',{name:'Calculate Manual Result',exact:true}).click();await skill.getByRole('button',{name:'Confirm and Submit',exact:true}).click();await roll.waitFor({state:'detached'});
       const first=(await state()).units.find(u=>u.id===operator.id).lastShipRoll;
       assert.equal((await state()).units.find(u=>u.id===operator.id).delayedAction.remaining,100,'Confirmed roll starts a fresh input countdown');
       await act({action:'rollShipAction',id:operator.id,rollId:pending.id});assert.deepEqual((await state()).units.find(u=>u.id===operator.id).lastShipRoll,first,'Retry preserves the original result');
     }
+    const input=(await state()).units.find(u=>u.id===operator.id)?.delayedAction;
+    if(input&&!input.awaitingRoll)count=Math.max(count,Math.ceil(input.remaining/input.rate));
     for(let i=0;i<count;i++)await act({action:'step'});
   }
   await ready();await consoleView.locator('[data-q]').fill('7');await consoleView.locator('[data-r]').fill('0');await pc.waitForTimeout(500);assert.equal(await consoleView.locator('[data-q]').inputValue(),'7');
@@ -87,7 +98,7 @@ async function main(){
   const typing=(await state()).units.find(u=>u.id===operator.id);assert.equal(typing.atb,frozenAtb);assert.equal(typing.delayedAction.remaining,100,'Input waits for roll; ATB frozen while rolling');
   await step(9);await consoleView.locator('[data-reports]').filter({hasText:'Hex scan complete'}).waitFor();
   await ready();await consoleView.getByRole('combobox',{name:'Detected contact',exact:true}).selectOption(ships[1].id);await consoleView.getByRole('button',{name:'Systems Analysis',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);
-  assert.ok((await state()).units.find(u=>u.id===operator.id).queuedEffects.some(e=>e.sensorReport));await step(13);
+  const analyzed=await state();assert.ok(analyzed.units.find(u=>u.id===operator.id).queuedEffects.some(e=>e.sensorReport),JSON.stringify({unit:analyzed.units.find(u=>u.id===operator.id),reports:analyzed.starships[0].sensorState.reports}));await step(13);
   await consoleView.locator('[data-reports]').filter({hasText:'Snapshot at scan completion'}).waitFor();assert.ok((await state(tokens[0])).starships[0].sensorState.reports.some(r=>r.analysis));assert.ok(!(await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.analysis));
   await ready();await consoleView.locator('.conditional-order-controls summary').click();await consoleView.locator('[data-conditional]').check();
   await consoleView.getByRole('button',{name:'Scan Area',exact:true}).click();await consoleView.locator('[data-error]').filter({hasText:'2 extra AU'}).waitFor();
@@ -97,9 +108,18 @@ async function main(){
   await pc.setViewportSize({width:1920,height:1080});await pc.screenshot({path:path.join(artifacts,'sensor-console-1920.png')});
   await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await chooseHex();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);
   await consoleView.locator('[data-reports]').filter({hasText:'1 lifeform detected'}).waitFor();
+  await ready();await consoleView.getByRole('button',{name:'Life Scan',exact:true}).click();await consoleView.locator('[data-sensor-range]').waitFor({state:'visible'});
+  await consoleView.locator('[data-q]').fill('14');await consoleView.locator('[data-r]').fill('0');await consoleView.locator('[data-destination]').filter({hasText:'Unit outside of sensor range. Scan results may fail.'}).waitFor();
+  await pc.screenshot({path:path.join(artifacts,'outside-range-warning.png')});
+  const far=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*14,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});
+  // Zoom out until the deliberately distant hex is inside the clickable chart.
+  for(let i=0;i<3;i++)await consoleView.getByRole('button',{name:'Zoom out',exact:true}).click();
+  const farPoint=await consoleView.locator('[data-space-canvas]').evaluate(svg=>{const p=new DOMPoint(Math.sqrt(3)*14,0).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};});await pc.mouse.click(farPoint.x,farPoint.y);
+  const outsideRoll=pc.getByRole('dialog',{name:'Ship action dice roll'});await outsideRoll.waitFor();const outsideDice=outsideRoll.frameLocator('iframe');for(let i=0;i<50&&(await outsideDice.locator('#skillDifficulty').inputValue())!=='15';i++)await pc.waitForTimeout(100);assert.equal(await outsideDice.locator('#skillDifficulty').inputValue(),'15');assert.ok(await outsideDice.locator('#skillDifficulty').evaluate(e=>parseFloat(getComputedStyle(e).fontWeight)>=700));await step(9);
+
   await ready();await act({action:'shipCommand',id:operator.id,kind:'hail',targetId:ships[1].id,disclosedPosition:{q:0,r:0},requestId:'browser-hail'});for(let i=0;i<90&&!(await state()).starships[1].commandSystems?.calls?.length;i++)await act({action:'step'});assert.equal((await state()).starships[1].commandSystems.calls[0].status,'incoming');
   assert.notEqual((await state()).activeId,(await state()).units.find(u=>u.characterId===people[1].id).id);
-  await pcs[1].getByRole('status').filter({hasText:'Accept incoming call'}).click();await pc.getByRole('status').filter({hasText:'Hail answered'}).waitFor();assert.equal((await state()).starships[1].commandSystems.calls[0].status,'connected');
+  await pcs[1].getByRole('status').filter({hasText:'Accept incoming call'}).click();await pc.locator('button[role=status]').filter({hasText:'Hail answered'}).waitFor();assert.equal((await state()).starships[1].commandSystems.calls[0].status,'connected');
   await ready();pc.once('dialog',d=>d.accept());await consoleView.getByRole('button',{name:'Share Data',exact:true}).click();await consoleView.locator('[data-turn]').filter({hasText:/SCANNING|ROLL REQUIRED/}).waitFor();await step(9);assert.ok((await state(tokens[1])).starships[0].sensorState.reports.some(r=>r.sharedBy));
   await consoleView.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');
   const pilotConsole=pc.getByRole('dialog',{name:'Pilot console',exact:true});await pilotConsole.waitFor();
@@ -135,14 +155,16 @@ async function main(){
   const cell=enlarged.locator('[data-map-square="43"][data-map-mesh="4"]');await cell.scrollIntoViewIfNeeded();
   const box=await cell.boundingBox();assert.ok(box.width>=24&&box.height>=24,'Station-sized targets must remain clickable');
   await pc.mouse.move(box.x+box.width/2,box.y+box.height/2,{steps:15});await pc.mouse.down();await pc.waitForTimeout(300);await pc.mouse.up();
-  const confirmMove=enlarged.getByRole('button',{name:'Confirm Move',exact:true});await confirmMove.waitFor();assert.equal(await confirmMove.isEnabled(),true);
+  const confirmMove=enlarged.getByRole('button',{name:/^(Confirm Move|Station)$/});await confirmMove.waitFor();assert.equal(await confirmMove.isEnabled(),true);
   await enlarged.getByRole('button',{name:'Back',exact:true}).click();
-  assert.equal(await interiors.getByRole('button',{name:'Confirm Move',exact:true}).isEnabled(),true,'Back preserves locked destination');
+  assert.equal(await interiors.getByRole('button',{name:/^(Confirm Move|Station)$/}).isEnabled(),true,'Back preserves locked destination');
   await interiors.getByRole('button',{name:'Enlarge ship interior',exact:true}).first().click();
   await pc.screenshot({path:path.join(artifacts,'expanded-interior.png')});
   const confirmBox=await confirmMove.boundingBox();await pc.mouse.move(confirmBox.x+confirmBox.width/2,confirmBox.y+confirmBox.height/2,{steps:18});await pc.mouse.down();await pc.waitForTimeout(400);await pc.mouse.up();
   await enlarged.waitFor({state:'detached'});await step(20);
   assert.equal((await state()).units.find(u=>u.id===operator.id).location.square,43);
+  await pc.getByRole('dialog',{name:'Sensor console',exact:true}).waitFor();await pc.getByRole('dialog',{name:'Sensor console',exact:true}).getByRole('button',{name:'Combat View',exact:true}).click();
+
   assert.equal(await interiors.locator('[data-ship-combat-lane]').count(),2);
   await act({action:'nudge',id:operator.id,amount:100});await interiors.getByRole('button',{name:'SIC Maintenance',exact:true}).click();
   let maintenance=pc.getByRole('dialog',{name:'SIC Maintenance',exact:true});await maintenance.waitFor();assert.equal(await maintenance.getByRole('button',{name:'Repair SIC',exact:true}).isDisabled(),true);
@@ -161,6 +183,7 @@ async function main(){
   const reboot=(await state()).starships[0].ship.sicInventory.find(i=>i.id==='cp').bootRemaining;
   for(let i=0;i<Math.ceil(reboot)+1;i++)await act({action:'step'});
   await interiors.locator('[data-console-operator]').first().selectOption(operator.id);
+  await pc.getByRole('dialog',{name:'Sensor console',exact:true}).waitFor();await pc.getByRole('combobox',{name:'Station console',exact:true}).selectOption('cp');
   await pc.getByRole('dialog',{name:'Pilot console',exact:true}).waitFor();
   assert.equal((await state()).units.find(u=>u.id===operator.id).location.stationed,true);
   await act({action:'setCombatLocation',id:operator.id,location:{starshipId:ships[0].id,square:43,mesh:4,stationed:false}});
@@ -171,7 +194,7 @@ async function main(){
   await pc.getByRole('button',{name:'Starships',exact:true}).click();
   pc.once('dialog',dialog=>dialog.accept());
   while(await pc.locator('.result-notifications article:visible').count())await pc.locator('.result-notifications article:visible button').click();
-  await pc.getByRole('button',{name:'System Repairs and Diagnostics',exact:true}).click();
+  await pc.frameLocator('[data-player-ship-details]').getByRole('button',{name:'System Repairs and Diagnostics',exact:true}).click();
   await pc.getByText('Diagnostics: 55 minutes remaining',{exact:true}).waitFor();
   await post('campaign/time/pass',{code,token,amount:54,unit:'minutes',requestId:'diagnostics-54-test'});
   await pc.getByText('Diagnostics: 1 minutes remaining',{exact:true}).waitFor();
@@ -180,20 +203,20 @@ async function main(){
   await pc.locator('.maintenance-history').getByText(/complete/).waitFor();
   await pc.locator('.result-notifications article:visible').filter({hasText:'System Repairs and Diagnostics'}).waitFor();
   await pc.reload();await pc.getByRole('button',{name:'Combat',exact:true}).click();await pc.waitForTimeout(800);
-  const builder=await page();await builder.goto(base+'/starship.html');await builder.getByRole('button',{name:'SICs',exact:true}).click();await builder.locator('summary').filter({hasText:'Sensors'}).click();await builder.getByRole('dialog',{name:'Sensors',exact:true}).waitFor();assert.equal(await builder.locator('.sic-picker-slot').count(),9);await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(i=>i.decode())));await builder.waitForTimeout(700);await builder.screenshot({path:path.join(artifacts,'sensor-cards-1366.png')});
+  const builder=await page();await builder.goto(base+'/starship.html');await builder.getByRole('button',{name:'SICs',exact:true}).click();await builder.locator('summary[aria-label="Sensors: expand 9 cards"]').click();await builder.getByRole('dialog',{name:'Sensors',exact:true}).waitFor();assert.equal(await builder.locator('.sic-picker-slot').count(),9);await builder.locator('.sic-picker-slot img').evaluateAll(images=>Promise.all(images.map(i=>i.decode())));await builder.waitForTimeout(700);await builder.screenshot({path:path.join(artifacts,'sensor-cards-1366.png')});
   await builder.locator('[data-family-back]').click();
   await builder.evaluate(ship=>localStorage.setItem('sa-starship-layout-draft',JSON.stringify({...draft,...ship,confirmed:ship})),ships[0].ship);
   await builder.reload();await builder.getByRole('button',{name:'Ship Details',exact:true}).click();
   assert.equal(await builder.locator('.desktop-live-stats [data-sensor-range]').textContent(),'12');
   await builder.screenshot({path:path.join(artifacts,'sensor-ship-details.png')});
-  const demo=await post('campaign/showcase/start',{});const demoCode=demo.code;const demoState=await fetch(`${base}/api/state?room=${demoCode}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(demoState.starships.length,2);assert.ok(demoState.starships.every(s=>s.sensorState.contacts[demoState.starships.find(o=>o.id!==s.id).id]?.level==='detected'));assert.deepEqual(demoState.units.map(u=>u.characterName).sort(),['Nova Vale','Space Slug']);
+  const demo=await post('campaign/showcase/start',{});const demoCode=demo.code;const demoState=await fetch(`${base}/api/state?room=${demoCode}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(demoState.starships.length,2);for(const ship of demoState.starships){const other=demoState.starships.find(o=>o.id!==ship.id),mask=require('../ship-map-core').masking(other);assert.equal(ship.sensorState.contacts[other.id]?.level,mask<=10?'detected':'unknown','Fresh Explore concealment follows the redesigned ships actual Masking');}assert.deepEqual(demoState.units.map(u=>u.characterName).sort(),['Nova Vale','Space Slug']);
   assert.deepEqual(errors,[]);
   await new Promise(r=>setTimeout(r,600));await browser.close();browser=null;const stopped=once(child,'exit');child.kill();await stopped;await start();
   token=(await post('campaign/open',{name:'Sensor Test',gmCode:'sensor-test-gm'})).token;
   tokens[0]=(await post('campaign/join/status',{code,characterId:people[0].id,pcCode:people[0].access.pcCode})).token;
   assert.ok((await state()).starships[0].sensorState.reports.some(r=>r.analysis));assert.equal((await state(tokens[0])).starships.length,0);
   await act({action:'prepareEncounter',preparationId:'pending-roll-restart',mode:'starship',starships:ships,shipPositions:[{id:ships[0].id,q:0,r:0},{id:ships[1].id,q:7,r:0}],units:[{characterId:people[0].id,characterName:'Observer',team:'pc',speed:.1,commandWindow:120,sensorSkill:6,location:{starshipId:ships[0].id,square:42,mesh:0,stationed:true}}]});
-  const restoredActor=(await state()).units[0];
+  await act({action:'setRunning',running:true});await act({action:'setHardPaused',paused:true});const restoredActor=(await state()).units[0];
   await act({action:'nudge',id:restoredActor.id,amount:100});
   await act({action:'sensorCommand',id:restoredActor.id,sicId:'sn',kind:'hex',hex:{q:7,r:0},requestId:'restart-roll-test'});
   for(let i=0;i<12;i++)await act({action:'step'});

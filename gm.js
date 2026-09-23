@@ -98,6 +98,11 @@ const dom = {
   noteForm: $("#privateNoteForm"),
   rechargeItems: $("#rechargeItems"),
   noteMessage: $("#privateNoteMessage"),
+  libraryForm: $("#libraryEntryForm"),
+  libraryTarget: $("#libraryEntryTarget"),
+  libraryTitle: $("#libraryEntryTitle"),
+  libraryText: $("#libraryEntryText"),
+  libraryStatus: $("#libraryEntryStatus"),
   rollForm: $("#rollPromptForm"),
   promptAttribute: $("#promptAttribute"),
   promptSkill: $("#promptSkill"),
@@ -198,8 +203,14 @@ let selectedEncounterCharacters = new Set();
 let selectedEncounterStarships = new Set();
 let encounterDistances = [];
 let encounterPositions = [];
+let encounterPositionDraft = [];
+let encounterObjects = [];
+let encounterObjectBaseline = null;
+let encounterMapDraftSaved = false;
 let encounterMode = "surface";
 let encounterPreparing = false;
+let forceEncounterBuilder = false;
+let encounterSetupRequested = false;
 const encounterLocations = new Map();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
 const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false };
@@ -226,7 +237,7 @@ function escapeHtml(value) {
 
 function showMessage(element, message, tone = "") {
   element.textContent = message;
-  const baseClass = element === dom.awardMessage ? "tool-message" : "status-message";
+  const baseClass = (element === dom.awardMessage || element === dom.libraryStatus) ? "tool-message" : "status-message";
   element.className = `${baseClass} ${tone}`.trim();
 }
 
@@ -380,6 +391,35 @@ function selectedRaceEffects(record) {
     skillBonuses: { ...(race?.effects?.skillBonuses || {}), ...(raceType?.effects?.skillBonuses || {}) },
     postFinalizeSkillBonuses: { ...(race?.effects?.postFinalizeSkillBonuses || {}), ...(raceType?.effects?.postFinalizeSkillBonuses || {}) },
   };
+}
+
+function saveEncounterMapDraft() {
+  if (!code) return;
+  encounterPositionDraft = window.SASpaceObjects.mergeDraftPositions(encounterPositionDraft, encounterPositions, (campaign.starships || []).map(ship => ship.id));
+  encounterMapDraftSaved = true;
+  try {
+    sessionStorage.setItem(`sa-encounter-map-draft-${code}`, JSON.stringify({ version: 1, objects: encounterObjects, baseline: encounterObjectBaseline, positions: encounterPositionDraft }));
+  } catch { /* Keep the current draft usable if browser storage is full. */ }
+}
+
+function restoreEncounterMapDraft() {
+  const objects = campaign.spaceObjects || [];
+  encounterObjects = structuredClone(objects);
+  encounterObjectBaseline = structuredClone(objects);
+  encounterPositions = [];
+  encounterPositionDraft = [];
+  encounterDistances = [];
+  encounterState = null;
+  encounterMapDraftSaved = false;
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(`sa-encounter-map-draft-${code}`) || 'null');
+    if (draft?.version !== 1) return;
+    const restored = window.SASpaceObjects.restoreDraft(draft, objects, (campaign.starships || []).map(ship => ship.id));
+    encounterObjects = restored.objects;
+    encounterPositionDraft = restored.positions;
+    encounterMapDraftSaved = true;
+    saveEncounterMapDraft();
+  } catch { /* Ignore an obsolete or invalid draft; the saved campaign remains authoritative. */ }
 }
 
 function playDramaJolt() {
@@ -543,6 +583,7 @@ function encounterRuleFields(record) {
     weaponSystemsSkill: Number(skillRating(record, "Weapon Systems")) || 0,
     mathematicsSkill: Number(skillRating(record, "Mathematics")) || 0,
     computerSkill: Number(skillRating(record, "Computer Systems")) || 0,
+    hackingSkill: Number(skillRating(record, 'Hacking')) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
@@ -993,9 +1034,9 @@ async function deleteNpcTemplate(templateId) {
 function renderPremadeNpcConsole() {
   const templates = campaign?.npcTemplates || [];
   if (!premadeNpcDraft) premadeNpcDraft = templates.length ? stagedNpc(templates[0]) : stagedNpc(NPC_BLANK);
-  dom.premadeNpcSelect.innerHTML = `<option value="">New Premade NPC</option>${templates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`).join("")}`;
+  window.SALiveDOM.render(dom.premadeNpcSelect,`<option value="">New Premade NPC</option>${templates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`).join("")}`);
   dom.premadeNpcSelect.value = premadeNpcDraft.customTemplate ? premadeNpcDraft.templateId : "";
-  dom.premadeNpcEditor.innerHTML = npcEditorMarkup(premadeNpcDraft);
+  window.SALiveDOM.render(dom.premadeNpcEditor,npcEditorMarkup(premadeNpcDraft));
   dom.deletePremadeNpc.disabled = !premadeNpcDraft.customTemplate;
   dom.savePremadeNpc.textContent = premadeNpcDraft.customTemplate ? "Update Premade NPC" : "Save Premade NPC";
 }
@@ -1008,9 +1049,23 @@ function campaignNpcRoster() {
   return [...new Map([...(campaign?.npcRoster || []), ...(encounterState?.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, unit])).values()];
 }
 function stageCrewNpc(unit, shipId) {
-  if (stagedNpcs.some(npc => npc.rosterId === unit.id)) return;
+  const existing = stagedNpcs.find(npc => npc.rosterId === unit.id);
+  if (existing) { existing.locationStarshipId = shipId; return; }
   const held = unit.weapons?.find(weapon => weapon.inventoryId === unit.heldWeaponId);
   stagedNpcs.push({ ...stagedNpc(unit), rosterId: unit.id, name: unit.characterName, heldWeaponId: held?.weaponId || "unarmed", locationStarshipId: shipId });
+}
+
+function selectEncounterShip(shipId) {
+  if (!shipId || selectedEncounterStarships.has(shipId)) return true;
+  if (selectedEncounterStarships.size >= 6) { showMessage(dom.message, "Combat supports up to six starships.", "error"); return false; }
+  selectedEncounterStarships.add(shipId);
+  return true;
+}
+
+function crewSelectedForShip(kind, id, shipId) {
+  return kind === 'npc'
+    ? stagedNpcs.some(npc => npc.rosterId === id && npc.locationStarshipId === shipId)
+    : selectedEncounterCharacters.has(id) && encounterLocations.get(id) === shipId;
 }
 
 function renderEncounterBuilder() {
@@ -1022,7 +1077,7 @@ function renderEncounterBuilder() {
     const color = record.character?.presentation?.atbColor || "#39e58f";
     if (!encounterLocations.has(record.id)) encounterLocations.set(record.id, deployment);
     return `<label class="encounter-character-option" style="--character-color:${escapeHtml(color)}">
-      <input type="checkbox" data-encounter-character="${record.id}" ${selectedEncounterCharacters.has(record.id) ? "checked" : ""} />
+      <input type="checkbox" data-encounter-character="${record.id}" ${nested ? `data-crew-ship="${escapeHtml(deployment)}"` : ""} ${(nested ? crewSelectedForShip("pc",record.id,deployment) : selectedEncounterCharacters.has(record.id)) ? "checked" : ""} />
       <span><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))}</small></span>
       <span class="encounter-stat">SPD ${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</span>
       <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
@@ -1033,7 +1088,7 @@ function renderEncounterBuilder() {
   const rosterHint = document.querySelector("#encounterRosterHint");
   if (encounterMode === "starship") {
     if (rosterTitle) rosterTitle.textContent = "Starships and Crew";
-    if (rosterHint) rosterHint.textContent = "Selecting a ship selects its assigned crew. Uncheck anyone who is elsewhere.";
+    if (rosterHint) rosterHint.textContent = "Selecting a ship places its assigned crew aboard it. Each character starts on one ship; selecting them elsewhere moves their starting location.";
     const assigned = new Set();
     const shipGroups = (campaign.starships || []).map((ship) => {
       const crew = approved.filter((record) => ship.crewCharacterIds?.includes(record.id));
@@ -1042,7 +1097,7 @@ function renderEncounterBuilder() {
       const checked = selectedEncounterStarships.has(ship.id);
       return `<section class="encounter-ship-option ${checked ? "selected" : ""}">
         <label class="encounter-ship-heading"><input type="checkbox" data-encounter-starship="${escapeHtml(ship.id)}" ${checked ? "checked" : ""}><span><strong>${escapeHtml(ship.title || ship.ship?.title || "Unnamed Starship")}</strong><small>${ship.controlType === "gm" ? "GM CONTROLLED" : "PC CONTROLLED"}</small></span><b>${crew.length + npcs.length} CREW</b></label>
-        <div class="encounter-ship-crew">${crew.map(record => characterMarkup(record, ship.id, true)).join("")}${npcs.map(unit => `<label class="encounter-character-option"><input type="checkbox" data-encounter-npc="${escapeHtml(unit.id)}" data-crew-ship="${escapeHtml(ship.id)}" ${stagedNpcs.some(npc => npc.rosterId === unit.id) ? "checked" : ""}><span>${escapeHtml(unit.characterName)} (NPC)</span></label>`).join("")}${!crew.length && !npcs.length ? '<p>No assigned crew.</p>' : ""}</div>
+        <label class="encounter-glow">Ship glow <input type="color" data-encounter-glow="${escapeHtml(ship.id)}" value="${window.SAShipMap.shipColor(ship)}"></label><div class="encounter-ship-crew">${crew.map(record => characterMarkup(record, ship.id, true)).join("")}${npcs.map(unit => `<label class="encounter-character-option"><input type="checkbox" data-encounter-npc="${escapeHtml(unit.id)}" data-crew-ship="${escapeHtml(ship.id)}" ${crewSelectedForShip("npc",unit.id,ship.id) ? "checked" : ""}><span>${escapeHtml(unit.characterName)} (NPC)</span></label>`).join("")}${!crew.length && !npcs.length ? '<p>No assigned crew.</p>' : ""}</div>
       </section>`;
     }).join("");
     const unassigned = approved.filter((record) => !assigned.has(record.id));
@@ -1059,12 +1114,26 @@ function renderEncounterBuilder() {
   });
   if (encounterMode === "starship") {
     const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id));
-    encounterPositions = window.SAShipDistances.positions(ships, encounterPositions.length ? encounterPositions : encounterState?.shipPositions);
+    encounterPositions = window.SAShipDistances.positions(ships, [...encounterPositionDraft,...(encounterState?.shipPositions || [])]);
     encounterDistances = window.SAShipDistances.fromPositions(ships, encounterPositions);
   }
   window.SALiveDOM.render(dom.encounterCharacterList, rosterMarkup);
   const spaceEditor = document.querySelector('[data-encounter-space-map]');
-  if (spaceEditor) { spaceEditor.hidden = encounterMode !== 'starship'; const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id)); if (!spaceEditor.hidden) window.SASpaceMap.bindEditor(spaceEditor, ships, encounterPositions, points => { encounterPositions = points; encounterDistances = window.SAShipDistances.fromPositions(ships, points); }); }
+  if (spaceEditor) {
+    spaceEditor.hidden = encounterMode !== 'starship';
+    const ships = (campaign.starships || []).filter(ship => selectedEncounterStarships.has(ship.id));
+    if (!spaceEditor.hidden) window.SASpaceMap.bindEditor(spaceEditor,
+      [...ships,...encounterObjects.map(o=>({id:o.id,title:o.name,spaceObject:o,ship:{gridCells:[],sicInventory:[],placements:[]}}))],
+      [...encounterPositions,...encounterObjects], points => {
+        encounterPositions = points.filter(p=>ships.some(s=>s.id===p.id));
+        encounterObjects = window.SASpaceObjects.withPositions(encounterObjects,points);
+        encounterDistances = window.SAShipDistances.fromPositions(ships, encounterPositions);
+        saveEncounterMapDraft();
+      });
+    window.SASpaceObjectEditor.bind(spaceEditor,()=>encounterObjects,next=>{
+      encounterObjects=next;saveEncounterMapDraft();renderEncounterBuilder();
+    },{getPositions:()=>encounterPositions});
+  }
   window.SALiveDOM.render(dom.encounterNpcTemplate, npcTemplateOptions());
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   window.SALiveDOM.render(dom.encounterNpcEditor, npcEditorMarkup(encounterNpcDraft));
@@ -1078,13 +1147,13 @@ function renderEncounterBuilder() {
 }
 
 function encounterDeploymentOptions(selected = "") {
-  const ships = (campaign?.starships || []).filter((record) => selectedEncounterStarships.has(record.id));
+  const ships = campaign?.starships || [];
   return `<option value="">Choose Ship</option>${ships.map((record) => `<option value="${escapeHtml(record.id)}" ${record.id === selected ? "selected" : ""}>${escapeHtml(record.title || record.ship?.title || "Starship")}</option>`).join("")}`;
 }
 
 function renderEncounterStatus() {
   const units = encounterState?.units || [];
-  const hasEncounter = units.length > 0;
+  const hasEncounter = units.length > 0 && !forceEncounterBuilder;
   dom.encounterStatus.textContent = hasEncounter ? `${units.length} Participant${units.length === 1 ? "" : "s"} Saved` : "No Active Encounter";
   dom.existingEncounterActions.hidden = !hasEncounter;
   dom.existingEncounterSummary.textContent = hasEncounter
@@ -1097,7 +1166,10 @@ function renderEncounterStatus() {
 
 function updateExitEncounterVisibility() {
   const liveFrameOpen = dom.atbLive && !dom.atbLive.hidden;
-  dom.exitEncounter.hidden = !campaign || !(encounterState?.units?.length) || liveFrameOpen;
+  const active = Boolean(campaign?.combatActive && !encounterState?.encounterEndedAt);
+  const preparing = !document.querySelector('#atbTab')?.hidden && dom.atbSetup && !dom.atbSetup.hidden;
+  dom.exitEncounter.textContent = active ? 'End Combat' : 'Prepare Combat';
+  dom.exitEncounter.hidden = !campaign || (active ? liveFrameOpen : preparing);
 }
 
 function deploymentOptions(selected = "") {
@@ -1119,6 +1191,7 @@ function combatLocation(starshipId) {
 function selectGmTab(tabName = "script") {
   const requestedPanel = document.querySelector(`[data-tab-panel="${tabName}"]`);
   const activeTab = requestedPanel ? tabName : "script";
+  if(SHOWCASE_MODE&&code)sessionStorage.setItem(`sa-explore-tab-${code}-gm`,activeTab);
   const selected = document.querySelector(`.gm-tabs [data-tab="${activeTab}"]`);
   document.querySelectorAll(".gm-tabs [data-tab]").forEach((entry) => entry.classList.toggle("active", entry === selected));
   document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
@@ -1136,6 +1209,8 @@ function selectGmTab(tabName = "script") {
 async function refreshEncounterState() {
   if (!code) return null;
   encounterState = await api(`/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
+  if(campaign)campaign.combatActive=Boolean(encounterState.hasEngagedClock&&!encounterState.encounterEndedAt);
+  if(campaign?.combatActive&&!forceEncounterBuilder&&!encounterSetupRequested&&!document.querySelector('#atbTab')?.hidden)showEncounterLive();
   renderEncounterStatus();
   renderStarships();
   return encounterState;
@@ -1163,6 +1238,8 @@ async function syncCampaignCharactersToEncounter() {
 }
 
 function showEncounterLive() {
+  forceEncounterBuilder = false;
+  encounterSetupRequested = false;
   dom.atbSetup.hidden = true;
   dom.atbLive.hidden = false;
   dom.liveEncounterCode.textContent = campaign?.settings?.hideRoomCode ? "••••" : code;
@@ -1171,10 +1248,17 @@ function showEncounterLive() {
   updateExitEncounterVisibility();
 }
 
-function showEncounterSetup({ forceBuilder = false } = {}) {
+function showEncounterSetup({ forceBuilder = false, explicit = false } = {}) {
+  encounterSetupRequested = explicit;
+  if (!explicit && !forceBuilder && !forceEncounterBuilder && campaign?.combatActive && !encounterState?.encounterEndedAt) {
+    showEncounterLive();
+    refreshEncounterState().catch((error) => showMessage(dom.message, error.message, "error"));
+    return;
+  }
   dom.atbLive.hidden = true;
   dom.atbSetup.hidden = false;
   if (forceBuilder) {
+    forceEncounterBuilder = true;
     dom.existingEncounterActions.hidden = true;
     dom.encounterBuilder.hidden = false;
     renderEncounterBuilder();
@@ -1211,6 +1295,9 @@ async function resumeEncounterWithFreshCharacters() {
 }
 
 async function exitCampaignEncounter() {
+  if (!campaign?.combatActive || encounterState?.encounterEndedAt) {
+    selectGmTab('atb'); showEncounterSetup({forceBuilder:true}); return;
+  }
   if (!await confirmGm({ title: "End Combat?", message: "End this encounter for every player and return to Prepare Combat?", acceptLabel: "End Combat", danger: true })) return;
   try {
     encounterState = await encounterAction("exitEncounter");
@@ -1245,6 +1332,8 @@ async function beginEncounter() {
       return;
     }
   }
+  const noNpcShips=encounterMode!=='starship'||!(campaign.starships||[]).some(s=>selectedEncounterStarships.has(s.id)&&s.controlType==='gm');
+  if(!stagedNpcs.length&&noNpcShips&&!await confirmGm({title:'Begin Exploration?',message:'No NPC starships or NPCs are selected. Begin an exploration encounter? ATBs and ship time will run normally; players can travel, collect minerals and use equipment.',acceptLabel:'Begin Exploration'}))return;
   encounterPreparing = true;
   dom.beginEncounter.disabled = true;
   dom.beginEncounter.textContent = "Preparing Combat...";
@@ -1293,7 +1382,7 @@ async function beginEncounter() {
         location: combatLocation(encounterMode === "starship" ? npc.locationStarshipId || "" : ""),
       });
     }
-    const setup = { mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
+    const setup = { spaceObjects:encounterMode==='starship'?structuredClone(encounterObjects):[],mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
     const storageKey = `sa-encounter-preparation-${code}`;
     const fingerprint = JSON.stringify(setup);
     let pending;
@@ -1302,8 +1391,15 @@ async function beginEncounter() {
     sessionStorage.setItem(storageKey, JSON.stringify(pending));
     encounterState = await encounterAction("prepareEncounter", { ...setup, preparationId: pending.preparationId });
     sessionStorage.removeItem(storageKey);
+    sessionStorage.removeItem(`sa-encounter-map-draft-${code}`);
+    encounterMapDraftSaved = false;
+    encounterPositionDraft = [];
+    encounterPositions = structuredClone(encounterState.shipPositions || []);
+    encounterObjects = structuredClone(encounterState.spaceObjects || []);
+    encounterObjectBaseline = structuredClone(encounterObjects);
     dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}&encounter=${Date.now()}`;
     showEncounterLive();
+    dom.atbFrame.scrollIntoView({ block: "start", behavior: "instant" });
     showMessage(dom.message, "Encounter prepared and paused. Engage the clock when the table is ready.", "success");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
@@ -1358,8 +1454,25 @@ function rememberScriptSelection() {
   if (dom.script.contains(range.commonAncestorContainer)) lastScriptRange = range.cloneRange();
 }
 
+let librarySubmission=null,libraryBusy=false,libraryOptions='';
+function renderLibraryDelivery(){
+  const targets=campaign?.libraryTargets||[];
+  dom.libraryForm.hidden=!targets.length&&!dom.libraryTitle.value&&!dom.libraryText.value&&!libraryBusy;
+  const markup='<option value="">'+(targets.length?'Choose a Library':'No usable Library available')+'</option>'+targets.map(t=>`<option value="${escapeHtml(JSON.stringify([t.starshipId,t.sicId]))}">${escapeHtml(t.label)}</option>`).join('');
+  if(markup!==libraryOptions){const selected=dom.libraryTarget.value;dom.libraryTarget.innerHTML=markup;dom.libraryTarget.value=targets.some(t=>JSON.stringify([t.starshipId,t.sicId])===selected)?selected:'';libraryOptions=markup;}
+  for(const control of dom.libraryForm.querySelectorAll('input,textarea,select,button'))control.disabled=libraryBusy;
+  dom.libraryForm.querySelector('button').disabled=libraryBusy||!dom.libraryTarget.value;
+}
+
 function renderCampaign() {
   if (!campaign) return;
+  renderLibraryDelivery();
+  const mineralSelect=document.getElementById('giveMineralsShip'),mineralOptions=(campaign.starships||[]).map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`).join('');
+  if(mineralSelect.dataset.options!==mineralOptions){const selected=mineralSelect.value;mineralSelect.innerHTML=mineralOptions;mineralSelect.dataset.options=mineralOptions;if([...mineralSelect.options].some(o=>o.value===selected))mineralSelect.value=selected;}
+  window.SACrewRoomStatus.update(campaign,body=>api('/api/campaign/starship/crew-room',{code,token,...body}));
+  window.SAFieldUtilityStatus.update(campaign,body=>api('/api/campaign/starship/field-utility',{code,token,...body}));
+  window.SATransitStatus.update(campaign,body=>api('/api/campaign/starship/transit',{code,token,...body}));
+  window.SAOxygenUI.update(campaign.oxygen,body=>api('/api/campaign/oxygen/roll',{code,token,...body}),true);
   dom.codeHeading.textContent = campaign.settings?.hideRoomCode ? "••••" : campaign.code;
   dom.nameHeading.innerHTML = `${escapeHtml(campaign.name)} <small>(GM)</small>`;
   dom.dramaDeckStatus.hidden = !campaign.dramaDeck;
@@ -1387,15 +1500,19 @@ function renderCampaign() {
   if (!scriptDirty && document.activeElement !== dom.script && scriptSource() !== (chapter?.script || "")) {
     renderScriptEditor(chapter?.script || "");
   }
-  if(!document.querySelector('#charactersTab')?.hidden)renderCharacters();
+  if(!document.querySelector('#charactersTab')?.hidden){renderCharacters();renderPremadeNpcConsole();}
   if(!document.querySelector('#starshipsTab')?.hidden)renderStarships();
   if(!document.querySelector('#inboxTab')?.hidden)renderInbox();
   if(!document.querySelector('#settingsTab')?.hidden)renderSettings();
   if(!document.querySelector('#promptTab')?.hidden){renderTargets();renderRollResults();}
-  if(!document.querySelector('#atbTab')?.hidden&&dom.atbLive.hidden){renderPremadeNpcConsole();renderEncounterBuilder();}
+  if(!document.querySelector('#atbTab')?.hidden&&dom.atbLive.hidden)renderEncounterBuilder();
 }
 
 function receiveCampaign(next) {
+  const objects=next.spaceObjects||[];
+  encounterObjects=window.SASpaceObjects.reconcile(encounterObjectBaseline,encounterObjects,objects);
+  encounterObjectBaseline=structuredClone(objects);
+  if(encounterMapDraftSaved)saveEncounterMapDraft();
   dom.atbFrame.contentWindow?.postMessage({type:'sa-campaign-state',campaign:next},location.origin);
   processDramaPlayEvents(next);
   campaign = next;
@@ -1410,6 +1527,14 @@ function connectCampaignEvents() {
   events?.close();
   events = new EventSource(`/campaign-events?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
   events.addEventListener("campaign", (event) => receiveCampaign(JSON.parse(event.data)));
+  events.addEventListener('encounter-locations',event=>{
+    const update=JSON.parse(event.data);if(!campaign)return;
+    campaign.combatActive=Boolean(update.combatActive);
+    if(encounterState)encounterState.encounterEndedAt=update.encounterEndedAt;
+    if(campaign.combatActive&&!forceEncounterBuilder&&!encounterSetupRequested&&!document.querySelector('#atbTab')?.hidden)showEncounterLive();
+    updateExitEncounterVisibility();
+  });
+  events.addEventListener('oxygen',event=>window.SAOxygenUI.update(JSON.parse(event.data),body=>api('/api/campaign/oxygen/roll',{code,token,...body}),true));
   events.addEventListener("error", () => showMessage(dom.message, "Connection interrupted. The app will reconnect automatically.", "error"));
 }
 
@@ -1417,6 +1542,7 @@ function openWorkspace(nextCampaign, nextToken) {
   campaign = nextCampaign;
   code = campaign.code;
   token = nextToken;
+  restoreEncounterMapDraft();
   (SHOWCASE_MODE ? sessionStorage : localStorage).setItem(tokenKey(code), token);
   if (!SHOWCASE_MODE) localStorage.setItem("sa-current-campaign-code", code);
   dom.gateway.hidden = true;
@@ -1436,7 +1562,7 @@ function openWorkspace(nextCampaign, nextToken) {
   premadeNpcDraft = (campaign.npcTemplates || []).length ? stagedNpc(campaign.npcTemplates[0]) : stagedNpc(NPC_BLANK);
   renderCampaign();
   showEncounterSetup();
-  selectGmTab("script");
+  selectGmTab(SHOWCASE_MODE?sessionStorage.getItem(`sa-explore-tab-${code}-gm`)||'script':'script');
   connectCampaignEvents();
 }
 
@@ -1933,7 +2059,7 @@ dom.kickCharacterButton.addEventListener("click", async () => {
 dom.adjustCharacterButton.addEventListener("click", () => {
   const characterId = dom.adjustCharacter.value;
   if (!characterId) return;
-  dom.adjustmentFrame.src = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1&gmAdjust=1&embedded=1`;
+  dom.adjustmentFrame.src = `character.html?campaign=${encodeURIComponent(code)}&character=${encodeURIComponent(characterId)}&gm=1&gmAdjust=1&embedded=1${SHOWCASE_MODE ? '&showcase=1' : ''}`;
   dom.adjustmentModal.hidden = false;
 });
 
@@ -2144,6 +2270,20 @@ dom.undoAward.addEventListener("click", async () => {
     showMessage(dom.awardMessage, error.message, "error");
   }
 });
+dom.libraryTarget.addEventListener('change',renderLibraryDelivery);
+dom.libraryForm.addEventListener('submit',async event=>{
+  event.preventDefault();if(libraryBusy||!dom.libraryTarget.value)return;
+  const [starshipId,sicId]=JSON.parse(dom.libraryTarget.value),entry={starshipId,sicId,title:dom.libraryTitle.value,text:dom.libraryText.value},fingerprint=JSON.stringify(entry);
+  if(librarySubmission?.fingerprint!==fingerprint)librarySubmission={fingerprint,body:{...entry,requestId:crypto.randomUUID()}};
+  libraryBusy=true;renderLibraryDelivery();showMessage(dom.libraryStatus,'Sending Library entry…');
+  try{
+    const payload=await api('/api/campaign/starship/library-entry',{code,token,...librarySubmission.body});
+    dom.libraryTitle.value='';dom.libraryText.value='';librarySubmission=null;
+    receiveCampaign(payload.campaign);showMessage(dom.libraryStatus,payload.result.text,'success');
+  }catch(error){showMessage(dom.libraryStatus,error.message+' Your entry is retained; send again to retry.','error');}
+  finally{libraryBusy=false;renderLibraryDelivery();}
+});
+
 dom.noteForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedTargets.size) {
@@ -2259,16 +2399,19 @@ document.querySelector("#passTime")?.addEventListener("click", async (event) => 
     const payload = await api("/api/campaign/time/pass", { code, token, amount, unit, requestId: pending.requestId });
     sessionStorage.removeItem(key);
     receiveCampaign(payload.campaign);
-    showMessage(message, `Passed ${amount} ${unit}. Restored ${Number(payload.healed.toFixed(3))} HP and recharged ${payload.recharged} items across the campaign.`, "success");
+    showMessage(message, `${payload.oxygenInterrupted?'Stopped after '+Math.round(payload.advancedMinutes*60)+' seconds for an oxygen check.':'Passed '+amount+' '+unit+'.'} Restored ${Number(payload.healed.toFixed(3))} HP and recharged ${payload.recharged} items across the campaign.`, "success");
   } catch (error) { showMessage(message, error.message, "error"); }
   finally { button.disabled = false; }
 });
 dom.encounterCharacterList.addEventListener("change", (event) => {
+  const glow=event.target.closest('[data-encounter-glow]');if(glow){void api('/api/campaign/starship/color',{code,token,starshipId:glow.dataset.encounterGlow,color:glow.value}).then(()=>{const ship=campaign.starships.find(s=>s.id===glow.dataset.encounterGlow);if(ship)ship.ship.mapColor=glow.value;renderEncounterBuilder();}).catch(error=>showMessage(dom.message,error.message,'error'));return;}
+
   const npcInput = event.target.closest("[data-encounter-npc]");
   if (npcInput) {
     const unit = campaignNpcRoster().find(unit => unit.id === npcInput.dataset.encounterNpc);
-    if (npcInput.checked && unit) stageCrewNpc(unit, npcInput.dataset.crewShip);
-    else stagedNpcs = stagedNpcs.filter(npc => npc.rosterId !== npcInput.dataset.encounterNpc);
+    if (npcInput.checked && unit) {
+      if (selectEncounterShip(npcInput.dataset.crewShip)) stageCrewNpc(unit, npcInput.dataset.crewShip);
+    } else stagedNpcs = stagedNpcs.filter(npc => npc.rosterId !== npcInput.dataset.encounterNpc || npc.locationStarshipId !== npcInput.dataset.crewShip);
     renderEncounterBuilder(); return;
   }
   const ship = event.target.closest("[data-encounter-starship]");
@@ -2276,8 +2419,7 @@ dom.encounterCharacterList.addEventListener("change", (event) => {
     const record = (campaign?.starships || []).find((entry) => entry.id === ship.dataset.encounterStarship);
     if (!record) return;
     if (ship.checked) {
-      if (selectedEncounterStarships.size >= 6) { ship.checked = false; showMessage(dom.message, "Combat supports up to six starships.", "error"); return; }
-      selectedEncounterStarships.add(record.id);
+      if (!selectEncounterShip(record.id)) { ship.checked = false; return; }
       campaignNpcRoster().filter(unit => record.crewNpcUnitIds?.includes(unit.id)).forEach(unit => stageCrewNpc(unit, record.id));
       for (const characterId of record.crewCharacterIds || []) {
         selectedEncounterCharacters.add(characterId);
@@ -2285,10 +2427,11 @@ dom.encounterCharacterList.addEventListener("change", (event) => {
       }
     } else {
       selectedEncounterStarships.delete(record.id);
-      stagedNpcs = stagedNpcs.filter(npc => npc.locationStarshipId !== record.id || !npc.rosterId);
-      for (const characterId of record.crewCharacterIds || []) {
+      stagedNpcs = stagedNpcs.filter(npc => npc.locationStarshipId !== record.id);
+      for (const [characterId, shipId] of encounterLocations) {
+        if (shipId !== record.id) continue;
         selectedEncounterCharacters.delete(characterId);
-        if (encounterLocations.get(characterId) === record.id) encounterLocations.delete(characterId);
+        encounterLocations.delete(characterId);
       }
     }
     renderEncounterBuilder();
@@ -2296,13 +2439,17 @@ dom.encounterCharacterList.addEventListener("change", (event) => {
   }
   const location = event.target.closest("[data-encounter-location]");
   if (location) {
-    encounterLocations.set(location.dataset.encounterLocation, location.value);
+    if (selectEncounterShip(location.value)) encounterLocations.set(location.dataset.encounterLocation, location.value);
+    renderEncounterBuilder();
     return;
   }
   const input = event.target.closest("[data-encounter-character]");
   if (!input) return;
-  if (input.checked) selectedEncounterCharacters.add(input.dataset.encounterCharacter);
-  else selectedEncounterCharacters.delete(input.dataset.encounterCharacter);
+  if (input.checked) {
+    if (!selectEncounterShip(input.dataset.crewShip)) { renderEncounterBuilder(); return; }
+    selectedEncounterCharacters.add(input.dataset.encounterCharacter);
+    if (input.dataset.crewShip) encounterLocations.set(input.dataset.encounterCharacter, input.dataset.crewShip);
+  } else if (!input.dataset.crewShip || encounterLocations.get(input.dataset.encounterCharacter) === input.dataset.crewShip) selectedEncounterCharacters.delete(input.dataset.encounterCharacter);
   renderEncounterBuilder();
 });
 
@@ -2369,7 +2516,7 @@ dom.prepareNewEncounter.addEventListener("click", async () => {
   if (!await confirmGm({ title: "Prepare New Encounter?", message: "Replace the saved encounter when Begin Combat is pressed? The current encounter remains safe until then.", acceptLabel: "Prepare Encounter" })) return;
   showEncounterSetup({ forceBuilder: true });
 });
-dom.returnToEncounterSetup.addEventListener("click", () => showEncounterSetup());
+dom.returnToEncounterSetup.addEventListener("click", () => showEncounterSetup({ explicit: true }));
 
 dom.bannerExitEnabled.checked = bannerExitEnabled;
 dom.bannerExitEnabled.addEventListener("change", () => {
@@ -2402,7 +2549,7 @@ dom.encounterNpcList.addEventListener("change", (event) => {
   const location = event.target.closest("[data-staged-location]");
   if (!location) return;
   const npc = stagedNpcs.find((entry) => entry.id === location.dataset.stagedLocation);
-  if (npc) npc.locationStarshipId = location.value;
+  if (npc) { if (selectEncounterShip(location.value)) npc.locationStarshipId = location.value; renderEncounterBuilder(); }
 });
 window.addEventListener("storage", (event) => {
   if (![BANNER_MODE_KEY, BANNER_VISIBILITY_KEY].includes(event.key)) return;
@@ -2606,8 +2753,7 @@ if (initialCode) {
       if (campaign?.role === "gm") {
         openWorkspace(campaign, token);
         if (new URLSearchParams(location.search).get("showcase") === "1") {
-          selectGmTab("atb");
-          showEncounterLive();
+          selectGmTab(SHOWCASE_MODE?sessionStorage.getItem(`sa-explore-tab-${code}-gm`)||'script':'script');
         }
       }
     }).catch(error => showMessage(dom.message,error.message,'error')).finally(()=>window.SAViewReady?.());
@@ -2617,3 +2763,11 @@ if (initialCode) {
 } else {
   window.SAViewReady?.();
 }
+
+let mineralSubmission=null;
+document.getElementById('giveMineralsForm').addEventListener('submit',async e=>{
+  e.preventDefault();const form=e.currentTarget,button=form.querySelector('button'),status=document.getElementById('giveMineralsStatus');if(button.disabled)return;
+  const body={starshipId:document.getElementById('giveMineralsShip').value,grantMineral:document.getElementById('giveMineralsName').value.trim(),quantity:Number(document.getElementById('giveMineralsQuantity').value)};
+  if(!mineralSubmission||JSON.stringify(mineralSubmission.body)!==JSON.stringify(body))mineralSubmission={body,requestId:crypto.randomUUID()};
+  button.disabled=true;try{const result=await api('/api/campaign/starship/resources',{code,token,...body,requestId:mineralSubmission.requestId});campaign=result.campaign;mineralSubmission=null;status.textContent=`Added ${body.quantity} ${body.grantMineral} to ship stores.`;renderCampaign();}catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+});

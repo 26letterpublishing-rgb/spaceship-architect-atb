@@ -106,3 +106,22 @@ test("NPC station bonuses use their general mental skill when no Engineering ove
   syncUnitCombat(unit, { mentalSkill: 3, location: { starshipId: record.id, sicId: "core", square: 0, mesh: 1, stationed: true } });
   assert.equal(power.output(record, [unit]).au, 6);
 });
+
+test('expanded and rotated engine stations retain their crew bonus',()=>{
+  const record=ship(3);record.ship.sicInventory[0].rotation=90;
+  const expanded=maps.resizeZone(record.ship,28,28,3,3);record.ship=expanded;
+  const p=expanded.placements[0],s=maps.componentDefinition(expanded.sicInventory[0]).stations.find(s=>s.y>0);
+  const unit={engineeringSkill:4,location:{starshipId:record.id,sicId:'core',square:p.cell+s.y*28+s.x,mesh:s.mesh,stationed:true}};
+  assert.equal(power.output(record,[unit]).au,19);
+  assert.equal(power.output(record,[{...unit,location:{...unit.location,square:p.cell+s.y*20+s.x}}]).au,15);
+});
+
+test('construction EN includes all installed systems and additional shield demand, never stored engines or staffing',()=>{
+  const record={ship:{sicInventory:[{id:'en',type:'en-engine-2',impaired:true},{id:'reserve',type:'en-engine-6'},{id:'s1',type:'shield-1'},{id:'s2',type:'shield-1',disabled:true,status:'offline',pendingDisposition:'sell'}],placements:['en','s1','s2'].map(sicId=>({sicId,cell:0}))}};
+  assert.deepEqual(power.designBudget(record),{output:13,demand:15,available:-2,au:0});
+  assert.match(power.constructionError(record),/Not enough EN/);
+  record.ship.sicInventory[0].type='en-engine-3';
+  assert.equal(power.designBudget(record).available,14);
+  assert.equal(power.constructionError(record),'');
+  assert.equal(record.ship.sicInventory[0].impaired,true,'Validation does not repair live damage');
+});

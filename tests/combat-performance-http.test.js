@@ -2,13 +2,15 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 test('cached assets, private incremental streams and GM-owned damage pause', {timeout:30000},async t=>{
   const root=path.resolve(__dirname,'..'),child=spawn(process.execPath,['server.js'],{cwd:root,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-perf-http-'))},windowsHide:true,stdio:['ignore','pipe','pipe']});
   t.after(async()=>{if(child.exitCode===null&&child.signalCode===null){const exit=once(child,'exit');child.kill();await exit;}});
+  child.stderr.on('data',chunk=>process.stderr.write(chunk));
   const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),8000);child.stdout.on('data',c=>{const m=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/);if(m){clearTimeout(timer);resolve(m[1]);}});child.on('error',reject);});
   const asset=await fetch(base+'/app.js');assert.equal(asset.status,200);assert.match(asset.headers.get('cache-control'),/no-cache/);assert.equal(asset.headers.get('content-encoding'),'gzip');const text=await asset.text();assert.ok(Number(asset.headers.get('content-length'))<text.length*.4);
   const unchanged=await fetch(base+'/app.js',{headers:{'If-None-Match':asset.headers.get('etag')}});assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),'');
   assert.equal((await fetch(base+'/static-response.js')).status,404);
   const post=async(route,body,status=200)=>{const r=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;};
   const room=await post('/api/campaign/showcase/start',{}),act=body=>post('/api/action',{roomCode:room.code,gmToken:room.gmToken,...body}),state=()=>fetch(base+`/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());
-  let s=await state();const nova=s.units.find(u=>u.characterName==='Nova Vale'),slug=s.units.find(u=>u.characterName==='Space Slug'),ship=s.starships.find(s=>s.id===nova.location.starshipId),target=s.starships.find(s=>s.id!==ship.id),cp=ship.ship.placements.find(p=>ship.ship.sicInventory.find(i=>i.id===p.sicId)?.type==='bridge-1'),gun=ship.ship.sicInventory.find(i=>i.type==='rapid-laser-5');
+  let s=await state();
+  await require('./helpers/combat-demo.cjs')(base,room);const nova=s.units.find(u=>u.characterName==='Nova Vale'),slug=s.units.find(u=>u.characterName==='Space Slug'),ship=s.starships.find(s=>s.id===nova.location.starshipId),target=s.starships.find(s=>s.id!==ship.id),cp=ship.ship.placements.find(p=>ship.ship.sicInventory.find(i=>i.id===p.sicId)?.type==='bridge-1'),gun=ship.ship.sicInventory.find(i=>i.type==='rapid-laser-5');
   s=await act({action:'addUnit',characterName:'Second PC',team:'pc',controlledBy:'gm',speed:1,commandWindow:30,location:{starshipId:ship.id,square:ship.ship.gridCells[0],mesh:8}});const second=s.units.find(u=>u.characterName==='Second PC');
   await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});await act({action:'setHardPaused',paused:true});await act({action:'setCombatLocation',id:nova.id,location:{starshipId:ship.id,square:cp.cell,mesh:0}});await act({action:'nudge',id:nova.id,amount:100});
   s=await act({action:'weaponCommand',id:nova.id,sicId:gun.id,targetId:target.id,requestId:'gm-owned-laser'});let pending=s.units.find(u=>u.id===nova.id).delayedAction;assert.equal(pending.rollController,'gm');assert.equal(s.rollPaused,true);
@@ -50,7 +52,9 @@ test('cached assets, private incremental streams and GM-owned damage pause', {ti
   assert.ok((await state()).starships.find(s=>s.id===ship.id).victoryAt);
   await post('/api/action',{...acknowledge,characterToken:'invalid'},403);
   await post('/api/action',acknowledge);
-  assert.ok((await state()).encounterEndedAt,'Acknowledging victory ends combat without resetting the victorious ship');
+  assert.equal((await state()).encounterEndedAt,null,'Acknowledging victory preserves the encounter for salvage');
+  assert.ok((await state()).units.length,'Crew remains aboard');
+  await act({action:'exitEncounter'});
   const moved=await post('/api/campaign/starship/move-character',{code:room.code,token:player.token,starshipId:ship.id,characterId:player.id,square:cp.cell,mesh:2});
   assert.equal(moved.campaign.starships.find(s=>s.id===ship.id).characterLocations[player.id].mesh,2,'Saved out-of-combat movement is not overwritten by an old encounter');
   console.log(`Combat payload: ${fullBytes} initial bytes, ${deltaBytes} incremental bytes.`);

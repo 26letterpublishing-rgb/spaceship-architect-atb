@@ -1,4 +1,11 @@
 /* Shared map geometry. Keep these classes independent of page button themes. */
+.sa-exterior-weapon{transform:translate(var(--art-shift-x,0%),var(--art-shift-y,0%))}
+.sa-exterior-thruster{transform:translate(var(--shape-shift-x,0%),var(--shape-shift-y,0%))}
+:is(.high-resolution,.hull-view) .sa-exterior-thruster{transform:translate(var(--art-shift-x,0%),var(--art-shift-y,0%))}
+.sa-sic-impairment{position:absolute;inset:0;z-index:11;pointer-events:none;background:#ff233c;opacity:.15;box-shadow:inset 0 0 0 2px #ff6b77;animation:sa-sic-warning var(--impairment-period,2.8s) ease-in-out infinite}
+.sa-sic-impairment.is-destroyed{animation:none;background:repeating-linear-gradient(135deg,#791727 0 5px,#16090c 5px 10px);opacity:.7}
+@keyframes sa-sic-warning{0%,100%{opacity:.08}50%{opacity:.48}}
+@media(prefers-reduced-motion:reduce){.sa-sic-impairment{animation:none;opacity:.3}}
 .map-view-controls,.combat-map-view-controls,.player-starship-view-controls,.inline-map-toolbar>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px 10px!important}
 .map-view-controls label,.combat-map-view-controls label,.player-starship-view-controls label,.inline-map-toolbar label{min-width:0;white-space:normal;font-size:11px!important;line-height:1.2}
 .map-view-controls span{font-size:10px!important;white-space:normal}
@@ -9,7 +16,7 @@
 .ship-grid.hull-view .ship-grid-cell{background:transparent!important;box-shadow:none!important;border:0!important}
 .hull-view :is(.combat-map-square,.player-ship-cell){border:0!important;box-shadow:none!important;animation:none}
 .sa-hull-plate.edge-top{border-top:2px solid #dae2e8}.sa-hull-plate.edge-bottom{border-bottom:2px solid #37434b}.sa-hull-plate.edge-left{border-left:2px solid #b4c2ca}.sa-hull-plate.edge-right{border-right:2px solid #37434b}
-.hull-view :is(.sa-map-wall,.sa-map-door,.sic-station-marker,.player-ship-station,.combat-station-marker,.combat-token,.player-ship-token,.combat-mesh,.player-ship-mesh,.combat-move-line,.player-ship-move-line,.combat-map-preview-dot){display:none!important}
+.hull-view :is(.sa-map-wall,.sa-map-door,.sic-station-marker,.player-ship-station,.combat-station-marker,.combat-token,.player-ship-token,.ship-detail-crew,.combat-mesh,.player-ship-mesh,.combat-move-line,.player-ship-move-line,.combat-map-preview-dot){display:none!important}
 .hull-view :is(.sic-grid-label,.player-ship-label,.combat-map-label){z-index:12}
 .hull-view :is(.ship-grid-cell,.player-ship-cell,.combat-map-square)::after{display:none!important}
 .hull-view .player-ship-cell>button{display:none!important}
@@ -21,6 +28,7 @@
 :is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-thruster,>.sa-exterior-tile)::after{display:none!important}
 .sa-exterior-thruster~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}
 .sa-thruster-body{position:absolute;inset:0 14% 30%;background:#8b9ba5;border-top:3px solid #d3e0e6;clip-path:polygon(24% 0,76% 0,76% 20%,92% 45%,100% 100%,0 100%,8% 45%,24% 20%)}
+.sa-mixed-room-art{display:none;position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:hidden}.sa-mixed-room-art img{position:absolute;left:50%;top:50%;max-width:none;object-fit:fill}.high-resolution:not(.hull-view) .sa-mixed-room-art{display:block}
 .sa-exterior-thruster img{display:none;position:absolute;left:8%;top:-2%;width:84%;height:76%;object-fit:fill;max-width:none}
 :is(.high-resolution,.hull-view) .sa-exterior-thruster img{display:block}
 :is(.high-resolution,.hull-view) .sa-thruster-body{display:none}
@@ -185,4 +193,17 @@
 :is(.high-resolution,.hull-view) .sa-blocked-floor{display:none}
 .ship-grid .ship-grid-cell.has-sic:has(>.sa-exterior-weapon),.player-starship-map .player-ship-cell.sic:has(>.sa-exterior-weapon),.combat-map-grid .combat-map-square.sic:has(>.sa-exterior-weapon){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
 .sa-reboot-status{position:absolute;left:2px;bottom:3px;z-index:18;color:#fff;background:#152329;padding:2px;font:10px Arial;white-space:nowrap;pointer-events:none}
-.sa-exterior-weapon{display:block;pointer-events:none;z-index:9}.sa-exterior-weapon img{filter:brightness(.6) grayscale(1)}:is(.high-resolution,.hull-view) .sa-exterior-weapon img{filter:none}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon)::after{display:none!important}.sa-exterior-weapon~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}
+.sa-exterior-weapon{display:block;pointer-events:none;z-index:9}.sa-exterior-weapon img{display:none}.sa-weapon-silhouette{position:absolute;inset:0;background:var(--weapon-color,#8b9ba5);mask:var(--weapon-mask) center/contain no-repeat}:is(.high-resolution,.hull-view) .sa-exterior-weapon img{display:block;filter:none}:is(.high-resolution,.hull-view) .sa-weapon-silhouette{display:none}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon){background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}:is(.ship-grid-cell,.player-ship-cell,.combat-map-square):has(>.sa-exterior-weapon)::after{display:none!important}.sa-exterior-weapon~:is(.sic-grid-label,.player-ship-label,.combat-map-label){display:none!important}
+.sa-exterior-mount{position:absolute;z-index:8;pointer-events:none;background:linear-gradient(90deg,#3b4549,#a2afb2 42%,#56646a 65%,#343f43);box-shadow:inset 0 0 0 1px #263337}
+.sa-exterior-mount.mount-top{left:12%;top:-3%;width:76%;height:70%;clip-path:polygon(0 0,100% 0,76% 100%,24% 100%)}
+.sa-exterior-mount.mount-bottom{left:12%;bottom:-3%;width:76%;height:70%;clip-path:polygon(24% 0,76% 0,100% 100%,0 100%)}
+.sa-exterior-mount.mount-left{top:12%;left:-3%;height:76%;width:70%;clip-path:polygon(0 0,100% 24%,100% 76%,0 100%)}
+.sa-exterior-mount.mount-right{top:12%;right:-3%;height:76%;width:70%;clip-path:polygon(0 24%,100% 0,100% 100%,0 76%)}
+.sa-hover-pod{position:absolute;inset:3%;z-index:9;pointer-events:none;background:#8ba9a6;clip-path:polygon(20% 0,80% 0,100% 20%,100% 80%,80% 100%,20% 100%,0 80%,0 20%)}.sa-hover-pod img{display:none;width:100%;height:100%;object-fit:contain}.sa-hover-pod i{position:absolute;inset:28%;border:3px solid #243d42;border-radius:50%;background:#546e72}:is(.high-resolution,.hull-view) .sa-hover-pod{background:none}:is(.high-resolution,.hull-view) .sa-hover-pod img{display:block}:is(.high-resolution,.hull-view) .sa-hover-pod i{display:none}.sa-hover-pod:not(.online){opacity:.4}.sa-aerofoil-plate::after{content:'';position:absolute;inset:0;border-top:2px solid #d1c68466;border-bottom:2px solid #213e45;background:repeating-linear-gradient(135deg,transparent 0 12px,#172c3444 12px 14px);pointer-events:none}
+.ship-capabilities{padding:16px 0;margin:0 0 16px;border-bottom:1px solid #5d7d80;color:#e1eeee;font:14px Arial}.ship-capabilities h3{font-size:18px;color:#e8d078;margin:0 0 12px}.ship-capabilities ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:12px 24px;padding:0;margin:0;list-style:none}.ship-capabilities li{display:grid;gap:5px;border-left:3px solid #6dcaac;padding-left:12px;min-width:0;overflow-wrap:anywhere}.ship-capabilities strong{font-size:16px}.ship-capabilities span{line-height:1.5;color:#bccdd0}.ship-capabilities .unavailable{border-color:#d09a64}.ship-capabilities b{color:#f2c978;font-size:12px}.ship-capabilities p{margin:0;color:#b3c7cb}
+
+.sa-hull-triangle{position:absolute;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;overflow:visible}.sa-hull-triangle polygon{fill:#73858f;stroke:#dce9ef;stroke-width:2;stroke-linejoin:round}.sa-hull-triangle.is-preview{opacity:.6}.sa-hull-triangle.is-preview polygon{fill:#75e5bc;stroke:#b6ffdf}
+
+.sa-room-fog{display:none;position:absolute;inset:0;background:radial-gradient(ellipse at 35% 30%,#edf4f9aa,transparent 70%),radial-gradient(ellipse at 80% 90%,#b9c8d4dd,#a9b9c9aa);pointer-events:none;z-index:2;transition:opacity 1s linear}.high-resolution:not(.hull-view) .sa-room-fog{display:block}.sa-room-oxygen{position:absolute;right:3px;bottom:2px;font:700 clamp(6px,.55vw,10px) system-ui;line-height:1;color:#d6edf2;background:#00141daa;padding:1px 2px;border-radius:2px;z-index:5;pointer-events:none;white-space:nowrap}.sa-room-oxygen.is-critical{color:#ffb3b3}.high-resolution .sa-room-oxygen,.hull-view .sa-room-oxygen{display:none}.sa-triangle-art{display:none}.high-resolution .sa-triangle-art,.hull-view .sa-triangle-art{display:block}.sa-bay-ships{position:absolute;inset:0;z-index:3;pointer-events:none}.sa-bay-ships img{position:absolute;width:35%;height:35%;object-fit:contain;transform:translate(-50%,-50%)}.hull-view .sa-bay-ships{display:none}@media(prefers-reduced-motion:reduce){.sa-room-fog{transition:none}}
+
+.sa-room-oxygen{right:auto;bottom:auto;transform:translate(-50%,-100%)}

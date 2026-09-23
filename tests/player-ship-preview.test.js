@@ -11,7 +11,7 @@ test("player destination selection updates in place and cannot change during sub
   let refreshes = 0;
   const context = vm.createContext({
     starshipMoveDraft: { starshipId: "ship", start: 189, startMesh: 4 },
-    playerShipPath: () => [190],
+    window:{SAShipMap:{buildLayout:()=>({}),meshRoute:()=>[{square:190,mesh:0}]}},
     playerShipStationAt: () => null,
     refreshPlayerShipPreview: () => { refreshes += 1; },
     renderPlayerStarships: () => { throw new Error("Replacing map buttons loses pointer clicks"); },

@@ -7,10 +7,44 @@
   .ship-combat-columns>.ship-combat-lane:nth-child(-n+3)>.ship-combat-title h2{font-size:20px;overflow-wrap:anywhere}
 }
 .space-map{position:relative;width:min(360px,100%);margin:0 auto 6px;min-width:0;background:#070e14;border:2px solid #d6e2e8;border-radius:999px;overflow:hidden}
-.space-map header{position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:1}
+.space-map header{position:absolute;right:10px;top:8px;display:flex;align-items:center;gap:6px;z-index:1}
 .space-map h3,.space-map header span{display:none}
 .space-map-dialog > button{display:block;margin-left:auto;min-width:80px;min-height:36px;padding:6px 16px;border:1px solid #7a939d;border-radius:4px;background:#17313e;color:#fff;font:inherit;cursor:pointer;transform:none}.space-map-dialog > button:hover{background:#245063}.space-map-dialog > button:focus-visible{outline:2px solid #65def4;outline-offset:3px}.space-map text{letter-spacing:0}
 .space-map svg{display:block;width:100%;height:auto;aspect-ratio:3.4;touch-action:manipulation}
 .space-map:has(.space-map-coordinates){width:min(680px,100%);border-radius:6px}
 .space-map-coordinates{padding:8px;display:grid;gap:6px}.space-map-coordinates label{display:flex;align-items:center;gap:6px}.space-map-coordinates strong{flex:1;font-size:.85rem}.space-map-coordinates input[type=number]{width:80px;min-width:0;padding:5px}.space-map-coordinates input[type=radio]{width:auto}
 .space-map-dialog{width:min(1100px,95vw);max-height:95vh;background:#070e14;color:white;border:1px solid #7a939d}.space-map-dialog::backdrop{background:#000b}.space-map-dialog .space-map{width:100%;border-radius:8px;margin-bottom:12px}.space-map-dialog svg{height:auto;max-height:75vh}.space-map [data-space-enlarge]{width:26px;min-width:26px;height:26px;min-height:26px;padding:0;border:1px solid #8098a4;border-radius:50%;background:#15232bcc;color:#fff;box-shadow:none;transform:none;cursor:pointer}
+.gm-unknown-marker{color:#93999e!important;opacity:.5}
+@keyframes pod-ejection{from{transform:translateX(0);opacity:.3}to{transform:translateX(2px);opacity:1}}
+.escape-pod-launch{animation:pod-ejection 1.8s ease-out}
+@media(prefers-reduced-motion:reduce){.escape-pod-launch{animation:none}}
+.space-object-editor{padding:12px 0;border-top:1px solid #527780}
+.space-object-editor form{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.space-object-editor label{display:grid;gap:4px;min-width:75px}
+.space-object-editor input{width:110px}
+.space-object-editor [name=name]{width:180px}
+.space-object-editor [data-object-list]{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.space-object-editor [data-object-list] button{min-width:28px;padding:2px 8px}
+@keyframes missile-impact-fade{to{opacity:0;visibility:hidden}}
+
+@keyframes shield-map-pulse{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){[data-shield-ring]{animation:none!important}}
+
+.starship-map-art{filter:drop-shadow(0 0 .08px var(--vessel-glow)) drop-shadow(0 0 .12px var(--vessel-glow));pointer-events:none}.starship-map-exhaust{display:none;transform-origin:0 0;animation:ship-exhaust-flicker .19s ease-in-out infinite alternate}.is-powered .starship-map-exhaust{display:block}.starship-running-light{animation:ship-navigation-blink 2.4s step-end infinite}.starship-running-light.light-two{animation-delay:-1.2s}@keyframes ship-exhaust-flicker{to{opacity:.55;transform:scaleY(.85)}}@keyframes ship-navigation-blink{0%,12%,24%{opacity:1}6%,18%,30%,100%{opacity:.15}}.ship-glow-picker{background:#0b1c2a;color:white;max-width:500px;border:1px solid #63c9dd}.ship-glow-picker label{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:12px}.ship-glow-picker input{width:60px;height:32px}@media(prefers-reduced-motion:reduce){.starship-running-light,.starship-map-exhaust{animation:none}}
+
+
+.space-map [data-ship-glows]{width:26px;min-width:26px;height:26px;min-height:26px;padding:0;border:1px solid #8098a4;border-radius:50%;background:#15232bee;color:#eaffff;font:18px Arial;box-shadow:none;transform:none;cursor:pointer}.space-map [data-ship-glows]:hover{background:#28505e}.ship-glow-picker button{background:#183744;color:#effcff;border:1px solid #83b8c9;padding:7px 12px}
+
+.space-map-dialog-controls{display:flex;gap:8px;align-items:center}.space-map-dialog-controls button{min-height:36px;min-width:40px;padding:6px 12px;border:1px solid #83b8c9;border-radius:4px;background:#183744;color:#effcff;font:inherit;cursor:pointer;transform:none}.space-map-dialog-controls [data-map-close]{margin-left:auto}.space-map-dialog-controls button:focus-visible{outline:2px solid #ffe282}
+
+/* One focused map state keeps the original controls and event handlers alive. */
+body .map-focus{position:fixed!important;inset:10px!important;margin:0!important;width:calc(100vw - 20px)!important;height:calc(100dvh - 20px)!important;max-width:none!important;max-height:none!important;z-index:12000;box-sizing:border-box;background:#08151e}
+.space-map-dialog{width:calc(100vw - 28px);height:calc(100dvh - 28px);max-width:none;max-height:none;box-sizing:border-box;display:flex;flex-direction:column;padding:14px;gap:10px}.space-map-dialog:not([open]){display:none}.space-map-dialog>.space-map{flex:1;min-height:0;margin:0}.space-map-dialog svg{height:100%;max-height:none;aspect-ratio:auto}.space-map-dialog-controls{flex-shrink:0}
+[data-map-editor].map-focus{padding:14px;overflow:auto;border:1px solid #80acbb;border-radius:8px;box-shadow:0 0 0 100vmax #000b}
+[data-map-editor].map-focus>.space-map{width:100%;height:100%;border-radius:6px;display:grid;grid-template-columns:minmax(0,1fr) 280px;grid-template-rows:auto minmax(0,1fr)}
+[data-map-editor].map-focus .space-map header{position:static;grid-column:1/-1;flex-wrap:wrap;padding:8px}.map-focus[data-map-editor] .space-map svg{height:100%;aspect-ratio:auto}.map-focus[data-map-editor] .space-map-coordinates{min-height:0;overflow:auto;display:flex;flex-direction:column;border-left:1px solid #47616a}.map-focus[data-map-editor] .space-map-coordinates label{display:grid;grid-template-columns:1fr 30px 55px 30px 55px}.map-focus[data-map-editor] .space-map-coordinates strong{grid-column:1/-1}.map-focus[data-map-editor] input[type=number]{width:55px}
+.map-twinkle{opacity:.35;animation:map-twinkle 7s ease-in-out infinite}.map-shooting-star{opacity:0;animation:map-shooting-star 19s linear infinite;pointer-events:none}.map-shooting-star.second{animation-delay:-11s;animation-duration:31s}@keyframes map-twinkle{0%,100%{opacity:.18}50%{opacity:.7}}@keyframes map-shooting-star{0%,92%,100%{opacity:0;transform:translate(0,0)}93%{opacity:.65}97%{opacity:0;transform:translate(.2px,.1px)}}
+@media(prefers-reduced-motion:reduce){.map-twinkle{animation:none;opacity:.3}.map-shooting-star{display:none}}
+@media(max-width:720px){[data-map-editor].map-focus>.space-map{grid-template-columns:1fr;grid-template-rows:auto minmax(240px,1fr) 150px}}
+
+[data-map-editor] .space-map-coordinates input[type=radio]{width:18px;height:18px;min-width:18px;min-height:18px;justify-self:start;padding:0;box-shadow:none}

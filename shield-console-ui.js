@@ -56,10 +56,10 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       get('[data-input-status]').textContent=pending?`Entering ${pending.kind==='restore'?'restoration':'reinforcement'} / ${pending.remaining.toFixed(1)} sec`:'';
       get('[data-leave]').disabled=busy||!ready||Boolean(person.shieldRestabilizing);
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
-      const sound=get('[data-sound]');sound.classList.toggle('muted',!bridge.soundEnabled());sound.setAttribute('aria-pressed',String(bridge.soundEnabled()));
+      window.SAConsoleCommon.updateSound(view);
       const fleet=state.starships.map(ship=>ship.contactOnly?`<div><strong>${esc(ship.title)}</strong><small>${ship.contactLevel==='detected'?'Detected / condition unscanned':'Unresolved signal'}</small></div>`:`<div><strong>${esc(ship.title)}</strong>${window.SAHealthDisplay.track('hull',ship.currentHullHp,ship.maximumHullHp,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',ship.currentShieldHp,ship.maximumShieldHp,bridge.mode()==='gm')}</div>`).join('');
       if(fleet!==lastFleet){get('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
-      const log=(state.log||[]).slice(-20).reverse().map(e=>`<p><small>${esc(e.at)}</small>${esc(window.SAHealthDisplay.logText(e.text,bridge.mode()==='gm'))}</p>`).join('');
+      const log=(state.log||[]).slice(-20).reverse().map(e=>`<p><small>${esc(e.at)}</small>${window.SAHealthDisplay.logMarkup(e,bridge.mode()==='gm')}</p>`).join('');
       if(log!==lastLog){get('[data-log]').innerHTML=log;lastLog=log;}
       const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
     }
@@ -75,7 +75,7 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
     amount.oninput=redraw;
     get('[data-close]').onclick=()=>{dismiss();view.close();};
     get('[data-sound]').onclick=()=>{bridge.toggleSound();redraw();};
-    get('[data-leave]').onclick=()=>{const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'leaveStation'))return;dismiss();view.close();window.SACombatMap.openMove(person);};
+    get('[data-leave]').onclick=()=>{const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'leaveStation'))return;view.close();window.SACombatMap.openMove(person);};
     get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(bridge.state().units.find(u=>u.id===unit.id));}catch(err){get('[data-error]').textContent=err.message;}};
     view.addEventListener('cancel',dismiss);view.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};

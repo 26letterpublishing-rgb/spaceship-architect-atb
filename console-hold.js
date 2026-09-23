@@ -21,8 +21,8 @@ function resolve(room, unit, kind, helpers) {
     helpers.pushLog(room, `${unit.characterName} resumed initiative.`);
     return {ok:true};
   }
-  if (unit.consoleHold || !stationKey(unit) || room.activeId !== unit.id || unit.delayedAction || unit.delayTimer || unit.timedAction || room.delayRequest || room.activeAction || room.attackResolution || room.itemResolution) {
-    return {ok:false,error:'Hold is available on your turn at a console, after unfinished actions resolve.'};
+  if (unit.consoleHold || room.activeId !== unit.id || unit.delayedAction || unit.delayTimer || unit.timedAction || room.delayRequest || room.activeAction || room.attackResolution || room.itemResolution) {
+    return {ok:false,error:'Hold is available on your turn, after unfinished actions resolve.'};
   }
   const remaining = room.commandTotal > 0
     ? room.commandExpired ? 0 : (room.hardPaused || room.holdPaused) && room.commandHeldRemaining != null

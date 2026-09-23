@@ -92,7 +92,7 @@ async function main() {
     await act({action:'nudge',id:unit.id,amount:100});
     const dialog=page.getByRole('dialog',{name:'Pilot console',exact:true});
     if(unit.team==='npc'){await page.waitForTimeout(300);assert.equal(await dialog.count(),0,'GM NPC defaults to standard controls');}
-    if(!(await dialog.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
+    if(!(await dialog.isVisible()))await frame.getByRole('button',{name:'Toggle Console',exact:true}).click();
     await dialog.waitFor();
     assert.match(await dialog.locator('.console-defense').innerText(),/DEFENSE -?\d/);
     assert.equal(await frame.locator('[data-combat-action="station"]').count(),0);
@@ -100,9 +100,9 @@ async function main() {
     assert.ok(Number(await dialog.getByRole('progressbar',{name:'Command window remaining'}).getAttribute('aria-valuenow'))>0 || unit.team==='npc');
     if(unit.team==='pc'){
       if(index===0){
-        if(await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).isVisible())await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).click();
+        if(await dialog.getByRole('button',{name:'Mute sounds',exact:true}).isVisible())await dialog.getByRole('button',{name:'Mute sounds',exact:true}).click();
         await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones=[]);
-        await dialog.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
+        await dialog.getByRole('button',{name:'Unmute sounds',exact:true}).click();
         assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]!==.025).length),3,'Enabling turn audio plays one cue, not two');
         assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.eval('audioContext.state')),'running');
         const bar=dialog.getByRole('progressbar',{name:'Command window remaining'});
@@ -112,7 +112,7 @@ async function main() {
         await page.waitForTimeout(450);assert.equal(Number(await bar.getAttribute('aria-valuenow')),paused,'Pausing freezes command bar');
       }else if(index===1){
         assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]!==.025).length),6,'Next turn adds one three-tone cue');
-        await dialog.getByRole('button',{name:'Mute turn sounds',exact:true}).click();
+        await dialog.getByRole('button',{name:'Mute sounds',exact:true}).click();
       }else assert.equal(await frame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]!==.025).length),6,'Muted turns do not play a cue');
     }
     assert.ok((await dialog.evaluate(el=>getComputedStyle(el).backgroundImage)).includes('pilot-console-integrated.png'));
@@ -123,6 +123,7 @@ async function main() {
       assert.equal(await dialog.getAttribute('data-au-warning'),'true');
     }
     await dialog.getByRole('button',{name:'Move Ship',exact:true}).click();
+    if(index===0){assert.ok(await dialog.locator('.pilot-chart').evaluate(e=>e.getAnimations().some(a=>a.effect.getKeyframes().some(f=>String(f.boxShadow).includes('106')))),'Navigation flashes green on entering movement');}
     if(index===1) {
       await dialog.getByRole('spinbutton',{name:'Hex Q',exact:true}).fill(String(destination.q));
       await dialog.getByRole('spinbutton',{name:'Hex R',exact:true}).fill(String(destination.r));
@@ -192,7 +193,7 @@ async function main() {
   await pc.screenshot({path:path.join(artifacts,'player-live-flight.png')});
   await act({action:'nudge',id:pilot.id,amount:100});
   const helm=pc.getByRole('dialog',{name:'Pilot console',exact:true});
-  await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();await helm.waitFor();
+  await pcFrame.getByRole('button',{name:'Toggle Console',exact:true}).click();await helm.waitFor();
   assert.equal(await helm.locator('.sa-health-track small').count(),0,'Players see condition icons, not exact ship HP.');
   for(const size of [{width:1366,height:768},{width:1920,height:1080}]){
     await pc.setViewportSize(size);await pc.waitForTimeout(300);
@@ -220,18 +221,18 @@ async function main() {
   await pc.waitForTimeout(250);assert.equal((await state()).units.find(u=>u.id===pilot.id).consoleHold,null);assert.equal((await state()).hardPaused,true);
   await act({action:'nudge',id:pilot.id,amount:1});
   const collapse=pcFrame.locator('#collapsePlayerTurn');await collapse.waitFor({state:'visible'});const collapseBounds=await collapse.boundingBox(),panelBounds=await pcFrame.locator('#myTurnBanner').boundingBox();assert.ok(collapseBounds.x>=panelBounds.x+panelBounds.width-2&&collapseBounds.height>=80&&collapseBounds.y>=0&&collapseBounds.y+collapseBounds.height<=pc.viewportSize().height,'Large PC collapse tab hangs from the panel right edge within the viewport');
-  await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
-  await helm.getByRole('button',{name:'Enable turn sounds',exact:true}).click();
+  await pcFrame.getByRole('button',{name:'Toggle Console',exact:true}).click();
+  await helm.getByRole('button',{name:'Unmute sounds',exact:true}).click();
   const tickCount=()=>pcFrame.locator('body').evaluate(el=>el.ownerDocument.defaultView.__pilotTones.filter(t=>t[2]===.025).length);
   const ticks=await tickCount();await act({action:'setHardPaused',paused:false});await pc.waitForTimeout(2350);await act({action:'setHardPaused',paused:true});await pc.waitForTimeout(250);
   assert.ok(await tickCount()>=ticks+2,'Console tick repeats once per second on active turn');
   const stoppedTicks=await tickCount();await pc.waitForTimeout(1100);assert.equal(await tickCount(),stoppedTicks,'Pause stops ticking');
   assert.ok((await state()).command.remaining<=held.consoleHold.commandRemaining,'Hold never replenishes command time');
-  await helm.getByRole('button',{name:'Mute turn sounds',exact:true}).click();
+  await helm.getByRole('button',{name:'Mute sounds',exact:true}).click();
   await helm.getByRole('button',{name:'Leave Console',exact:true}).click();
   const map=pcFrame.locator('[data-inline-ship-map="browser-ship-0"]');
   await map.locator('[data-inline-cancel-move]').click();assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,true);
-  await pcFrame.getByRole('button',{name:'Console View',exact:true}).click();
+  await pcFrame.getByRole('button',{name:'Toggle Console',exact:true}).click();
   await helm.getByRole('button',{name:'Leave Console',exact:true}).click();
   assert.ok(await map.evaluate(host=>{const v=host.querySelector('.inline-map-viewport');v.scrollLeft=0;return v.firstElementChild.getBoundingClientRect().left>=v.getBoundingClientRect().left;}),'Wide mini-map must not hide its left edge outside the scroll range');
   await map.locator('[data-map-square="147"][data-map-mesh="1"]').click();
@@ -239,7 +240,7 @@ async function main() {
   for(let i=0;i<5&&(await state()).units.find(u=>u.id===pilot.id).timedAction;i++)await act({action:'step'});
   assert.equal((await state()).units.find(u=>u.id===pilot.id).location.stationed,false);
   await act({action:'nudge',id:pilot.id,amount:100});await pc.waitForTimeout(250);
-  assert.equal(await pcFrame.getByRole('button',{name:'Console View',exact:true}).count(),0);
+  assert.equal(await pcFrame.getByRole('button',{name:'Toggle Console',exact:true}).count(),0);
   await act({action:'completeTurn',id:pilot.id});
   assert.equal((await state()).starships[0].navigation.phase,'powered');
 
@@ -330,7 +331,7 @@ async function main() {
       if(compact){
         if(await full.isVisible())await full.getByRole('button',{name:'Combat View',exact:true}).click();
         await frame.getByRole('button',{name:'Move Ship',exact:true}).click();
-      }else if(!(await full.isVisible()))await frame.getByRole('button',{name:'Console View',exact:true}).click();
+      }else if(!(await full.isVisible()))await frame.getByRole('button',{name:'Toggle Console',exact:true}).click();
       const order=demo.getByRole('dialog',{name:compact?'Move ship':'Pilot console',exact:true});await order.waitFor();
       const origin=initial.shipPositions.find(p=>p.id===ship.id);
       const destination={q:Math.round(origin.q)+i+2,r:Math.round(origin.r)+1-i};

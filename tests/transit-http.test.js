@@ -1,0 +1,54 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events'),maps=require('../ship-map-core');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+test('warp stores, campaign travel, registered cancellation and manual blast survive HTTP and restart',{timeout:45000},async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'sa-transit-http-'));let child,base;
+  async function launch(){child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:directory},stdio:['ignore','pipe','pipe']});base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),10000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timer);resolve(u);}});});}
+  async function stop(){if(child.exitCode===null){const ended=once(child,'exit');child.kill();await ended;}}t.after(stop);await launch();
+  const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+  const demo=await post('campaign/showcase/start',{}),created=await post('campaign/create',{name:'Transit HTTP',gmCode:'transit-test'},201),code=created.campaign.code;let token=created.token;
+  const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());backup.campaign.code=code;backup.campaign.name='Transit HTTP';backup.campaign.showcase=false;
+  const c=backup.campaign,record=c.starships.find(s=>s.title==='Wayfinder'),nova=c.characters[0],npc=c.encounter.units.find(u=>u.team==='npc'),pilot=c.encounter.units.find(u=>u.characterId===nova.id);
+  const ship={gridCells:maps.rectangleCells({},42,16,16),groupCredits:10000,sicInventory:[{id:'bridge-test',type:'bridge-1'},{id:'en-test',type:'en-engine-6'},{id:'life-test',type:'life-support'},{id:'warp-test',type:'warp-drive-zero'},{id:'destruct-test',type:'self-destruct'},...Array.from({length:4},(_,i)=>({id:`thruster-test-${i}`,type:'exhaust-thruster-1'}))],placements:[{sicId:'bridge-test',cell:42},{sicId:'en-test',cell:162},{sicId:'life-test',cell:66},{sicId:'warp-test',cell:48},{sicId:'destruct-test',cell:42},...Array.from({length:4},(_,i)=>({sicId:`thruster-test-${i}`,cell:41+i*20}))],warpFuel:{D:3},minerals:{Iron:7},confirmedOnce:true};ship.confirmed=structuredClone(ship);assert.equal(maps.exteriorError(ship),'');
+  record.ship=ship;record.crewNpcUnitIds=[npc.id];const stations=maps.definition('bridge-1').stations;
+  const location=index=>({starshipId:record.id,sicId:'bridge-test',square:42+stations[index].y*20+stations[index].x,mesh:stations[index].mesh,stationed:true});
+  record.characterLocations={[nova.id]:location(0)};Object.assign(npc,{location:location(1),currentHp:40,defeatedAt:null});c.npcRoster=[structuredClone(npc)];Object.assign(pilot,{location:location(0),currentHp:40,defeatedAt:null,atb:100});
+  const source=c.encounter.starships.find(s=>s.id===record.id);Object.assign(source,structuredClone(record),{maximumHullHp:256,currentHullHp:256});Object.assign(c.encounter,{hasEngagedClock:false,encounterEndedAt:Date.now(),running:false,hardPaused:false,activeId:null});
+  await post('campaign/restore',{code,token,backup});
+  const pc=await post('campaign/character/unlock',{code,characterId:nova.id,pcCode:nova.pcCode});
+  const get=route=>fetch(base+'/api/'+route).then(r=>r.json()),campaign=()=>get(`campaign/state?code=${code}&token=${token}`),state=()=>get(`state?room=${code}&token=${token}`),saved=()=>get(`campaign/backup?code=${code}&token=${token}`);
+  const transit=(body,auth=pc.token,status=200)=>post('campaign/starship/transit',{code,token:auth,characterId:nova.id,starshipId:record.id,requestId:crypto.randomUUID(),...body},status);
+  const purchase={code,token:pc.token,characterId:nova.id,starshipId:record.id,purchaseGrade:'D',quantity:2,requestId:'stock-purchase-once'};
+  await post('campaign/starship/resources',purchase);await post('campaign/starship/resources',purchase);let current=(await campaign()).starships.find(s=>s.id===record.id);assert.equal(current.ship.warpFuel.D,5);assert.equal(current.ship.groupCredits,9800);
+  await post('campaign/starship/resources',{...purchase,purchaseGrade:undefined,minerals:{Iron:99},requestId:'stock-forbidden'},409);
+  await post('campaign/starship/save',{code,token,starship:{...ship,id:record.id}},409);
+  const plan=await transit({kind:'warpPlan',sicId:'warp-test',distanceLY:6.52});assert.equal(plan.result.counts.D,2);
+  await transit({kind:'warpStart',sicId:'warp-test',distanceLY:6.52});assert.equal((await campaign()).starships.find(s=>s.id===record.id).ship.warpFuel.D,5);
+  await transit({kind:'warpCancel',sicId:'warp-test'});
+  await transit({kind:'warpStart',sicId:'warp-test',distanceLY:6.52});let edited=await saved();edited.campaign.starships.find(s=>s.id===record.id).ship.warpState.remaining=.1;await post('campaign/restore',{code,token,backup:edited});await sleep(1500);
+  current=(await campaign()).starships.find(s=>s.id===record.id);assert.equal(current.ship.warpState.phase,'traveling');assert.equal(current.ship.warpFuel.D,4);
+  const time={code,token,amount:15,unit:'days',requestId:'warp-pass-time-once'};await post('campaign/time/pass',time);await post('campaign/time/pass',time);current=(await campaign()).starships.find(s=>s.id===record.id);assert.ok(current.ship.warpState.traveledLY>=1.63&&current.ship.warpState.traveledLY<1.631);assert.equal(current.ship.warpFuel.D,4);
+  await transit({kind:'warpExit',sicId:'warp-test'});assert.equal((await campaign()).starships.find(s=>s.id===record.id).ship.warpFuel.D,4);
+  await transit({kind:'destructApprove',sicId:'destruct-test',countdownSeconds:0});await transit({kind:'destructApprove',sicId:'destruct-test',countdownSeconds:0,characterId:'',id:npc.id},token);
+  current=(await campaign()).starships.find(s=>s.id===record.id);assert.equal(current.ship.destructState.phase,'blastPending');
+  await transit({kind:'destructCancel'});assert.equal((await campaign()).starships.find(s=>s.id===record.id).ship.destructState.phase,'cancelled');
+  const preCombat=await saved();let escape=structuredClone(preCombat),escapeRoom=escape.campaign.encounter;
+  Object.assign(escapeRoom,{hasEngagedClock:true,encounterEndedAt:null,activeId:pilot.id,pausedForTurn:true,hardPaused:true,running:false});
+  Object.assign(escapeRoom.starships.find(s=>s.id===record.id),structuredClone(escape.campaign.starships.find(s=>s.id===record.id)),{maximumHullHp:256,currentHullHp:256});
+  escapeRoom.units.find(u=>u.id===pilot.id).atb=100;
+  await post('campaign/restore',{code,token,backup:escape});
+  const began=await post('action',{roomCode:code,gmToken:token,action:'transitCommand',id:pilot.id,shipId:record.id,sicId:'warp-test',kind:'warpStart',distanceLY:3.26,requestId:'combat-warp-start'});assert.equal(began.starships.find(s=>s.id===record.id).ship.warpState.phase,'activating');await sleep(400);
+  escape=await saved();escapeRoom=escape.campaign.encounter;escapeRoom.starships.find(s=>s.id===record.id).ship.warpState.remaining=.1;Object.assign(escapeRoom,{activeId:null,pausedForTurn:false,command:null});for(const u of escapeRoom.units)u.atb=0;
+  await post('campaign/restore',{code,token,backup:escape});await post('action',{roomCode:code,gmToken:token,action:'setHardPaused',paused:false});await post('action',{roomCode:code,gmToken:token,action:'setRunning',running:true});await sleep(600);
+  const escaped=await state(),escapedShip=escaped.starships.find(s=>s.id===record.id);assert.ok(escapedShip.escapedAt,JSON.stringify({warp:escapedShip.ship.warpState,running:escaped.running,paused:escaped.pausedForTurn,active:escaped.activeId,hold:escaped.holdPaused,hard:escaped.hardPaused,log:escaped.log.slice(-4)}));assert.equal(escapedShip.ship.warpState.phase,'traveling');assert.equal(escapedShip.ship.warpFuel.D,3);assert.ok(escaped.units.filter(u=>u.location?.starshipId===record.id).every(u=>u.escapedAt&&u.atb===0));
+  await transit({kind:'warpExit',sicId:'warp-test'});assert.equal((await state()).starships.find(s=>s.id===record.id).ship.warpState.phase,'exited');
+  await post('campaign/restore',{code,token,backup:preCombat});
+  // Re-enter with a pending blast: the natural combat clock must stop without hiding recovery.
+  edited=await saved();const pending=structuredClone(current.ship.destructState),live=edited.campaign.encounter;Object.assign(live,{hasEngagedClock:true,encounterEndedAt:null,running:true,resumeAfterTurn:true,hardPaused:false,pausedForTurn:false,activeId:null});
+  for(const u of live.units){u.atb=0;u.delayedAction=null;u.delayTimer=null;u.timedAction=null;u.pendingShipRolls=[];u.escapedAt=null;u.defeatedAt=null;}
+  Object.assign(live.starships.find(s=>s.id===record.id),structuredClone(edited.campaign.starships.find(s=>s.id===record.id)),{maximumHullHp:256,currentHullHp:256});live.starships.find(s=>s.id===record.id).ship.destructState=pending;
+  await post('campaign/restore',{code,token,backup:edited});await post('action',{roomCode:code,gmToken:token,action:'setHardPaused',paused:false});await post('action',{roomCode:code,gmToken:token,action:'setRunning',running:true});let s=await state();assert.equal(s.starships.find(s=>s.id===record.id).ship.minerals.Iron,7);assert.equal(s.rollPaused,true);const atb=s.units[0].atb;await sleep(700);assert.equal((await state()).units[0].atb,atb);
+  await transit({kind:'destructCancel'});await sleep(700);s=await state();assert.equal(s.rollPaused,false);assert.ok(s.units[0].atb>atb,JSON.stringify({running:s.running,paused:s.pausedForTurn,hard:s.hardPaused,hold:s.holdPaused,active:s.activeId,units:s.units.map(u=>({id:u.id,atb:u.atb,speed:u.speed,hold:u.consoleHold,defeated:u.defeatedAt,hp:u.currentHp}))}));
+  edited=await saved();edited.campaign.encounter.starships.find(s=>s.id===record.id).ship.destructState={...pending,id:'final-blast'};await post('campaign/restore',{code,token,backup:edited});
+  await transit({kind:'blastRoll',blastId:'old-blast',score:64},token,409);await transit({kind:'blastRoll',blastId:'final-blast',score:64},token);assert.equal((await state()).starships.find(s=>s.id===record.id).currentHullHp,0);
+  await sleep(400);await stop();await launch();const opened=await post('campaign/open',{name:'Transit HTTP',gmCode:'transit-test'});token=opened.token;current=opened.campaign.starships.find(s=>s.id===record.id);assert.equal(current.ship.destructState.phase,'exploded');assert.equal(current.ship.warpFuel.D,4);assert.equal(current.ship.minerals.Iron,7);
+});

@@ -91,6 +91,12 @@
 .purchased-sic-grid{padding-top:25px!important;min-height:190px;align-items:flex-start}
 .purchased-sic-thumbnail{position:relative!important;display:block!important;flex:0 0 116.667px;width:116.667px!important;height:163.334px!important}
 .purchased-sic-thumbnail:before,.purchased-sic-thumbnail:after{display:none!important}
+.purchased-sic-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),172px));gap:22px 12px!important;max-width:1840px;box-sizing:border-box;margin-inline:auto}
+.purchased-sic-thumbnail{width:100%!important;height:auto!important;aspect-ratio:5/7!important;margin:0!important;transform:none;container-type:inline-size}
+.purchased-sic-thumbnail>.sic-display-card.sic-poker-card{transform:scale(calc(100cqw / 350px))!important}
+.purchased-sic-thumbnail .sic-poker-heading h3{font-size:25px!important;line-height:1.05!important}
 .sic-card-dialog.sic-inspection{width:376px}
 .sic-inspection .sic-display-card.sic-poker-card{width:350px!important;height:490px!important;min-height:490px!important;grid-template-rows:82px 156px minmax(0,1fr) 56px!important}
 .sic-inspection .sic-display-card .sic-poker-rules p{font-size:12px!important}
+
+.sic-floorplan-preview{position:fixed;z-index:10000;pointer-events:none;width:224px;padding:10px;background:#071c29;border:1px solid #71d1e1;border-radius:8px;box-shadow:0 8px 32px #000c;display:grid;gap:8px;color:#fff;font:14px system-ui}.sic-floorplan-preview img{width:100%;max-height:260px;object-fit:contain}.sic-floorplan-preview small{color:#bce7ef}

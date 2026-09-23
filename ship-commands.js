@@ -24,7 +24,7 @@ function report(ship, text, extra = {}) {
 function validateTrigger(room,ship,t){
   const data=cooperation.state(ship),enemy=room.starships.find(s=>s.id===t?.targetId&&s.id!==ship.id);
   if(data.armed||room.units.some(u=>u.location?.starshipId===ship.id&&[u.delayedAction?.commandOrder,u.delayedAction?.shipOrder,u.delayedAction?.sensorOrder].some(o=>o?.trigger)))return {ok:false,error:'Only one conditional order may be armed per ship.'};
-  if(!enemy||!sensors.knowledge(ship).reports.some(r=>r.analysis&&r.targetId===enemy.id))return {ok:false,error:'Systems Analysis of the triggering ship is required.'};
+  if(!enemy||!sensors.analysis(ship,enemy.id))return {ok:false,error:'Systems Analysis of the triggering ship is required.'};
   if(!['movement','distance','hex','range'].includes(t.kind))return {ok:false,error:'Choose a movement trigger.'};
   if(['distance','range'].includes(t.kind)&&(!Number.isFinite(t.distance)||t.distance<=0||t.distance>10000))return {ok:false,error:'Enter a positive trigger distance.'};
   if(t.kind==='hex'&&(!t.hex||![t.hex.q,t.hex.r].every(n=>Number.isInteger(n)&&Math.abs(n)<=10000)))return {ok:false,error:'Choose a trigger hex.'};
@@ -35,17 +35,18 @@ function armExternal(room,unit,system){
   const delayed=unit.delayedAction,key=system==='pilot'?'shipOrder':'sensorOrder',order=delayed?.[key];
   if(!order?.trigger)return;
   unit.delayedAction=null;
-  const seat=stations.station(room,unit),ship=room.starships.find(s=>s.id===order.shipId);
+  const access=system==='sensor'?stations.access(room,unit,order.sicId):null;
+  const seat=system==='sensor'?access?.seat:navigation.station(room,unit,order.sicId),ship=room.starships.find(s=>s.id===order.shipId);
   if(!ship)return;
-  if(!seat||seat.ship.id!==ship.id||(system==='sensor'?seat.key!==order.station:seat.cell.sicId!==order.sicId))return report(ship,'Conditional input interrupted: operator left the console.');
+  if(!seat||(system==='sensor'?access.blocked||access.ship.id!==ship.id||seat.key!==order.station:seat.ship.id!==ship.id||seat.cell.sicId!==order.sicId||(order.station&&seat.key!==order.station)))return report(ship,'Conditional input interrupted: operator left the console.');
   const data=cooperation.state(ship);
   if(data.armed||!power.spend(room,ship.id,2))return report(ship,'Conditional order cancelled: another order is armed or 2 AU are unavailable.');
   data.armed={system,delayed,order,unitId:unit.id,location:{...unit.location},remaining:12,traveled:0};
   report(ship,'Conditional order armed for 12 combat seconds (2 AU spent).');
 }
 function queue(room, unit, body) {
-  const seat = stations.station(room, unit);
-  if (!seat || !maps.definition(seat.cell.type).bridge) return {ok:false,error:'Remain at an operational cockpit or bridge.'};
+  const seat = navigation.station(room, unit, body.sicId);
+  if (!seat || !maps.definition(seat.cell.type).bridge) return {ok:false,error:'Remain at an operational, uncompromised cockpit or bridge.'};
   const ship = seat.ship, data = cooperation.state(ship), receipt = String(body.requestId || '');
   if (!/^[\w-]{8,100}$/.test(receipt)) return {ok:false,error:'Invalid command receipt.'};
   if (data.receipts.includes(receipt)) return {ok:true,duplicate:true};
@@ -81,7 +82,7 @@ function queue(room, unit, body) {
   if (['team','calculation'].includes(body.kind) && !ROLL_ACTIONS.includes(body.preparedAction)) return {ok:false,error:'Choose the roll this preparation supports.'};
   if(body.kind==='team'&&data.preparations.some(p=>p.kind==='team'&&p.unitId===unit.id&&p.action===body.preparedAction&&p.remaining>0))return {ok:false,error:'You are already prepared to assist that roll.'};
   if (body.kind === 'calculation' && Math.floor(mentalSkill(unit,'mathematicsSkill')) < 1) return {ok:false,error:'Mathematics 1 or higher is required for a lasting calculation.'};
-  if (['evade','ram','skim'].includes(body.kind) && !navigation.access(room,unit)) return {ok:false,error:'Operational engines and thrusters are required.'};
+  if (['evade','ram','skim'].includes(body.kind) && !navigation.access(room,unit,body.sicId)) return {ok:false,error:'Operational engines and thrusters are required.'};
   sensors.refresh(room);
   const target = room.starships.find(s => s.id === body.targetId && s.id !== ship.id);
   if (['hail','ram','skim'].includes(body.kind) && (!target || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected')) return {ok:false,error:'Choose a detected ship.'};
@@ -92,14 +93,14 @@ function queue(room, unit, body) {
   }
   const disclosed = body.disclosedPosition;
   if (body.kind === 'hail' && (!disclosed || ![disclosed.q,disclosed.r].every(Number.isInteger) || distances.hexDistance(position(room,ship.id),disclosed) > 5)) return {ok:false,error:'Choose your disclosed location within 5 Units of your ship.'};
-  let settings = navigation.inputSettings(room,unit);
+  let settings = navigation.inputSettings(room,unit,body.sicId);
   if(['hail','team','calculation'].includes(body.kind)){
     const tier=Number(seat.cell.type.split('-').at(-1))||1,rating=Math.floor(mentalSkill(unit,'computerSkill'));
     settings={base:8,factors:{Quality:Math.min(4,Math.ceil(tier/2)),Performance:0,Efficiency:0,Situation:0,Execution:0,Ingenuity:rating>=6?4:rating>=5?3:rating>=3?2:rating>=1?1:0}};
     settings.rate=delays.calculate(settings).rate;
   }
   unit.delayedAction = {id:`command-${receipt}`,kind:'action',label:names[body.kind],rate:settings.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings,
-    commandOrder:{kind:body.kind,shipId:ship.id,station:seat.key,targetId:target?.id,preparedAction:body.preparedAction,disclosedPosition:disclosed ? {q:disclosed.q,r:disclosed.r} : null,trigger,receipt}};
+    commandOrder:{kind:body.kind,shipId:ship.id,sicId:seat.cell.sicId,station:seat.key,targetId:target?.id,preparedAction:body.preparedAction,disclosedPosition:disclosed ? {q:disclosed.q,r:disclosed.r} : null,trigger,receipt}};
   data.receipts = [...data.receipts,receipt].slice(-256);
   return {ok:true,ship};
 }
@@ -107,9 +108,9 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   const order = triggeredOrder || unit.delayedAction?.commandOrder;
   if (!order) return;
   if(!triggeredOrder)unit.delayedAction = null;
-  const ship = room.starships.find(s => s.id === order.shipId), seat = stations.station(room,unit);
+  const ship = room.starships.find(s => s.id === order.shipId), seat = navigation.station(room,unit,order.sicId);
   if (!ship) return;
-  if (!seat || seat.key !== order.station) return report(ship,'Command input interrupted: operator or console unavailable.');
+  if (!seat || seat.ship.id!==ship.id || seat.key !== order.station) return report(ship,'Command input interrupted: operator or console unavailable.');
   const data = cooperation.state(ship), target = room.starships.find(s => s.id === order.targetId);
   if(order.trigger&&!triggeredOrder){
     if(data.armed||!power.spend(room,ship.id,2))return report(ship,'Conditional order cancelled: another order is armed or 2 AU are unavailable.');
@@ -128,7 +129,7 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
     cooperation.state(target).calls = [{id:order.receipt,shipId:ship.id,title:ship.title,status:'incoming',disclosedPosition:order.disclosedPosition},...cooperation.state(target).calls].slice(0,20);
     return report(target,`Incoming hail from ${ship.title}.`);
   }
-  if (!navigation.access(room,unit)) return report(ship,'Ship maneuver cancelled: propulsion unavailable.');
+  if (!navigation.access(room,unit,order.sicId)) return report(ship,'Ship maneuver cancelled: propulsion unavailable.');
   const propulsion = maps.propulsion(ship);
   const result = cooperation.roll(room,ship,unit,order.kind,Array(propulsion.evadeCount).fill(propulsion.evadeDie),skill(unit,order.kind),rollDie,sensors.fusedTotal);
   if (order.kind === 'evade') {
@@ -201,7 +202,7 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
       data.armed=null;
       const unit=room.units.find(u=>u.id===armed.unitId);
       if(unit){
-        if((armed.system==='sensor'&&['area','hex','analysis'].includes(armed.order.kind))||(!armed.system&&['evade','ram','skim'].includes(armed.order.kind))){
+        if((armed.system==='sensor'&&['area','hex','analysis'].includes(armed.order.kind)&&sensors.automaticScan(room,unit,armed.order)===null)||(!armed.system&&['evade','ram','skim'].includes(armed.order.kind))){
           unit.pendingShipRolls ||= [];
           unit.pendingShipRolls.push({id:`trigger-${armed.order.receipt||armed.delayed?.id||unit.id}-${Date.now()}`,label:armed.delayed?.label||names[armed.order.kind],rollController:armed.delayed?.rollController||armed.order.rollController,armed});
           report(ship,`${unit.characterName}: conditional order triggered; roll required.`);

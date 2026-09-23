@@ -11,7 +11,7 @@ export const SKILL_DESCRIPTIONS = Object.freeze({
   "Architecture": "Added when knowledge of architecture and building structures is relevant.",
   "Art/Music": "Added when attempting to play a musical instrument or create a work of art.",
   "Astronomy": "Added when the positioning of the stars becomes relevant to the situation.",
-  "Athletics/Endurance": "Aids in physically strenuous and active activities. Spending one Exertion adds the whole-number portion of this skill to Move Speed for one CvC round (3 seconds).",
+  "Athletics/Endurance": "Aids in physically strenuous and active activities. Add this skill's full rating to Move Speed. Spending one Exertion adds the whole-number portion again for one CvC round (3 seconds).",
   "Awareness": "Added when testing reaction time, noticing something, or searching. This skill is also added directly to Reaction Defense.",
   "Break Free/Escape": "Added when attempting to escape another character's grasp, break free from restraints, or perform a similar escape.",
   "Caretaking/Nurture": "Added when caring for sick or elderly people, or infants, for extended periods.",

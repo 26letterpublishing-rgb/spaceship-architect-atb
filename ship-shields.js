@@ -55,7 +55,8 @@
       for (const { item, definition: d } of list) {
         let s = ship.shieldSystems[item.id];
         if (!s || reset) s = ship.shieldSystems[item.id] = { hp: d.shieldHp, regeneration: 0, protection: 0, protectionRemaining: 0, restabilization: null };
-        s.hp = Math.min(d.shieldHp, number(s.hp));
+        s.hp = maps.cloaked(ship)?0:Math.min(d.shieldHp, number(s.hp));
+        if(maps.cloaked(ship))s.restabilization=null;
         const people = crew(room, ship.id, item.id);
         s.factors = staffing(people);
         s.regenerationSeconds = timing(12, s.factors);
@@ -68,7 +69,7 @@
       }
       ship.auCommands = ship.auCommands.filter(c => {
         const unit = room.units?.find(u => u.id === c.unitId), access = stations.access(room, unit, c.sicId);
-        return access && access.ship.id === ship.id && access.seat.key === c.station && !impaired(access.item);
+        return access && !access.blocked && access.ship.id === ship.id && access.seat.key === c.station && !impaired(access.item);
       });
       totals(ship);
     }
@@ -78,8 +79,9 @@
   function command(room, unit, body) {
     refresh(room);
     const access = stations.access(room, unit, String(body.sicId || ''));
-    if (!access || access.kind !== 'shield') return { ok: false, error: 'Remain at this shield or an operational cockpit/bridge.' };
+    if (!access || access.blocked || access.kind !== 'shield') return { ok: false, error: 'Remain at an available shield station or operational cockpit/bridge.' };
     const { ship, item, definition: d } = access, s = ship.shieldSystems[item.id];
+    if(maps.cloaked(ship))return {ok:false,error:'Deactivate Cloaking before restoring shields.'};
     if (impaired(item)) return { ok: false, error: 'Impaired shields cannot use AU abilities.' };
     const requestId = String(body.requestId || '');
     if (!/^[\w-]{8,100}$/.test(requestId)) return { ok: false, error: 'Invalid shield command receipt.' };
@@ -101,7 +103,7 @@
       if (kind === 'restore' && body.amount > Math.ceil(d.shieldHp - s.hp)) return { ok: false, error: 'That purchase exceeds the missing Shield HP.' };
       const cost = body.amount * (kind === 'restore' ? 5 : 3);
       if (cost > powerAvailable(ship)) return { ok: false, error: 'not enough Auxiliary power' };
-      ship.auCommands.push({ unitId: unit.id, sicId: item.id, kind, amount: body.amount, cost, remaining: INPUT_SECONDS, station: access.seat.key, requestId });
+      ship.auCommands.push({ unitId: unit.id, sicId: item.id, kind, amount: body.amount, cost, remaining: INPUT_SECONDS*(access.remote?1:.9), station: access.seat.key, requestId });
     }
     ship.shieldReceipts = [...ship.shieldReceipts, requestId].slice(-256);
     refresh(room);
@@ -125,12 +127,12 @@
     }
     refresh(room); return finished;
   }
-  function damage(room, shipId, amount) {
+  function damage(room, shipId, amount, options={}) {
     refresh(room);
     const ship = room.starships?.find(s => s.id === shipId);
     if (!ship || !Number.isFinite(amount) || amount < 0) return false;
     const active = entries(ship).filter(e => stations.online(e.item) && e.state.hp > 0);
-    if (!active.length) ship.currentHullHp = Math.max(0, number(ship.currentHullHp) - amount);
+    if (!active.length || options.bypassShield) ship.currentHullHp = Math.max(0, number(ship.currentHullHp) - amount);
     else {
       const reduction = active.reduce((n, e) => n + e.definition.shieldReduction + (e.state.protectionRemaining > EPS ? e.state.protection : 0), 0);
       let damage = Math.max(0, amount - reduction) * (active.some(e => impaired(e.item)) ? 2 : 1);
