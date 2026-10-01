@@ -89,3 +89,15 @@ dialog.combat-order-dialog [data-flare-row] select{font-size:12px;padding:8px 4p
 
 .bridge-warp-window i{animation-name:bridge-warp-directed;left:var(--lane);top:var(--lane)}
 @keyframes bridge-warp-directed{from{transform:translate(calc(var(--warp-x,100vw)*-1),calc(var(--warp-y,0vh)*-1)) rotate(var(--warp-direction,0deg))}to{transform:translate(var(--warp-x,100vw),var(--warp-y,0vh)) rotate(var(--warp-direction,0deg))}}
+
+/* Consistent station actions in every console, including compact navigation. */
+dialog[data-console-owner] [data-hold]{background:#85323d!important;color:#fff!important;border-color:#f08b98!important;border-radius:0!important;clip-path:polygon(12% 0,88% 0,100% 25%,100% 75%,88% 100%,12% 100%,0 75%,0 25%);padding-inline:22px;min-height:42px}
+dialog[data-console-owner] [data-hold].resume-ready{background:#247647!important;border-color:#8ae7a9!important;border-radius:50%!important;clip-path:none;aspect-ratio:1;min-width:68px;justify-self:center}
+dialog[data-console-owner] [data-leave]{border-radius:0!important;clip-path:polygon(0 0,87% 0,100% 50%,87% 100%,0 100%);padding-right:24px!important;min-height:42px}
+
+.console-service-panel{grid-column:1/-1;border-top:1px solid #365562;padding:8px 12px;background:#0a1b24;text-align:right}.console-service-panel button{background:#243e49;color:#d6f2fa;border:1px solid #527984}.is-powered-off{filter:grayscale(1) brightness(.9)}.shield-readout{display:flex;align-items:center;gap:24px}.shield-readout>[data-shield-hp]{font-size:clamp(26px,3vw,48px);color:#a7ffdb;white-space:nowrap}
+
+dialog[data-console-owner] [data-hold]{width:72px!important;height:72px!important;min-width:72px!important;max-width:72px!important;min-height:72px!important;max-height:72px!important;flex:0 0 72px!important;aspect-ratio:1!important;justify-self:center;box-sizing:border-box;padding:0!important;clip-path:polygon(29.29% 0,70.71% 0,100% 29.29%,100% 70.71%,70.71% 100%,29.29% 100%,0 70.71%,0 29.29%)}
+
+.console-service-panel{display:flex;flex-wrap:wrap;gap:6px;align-content:start;position:relative;z-index:5;text-align:left;padding:8px}.console-service-panel button{flex:1 1 100px;font:600 12px Arial;padding:9px 6px;min-height:36px;white-space:normal}.console-service-panel [data-console-maintenance=on]{background:#19583f;color:#e0ffee}.console-service-panel [data-console-maintenance=off]{background:#672d3a;color:#fff0f3}.console-service-panel [data-console-maintenance=restart]{background:#745c22;color:#fff7d5}.console-service-panel [data-console-maintenance=repair]{background:#194d69;color:#e0f7ff}.console-service-panel button:disabled{background:#253239;opacity:.6;color:#bac5c8}
+.shared-power [data-common-fleet]{max-height:min(32vh,260px);overflow:auto;scrollbar-gutter:stable}

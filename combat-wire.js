@@ -11,11 +11,12 @@
   }
   function apply(state,packet){
     if(!state||state.revision!==packet.base)throw new Error('Combat update needs a fresh snapshot');
-    let result=state;
+    let result=state;const copied=new WeakSet();
+    const copy=v=>{if(object(v)&&copied.has(v))return v;const n=Array.isArray(v)?v.slice():{...v};copied.add(n);return n;};
     for(const [path,value] of packet.changes){
       if(path.some(key=>['__proto__','prototype','constructor'].includes(key)))throw new Error('Invalid combat update');
       if(!path.length){result=value;continue;}
-      const copy=v=>Array.isArray(v)?v.slice():{...v};
+
       result=copy(result);let node=result;
       for(const key of path.slice(0,-1)){node[key]=copy(node[key]);node=node[key];}
       if(value===undefined)delete node[path.at(-1)];else node[path.at(-1)]=value;

@@ -323,7 +323,7 @@ function fusedResultVisual(value) {
   group.add(core);
   const label = faceLabel(value, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.68, 0), "#05070a", 0.72, "#ffeaff");
   group.add(label);
-  return { group, material, label };
+  return { group, material, label, core };
 }
 
 function disposeObject(object) {
@@ -439,7 +439,7 @@ export class PhysicalDiceRoller {
 
   rollPool({ sides, title, subtitle, onResolved, onSettled, anchor, fusion = true, damage = false, values = null, color = null, presentation = null }) {
     const avalanche = presentation === 'avalanche';
-    if (avalanche) sides = sides.slice(0, 192);
+    if (avalanche) sides = sides.slice(0, 96);
     const palette = {
       4: { color: 0x3f1955, accent: "#eac5ff" },
       6: { color: 0x18354e, accent: "#b9f4ff" },
@@ -618,7 +618,7 @@ export class PhysicalDiceRoller {
 
     if (!this.active.resolved) {
       for(const item of this.active.dice){if(!item.released&&time-this.startedAt>=item.releaseAt){this.world.addBody(item.body);item.released=true;item.visual.group.visible=true;}}
-      this.world.step(1 / 60, elapsed, 4);
+      this.world.step(1 / 60, elapsed, this.active.avalanche ? 1 : 4);
       for (const item of this.active.dice) {
         item.visual.group.position.copy(item.body.position);
         item.visual.group.quaternion.copy(item.body.quaternion);
@@ -741,7 +741,7 @@ export class PhysicalDiceRoller {
         pair.visual.group.scale.setScalar((1 - (1 - scale) ** 3) * (1 + Math.sin(birth / 62) * 0.06));
         pair.visual.material.color.setHSL((birth / 850) % 1, 0.88, 0.58);
         pair.visual.material.emissive.setHSL((birth / 850 + 0.16) % 1, 0.92, 0.42);
-        pair.visual.group.rotation.y += 0.055;
+        pair.visual.core.rotation.y += 0.055;
         if (age > 1380) {
           const opacity = Math.max(0, 1 - (age - 1380) / 420);
           pair.visual.group.traverse((child) => {

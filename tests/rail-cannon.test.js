@@ -187,7 +187,7 @@ test('console displays Iron, manual-only fire, shield immunity, and disables emp
     querySelector(selector){if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector);}};}
   const document={...node(),defaultView:{frameElement:null},body:node(),head:node(),createElement:node,querySelector:()=>null};
   const window={SACombatBridge:{state:()=>room,soundIcon:()=>'',delayIcon:()=>'',consoleTick(){},resumeAudio(){}},
-    SAShipLocks:locks,SAStationAccess:stations,SAShipWeapons:weapons,SAShipSensors:sensors,SASpaceMap:{markup:()=>''},
+    SAShipLocks:locks,SAStationAccess:stations,SAShipWeapons:weapons,SAShipSensors:sensors,SASpaceMap:{markup:()=>'',update(){}} ,
     SAShipNavigationUI:{mountSelector(){}},SAConsoleCommon:{updateSound(){}},addEventListener(){}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','weapon-console-ui.js'),'utf8'),{
     window,document,location:{href:'http://localhost/'},URL,performance:{now:()=>0},setInterval:callback=>intervals.push(callback)

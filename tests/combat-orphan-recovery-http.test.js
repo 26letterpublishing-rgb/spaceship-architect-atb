@@ -26,6 +26,7 @@ test('combat removal and simultaneous completions retain a reachable resolution 
     });
   });
   const post = async (route, body) => {
+    body=await require('./helpers/confirmed-encounter.cjs')(base,body);
     const response = await fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const value = await response.json(); assert.equal(response.status, 200, JSON.stringify(value)); return value;
   };

@@ -364,3 +364,7 @@ body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-ac
 .grid-toolbar button[aria-label="Enlarge ship interior"]{white-space:nowrap;min-width:90px}
 
 .embedded-move-controls.is-selecting :is([data-action="console"],[data-action="diagnostics"]){display:none!important}
+
+.keyboard-movement-active .embedded-move-route{display:none!important}.keyboard-movement-active .embedded-move-target{outline:0!important;box-shadow:none!important;background-color:transparent!important}.embedded-move-controls [data-action=console]:not(:disabled){background:#196143;color:white;border-color:#65e1a1}.embedded-move-controls [data-action=console]:disabled{background:#41494e;color:#c1c7cc}.embedded-move-controls [data-action=keyboard],.embedded-move-controls [data-action=power]{flex-basis:100%}
+
+[data-save-starship-crew]{background:#48535c!important;color:#fff!important}[data-save-starship-crew].assignments-dirty{background:#20874c!important;color:#fff!important;border-color:#85f4ac!important}

@@ -48,3 +48,5 @@ body .map-focus{position:fixed!important;inset:10px!important;margin:0!important
 @media(max-width:720px){[data-map-editor].map-focus>.space-map{grid-template-columns:1fr;grid-template-rows:auto minmax(240px,1fr) 150px}}
 
 [data-map-editor] .space-map-coordinates input[type=radio]{width:18px;height:18px;min-width:18px;min-height:18px;justify-self:start;padding:0;box-shadow:none}
+
+@media(prefers-reduced-motion:no-preference){.space-map:not(:has(.space-map-coordinates)) [data-space-ship]{transition:transform .2s linear}}

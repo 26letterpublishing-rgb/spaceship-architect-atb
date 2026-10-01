@@ -2,7 +2,7 @@
 const maps=require('./ship-map-core');
 const DEPLETION=90/165,REFILL=1.5,THRESHOLD=10,EPS=1e-7;
 const cache=new WeakMap();
-function layout(ship){const s=ship.ship||ship,key=JSON.stringify([s.gridCells,s.placements,(s.sicInventory||[]).map(i=>[i.id,i.type,i.rotation,i.stationLayout])]);const old=cache.get(s);if(old?.key===key)return old.value;const value=maps.buildLayout(s);cache.set(s,{key,value});return value;}
+function layout(ship){const s=ship.ship||ship,key=JSON.stringify([s.gridCells,s.placements,(s.sicInventory||[]).map(i=>[i.id,i.type,i.rotation,i.stationLayout,i.bayWidth,i.bayHeight,i.brigWidth,i.brigHeight])]);const old=cache.get(s);if(old?.key===key)return old.value;const value=maps.buildLayout(s);cache.set(s,{key,value});return value;}
 function sync(ship){
   const s=ship.ship||ship,l=layout(ship),old=s.atmosphereState;
   const initial=old?100:s.oxygenState?Math.max(0,Math.min(100,10+(Number(s.oxygenState.graceRemaining)||0)*DEPLETION)):100;
@@ -18,14 +18,18 @@ function groups(ship,actors=[]){
     for(let n=0;n<cells.length;n++)for(const side of l.sides){const square=cells[n],next=square+side.offset;if(!side.valid(square)||seen.has(next)||data.cells[next]===undefined)continue;const e=l.edge(square,next);if(e.kind==='wall'||e.kind==='door'&&s.doorStates?.[e.key]!=='open'&&!doors.has(e.key))continue;seen.add(next);cells.push(next);}
     const vent=cells.some(k=>{const c=l.footprint.get(k),d=c&&s.fieldState?.systems?.[c.sicId];return c?.type==='docking-bay'&&d?.doorOpen&&!d.shield;});
     const cockpit=cells.every(k=>{const c=l.footprint.get(k);return /^cockpit-/.test(c?.type||'')&&maps.operational(c.item)&&!c.item.impaired&&!c.item.impairmentPoints;});
+    const openings=require('./ship-breaches').hazards(ship).filter(h=>cells.includes(h.square));
+    const ventingRooms=new Set(openings.map(h=>require('./ship-doors').roomKey(ship,h.square,l)));
+    const vacuumCells=openings.length?cells.filter(k=>ventingRooms.has(require('./ship-doors').roomKey(ship,k,l))).length:0;
+    const vacuumRate=vacuumCells?100/24*vacuumCells/cells.length:0;
     const supplied=maps.oxygenEnabled(ship)||cockpit;
     const oxygen=cells.reduce((n,k)=>n+data.cells[k],0)/cells.length;
-    result.push({cells,oxygen,vent,supplied,rate:vent||!supplied?-DEPLETION:REFILL});
+    result.push({cells,oxygen,vent,supplied,rate:vacuumRate?-vacuumRate:vent||!supplied?-DEPLETION:REFILL});
   }
   return result;
 }
 function advance(ship,seconds,actors=[]){const list=groups(ship,actors),data=(ship.ship||ship).atmosphereState;for(const g of list){const oxygen=Math.max(0,Math.min(100,g.oxygen+g.rate*Math.max(0,seconds)));for(const k of g.cells)data.cells[k]=oxygen;}return data;}
 function at(ship,location){const s=ship.ship||ship;if(!s.atmosphereState)sync(ship);const value=s.atmosphereState.cells[location?.square];return Number.isFinite(value)?value:Math.min(100,...Object.values(s.atmosphereState.cells));}
 function nextEvent(ship){const list=groups(ship);return Math.min(Infinity,...list.filter(g=>g.rate<0&&g.oxygen>THRESHOLD+EPS).map(g=>(g.oxygen-THRESHOLD)/-g.rate));}
-function active(ship){const s=ship.ship||ship;return !maps.oxygenEnabled(ship)||Object.values(s.fieldState?.systems||{}).some(d=>d.doorOpen&&!d.shield)||Object.values(s.atmosphereState?.cells||{}).some(v=>v<100-EPS);}
+function active(ship){const s=ship.ship||ship;return require('./ship-breaches').hazards(ship).length>0||!maps.oxygenEnabled(ship)||Object.values(s.fieldState?.systems||{}).some(d=>d.doorOpen&&!d.shield)||Object.values(s.atmosphereState?.cells||{}).some(v=>v<100-EPS);}
 module.exports={DEPLETION,REFILL,THRESHOLD,sync,groups,advance,at,nextEvent,active,layout};

@@ -1,35 +1,19 @@
-// Additional saved Explore designs; the two original ships remain unchanged.
-const maps=require('./ship-map-core'),make=require('./showcase-ships'),power=require('./ship-power');
-module.exports=function variants(){
- const result=[];
- for(const side of ['pc','gm'])for(const [key,label,types]of [
-  ['ai','Ship AI, Repair Drone 5',['ship-ai']],
-  ['crew','VR Training, Medbay, Library, Cameras',['vr-training-room','medbay','library','surv-camera']],
-  ['warp','Warp Drive 2, Fuel',['warp-drive-2']],
-  ['sensors','Sensors, Antenna 4, Cameras',['antenna-4','surv-camera']],
-  ['probes','Probe Launcher, Probes 1-5, Probe Attachments, Hacking',['probe-launcher','hacking-module-1']]
- ]){
-  const names={ai:['Clockwork Guardian','Iron Warden'],crew:['Hearthlight','Sanctuary'],warp:['Farstrider','Starbound Courier'],sensors:['Farwatch','Silent Listener'],probes:['Pathseeker','Ghost Surveyor']};
-  const id=`showcase-${side}-${key}`,ship=make(id,`${names[key][side==='pc'?0:1]} — ${label}`,side,[],146,[]);
-  if(key==='ai')ship.ship.sicInventory.find(i=>i.type==='repair-drone-1').type='repair-drone-5';
-  if(key==='crew'||key==='sensors'||key==='probes'){
-   const removed=new Set(ship.ship.sicInventory.filter(i=>maps.definition(i.type).weapon||i.type.startsWith('darkveil')).map(i=>i.id));
-   ship.ship.sicInventory=ship.ship.sicInventory.filter(i=>!removed.has(i.id));ship.ship.placements=ship.ship.placements.filter(p=>!removed.has(p.sicId));ship.ship.missileAmmo={};
-  }
-  if(key==='crew')ship.ship.gridCells.push(...maps.rectangleCells(ship.ship,142,4,10));
-  for(const type of types){
-   const def=maps.definition(type),item={id:id+'-'+type,type,status:'installed',stationLayout:'corners-v1'},layout=maps.buildLayout(ship.ship);let cell;
-   if(def.bridgeAddon)cell=ship.ship.placements.find(p=>maps.definition(ship.ship.sicInventory.find(i=>i.id===p.sicId)?.type).bridge).cell;
-   else if(def.exterior){for(let n=0;n<400;n++)if(maps.exteriorPlacement(ship.ship,type,n,item.id)){cell=n;break;}}
-   else cell=ship.ship.gridCells.find(n=>{const cells=maps.rectangleCells(ship.ship,n,def.width,def.height);return cells.length===def.width*def.height&&cells.every(c=>ship.ship.gridCells.includes(c)&&!layout.footprint.get(c)?.sicId)&&(!def.edge||maps.componentAtEdge(ship.ship,n,item));});
-   if(cell==null)throw Error('No legal place for '+type+' in '+id);
-   ship.ship.sicInventory.push(item);ship.ship.placements.push({sicId:item.id,cell});
-  }
-  if(key==='probes'){const launcher=ship.ship.sicInventory.find(i=>maps.definition(i.type).probeLauncher),cell=ship.ship.placements.find(p=>p.sicId===launcher.id).cell;for(let tier=1;tier<=5;tier++){const item={id:id+'-probe-'+tier,type:'probe-'+tier,attachTo:launcher.id,status:'installed',storage:tier===2};ship.ship.sicInventory.push(item);if(!item.storage)ship.ship.placements.push({sicId:item.id,cell});}for(const type of ['shield-breacher','hacking-bug','warp-bubble-inhibitor']){const item={id:id+'-'+type,type,attachTo:id+'-probe-5',status:'installed'};ship.ship.sicInventory.push(item);ship.ship.placements.push({sicId:item.id,cell});}}
-  ship.ship.warpFuel=key==='warp'?{F:6,D:3}:{};ship.ship.groupCredits=25000;
-  const error=maps.exteriorError(ship.ship)||power.constructionError(ship);if(error)throw Error(ship.title+': '+error);
-  result.push(ship);
- }
- result.push(require('./showcase-cleanser')());
- return result;
-};
+const build=require('./showcase-fleet-builder');
+const roles=[
+ ['science',['Foundry','Workshop'],'Fabrication, mineral processing & research',['mining-laser','vulture-drone','science-lab','3d-printer','mineral-processor','library','tractor-beam','manipulation-arm']],
+ ['devastation',['Hothead','Sunburn'],'Charged lasers, rail weapons & layered shields',['devastation-laser-1','ion-disruptor','ionic-force-displacers','ballistic-rail-repeater','ballistic-rail-cannon','shield-2','static-shield','burst-shield-reactivator','emergency-shield-recharger','ripple-reflector']],
+ ['transport',['Gatecrasher','Party Crasher'],'Boarding, cameras, brig & escape pods',['transporter','transport-scrambler','surv-camera','brig','escape-pods','hacking-module-3','medbay']],
+ ['mines',['Breadcrumbs','Tripwire'],'Mines, missiles, flares & salvage',['mine-launcher','missile-launcher-1','tractor-beam','manipulation-arm','surv-camera']],
+ ['cloak',['Peekaboo','Hideaway'],'Cloaking, Darkveil, hacking & security',['analysis-screening','cloaking-device','darkveil-8','hacking-module-4','scramble-box','hack-alert','surv-camera','ion-pulse-cannon-3']],
+ ['ai',['Autopilot','Handyman'],'Ship AI, repairs, defenses & backup power',['hull-breach-repair-drone','ship-ai','holographic-projector','backup-generator','shield-2','static-shield','vulnerability-fortification','power-core-damper','hull-plating','heat-resistance','laser-resistance']],
+ ['crew',['Clubhouse','Lifeboat'],'Crew rooms, training, medicine & survival',['vr-training-room','medbay','library','surv-camera','gym','meeting-room','bar','hibernation-chamber','brig','escape-pods']],
+ ['warp',['Road Trip','Long Haul'],'Warp, gravity immunity, docking & land travel',['warp-drive-2','ew-ftl-drive','gravity-absolution-field','docking-bay','land-wheels','hibernation-chamber']],
+ ['sensors',['Lookout','Radar Love'],'Sensors, antenna, hacking & reflected fire',['antenna-4','surv-camera','hacking-module-5','ripple-reflector','ripple-cannon-5','beam-laser-5']],
+ ['probes',['Scout','Busybody'],'All probe grades, attachments, hacking & salvage',['probe-launcher','hacking-module-3','tractor-beam','manipulation-arm','docking-bay']]
+];
+const colors=['#48d9eb','#fa9c68','#b39cff','#f1d16a','#73d9a2','#79a8ff','#f39bc3','#b9d56f','#ee7b85','#94c9e7','#58d2b3','#f5b576','#c4a6ed','#d6c269','#a8cfb9','#91b3ef','#e9a7d2','#c8d78a','#f19c91','#b5d5e8'];
+let cached;
+module.exports=function(){if(cached)return structuredClone(cached);const result=[];for(const side of ['pc','gm'])for(const [key,names,focus,source]of roles){const types=source.map(t=>side==='gm'&&t==='devastation-laser-1'?'devastation-laser-2':t);result.push(build({id:`showcase-${side}-${key}`,title:names[side==='pc'?0:1],side,focus,types,color:colors[result.length],large:['crew','warp','devastation'].includes(key)}));}
+ result.push(build({id:'showcase-pc-cleanser',title:'Cleaning Lady',focus:'Planetary Cleanser, Black Hole Gun & layered shields',color:'#d99bff',large:true,types:['planetary-cleanser','black-hole-gun','shield-2','static-shield','self-destruct','surv-camera']}));
+ const menace=require('./showcase-menace')();menace.title=menace.ship.title='Menace';menace.ship.class='Capital ship: Cleanser, cloaking, gravity & heavy weapons';menace.ship.mapColor='#ec738d';result.push(menace);cached=structuredClone(result);return result;};
+module.exports.roles=roles;

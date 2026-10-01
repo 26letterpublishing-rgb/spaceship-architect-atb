@@ -1,8 +1,42 @@
 const policy=require('./ship-automation'),sensors=require('./ship-sensors'),crypto=require('node:crypto');
 // Called inside the same per-room queue used by human actions. No client can call
 // the internal action executor or supply the automatic dice results.
+async function exploreAttack(room,seconds,{act,publish}){
+  const a=room.attackResolution;if(!room.showcase||!a)return false;
+  if(a.phase==='gmDamage'){await act({action:'confirmNpcDamage',attackId:a.id,finalDamage:a.damageSummary.applied});publish();return true;}
+  const attacker=room.units.find(u=>u.id===a.attackerId),defender=room.units.find(u=>u.id===a.defenderId);
+  const role=a.phase==='checks'&&!a.attackerRoll&&attacker?.team==='npc'&&policy.active(attacker)?'attacker':a.phase==='checks'&&!a.defenseRoll&&defender?.team==='npc'&&policy.active(defender)?'defender':a.phase==='damage'&&!a.damageRoll&&attacker?.team==='npc'&&policy.active(attacker)?'damage':null;
+  if(!role)return false;
+  const unit=role==='defender'?defender:attacker,key=a.id+':'+role;
+  let show=unit.automationPresentation;
+  if(show?.id!==key){
+    const damage=role==='damage',formula=damage?require('./combat-rules').parseDiceFormula(a.plan.damageFormula):null;
+    const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(unit.dexterityDice||[])];
+    if(role==='attacker'&&a.attackType!=='melee'&&a.aimDie>0)sides.push(a.aimDie);
+    const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:['Melee','Wrestle/Disarm'].includes(a.plan.attackSkill)?unit.meleeSkill:unit.projectileSkill)||0;
+    const values=sides.map(s=>crypto.randomInt(1,s+1)),score=(damage?values.reduce((n,v)=>n+v,0):sensors.fusedTotal(values))+bonus;
+    unit.automationPresentation={id:key,label:unit.characterName+' '+role,sides,values,score,displayScore:score,damage,phase:'rolling',remaining:1.2,personalAttack:true};publish();return true;
+  }
+  if(!show.animationComplete)return true;
+  show.remaining-=Math.min(.5,Math.max(0,seconds));if(show.remaining>0)return true;
+  const result=await act(role==='damage'?{action:'submitAttackDamage',id:unit.id,attackId:a.id,rolledDamage:show.score,diceResults:show.values}:{action:'submitAttackRoll',id:unit.id,attackId:a.id,rollRole:role,score:show.score,diceResults:show.values});
+  if(result.ok){show.phase='complete';show.completedAt=Date.now();publish();}return true;
+}
+async function exploreFirstAid(room,seconds,{act,publish}){
+ const a=room.itemResolution;if(!room.showcase||!a||!room.units.some(policy.active))return false;
+ if(a.phase==='gmDifficulty'){await act({action:'setFirstAidDifficulty',difficulty:a.baseDifficulty||12});publish();return true;}
+ const unit=room.units.find(u=>u.id===a.healerId);if(unit?.team!=='npc'||!policy.active(unit))return false;
+ const healing=a.phase==='healing';if(!['roll','healing'].includes(a.phase))return false;
+ const key=a.id+':'+a.phase;let show=unit.automationPresentation;
+ if(show?.id!==key){const formula=healing?require('./combat-rules').parseDiceFormula(a.healingFormula):null,sides=healing?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):require('./combat-engine').npcAttributeDice(unit.mentalAttribute),values=sides.map(s=>crypto.randomInt(1,s+1)),score=(healing?values.reduce((sum,n)=>sum+n,0):sensors.fusedTotal(values))+(healing?Number(formula.flat||0):Number(unit.mentalSkill||0));unit.automationPresentation={id:key,label:unit.characterName+(healing?' healing':' First Aid'),sides,values,score,displayScore:score,damage:healing,personalAttack:true,phase:'rolling',remaining:1.2};publish();return true;}
+ if(!show.animationComplete)return true;show.remaining-=Math.min(.5,Math.max(0,seconds));if(show.remaining>0)return true;
+ const result=await act({action:healing?'submitFirstAidHealing':'submitFirstAidRoll',id:unit.id,resolutionId:a.id,score:show.score,rolledHealing:show.score,diceResults:show.values});if(result.ok){show.phase='complete';show.completedAt=Date.now();publish();}return true;
+}
 async function step(room,seconds,{act,publish,off}){
-  if(room.hardPaused||room.holdPaused||!room.hasEngagedClock||room.encounterEndedAt||room.attackResolution||room.itemResolution||room.delayRequest)return;
+  if(room.hardPaused||room.holdPaused||!room.hasEngagedClock||room.encounterEndedAt)return;
+  if(await exploreAttack(room,seconds,{act,publish}))return;
+  if(await exploreFirstAid(room,seconds,{act,publish}))return;
+  if(room.attackResolution||room.itemResolution||room.delayRequest)return;
   const waits=room.units.filter(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length);
   if(waits.some(u=>!u.delayedAction?.automated))return;
   if(require('./ship-oxygen').pending(room.starships))return;

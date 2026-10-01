@@ -1,0 +1,2 @@
+const build=require('./showcase-fleet-builder');
+module.exports=function(id,side,crew=[],npcs=[]){const pc=side==='pc';return build({id,side,crew,npcs,title:pc?'Jackpot':'Bruiser',color:pc?'#35c9ff':'#ff806a',focus:'Mixed weapons, missiles, repairs & layered shields',large:false,types:['rapid-laser-'+(pc?5:4),'beam-laser-'+(pc?4:3),'ripple-cannon-'+(pc?4:3),'ion-pulse-cannon-1','missile-launcher-1','shield-2','darkveil-'+(pc?4:5)]});};

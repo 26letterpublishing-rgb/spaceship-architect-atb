@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.SASpaceObjects=api;}(typeof window!=='undefined'?window:null,function(){
-  const minerals=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron'];
+  const minerals=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron','Dark Phazon','Phazon','Ragnaron','Transpherion','Rupium','Crixium'];
   function defaultName(kind,mineral='Iron'){
-    return kind==='mineral'?`${mineral} Deposit`:kind==='asteroid'?'Asteroid':kind==='planet'?'Unnamed Planet':'Named Object';
+    return kind==='mineral'?`${mineral} Deposit`:kind==='asteroid'?'Asteroid':kind==='planet'?'Unnamed Planet':kind==='black-hole'?'Black Hole':'Named Object';
   }
   function withPositions(objects,points){
     const positions=new Map(points.map(p=>[p.id,p]));
@@ -27,11 +27,13 @@
     if(!Array.isArray(values)||values.length>100)throw Error('Place at most 100 space objects.');
     const ids=new Set();return values.map(o=>{
       if(!o||!/^object-[\w-]{4,90}$/.test(o.id)||ids.has(o.id))throw Error('Each space object needs a unique identifier.');ids.add(o.id);
-      if(!['mineral','asteroid','object','planet'].includes(o.kind)||typeof o.name!=='string'||!o.name.trim()||o.name.length>80)throw Error('Choose an object type and name (up to 80 characters).');
-      if(!Number.isInteger(o.q)||!Number.isInteger(o.r)||Math.abs(o.q)>10000||Math.abs(o.r)>10000)throw Error('Object coordinates must be whole hexes within the map.');
+      if(!['mineral','asteroid','object','planet','black-hole'].includes(o.kind)||typeof o.name!=='string'||!o.name.trim()||o.name.length>80)throw Error('Choose an object type and name (up to 80 characters).');
+      if((!o.pullCycle&&(!Number.isInteger(o.q)||!Number.isInteger(o.r)))||!Number.isFinite(o.q)||!Number.isFinite(o.r)||Math.abs(o.q)>10000||Math.abs(o.r)>10000)throw Error('Object coordinates must be whole hexes within the map.');
       if(!Number.isInteger(o.quantity)||o.quantity<1||o.quantity>10000)throw Error('Object quantity must be between 1 and 10,000.');
+      if(o.kind==='asteroid'&&(o.quantity>50||o.miningTarget!==undefined&&(!Number.isInteger(o.miningTarget)||o.miningTarget<1||o.miningTarget>11)))throw Error('Asteroids allow 1–50 attempts and a mining target from 1 to 11.');
       if(o.kind==='mineral'&&!minerals.includes(o.mineral))throw Error('Choose a supported mineral.');
-      return {id:o.id,kind:o.kind,name:o.name.trim(),q:o.q,r:o.r,quantity:o.quantity,mineral:o.kind==='mineral'?o.mineral:null,...(o.kind==='planet'?{quantity:1,variant:['ocean','desert','ice','volcanic'].includes(o.variant)?o.variant:['ocean','desert','ice','volcanic'][[...o.id].reduce((n,c)=>n+c.charCodeAt(0),0)%4],...(Number.isFinite(o.destroyedAt)&&o.destroyedAt>0?{destroyedAt:o.destroyedAt,destroyedBy:String(o.destroyedBy||'')}:{} )}: {})};
+      if(o.kind==='black-hole'&&(!Number.isInteger(o.intensity)||o.intensity<1||o.intensity>100))throw Error('Black hole intensity must be a whole number from 1 to 100.');
+      return {...(o.gunOrb&&Number.isInteger(o.gunOrb.intensity)&&o.gunOrb.intensity>=1&&o.gunOrb.intensity<=100&&Number.isFinite(o.gunOrb.remaining)&&Number.isInteger(o.gunOrb.target?.q)&&Number.isInteger(o.gunOrb.target?.r)&&Math.abs(o.gunOrb.target.q)<=10000&&Math.abs(o.gunOrb.target.r)<=10000?{gunOrb:{intensity:o.gunOrb.intensity,remaining:Math.max(0,Math.min(60,o.gunOrb.remaining)),target:{q:o.gunOrb.target.q,r:o.gunOrb.target.r}}}:{}),...(o.kind==='black-hole'&&o.gunDecay&&Number.isFinite(o.gunDecay.remaining)?{gunDecay:{remaining:Math.max(.000001,Math.min(15,o.gunDecay.remaining))}}:{}),...(o.kind==='black-hole'?{intensity:o.intensity}:{}),id:o.id,kind:o.kind,...(o.pullCycle&&Number.isFinite(o.pullCycle.remaining)?{pullCycle:{...(o.pullCycle.period===5?{period:5}:{}),remaining:Math.max(0,Math.min(24,o.pullCycle.remaining)),fields:(o.pullCycle.fields||[]).filter(f=>typeof f.id==='string'&&Number.isFinite(f.amount)&&f.amount>=0&&f.amount<=100).map(f=>({id:f.id,amount:f.amount}))}}:{}),...(Number.isFinite(o.gravityPullElapsed)?{gravityPullElapsed:Math.max(0,Math.min(12,o.gravityPullElapsed))}:{}),...(o.kind==='asteroid'?{miningTarget:o.miningTarget??6}:{}),name:o.name.trim(),q:o.q,r:o.r,quantity:o.quantity,mineral:o.kind==='mineral'?o.mineral:null,...(o.kind==='planet'?{quantity:1,variant:['ocean','desert','ice','volcanic'].includes(o.variant)?o.variant:['ocean','desert','ice','volcanic'][[...o.id].reduce((n,c)=>n+c.charCodeAt(0),0)%4],...(Number.isFinite(o.destroyedAt)&&o.destroyedAt>0?{destroyedAt:o.destroyedAt,destroyedBy:String(o.destroyedBy||'')}:{} )}: {})};
     });
   }
   function reconcile(previous,draft,next){

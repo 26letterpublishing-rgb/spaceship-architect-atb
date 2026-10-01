@@ -1,6 +1,7 @@
 const startupParams = new URLSearchParams(window.location.search);
 const embeddedGm = startupParams.get("embedded") === "gm";
-const embeddedPlayer = startupParams.get("embedded") === "player";
+const embeddedSpectator = startupParams.get("embedded") === "spectator";
+const embeddedPlayer = startupParams.get("embedded") === "player" || embeddedSpectator;
 let embeddedViewInitializing = embeddedGm || embeddedPlayer;
 const requestedCampaignCode = String(startupParams.get("campaign") || "").trim().toUpperCase();
 const requestedCampaignCharacter = String(startupParams.get("character") || "");
@@ -29,6 +30,7 @@ let lastInterruptedNotice = "";
 let lastHandledDelayRequest = "";
 let lastDamageAlertId = "";
 let gmDamageTargetId = "";
+let gmDamageShipId = "";
 let lastCombatPromptKey = "";
 let gmForcedDefenseEntry = false;
 let gmNpcPromptSignature = "";
@@ -1541,10 +1543,10 @@ function shipScopedLogEntries(shipId, units) {
   });
 }
 
-function shipCombatColumnsMarkup(units) {
+function shipCombatColumnsMarkup(units, includeMap=true) {
   const ships = (state?.starships || []).filter(s=>!s.escapedAt&&s.ship?.warpState?.phase!=='traveling').sort((a,b)=>Number(a.controlType==='gm')-Number(b.controlType==='gm'));
   const emptyActivity=ships.filter(s=>!s.contactOnly).length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode==='gm')}</p>`).join('')}</article>`:'';
-  return `<div class="ship-combat-columns" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="combat-space-map" style="grid-column:1/-1">${window.SASpaceMap.markup(ships,state.shipPositions)}</div>${ships.filter(s=>!s.contactOnly).map((ship) => {
+  return `<div class="ship-combat-columns" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="combat-space-map" style="grid-column:1/-1">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${ships.filter(s=>!s.contactOnly).map((ship) => {
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
     const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
     const title = ship.title || ship.ship?.title || "Unnamed Starship";
@@ -1552,7 +1554,7 @@ function shipCombatColumnsMarkup(units) {
       ? tacticalRingSingleMarkup(shipUnits, ship.id)
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
-      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button>`:''}</header>
+      <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button><button type="button" class="mini danger" data-remove-combat-ship="${escapeHtml(ship.id)}">Remove from Combat</button>`:''}</header>
       <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
       <div class="ship-lane-atb">${mode==='gm'&&visualMode==='ring'?shipUnits.filter(u=>u.team==='npc').map(u=>`<div class="crew-automation-controls"><strong>${escapeHtml(u.characterName)}</strong> ${automationControlsMarkup(u,true)}</div>`).join(''):''}${shipUnits.filter(u=>u.consoleHold).map(u=>`<div class="ship-hold-control">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</div>`).join('')}${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode === "gm")}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
@@ -1562,8 +1564,12 @@ function shipCombatColumnsMarkup(units) {
 }
 
 function renderShipCombatColumns() {
+  // Keep authoritative state and alerts live, but do not rebuild covered interiors.
+  try{if(document.hidden||window.frameElement&&!window.frameElement.getClientRects().length)return;}catch{}
+  let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+  if(host.querySelector('dialog[open][data-console-owner]')){window.SASpaceMap.refresh?.(state.starships,state.shipPositions,gmKnowledgeObserver());return;}
   const template = document.createElement("template");
-  template.innerHTML = shipCombatColumnsMarkup(state.units);
+  template.innerHTML = shipCombatColumnsMarkup(state.units,false);
   const next = template.content.firstElementChild;
   const current = unitList.querySelector(".ship-combat-columns");
   const keys = (element) => [...element.children].map((lane) => lane.dataset.shipCombatLane).join("|");
@@ -1573,7 +1579,9 @@ function renderShipCombatColumns() {
     // Keep map controls mounted while live ATB updates arrive.
     [...current.children].forEach((lane, index) => {
       const replacement = next.children[index];
-      if (lane.classList.contains("combat-space-map")) { window.SALiveDOM.render(lane.querySelector('.space-map'),replacement.querySelector('.space-map').innerHTML); return; }
+      if (lane.classList.contains("combat-space-map")) {
+        return;
+      }
       if(lane.classList.contains('empty-contact-activity')){window.SALiveDOM.render(lane,replacement.innerHTML);return;}
       for (const selector of [".ship-lane-atb", ".ship-lane-log"]) {
         const target = lane.querySelector(selector);
@@ -1588,6 +1596,7 @@ function renderShipCombatColumns() {
       }
     });
   }
+  window.SASpaceMap.update(unitList.querySelector(".combat-space-map"),state.starships,state.shipPositions);
   updateShipAuMeters();
   updateShipHeaders();
   window.SACombatMap?.renderInlineMaps?.(unitList);
@@ -1654,7 +1663,7 @@ function updateShipHeaders() {
     const hull = Number(ship.currentHullHp ?? ship.ship?.currentHullHp ?? hullMax) || 0;
     const shieldMax = Number(ship.maximumShieldHp ?? ship.ship?.maximumShieldHp) || 0;
     const shield = Number(ship.currentShieldHp ?? ship.ship?.currentShieldHp ?? shieldMax) || 0;
-    header.innerHTML = [["hull", hull, hullMax], ["shield", shield, shieldMax]].map(([kind, value, max]) => window.SAHealthDisplay.track(kind, value, max, mode === "gm")).join("");
+    header.innerHTML = window.SAHealthDisplay.hull(ship, mode === "gm") + window.SAHealthDisplay.shields(ship, mode === "gm");
     const distances = unitList.querySelector(`[data-ship-distances="${CSS.escape(ship.id)}"]`);
     const nav=ship.navigation;
     distances.textContent = [nav && nav.phase !== 'stopped' ? `${nav.phase === 'drift' ? 'Drifting' : 'Moving'}: ${nav.speed} Units / 12 sec` : '',...window.SAShipDistances.pairs(ships.filter(s=>!s.isMissile), state.shipDistances).filter(pair => pair.a === ship.id || pair.b === ship.id).map(pair => `${ships.find(other => other.id === (pair.a === ship.id ? pair.b : pair.a))?.title}: ${Number(pair.units.toFixed(1))} Units`)].filter(Boolean).join(" · ");
@@ -1802,7 +1811,7 @@ function receiveState(nextState, { force = false, streamReset = false } = {}) {
   render();
   window.dispatchEvent(new CustomEvent("sa-combat-state", { detail: { state, mode, myUnitId } }));
   if(embeddedPlayer&&parent!==window){
-    const positions={encounterEndedAt:state.encounterEndedAt,units:state.units.map(u=>({characterId:u.characterId,location:u.location}))},key=JSON.stringify(positions);
+    const positions={encounterEndedAt:state.encounterEndedAt,units:state.units.map(u=>({id:u.id,team:u.team,characterId:u.characterId,characterName:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location}))},key=JSON.stringify(positions);
     if(key!==lastLocationMessage){lastLocationMessage=key;parent.postMessage({type:'sa-encounter-view',state:positions},location.origin);}
   }
   return true;
@@ -1823,6 +1832,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
       body: JSON.stringify({
         ...payload,
         roomCode: currentRoomCode,
+        expectedEncounterId:state?.encounterId,
         gmToken: mode === "gm" ? gmCampaignToken : undefined,
         characterToken: mode === "player" || payload.controlledBy === "player" ? campaignCharacterToken : undefined,
         characterId: payload.characterId || (mode === "player" ? campaignCharacterId : undefined),
@@ -1836,7 +1846,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
   if (!response.ok) {
     const failure = await response.json().catch(()=>null);
     if (response.status === 404) {
-      returnToWelcome("That room expired. Create or join a new room.");
+      setConnected(false, "The encounter is temporarily unavailable. Your current view is preserved; reconnect or use campaign recovery.");
     } else {
       setConnected(false, "The ATB room server rejected that action. Try again.");
     }
@@ -1846,7 +1856,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
   try {
     const nextState = await response.json();
     // A slow action response must not replace a newer live encounter update.
-    receiveState(nextState);
+    if (Array.isArray(nextState?.units)) receiveState(nextState);
   } catch {
     setConnected(false, "The ATB room server sent an unreadable response. Try again.");
     if (throwOnError) throw new Error("The response was interrupted. Check the ship's current order before retrying.");
@@ -1857,6 +1867,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 }
 
 window.SACombatBridge = {
+  crewLogRequest:body=>campaignRequest('/api/campaign/crew-log',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken})}),
   setShipColor:(shipId,color)=>action({action:'setShipColor',shipId,color},'tap'),
   surveillanceRequest:body=>campaignRequest('/api/campaign/starship/surveillance',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:mode==='player'?campaignCharacterId:body.characterId})}),
   fieldUtilityRequest:async body=>{
@@ -1865,7 +1876,7 @@ window.SACombatBridge = {
     if(response.campaign)receiveCampaignUpdate(response.campaign);return response;
   },
   crewRoomRequest:async body=>{
-    if(!state?.practice&&body.kind!=='inspect')return action({...body,action:body.jobId?'crewRoomResolve':'crewRoomCommand'},'resolve',{throwOnError:true});
+    if(!state?.practice&&body.kind!=='inspect')return action({...body,action:body.jobId&&!String(body.kind).startsWith('fabricate-')&&!String(body.kind).startsWith('extract-')?'crewRoomResolve':'crewRoomCommand'},'resolve',{throwOnError:true});
     const response=await campaignRequest('/api/campaign/starship/crew-room',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:body.characterId||(mode==='player'?campaignCharacterId:undefined)})});
     if(response.campaign)receiveCampaignUpdate(response.campaign);return response;
   },
@@ -1878,7 +1889,13 @@ window.SACombatBridge = {
     const value=await response.json();if(!response.ok)throw Error(value.error||'Transit command failed.');
     if(value.roomCode)receiveState(value);return value.result?value:{result:{ok:true}};
   },
-  action: (...args)=>state?.practice?Promise.reject(new Error('Combat actions are unavailable outside combat.')):action(...args),
+  action: async (...args)=>{
+    if(!state?.practice)return action(...args);
+    const body=args[0],unit=state.units.find(u=>u.id===body.id);
+    const route={shipMaintenance:'power',operateCombatDoor:'door',operateAirlock:'airlock'}[body.action];if(!route)throw new Error('Combat actions are unavailable outside combat.');
+    const response=await campaignRequest('/api/campaign/starship/'+route,{method:'POST',body:JSON.stringify({...body,starshipId:unit.location.starshipId,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:unit.characterId||campaignCharacterId})});
+    receiveCampaignUpdate(response.campaign);return response;
+  },
   utilityAction: async body=>{
     if(!state?.practice)return action({...body,action:'utilityCommand'},'resolve',{throwOnError:true});
     const response=await campaignRequest('/api/campaign/starship/utility',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:campaignCharacterToken,characterId:campaignCharacterId})});
@@ -1895,7 +1912,7 @@ window.SACombatBridge = {
   soundEnabled: () => mode === 'gm' ? !gmSoundsMuted : alertsEnabled,
   soundIcon: () => gmMuteSound.innerHTML,
   toggleSound: () => gmMuteSound.click(),
-  pilotRings: () => (state?.starships || []).filter(ship=>!ship.contactOnly).map(ship => ship.analyzedContact&&!ship.lifeScanKnown
+  pilotRings: () => (state?.starships || []).filter(ship=>!ship.contactOnly&&(!state.practice||state.units.some(u=>u.location?.starshipId===ship.id))).map(ship => ship.analyzedContact&&!ship.lifeScanKnown
     ? `<section class="tactical-ring-group"><h3>${escapeHtml(ship.title)}</h3><p>Life Scan required for crew timeline.</p></section>`
     : tacticalRingSingleMarkup(state.units.filter(unit => unit.location?.starshipId === ship.id), ship.id, ship.title, true)).join(''),
   state: () => state,
@@ -1964,7 +1981,7 @@ async function verifySavedRoomStillExists() {
   try {
     const response = await fetch(encounterStateUrl());
     if (response.status === 404) {
-      returnToWelcome("That room expired. Create or join a new room.");
+      setConnected(false, "The encounter is temporarily unavailable. Your current view is preserved; reconnect or use campaign recovery.");
       return;
     }
     if (response.ok && !events) {
@@ -1985,7 +2002,7 @@ async function keepRoomAwake() {
       body: "{}",
     });
     if (response.status === 404) {
-      returnToWelcome("That room expired. Create or join a new room.");
+      setConnected(false, "The encounter is temporarily unavailable. Your current view is preserved; reconnect or use campaign recovery.");
       return;
     }
     if (!response.ok) {
@@ -2032,6 +2049,7 @@ function openGmDamageDialog(unitId) {
   const targetUnit = state?.units.find((entry) => entry.id === unitId);
   if (!targetUnit || mode !== "gm") return;
   gmDamageTargetId = unitId;
+  gmDamageShipId = ""; configureGmDamageType(false);
   gmDamageTarget.textContent = `${targetUnit.characterName}${targetUnit.currentHp === null || targetUnit.currentHp === undefined ? "" : ` - HP ${targetUnit.currentHp}/${targetUnit.maximumHp}`}`;
   gmDamageAmount.value = "";
   gmDamageSource.value = activeUnit()?.team === "npc" ? `${activeUnit().characterName} attack` : "NPC attack";
@@ -2043,8 +2061,22 @@ function openGmDamageDialog(unitId) {
   setTimeout(() => gmDamageAmount.focus(), 40);
 }
 
+function configureGmDamageType(shipMode) {
+  let label=gmDamageForm.querySelector('[data-ship-damage-type-label]');
+  if(!label){label=document.createElement('label');label.dataset.shipDamageTypeLabel='';label.innerHTML='Damage Type<select data-ship-damage-type><option value="untyped">Standard / Other</option><option value="laser">Laser</option><option value="heat">Heat</option><option value="ballistic">Ballistic</option></select>';gmDamageSource.closest('label').before(label);}
+  label.hidden=!shipMode;gmDamageSource.closest('label').hidden=shipMode;if(gmDamageRanged)gmDamageRanged.closest('label').hidden=shipMode;
+  gmDamageDialog.querySelector('h2').textContent=shipMode?'Apply Ship Damage':'Apply Damage';
+}
+function openGmShipDamageDialog(shipId) {
+  const ship=state?.starships.find(entry=>entry.id===shipId);if(mode!=='gm'||!ship)return;
+  gmDamageTargetId='';gmDamageShipId=shipId;configureGmDamageType(true);
+  gmDamageTarget.textContent=ship.title;gmDamageAmount.value='1';gmDamageForm.querySelector('[data-ship-damage-type]').value='untyped';
+  gmDamageNote.textContent='One incoming hit before shield reduction. A shield absorbs the hit without overflow. Heat and Laser Resistance apply only if damage reaches Hull.';
+  gmDamageDialog.classList.remove('hidden');setTimeout(()=>gmDamageAmount.focus(),40);
+}
 function closeGmDamageDialog() {
   gmDamageTargetId = "";
+  gmDamageShipId = "";
   gmDamageDialog.classList.add("hidden");
 }
 
@@ -2194,7 +2226,7 @@ function renderStarshipStatuses() {
     const shieldMax = Math.max(0, Number(record.maximumShieldHp ?? ship.maximumShieldHp) || 0);
     const shield = Math.max(0, Number(record.currentShieldHp ?? ship.currentShieldHp ?? shieldMax) || 0);
     const peopleAboard = (state?.units || []).filter((unit) => unit.location?.starshipId === record.id && !unit.defeatedAt && Number(unit.currentHp ?? 1) > 0).length;
-    return `<article class="starship-status-card"><div class="ship-status-name"><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-people-count" title="${peopleAboard} ${peopleAboard === 1 ? "person" : "people"} aboard"><i aria-hidden="true"></i><strong>${peopleAboard}</strong></span>${window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm")}${window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm")}${mode === "gm" ? `<button type="button" class="mini ship-map-button" data-open-ship-map="${escapeHtml(record.id)}">Ship Map</button>` : ""}</article>`;
+    return `<article class="starship-status-card"><div class="ship-status-name"><strong>${escapeHtml(record.title || ship.title || "Unnamed Starship")}</strong><small>${record.controlType === "gm" ? "GM SHIP" : "PC SHIP"}</small></div><span class="ship-people-count" title="${peopleAboard} ${peopleAboard === 1 ? "person" : "people"} aboard"><i aria-hidden="true"></i><strong>${peopleAboard}</strong></span>${window.SAHealthDisplay.hull(record, mode === "gm")}${window.SAHealthDisplay.shields(record, mode === "gm")}${mode === "gm" ? `<button type="button" class="mini ship-map-button" data-open-ship-map="${escapeHtml(record.id)}">Ship Map</button><button type="button" class="mini danger" data-remove-combat-ship="${escapeHtml(record.id)}">Remove from Combat</button>` : ""}</article>`;
   }).join("");
 }
 
@@ -3054,7 +3086,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && gmForcedDefenseEntry) prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm")) prompts.push({ role: "damage", unit: attacker });
   const automatic=prompts.find(p=>p.unit.automationMode==='npc'&&!p.unit.automationSuspended);
-  if(automatic&&!npcAutoRollBusy&&!state.hardPaused&&window.SANpcDice)setTimeout(()=>{if(!npcAutoRollBusy&&!state.hardPaused)gmNpcRollPrompts.querySelector(`[data-roll-role="${automatic.role}"][data-unit-id="${CSS.escape(automatic.unit.id)}"] [data-gm-auto-roll]`)?.click();},0);
+  if(automatic&&!state.showcase&&!npcAutoRollBusy&&!state.hardPaused&&window.SANpcDice)setTimeout(()=>{if(!npcAutoRollBusy&&!state.hardPaused)gmNpcRollPrompts.querySelector(`[data-roll-role="${automatic.role}"][data-unit-id="${CSS.escape(automatic.unit.id)}"] [data-gm-auto-roll]`)?.click();},0);
   const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
   if (signature === gmNpcPromptSignature) return;
   gmNpcPromptSignature = signature;
@@ -3938,7 +3970,7 @@ visualModeToggle.addEventListener("click", () => {
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.title="Undo the last action and restore its preceding state";
-resetAll.addEventListener("click", () => action({ action: "reset" }, "resolve"));
+resetAll.addEventListener("click", () => {if(confirm("Undo the last action? A recovery checkpoint will be saved first."))action({ action: "reset" }, "resolve");});
 gmMuteSound.addEventListener("click", () => {
   if (mode === "player") {
     if (alertsEnabled) disablePlayerAlerts();
@@ -3969,7 +4001,7 @@ restorePlayerTurn?.addEventListener("click", () => {
   renderPlayerCommand(state?.units.find((entry) => entry.id === myUnitId) || null);
 });
 clearEncounter.addEventListener("click", () => {
-  if (confirm("Clear every character from this encounter?")) action({ action: "clearEncounter" }, "danger");
+  const name=campaignState?.name;if(!name)return;if(prompt(`Clear every character? A recovery checkpoint will be saved. Type ${name} to confirm.`)===name)action({action:"clearEncounter",confirmCampaignName:name},"danger");
 });
 exitCombat.addEventListener("click", () => {
   if (!confirm("End this combat for everyone and return to the campaign controls?")) return;
@@ -3993,6 +4025,13 @@ playerDamageAlert?.addEventListener("click", () => playerDamageAlert.classList.a
 gmDamageForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const amount = Number(gmDamageAmount.value);
+  if(gmDamageShipId){
+    if(!gmDamageAmount.value.trim()||!Number.isFinite(amount)||amount<0)return;
+    const starshipId=gmDamageShipId,damageType=gmDamageForm.querySelector('[data-ship-damage-type]').value,submit=gmDamageForm.querySelector('[type="submit"]');
+    if(submit.disabled)return;submit.disabled=true;
+    try{await action({action:'damageStarship',starshipId,amount,damageType},'danger',{throwOnError:true});closeGmDamageDialog();}
+    catch(error){gmDamageNote.textContent=error.message;}finally{submit.disabled=false;}return;
+  }
   if (!gmDamageTargetId || !Number.isFinite(amount) || amount < 0) return;
   const targetId = gmDamageTargetId;
   const sourceLabel = gmDamageSource.value.trim() || "GM-resolved NPC attack";
@@ -4343,10 +4382,7 @@ unitList.addEventListener("click", (event) => {
     return;
   }
   if(button.dataset.damageShip&&mode==='gm'){
-    const text=window.prompt('Incoming damage for one hit (before shield reduction):','1');
-    if(text===null)return;const amount=Number(text);
-    if(!text.trim()||!Number.isFinite(amount)||amount<0){window.alert('Enter a nonnegative damage amount.');return;}
-    action({action:'damageStarship',starshipId:button.dataset.damageShip,amount},'danger');return;
+    openGmShipDamageDialog(button.dataset.damageShip);return;
   }
   if (button.dataset.spendAu && mode === "gm") {
     button.dataset.pending = "true";
@@ -4561,6 +4597,7 @@ function queueVisibleCombatRecovery() {
   clearTimeout(visibleRecoveryTimer);
   visibleRecoveryTimer = setTimeout(recoverVisibleCombatState, 80);
 }
+if(window.frameElement){let wasVisible=false;new ResizeObserver(()=>{const visible=Boolean(window.frameElement?.getClientRects().length);if(visible&&!wasVisible)render();wasVisible=visible;}).observe(window.frameElement);}
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) { queueVisibleCombatRecovery(); resumeAudio(); }
 });
@@ -4617,6 +4654,22 @@ async function initializeEmbeddedPlayer() {
   }
 }
 
+// Saved encounters can arrive before the scripts below app.js finish loading.
+// Wait for all console/map dependencies before accepting their first live state.
+function startSavedEncounter() {
+if(startupParams.has('catalogPreview')){
+ currentRoomCode='';mode='player';alertsEnabled=false;gmSoundsMuted=true;
+ const maps=window.SAShipMap,type=startupParams.get('catalogPreview'),def=maps.definition(type),previewNeedsBridge=Boolean(def.bridgeAddon||!def.stations?.length);
+ const item={id:'preview-sic',type,status:'installed',stationLayout:'corners-v1'},data={zoneColumns:30,zoneRows:30,gridCells:maps.rectangleCells({zoneColumns:30,zoneRows:30},6*30+6,18,18),sicInventory:[item,{id:'preview-engine',type:'en-au-engine-6'}],placements:[{sicId:item.id,cell:6*30+6,...(def.mixed?{exteriorCell:(6-(def.exteriorRows||2))*30+6}:{})},{sicId:'preview-engine',cell:18*30+18}],minerals:{Iron:100,'Dark Phazon':10},doorStates:{}};
+ if(previewNeedsBridge){data.sicInventory.unshift({id:'preview-bridge',type:'bridge-4'});data.placements.unshift({sicId:'preview-bridge',cell:(def.bridgeAddon?6:12)*30+6});}
+ const ship={id:'catalog-ship',title:def.name,controlType:'pc',crewCharacterIds:['catalog-character'],ship:data,currentHullHp:100,maximumHullHp:100,currentShieldHp:0,maximumShieldHp:0,shieldSystems:{},sensorState:{contacts:{},analyses:{},reports:[]},lockState:{targets:[]},weaponState:{reports:[]},auState:{current:60,available:60,maximum:60}};
+ const layout=maps.buildLayout(data),cell=[...layout.footprint.entries()].find(([n,c])=>c.sicId===(previewNeedsBridge?'preview-bridge':item.id)&&c.stations.some(s=>s.x===c.column&&s.y===c.row));if(!cell)return;
+ const station=cell[1].stations.find(s=>s.x===cell[1].column&&s.y===cell[1].row);
+ const unit={id:'catalog-operator',characterId:'catalog-character',characterName:'Console Preview',color:'#57d9ef',team:'pc',currentHp:30,maximumHp:30,atb:0,speed:6,queuedEffects:[],location:{starshipId:ship.id,square:cell[0],mesh:station.mesh,stationed:true,sicId:cell[1].sicId}};
+ state={roomCode:'CATALOG',catalogPreview:true,practice:true,running:false,units:[unit],starships:[ship],shipPositions:[{id:ship.id,q:0,r:0}],spaceObjects:[],log:[],threshold:100,activeId:null};myUnitId=unit.id;
+ window.SAShipShields?.refresh(state);window.SAShipNavigationUI.open(unit,{sicId:item.id});return;
+}
+
 if (embeddedGm && currentRoomCode) {
   document.body.classList.add("embedded-gm");
   fetch(encounterStateUrl())
@@ -4644,7 +4697,7 @@ if (!embeddedGm && !embeddedPlayer && currentRoomCode && mode !== "welcome" && m
     })
     .then((nextState) => {
       if (nextState?.expired) {
-        returnToWelcome("That room expired. Create or join a new room.");
+        setConnected(false, "The encounter is temporarily unavailable. Your current view is preserved; reconnect or use campaign recovery.");
         return;
       }
       if (!nextState) {
@@ -4658,3 +4711,20 @@ if (!embeddedGm && !embeddedPlayer && currentRoomCode && mode !== "welcome" && m
 } else {
   render();
 }
+
+if(embeddedSpectator&&requestedCampaignCode){
+ currentRoomCode=requestedCampaignCode;campaignCharacterId='';myUnitId='';campaignCharacterToken=localStorage.getItem('sa-room-player-'+currentRoomCode)||'';mode='player';
+ fetch(encounterStateUrl()).then(r=>r.json()).then(next=>{setRoom(next);setMode('player');connectEvents();}).catch(error=>setConnected(false,error.message)).finally(()=>{embeddedViewInitializing=false;window.SAViewReady?.();});
+}
+
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startSavedEncounter,{once:true});
+else startSavedEncounter();
+
+document.addEventListener('click',event=>{
+ const button=event.target.closest('[data-remove-combat-ship]');if(!button||mode!=='gm')return;
+ const ship=state.starships.find(s=>s.id===button.dataset.removeCombatShip);if(!ship)return;
+ let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+ const d=doc.createElement('dialog');d.setAttribute('aria-label','Remove starship from combat');d.style.cssText='max-width:520px;padding:24px;background:#102630;color:#eef9ff;border:1px solid #ff9d94';
+ const h=doc.createElement('h2'),p=doc.createElement('p'),yes=doc.createElement('button'),no=doc.createElement('button');h.textContent='Remove '+ship.title+'?';p.textContent='This removes the ship and everyone aboard from this encounter. The saved ship and crew assignments remain in the campaign.';yes.textContent='Remove from Combat';no.textContent='Cancel';yes.style.cssText='background:#923d41;color:white;margin-right:12px';no.style.cssText='background:#244c5d;color:white';no.onclick=()=>d.close();yes.onclick=async()=>{yes.disabled=true;try{await action({action:'removeStarship',starshipId:ship.id},'danger',{throwOnError:true});d.close();}catch(error){p.textContent=error.message;yes.disabled=false;}};d.append(h,p,yes,no);doc.body.append(d);d.onclose=()=>d.remove();d.showModal();
+});

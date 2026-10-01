@@ -95,7 +95,11 @@
       baseSpeed:allowed.speed, boosts, speed, remaining:POWERED_PERIOD*length/speed, pilotId:unit.id };
     return {ok:true,ship:allowed.ship,cost};
   }
-  function advance(room, seconds) {
+  function advance(room, seconds, sliced=false) {
+    if (!(seconds > 0) || !Number.isFinite(seconds)) return;
+    const gravity=typeof module==='object'&&module.exports?require('./ship-black-holes'):null;
+    if(gravity&&!sliced&&seconds>0&&(room.starships?.some(s=>s.ship.missileState?.flights?.some(m=>['mine','web'].includes(m.phase)))||room.spaceObjects?.some(o=>o.kind==='black-hole'||o.gunOrb)||room.starships?.some(s=>s.ship.gravityFieldState?.active))){let left=seconds;while(left>1e-8){const slice=Math.min(.25,left);advance(room,slice,true);left-=slice;}return;}
+    const before=distances.positions(room.starships||[],room.shipPositions);
     if (!(seconds > 0) || !Number.isFinite(seconds)) return;
     room.shipPositions = distances.positions(room.starships || [], room.shipPositions);
     for (const ship of room.starships || []) {
@@ -107,16 +111,22 @@
         nav.boosts = (nav.boosts || []).filter(b=>(ship.ship.placements || []).some(p=>p.sicId===b.id) && online((ship.ship.sicInventory || []).find(i=>i.id===b.id)));
         nav.speed = nav.baseSpeed + nav.boosts.reduce((n,b)=>n+b.speed,0);
         nav.remaining = nav.speed > 0 ? POWERED_PERIOD*distances.hexDistance(position,nav.target)/nav.speed : 0;
+        const distance=distances.hexDistance(position,nav.target);
+        if(distance>1e-9)nav.direction={q:(nav.target.q-position.q)/distance,r:(nav.target.r-position.r)/distance};
       }
       let left = seconds;
       for (let step=0;left>1e-9 && step<64 && nav.phase !== 'stopped';step++) {
         if (!(nav.speed > 0)) { nav.phase='stopped'; nav.remaining=0; break; }
-        const elapsed = Math.min(left,Math.max(0,nav.remaining));
+        // Gravity is additive displacement, not a direction-independent engine penalty.
+        const resistance=0;
+        const ratio=Math.max(0,nav.speed-resistance)/nav.speed;
+        if(!ratio)break;
+        const realElapsed=Math.min(left,Math.max(0,nav.remaining)/ratio),elapsed=realElapsed*ratio;
         const period=nav.phase==='powered'?POWERED_PERIOD:PERIOD;
         if (nav.phase === 'powered') nav.traveled = (Number(nav.traveled) || 0) + nav.speed*elapsed/period;
         position.q += nav.direction.q*nav.speed*elapsed/period;
         position.r += nav.direction.r*nav.speed*elapsed/period;
-        left -= elapsed; nav.remaining -= elapsed;
+        left -= realElapsed; nav.remaining -= elapsed;
         if (Math.abs(position.q)>10000 || Math.abs(position.r)>10000) {
           position.q=Math.max(-10000,Math.min(10000,position.q)); position.r=Math.max(-10000,Math.min(10000,position.r)); nav.phase='stopped';nav.speed=0;nav.remaining=0;break;
         }
@@ -127,6 +137,8 @@
         }
       }
     }
+    if(gravity){const reports=gravity.advance(room,seconds,before);require('./ship-black-hole-gun').advance(room,seconds);room.gravityReports=[...(room.gravityReports||[]),...reports];}
+    if(gravity)require('./ship-mines').advance(room,seconds,before);
     room.shipDistances = distances.fromPositions(room.starships || [],room.shipPositions);
   }
   return {PERIOD,POWERED_PERIOD,driftDistance,driftSeconds,station,access,inputSettings,queue,resolveInput,order,advance};

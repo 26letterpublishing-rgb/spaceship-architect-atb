@@ -24,16 +24,24 @@
     "en-engine-4": { width: 4, height: 4, label: "EN 4", color: "#2d873b", image: image("en-engine-4-floor-plan.png"), output: 50, stations: [{ x: 1, y: 0, mesh: 1 }, { x: 3, y: 1, mesh: 5 }, { x: 1, y: 3, mesh: 7 }] },
     "en-engine-5": { width: 5, height: 5, label: "EN 5", color: "#2d873b", image: image("en-engine-5-floor-plan.png"), output: 77, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 4, y: 2, mesh: 5 }, { x: 2, y: 4, mesh: 7 }] },
     "en-engine-6": { width: 6, height: 6, label: "EN 6", color: "#2d873b", image: image("en-engine-6-floor-plan.png"), output: 110, stations: [{ x: 2, y: 0, mesh: 1 }, { x: 5, y: 2, mesh: 5 }, { x: 3, y: 5, mesh: 7 }, { x: 0, y: 3, mesh: 3 }] },
-    "life-support": { name: "Life Support", utility: "life-support", width: 2, height: 2, label: "LIFE", color: "#16788a", image: image("life-support-floor-plan.png"), energyCost: 2, price: 1500, threshold:18, output: 0, stations: [{x:0,y:0,mesh:0}] },
-    "nutritional-supplement": { name: "Nut Supplement", utility: "nutrition", width: 1, height: 1, label: "NUT.", color: "#197a6f", image: image("nutritional-supplement-floor-plan.png"), energyCost: 3, price: 850, threshold:10, output: 0, stations: [{x:0,y:0,mesh:0}] },
+    "life-support": { name: "Life Support", utility: "life-support", crafting:"Mirium, 6 hrs", width: 2, height: 2, label: "LIFE", color: "#16788a", image: image("life-support-floor-plan.png"), energyCost: 2, price: 1500, threshold:18, output: 0, stations: [{x:0,y:0,mesh:0}] },
+    "nutritional-supplement": { name: "Nut Supplement", utility: "nutrition", crafting:"Paradon, 5 hrs", width: 1, height: 1, label: "NUT.", color: "#197a6f", image: image("nutritional-supplement-floor-plan.png"), energyCost: 3, price: 850, threshold:10, output: 0, stations: [{x:0,y:0,mesh:0}] },
     "decent-hover": { name:"Decent (Hover)", landing:"hover", multiMount:4, exterior:true, width:1, height:1, label:"HOVER", color:"#8acdbc", image:image("sic-art-decent-hover.webp"), sprite:"sic-art-decent-hover.webp", price:5375, energyCost:5, security:4, threshold:12, crafting:"Endernium, 2 days", cardNumber:"A-28", hullLimit:450, output:0, stations:[] },
     "decent-aerofoil": { name:"Decent (Aerofoil)", landing:"aerofoil", hullSystem:true, width:0, height:0, label:"WINGS", color:"#c4b777", image:image("sic-art-decent-aerofoil.webp"), price:675, energyCost:2, security:4, threshold:25, crafting:"Crystilium, 5 hrs", cardNumber:"A-27", hullLimit:200, output:0, stations:[] },
   };
 
+  catalog['hull-breach-repair-drone']={name:'Hull Breach Repair Drone',utility:'breach-drone',breachDrone:true,width:1,height:1,edge:true,label:'BREACH BOT',color:'#d5b46a',image:image('hull-breach-drone-floor.webp'),cardArt:'hull-breach-drone-card.webp',price:12000,energyCost:1,security:3,threshold:25,crafting:'Endernium, 2 days',cardNumber:'B-122',skill:'Engineering',output:0,stations:[{x:0,y:0,mesh:7}]};
+  catalog['analysis-screening']={name:'Analysis Screening',addon:'any',hullSystem:true,width:0,height:0,label:'SCREEN',color:'#998dd5',image:image('analysis-screening-card.webp'),cardArt:'analysis-screening-card.webp',price:2000,energyCost:1,security:null,threshold:null,crafting:'Drakkonite, 10 hrs',cardNumber:'B-114',skill:'Sensor Systems',impairmentImmune:true,output:0,stations:[]};
+  catalog['black-hole-gun']={name:'Black Hole Gun',skill:'Weapon Systems',blackHoleGun:true,utility:'black-hole-gun',width:2,height:7,mixed:true,exteriorRows:5,interiorWidth:1,interiorRows:2,fixedStations:true,label:'BLACK HOLE',color:'#b77bf5',image:image('black-hole-gun-control.webp'),sprite:'black-hole-gun-barrel.webp',cardArt:'sic-art-black-hole-gun.webp',price:345000,energyCost:4,security:4,threshold:17,crafting:'Aethion, 3 weeks',cardNumber:'B-104',unstableOnImpairment:true,output:0,stations:[{x:0,y:5,mesh:1}]};
   catalog['planetary-cleanser']={name:'Planetary Cleanser',skill:'Weapon Systems',planetaryCleanser:true,utility:'planetary-cleanser',width:3,height:9,mixed:true,exteriorRows:6,interiorWidth:3,interiorRows:3,fixedStations:true,label:'CLEANSER',color:'#cb83f5',image:image('planetary-cleanser-room.webp'),sprite:'planetary-cleanser-barrel.webp',cardArt:'sic-art-planetary-cleanser.webp',price:500000,energyCost:50,security:5,threshold:23,crafting:'Aethion, 3 weeks',cardNumber:'B-110',unstableOnImpairment:true,output:0,stations:[{x:0,y:8,mesh:4},{x:2,y:8,mesh:4}]};
   catalog['probe-launcher']={name:'Probe Launcher',probeLauncher:true,utility:'probe-launcher',width:2,height:2,edge:true,fixedStations:true,label:'PROBES',color:'#5b9aab',image:image('probe-launcher.svg'),price:4700,energyCost:2,security:3,threshold:20,crafting:'Necronium, 1 day',cardNumber:'A-71',capacity:4,output:0,stations:[{x:1,y:1,mesh:4}]};
+  for(const [type,name,card,price]of [['hull-plating','Hull Plating','B-68',450],['heat-resistance','Heat Resistance','B-69',75],['laser-resistance','Laser Resistance','B-70',300]])catalog[type]={name,cardNumber:card,price,hullSquarePrice:price,energyCost:0,security:null,threshold:null,crafting:'N/A',skill:'Engineering',addon:'hull',hullUpgrade:true,hullSystem:true,width:0,height:0,label:name,color:'#8297a5',image:image('sic-art-'+type+'.webp'),cardArt:image('sic-art-'+type+'.webp'),floorplanPreview:image(type+'-surface.webp'),output:0,stations:[]};
+  for(const [type,name,price,en,card] of [['3d-printer','3D Printer',15000,3,22],['mineral-processor','Mineral Processor',8000,5,21],['blueprint','Blueprint',1000,0,23]])catalog[type]={name,price,energyCost:en,cardNumber:'B-'+card,security:type==='blueprint'?null:3,threshold:null,crafting:'Not Available',skill:type==='blueprint'?'Computer Systems':'Engineering',addon:'science',hullSystem:true,width:0,height:0,label:name,color:'#6aaebd',image:image('sic-art-'+type+'.webp'),cardArt:'sic-art-'+type+'.webp',stations:[]};
+  for(const [type,name,price,crafting,cardNumber] of [['burst-shield-reactivator','Burst Shield Reactivator',2000,'Drakkonite, 10 hrs','B-38'],['emergency-shield-recharger','Emergency Shield Recharger',3000,'Phazon, 16 hrs','B-39']])catalog[type]={name,price,crafting,cardNumber,energyCost:0,security:3,threshold:null,skill:'Computer Systems',addon:'shield',shieldRecovery:true,hullSystem:true,width:0,height:0,label:name,color:'#79d9c9',image:image(type+'.webp'),cardArt:image(type+'.webp'),output:0,stations:[]};
+  catalog['static-shield']={name:'Static Shields',cardNumber:'A-59',price:35000,energyCost:3,security:3,threshold:null,crafting:'Carmot, 1 week',skill:'Engineering',addon:'shield',staticShield:true,hullSystem:true,width:0,height:0,label:'STATIC',color:'#78b8bc',image:image('sic-art-static-shields.webp'),cardArt:image('sic-art-static-shields.webp'),floorplanPreview:image('static-shields-field.webp'),output:0,stations:[]};
   for(const [type,name,price,energyCost,security,crafting,cardNumber]of [['shield-breacher','Shield Breacher',900,0,3,'Paradon, 5 hrs','B-40'],['hacking-bug','Hacking Bug',275,1,3,'Ragnaron, 3 hrs','B-51'],['warp-bubble-inhibitor','Warp Bubble Inhibitor',1750,0,null,'Mirium, 1 day','B-120']])catalog[type]={name,price,energyCost,security,crafting,cardNumber,probeAttachment:true,addon:'probe-module',hullSystem:true,width:0,height:0,label:name,color:'#a28bd6',image:image(type+'.svg'),threshold:null,output:0,stations:[]};
   for(let tier=1;tier<=5;tier++)catalog[`probe-${tier}`]={name:`Probe ${tier}`,probe:true,addon:'probe',hullSystem:true,width:0,height:0,label:`PROBE ${tier}`,color:'#75cad7',image:image(`probe-${tier}.svg`),price:[100,250,450,700,1000][tier-1],energyCost:0,security:tier,threshold:5+tier*5,masking:8+tier*2,moveSpeed:2+tier*2,probeDice:Array([3,3,4,3,4][tier-1]).fill([8,10,10,12,12][tier-1]),tier,crafting:['Transpherion, 2 hrs','Ragnaron, 3 hrs','Crystilium, 4 hrs','Paradon, 4 hrs','Argol, 6 hrs'][tier-1],cardNumber:tier<4?'A-'+(71+tier):'B-'+(48+tier),destroyedOnImpairment:true,output:0,stations:[]};
+  catalog['transporter']={name:'Transporter',utility:'transporter',transporter:true,width:3,height:3,label:'TRANSPORT',color:'#397d99',image:image('transporter-floorplan.webp'),cardArt:image('sic-art-transporter.webp'),price:20000,energyCost:15,security:4,threshold:18,crafting:'Carmot, 1 week',cardNumber:'B-19',stations:[{x:0,y:0,mesh:0},{x:2,y:0,mesh:2},{x:0,y:2,mesh:6},{x:2,y:2,mesh:8}]};
   catalog['surv-camera']={name:'Surv. Camera',utility:'surveillance',surveillance:true,fixedStations:true,localOnly:true,width:1,height:1,label:'CAM',color:'#41958d',image:image('surv-camera-floorplan.webp'),price:300,energyCost:1,security:4,threshold:10,crafting:'Dianium, 2 hrs',cardNumber:'A-87',destroyedOnImpairment:true,output:0,stations:[{x:0,y:0,mesh:7}]};
   for(let tier=1;tier<=5;tier++){
     const n=tier-1;
@@ -46,7 +54,7 @@
   }
   for(const [type,name,card,width,height,price,en,security,threshold,crafting,extra] of [
     ['gym','Gym',66,3,3,75,0,null,13,'Xpidinium, 1.5 hrs',{crewRoom:true,localOnly:true,roomStation:true}],
-    ['science-lab','Science Lab',65,3,3,1000,2,4,13,'Ragnaron, 3 hrs',{crewRoom:true,localOnly:true,mineralCapacity:5000}],
+    ['science-lab','Science Lab',65,2,3,1000,1,4,13,'Ragnaron, 3 hrs',{crewRoom:true,localOnly:true}],
     ['holographic-projector','Holographic Projector',79,0,0,400,0,3,null,'Ragnaron, 3 hrs',{addon:'bridge',bridgeAddon:true,hullSystem:true}],
     ['vulnerability-fortification','Vulnerability Fortification',116,0,0,500,0,null,null,'Not Available',{addon:'any',hullSystem:true}],
     ['power-core-damper','Power Core Damper',76,0,0,1800,1,null,null,'Argol, 6 hrs',{addon:'engine',hullSystem:true}],
@@ -61,6 +69,11 @@
     ['ship-ai','Ship AI',0,0,5000,1,5,null,'Drakkonite, 10 hrs',89,'#8ecec0',0],
   ])catalog[type]={name,width,height,price,energyCost,security,threshold,crafting,cardNumber:'A-'+card,color,output:0,utility:type,crewRoom:true,localOnly:type!=='ship-ai',shipAi:type==='ship-ai',bridgeAddon:type==='ship-ai',hullSystem:type==='ship-ai',label:name,image:image('sic-art-'+type+'.webp'),stations:Array.from({length:seats},(_,n)=>({x:n%2===0?0:width-1,y:n<2?0:height-1,mesh:n%2===0?0:2}))};
 
+  for(const [type,name,width,height,price,en,security,threshold,crafting,card,color] of [
+    ['bar','Bar',5,5,1000,0,2,13,'Argol, 6 hrs','B-64','#9b704b'],
+    ['hibernation-chamber','Hibernation Chamber',1,1,300,1,4,null,'Ragnaron, 3 hrs','A-67','#6aabb1'],
+    ['brig','Brig',1,1,100,0,null,13,'Transpherion, 2 hrs','B-67','#73808a'],
+  ])catalog[type]={name,label:name,width,height,price,energyCost:en,security,threshold,crafting,cardNumber:card,color,output:0,utility:type,crewRoom:true,localOnly:true,roomStation:true,fixedStations:true,image:image(type+'-floorplan.webp'),cardArt:'sic-art-'+type+'.webp',stations:[{x:type==='bar'?2:0,y:type==='bar'?2:0,mesh:4}]};
   catalog['vr-training-room'].image=image('vr-training-room-3x3.webp');
   catalog['meeting-room'].roomStation=true;
   catalog['meeting-room'].stations=[0,2,3,5,6,8].map(mesh=>({x:1,y:1,mesh}));
@@ -90,7 +103,7 @@
     { prefix: "au-en", name: "Action Hybrid", label: "AH", color: "#8b5378", bonus: "au", en: [1, 4, 9, 16, 25, 36], au: [2, 5, 12, 20, 30, 47], prices: [1150, 3400, 7950, 13600, 20750, 31400], thresholds: [8, 12, 17, 22, 29, 36], firstCraft: "Mirium, 8 hrs", cards: ["A-15", "A-16", "A-17", "A-18", "B-9", "B-10"] },
   ];
   for (let tier = 1; tier <= 6; tier += 1) {
-    Object.assign(catalog[`en-engine-${tier}`], { name: `Power Engine ${tier}`, stationBonus: "en", engine: true, clearance:tier, threshold:[10,17,25,33,43,53][tier-1], price:[1750,4550,10150,17500,26950,38500][tier-1], cardNumber:tier<=4?`A-${6+tier}`:`B-${tier}` });
+    Object.assign(catalog[`en-engine-${tier}`], { name: `Power Engine ${tier}`, stationBonus: "en", crafting:["Paradon, 5 hrs","Drakkonite, 10 hrs","Necronium, 1 day","Endernium, 2 days","Dark Phazon, 3 days","Carmot, 3 days"][tier-1], engine: true, clearance:tier, threshold:[10,17,25,33,43,53][tier-1], price:[1750,4550,10150,17500,26950,38500][tier-1], cardNumber:tier<=4?`A-${6+tier}`:`B-${tier}` });
     Object.assign(catalog[`au-engine-${tier}`], { name: `Action Engine ${tier}`, stationBonus: "au", engine: true, clearance:tier });
     for (const family of hybridFamilies) {
       const type = `${family.prefix}-engine-${tier}`;
@@ -238,9 +251,13 @@
     const art='sic-art-missile-launcher-'+tier+'.webp';
     catalog[`missile-launcher-${tier}`]={name:`Missile Launcher ${tier}`,label:`ML ${tier}`,tier,weapon:true,weaponFamily:'missile-launcher',missileLauncher:true,requiresLock:true,capacity:[3,5,8,15,25][tier-1],width,height:ext+2,mixed:true,exteriorRows:ext,interiorWidth:1,interiorRows:2,stations:[{x:0,y:ext+1,mesh:7}],output:0,energyCost:1,security:tier,threshold:8+5*tier,price:[3100,4350,5550,6800,8000][tier-1],crafting:['Mirium, 16 hrs','Drakkonite, 10 hrs','Phazon, 16 hrs','Necronium, 1 day','Endernium, 2 days'][tier-1],cardNumber:tier<=3?`A-${111+tier}`:`B-${84+tier}`,color:'#cd9e61',image:image('weapon-room-floor-plan.png'),sprite:art,cardArt:art,damageDie:8,damageCount:2,fireAu:0,destroyedOnImpairment:true};
   }
+  for(let tier=1;tier<=2;tier++)catalog['devastation-laser-'+tier]={name:'Devastation Laser '+tier,label:'DEVASTATION '+tier,weapon:true,weaponFamily:'devastation-laser',devastation:true,tier,damageCount:10,damageDie:tier===1?8:12,damageType:'laser',fireAu:0,chargeAu:tier===1?5:7,chargeSeconds:tier===1?36:60,cooldownSeconds:tier===1?36:60,skill:'Weapon Systems',price:tier===1?22000:50000,energyCost:tier===1?5:10,security:4,threshold:tier===1?19:21,crafting:tier===1?'Carmot, 1 week':'Infinium, 10 days',cardNumber:'B-'+(104+tier),width:2,height:6,mixed:true,exteriorRows:4,interiorWidth:1,interiorRows:2,fixedStations:true,stations:[{x:0,y:4,mesh:1}],output:0,color:'#a42c42',image:image('devastation-control.webp'),sprite:'devastation-barrel.webp',cardArt:'sic-art-devastation-'+tier+'.webp',unstableOnImpairment:true};
   catalog['ballistic-rail-cannon']={name:'Ballistic Rail Cannon',label:'RAIL',weapon:true,weaponFamily:'ballistic-rail-cannon',manualOnly:true,noShieldDamage:true,
     tier:1,damageCount:6,damageDie:6,damageBonus:0,energyCost:0,fireAu:0,price:1200,security:2,threshold:18,crafting:'Argol, 6 hrs',cardNumber:'A-119',
     width:1,height:4,mixed:true,exteriorRows:3,interiorRows:1,stations:[],output:0,color:'#bac8d0',image:image('lock-on-1-floor-plan.png'),sprite:resourceArt('rail'),cardArt:resourceArt('rail'),ammoMineral:'Iron',ammoPerShot:1};
+  catalog['ballistic-rail-repeater']={name:'c.r. Ballistic Rail Repeater',label:'REPEATER',weapon:true,weaponFamily:'ballistic-rail-repeater',manualOnly:true,noShieldDamage:true,rangeDefensePerUnit:1,burstShots:4,
+    tier:1,damageCount:1,damageDie:10,impairedDamageDie:6,damageBonus:0,damageType:'ballistic',energyCost:0,fireAu:0,price:800,security:2,threshold:18,crafting:'Paradon, 5 hrs',cardNumber:'B-103',
+    width:1,height:3,mixed:true,exteriorRows:2,interiorWidth:1,interiorRows:1,stations:[],output:0,color:'#bac8d0',image:image('ballistic-rail-repeater-control.webp'),sprite:'ballistic-rail-repeater-barrel.webp',cardArt:'sic-art-ballistic-rail-repeater.webp',ammoMineral:'Iron',ammoPerShot:1};
   catalog['self-destruct']={name:'Self Destruct',label:'DESTRUCT',utility:'self-destruct',bridgeAddon:true,hullSystem:true,width:0,height:0,stations:[],output:0,
     energyCost:0,price:850,security:5,threshold:null,crafting:'Paradon, 5 hrs',cardNumber:'A-88',color:'#d55d65',image:resourceArt('self-destruct')};
 
@@ -267,6 +284,7 @@
       return item&&definition(item.type).bridge&&placementSquares(ship,item,p).includes(cell);
     });
   }
+  catalog['mine-launcher']={name:'Mine Launcher',label:'MINES',tier:1,weapon:true,weaponFamily:'mine-launcher',missileLauncher:true,mineLauncher:true,width:1,height:2,edge:true,capacity:4,stations:[{x:0,y:1,mesh:7}],output:0,energyCost:1,security:4,threshold:28,price:750,crafting:'Crystilium, 4 hrs',cardNumber:'B-97',color:'#bf925d',image:image('mine-launcher-floor.webp'),cardArt:'sic-art-mine-launcher.webp',damageDie:8,damageCount:2,fireAu:0,destroyedOnImpairment:true,description:'Four loaded mines; surplus in storage. Station here to reload. Lay one mine on the current hex every 12 active seconds. Maximum three mines per hex. The launching ship is immune. Detected mines must still be avoided or shot.'};
   function definition(type) {
     return catalog[type] || { width: 1, height: 1, label: type || "SIC", color: "#197a6f", image: "", output: 0, stations: [] };
   }
@@ -276,15 +294,21 @@
     if(entry.darkveil){entry.cardArt=`darkveil-tiers.svg#tier-${entry.tier}`;entry.image=image('darkveil-tiers.svg')+`#tier-${entry.tier}`;}
   }
 
+  catalog['ionic-force-displacers']={name:'Ionic Force Displacers',label:'ION FIELD',utility:'ionic-displacers',fieldUtility:true,width:2,height:3,stations:[{x:0,y:2,mesh:7}],fixedStations:true,output:0,skill:'Weapon Systems',price:100000,energyCost:12,security:4,threshold:20,crafting:'Infinium, 10 days',cardNumber:'B-108',color:'#67d9ef',image:image('ionic-displacers-floor.webp'),cardArt:'sic-art-ionic-displacers.webp',unstableOnImpairment:true};
+  catalog['transport-scrambler']={name:'Transport Scrambler',label:'SCRAMBLER',utility:'transport-scrambler',fieldUtility:true,width:1,height:1,stations:[{x:0,y:0,mesh:7}],fixedStations:true,output:0,skill:'Engineering',price:8300,energyCost:4,security:4,threshold:13,crafting:'Endernium, 2 days',cardNumber:'B-20',color:'#bf92ee',image:image('transport-scrambler-floor.webp'),cardArt:'sic-art-transport-scrambler.webp'};
+  catalog['hack-alert']={name:'Hack Alert',label:'HACK ALERT',addon:'any',width:0,height:0,stations:[],output:0,skill:'Computer Systems',price:2000,energyCost:1,security:null,threshold:null,crafting:'Drakkonite, 10 hours',cardNumber:'B-111',color:'#e5b76b',image:image('sic-art-hack-alert.webp'),cardArt:'sic-art-hack-alert.webp'};
+  catalog['ion-disruptor']={name:'Ion Disruptor',label:'DISRUPTOR',weapon:true,weaponFamily:'ion-disruptor',ionDisruptor:true,tier:1,damageCount:5,damageDie:10,damageType:'ion',fireAu:20,shieldPiercing:true,ignoreReduction:true,cooldownSeconds:24,skill:'Weapon Systems',price:28500,energyCost:14,security:4,threshold:16,crafting:'Dark Phazon, 3 days',cardNumber:'B-107',width:2,height:6,mixed:true,exteriorRows:4,interiorWidth:1,interiorRows:2,fixedStations:true,stations:[{x:0,y:4,mesh:1}],output:0,color:'#75b4ff',image:image('ion-disruptor-control.webp'),sprite:'ion-disruptor-barrel.webp',cardArt:'sic-art-ion-disruptor.webp',unstableOnImpairment:true};
+  catalog['gravity-absolution-field']={name:'Gravity Absolution Field',label:'GAF',gravityField:true,utility:'gravity-field',skill:'Engineering',width:4,height:4,stations:[{x:0,y:3,mesh:4}],fixedStations:true,color:'#7454b0',price:175000,energyCost:5,security:3,threshold:15,output:0,crafting:'Infinium, 10 days',cardNumber:'B-78',image:image('sic-art-gravity-absolution-field.webp')};
+  catalog['land-wheels']={name:'Land Wheels',label:'WHEELS',exterior:true,multiMount:4,width:1,height:1,stations:[],color:'#6c97a7',price:200,energyCost:1,security:null,threshold:5,output:0,crafting:'Ragnaron, 3 hours',cardNumber:'B-72',image:image('sic-art-land-wheels.webp'),sprite:'sic-art-land-wheels.webp'};
   for(const entry of Object.values(catalog)){
-    const console=entry.shipControl||entry.shield||entry.sensor||entry.weapon||entry.lockOn||entry.utility||entry.hacking;
-    if(console&&!entry.exterior&&!entry.bridgeAddon&&entry.width>0&&!entry.stations.length){entry.stations=[{x:0,y:entry.mixed?entry.exteriorRows:0,mesh:4}];entry.fixedStations=true;}
+    if(!entry.exterior&&!entry.bridgeAddon&&!entry.addon&&entry.width>0&&entry.height>0&&!entry.stations.length){entry.stations=[{x:0,y:entry.mixed?entry.exteriorRows:0,mesh:4}];entry.fixedStations=true;}
   }
 
   function componentDefinition(item) {
     const entry = definition(item?.type);
     let { width, height } = entry, stations = entry.stations;
     if(item?.type==='docking-bay'){width=Math.max(2,Math.min(60,Math.floor(Number(item.bayWidth)||2)));height=Math.max(2,Math.min(60,Math.floor(Number(item.bayHeight)||2)));}
+    if(item?.type==='brig'){width=Math.max(1,Math.min(60,Math.floor(Number(item.brigWidth)||1)));height=Math.max(1,Math.min(60,Math.floor(Number(item.brigHeight)||1)));}
     if(entry.mixed){
       let exteriorCells=Array.from({length:entry.exteriorRows},(_,y)=>({x:0,y}));
       const turns=((Math.round(Number(item?.rotation||0)/90)%4)+4)%4;
@@ -361,7 +385,7 @@
     const item=(ship.sicInventory||[]).find(i=>i.id===ignoreId),entry=item?componentDefinition(item):definition(type);
     const cells=rectangleCells(ship,origin,entry.width,entry.height),outside=outerSpace(ship),hull=new Set(ship.gridCells||[]),sides=gridSides(ship),occupied=buildLayout(ship).footprint;
     return cells.length===entry.width*entry.height && cells.every(n=>outside.has(n)&&(!occupied.has(n)||occupied.get(n).sicId===ignoreId)) &&
-      cells.some(n=>sides.some(side=>side.valid(n)&&hull.has(n+side.offset)));
+      (entry.thruster ? sides.some(side=>{const edge=cells.filter(n=>!cells.includes(n+side.offset));return edge.length>0&&edge.every(n=>side.valid(n)&&hull.has(n+side.offset)&&!triangleCells(ship).includes(n+side.offset));}) : cells.some(n=>sides.some(side=>side.valid(n)&&hull.has(n+side.offset))));
   }
   function mixedPlacement(ship,item,origin,exteriorCell) {
     const entry=componentDefinition(item);
@@ -396,6 +420,10 @@
     const horizontal=[...hull].every(n=>hull.has((ySum-Math.floor(n/columns))*columns+n%columns));
     return {horizontal,vertical,symmetric:horizontal||vertical};
   }
+  catalog['mining-laser']={name:'Mining Lasers',label:'MINING',utility:'mining-laser',crewRoom:true,localOnly:true,skill:'Engineering',price:12000,energyCost:3,security:3,threshold:6,crafting:'Necronium, 1 day',cardNumber:'A-120',width:1,height:4,mixed:true,exteriorRows:3,interiorWidth:1,interiorRows:1,fixedStations:true,stations:[{x:0,y:3,mesh:7}],output:0,color:'#dbbb68',image:image('mining-laser-floor.webp'),sprite:'mining-laser-barrel.webp',cardArt:'mining-laser-card.webp'};
+  catalog['vulture-drone']={name:'Vulture Drone',label:'SALVAGE',utility:'vulture-drone',crewRoom:true,localOnly:true,skill:'Engineering',price:12000,energyCost:2,security:3,threshold:25,masking:10,crafting:'Endernium, 2 days',cardNumber:'A-121',width:1,height:2,edge:true,fixedStations:true,stations:[{x:0,y:1,mesh:7}],output:0,color:'#d6a669',destroyedOnImpairment:true,image:image('vulture-drone-floor.webp'),cardArt:'vulture-drone-card.webp'};
+  for(const type of ['vr-training-room','medbay','gym','library','meeting-room','docking-bay','science-lab','surv-camera','gravity-absolution-field'])catalog[type].cardArt='card-'+type+'-equipment.webp';
+  catalog['science-lab'].image=image('science-lab-floorplan-v2.webp');catalog['science-lab'].cardArt='card-science-lab-equipment.webp';
   function installedItems(record) {
     const ship=record.ship||record,ids=new Set((ship.placements||[]).map(p=>p.sicId));
     return (ship.sicInventory||[]).filter(i=>ids.has(i.id));
@@ -430,7 +458,7 @@
     const add=(key,title,detail,available=true)=>result.push({key,title,detail,available});
     const life=items.filter(i=>i.type==='life-support');
     if(items.some(i=>definition(i.type).surveillance))add('surveillance','Ship-wide surveillance','Automatic intruder alerts, door closure and a staffed camera station.',items.some(i=>definition(i.type).surveillance&&operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired'));
-    for(const [type,title,detail]of [['tractor-beam','Tractor manipulation','Range 2 units; target hull at most half this ship. Active shields block capture.'],['manipulation-arm','External robotic arm','Manipulates objects in the same space hex.'],['docking-bay','Internal docking','Up to four ships; combined Hull at most half the carrier Hull. Decompression or shield doorway.'],['escape-pods','Emergency evacuation','Three occupants per pod; atmospheric entry, parachutes and a distress beacon.'],['ripple-reflector','Ripple reflection','Returns Ripple attacks at doubled-distance damage reduction.']])if(items.some(i=>i.type===type))add(type,title,detail,items.some(i=>i.type===type&&operational(i)));
+    for(const [type,title,detail]of [['tractor-beam','Tractor manipulation','Range 2 units; target hull at most half this ship. Active shields block capture.'],['manipulation-arm','External robotic arm','Manipulates objects in the same hex; automatically rescues drifting characters into the ship beside an airlock.'],['docking-bay','Internal docking','Up to four ships; combined Hull at most half the carrier Hull. Decompression or shield doorway.'],['escape-pods','Emergency evacuation','Three occupants per pod; atmospheric entry, parachutes and a distress beacon.'],['ripple-reflector','Ripple reflection','Returns Ripple attacks at doubled-distance damage reduction.']])if(items.some(i=>i.type===type))add(type,title,detail,items.some(i=>i.type===type&&operational(i)));
     if(life.length){
       add('oxygen','Breathable atmosphere',ship.oxygenEnabled===false?'Oxygen recycling off: check the oxygen countdown.':'Life Support atmospheric recycling system',oxygenEnabled(ship)&&life.some(operational));
       add('gravity','Artificial gravity',gravityEnabled(ship)?'Gravity on': 'Gravity off: movement halved; characters float.',gravityEnabled(ship));
@@ -442,6 +470,8 @@
       const valid=(ship.gridCells||[]).length<=def.hullLimit&&(kind==='hover'?multiMountPlacement(ship,item,placement?.mountCells):hullSymmetry(ship).symmetric);
       add(kind,kind==='hover'?'Vertical planetary landing':'Runway landing',`${speed*(kind==='hover'?10:40)} MPH maximum in atmosphere. ${kind==='hover'?'Four external hover generators.':'Long, flat runway; minimum Move 5 (200 MPH) to land.'}${item.impaired||item.status==='impaired'?' Impaired: atmospheric entry causes 8D10 Heat hull damage (manual roll).':''}`,operational(item)&&valid&&(kind==='hover'||speed>=5));
     }
+    if(items.some(i=>i.type==='land-wheels'))add('land-wheels','Surface driving','At 1–6 EN: maximum Move = 10 × EN; MPH = 20 + 10 × EN. Starts at Move 1; +1 per move action. Each impairment removes 25% of undamaged maximum. Narrative surface movement; base installation costs 1 EN.',items.some(i=>i.type==='land-wheels'&&operational(i)));
+    if(items.some(i=>i.type==='gravity-absolution-field'))add('gravity-absolution-field','Black-hole immunity','When active: no gravitational pull, movement penalty or center damage. Requires shields, suspends protection, costs 3 AU / 12 seconds.',items.some(i=>i.type==='gravity-absolution-field'&&operational(i)&&!i.impairmentPoints&&!i.impaired));
     if(items.some(i=>definition(i.type).shipAi))add('ai','On-board ship AI','Ship AI system installed',items.some(i=>definition(i.type).shipAi&&operational(i)));
     for(const [type,title,detail]of [['vr-training-room','Virtual training and recreation','Daily crew skill training and custom simulations.'],['medbay','On-board medical treatment','Automatic recovery: 1 HP every 3 seconds; 60-second preparation at 0 HP, five-minute revival deadline.'],['library','Galactic research library','Local database and shared crew research.'],['meeting-room','Crew briefing room','Private planning and shared briefing records.']])if(items.some(i=>i.type===type))add(type,title,detail,items.some(i=>i.type===type&&operational(i)));
     return result;
@@ -461,6 +491,8 @@
     const map=n=>remapSquare(n,ship,next);
     next.gridCells=(ship.gridCells||[]).map(map);next.triangleCells=triangleCells(ship).map(map);
     next.placements=(ship.placements||[]).map(p=>({...p,cell:map(p.cell),...(Number.isInteger(p.exteriorCell)?{exteriorCell:map(p.exteriorCell)}:{}),...(Array.isArray(p.mountCells)?{mountCells:p.mountCells.map(map)}:{})}));
+    next.airlocks=(ship.airlocks||[]).map(a=>({...a,square:map(a.square)}));
+    if(ship.breachState)next.breachState={...ship.breachState,holes:Object.fromEntries(Object.entries(ship.breachState.holes||{}).map(([id,h])=>[id,{...h,square:map(h.square)}]))};
     next.doorStates=Object.fromEntries(Object.entries(ship.doorStates||{}).map(([key,value])=>[key.split(':').map(n=>map(Number(n))).sort((a,b)=>a-b).join(':'),value]));
     return next;
   }
@@ -508,6 +540,10 @@
     const triangleIssue=triangleError(ship);if(triangleIssue)return triangleIssue;
     const inventory = ship.sicInventory || [];
     const installed = new Set((ship.placements || []).map(p => p.sicId));
+    for(const item of inventory.filter(i=>definition(i.type).hullUpgrade&&!i.pendingDisposition)){
+      if(inventory.filter(i=>i.type===item.type&&!i.pendingDisposition).length>1)return `Only one ${definition(item.type).name} per ship.`;
+      if(!installed.has(item.id)||item.storage)return 'Hull upgrades cover the whole Hull and cannot be kept in Storage.';
+    }
     if(installed.size!==(ship.placements||[]).length)return 'Each SIC may be installed only once; Hover stores its four mounts together.';
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).bridge).length > 1) return "A ship may have only one Bridge or Cockpit.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).sensor).length > 1) return "A ship may have only one installed Sensor system.";
@@ -525,18 +561,23 @@
     for (const p of ship.placements || []) {
       const item = inventory.find(item => item.id === p.sicId);
       const data=definition(item?.type);
+      if(['bar','hibernation-chamber','brig'].includes(item?.type)){
+        const d=componentDefinition(item),cells=placementSquares(ship,item,p),hull=new Set(ship.gridCells||[]);
+        if(cells.length!==d.width*d.height||cells.some(n=>!hull.has(n)))return `${data.name} needs ${d.width*d.height} purchased Hull squares inside the ship.`;
+        if((ship.placements||[]).some(other=>other.sicId!==p.sicId&&placementSquares(ship,inventory.find(i=>i.id===other.sicId),other).some(n=>cells.includes(n))))return `${data.name} cannot overlap another SIC.`;
+      }
       if(data.probeLauncher&&(ship.sicInventory||[]).filter(i=>definition(i.type).probe&&i.attachTo===item.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed'&&(ship.placements||[]).some(p=>p.sicId===i.id)).length>4)return 'A Probe Launcher holds at most four probes.';
-      if(data.addon){const host=addonHost(ship,item);if(!host||host.placement.cell!==p.cell)return `${data.name} must be attached to an installed ${data.addon==='any'?'SIC with a damage threshold':data.addon}.`;if(item.type==='power-core-damper'&&attachments(ship,item.attachTo,item.type).length>1)return 'Only one Power Core Damper per Engine.';continue;}
+      if(data.addon){const host=addonHost(ship,item);if(!host||host.placement.cell!==p.cell)return `${data.name} must be attached to an installed ${data.addon==='any'?'SIC with a damage threshold':data.addon}.`;if(data.hullUpgrade&&inventory.filter(i=>i.type===item.type&&!i.pendingDisposition).length>1)return `Only one ${data.name} per ship.`;if(data.shieldRecovery&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one of each recovery add-on per Shield system.';if(data.staticShield&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one Static Shields add-on per Shield system.';if(item.type==='power-core-damper'&&attachments(ship,item.attachTo,item.type).length>1)return 'Only one Power Core Damper per Engine.';continue;}
       if(data.bridgeAddon){
         if(!bridgeAddonPlacement(ship,p.cell))return `${data.name} must be installed on a Bridge or Cockpit.`;
         continue;
       }
       if(item?.type==='scramble-box'&&(ship.placements||[]).some(other=>other.sicId!==p.sicId&&inventory.find(i=>i.id===other.sicId)?.type==='scramble-box'&&Math.abs(other.cell%gridColumns(ship)-p.cell%gridColumns(ship))+Math.abs(Math.floor(other.cell/gridColumns(ship))-Math.floor(p.cell/gridColumns(ship)))===1))return 'Scramble Boxes cannot be adjacent to one another.';
-      if(data.landing){
+      if(data.landing||data.multiMount){
         if(inventory.filter(i=>installed.has(i.id)&&i.type===item.type).length>1)return `Only one ${data.name} may be installed.`;
         if((ship.gridCells||[]).length>data.hullLimit)return `${data.name} supports at most ${data.hullLimit} hull squares.`;
         if(data.hullSystem&&!hullSymmetry(ship).symmetric)return 'Decent (Aerofoil) requires a horizontally or vertically symmetrical hull.';
-        if(data.multiMount&&!multiMountPlacement(ship,item,p.mountCells))return 'Decent (Hover) requires four separate exterior mounts, each attached to the hull.';
+        if(data.multiMount&&!multiMountPlacement(ship,item,p.mountCells))return `${data.name} requires four separate exterior mounts, each attached to the hull.`;
         if(data.hullSystem||data.multiMount)continue;
       }
       if(item&&definition(item.type).mixed&&!mixedPlacement(ship,item,p.cell,p.exteriorCell))return `${definition(item.type).name} needs its control room inside the hull and its barrel outside an outer wall.`;
@@ -567,6 +608,7 @@
   }
 
   function sensorStats(record) {
+    if(record.lazyLayout&&record.sensorSummary)return record.sensorSummary;
     const ship = record.ship || record, ids = new Set((ship.placements || []).map(p => p.sicId));
     const item = (ship.sicInventory || []).find(i => ids.has(i.id) && definition(i.type).sensor && !i.disabled && !['disabled','offline','powered-down','destroyed'].includes(i.status));
     if (!item) return {range:0,diceCount:0,die:0,dice:[]};
@@ -584,16 +626,20 @@
     const ship=record.ship||record, id=ship.cloakState?.sicId;
     return Boolean(ship.cloakState?.active&&installedItems(ship).some(i=>i.id===id&&definition(i.type).cloaking&&operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired'));
   }
-  function scaleRank(record) { const n=(record.ship||record).gridCells?.length||record.size||0;return n<=26?1:n<=50?2:n<=100?3:n<=200?4:5; }
+  function scaleRank(record) { const n=(record.ship||record).gridCells?.length||record.hullCount||record.size||0;return n<=26?1:n<=50?2:n<=100?3:n<=200?4:5; }
   function shipHeading(record){const d=record.navigation?.direction;if(d&&Number.isFinite(d.q)&&Number.isFinite(d.r)&&(d.q||d.r))return Math.atan2(1.5*d.r,Math.sqrt(3)*(d.q+d.r/2))*180/Math.PI+90;return Number(record.mapHeading??record.ship?.mapHeading)||0;}
   function shipColor(record) {const color=record.mapColor||record.ship?.mapColor;if(/^#[0-9a-f]{6}$/i.test(color||''))return color;const palette=['#65cbea','#ffa66b','#b29cff','#7ce0a0','#f38cbd','#f4db79'];let hash=0;for(const c of String(record.id||record.title||''))hash=(hash*31+c.charCodeAt(0))>>>0;return palette[hash%palette.length];}
+  function gravityFieldActive(record) {
+    const ship=record.ship||record,state=ship.gravityFieldState,items=installedItems(record);
+    return Boolean(state?.active&&items.some(i=>definition(i.type).shield&&operational(i))&&items.some(i=>i.id===state.sicId&&definition(i.type).gravityField&&operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired'));
+  }
   function masking(record) {
     if((record.ship||record).cleanserState?.phase==='charging')return 0;
     const ship = record.ship || record, installed = new Set((ship.placements || []).map(p => p.sicId));
     const darkveils=(ship.sicInventory || []).filter(item => installed.has(item.id) && definition(item.type).darkveil && !item.disabled && !["destroyed", "offline", "powered-down"].includes(item.status));
     const darkveil = darkveils.length?Math.max(...darkveils.map(item=>Number(definition(item.type).darkveil)-5*Math.max(Number(item.impairmentPoints)||0,item.impaired||item.status==='impaired'?1:0))):0;
     const stats = propulsion(record);
-    return stats.hsm + stats.exhaust + darkveil + (cloaked(record)?25:0);
+    return stats.hsm + stats.exhaust + darkveil + (cloaked(record)?(Number(record.currentShieldHp??ship.currentShieldHp??Object.values(record.shieldSystems||ship.shieldSystems||{}).reduce((n,s)=>n+Number(s.hp||0),0))>0?10:['powered','drift'].includes(record.navigation?.phase)&&record.navigation.speed>0?25:50):0) + (staticShieldActive(record)?4:0);
   }
 
   function floorplanStyle(type, column = 0, row = 0, cell=null) {
@@ -870,6 +916,8 @@
   ]
 };
   for(let tier=1;tier<=4;tier++)exteriorArtBounds['antenna-'+tier]=[.5,0,0,1,1];
+  exteriorArtBounds['ion-disruptor']=[.5,0,0,1,1];
+  exteriorArtBounds['black-hole-gun']=[.4,0,0,1,1];
   function exteriorShift(sic, angle, facing, lowResolution=false) {
     const data=definition(sic.type),[aspect,x0,y0,x1,y1]=exteriorArtBounds[sic.type]||[1,0,0,1,1];
     const sideways=angle%180!==0,w=sideways?sic.height:sic.width,h=sideways?sic.width:sic.height;
@@ -903,6 +951,27 @@
     const ships=layout.ship.fieldState?.systems?.[cell.sicId]?.dockedShips||[];
     return `<span class="sa-bay-ships" style="width:${cell.width*100}%;height:${cell.height*100}%">${ships.slice(0,4).map((ship,i)=>`<img src="sic-art-starship-rank-${Math.max(1,Math.min(5,Number(ship.rank)||1))}.webp" alt="Docked starship" style="left:${25+i%2*50}%;top:${25+Math.floor(i/2)*50}%;filter:drop-shadow(0 0 3px ${shipColor(ship)})">`).join('')}</span>`;
   }
+  function airlockCandidates(record) {
+    const ship=record.ship||record,l=buildLayout(ship),outside=outerSpace(ship),result=[];
+    for(const square of l.hull){
+      if(l.footprint.has(square))continue;
+      for(const side of l.sides){const next=square+side.offset;
+        if((!side.valid(square)||outside.has(next))&&!l.footprint.has(next))result.push({square,side:side.name});
+      }
+    }
+    return result;
+  }
+  function ensureAirlocks(record) {
+    const ship=record.ship||record,candidates=airlockCandidates(ship),seen=new Set();
+    ship.airlocks=(Array.isArray(ship.airlocks)?ship.airlocks:[]).filter(a=>a&&candidates.some(c=>c.square===a.square&&c.side===a.side)&&!seen.has(a.square)&&seen.add(a.square)).map(a=>({id:String(a.id||`airlock-${a.square}-${a.side}`).replace(/[^a-z0-9_-]/gi,'').slice(0,100),square:a.square,side:a.side}));
+    if(!ship.airlocks.length&&candidates.length){const a=candidates[0];ship.airlocks.push({id:`airlock-${a.square}-${a.side}`,...a});}
+    return ship.airlocks.length?'':'Leave a blank hull square along an outside edge for an airlock.';
+  }
+  function hazardMarkup(ship,square) {
+    const a=(ship.airlocks||[]).find(a=>a.square===square),open=a&&ship.airlockStates?.[a.id]?.open;
+    const breach=Object.values(ship.breachState?.holes||{}).find(h=>h.square===square&&!h.sealed);
+    return `${a?`<span class="sa-airlock side-${a.side}${open?' is-open':''}" data-airlock-id="${a.id.replace(/[^a-z0-9_-]/gi,'')}" aria-label="Airlock ${open?'open':'closed'}"><img src="airlock-hatch.webp" alt="">${open?'<i class="sa-vacuum-flow"></i>':''}</span>`:''}${breach?'<span class="sa-hull-breach" aria-label="Hull breach"><img src="hull-breach.webp" alt=""><i class="sa-vacuum-flow"></i></span>':''}`;
+  }
   function surfaceMarkup(layout, square) {
     const triangle=triangleMarkup(layout.ship,square);if(triangle)return triangle;
     const SIDES=layout.sides,columns=layout.columns;
@@ -914,7 +983,7 @@
       const status=offline?`<span class="sa-offline-shade"></span>${cell.offset===0?`<span class="sa-reboot-status">${cell.item.bootRemaining>0?`Restart ${Math.ceil(cell.item.bootRemaining)}s`:'OFFLINE'}</span>`:''}`:'';
       const rotated=Number(cell?.item.rotation||0)%180!==0;
       const room=def?.mixed&&cell.offset===0?`<span class="sa-mixed-room-art" style="width:${cell.width*100}%;height:${cell.height*100}%" aria-hidden="true"><img src="${def.image}" alt="" draggable="false" style="width:${rotated?cell.height/cell.width*100:100}%;height:${rotated?cell.width/cell.height*100:100}%;transform:translate(-50%,-50%) rotate(${Number(cell.item.rotation||0)}deg)"></span>`:'';
-      return `${room}${atmosphereMarkup(layout,square)}${dockedMarkup(layout,cell)}${status}${impairmentMarkup(cell)}${cell?.blocked?'<span class="sa-blocked-floor" aria-hidden="true"></span>':''}<span class="sa-hull-plate ${edges}${layout.aerofoil?' sa-aerofoil-plate':''}" style="--plate-x:${square % columns % 2 * 100}%;--plate-y:${Math.floor(square / columns) % 2 * 100}%" aria-hidden="true">${canopy}</span>`;
+      return `${room}${atmosphereMarkup(layout,square)}${dockedMarkup(layout,cell)}${status}${impairmentMarkup(cell)}${hazardMarkup(layout.ship,square)}${cell?.blocked?'<span class="sa-blocked-floor" aria-hidden="true"></span>':''}<span class="sa-hull-plate ${edges}${layout.aerofoil?' sa-aerofoil-plate':''}" style="--plate-x:${square % columns % 2 * 100}%;--plate-y:${Math.floor(square / columns) % 2 * 100}%" aria-hidden="true">${canopy}</span>`;
     }
     let sic = layout.footprint.get(square);
     if (!sic?.exterior) return "";
@@ -926,7 +995,7 @@
     const facing=exteriorFacing(layout,square),shift=exteriorShift(sic,angle,facing),low=exteriorShift(sic,angle,facing,true);
     const shiftStyle=`--art-shift-x:${shift[0]}%;--art-shift-y:${shift[1]}%;--shape-shift-x:${low[0]}%;--shape-shift-y:${low[1]}%;`;
     if(data.multiMount)return mount+`<span class="sa-hover-pod ${active?'online':''}" aria-hidden="true"><img src="${data.sprite}" alt="" draggable="false"><i></i></span>`;
-    if (data.weapon||data.fieldUtility) return mount+`<span class="sa-exterior-weapon" style="${shiftStyle}position:absolute;left:0;top:0;width:${sic.width*100}%;height:${sic.height*100}%;opacity:${active ? 1 : .35}" aria-hidden="true"><span style="position:absolute;left:50%;top:50%;width:${sideways?sic.height/sic.width*100:100}%;height:${sideways?sic.width/sic.height*100:100}%;transform:translate(-50%,-50%) rotate(${angle+180}deg)"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"><i class="sa-weapon-silhouette" style="--weapon-color:${data.color};--weapon-mask:url('${data.sprite}')"></i></span></span>`;
+    if (data.weapon||data.fieldUtility||data.blackHoleGun) return mount+`<span class="sa-exterior-weapon" style="${shiftStyle}position:absolute;left:0;top:0;width:${sic.width*100}%;height:${sic.height*100}%;opacity:${active ? 1 : .35}" aria-hidden="true"><span style="position:absolute;left:50%;top:50%;width:${sideways?sic.height/sic.width*100:100}%;height:${sideways?sic.width/sic.height*100:100}%;transform:translate(-50%,-50%) rotate(${angle+180}deg)"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"><i class="sa-weapon-silhouette" style="--weapon-color:${data.color};--weapon-mask:url('${data.sprite}')"></i></span></span>`;
     const jetClass = data.ionic ? "sa-ion-pulse" : "sa-thruster-flame";
     // Emission points are measured in the sprite frame, then transformed with the complete assembly.
     const jets = (data.emitters || []).map(([x,y,width], index) => `<i class="${jetClass}" style="left:${8 + .84 * (x - width / 2)}%;top:${-2 + .76 * y}%;width:${.84 * width}%;animation-delay:${index * -.8}s"></i>`).join("");
@@ -936,7 +1005,7 @@
   const VIEW_LABELS = Object.freeze({ labels: "Labels", highResolution: "High Res", combatMesh: "Combat Mesh", walls: "Walls", stations: "Stations", hull: "Hull" });
   function viewDisabled(view, key) { return Boolean(view.hull && ["combatMesh", "walls", "stations"].includes(key)); }
   function viewControls(view, attribute) {
-    return Object.entries(VIEW_LABELS).map(([key, label]) => `<label><input type="checkbox" ${attribute}="${key}" ${view[key] && !viewDisabled(view, key) ? "checked" : ""} ${viewDisabled(view, key) ? "disabled" : ""}> <span>${label}</span></label>`).join("");
+    return Object.entries(VIEW_LABELS).filter(([key])=>key!=='hull'||!['data-inline-map-view','data-combat-map-view'].includes(attribute)).map(([key, label]) => `<label><input type="checkbox" ${attribute}="${key}" ${view[key] && !viewDisabled(view, key) ? "checked" : ""} ${viewDisabled(view, key) ? "disabled" : ""}> <span>${label}</span></label>`).join("");
   }
 
   function doorKey(first, second) {
@@ -1105,19 +1174,29 @@
       for(const p of s.placements||[]){const i=(s.sicInventory||[]).find(i=>i.id===p.sicId);if(i&&placementSquares(s,i,p).includes(n))return 'Triangular hull cannot contain SICs or exterior equipment.';}
     }return '';
   }
-  function hullHp(record){const s=record.ship||record;return new Set(s.gridCells||[]).size+triangleCells(s).length;}
+  function hullSections(record){const s=record.ship||record;return new Set(s.gridCells||[]).size+triangleCells(s).length;}
+  function hullHp(record){const base=hullSections(record);return base+(hullUpgrade(record,'hull-plating')?Math.floor(base*scaleRank(record)/10):0);}
+  function hullUpgrade(record,type){return installedItems(record).some(item=>item.type===type&&!item.pendingDisposition&&operational(item)&&addonHost(record,item));}
+  function hullDamage(record,amount,type){let value=Math.max(0,Number(amount)||0);if(type==='heat'&&hullUpgrade(record,'heat-resistance'))value*=.25;if(type==='laser'&&hullUpgrade(record,'laser-resistance'))value=Math.floor(value/2);return value;}
+  function hullUpgradeResizeCost(working,confirmed){const old=confirmed.ship||confirmed;return (hullSections(working)-hullSections(confirmed))*((working.ship||working).sicInventory||[]).filter(item=>!item.pendingPurchase&&!item.pendingDisposition&&definition(item.type).hullUpgrade&&(old.sicInventory||[]).some(i=>i.id===item.id)).reduce((sum,item)=>sum+definition(item.type).hullSquarePrice,0);}
+  function staticShieldActive(record){
+    if(gravityFieldActive(record))return false;
+    const systems=record.shieldSystems||(record.ship||record).shieldSystems;
+    return installedItems(record).some(item=>definition(item.type).staticShield&&operational(item)&&!item.pendingDisposition&&(()=>{const host=addonHost(record,item);return host&&operational(host.item)&&Number(systems?.[host.item.id]?.hp??definition(host.item.type).shieldHp)>0;})());
+  }
   function triangleMarkup(ship={},cell,preview=false){
     if(!preview&&!triangleCells(ship).includes(cell))return '';
     const corner=triangleOrientation(ship,cell);if(!corner)return '';
     const points={nw:'0,0 100,0 0,100',ne:'0,0 100,0 100,100',se:'100,0 100,100 0,100',sw:'0,0 100,100 0,100'};
     return `<svg class="sa-hull-triangle${preview?' is-preview':''}" viewBox="0 0 100 100" data-triangle="${corner}" aria-label="Triangular hull: 300 credits, 1 Hull HP"><polygon points="${points[corner]}"/><image class="sa-triangle-art" href="sic-art-triangle-hull.webp" x="0" y="0" width="100" height="100" transform="rotate(${({nw:0,ne:90,se:180,sw:270})[corner]} 50 50)"/></svg>`;
   }
-  function addonHost(ship,item){const s=ship.ship||ship,host=(s.sicInventory||[]).find(i=>i.id===item.attachTo),p=(s.placements||[]).find(p=>p.sicId===host?.id),d=definition(host?.type),a=definition(item.type).addon;
-    return host&&p&&!host.pendingDisposition&&!host.storage&&((!d.addon&&(a==='any'&&Number(d.threshold)>0||a==='engine'&&d.engine||a==='bridge'&&d.bridge||a==='probe'&&d.probeLauncher))||(a==='probe-module'&&d.probe&&addonHost(s,host)))?{item:host,placement:p}:null;}
+  function addonHost(ship,item){const s=ship.ship||ship,a=definition(item.type).addon;if(a==='hull')return item.attachTo==='hull'&&(s.gridCells||[]).length?{item:{id:'hull',type:'hull'},placement:{cell:s.gridCells[0]}}:null;
+    const host=(s.sicInventory||[]).find(i=>i.id===item.attachTo),p=(s.placements||[]).find(p=>p.sicId===host?.id),d=definition(host?.type);
+    return host&&p&&!host.pendingDisposition&&!host.storage&&((!d.addon&&(a==='any'&&Number(d.threshold)>0||a==='science'&&host.type==='science-lab'||a==='engine'&&d.engine||a==='bridge'&&d.bridge||a==='shield'&&d.shield||a==='probe'&&d.probeLauncher))||(a==='probe-module'&&d.probe&&addonHost(s,host)))?{item:host,placement:p}:null;}
   function attachments(ship,id,type){return installedItems(ship).filter(i=>i.attachTo===id&&(!type||i.type===type)&&operational(i));}
   function effectiveThreshold(ship,item){return Number(definition(item.type).threshold)||0 ? Number(definition(item.type).threshold)+attachments(ship,item.id,'vulnerability-fortification').length : null;}
   function engineClearance(ship,item){return Math.max(0,(definition(item.type).clearance||0)-(attachments(ship,item.id,'power-core-damper').length?1:0));}
-  function sicPrice(item){return item.type==='vulnerability-fortification'?Math.max(500,Number(item.purchasePrice)||500):definition(item.type).price||0;}
+  function sicPrice(item,record){const d=definition(item.type);return d.hullUpgrade?(record?hullSections(record)*d.hullSquarePrice:Math.max(0,Number(item.purchasePrice)||0)):item.type==='vulnerability-fortification'?Math.max(500,Number(item.purchasePrice)||500):d.price||0;}
   function scramblePenalty(ship,sicId){const s=ship.ship||ship,item=(s.sicInventory||[]).find(i=>i.id===sicId),p=(s.placements||[]).find(p=>p.sicId===sicId);if(!item||!p)return 0;const cells=placementSquares(s,item,p),c=gridColumns(s);
     return installedItems(s).some(i=>i.type==='scramble-box'&&operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired'&&(s.placements||[]).some(p=>p.sicId===i.id&&cells.some(n=>Math.abs(n%c-p.cell%c)+Math.abs(Math.floor(n/c)-Math.floor(p.cell/c))===1)))?1:0;}
   function equipmentBonus(ship,location,skill){
@@ -1143,5 +1222,5 @@
     const apply=()=>callback(loadViewPreferences());window.addEventListener('sa-map-view-changed',apply);
     window.addEventListener('storage',e=>{if(e.key===viewKey)apply();});
   }
-  return Object.freeze({ triangleCells, triangleOrientation, triangleError, triangleMarkup, hullHp, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, cloaked, scaleRank, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
+  return Object.freeze({ airlockCandidates, ensureAirlocks, hazardMarkup, triangleCells, triangleOrientation, triangleError, triangleMarkup, hullSections, hullHp, hullUpgrade, hullDamage, hullUpgradeResizeCost, staticShieldActive, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, gravityFieldActive, cloaked, scaleRank, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
 }));

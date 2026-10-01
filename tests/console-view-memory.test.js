@@ -4,8 +4,8 @@ function setup(){
  let own='nova';const state={roomCode:'TEST',units,starships:[],activeId:null};
  const choices=u=>u.location.stationed?[{kind:'utility',item:{id:u.id+'-console'},remote:false}]:[];
  const window={addEventListener(){},SACombatBridge:{state:()=>state,myUnitId:()=>own,mode:()=> 'player'},SAStationAccess:{consoles:(_s,u)=>choices(u)},SAUtilityConsoleUI:{isOpen:()=>false,open:(u,id)=>opened.push([u.id,id])}};
- const document={querySelector:()=>null,defaultView:window};window.document=document;
- const context={window,document,sessionStorage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},setInterval:()=>1,clearInterval(){},queueMicrotask:()=>{}};
+ const document={addEventListener(){},querySelector:()=>null,defaultView:window};window.document=document;
+ const context={window,document,requestAnimationFrame(){},sessionStorage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},setInterval:()=>1,clearInterval(){},queueMicrotask:()=>{}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../ship-navigation-ui.js'),'utf8'),context);
  return {api:window.SAShipNavigationUI,memory,opened,units,state,document,own:id=>own=id};
 }

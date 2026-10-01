@@ -35,7 +35,7 @@
     if(!layouts.has(ship))layouts.set(ship,window.SAShipMap.buildLayout(ship));
     return layouts.get(ship);
   }
-  const mapView = window.SAShipMap.loadViewPreferences();
+  const mapView = {...window.SAShipMap.loadViewPreferences(),hull:false};
   window.SAShipMap.onViewPreferences(prefs=>{Object.assign(mapView,prefs);renderInlineMaps(document,true);});
 
   function stationAt(ship, square, mesh) {
@@ -79,7 +79,7 @@
         if (!mapView.stations && !occupant) return "";
         const name = occupant?.characterName || "";
         const label = occupant ? `${name} stationed at ${sic.label}` : `${sic.label} station`;
-        return `<i data-ship-ai="${Boolean(occupant?.shipAi)}" class="combat-station-marker ${occupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${occupant ? `--token-color:${esc(occupant.color || "#39e58f")}` : ""}" title="${esc(label)}" aria-label="${esc(label)}">${occupant ? `<span>${esc(name.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
+        return `<i data-fallen="${Boolean(occupant&&Number(occupant.currentHp)<=0)}" data-ship-ai="${Boolean(occupant?.shipAi)}" class="combat-station-marker ${occupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${occupant ? `--token-color:${esc(occupant.color || "#39e58f")}` : ""}" title="${esc(label)}" aria-label="${esc(label)}">${occupant ? `<span>${esc(name.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
       }).join("");
   }
 
@@ -271,7 +271,7 @@
     return window.SAShipMap.boundaryMarkup(layout, square, {
       isOpen: (key) => ship.ship.doorStates?.[key] === "open"
         || (combatState?.units || []).some((unit) => movementPresentation(unit)?.openDoorKeys.has(key)),
-      doorAttributes: (key) => ({ "data-combat-door": key }),
+      doorAttributes: (key) => ({ "data-combat-door": key, title: (ship.ship.doorDamage?.[key]>=3?"Broken open":"Door — "+(ship.ship.doorDamage?.[key]||0)+"/3 breach points")+". Attack through Fire Gun or Melee; threshold 40 for Brig cell doors, otherwise 10." }),
     });
   }
 
@@ -328,7 +328,7 @@
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+        return `<i data-fallen="${Number(unit.currentHp)<=0}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
       }).join("");
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
         const occupiedStation = stationAt(ship, square, index) && stationDestinationOccupied(ship, square, index);
@@ -343,6 +343,7 @@
       return `<i class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${moving.walking}" style="left:${moving.x / columns * 100}%;top:${moving.y / rows * 100}%;--crew-heading:${moving.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
     }).join("");
     grid.innerHTML = cellMarkup + movingMarkup;
+    window.SAFloorplanSnapshot?.mount(grid,ship,{fullGrid:true});
     if (preview?.path?.length) {
       const start = locationFor(selectedUnit(), ship);
       const points = [start, ...preview.path].filter(Boolean).map((point) => {
@@ -377,7 +378,7 @@
       ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
-    stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");
+    stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.hull(record, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.shields(record, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
   function statsMarkup(record) {
@@ -393,7 +394,7 @@
       ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
-    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.track("hull", hull, hullMax, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.track("shield", shield, shieldMax, mode === "gm") : esc(value)}</strong></span>`).join("");
+    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.hull(record, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.shields(record, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
   function stationChoiceMarkup(record, unit) {
@@ -445,7 +446,7 @@
         const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row,sic) : ""}` : "";
         const tokens = units.filter((unit) => Number(unit.location.square) === square && !stationAt(record, square, unit.location.mesh) && !movementPresentation(unit)).map((unit) => {
           const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
-          return `<i data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+          return `<i data-fallen="${Number(unit.currentHp)<=0}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
         }).join("");
         const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
           const occupiedStation = stationAt(record, square, index) && stationDestinationOccupied(record, square, index);
@@ -482,10 +483,19 @@
       : "Live interior view";
     return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
       <div class="inline-map-viewport"><div class="${classes}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
+      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
+  const inlineStateCache = new WeakMap();
+  const inlineStatsCache = new WeakMap();
+  function interiorStateKey(record) {
+    const ship=record.ship||{};
+    // AU/ATB/gravity clocks must not rebuild thousands of unchanged map cells.
+    const atmosphere=Object.entries(ship.atmosphereState?.cells||{}).map(([cell,o2])=>[cell,Math.ceil(o2-1e-7)]);
+    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.shipAi,u.location,u.timedAction,u.travelRoute,u.defeatedAt]);
+    return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
+  }
   const inlineZoom = new Map();
   const fitObservers=new Map();
   const manualInlineViews=new WeakSet();
@@ -563,8 +573,10 @@
   }
 
   function centerInterior(host) {
-    const unit = selectedUnit();
+    const candidates=[selectedUnit(),combatState?.units?.find(u=>u.id===myUnitId),combatState?.units?.find(u=>u.id===combatState.activeId)];
+    const unit=candidates.find(u=>u?.location?.starshipId===host?.dataset.inlineShipMap);
     const viewport = host?.querySelector(".inline-map-viewport");
+    if(unit?.location?.starshipId!==host?.dataset.inlineShipMap)return;
     const cell = host?.querySelector(`[data-map-square="${Number(unit?.location?.square)}"][data-map-mesh="${Number(unit?.location?.mesh)}"]`);
     if (!viewport || !cell) return;
     const target = cell.getBoundingClientRect(), bounds = viewport.getBoundingClientRect();
@@ -572,6 +584,17 @@
     viewport.scrollTop += target.top - bounds.top - viewport.clientHeight / 2 + target.height / 2;
   }
 
+  function zoomInterior(host,factor,focus=false){
+    const viewport=host.querySelector('.inline-map-viewport'),grid=host.querySelector('.inline-combat-map-grid');if(!viewport||!grid)return;
+    const old=host===expandedMap?.host?expandedMap.cellSize:inlineZoom.get(host.dataset.inlineShipMap)||72;
+    const x=(viewport.scrollLeft+viewport.clientWidth/2)/old,y=(viewport.scrollTop+viewport.clientHeight/2)/old;
+    const size=Math.max(6,Math.min(viewport.clientWidth/4,focus?viewport.clientWidth/15:old*factor));
+    manualInlineViews.add(host);
+    if(host===expandedMap?.host){expandedMap.cellSize=size;expandedMap.dialog.style.setProperty('--expanded-cell-size',size+'px');}
+    else{inlineZoom.set(host.dataset.inlineShipMap,size);grid.style.setProperty('--preview-cell-size',size+'px');}
+    viewport.scrollLeft=x*size-viewport.clientWidth/2;viewport.scrollTop=y*size-viewport.clientHeight/2;
+    if(focus)centerInterior(host);
+  }
   let interiorLoading=false;
   async function expandInterior(host, source) {
     if(interiorLoading)return;
@@ -583,7 +606,7 @@
     source.disabled=true;source.setAttribute('aria-busy','true');
     try {
       // A hosted stylesheet can arrive much later than its dialog markup.
-      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"]')].map(link=>{
+      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"],link[rel="stylesheet"][href*="ship-floorplan-snapshot.css"]')].map(link=>{
         const existing=[...doc.querySelectorAll('link[rel="stylesheet"]')].find(candidate=>candidate.href===link.href);
         if(existing?.sheet)return Promise.resolve();
         return new Promise((resolve,reject)=>{
@@ -601,7 +624,7 @@
     const shell = doc.createElement("dialog");
     shell.className = "expanded-interior-dialog";
     const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
-    shell.innerHTML = `<header><strong>${esc(record?.title || "Starship Interior")}</strong><div><button type="button" data-interior-zoom="-1" aria-label="Zoom out">&#8722;</button><button type="button" data-interior-zoom="1" aria-label="Zoom in">+</button><button type="button" data-interior-fit>Fit Ship</button><button type="button" data-interior-center>Center Character</button><button type="button" data-interior-back>Back</button></div></header><section data-inline-ship-map="${esc(host.dataset.inlineShipMap)}"></section>`;
+    shell.innerHTML = `<header><strong>${esc(record?.title || "Starship Interior")}</strong><div><button type="button" data-interior-zoom="-1" aria-label="Zoom out">&#8722;</button><button type="button" data-interior-zoom="1" aria-label="Zoom in">+</button><button type="button" data-interior-fit>Fit Ship</button><button type="button" data-interior-center>Enlarge / Character</button><button type="button" data-interior-back>Back</button></div></header><section data-inline-ship-map="${esc(host.dataset.inlineShipMap)}"></section>`;
     const mapHost = shell.querySelector("[data-inline-ship-map]");
     expandedMap = { dialog: shell, host: mapHost, source, cellSize: 96 };
     shell.addEventListener("cancel", (event) => { event.preventDefault(); closeExpandedMap(); });
@@ -609,18 +632,15 @@
       if (event.target.closest("[data-interior-back]")) return closeExpandedMap();
       const zoom = event.target.closest("[data-interior-zoom]");
       if (zoom && expandedMap) {
-        manualInlineViews.add(mapHost);
-        expandedMap.cellSize = Math.max(6, expandedMap.cellSize * (Number(zoom.dataset.interiorZoom)>0?1.25:.8));
-        shell.style.setProperty("--expanded-cell-size", `${expandedMap.cellSize}px`);
-        centerInterior(mapHost);
+        zoomInterior(mapHost,Number(zoom.dataset.interiorZoom)>0?1.25:.8);
       }
-      if (event.target.closest("[data-interior-center]")) centerInterior(mapHost);
+      if (event.target.closest("[data-interior-center]")) zoomInterior(mapHost,1,true);
       if (event.target.closest("[data-interior-fit]")) fitInline(mapHost);
     });
     if (doc !== document) {
       shell.addEventListener("click", handleInlineClick, true);
       shell.addEventListener("pointerover", handleInlineHover);
-      shell.addEventListener("pointerdown", handleInlinePointer, true);
+      shell.addEventListener("click", handleInlinePointer, true);
     }
     doc.body.append(shell);
     renderInlineMaps(shell);
@@ -644,11 +664,23 @@
         return;
       }
       watchFit(host);
+      const stateKey=interiorStateKey(record);
+      if(!force && inlineStateCache.get(host)===stateKey){
+        const stats=statsMarkup(record),node=host.querySelector('.combat-map-stats');
+        if(node&&inlineStatsCache.get(host)!==stats){node.innerHTML=stats;inlineStatsCache.set(host,stats);}
+        window.SADroneMap?.update(host.querySelectorAll('.inline-combat-map-grid'),record.ship,window.SAShipTargets.drones(combatState).filter(d=>d.targetId===record.id));
+        return;
+      }
       const markup = inlineMapMarkup(record);
       if (inlineMarkupCache.get(host) !== markup) {
+        const oldViewport=host.querySelector(".inline-map-viewport"),scroll=oldViewport?{left:oldViewport.scrollLeft,top:oldViewport.scrollTop}:null;
         host.innerHTML = markup;
+        if(scroll){const nextViewport=host.querySelector(".inline-map-viewport");if(nextViewport){nextViewport.scrollLeft=scroll.left;nextViewport.scrollTop=scroll.top;}}
         inlineMarkupCache.set(host, markup);
       }
+      inlineStateCache.set(host,stateKey);
+      inlineStatsCache.set(host,statsMarkup(record));
+      window.SAFloorplanSnapshot?.mount(host.querySelector('.inline-combat-map-grid'),record);
       window.SADroneMap?.update(host.querySelectorAll('.inline-combat-map-grid'),record.ship,window.SAShipTargets.drones(combatState).filter(d=>d.targetId===record.id));
     });
   }
@@ -828,13 +860,6 @@
     if (!cell || interaction === "view") return;
     chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
   });
-  grid.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("[data-combat-door]") || interaction === "view") return;
-    const cell = event.target.closest("[data-map-square]");
-    if (!cell) return;
-    event.preventDefault();
-    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
-  });
   grid.addEventListener("pointerover", (event) => {
     if (event.pointerType === "touch" || interaction === "view" || preview?.locked) return;
     const cell = event.target.closest("[data-map-square]");
@@ -842,14 +867,15 @@
   });
   roster.addEventListener("click", (event) => { const button = event.target.closest("[data-map-unit]"); if (button) { selectedUnitId = button.dataset.mapUnit; preview = null; confirm.disabled = true; render(); } });
   shipSelect.addEventListener("change", () => { selectedShipId = shipSelect.value; preview = null; confirm.disabled = true; render(); requestAnimationFrame(fitShip); });
-  for(const [action,label] of [['out','−'],['in','+'],['fit','Fit Ship']]){
+  for(const [action,label] of [['out','−'],['in','+'],['fit','Fit Ship'],['focus','Enlarge / Character']]){
     const button=document.createElement('button');button.type='button';button.dataset.combatInteriorZoom=action;button.textContent=label;button.title=action==='fit'?'Fit Ship':`Zoom ${action}`;button.setAttribute('aria-label',button.title);
     closeButton.before(button);
     button.onclick=()=>{
       if(action==='fit'){fitShip();return;}
-      const viewport=grid.parentElement,current=parseFloat(grid.style.getPropertyValue('--cell-size'))||54,size=Math.max(6,Math.min(200,current*(action==='in'?1.25:.8)));
+      const viewport=grid.parentElement,current=parseFloat(grid.style.getPropertyValue('--cell-size'))||54,size=Math.max(6,Math.min(viewport.clientWidth/4,action==='focus'?viewport.clientWidth/15:current*(action==='in'?1.25:.8)));
       const x=(viewport.scrollLeft+viewport.clientWidth/2-20)/current,y=(viewport.scrollTop+viewport.clientHeight/2-20)/current;
       grid.style.setProperty('--cell-size',size+'px');viewport.scrollLeft=x*size-viewport.clientWidth/2+20;viewport.scrollTop=y*size-viewport.clientHeight/2+20;
+      if(action==='focus'){const unit=selectedUnit(),loc=unit?.location;if(loc?.starshipId===selectedShipId){const columns=window.SAShipMap.gridColumns(selectedShip());viewport.scrollLeft=(loc.square%columns+.5)*size-viewport.clientWidth/2+20;viewport.scrollTop=(Math.floor(loc.square/columns)+.5)*size-viewport.clientHeight/2+20;}}
     };
   }
   panButtons.forEach((button) => button.addEventListener("click", () => {
@@ -882,11 +908,9 @@
     const inlineHost = event.target.closest?.("[data-inline-ship-map]");
     if (inlineHost) {
       if(event.target.closest('[data-interior-fit]')){fitInline(inlineHost);return;}
+      if(event.target.closest('[data-interior-focus]')){zoomInterior(inlineHost,1,true);return;}
       const zoom=event.target.closest('[data-preview-zoom]');if(zoom){
-        manualInlineViews.add(inlineHost);
-        if(inlineHost===expandedMap?.host){expandedMap.cellSize=Math.max(6,expandedMap.cellSize*(Number(zoom.dataset.previewZoom)>0?1.25:.8));expandedMap.dialog.style.setProperty('--expanded-cell-size',expandedMap.cellSize+'px');}
-        else{inlineZoom.set(inlineHost.dataset.inlineShipMap,Math.max(6,(inlineZoom.get(inlineHost.dataset.inlineShipMap)||72)*(Number(zoom.dataset.previewZoom)>0?1.25:.8)));renderInlineMaps(document,true);}
-        centerInterior(inlineHost);return;
+        zoomInterior(inlineHost,Number(zoom.dataset.previewZoom)>0?1.25:.8);return;
       }
       const expand = event.target.closest("[data-expand-interior]");
       if (expand) { if (expandedMap?.host !== inlineHost) expandInterior(inlineHost, expand); return; }
@@ -941,8 +965,9 @@
     chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
     refreshInlinePreview(host);
   }
-  document.addEventListener("pointerdown", handleInlinePointer, true);
+  document.addEventListener("click", handleInlinePointer, true);
   window.addEventListener("sa-combat-state", (event) => {
+    window.SAVacuumUI?.animateEjections(combatState,event.detail.state);
     combatState = event.detail.state;
     mode = event.detail.mode;
     myUnitId = event.detail.myUnitId;

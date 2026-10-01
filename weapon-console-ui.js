@@ -15,8 +15,13 @@
     view.querySelector('.weapon-feed').prepend(firing);
     const get=s=>view.querySelector(s);const selection=()=>{const o=get('[data-target]').selectedOptions?.[0];return {targetId:o?.dataset.ship||o?.value||get('[data-target]').value||'',targetSicId:o?.dataset.component||null};};let boostsEdited=false,busy=false,lastMap='',lastTargets='',lastReports='',lastFactors='',beat=-1;
     const family=initial.definition.weaponFamily||'rapid-laser';
-    const missile=initial.definition.missileLauncher?window.SAMissileUI.console(view,initial):null;
-    const rail=family==='ballistic-rail-cannon',manualOnly=rail||initial.definition.manualOnly;
+    const devastation=initial.definition.devastation;
+    if(devastation){const box=host.createElement('section');box.className='devastation-status';box.innerHTML='<strong data-dev-status role="status"></strong><progress data-dev-progress max="1" value="0" aria-label="Weapon charge or cooldown"></progress><p data-dev-upkeep></p><button data-dev-charge>Begin Charging</button><button data-dev-release>Release Charge</button><small data-dev-reason></small>';get('.weapon-controls').prepend(box);
+      for(const [selector,kind]of [['[data-dev-charge]','devastation-charge'],['[data-dev-release]','devastation-discharge']])get(selector).onclick=async()=>{if(busy)return;busy=true;try{await bridge.utilityAction({id:unit.id,starshipId:initial.ship.id,sicId,kind,receipt:crypto.randomUUID()});}catch(e){get('[data-error]').textContent=e.message;}finally{busy=false;redraw();}};
+    }
+
+    const missile=initial.definition.missileLauncher?window.SAMissileUI.console(view,initial,async()=>{if(busy)return;busy=true;try{await bridge.action({action:"weaponCommand",id:unit.id,sicId,kind:"reload-missiles",requestId:crypto.randomUUID()},"resolve",{throwOnError:true});}catch(error){get("[data-error]").textContent=error.message;}finally{busy=false;redraw();}}):null;
+    const repeater=family==='ballistic-rail-repeater',rail=repeater||family==='ballistic-rail-cannon',manualOnly=rail||initial.definition.manualOnly;
     get('[data-target]').setAttribute('aria-label','Weapon target');get('[data-input]').setAttribute('aria-label','Weapon input');
     get('header small').textContent=`${initial.remote?'REMOTE':'LOCAL'} FIRE CONTROL / ${unit.characterName}`;
     get('[data-sacrifice]').closest('label').hidden=family!=='rapid-laser';
@@ -34,7 +39,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       const now=Math.floor(performance.now()/1000),alerting=ready&&!state.hardPaused&&!state.holdPaused&&!host.hidden;
       view.dataset.flash=String(alerting&&performance.now()%1000<450);if(alerting&&now!==beat){beat=now;bridge.consoleTick();}
       const picture=window.SAShipSensors.view(state,access.ship.id),mapKey=JSON.stringify([picture.starships.map(s=>[s.id,s.title,s.destroyedAt,s.missileHeading,s.missilePhase,s.missileEndedAt]),picture.shipPositions]);
-      if(mapKey!==lastMap){get('[data-map]').innerHTML=window.SASpaceMap.markup(picture.starships,picture.shipPositions,false,{navigation:true});lastMap=mapKey;}
+      if(mapKey!==lastMap){window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});lastMap=mapKey;}
       const chart=get('[data-map]'),svg=chart.querySelector('svg'),bounds=svg.viewBox.baseVal;
       const height=bounds.width*chart.clientHeight/Math.max(1,chart.clientWidth),middle=bounds.y+bounds.height/2;
       svg.setAttribute('viewBox',`${bounds.x} ${middle-height/2} ${bounds.width} ${height}`);
@@ -43,8 +48,8 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML=targets||'<option value="">No detected targets</option>';get('[data-target]').value=[...get('[data-target]').options].some(o=>o.value===previous)?previous:contacts[0]?.id||'';lastTargets=targets;}
       const {targetId}=selection(),spec=window.SAShipWeapons.rollSpec(state,person,{shipId:access.ship.id,targetId,sicId}),settings=window.SAShipWeapons.settings(person,access.definition.tier);
       const ammo=rail?window.SAShipWeapons.ironAmmo(access.ship):0;
-      get('[data-au]').textContent=rail?`${ammo} IRON / 1 PER SHOT / 0 EN / 0 AU`:`${access.ship.auState?.available??access.ship.auState?.current??0} AU AVAILABLE`;
-      const surcharge=!rail&&access.ship.weaponState?.repeatWindow?.[sicId]>0?access.definition.energyCost:0;
+      get('[data-au]').textContent=rail?`${ammo} IRON / 1 PER SHOT / 0 EN / 0 AU${repeater?` / ${Math.min(4,ammo)} SHOTS`:''}`:`${access.ship.auState?.available??access.ship.auState?.current??0} AU AVAILABLE`;
+      const surcharge=!devastation&&!access.definition.ionDisruptor&&!rail&&access.ship.weaponState?.repeatWindow?.[sicId]>0?access.definition.energyCost:0;
       if(family==='ripple-cannon'&&!boostsEdited&&!busy&&!pending){
         const baseShot=window.SAShipWeapons.profile(access.definition,access.item,spec.range,{boosts:0});
         const available=access.ship.auState?.available??access.ship.auState?.current??0;
@@ -57,11 +62,12 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       get('.weapon-plot h3 span').textContent=manualOnly?'MANUAL ONLY':lock?'LOCKED FIRE':'MANUAL FIRE';
       [...get('[data-sacrifice]').options].forEach(option=>{const count=Number(option.value);option.textContent=`${count?`Sacrifice ${count}D${access.definition.damageDie}`:'Full burst'} / ${5-count+surcharge} AU${surcharge?' (repeat fire)':''}`;});
       window.SAConsoleCommon.updateSound(view);
-      get('[data-formula]').textContent=lock?`LOCKED / ${shot.count}D${access.definition.damageDie}${shot.bonus?` + ${shot.bonus}`:''} damage. No accuracy roll required.`:access.definition.requiresLock?'TARGET LOCK REQUIRED. Establish a lock before firing.':`Dexterity + Weapon Systems + Hull Size Modifier ${access.definition.rangeStep?`+ ${shot.loss} range bonus`:`- range (${spec.range.toFixed(1)} Units)`}. ${spec.difficultyLabel}.`;
-      if(family!=='rapid-laser')get('[data-formula]').textContent+=` Damage: ${shot.count}D${access.definition.damageDie}${shot.bonus?` + ${shot.bonus}`:''}.${access.definition.shieldPiercing?' Bypasses shields and damage reduction.':''}`;
-      if(rail)get('[data-formula]').textContent+=' Manual only, including locked targets. Loses 2D6 per impairment point. No shield damage; shielded hull is protected.';
+      get('[data-formula]').textContent=lock?`LOCKED / ${shot.count}D${access.definition.damageDie}${shot.bonus?` + ${shot.bonus}`:''} damage. No accuracy roll required.`:access.definition.requiresLock?'TARGET LOCK REQUIRED. Establish a lock before firing.':`Dexterity + Weapon Systems + Hull Size Modifier ${repeater?`(target Defense + ${spec.range.toFixed(1)} for range)`:access.definition.rangeStep?`+ ${shot.loss} range bonus`:`- range (${spec.range.toFixed(1)} Units)`}. ${spec.difficultyLabel}.`;
+      if(family!=='rapid-laser')get('[data-formula]').textContent+=` Damage: ${shot.count}D${shot.dieSides||access.definition.damageDie}${shot.bonus?` + ${shot.bonus}`:''}.${access.definition.shieldPiercing?' Bypasses shields and damage reduction.':''}`;
+      if(rail)get('[data-formula]').textContent+=repeater?' Each shot has its own Manual Fire roll. Four shots per turn; 1D6 damage while impaired. No shield damage; shielded hull is protected.':' Manual only, including locked targets. Loses 2D6 per impairment point. No shield damage; shielded hull is protected.';
       if(!shot.count&&family!=='rapid-laser')get('[data-warning]').textContent='No damage dice remain. Reduce range or add available AU damage dice.';
       if(rail)get('[data-warning]').textContent=!shot.count?'No damage dice remain: repair the cannon before firing.':!ammo?'Out of ammunition: requires 1 Iron per shot.':'1 Iron committed on fire, including misses. Accuracy roll, Fast input, then manual damage only against unshielded hull.';
+      if(repeater){get('[data-fire]').textContent=`Fire ${Math.min(4,ammo)}-Shot Burst`;get('[data-warning]').textContent=!ammo?'Out of ammunition: requires 1 Iron per shot.':`One Fast input for ${Math.min(4,ammo)} shots at this target. Each shot spends 1 Iron when its accuracy roll starts, including misses. Unfired shots consume no ammunition.`;}
       if(!shot.boostAllowed&&initial.definition.boostAu)get('[data-warning]').textContent+=' Impaired: AU boosts unavailable.';
       get('[data-boosts]').disabled=busy||Boolean(pending)||!shot.boostAllowed;
       get('[data-target-status]').textContent=targetId?`TARGET / ${contacts.find(c=>c.id===targetId)?.title} / ${lock?'LOCKED':'MANUAL'} / Defense ${spec.difficulty??'?'}`:'Detect a contact with Sensors before firing.';
@@ -71,10 +77,25 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       get('[data-input-text]').textContent=pending?.awaitingRoll?'Awaiting dice confirmation':pending?.weaponOrder?`Firing in ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Fire control ready';
       get('[data-fire]').disabled=busy||!ready||!targetId||cost>available||(rail&&!ammo)||!get('[data-boosts]').validity.valid||(access.definition.requiresLock&&!lock)||(!shot.count&&family!=='rapid-laser')||(!shot.boostAllowed&&Number(get('[data-boosts]').value)>0);get('[data-sacrifice]').disabled=busy||Boolean(pending);
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!ready&&!person.consoleHold);get('[data-leave]').disabled=busy||!ready;
+      const ionCooldown=access.definition.ionDisruptor?Math.max(0,access.ship.ship.fieldState?.systems?.[sicId]?.cooldown||0):0;if(ionCooldown)get('[data-fire]').disabled=true;
       const fire=get('[data-fire]');let reason=fire.nextElementSibling;
       if(!reason?.matches('[data-fire-reason]')){reason=document.createElement('small');reason.dataset.fireReason='';fire.after(reason);}
-      reason.textContent=busy?'Submitting action...':!ready?(pending?'Finish the current action first.':'Available on your turn.'):!targetId?'Select a detected target.':cost>available?`Requires ${cost} AU; ${available} available.`:rail&&!ammo?'No ammunition available.':access.definition.requiresLock&&!lock?'Lock onto this target first.':!shot.count&&family!=='rapid-laser'?'No damage dice at this range without an AU boost.':!shot.boostAllowed&&Number(get('[data-boosts]').value)>0?'This shot cannot use an AU boost.':!get('[data-boosts]').validity.valid?'Choose a valid AU boost.':'';
+      reason.textContent=ionCooldown?'Cooling down: '+Math.ceil(ionCooldown)+' active seconds remaining.':busy?'Submitting action...':!ready?(pending?'Finish the current action first.':'Available on your turn.'):!targetId?'Select a detected target.':cost>available?`Requires ${cost} AU; ${available} available.`:rail&&!ammo?'No ammunition available.':access.definition.requiresLock&&!lock?'Lock onto this target first.':!shot.count&&family!=='rapid-laser'?'No damage dice at this range without an AU boost.':!shot.boostAllowed&&Number(get('[data-boosts]').value)>0?'This shot cannot use an AU boost.':!get('[data-boosts]').validity.valid?'Choose a valid AU boost.':'';
       reason.hidden=!fire.disabled;reason.style.cssText='display:block;color:#f2d58b;font-size:12px;margin:4px 0';if(reason.hidden)reason.style.display='none';
+
+      if(devastation){const ds=window.SADevastation.system(access.ship,sicId),why=window.SADevastation.reason(state,access.ship,access.item),operable=window.SADevastation.available(state,access.ship,access.item),canCommand=state.practice||ready;
+        get('.devastation-status').dataset.phase=ds.phase;
+        get('[data-dev-status]').textContent=ds.phase==='ready'?'weapon ready to fire':ds.phase==='charging'?'CHARGING / '+Math.ceil(ds.remaining)+' SEC':ds.phase==='cooldown'?'COOLING DOWN / '+Math.ceil(ds.remaining)+' SEC':'CHARGE EMPTY';
+        get('[data-dev-progress]').value=ds.phase==='ready'?1:ds.phase==='charging'?1-ds.remaining/access.definition.chargeSeconds:ds.phase==='cooldown'?1-ds.remaining/access.definition.cooldownSeconds:0;
+        get('[data-dev-upkeep]').textContent=access.definition.chargeAu+' AU / 12 seconds · '+access.definition.chargeSeconds+' sec charge · '+access.definition.cooldownSeconds+' sec cooldown';
+        get('[data-dev-charge]').disabled=busy||!canCommand||!operable||ds.phase!=='idle'||available<access.definition.chargeAu;
+        get('[data-dev-release]').disabled=busy||!canCommand||!['charging','ready'].includes(ds.phase);
+        get('[data-dev-reason]').textContent=!canCommand?'Available on your turn.':!operable?why:ds.phase==='idle'&&available<access.definition.chargeAu?'Not enough AU to begin charging.':ds.message||'';
+        get('[data-fire]').disabled ||= Boolean(why)||state.practice;
+        if(state.practice||why){reason.textContent=state.practice?'Firing requires a target in an active encounter.':why;reason.hidden=false;reason.style.display='block';}
+        get('[data-warning]').textContent='One stored charge. AU upkeep continues until the shot fires or you release it. '+(lock?'Locked hit; roll damage.':'Standard accuracy roll, then damage on a hit.');
+        if(state.practice){get('[data-turn]').textContent='OUT OF COMBAT';get('[data-leave]').disabled=busy;}
+      }
       if(missile)missile.update(state,person,access,ready,busy);
       const reports=(access.ship.weaponState?.reports||[]).map(e=>`<article class="${e.hit?'weapon-hit':e.shot?'weapon-miss':''}"><time>${esc(new Date(e.at).toLocaleTimeString())}</time><p>${esc(e.text)}</p>${e.dice?.length?`<small>Damage dice ${e.dice.join(' + ')}</small>`:''}</article>`).join('')||'<p>No shots fired.</p>';
       if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;}
@@ -84,7 +105,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
     view.oninput=event=>{if(event.target.matches('[data-boosts]'))boostsEdited=true;redraw();};
     const dismiss=()=>window.SAShipNavigationUI.remember(bridge.state().units.find(u=>u.id===unit.id));
     get('[data-close]').onclick=()=>{dismiss();view.close();};get('[data-sound]').onclick=()=>bridge.toggleSound();
-    get('[data-leave]').onclick=()=>{const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'leaveStation'))return;view.close();window.SACombatMap.openMove(person);};
+    get('[data-leave]').onclick=()=>{if(bridge.state().practice){view.close();return;}const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'leaveStation'))return;view.close();window.SACombatMap.openMove(person);};
     get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(bridge.state().units.find(u=>u.id===unit.id));}catch(e){get('[data-error]').textContent=e.message;}};
     view.addEventListener('cancel',dismiss);view.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};

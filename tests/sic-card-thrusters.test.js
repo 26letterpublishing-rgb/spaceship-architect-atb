@@ -25,10 +25,10 @@ test('multi-square thrusters render once, point away from every mount, and never
     const cells=Array.from({length:d.height},(_,y)=>Array.from({length:d.width},(_,x)=>origin+y*20+x)).flat();
     const mounts=[{cell:origin-20,angle:0},{cell:origin+d.width,angle:90},{cell:origin+d.height*20,angle:180},{cell:origin-1,angle:270}];
     for(const mount of mounts) {
-      const ship={gridCells:[mount.cell],sicInventory:[{id:'t',type}],placements:[{sicId:'t',cell:origin}]};
+      const ship={gridCells:Array.from({length:mount.angle%180?d.height:d.width},(_,i)=>mount.cell+i*(mount.angle%180?20:1)),sicInventory:[{id:'t',type}],placements:[{sicId:'t',cell:origin}]};
       assert.equal(maps.exteriorError(ship),'');
       const layout=maps.buildLayout(ship);
-      assert.equal(layout.hull.size,1);
+      assert.equal(layout.hull.size,mount.angle%180?d.height:d.width);
       for(const cell of cells) {
         assert.equal(maps.exteriorFacing(layout,cell),mount.angle);
         assert.equal(layout.footprint.get(cell).blocked,true);
@@ -45,14 +45,14 @@ test('multi-square thrusters render once, point away from every mount, and never
 });
 
 test('mixed thruster tiers share the four-part cap and each grant only one Evade die', () => {
-  const ship={gridCells:[147,148,167,168],sicInventory:[{id:'a',type:'exhaust-thruster-5'},{id:'b',type:'exhaust-thruster-2'}],placements:[{sicId:'a',cell:107},{sicId:'b',cell:187}]};
+  const ship={gridCells:[147,148,149,150,167,168,169,170],sicInventory:[{id:'a',type:'exhaust-thruster-5'},{id:'b',type:'exhaust-thruster-2'}],placements:[{sicId:'a',cell:107},{sicId:'b',cell:187}]};
   assert.equal(maps.exteriorError(ship),'');
-  assert.deepEqual(maps.propulsion(ship).impulses,[15,12]);
+  assert.deepEqual(maps.propulsion(ship).impulses,[13,10]);
   assert.equal(maps.propulsion(ship).exhaust,-9);
   assert.equal(maps.propulsion(ship).evadeCount,2);
   ship.sicInventory[0].impaired=true;
   assert.equal(maps.propulsion(ship).evadeCount,1);
-  assert.equal(maps.propulsion(ship).moveSpeed,27);
+  assert.equal(maps.propulsion(ship).moveSpeed,23);
   ship.sicInventory.push(...[3,4,1].map(tier=>({id:String(tier),type:`exhaust-thruster-${tier}`})));
   assert.equal(maps.exteriorError(ship),'','stored thrusters do not count against the installation limit');
   ship.placements.push(...[3,4,1].map((tier,i)=>({sicId:String(tier),cell:250+i*10})));
@@ -64,9 +64,9 @@ function purchaseContext(credits=1000) {
   const calls=[];
   const context={SIC_CATALOG:maps.catalog,draft:{groupCredits:credits,sicInventory:[]},selectedSicId:null,mapView:{},
     sicDefinition:item=>maps.definition(item.type),pendingCost:()=>context.draft.sicInventory.reduce((n,item)=>n+maps.definition(item.type).price,0),
-    showMessage:(...args)=>calls.push(args),rememberForUndo(){},saveDraft(){},saveMapView(){},renderAll(){},document:{querySelector:()=>({click(){}})}};
+    showMessage:(...args)=>calls.push(args),rememberForUndo(){},saveDraft(){},saveMapView(){},renderAll(){},document:{querySelector:()=>({dataset:{},click(){}})}};
   vm.createContext(context);
-  vm.runInContext(source.slice(source.indexOf('function purchaseSic('),source.indexOf('document.querySelectorAll("[data-purchase-sic]")')),context);
+  vm.runInContext(source.slice(source.indexOf('function clearPurchaseFeedback('),source.indexOf('document.querySelectorAll("[data-purchase-sic]")')),context);
   return {context,calls};
 }
 test('repeat purchases get unique pending identities and respect reserved credits', () => {

@@ -24,7 +24,7 @@ function connected(room,session,visited=new Set()) {
   if(!unit||!source||!target||source.destroyedAt||target.destroyedAt||source.escapedAt||target.escapedAt||source.ship.warpState?.phase==='traveling'||target.ship.warpState?.phase==='traveling'||!stations.conscious(unit)||!module||!item||!stations.online(item)||!puzzle.moduleStats(module,skill(unit)).online||!puzzle.moduleStats(module,skill(unit)).qualified||!seat||seat.key!==session.station)return false;
   const position=id=>distances.positions(room.starships,room.shipPositions).find(p=>p.id===id);
   const bug=require('./ship-probes').bugLink(room,source,target);
-  const blocked=maps.installedItems(target).some(i=>stations.online(i)&&(i.type==='static-shield'||i.type==='wired-downgrade'));
+  const blocked=maps.staticShieldActive(target)||maps.installedItems(target).some(i=>stations.online(i)&&i.type==='wired-downgrade');
   return bug||(!blocked&&Boolean(sensors.installed(source)&&distances.hexDistance(position(source.id),position(target.id))<=sensors.rangeAgainst(room,source,target)));
 }
 function refresh(room) {
@@ -124,6 +124,7 @@ function command(room,unit,body) {
         session.history.push({guess:[...body.guess],...feedback,at:Date.now(),version:board.version});
         session.history=session.history.slice(-200);session.connected=true;session.solved=feedback.success;session.control=feedback.success;
         session.observedVersion=board.version;
+        require('./ship-countermeasures').guess(room,session.targetId,session.sicId);
         if(feedback.success&&maps.definition(itemAt(room.starships.find(s=>s.id===session.targetId),session.sicId)?.type).bridge){
           for(const other of data.sessions)if(other!==session&&other.targetId===session.targetId&&other.sicId===session.sicId){other.control=false;other.solved=false;}
         }
@@ -196,6 +197,7 @@ function capturedView(visible,full,characterId) {
     const sensorPicture=sensorPictures.find(p=>p.sensorObserverId===ship.id)?.starships.find(s=>s.id===ship.id);
     const environment=controlled.some(g=>maps.definition(itemAt(actual,g.sicId)?.type).utility==='life-support')?{gravityEnabled:actual.ship.gravityEnabled,oxygenEnabled:actual.ship.oxygenEnabled}:{};
     if(controlled.some(g=>maps.definition(itemAt(actual,g.sicId)?.type).cloaking))environment.cloakState=structuredClone(actual.ship.cloakState||null);
+    const gravityGuns=controlled.filter(g=>maps.definition(itemAt(actual,g.sicId)?.type).blackHoleGun);if(gravityGuns.length){environment.minerals=Object.fromEntries(['Dark Phazon','Dark Phaeon'].map(k=>[k,Number(actual.ship.minerals?.[k])||0]));environment.blackHoleGunState={cooldowns:Object.fromEntries(gravityGuns.map(g=>[g.sicId,actual.ship.blackHoleGunState?.cooldowns?.[g.sicId]||0]))};}
     const launchers=controlled.filter(g=>maps.definition(itemAt(actual,g.sicId)?.type).missileLauncher);
     if(launchers.length){environment.missileAmmo=Object.fromEntries(launchers.map(g=>[g.sicId,structuredClone(actual.ship.missileAmmo?.[g.sicId]||{})]));environment.missileState={flights:[],cooldowns:Object.fromEntries(launchers.map(g=>[g.sicId,actual.ship.missileState?.cooldowns?.[g.sicId]||0]))};}
     return {...ship,auState:actual.auState,hackedSystems:actual.hackedSystems,

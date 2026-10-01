@@ -2,9 +2,19 @@
   let dialog=null,notice=null,lastLog='',result='',until=0,forced='',cleanupDialog=null;
   const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.[0];
   const host=()=>{let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;};
+  let warmed=null;
+  function prepareDice(doc){
+    if(warmed?.view.isConnected)return warmed;
+    const view=doc.createElement('dialog'),frame=doc.createElement('iframe');view.setAttribute('aria-label','Ship action dice roll');
+    view.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent';
+    frame.title='Skill Check';frame.style.cssText='width:100%;height:100%;border:0;background:transparent';frame.src=new URL('character.html?shipRoll=1',location.href).href;
+    view.addEventListener('cancel',event=>event.preventDefault());
+    warmed={view,frame,ready:false};doc.defaultView.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===frame.contentWindow&&event.data?.type==='sa-ship-skill-ready'&&warmed?.frame===frame)warmed.ready=true;});
+    view.append(frame);doc.body.append(view);return warmed;
+  }
   function poll(){
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;
-    const doc=host(),gm=bridge.mode()==='gm',mine=state.units.find(u=>u.id===bridge.myUnitId()),waiting=state.units.filter(request);
+    const doc=host();if(!warmed&&!state.practice&&performance.now()>2500&&!doc.hidden)prepareDice(doc);const gm=bridge.mode()==='gm',mine=state.units.find(u=>u.id===bridge.myUnitId()),waiting=state.units.filter(request);
     if(!notice){notice=doc.createElement('button');notice.type='button';notice.setAttribute('role','status');notice.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#260d13;color:#ff7887;border:1px solid #ff7686;padding:9px 16px;max-width:70vw;font:700 14px Arial';doc.body.append(notice);}
     const relevant=gm?waiting:waiting.filter(u=>u.id===mine?.id&&request(u).rollController!=='gm');
     const calls=state.starships.filter(s=>gm||s.id===mine?.location?.starshipId).flatMap(s=>(s.commandSystems?.calls||[]).filter(c=>c.status==='incoming').map(c=>s.title+': you are being Hailed by '+c.title));
@@ -21,10 +31,10 @@
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
     const unit=waiting.find(u=>(gm?u.team==='npc'||request(u).rollController==='gm'||u.id===forced:u.id===mine?.id&&request(u).rollController!=='gm'));if(!unit)return;
     const pending=request(unit);if(!pending.rollSpec)return;
-    const view=doc.createElement('dialog');dialog=view;view.setAttribute('aria-label','Ship action dice roll');
+    const prepared=prepareDice(doc),view=prepared.view;dialog=view;
     view.dataset.rollId=pending.id;
     view.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent';
-    const frame=doc.createElement('iframe');frame.title='Skill Check';frame.style.cssText='width:100%;height:100%;border:0;background:transparent';frame.src=new URL('character.html?shipRoll=1',location.href).href;
+    const frame=prepared.frame;frame.style.visibility='hidden';
     const loading=doc.createElement('section');loading.setAttribute('role','status');loading.style.cssText='position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);padding:20px;background:#081922;border:1px solid #69c9da;color:#e5f7fc;text-align:center;font:16px Arial';
     const loadText=doc.createElement('p');loadText.textContent='Loading dice...';const reload=doc.createElement('button');reload.type='button';reload.textContent='Retry Loading Dice';reload.hidden=true;loading.append(loadText,reload);
     let loadTimer;
@@ -37,7 +47,7 @@
     const receive=async event=>{
       if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
       if(event.data?.type==='sa-ship-skill-ready')frame.contentWindow.postMessage({type:'sa-ship-skill-open',...pending.rollSpec,rollId:pending.id,name:unit.characterName,title:pending.label},location.origin);
-      if(event.data?.type==='sa-ship-skill-opened'&&event.data.rollId===pending.id){clearTimeout(loadTimer);loading.hidden=true;}
+      if(event.data?.type==='sa-ship-skill-opened'&&event.data.rollId===pending.id){clearTimeout(loadTimer);loading.hidden=true;frame.style.visibility='visible';}
       if(event.data?.type==='sa-ship-skill-cancel')return;
       if(event.data?.type==='sa-ship-skill-result'&&event.data.rollId===pending.id&&!busy){
         busy=true;
@@ -45,10 +55,10 @@
         catch(e){error.textContent=e.message;const retry=doc.createElement('button');retry.textContent='Retry Submit';retry.onclick=()=>{retry.remove();busy=false;receive(event);};retry.style.cssText='background:#183b4a;color:white;border:1px solid #90d8e9;padding:10px';error.append(retry);const revise=doc.createElement('button');revise.textContent='Reopen Dice';revise.style.cssText=retry.style.cssText;revise.onclick=()=>{busy=false;error.replaceChildren();watchLoad();frame.src=new URL('character.html?shipRoll=1',location.href).href;};error.append(revise);}
       }
     };
-    doc.defaultView.addEventListener('message',receive);view.addEventListener('cancel',event=>event.preventDefault());
-    cleanupDialog=()=>{clearTimeout(loadTimer);doc.defaultView.removeEventListener('message',receive);if(notice.parentElement===view)doc.body.append(notice);view.remove();dialog=null;forced='';cleanupDialog=null;};
-    view.addEventListener('close',cleanupDialog,{once:true});view.append(frame,loading,error);doc.body.append(view);view.showModal();
+    doc.defaultView.addEventListener('message',receive);
+    cleanupDialog=()=>{clearTimeout(loadTimer);doc.defaultView.removeEventListener('message',receive);if(notice.parentElement===view)doc.body.append(notice);loading.remove();error.remove();frame.style.visibility='hidden';dialog=null;forced='';cleanupDialog=null;};
+    view.addEventListener('close',cleanupDialog,{once:true});view.append(loading,error);view.showModal();if(prepared.ready)frame.contentWindow.postMessage({type:'sa-ship-skill-open',...pending.rollSpec,rollId:pending.id,name:unit.characterName,title:pending.label},location.origin);
   }
   const timer=setInterval(poll,200);
-  window.addEventListener('pagehide',()=>{clearInterval(timer);cleanupDialog?.();notice?.remove();});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);cleanupDialog?.();warmed?.view.remove();warmed=null;notice?.remove();});
 }());

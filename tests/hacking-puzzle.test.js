@@ -36,7 +36,7 @@ test('all CPU Security cards retain source metadata, N/A security and impairment
   const costs=[1,2,3,4,5,6,8,10],prices=[100,800,3600,11200,27500,57600,107800,192000];
   for(let tier=1;tier<=8;tier++){
     const type=`cpu-security-${tier}`,d=maps.definition(type);
-    assert.equal(d.firewall,tier);assert.equal(d.security,null);assert.deepEqual(d.stations,[]);assert.equal(d.width,tier<5?1:2);assert.equal(d.height,tier===8?2:1);
+    assert.equal(d.firewall,tier);assert.equal(d.security,null);assert.equal(d.stations.length,1);assert.equal(d.width,tier<5?1:2);assert.equal(d.height,tier===8?2:1);
     assert.equal(d.energyCost,costs[tier-1]);assert.equal(d.price,prices[tier-1]);assert.equal(d.threshold,9+tier*3);
     assert.equal(puzzle.firewallStats({type}),tier);assert.equal(puzzle.firewallStats({type,impairmentPoints:2}),Math.max(0,tier-2));
     assert.equal(puzzle.firewallStats({type,disabled:true}),0);assert.equal(puzzle.firewallStats({type,status:'destroyed'}),0);
@@ -55,7 +55,7 @@ test('all Hacking Modules retain source qualification, reduction, size, power, p
 });
 test('invalid guesses cannot alter state or reveal slot-specific feedback',()=>{
   const value=secret(),board=puzzle.challenge(value),before=JSON.stringify(value);
-  for(const guess of [['A','A','B'],['A','B'],['A','B','V','X'],['Q','V','X'],['a','B','V'],null,{},'VXA'])assert.throws(()=>puzzle.evaluate(board.answer,board.candidates,guess));
+  for(const guess of [['A','B'],['A','B','V','X'],['Q','V','X'],['a','B','V'],null,{},'VXA'])assert.throws(()=>puzzle.evaluate(board.answer,board.candidates,guess));
   assert.equal(JSON.stringify(value),before);
 });
 test('feedback holds for every distinct three-letter code and guess in a five-letter alphabet',()=>{
@@ -72,7 +72,7 @@ test('private practice retains a single accepted guess across retries without ex
   assert.equal(first.history.length,1);assert.equal(again.history.length,1);assert.equal(again.duplicate,true);
   assert.deepEqual(service.get(token).history,first.history);assert.throws(()=>service.submit(token,{...body,guess:guess.toReversed()}),/cannot be changed/);
   const serialized=JSON.stringify(first);for(const name of ['password','decoys','answer','secret','owner','receipts'])assert.ok(!serialized.includes(`"${name}"`));
-  assert.throws(()=>service.get('other-client-token'),/session ended/);assert.throws(()=>service.submit(token,{requestId:'bad-guess',guess:['Z','Z','Z']}));assert.equal(service.get(token).history.length,1);
+  assert.throws(()=>service.get('other-client-token'),/session ended/);assert.throws(()=>service.submit(token,{requestId:'bad-guess',guess:['?','?','?']}));assert.equal(service.get(token).history.length,1);
 });
 test('practice sessions expire, can be replaced, and have bounded capacity without campaign state',()=>{
   let time=0;const service=createPracticeService(()=>time),args={security:3,firewall:2,tier:1},a=service.create(args,'a');
@@ -81,3 +81,5 @@ test('practice sessions expire, can be replaced, and have bounded capacity witho
   for(let i=0;i<8;i++)service.create(args,'a');assert.throws(()=>service.create(args,'a'),/Too many/);
   const own=service.create(args,'b');service.close(own.token);assert.throws(()=>service.get(own.token));
 });
+
+test('repeated guesses count each secret letter at most once',()=>{assert.deepEqual(puzzle.evaluate(['A','B','C'],['A','B','C'],['A','A','A']),{exact:1,misplaced:0,success:false});assert.deepEqual(puzzle.evaluate(['B','A','C'],['A','B','C'],['A','A','B']),{exact:1,misplaced:1,success:false});});

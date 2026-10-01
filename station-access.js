@@ -5,11 +5,20 @@
 }(typeof window !== 'undefined' ? window : null, function(maps) {
   const online = item => item && !item.disabled && !['offline', 'powered-down', 'destroyed'].includes(item.status) && !(maps.definition(item.type).destroyedOnImpairment&&(item.impaired||item.status==='impaired'||item.impairmentPoints>0));
   const conscious = unit => Boolean(unit && (!unit.defeatedAt||unit.escapedAt) && !unit.oxygenUnconscious && (unit.currentHp == null || !Number.isFinite(Number(unit.currentHp)) || Number(unit.currentHp) > 0));
+  const stationLayouts = new WeakMap();
+  function stationCell(ship, square) {
+    const key=JSON.stringify([ship.zoneColumns,ship.zoneRows,ship.gridCells,ship.placements,ship.sicInventory,ship.thrusterDirection]);
+    let cached=stationLayouts.get(ship);
+    if(cached?.key!==key){cached={key,layout:maps.buildLayout(ship)};stationLayouts.set(ship,cached);}
+    const cell=cached.layout.footprint.get(Number(square));
+    // Equal replacement inventories must still expose the current mutable item.
+    return cell?{...cell,item:(ship.sicInventory||[]).find(i=>i.id===cell.sicId)}:null;
+  }
   function station(room, unit) {
     const loc = unit?.location, ship = room?.starships?.find(s => s.id === loc?.starshipId);
     if (!ship || !conscious(unit) || unit.timedAction?.kind === 'move') return null;
-    const cell = maps.buildLayout(ship.ship || ship).footprint.get(Number(loc.square));
-    if (!cell || !online(cell.item)) return null;
+    const cell = stationCell(ship.ship || ship,loc.square);
+    if (!cell || (!online(cell.item) && typeof window === 'undefined') || cell.item?.status==='destroyed') return null;
     if(maps.definition(cell.type).roomStation)return {ship,cell,key:`${ship.id}:${cell.sicId}:${loc.square}:${loc.mesh}`};
     if(!loc.stationed||cell.sicId!==loc.sicId)return null;
     if (!cell.stations.some(p => p.x === cell.column && p.y === cell.row && p.mesh === Number(loc.mesh))) return null;
@@ -21,11 +30,12 @@
     const ship = seat.ship.ship || seat.ship, inventory = new Map((ship.sicInventory || []).map(i => [i.id, i]));
     const available = (ship.placements || []).flatMap(p => {
       const item = inventory.get(p.sicId), definition = maps.componentDefinition(item);
-      if (!online(item) || (!definition.shipControl && !definition.shield && !definition.sensor && !definition.weapon && !definition.lockOn && !definition.utility && !definition.hacking)) return [];
+      if ((!online(item) && typeof window === 'undefined') || item?.status==='destroyed' || (!definition.shipControl && !definition.shield && !definition.sensor && !definition.weapon && !definition.lockOn && !definition.utility && !definition.hacking)) return [];
       const remote = seat.cell.sicId !== item.id;
       if (remote && (!maps.definition(seat.cell.type).bridge||definition.localOnly)) return [];
-      const blocked=Boolean(seat.ship.hackedSystems?.some(h=>h.bridge||h.sicId===item.id));
-      return [{ id: item.id, item, definition, ship: seat.ship, remote, seat, blocked, kind: definition.hacking ? 'hacking' : definition.utility ? 'utility' : definition.lockOn ? 'lock' : definition.weapon ? 'weapon' : definition.sensor ? 'sensor' : definition.shield ? 'shield' : 'pilot' }];
+      const offline=!online(item);
+      const blocked=offline||Boolean(seat.ship.hackedSystems?.some(h=>h.bridge||h.sicId===item.id));
+      return [{ id: item.id, item, definition, ship: seat.ship, remote, seat, blocked, offline, kind: definition.hacking ? 'hacking' : definition.utility ? 'utility' : definition.lockOn ? 'lock' : definition.weapon ? 'weapon' : definition.sensor ? 'sensor' : definition.shield ? 'shield' : 'pilot' }];
     });
     const grants=room.hackingGrants || (unit.hackingSessions||[]).filter(s=>s.control&&s.connected).map(s=>({...s,unitId:unit.id}));
     if(!seat.ship.hackedSystems?.some(h=>h.bridge))for(const grant of grants.filter(g=>g.unitId===unit.id)){

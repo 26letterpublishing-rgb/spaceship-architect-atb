@@ -1,4 +1,4 @@
-// Explore Features designs. Prices and gameplay ratings come from the shared catalog.
+// Legacy fixed-size designs retained for regression fixtures. Fresh Explore uses showcase-fleet-builder.
 const maps = require('./ship-map-core');
 
 module.exports = function showcaseShip(id, title, controlType, crewCharacterIds, startCell, crewNpcUnitIds = []) {

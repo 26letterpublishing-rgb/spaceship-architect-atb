@@ -144,3 +144,70 @@ test('all bridge tiers have their printed station count, distinct valid stations
   assert.equal(maps.componentAtEdge(hull,42,{type:'bridge-1'}),false);
   assert.equal(maps.componentAtEdge(hull,43,{type:'bridge-1'}),true);
 });
+
+function layeredFixture(){
+  const f=fixture();
+  f.ship.ship.gridCells=Array.from({length:100},(_,i)=>21+Math.floor(i/10)*20+i%10);
+  f.ship.ship.sicInventory.push({id:'second-shield',type:'shield-3'});
+  f.ship.ship.placements.push({sicId:'second-shield',cell:81});
+  shields.refresh(f.room);
+  return {...f,second:f.ship.shieldSystems['second-shield'],secondItem:f.ship.ship.sicInventory.at(-1)};
+}
+
+test('a hit selects the lowest CURRENT shield HP, regardless of tier or inventory order',()=>{
+  const {room,ship,s,second}=layeredFixture();s.hp=9;second.hp=4;
+  shields.damage(room,'ship',5);near(s.hp,9);near(second.hp,1);near(ship.currentHullHp,20);near(ship.currentShieldHp,10);
+  second.hp=12;shields.damage(room,'ship',3);near(s.hp,7);near(second.hp,12);
+});
+
+test('equal-current-HP shield ties retain stable inventory order',()=>{
+  const {room,s,second}=layeredFixture();s.hp=8;second.hp=8;
+  shields.damage(room,'ship',3);near(s.hp,6);near(second.hp,8);
+  shields.damage(room,'ship',3);near(s.hp,4);near(second.hp,8);
+});
+
+test('two shield layers stop two separate enormous hits before a later hit reaches Hull',()=>{
+  const {room,ship,s,second}=layeredFixture();s.hp=10;second.hp=30;
+  s.regeneration=4;s.protection=2;s.protectionRemaining=6;
+  second.protection=3;second.protectionRemaining=9;const secondBefore=structuredClone(second);
+  shields.damage(room,'ship',150000);near(s.hp,0);near(s.regeneration,0);near(s.protection,0);near(s.protectionRemaining,0);
+  assert.deepEqual(second,secondBefore);near(ship.currentHullHp,20);near(ship.currentShieldHp,30);
+  shields.damage(room,'ship',150000);near(second.hp,0);near(ship.currentHullHp,20);near(ship.currentShieldHp,0);
+  shields.damage(room,'ship',150000);near(ship.currentHullHp,0);
+});
+
+test('only the struck shield supplies reduction and temporary protection',()=>{
+  const {room,ship,s,second}=layeredFixture();s.hp=5;second.hp=20;
+  s.protection=1;s.protectionRemaining=12;second.protection=9;second.protectionRemaining=12;
+  shields.damage(room,'ship',4);near(s.hp,3);near(second.hp,20);near(second.protection,9);
+  s.hp=0;second.hp=10;second.protection=2;second.protectionRemaining=12;
+  shields.damage(room,'ship',6);near(second.hp,8);near(ship.currentHullHp,20);
+});
+
+test('an impaired unstruck layer cannot double damage to the other shield',()=>{
+  const {room,ship,s,second,secondItem}=layeredFixture();s.hp=8;second.hp=20;secondItem.impaired=true;
+  shields.damage(room,'ship',3);near(s.hp,6);near(second.hp,20);
+  s.hp=9;second.hp=5;shields.damage(room,'ship',3);near(s.hp,9);near(second.hp,3);
+  shields.damage(room,'ship',5);near(second.hp,0);near(s.hp,9);near(ship.currentHullHp,20);
+});
+
+test('offline, disabled, powered-down, destroyed, stored and burst shields do not intercept a hit',()=>{
+  for(const change of [{disabled:true},{status:'offline'},{status:'powered-down'},{status:'destroyed'},'stored','burst']){
+    const {room,ship,s,second}=layeredFixture();s.hp=1;second.hp=20;
+    if(change==='stored')ship.ship.placements=ship.ship.placements.filter(p=>p.sicId!=='shield');
+    else if(change==='burst')s.hp=0;
+    else Object.assign(ship.ship.sicInventory[0],change);
+    shields.damage(room,'ship',5);near(second.hp,17);near(ship.currentHullHp,20);
+    if(change!=='stored')near(s.hp,change==='burst'?0:1);
+  }
+});
+
+test('shield bypass leaves every layer intact and applies full damage to Hull',()=>{
+  const {room,ship,s,second}=layeredFixture();s.hp=7;second.hp=13;s.protection=8;s.protectionRemaining=12;
+  shields.damage(room,'ship',6,{bypassShield:true});near(ship.currentHullHp,14);near(s.hp,7);near(second.hp,13);near(s.protection,8);
+});
+
+test('an unstruck layer continues its independent fractional regeneration after another bursts',()=>{
+  const {room,ship,s,second}=layeredFixture();s.hp=1;second.hp=12;
+  shields.damage(room,'ship',1000);shields.advance(room,6);near(s.hp,0);near(second.hp,13);near(ship.currentShieldHp,13);near(ship.currentHullHp,20);
+});

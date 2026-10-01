@@ -1,0 +1,30 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events'),maps=require('../ship-map-core');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+test('GM-owned mine impact survives restart and rejects another controller; takeover works without its operator',{timeout:35000},async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sa-mine-http-'));let child,base;
+ async function start(){child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dir},stdio:['ignore','pipe','pipe']});base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('startup timeout')),10000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});});}
+ async function stop(){if(child?.exitCode===null){const done=once(child,'exit');child.kill();await done;}}t.after(stop);await start();
+ const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+ const demo=await post('campaign/showcase/start',{}),created=await post('campaign/create',{name:'Mine HTTP',gmCode:'mine-http'},201),code=created.campaign.code;let token=created.token;
+ await require('./helpers/combat-demo.cjs')(base,demo);
+ const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());backup.campaign.code=code;backup.campaign.name='Mine HTTP';backup.campaign.showcase=false;
+ const c=backup.campaign,room=c.encounter,source=room.starships.find(s=>s.id==='showcase-pc-ship'),target=room.starships.find(s=>s.id==='showcase-npc-ship'),nova=room.units.find(u=>u.team==='pc'),character=c.characters[0],launcher=source.ship.sicInventory.find(i=>maps.definition(i.type).missileLauncher),bridge=source.ship.sicInventory.find(i=>maps.definition(i.type).bridge),placement=source.ship.placements.find(p=>p.sicId===bridge.id),seat=maps.componentDefinition(bridge).stations[0];
+ launcher.type='mine-launcher';source.ship.missileAmmo[launcher.id]={'space-mine-1':2};
+ nova.location={starshipId:source.id,sicId:bridge.id,square:placement.cell+seat.y*20+seat.x,mesh:seat.mesh,stationed:true};nova.atb=100;
+ for(const u of room.units)u.speed=.1;
+ Object.assign(room,{hasEngagedClock:true,encounterEndedAt:null,activeId:nova.id,pausedForTurn:true,running:false,hardPaused:true,resumeAfterTurn:true,commandRemaining:120,commandTotal:120});room.shipPositions=[{id:source.id,q:0,r:0},{id:target.id,q:.01,r:0}];source.lockState={targets:[{targetId:target.id,systemId:source.ship.sicInventory.find(i=>maps.definition(i.type).lockOn).id,remaining:12}],reports:[],receipts:[],failures:{}};
+ await post('campaign/restore',{code,token,backup});const pc=await post('campaign/character/unlock',{code,characterId:character.id,pcCode:character.pcCode});
+ const act=body=>post('action',{roomCode:code,gmToken:token,...body}),state=(auth=token)=>fetch(`${base}/api/state?room=${code}&token=${auth}`).then(r=>r.json());
+ let s=await act({action:'weaponCommand',id:nova.id,sicId:launcher.id,targetId:target.id,ammunition:'space-mine-1',requestId:'gm-missile-launch'});assert.equal(s.units.find(u=>u.id===nova.id).delayedAction.rollController,'gm');
+ await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});
+ for(let i=0;i<150;i++){s=await state();if(s.missileRolls.length)break;await sleep(100);}assert.equal(s.missileRolls.length,1);assert.equal(s.rollPaused,true);const missile=s.missileRolls[0];assert.equal((await state(pc.token)).missileRolls.length,0);
+ const atb=s.units.map(u=>u.atb);await sleep(500);assert.deepEqual((await state()).units.map(u=>u.atb),atb);
+ await post('action',{roomCode:code,characterId:character.id,characterToken:pc.token,id:nova.id,action:'missileDamage',missileId:missile.id,score:2},403);
+ await sleep(400);await stop();await start();const opened=await post('campaign/open',{name:'Mine HTTP',gmCode:'mine-http'});token=opened.token;s=await state();assert.equal(s.missileRolls[0].id,missile.id);
+ await post('action',{roomCode:code,gmToken:token,action:'missileDamage',missileId:missile.id,score:99},409);
+ await act({action:'removeUnit',id:nova.id});const before=(await state()).starships.find(s=>s.id===target.id).currentHullHp;
+ s=await act({action:'missileDamage',missileId:missile.id,score:2});assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,before-10);assert.equal(s.rollPaused,false);
+ s=await act({action:'missileDamage',missileId:missile.id,score:2});assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,before-10);
+ assert.equal(s.starships.find(s=>s.id===source.id).ship.missileAmmo[launcher.id]['space-mine-1'],1);
+ await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});const value=(await state()).units[0].atb;await sleep(500);assert.ok((await state()).units[0].atb>value);
+});

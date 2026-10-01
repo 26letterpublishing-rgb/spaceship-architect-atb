@@ -1,0 +1,41 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "sic-art-devastation-1.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-01b7f712-7060-44d8-b8b2-9a8e3e5ffe07.png",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 41998
+    },
+    {
+      "output": "sic-art-devastation-2.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c2d8e3c1-b9c9-44fa-9329-f918d01521c6.png",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 44912
+    },
+    {
+      "output": "devastation-control.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-865cc91d-6731-490c-958a-6d6d19667890.png",
+      "dimensions": [
+        256,
+        512
+      ],
+      "bytes": 26888
+    },
+    {
+      "output": "devastation-barrel.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e67924ca-346d-4169-bcc5-69fed0d6850c.png",
+      "dimensions": [
+        256,
+        512
+      ],
+      "bytes": 20804
+    }
+  ]
+}

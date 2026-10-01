@@ -25,7 +25,10 @@
     <link rel="stylesheet" href="weapon-console-ui.css" data-weapon-style>
     <link rel="stylesheet" href="sensor-console-ui.css" data-sensor-style>
     <link rel="stylesheet" href="console-common.css" data-common-console-style>
-  </head>
+  <link rel="stylesheet" href="room-v03.css"><script src="campaign-recovery.js" defer></script><script src="room-v03.js" defer></script>
+  <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
+<script defer src="interior-pan.js"></script>
+</head>
   <body>
     <main class="shell">
       <section id="welcomePanel" class="welcome-panel">
@@ -322,7 +325,7 @@
           <label><input type="checkbox" data-combat-map-view="combatMesh" /> Combat Mesh</label>
           <label><input type="checkbox" data-combat-map-view="walls" checked /> Walls &amp; Doors</label>
           <label><input type="checkbox" data-combat-map-view="stations" checked /> Stations</label>
-          <label><input type="checkbox" data-combat-map-view="hull" /> Hull</label>
+
         </div>
         <div class="combat-map-layout">
           <aside id="combatMapRoster" class="combat-map-roster"></aside>
@@ -626,6 +629,7 @@
     <script src="health-display.js?v=console-feedback-2"></script>
     <script src="app.js?v=console-feedback-2"></script>
   <script src="ship-map-core.js?v=console-feedback-2"></script>
+    <script src="ship-floorplan-snapshot.js"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="delay-rules.js?v=console-feedback-2"></script>
   <script src="station-access.js?v=console-feedback-2"></script>
@@ -636,6 +640,7 @@
   <script src="ship-command-ui.js?v=console-feedback-2"></script>
   <script src="automation-ui.js"></script>
   <script src="cleanser-timeline.js"></script>
+  <script src="cleanser-impact.js"></script>
   <script src="cleanser-ui.js"></script>
   <script src="ship-roll-ui.js?v=console-feedback-2"></script>
   <script src="console-feedback.js?v=console-feedback-2"></script>
@@ -644,8 +649,12 @@
   <script src="fleet-notices.js"></script>
   <script src="missile-ui.js"></script>
   <script src="ship-sensors.js?v=console-feedback-2"></script>
+  <script src="sensor-snapshot-view.js"></script>
   <script src="sensor-console-ui.js?v=console-feedback-2"></script>
   <script src="ship-locks.js?v=lock-on-1"></script>
+  <script src="ship-fabrication.js"></script>
+  <script src="science-console.js"></script>
+  <script src="ship-devastation.js"></script>
   <script src="ship-weapons.js?v=rapid-laser-1"></script>
   <script src="weapon-console-ui.js?v=rapid-laser-1"></script>
   <script src="ship-shields.js?v=console-feedback-2"></script>
@@ -655,8 +664,10 @@
   <script src="lock-console-ui.js?v=lock-on-1"></script>
   <script src="transit-console-ui.js"></script>
   <script src="crew-room-status.js"></script>
+  <script src="extraction-console.js"></script>
   <script src="crew-room-console.js"></script>
   <script src="field-utility-console.js"></script>
+  <script src="breach-drone-console.js"></script>
   <script src="drone-console.js"></script>
   <script src="ship-probes.js"></script>
   <script src="probe-console.js"></script>
@@ -666,9 +677,13 @@
   <script src="combat-feedback.js?v=lock-on-1"></script>
   <script src="ship-navigation-ui.js?v=console-feedback-2"></script>
   <script src="drone-map.js"></script>
+  <script src="breach-drone-view.js"></script>
   <script src="ship-combat-map.js?v=console-feedback-2"></script>
+  <script src="vacuum-ui.js"></script>
   <script src="combat-actions.js?v=console-feedback-2"></script>
   <script type="module" src="npc-combat-dice.js?v=console-feedback-2"></script>
-  </body>
+  <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
+<script src="black-hole-gun-console.js"></script>
+</body>
 </html>
- 
+

@@ -8,7 +8,7 @@ test('automatic Medbay pauses with ATB, persists through restart and never reque
  const demo=await post('campaign/showcase/start',{}),created=await post('campaign/create',{name:'Medical HTTP',gmCode:'medical-gm'},201),code=created.campaign.code;let token=created.token;
  const get=route=>fetch(base+'/api/'+route).then(r=>r.json()),state=()=>get(`state?room=${code}&token=${token}`),saved=()=>get(`campaign/backup?code=${code}&token=${token}`);
  const backup=await get(`campaign/backup?code=${demo.code}&token=${demo.gmToken}`),c=backup.campaign,f=fixture();c.code=code;c.name='Medical HTTP';c.showcase=false;
- const nova=c.characters[0],ship=c.starships.find(s=>s.title==='Wayfinder'),pilot=c.encounter.units.find(u=>u.characterId===nova.id),slug=c.encounter.units.find(u=>u.team==='npc');
+ const nova=c.characters[0],ship=c.starships.find(s=>s.id==='showcase-pc-ship'),pilot=c.encounter.units.find(u=>u.characterId===nova.id),slug=c.encounter.units.find(u=>u.team==='npc');
  ship.ship=f.ship.ship;ship.ship.id=ship.id;ship.ship.crewRoomState={rooms:{med:{supplies:30,jobs:[],notes:[]}},down:{},receipts:[]};ship.ship.confirmed=structuredClone(ship.ship);
  const loc={...f.unit.location,starshipId:ship.id};ship.characterLocations={[nova.id]:loc};nova.character.health.current=10;
  Object.assign(pilot,{location:loc,currentHp:10,atb:100,speed:5,delayedAction:null,timedAction:null,delayTimer:null,consoleHold:null,pendingShipRolls:[],defeatedAt:null});Object.assign(slug,{atb:0,speed:.1,delayedAction:null,consoleHold:null});

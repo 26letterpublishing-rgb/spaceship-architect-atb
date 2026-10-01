@@ -25,7 +25,12 @@
     <link rel="stylesheet" href="weapon-console-ui.css" data-weapon-style>
     <link rel="stylesheet" href="sensor-console-ui.css" data-sensor-style>
     <link rel="stylesheet" href="console-common.css" data-common-console-style>
-  </head>
+  <link rel="stylesheet" href="room-v03.css"><script src="room-v03.js" defer></script>
+  <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
+<link rel="stylesheet" href="character-v03.css"><script src="character-statistics.js"></script>
+<link rel="stylesheet" href="crew-logs.css">
+<script defer src="interior-pan.js"></script>
+</head>
   <body>
     <header class="creator-header">
       <div class="character-brand-stack">
@@ -48,9 +53,9 @@
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
       <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
       <button type="button" data-character-tab="starships" hidden>Starships</button>
-      <button type="button" data-character-tab="atb" hidden>Combat</button>
+      <button type="button" data-character-tab="atb" hidden>Combat <small id="campaignCombatStatus" role="status" hidden><strong>OUT OF COMBAT</strong></small></button>
       <button type="button" data-character-tab="settings">Settings</button>
-      <div id="campaignCombatStatus" role="status" hidden><span>Encounter</span><strong>OUT OF COMBAT</strong></div>
+
     </nav>
 
     <section id="globalCharacterHud" class="global-character-hud" aria-label="Current character resources" hidden>
@@ -479,7 +484,7 @@
 
     <section id="playerStarshipsPanel" class="character-page-panel character-tool-page player-starships-panel" data-character-panel="starships" hidden>
       <header class="character-tool-heading"><span>ASSIGNED VESSELS</span><h1>Starships</h1><p>Your position and everyone currently aboard update with the campaign.</p></header>
-      <div id="playerStarshipList" class="player-starship-list"></div>
+      <div class="player-fleet-actions"><button type="button" id="createCampaignShip">Create Starship</button><button type="button" id="importCampaignShip">Import Starship</button><p>New ships are sent to the GM for approval. The GM assigns crew; assigned crew can upgrade and operate their ships.</p></div><div id="playerStarshipList" class="player-starship-list"></div>
     </section>
 
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
@@ -825,6 +830,7 @@
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=console-feedback-2"></script>
     <script src="ship-map-core.js?v=console-feedback-2"></script>
+    <script src="ship-floorplan-snapshot.js"></script>
     <script src="ship-power.js?v=console-feedback-2"></script>
     <script src="health-display.js?v=console-feedback-2"></script>
     <script src="live-dom.js"></script>
@@ -833,5 +839,7 @@
     <script src="transit-status.js"></script>
     <script src="crew-room-status.js"></script>
     <script type="module" src="character.js?v=console-feedback-2"></script>
-  </body>
+  <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
+<script src="crew-logs-ui.js"></script>
+</body>
 </html>

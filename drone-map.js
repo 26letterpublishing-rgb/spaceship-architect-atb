@@ -3,6 +3,8 @@
  function update(grids,ship,drones){
   const active=(drones||[]).filter(d=>['repairing','returning'].includes(d.phase));
   for(const grid of grids){
+   // An idle drone system has no geometry to measure on a live clock tick.
+   if(!active.length){grid.querySelector('.drone-map-layer')?.remove();continue;}
    let layer=grid.querySelector('.drone-map-layer');if(!layer){layer=document.createElement('div');layer.className='drone-map-layer';layer.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:15;overflow:visible';grid.append(layer);}
    const valid=new Set(active.map(d=>d.id));for(const img of layer.children)if(!valid.has(img.dataset.droneId))img.remove();
    const origin=grid.getBoundingClientRect(),cells=(ship.gridCells||[]).map(n=>grid.querySelector(`[data-grid-index="${n}"],[data-inline-square="${n}"],[data-combat-square="${n}"]`)).filter(Boolean).map(c=>c.getBoundingClientRect());if(!cells.length||!origin.width)continue;

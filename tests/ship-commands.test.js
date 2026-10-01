@@ -43,7 +43,7 @@ test('evasion expires after 20 combat seconds, collision requires same hex',()=>
 test('repair is local, removes one impairment and raises future difficulty',()=>{
   const {room,pilot,a}=fixture(),item=a.ship.sicInventory.find(i=>i.id==='en');item.impaired=true;item.impairmentPoints=2;
   assert.equal(maintenance.queue(room,pilot,{kind:'repair',sicId:'en',requestId:'repair-test'}).ok,false);
-  pilot.location={starshipId:'a',square:43,mesh:4};assert.equal(maintenance.queue(room,pilot,{kind:'repair',sicId:'en',requestId:'repair-test'}).ok,true);
+  pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};assert.equal(maintenance.queue(room,pilot,{kind:'repair',sicId:'en',requestId:'repair-test'}).ok,true);
   assert.equal(pilot.delayedAction.rate,100/9);maintenance.resolve(room,pilot,()=>6);assert.equal(item.impairmentPoints,1);assert.equal(item.repairDifficulty,11);
 });
 test('diagnostics use 55 GM-passed minutes and cancel when operator leaves the room',()=>{
@@ -56,14 +56,14 @@ test('conditional orders charge once, survive leaving after input, and expire wi
   a.sensorState.reports.push({analysis:true,targetId:'b'});
   const body={kind:'evade',trigger:{kind:'movement',targetId:'b'},requestId:'conditional-test'};
   assert.equal(commands.queue(room,pilot,body).ok,true);commands.resolveInput(room,pilot,()=>4);assert.equal(a.auState.current,0);assert.ok(a.commandSystems.armed);
-  pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
+  pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
   commands.advance(room,1,before,()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(pilot.pendingShipRolls.length,1);
   const ready=pilot.pendingShipRolls.shift();commands.resolveInput(room,{...pilot,location:ready.armed.location},()=>4,ready.armed.order);assert.equal(a.commandSystems.evasions.length,1);
   pilot.location={starshipId:'a',square:42,mesh:0,sicId:'c',stationed:true};a.auState.current=2;
   assert.equal(commands.queue(room,pilot,{...body,requestId:'conditional-expire'}).ok,true);commands.resolveInput(room,pilot,()=>4);commands.advance(room,12,structuredClone(room.shipPositions),()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(a.commandSystems.evasions.length,1);
 });
 test('restarting a powered-down SIC stays offline until the bridge timer completes',()=>{
-  const {room,pilot,a}=fixture();pilot.location={starshipId:'a',square:43,mesh:4};const item=a.ship.sicInventory.find(i=>i.id==='en');
+  const {room,pilot,a}=fixture();pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};const item=a.ship.sicInventory.find(i=>i.id==='en');
   assert.equal(maintenance.queue(room,pilot,{kind:'off',sicId:'en',requestId:'power-off-test'}).ok,true);assert.equal(item.disabled,true);
   assert.equal(maintenance.queue(room,pilot,{kind:'on',sicId:'en',requestId:'power-on-test'}).ok,true);assert.ok(item.bootRemaining>0);
   const remaining=item.bootRemaining;maintenance.advance(a,remaining-.1);assert.equal(item.disabled,true);maintenance.advance(a,.1);assert.equal(item.disabled,false);
@@ -83,7 +83,7 @@ test('conditional navigation launches from the current position after the pilot 
   pilot.delayedAction.shipOrder.trigger=trigger.trigger;
   assert.equal(commands.validateTrigger(room,a,trigger.trigger).ok,false);
   commands.armExternal(room,pilot,'pilot');assert.equal(a.auState.current,0);assert.equal(a.navigation,undefined);
-  pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[0].q=1;room.shipPositions[1].q=1;
+  pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};const before=structuredClone(room.shipPositions);room.shipPositions[0].q=1;room.shipPositions[1].q=1;
   commands.advance(room,1,before,()=>4);assert.equal(a.commandSystems.armed,null);assert.equal(a.navigation.phase,'powered');assert.deepEqual(a.navigation.target,{q:5,r:0});assert.ok(a.navigation.remaining>0);
 });
 
@@ -92,7 +92,7 @@ test('conditional analysis keeps the queued report on the real operator',()=>{
   room.starships[1].sensorScenarioMasking=10;
   assert.equal(sensors.queue(room,pilot,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'conditional-analysis'}).ok,true);
   pilot.delayedAction.sensorOrder.trigger={kind:'movement',targetId:'b'};commands.armExternal(room,pilot,'sensor');
-  pilot.location={starshipId:'a',square:43,mesh:4};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
+  pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};const before=structuredClone(room.shipPositions);room.shipPositions[1].q=.5;
   commands.advance(room,1,before,()=>4);assert.equal(pilot.pendingShipRolls.length,1);assert.equal(pilot.delayedAction,null);
   const ready=pilot.pendingShipRolls.shift(),operator={...pilot,location:ready.armed.location,delayedAction:ready.armed.delayed,queuedEffects:pilot.queuedEffects ||= []};
   sensors.resolveInput(room,operator,()=>4);assert.ok(pilot.queuedEffects.some(e=>e.sensorReport));

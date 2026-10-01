@@ -1,6 +1,6 @@
 (function(){
   const seen=new Set();let tray=null,noticeNode=null,noticeTimer=null;
-  function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;}
+  function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('link[data-result-feedback],link[href*="result-feedback.css"]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('result-feedback.css',location.href).href;link.dataset.resultFeedback='';doc.head.append(link);}return doc;}
   function notice(message,type='',duration=4800){
     const doc=host();
     if(!noticeNode){
@@ -14,19 +14,19 @@
     noticeNode.showPopover();clearTimeout(noticeTimer);
     noticeTimer=setTimeout(()=>noticeNode?.hidePopover(),duration);
   }
-  function push(key,title,message){
+  function push(key,title,message,{topLayer=false}={}){
     const storageKey='sa-result:'+key;
     if(seen.has(key)||sessionStorage.getItem(storageKey))return;
     seen.add(key);
     const doc=host();
     if(!tray?.isConnected)tray=doc.querySelector('.result-notifications');
-    if(!tray){tray=doc.createElement('aside');tray.className='result-notifications';tray.setAttribute('aria-label','Action results');doc.body.append(tray);}
+    if(!tray){tray=doc.createElement('aside');tray.className='result-notifications';tray.setAttribute('aria-label','Action results');if(topLayer)tray.setAttribute('popover','manual');doc.body.append(tray);}
     const card=doc.createElement('article'),heading=doc.createElement('strong'),text=doc.createElement('p'),ok=doc.createElement('button');
     card.setAttribute('role','status');heading.textContent=title;text.textContent=message;
     card.dataset.outcome=/failed|missed|cancelled/i.test(message)?'failed':/success|succeeded|complete|restored|cleared|damage confirmed/i.test(message)?'success':'pending';
     ok.type='button';ok.textContent='OK';ok.setAttribute('aria-label','Dismiss '+title);
     card.dataset.resultKey=storageKey;
-    ok.onclick=()=>{const cards=card===tray.lastElementChild?[...tray.children]:[card];for(const entry of cards){sessionStorage.setItem(entry.dataset.resultKey,'1');entry.remove();}};card.append(heading,text,ok);tray.append(card);
+    ok.onclick=()=>{const cards=card===tray.lastElementChild?[...tray.children]:[card];for(const entry of cards){sessionStorage.setItem(entry.dataset.resultKey,'1');entry.remove();}if(!tray.children.length&&tray.hasAttribute('popover'))tray.hidePopover();};card.append(heading,text,ok);tray.append(card);if(topLayer){tray.setAttribute('popover','manual');tray.showPopover();}
   }
   function observe(){
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;

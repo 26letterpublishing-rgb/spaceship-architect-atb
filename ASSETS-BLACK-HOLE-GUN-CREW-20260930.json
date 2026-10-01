@@ -1,0 +1,65 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "library-console-scene.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-33003f63-46ac-4d2e-9045-ed3466ffb740.png",
+      "description": "Eye-level science-fiction research library with illuminated data stations.",
+      "dimensions": [
+        1280,
+        548
+      ],
+      "bytes": 133018
+    },
+    {
+      "output": "gym-console-scene.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-06746b92-35ed-49f1-84e6-edef317c0185.png",
+      "description": "Eye-level starship gym with exercise machines and gravity instrumentation.",
+      "dimensions": [
+        1279,
+        720
+      ],
+      "bytes": 189010
+    },
+    {
+      "output": "security-console-scene.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a635a420-89e1-488d-83e7-28b3ab7463d6.png",
+      "description": "Eye-level security control room and camera monitors.",
+      "dimensions": [
+        1279,
+        720
+      ],
+      "bytes": 108068
+    },
+    {
+      "output": "sic-art-black-hole-gun.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-b7c5e7a3-db58-4a77-aeed-f0047a3e2016.png",
+      "description": "Black Hole Gun with purple containment rings and a glowing orb.",
+      "dimensions": [
+        768,
+        512
+      ],
+      "bytes": 111682
+    },
+    {
+      "output": "black-hole-gun-control.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9c0b96d3-e37b-4038-b116-e80f79737e51.png",
+      "description": "Top-down walkable one-by-two gun control room.",
+      "dimensions": [
+        384,
+        768
+      ],
+      "bytes": 56088
+    },
+    {
+      "output": "black-hole-gun-barrel.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-2c979afb-ec4c-453f-acaa-302ab2cc23b8.png",
+      "description": "Top-down two-by-five exterior barrel with transparent background.",
+      "dimensions": [
+        384,
+        960
+      ],
+      "bytes": 58196
+    }
+  ]
+}

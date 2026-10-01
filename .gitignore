@@ -16,3 +16,9 @@ tmp/
 .codex-staging/
 backups/
 test-artifacts/
+qa-next-pass/data/
+
+qa-crafting-gravity/
+
+data/checkpoints/
+qa-oct01/

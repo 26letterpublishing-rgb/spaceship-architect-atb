@@ -1,3 +1,4 @@
+const showcaseSummaryCache=new WeakMap();
 const crypto = require("crypto");
 const { DRAMA_CARD_COST, DRAMA_CARD_HAND_LIMIT, DRAMA_CARDS } = require("./drama-card-data.js");
 const SHIP_MAP = require("./ship-map-core.js");
@@ -7,7 +8,7 @@ const OXYGEN = require('./ship-oxygen');
 const TRANSIT = require('./ship-transit');
 const CREW_ROOMS=require('./ship-crew-rooms');
 const SHIP_POWER=require('./ship-power');
-const TRANSIT_FIELDS = ['cleanserState','atmosphereState','cloakState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','crewRoomState','fieldState','droneState','probeState','surveillanceState'];
+const TRANSIT_FIELDS = require('./ship-state').fields;
 
 function transitRoom(campaign) {
   const units=campaign.starships.flatMap(ship=>require('./ship-power').campaignUnits(ship,campaign.characters).map(unit=>{
@@ -91,7 +92,8 @@ function showcaseCharacter({ id, playerName, characterName, color, speed, comman
 }
 
 function showcaseShip(...args) {
-  return normalizeStarshipRecord(require('./showcase-ships')(...args));
+  const [id,title,side,crew,start,npcs]=args;
+  return normalizeStarshipRecord(require('./showcase-starters')(id,side,crew,npcs));
 }
 
 function showcaseLocation(starshipId, square, sicId = "") {
@@ -248,6 +250,7 @@ function characterRewardSnapshot(record, campaign = null) {
 
 function applyCharacterReward(record, award, campaign = null) {
   const character = record.character;
+  character.statistics||={};character.statistics.experienceEarned??=Number(character.experience?.totalGained)||0;
   const resource = award.resource;
   const amount = Math.round(Number(award.amount) || 0);
   const before = characterRewardSnapshot(record, campaign);
@@ -263,6 +266,7 @@ function applyCharacterReward(record, award, campaign = null) {
       Number(character.experience.spent) + character.experience.available,
       Math.round((Number(character.experience.totalGained) || 0) + amount),
     );
+    require('./character-statistics').earned(character,'experience',received);
     appliedAmount = received;
     if (received !== amount) messageDetail = raceId === "android"
       ? " Androids do not receive Experience awards."
@@ -275,6 +279,7 @@ function applyCharacterReward(record, award, campaign = null) {
     && award.androidExperienceIds.includes(record.id);
   if (androidConversion) {
     const converted = Math.max(0, Math.floor(amount / 75));
+    require('./character-statistics').earned(character,'experience',converted);
     character.experience.available = Math.max(0, Math.round((Number(character.experience.available) || 0) + converted));
     character.experience.totalGained = Math.max(
       Number(character.experience.spent) + character.experience.available,
@@ -293,6 +298,7 @@ function applyCharacterReward(record, award, campaign = null) {
     const current = Number(character.resources.reverence) || 0;
     character.resources.reverence = Math.round(boundedNumber(current + amount, 0, 10));
     appliedAmount = character.resources.reverence - current;
+    require('./character-statistics').earned(character,'reverence',Math.max(0,amount));
     const wasted = Math.max(0, amount - appliedAmount);
     if (wasted) messageDetail = ` ${wasted.toLocaleString()} excess Reverence was lost at the maximum of 10.`;
   }
@@ -454,6 +460,7 @@ function trimPrivateNotes(campaign) {
   }
   notes.filter((note) => note.kind === "award" && note.rewardStatus === "pending").forEach((note) => keep.add(note.id));
   notes.filter((note) => note.kind === "reverence-gift-request" && note.requestStatus === "pending").forEach((note) => keep.add(note.id));
+  notes.filter(note => note.kind === "angiluros-craft-request" && ["crafting","pending"].includes(note.requestStatus)).forEach(note => keep.add(note.id));
   campaign.privateNotes = notes.filter((note) => keep.has(note.id));
 }
 function applyConditionalDelivery(campaign, record, action) {
@@ -492,6 +499,7 @@ function normalizeStarshipRecord(raw) {
   ship.gridCells = cleanCells;ship.triangleCells=SHIP_MAP.triangleCells(ship);
   ship.placements = cleanPlacements;
   ship.sicInventory = Array.isArray(ship.sicInventory) ? ship.sicInventory.slice(0, 400) : [];
+  for(const item of ship.sicInventory)if(SHIP_MAP.definition(item.type).hullUpgrade)item.purchasePrice=SHIP_MAP.sicPrice(item,ship);
   const installedIds = new Set(cleanPlacements.map(entry => entry.sicId));
   ship.maximumShieldHp = ship.sicInventory.reduce((total, item) => total + (installedIds.has(item.id) && !item.disabled && !['disabled', 'offline', 'destroyed', 'powered-down'].includes(item.status) ? Number(SHIP_MAP.definition(item.type).shieldHp) || 0 : 0), 0);
   ship.currentShieldHp = Math.max(0, Math.min(ship.maximumShieldHp, Number(ship.currentShieldHp ?? ship.maximumShieldHp) || 0));
@@ -499,11 +507,13 @@ function normalizeStarshipRecord(raw) {
   ship.affiliation = String(ship.affiliation || "").slice(0, 100);
   ship.class = String(ship.class || "").slice(0, 100);
   ship.confirmedOnce = true;
+  SHIP_MAP.ensureAirlocks(ship);
   const validCrew = [...new Set((Array.isArray(source.crewCharacterIds) ? source.crewCharacterIds : ship.crewCharacterIds || []).map(String))].slice(0, 100);
   const characterLocations = {};
-  for(const pod of ship.fieldState?.pods||[])if(!pod.recovered)for(const passenger of pod.passengers||[])if(validCrew.includes(passenger.id))characterLocations[passenger.id]={escapePodId:pod.id,stationed:false};
+  for(const pod of ship.fieldState?.pods||[])if(!pod.recovered)for(const passenger of pod.passengers||[])if(validCrew.includes(passenger.id))characterLocations[passenger.id]={environment:'escape-pod',starshipId:'',square:null,mesh:4,escapePodId:pod.id,stationed:false};
   for (const [characterId, location] of Object.entries(source.characterLocations && typeof source.characterLocations === "object" ? source.characterLocations : ship.characterLocations || {})) {
     if(characterLocations[characterId]?.escapePodId)continue;
+    if(validCrew.includes(characterId)&&(location?.environment==='exterior'||location?.escapePodId)){characterLocations[characterId]=clone(location);continue;}
     const square = Number(location?.square);
     const mesh = Number(location?.mesh);
     if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { carryingId:location?.carryingId?String(location.carryingId).slice(0,120):null,carriedBy:location?.carriedBy?String(location.carriedBy).slice(0,120):null, square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
@@ -513,6 +523,7 @@ function normalizeStarshipRecord(raw) {
     title: ship.title,
     controlType: source.controlType === "gm" ? "gm" : "pc",
     accessKey: String(source.accessKey || "").slice(0, 160),
+    buildRevision:Math.max(0,Number(source.buildRevision)||0),
     crewCharacterIds: validCrew,
     crewNpcUnitIds: [...new Set((Array.isArray(source.crewNpcUnitIds) ? source.crewNpcUnitIds : ship.crewNpcUnitIds || []).map(String))].slice(0, 100),
     characterLocations,
@@ -534,7 +545,7 @@ function publicStarship(record) {
   const copy = clone(record);
   delete copy.accessKey;
   if(copy.ship)delete copy.ship.oxygenState;
-  if(copy.ship)delete copy.ship.surveillanceState;
+  if(copy.ship){delete copy.ship.surveillanceState;delete copy.ship.intruderState;}
   return copy;
 }
 
@@ -610,7 +621,7 @@ function normalizeCampaign(raw) {
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
   campaign.characters = campaign.characters.map((record) => ({
     id: String(record?.id || record?.character?.id || uid("character")),
-    pcCode: String(record?.pcCode ?? record?.pin ?? "").slice(0, 120),
+    pcCode: String(record?.pcCode ?? record?.pin ?? ""),
     approved: true,
     imported: Boolean(record?.imported),
     createdAt: record?.createdAt || new Date().toISOString(),
@@ -644,6 +655,7 @@ function normalizeCampaign(raw) {
     at: award?.at || new Date().toISOString(),
   }));
   campaign.starships = (Array.isArray(campaign.starships) ? campaign.starships : []).slice(0, 100).map(normalizeStarshipRecord);
+  const shipNames=new Set();for(const record of campaign.starships){const base=record.title;let title=base,index=1;while(shipNames.has(title.toLocaleLowerCase()))title=base+' ('+(index++)+')';record.title=record.ship.title=title;shipNames.add(title.toLocaleLowerCase());}
   trimAwardHistory(campaign);
   campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
   campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
@@ -732,6 +744,12 @@ function campaignBackup(campaign) {
       characterCount: campaign.characters.length,
     },
     campaign: clone({
+      interfaceVersion: campaign.interfaceVersion,
+      roomOpen: campaign.roomOpen,
+      imports: campaign.imports,
+      quickPrompts: campaign.quickPrompts,
+      crewLogs: campaign.crewLogs||[],
+      libraryEntries: campaign.libraryEntries||[],
       version: campaign.version,
       code: campaign.code,
       name: campaign.name,
@@ -803,6 +821,7 @@ function campaignComparison(hosted, backup) {
 
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
   const character = clone(record.character);
+  if (!gm && !own) delete character.access;
   if (!gm && !own && character.resources) delete character.resources.dramaCards;
   return {
     id: record.id,
@@ -822,10 +841,10 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, characterMoved = () => {}, environmentChanged = () => {} }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, characterMoved = () => {}, environmentChanged = () => {}, ensureRescueEncounter = null }) {
     this.store = store;
     this.storageMode = storageMode;
-    this.connectedCharacterIds = connectedCharacterIds;
+    this.connectedCharacterIds = code => [...new Set([...connectedCharacterIds(code), ...[...(this.clients?.get(code)||[])].map(client=>this.session(client.token,code)).filter(session=>session?.role==='character').map(session=>session.characterId)])];
     this.restoreEncounter = restoreEncounter;
     this.deleteEncounter = deleteEncounter;
     this.canPassTime = canPassTime;
@@ -833,6 +852,7 @@ class CampaignApi {
     this.liveEncounter = liveEncounter;
     this.characterMoved = characterMoved;
     this.environmentChanged = environmentChanged;
+    this.ensureRescueEncounter = ensureRescueEncounter;
     this.environmentTicks = new Map();
     this.sessions = new Map();
     this.clients = new Map();
@@ -854,7 +874,8 @@ class CampaignApi {
   }
 
   session(token, code) {
-    const record = this.sessions.get(String(token || ""));
+    const record = this.sessions.get(String(token || "")) || this.campaignCache.get(code)?.runtimeSessions?.[String(token || "")];
+    if(record) this.sessions.set(String(token || ""),record);
     if (!record || record.code !== code || record.expiresAt < Date.now()) {
       if (record) this.sessions.delete(String(token || ""));
       return null;
@@ -919,6 +940,7 @@ class CampaignApi {
 
   async save(campaign, { broadcast = true, incrementRevision = true } = {}) {
     normalizeDramaDeck(campaign);
+    const names=new Set();for(const record of campaign.starships||[]){const base=record.title||record.ship.title||"Starship";let title=base,n=1;while(names.has(title.toLowerCase()))title=base+" ("+(n++)+")";names.add(title.toLowerCase());record.title=record.ship.title=title;}
     trimPrivateNotes(campaign);
     if (incrementRevision) campaign.revision = Math.max(1, Math.round(Number(campaign.revision) || 1)) + 1;
     this.campaignCache.set(campaign.code, campaign);
@@ -961,9 +983,12 @@ class CampaignApi {
       const combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null,ships=room?.starships||campaign.starships;
       const transitActive=!combat&&ships.some(s=>['activating','traveling'].includes(s.ship.warpState?.phase)||['countdown','approvals'].includes(s.ship.destructState?.phase));
       const fieldActive=!combat&&ships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.cooldown>0||d.tether));
-      const medicalActive=!combat&&(CREW_ROOMS.reconcile(transitRoom(campaign),campaign)||CREW_ROOMS.jobs({starships:ships}).some(({job})=>['preparing','recovering'].includes(job.phase))||CREW_ROOMS.actors(transitRoom(campaign),campaign).some(a=>!a.mechanical&&a.hp<=0&&ships.some(s=>s.id===a.loc?.starshipId&&(s.ship.crewRoomState?.down?.[a.id]||0)<=CREW_ROOMS.RECOVERY_SECONDS)));
+      const systemsActive=!combat&&ships.some(s=>Object.values(s.ship.blackHoleGunState?.cooldowns||{}).some(n=>n>0)||require('./ship-devastation').needsPower(s)||Object.entries(s.ship.fieldState?.systems||{}).some(([id,d])=>d.enabled&&s.ship.sicInventory.some(i=>i.id===id&&i.type==='ionic-force-displacers'))||s.ship.cloakState?.active||s.ship.gravityFieldState?.active||s.ship.sicInventory.some(i=>i.bootRemaining>0));
+      const roomsReconciled=!combat&&CREW_ROOMS.reconcile(transitRoom(campaign),campaign);
+      const medicalActive=!combat&&(require('./ship-fabrication').active({starships:ships})||roomsReconciled||CREW_ROOMS.hibernating({starships:ships})||CREW_ROOMS.jobs({starships:ships}).some(({job})=>['preparing','recovering'].includes(job.phase))||CREW_ROOMS.actors(transitRoom(campaign),campaign).some(a=>!a.mechanical&&a.hp<=0&&ships.some(s=>s.id===a.loc?.starshipId&&(s.ship.crewRoomState?.down?.[a.id]||0)<=CREW_ROOMS.RECOVERY_SECONDS)));
       if(!combat&&require('./ship-surveillance').reconcile(transitRoom(campaign)))await this.save(campaign);
-      if(!ships.some(s=>require('./ship-atmosphere').active(s))&&!tick.active&&!transitActive&&!medicalActive&&!fieldActive&&!combat)continue;
+      if(!ships.some(s=>require('./ship-atmosphere').active(s))&&!tick.active&&!transitActive&&!medicalActive&&!fieldActive&&!systemsActive&&!combat)continue;
+      if(systemsActive){const systemsRoom=transitRoom(campaign);SHIP_POWER.advance(systemsRoom,seconds);require('./ship-black-hole-gun').cooldowns(systemsRoom,seconds);require('./ship-black-holes').advance(systemsRoom,seconds,[],false);for(const s of ships)require('./ship-maintenance').advance(s,seconds);tick.active=true;}
       const actors=OXYGEN.people(campaign,room),before=OXYGEN.pending(ships);
       const events=combat?[]:OXYGEN.advance(ships,actors,seconds);
       const medicalChanged=!combat&&CREW_ROOMS.advance(transitRoom(campaign),campaign,seconds);
@@ -971,7 +996,7 @@ class CampaignApi {
       const transitEvents=transitActive?TRANSIT.advance(transitRoom(campaign),seconds):[];
       const fieldChanged=!combat&&require('./ship-field-utilities').advance(transitRoom(campaign),seconds);
       for(const ship of ships)if(!combat&&ship.currentHullHp!=null)ship.ship.currentHullHp=ship.currentHullHp;
-      if(!combat&&(carryChanged||fieldChanged||medicalChanged||transitActive||transitEvents.length||events.length||before!==OXYGEN.pending(ships)||now-tick.saved>=((medicalActive||tick.active)?1000:5000))){
+      if(!combat&&(roomsReconciled||carryChanged||fieldChanged||medicalChanged||transitActive||transitEvents.length||events.length||before!==OXYGEN.pending(ships)||now-tick.saved>=((medicalActive||tick.active)?1000:5000))){
         this.timePassed(campaign.code,campaign.characters);await this.save(campaign,{broadcast:Boolean(carryChanged||fieldChanged||medicalActive||medicalChanged||events.length||transitActive||transitEvents.length||tick.active)});tick.saved=now;
       }
       tick.active=ships.some(s=>require('./ship-atmosphere').active(s));
@@ -982,6 +1007,7 @@ class CampaignApi {
   state(campaign, token = "") {
     const dramaDeck = normalizeDramaDeck(campaign);
     const session = this.session(token, campaign.code);
+    if(campaign.interfaceVersion==='0.3' && (!session || !campaign.roomOpen)) return {interfaceVersion:'0.3',code:campaign.code,roomOpen:false,role:'viewer',characters:[],starships:[],settings:{},redirectCode:campaign.redirectCode};
     const gm = session?.role === "gm";
     const ownId = session?.role === "character" ? session.characterId : null;
     const connectedIds = new Set(this.connectedCharacterIds(campaign.code));
@@ -996,6 +1022,12 @@ class CampaignApi {
         ? campaign.rollRequests.filter((request) => request.targetIds.includes(ownId))
         : [];
     return {
+      interfaceVersion: campaign.interfaceVersion,
+      roomOpen: campaign.roomOpen,
+      playerId: this.session(token,campaign.code)?.playerId || null,
+      players: gm ? clone(campaign.players || []) : undefined,
+      imports: (campaign.imports || []).filter(r=>gm || r.playerId===this.session(token,campaign.code)?.playerId).map(r=>({...clone(r),data:gm?r.data:undefined})),
+      quickPrompts: gm ? clone(campaign.quickPrompts || {}) : undefined,
       code: campaign.code,
       roomCode: campaign.code,
       name: campaign.name,
@@ -1007,15 +1039,19 @@ class CampaignApi {
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
       combatActive: !this.canPassTime(campaign.code),
+      clockRunning:Boolean((this.liveEncounter(campaign.code)||campaign.encounter)?.running&&!(this.liveEncounter(campaign.code)||campaign.encounter)?.hardPaused),
       deployedShipIds: (campaign.encounter?.starships||[]).filter(s=>campaign.starships.some(record=>record.id===s.id&&(gm||record.controlType==='pc'||record.crewCharacterIds?.includes(ownId)))).map(s=>s.id),
       libraryTargets: gm ? CREW_ROOMS.libraryTargets(campaign,!this.canPassTime(campaign.code)?this.liveEncounter(campaign.code):null) : undefined,
-      spaceObjects: clone((campaign.encounter?.spaceObjects||[]).filter(o=>!o.collectedBy)),
+      spaceObjects: clone(gm?(campaign.encounter?.spaceObjects||[]).filter(o=>!o.collectedBy):require("./spectator-view").objects(campaign.encounter||{spaceObjects:[]},campaign.starships.filter(s=>session?.role==='viewer'?s.controlType==='pc':s.crewCharacterIds?.includes(ownId)))),
       crewRoomRolls:CREW_ROOMS.rolls((!this.canPassTime(campaign.code)&&this.liveEncounter(campaign.code))||transitRoom(campaign)).filter(r=>gm||(r.characterId===ownId&&r.controller!=='gm')),
       oxygen: this.environment(campaign,token),
       script: gm ? campaign.script : undefined,
       scriptChapters: gm ? clone(campaign.scriptChapters) : undefined,
       conditionalActions: gm ? clone(campaign.conditionalActions) : undefined,
       shipCredits: campaign.shipCredits,
+      crewLogs:clone(require('./crew-logs').visible(campaign,ownId,gm)),
+      libraryEntries:clone(campaign.libraryEntries||[]),
+      gmConnected:[...(this.clients.get(campaign.code)||[])].some(client=>this.gmSession(client.token,campaign.code)),
       sessionNumber: campaign.sessionNumber,
       bankerCharacterId: campaign.bankerCharacterId,
       settings: clone(campaign.settings),
@@ -1047,13 +1083,21 @@ class CampaignApi {
           own: record.id === ownId,
           notes: limitedNotes(notesByCharacter.get(record.id) || [], PLAYER_INBOX_LIMIT),
         }),
+        claimed: (campaign.players||[]).some(p=>p.characterId===record.id),
         connected: connectedIds.has(record.id),
       })),
       starships: campaign.starships
         .filter((record) => gm || record.controlType === "pc")
         .map(record=>{
-          const visible=publicStarship(record);if(!gm&&!record.crewCharacterIds?.includes(ownId)){delete visible.ship.cleanserState;delete visible.ship.atmosphereState;delete visible.ship.cloakState;delete visible.ship.crewRoomState;delete visible.ship.fieldState;delete visible.ship.droneState;delete visible.ship.probeState;}
+          const live=this.liveEncounter(campaign.code)||campaign.encounter;
+          if(campaign.showcase&&session?.compactShowcase&&!session.loadedShipIds?.includes(record.id)&&!record.crewCharacterIds?.includes(ownId)&&!live?.starships?.some(s=>s.id===record.id)){if(!showcaseSummaryCache.has(record.ship))showcaseSummaryCache.set(record.ship,SHIP_POWER.output(record,[]));return {id:record.id,title:record.title,controlType:record.controlType,crewCharacterIds:record.crewCharacterIds,crewNpcUnitIds:record.crewNpcUnitIds,characterLocations:record.characterLocations,lazyLayout:true,sensorSummary:SHIP_MAP.sensorStats(record),powerSummary:showcaseSummaryCache.get(record.ship),hullCount:record.ship.gridCells.length,ship:{title:record.title,class:record.ship.class,mapColor:record.ship.mapColor,gridCells:[],placements:[],sicInventory:[],maximumHullHp:record.ship.maximumHullHp}};}
+          const visible=publicStarship(record);if(!gm&&session?.role!=='viewer'&&!record.crewCharacterIds?.includes(ownId)){delete visible.ship.cleanserState;delete visible.ship.atmosphereState;delete visible.ship.cloakState;delete visible.ship.crewRoomState;delete visible.ship.fabricationState;delete visible.ship.fieldState;delete visible.ship.droneState;delete visible.ship.probeState;}
           const encounter=this.liveEncounter(campaign.code)||campaign.encounter;
+          const interiorRoom=encounter?.hasEngagedClock&&!encounter.encounterEndedAt?encounter:transitRoom(campaign);const interiorShip=interiorRoom.starships.find(s=>s.id===record.id)||record;require('./ship-intruders').reconcile(interiorRoom);visible.intrudersDetected=Boolean(interiorShip.ship.intruderState?.detected?.length);visible.interiorOccupants=(interiorRoom.units||[]).filter(u=>u.team==='npc'&&u.location?.starshipId===record.id&&(gm||require('./ship-intruders').visible(interiorRoom,interiorShip,u))).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:clone(u.location)}));
+          const shieldSource=encounter?.starships?.find(ship=>ship.id===record.id);
+          if(gm||record.crewCharacterIds?.includes(ownId)){
+            if(shieldSource?.shieldSystems)visible.shieldSystems=Object.fromEntries(Object.entries(shieldSource.shieldSystems).map(([id,system])=>[id,{hp:system.hp}]));
+          }else{delete visible.shieldSystems;delete visible.ship.shieldSystems;}
           if(!this.canPassTime(campaign.code)&&!encounter?.encounterEndedAt){
             visible.characterLocations=clone(visible.characterLocations||{});
             for(const unit of encounter?.units||[]){
@@ -1076,50 +1120,49 @@ class CampaignApi {
     }
   }
 
+  async checkpoint(campaign,reason,encounter=null){
+    if(!campaign)return;
+    const value=clone(campaign);if(encounter)value.encounter=clone(encounter);
+    return require('./encounter-checkpoints').save(this.store,value,reason);
+  }
+
   async saveEncounter(code, encounter) {
     const campaign = await this.campaign(code);
     if (!campaign) return false;
     const previous = this.saveQueues.get(code) || Promise.resolve();
     const queued = previous.catch(() => {}).then(async () => {
+      if(this.campaignCache.get(code)!==campaign)return false; // A loaded/recovered campaign supersedes queued writes from the old object.
       const npcRoster = [...new Map([...(campaign.npcRoster || []), ...(encounter.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, clone(unit)])).values()].slice(-200);
-      const positions = value => JSON.stringify([value?.hasEngagedClock,value?.encounterEndedAt,(value?.units||[]).map(u=>[u.characterId,u.location])]);
+      const positions = value => JSON.stringify([value?.hasEngagedClock,value?.running,value?.hardPaused,value?.pausedForTurn,value?.encounterEndedAt,(value?.units||[]).map(u=>[u.characterId,u.location])]);
       const locationsChanged=positions(campaign.encounter)!==positions(encounter);
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
       const ending=encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt;
-      const transitChanged=!encounter.encounterEndedAt&&encounter.hasEngagedClock&&next.starships.some(ship=>{
-        const live=encounter.starships?.find(s=>s.id===ship.id);return live&&TRANSIT_FIELDS.filter(key=>!['missileState','droneState','probeState'].includes(key)).some(key=>JSON.stringify(ship.ship[key]??null)!==JSON.stringify(live.ship[key]??null));
-      });
-      if(transitChanged)for(const ship of next.starships){const live=encounter.starships?.find(s=>s.id===ship.id);if(live){for(const key of TRANSIT_FIELDS)ship.ship[key]=clone(live.ship[key]??null);if(live.ship.surveillanceState)ship.ship.doorStates=clone(live.ship.doorStates||{});}}
-      if(ending){
-        for(const ship of next.starships||[]){
-          const live=encounter.starships?.find(s=>s.id===ship.id);if(!live)continue;
-          for(const item of ship.ship.sicInventory||[]){
-            const current=live.ship.sicInventory?.find(i=>i.id===item.id);if(!current)continue;
-            for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable'])if(key in current)item[key]=clone(current[key]);
-          }
-          ship.ship.currentHullHp=live.currentHullHp;ship.ship.currentShieldHp=live.currentShieldHp;
-          ship.ship.gravityEnabled=live.ship.gravityEnabled!==false;
-          ship.ship.oxygenEnabled=live.ship.oxygenEnabled!==false;
-          ship.ship.oxygenState=clone(live.ship.oxygenState||null);
-          for(const key of TRANSIT_FIELDS)ship.ship[key]=clone(live.ship[key]??null);
-          if(live.ship.surveillanceState)ship.ship.doorStates=clone(live.ship.doorStates||{});
-          ship.characterLocations ||= {};
-          for(const [id,location] of Object.entries(live.characterLocations||{}))if(ship.crewCharacterIds.includes(id))ship.characterLocations[id]=clone(location);
-          for(const unit of encounter.units||[])if(ship.crewCharacterIds.includes(unit.characterId)&&unit.location?.starshipId===ship.id)ship.characterLocations[unit.characterId]=clone(unit.location);
+      const authoritative=ending||encounter.hasEngagedClock&&!encounter.encounterEndedAt;
+      let transitChanged=false;
+      if(authoritative){
+        for(const ship of next.starships){const live=encounter.starships?.find(s=>s.id===ship.id);if(!live)continue;
+          const before=JSON.stringify([ship.ship,ship.characterLocations]);
+          require('./ship-state').persist(ship,live);
+          if(before!==JSON.stringify([ship.ship,ship.characterLocations]))transitChanged=true;
         }
+        require('./ship-state').locations(next.starships,encounter.units);
+        transitChanged ||= locationsChanged;
+      }
+      if(encounter.hasEngagedClock&&!encounter.encounterEndedAt&&Date.now()-(this.lastCheckpoint?.get(code)||0)>=60000){
+        await this.checkpoint(next,'Automatic combat checkpoint');(this.lastCheckpoint||=new Map()).set(code,Date.now());
       }
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
       Object.assign(campaign, { encounter: next.encounter, ...(ending||transitChanged?{starships:next.starships}:{}), npcRoster, updatedAt, revision });
-      if(transitChanged)await this.broadcast(code,campaign);
+      if(transitChanged&&Date.now()-(this.lastShipBroadcast?.get(code)||0)>=2000){(this.lastShipBroadcast||=new Map()).set(code,Date.now());await this.broadcast(code,campaign);}
       if(locationsChanged)for(const client of this.clients.get(code)||[]){
         const gm=this.session(client.token,code)?.role==='gm';
         const ships=campaign.starships.filter(ship=>gm||ship.controlType==='pc');
-        const units=(encounter.units||[]).filter(unit=>ships.some(ship=>ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)))
+        const units=(encounter.units||[]).filter(unit=>ships.some(ship=>ship.crewCharacterIds.includes(unit.characterId)))
           .map(unit=>({characterId:unit.characterId,location:clone(unit.location)}));
-        writeEvent(client.response,'encounter-locations',{units,deployedShipIds:(encounter.starships||[]).filter(s=>ships.some(v=>v.id===s.id)).map(s=>s.id),encounterEndedAt:encounter.encounterEndedAt,combatActive:!this.canPassTime(code)});
+        writeEvent(client.response,'encounter-locations',{units,deployedShipIds:(encounter.starships||[]).filter(s=>ships.some(v=>v.id===s.id)).map(s=>s.id),encounterEndedAt:encounter.encounterEndedAt,combatActive:Boolean(encounter.hasEngagedClock&&!encounter.encounterEndedAt),clockRunning:Boolean(encounter.running&&!encounter.hardPaused)});
       }
     });
     this.saveQueues.set(code, queued);
@@ -1163,6 +1206,14 @@ class CampaignApi {
     return true;
   }
 
+  async personalDamageStatistics(code,targetId,attackerId,amount,receipt){
+    const campaign=await this.campaign(code);if(!campaign)return;
+    const stats=require('./character-statistics');
+    const target=campaign.characters.find(c=>c.id===targetId),attacker=campaign.characters.find(c=>c.id===attackerId);
+    if(target)stats.damage(target.character,'taken',amount,receipt);
+    if(attacker)stats.damage(attacker.character,'dealt',amount,receipt);
+    await this.save(campaign);
+  }
   async damageCharacter(code, characterId, rawDamage = 0, source = "Combat damage", fallback = {}) {
     const campaign = await this.campaign(code);
     const record = campaign?.characters.find((entry) => entry.id === characterId);
@@ -1209,10 +1260,12 @@ class CampaignApi {
 
 
   async verifyCharacterAccess(code, characterId, token) {
+    await this.campaign(code);
     return Boolean(this.characterSession(token, code, characterId));
   }
 
   async verifyGmAccess(code, token) {
+    await this.campaign(code);
     return Boolean(this.gmSession(token, code));
   }
 
@@ -1229,6 +1282,7 @@ class CampaignApi {
         return true;
       }
       const token = String(url.searchParams.get("token") || "");
+      if(campaign.interfaceVersion==='0.3'&&(!campaign.roomOpen||!this.session(token,code))){res.writeHead(403);res.end("Room access required");return true;}
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -1238,11 +1292,12 @@ class CampaignApi {
       const set = this.clients.get(code) || new Set();
       this.clients.set(code, set);
       set.add(client);
-      writeEvent(res, "campaign", this.state(campaign, token));
+      await this.broadcast(code,campaign);
       const heartbeat = setInterval(() => res.write(`: keep-alive ${Date.now()}\n\n`), 25000);
       req.on("close", () => {
         clearInterval(heartbeat);
         set.delete(client);
+        void this.broadcast(code).catch(()=>{});
       });
       return true;
     }
@@ -1258,6 +1313,8 @@ class CampaignApi {
     }
     const code = String(body.code || url.searchParams.get("code") || "").trim().toUpperCase();
     const token = String(body.token || url.searchParams.get("token") || "");
+
+    if(await require("./campaign-v03").handle(this,{path,req,res,body,code,token,sendJson,defaultCampaign,normalizeCampaign,campaignCode,normalizeStarshipRecord,shipMap:SHIP_MAP,shipPower:SHIP_POWER})) return true;
 
     if (path === "/api/campaign/showcase/start" && req.method === "POST") {
       for (const [expiredCode, record] of this.showcases) {
@@ -1279,12 +1336,13 @@ class CampaignApi {
       Object.assign(pcDefinitions[0].skills,{'Computer Systems':5,Engineering:5,Hacking:4,'Pilot/Helm':6,'Sensor Systems':5.5,'Weapon Systems':6,Mathematics:4,Awareness:4,Initiative:4,'Dodge/Block':3.5});
       Object.assign(pcDefinitions[0].attributes,{dexterity:[3,2,1,-1],intellect:[4,3,1,-1],perception:[3,2,1,-1]});
       Object.assign(pcDefinitions[0],{speed:15,commandWindow:120,moveSpeed:3,hp:30,damageReduction:0});
+      pcDefinitions.push({...structuredClone(pcDefinitions[0]),id:'showcase-orion',playerName:'Player Two',characterName:'Orion Reed',color:'#f5b85b'});
       const characters = pcDefinitions.map(showcaseCharacter);
       characters[0].character.experience.available+=2000;characters[0].character.experience.totalGained+=2000;
       characters[0].character.resources.exertionCurrent=1;characters[0].character.resources.exertionMax=1;
       for (const record of characters) record.character.campaignLink = { roomCode: showcaseCode, campaignName: "Explore Features", status: "linked", requestId: "", message: "" };
       const pcShip = showcaseShip("showcase-pc-ship", "Wayfinder", "pc", characters.map((record) => record.id), 146);
-      const showcaseNpcUnitIds = ['unit-showcase-npc-0'];
+      const showcaseNpcUnitIds = Array.from({length:4},(_,i)=>'unit-showcase-npc-'+i);
       const npcShip = showcaseShip("showcase-npc-ship", "Red Horizon", "gm", [], 148, showcaseNpcUnitIds);
       const campaign = defaultCampaign({ code: showcaseCode, name: "Explore Features", gmCode: uid("showcase") });
       campaign.showcase = true;
@@ -1292,9 +1350,9 @@ class CampaignApi {
       campaign.starships = [pcShip, npcShip];
       campaign.shipCredits = 25000;
       campaign.settings.hideRoomCode = false;
-      const selectedNpcs = SHOWCASE_NPCS.filter(npc=>npc.name==='Space Slug').slice(0,1);
-      const pcSquares = [146];
-      const npcSquares = [148];
+      const selectedNpcs = ['Space Slug','Civilian','Security Guard','Final Boss'].map(name=>SHOWCASE_NPCS.find(npc=>npc.name===name));
+      const pcSquares = [pcShip.ship.placements.find(p=>require('./ship-map-core').definition(pcShip.ship.sicInventory.find(i=>i.id===p.sicId)?.type).bridge).cell];
+      const npcSquares = [npcShip.ship.placements.find(p=>require('./ship-map-core').definition(npcShip.ship.sicInventory.find(i=>i.id===p.sicId)?.type).bridge).cell];
       const units = pcDefinitions.map((entry, index) => ({
         id: `unit-${entry.id}`, playerName: entry.playerName, characterName: entry.characterName, speed: entry.speed,
         commandWindow: entry.commandWindow, atb: 0, encounterSpeedBonus: 0, regenerationRate: 0,
@@ -1312,7 +1370,7 @@ class CampaignApi {
         hackingSkill: entry.skills.Hacking || 0,
         damageReduction: entry.damageReduction, maximumHp: entry.hp, currentHp: entry.hp,
         weapons: [{ inventoryId: `${entry.id}-weapon`, weaponId: entry.weaponId }], heldWeaponId: `${entry.id}-weapon`, items: [],
-        location: showcaseLocation(pcShip.id, pcSquares[index]), travelRoute: [],
+        location: showcaseLocation(pcShip.id, pcSquares[index]??(pcSquares[0]+index)), travelRoute: [],
       }));
       units.push(...selectedNpcs.map((npc, index) => ({
         id: `unit-showcase-npc-${index}`, playerName: "GM", characterName: npc.name, speed: npc.speed, commandWindow: null,
@@ -1322,7 +1380,7 @@ class CampaignApi {
         moveSpeed: npc.moveSpeed, physicalAttribute: npc.physicalAttribute, mentalAttribute: npc.mentalAttribute,
         physicalSkill: npc.physicalSkill, mentalSkill: npc.mentalSkill, damageReduction: 0, maximumHp: npc.maximumHp, currentHp: npc.maximumHp,
         weapons: [{ inventoryId: `showcase-npc-${index}-weapon`, weaponId: npc.heldWeaponId }], heldWeaponId: `showcase-npc-${index}-weapon`, items: [],
-        location: showcaseLocation(npcShip.id, npcSquares[index]), travelRoute: [],
+        location: showcaseLocation(npcShip.id, npcSquares[index]??(npcSquares[0]+index)), travelRoute: [],
       })));
       campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: false, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared. Engage the clock when ready." }] };
       campaign.starships=[...campaign.starships,...require('./showcase-variants')()];
@@ -1392,7 +1450,7 @@ class CampaignApi {
     if (path === "/api/campaign/open" && req.method === "POST") {
       const name = String(body.name || "").trim();
       const gmCode = String(body.gmCode ?? body.password ?? "");
-      const candidates = name ? await this.campaignsNamed(name) : [];
+      const candidates = name ? (await this.campaignsNamed(name)).filter(c=>c.interfaceVersion!=='0.3') : [];
       const campaign = candidates.find((entry) => passwordMatches(gmCode, entry.gmCode));
       if (!campaign) {
         sendJson(res, 403, { error: "Campaign Name or GM Code is incorrect." });
@@ -1408,7 +1466,7 @@ class CampaignApi {
       const name = String(body.name || "").trim();
       const identifier = String(body.identifier ?? body.pcCode ?? "").trim();
       const normalizedIdentifier = identifier.toLocaleLowerCase();
-      const candidates = name ? await this.campaignsNamed(name) : [];
+      const candidates = name ? (await this.campaignsNamed(name)).filter(c=>c.interfaceVersion!=='0.3') : [];
       const matches = [];
 
       for (const candidate of candidates) {
@@ -1465,7 +1523,22 @@ class CampaignApi {
       return true;
     }
 
+    if(campaign?.interfaceVersion==='0.3') {
+      if(!campaign.roomOpen){sendJson(res,410,{error:'The GM has closed this room.'});return true;}
+      if(!this.session(token,code)){sendJson(res,403,{error:'Join the room first.'});return true;}
+      if(['/api/campaign/character/create','/api/campaign/character/unlock','/api/campaign/join/request','/api/campaign/join/respond'].includes(path)){sendJson(res,409,{error:'Use the room lobby to create, claim or import characters.'});return true;}
+      if(['/api/campaign/starship/link','/api/campaign/starship/crew'].includes(path)&&!this.gmSession(token,code)){sendJson(res,403,{error:'Only the GM may import ships or assign crew.'});return true;}
+    }
+
+    if(await require('./crew-logs').handle(this,{path,req,res,body,campaign,token,sendJson}))return true;
+    if(path==='/api/campaign/starship/details'&&req.method==='POST'){
+      const session=this.session(token,code),gm=this.gmSession(token,code);if(!session){sendJson(res,403,{error:'Join the room first.'});return true;}
+      const ids=[...new Set((Array.isArray(body.ids)?body.ids:[]).map(String))],ships=campaign.starships.filter(s=>ids.includes(s.id)&&(gm||s.controlType==='pc'));
+      if(ships.length!==ids.length||ids.length>6){sendJson(res,403,{error:'Choose up to six available ships.'});return true;}
+      session.loadedShipIds=[...new Set([...(session.loadedShipIds||[]),...ids])];sendJson(res,200,{starships:ships.map(publicStarship)});return true;
+    }
     if (path === "/api/campaign/state" && req.method === "GET") {
+      const currentSession=this.session(token,code);if(currentSession&&url.searchParams.get('compact')==='1')currentSession.compactShowcase=true;
       sendJson(res, 200, this.state(campaign, token));
       return true;
     }
@@ -1485,6 +1558,8 @@ class CampaignApi {
       });
       const powerError = SHIP_POWER.constructionError(supplied);
       if (powerError) { sendJson(res, 400, { error: powerError }); return true; }
+      const airlockError=SHIP_MAP.ensureAirlocks(supplied.ship);
+      if(airlockError){sendJson(res,400,{error:airlockError});return true;}
       if (!supplied.ship.gridCells.length) {
         sendJson(res, 400, { error: "Confirm the starship's construction before linking it." });
         return true;
@@ -1501,6 +1576,29 @@ class CampaignApi {
       return true;
     }
 
+    if(path==='/api/campaign/quick-prompts'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM access required.'});return true;}
+      const column=String(body.column||'everyone');
+      if(column!=='everyone'&&!campaign.characters.some(c=>c.id===column)){sendJson(res,400,{error:'Character not found.'});return true;}
+      if(body.kind==='reverence'){
+        campaign.quickPromptReceipts||=[];const receipt=String(body.receipt||'');
+        if(!receipt){sendJson(res,400,{error:'A request receipt is required.'});return true;}
+        if(!campaign.quickPromptReceipts.includes(receipt)){
+          for(const record of campaign.characters.filter(c=>column==='everyone'||c.id===column))applyCharacterReward(record,{resource:'reverence',amount:1},campaign);
+          campaign.quickPromptReceipts.push(receipt);campaign.quickPromptReceipts=campaign.quickPromptReceipts.slice(-300);
+        }
+      }else{
+        if(!Array.isArray(body.presets)||body.presets.length>10||body.presets.some(p=>!p.name||!p.attribute||!p.skill||!Number.isInteger(p.difficulty))){sendJson(res,400,{error:'Choose up to ten prompts with whole-number difficulties.'});return true;}
+        campaign.quickPrompts||={};campaign.quickPrompts[column]=body.presets.map(p=>({name:String(p.name).slice(0,80),attribute:String(p.attribute).slice(0,40),skill:String(p.skill).slice(0,80),difficulty:p.difficulty}));
+      }
+      await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});return true;
+    }
+    if(path==='/api/campaign/statistics/roll'&&req.method==='POST'){
+      const record=campaign.characters.find(c=>c.id===body.characterId);
+      if(!record||!this.characterSession(token,code,record.id)){sendJson(res,403,{error:'Character access required.'});return true;}
+      require('./character-statistics').roll(record.character,body.skill,body.score,body.receipt);
+      await this.save(campaign);sendJson(res,200,{statistics:record.character.statistics});return true;
+    }
     if (path === "/api/campaign/starship/save" && req.method === "POST") {
       const record = campaign.starships.find((entry) => entry.id === String(body.starship?.id || body.starshipId || ""));
       if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
@@ -1509,6 +1607,7 @@ class CampaignApi {
       const crewAccess = Boolean(characterId && record.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
       const ownerAccess = Boolean(!record.crewCharacterIds.length && body.accessKey && body.accessKey === record.accessKey);
       if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
+      if(campaign.interfaceVersion==='0.3' && Number(body.buildRevision??-1)!==(record.buildRevision||0)){sendJson(res,409,{error:"Another crew member confirmed changes. Reopen this ship to use its latest layout."});return true;}
       if(JSON.stringify(body.starship?.resourceReceipts||[])!==JSON.stringify(record.ship.resourceReceipts||[])){sendJson(res,409,{error:'Ship stores changed while this builder was open. Reopen the ship before saving construction.'});return true;}
       const exteriorError = SHIP_MAP.exteriorError(body.starship);
       if (exteriorError) { sendJson(res, 400, { error: exteriorError }); return true; }
@@ -1528,25 +1627,31 @@ class CampaignApi {
       const updated = normalizeStarshipRecord({ ...record,characterLocations:locations, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
       const powerError = SHIP_POWER.constructionError(updated);
       if (powerError) { sendJson(res, 400, { error: powerError }); return true; }
+      const airlockError=SHIP_MAP.ensureAirlocks(updated.ship);
+      if(airlockError){sendJson(res,400,{error:airlockError});return true;}
       const hullSource=this.liveEncounter(code)?.starships.find(s=>s.id===record.id)||record,hullDelta=SHIP_MAP.hullHp(updated)-SHIP_MAP.hullHp(record);
       updated.ship.maximumHullHp=Math.max(0,Number(hullSource.maximumHullHp??record.ship.maximumHullHp??SHIP_MAP.hullHp(record))+hullDelta);
       updated.ship.currentHullHp=Math.max(0,Math.min(updated.ship.maximumHullHp,Number(hullSource.currentHullHp??record.ship.currentHullHp??updated.ship.maximumHullHp-hullDelta)+hullDelta));
       updated.ship.gravityEnabled=record.ship.gravityEnabled!==false;
       updated.ship.oxygenEnabled=record.ship.oxygenEnabled!==false;
       updated.ship.oxygenState=clone(record.ship.oxygenState||null);
-      for(const key of TRANSIT_FIELDS)updated.ship[key]=clone(record.ship[key]??null);
+      for(const key of TRANSIT_FIELDS.filter(key=>key!=='airlocks'))updated.ship[key]=clone(record.ship[key]??null);
+      if(remapping&&updated.ship.breachState)for(const hole of Object.values(updated.ship.breachState.holes||{}))hole.square=remap(hole.square);
       if(/^#[0-9a-f]{6}$/i.test(body.starship?.mapColor||''))updated.ship.mapColor=body.starship.mapColor;updated.auState=clone(record.auState??null);
       const cameraSource=(!this.canPassTime(code)&&this.liveEncounter(code)?.starships.find(s=>s.id===record.id))||record;
       if(cameraSource.ship.surveillanceState){
         updated.ship.surveillanceState=clone(cameraSource.ship.surveillanceState);
+        updated.ship.doorDamage=Object.fromEntries(Object.entries(cameraSource.ship.doorDamage||{}).map(([key,value])=>[remapping?key.split(':').map(n=>remap(Number(n))).sort((a,b)=>a-b).join(':'):key,value]));
         updated.ship.doorStates=Object.fromEntries(Object.entries(cameraSource.ship.doorStates||{}).map(([key,value])=>[remapping?key.split(':').map(n=>remap(Number(n))).sort((a,b)=>a-b).join(':'):key,value]));
       }
       for(const [id,loc]of Object.entries(record.characterLocations||{}))if(loc.escapePodId)updated.characterLocations[id]=clone(loc);
       if(campaign.starships.some(s=>s.ship.fieldState?.dockedIn?.shipId===record.id&&!updated.ship.placements.some(p=>p.sicId===s.ship.fieldState.dockedIn.sicId))){sendJson(res,409,{error:'Undock the vessel before removing its occupied Docking Bay.'});return true;}
       for(const item of updated.ship.sicInventory||[]){
         const prior=(this.liveEncounter(code)?.starships.find(s=>s.id===record.id)||record).ship.sicInventory?.find(i=>i.id===item.id);if(!prior)continue;
-        for(const key of ['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable']){if(key in prior)item[key]=clone(prior[key]);else delete item[key];}
+        for(const key of ['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable','printed','printedFor','salvaged','salvageSource']){if(key in prior)item[key]=clone(prior[key]);else delete item[key];}
       }
+      for(const item of updated.ship.sicInventory)if(item.printed&&updated.ship.placements.some(p=>p.sicId===item.id)){if(item.printedFor&&item.printedFor!==record.id){sendJson(res,409,{error:'This printed SIC is licensed to another starship.'});return true;}item.printedFor=record.id;}
+      updated.buildRevision=(record.buildRevision||0)+1;
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;
       updated.crewNpcUnitIds = record.crewNpcUnitIds || [];
@@ -1556,7 +1661,7 @@ class CampaignApi {
       if(remapping)for(const npc of campaign.npcRoster||[]){if(npc.location?.starshipId===record.id&&Number.isInteger(npc.location.square))npc.location={...npc.location,square:remap(npc.location.square)};}
       // Synchronize the construction before any encounter snapshot can restore the old layout.
       const liveRoom=this.liveEncounter(code),liveShip=liveRoom?.starships.find(s=>s.id===updated.id);
-      if(liveShip){liveShip.maximumHullHp=updated.ship.maximumHullHp;liveShip.currentHullHp=updated.ship.currentHullHp;liveShip.ship={...clone(updated.ship),...Object.fromEntries(TRANSIT_FIELDS.map(k=>[k,clone(liveShip.ship[k]??updated.ship[k]??null)]))};liveShip.ship.mapColor=updated.ship.mapColor;liveShip.title=updated.title;liveShip.characterLocations=clone(updated.characterLocations);if(remapping)for(const u of liveRoom.units)if(u.location?.starshipId===updated.id&&Number.isInteger(u.location.square))u.location.square=remap(u.location.square);}
+      if(liveShip){liveShip.maximumHullHp=updated.ship.maximumHullHp;liveShip.currentHullHp=updated.ship.currentHullHp;liveShip.ship={...clone(updated.ship),...Object.fromEntries(TRANSIT_FIELDS.map(k=>[k,clone(liveShip.ship[k]??updated.ship[k]??null)]))};if(remapping){liveShip.ship.breachState=clone(updated.ship.breachState);liveShip.ship.doorStates=clone(updated.ship.doorStates);liveShip.ship.doorDamage=clone(updated.ship.doorDamage);}liveShip.ship.mapColor=updated.ship.mapColor;liveShip.title=updated.title;liveShip.characterLocations=clone(updated.characterLocations);if(remapping)for(const u of liveRoom.units)if(u.location?.starshipId===updated.id&&Number.isInteger(u.location.square))u.location.square=remap(u.location.square);}
       const savedShip=campaign.encounter?.starships?.find(s=>s.id===updated.id);if(savedShip){savedShip.maximumHullHp=updated.ship.maximumHullHp;savedShip.currentHullHp=updated.ship.currentHullHp;savedShip.ship=clone(liveShip?.ship||updated.ship);savedShip.title=updated.title;}
       await this.save(campaign);
       sendJson(res, 200, { starship: publicStarship(updated) });
@@ -1586,13 +1691,28 @@ class CampaignApi {
       return true;
     }
 
+    if(path==='/api/campaign/starship/airlock'&&req.method==='POST'){
+      try {
+      const gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||'');
+      if(!gm&&!this.characterSession(token,code,characterId)){sendJson(res,403,{error:'Choose your own character.'});return true;}
+      let room=this.canPassTime(code)?transitRoom(campaign):this.liveEncounter(code);let unit=room.units.find(u=>characterId&&u.characterId===characterId||gm&&u.id===body.id);
+      const validation=clone(room);require('./ship-breaches').operate(validation,validation.units.find(u=>u.id===unit?.id),body);
+      if(room.outsideCombat&&validation.starships.find(s=>s.id===body.starshipId)?.ship.airlockStates?.[body.airlockId]?.open&&this.ensureRescueEncounter){room=await this.ensureRescueEncounter(campaign,body.starshipId);unit=room.units.find(u=>characterId?u.characterId===characterId:u.id===body.id);}
+      const text=require('./ship-breaches').operate(room,unit,body);if(!room.outsideCombat){campaign.encounter=this.environmentChanged(room,[]);require('./ship-state').persist(campaign.starships.find(s=>s.id===body.starshipId),room.starships.find(s=>s.id===body.starshipId));}await this.save(campaign);sendJson(res,200,{result:{text},campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,409,{error:error.message});}return true;
+    }
     if (path === "/api/campaign/starship/door" && req.method === "POST") {
-      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
+      const saved = campaign.starships.find((entry) => entry.id === String(body.starshipId || "")),live=!this.canPassTime(code)?this.liveEncounter(code):null;
+      const record=live?.starships.find(s=>s.id===saved?.id)||saved;
       const characterId = String(body.characterId || ""); const key = String(body.doorKey || ""); const cells = key.split(":").map(Number);
       const gmAccess = Boolean(this.gmSession(token, code)); const crewAccess = Boolean(characterId && record?.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
       const adjacent = cells.length === 2 && cells.every((cell) => Number.isInteger(cell) && record?.ship?.gridCells?.includes(cell)) && (Math.abs(cells[0] - cells[1]) === SHIP_MAP.gridColumns(record) || (Math.abs(cells[0] - cells[1]) === 1 && Math.floor(cells[0] / SHIP_MAP.gridColumns(record)) === Math.floor(cells[1] / SHIP_MAP.gridColumns(record))));
       if (!record || !adjacent || (!gmAccess && !crewAccess)) { sendJson(res, 403, { error: "Only assigned crew or the GM may operate that door." }); return true; }
+      const doorOperator=(live||transitRoom(campaign)).units.find(u=>characterId&&u.characterId===characterId||gmAccess&&u.id===body.id);if(!doorOperator){sendJson(res,403,{error:'Choose an operator aboard this ship.'});return true;}
+      if(!require('./ship-doors').list(record).includes(key)||!require('./ship-doors').canOperate(record,doorOperator,key)){sendJson(res,403,{error:'Operate remote doors from a Bridge station.'});return true;}
+      if(require('./ship-doors').broken(record,key))throw Error('This door is broken open. Complete System Repairs and Diagnostics to repair it.');
       record.ship.doorStates ||= {}; record.ship.doorStates[key] = record.ship.doorStates[key] === "open" ? "closed" : "open"; record.updatedAt = new Date().toISOString();
+      if(live){campaign.encounter=this.environmentChanged(live,[]);require('./ship-state').persist(saved,record);}
       await this.save(campaign); sendJson(res, 200, { open: record.ship.doorStates[key] === "open", starship: publicStarship(record), campaign: this.state(campaign, token) }); return true;
     }
 
@@ -1625,11 +1745,7 @@ class CampaignApi {
             stores[name]=(Number(stores[name])||0)+quantity;record.ship.minerals=stores;
             if(liveShip){liveShip.ship.minerals=clone(stores);liveShip.ship.resourceReceipts=[...(liveShip.ship.resourceReceipts||[]),receipt].slice(-200);const snapshot=this.environmentChanged(live,[]);if(snapshot)campaign.encounter=snapshot;}
           }else if(body.purchaseMissile){
-            if(['__proto__','constructor','prototype'].includes(body.launcherId))throw Error('Invalid launcher identifier.');
-            const ammo=require('./missile-ammunition'),round=ammo.catalog[body.purchaseMissile],item=record.ship.sicInventory.find(i=>i.id===body.launcherId),definition=require('./ship-map-core').definition(item?.type),quantity=Number(body.quantity);
-            if(!round||!definition.missileLauncher||!record.ship.placements.some(p=>p.sicId===item.id)||!Number.isInteger(quantity)||quantity<1||ammo.used(record.ship,item.id)+quantity>definition.capacity)throw Error('Choose an installed Missile Launcher with enough empty magazine slots.');
-            if(Number(record.ship.groupCredits||0)<round.price*quantity)throw Error('Not enough ship Group Credits.');
-            record.ship.missileAmmo||={};record.ship.missileAmmo[item.id]||={};record.ship.missileAmmo[item.id][round.id]=(record.ship.missileAmmo[item.id][round.id]||0)+quantity;record.ship.groupCredits-=round.price*quantity;
+            require('./missile-ammunition').purchase(record.ship,body.purchaseMissile,Number(body.quantity),require('./ship-map-core').definition);
           }else if(body.purchaseGrade){
             const grade=String(body.purchaseGrade),price={F:50,D:100,C:300,B:800,A:2400,S:5000}[grade],quantity=Number(body.quantity);
             if(!price||!Number.isInteger(quantity)||quantity<1||quantity>10000)throw Error('Choose a fuel grade and a whole quantity.');
@@ -1649,7 +1765,7 @@ class CampaignApi {
             Object.assign(record.ship,changes);
           }
           record.ship.resourceReceipts=[...record.ship.resourceReceipts,receipt].slice(-200);
-          if(record.ship.confirmed)for(const key of ['warpFuel','minerals','missileAmmo','groupCredits','resourceReceipts'])record.ship.confirmed[key]=clone(record.ship[key]??{});
+          if(record.ship.confirmed)for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])record.ship.confirmed[key]=clone(record.ship[key]??{});
           await this.save(campaign);
         }
         sendJson(res,200,{starship:publicStarship(record),campaign:this.state(campaign,token)});
@@ -1695,8 +1811,8 @@ class CampaignApi {
       const gm=Boolean(this.gmSession(token,code)),characterId=String(body.characterId||''),own=Boolean(characterId&&this.characterSession(token,code,characterId));
       const record=campaign.starships.find(s=>s.id===body.starshipId);
       if(!record||(!gm&&!own)){sendJson(res,403,{error:'An authenticated operator or GM is required.'});return true;}
-      const live=!this.canPassTime(code)?this.liveEncounter(code):null,room=live||transitRoom(campaign);
-      const unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
+      const candidate=this.liveEncounter(code)||campaign.encounter;let live=candidate&&!candidate.encounterEndedAt&&(body.kind==='inspect'||!this.canPassTime(code))?candidate:null,room=live||transitRoom(campaign);
+      let unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
       try{
         const field=require('./ship-field-utilities');let result;
         if(['dock-clearance','decline-dock'].includes(body.kind)){
@@ -1714,7 +1830,9 @@ class CampaignApi {
         }else if(body.kind==='inspect')result=field.inspect(room,unit,body.sicId,gm);
         else{
           if(live)throw Error('Use the live combat console for this action.');
+          if(body.kind==='launch-pod'&&this.ensureRescueEncounter){const trial=clone(room),check=field.command(trial,trial.units.find(u=>u.id===unit?.id),body,{gm,campaign:clone(campaign),outsideCombat:true});if(!check.ok)throw Error(check.error);room=await this.ensureRescueEncounter(campaign,record.id);live=room;unit=room.units.find(u=>characterId?u.characterId===characterId:u.id===body.id);}
           result=field.command(room,unit,body,{gm,campaign,outsideCombat:true});if(!result.ok)throw Error(result.error);
+          if(live){campaign.encounter=this.environmentChanged(room,[]);for(const vessel of room.starships)require('./ship-state').persist(campaign.starships.find(s=>s.id===vessel.id),vessel);require('./ship-state').locations(campaign.starships,room.units);}
           for(const p of room.shipPositions){const ship=room.starships.find(s=>s.id===p.id);field.state(ship).position={q:p.q,r:p.r};}await this.save(campaign);this.timePassed(code,campaign.characters);
         }
         sendJson(res,200,{result:body.kind==='inspect'?result:{text:result.text},campaign:body.kind==='inspect'?undefined:this.state(campaign,token)});
@@ -1750,10 +1868,10 @@ class CampaignApi {
       const unit=room.units.find(u=>characterId?u.characterId===characterId:gm&&u.id===body.id);
       try{
         let result;
-        if(body.kind==='inspect'){result=CREW_ROOMS.inspect(room,campaign,unit,body.sicId,gm);if(result.shipId!==record.id)throw Error('Wrong ship.');}
+        if(body.kind==='inspect'){result=CREW_ROOMS.inspect(room,campaign,unit,body.sicId,gm);if(result.shipId!==record.id)throw Error('Wrong ship.');if(result.changed&&!live)await this.save(campaign);}
         else{
           if(live&&!body.jobId)throw Error('Use the live combat console for treatment.');
-          if(body.jobId)result=CREW_ROOMS.resolve(room,campaign,body,{gm,characterId:own?characterId:null});
+          if(body.jobId&&!String(body.kind).startsWith('fabricate-')&&!String(body.kind).startsWith('extract-'))result=CREW_ROOMS.resolve(room,campaign,body,{gm,characterId:own?characterId:null});
           else result=CREW_ROOMS.command(room,unit,body,{campaign,gm,outsideCombat:true});
           this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
           if(live){const snapshot=this.environmentChanged(room,[],{resolve:true});if(snapshot)campaign.encounter=snapshot;}await this.save(campaign);this.timePassed(code,campaign.characters);
@@ -1775,6 +1893,19 @@ class CampaignApi {
       this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
       record.updatedAt=new Date().toISOString();await this.save(campaign);
       sendJson(res,200,{starship:publicStarship(record),campaign:this.state(campaign,token)});return true;
+    }
+    if(path==='/api/campaign/starship/power'&&req.method==='POST'){
+      const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
+      if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only registered crew or the GM may operate this station.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'Use SIC Maintenance during your combat turn.'});return true;}
+      if(Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot operate a station.'});return true;}
+      if(!['off','on','restart'].includes(body.kind)){sendJson(res,400,{error:'Choose a power operation.'});return true;}
+      const loc=record.characterLocations?.[characterId],cell=loc&&SHIP_MAP.buildLayout(record.ship).footprint.get(loc.square);
+      const unit={id:characterId,characterId,location:{...loc,starshipId:record.id,sicId:cell?.sicId}};
+      const result=require('./ship-maintenance').queue({starships:[record],units:[unit],activeId:unit.id},unit,{...body,requestId:body.requestId});
+      if(!result.ok){sendJson(res,409,{error:result.error});return true;}
+      this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});await this.save(campaign);
+      sendJson(res,200,{campaign:this.state(campaign,token)});return true;
     }
     if (path === "/api/campaign/starship/diagnostics" && req.method === "POST") {
       const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
@@ -1806,7 +1937,7 @@ class CampaignApi {
       if (!gmAccess && !selfAccess) { sendJson(res, 403, { error: "You may only move your own character." }); return true; }
       if (!this.canPassTime(code)) { sendJson(res,409,{error:'Combat is active. Use Move in Combat so movement follows the turn and timing rules.'}); return true; }
       if(record.characterLocations?.[characterId]?.escapePodId){sendJson(res,409,{error:'This character is in an escape pod and must be rescued before moving aboard.'});return true;}
-      if(CREW_ROOMS.inTreatment(transitRoom(campaign),characterId)){sendJson(res,409,{error:'Complete or cancel Medbay treatment before moving.'});return true;}
+      if(CREW_ROOMS.inTreatment(transitRoom(campaign),characterId)){sendJson(res,409,{error:'Use Wake Now in the Hibernation Chamber before moving.'});return true;}
       if(!gmAccess&&Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot move.'});return true;}
       if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
       record.characterLocations ||= {};
@@ -1896,6 +2027,7 @@ class CampaignApi {
           return true;
         }
         if (hosted) {
+          await this.checkpoint(hosted,'Before campaign file replacement',this.liveEncounter(hosted.code)||hosted.encounter);
           selected.backupKey = hosted.backupKey;
           selected.revision = Math.max(Number(hosted.revision) || 1, Number(selected.revision) || 1);
           await this.save(selected);
@@ -2155,6 +2287,22 @@ class CampaignApi {
       return true;
     }
 
+    if(path==='/api/campaign/checkpoints'&&req.method==='GET'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization required.'});return true;}
+      sendJson(res,200,{checkpoints:await require('./encounter-checkpoints').list(this.store,code)});return true;
+    }
+    if(path==='/api/campaign/checkpoint/restore'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization required.'});return true;}
+      const live=this.liveEncounter(code)||campaign.encounter;
+      if(body.confirmCampaignName!==campaign.name||body.expectedEncounterId!==live?.encounterId){sendJson(res,409,{error:'Confirm the campaign name and refresh the current encounter before restoring.'});return true;}
+      const saved=await require('./encounter-checkpoints').get(this.store,code,body.checkpointId);
+      if(!saved?.encounter){sendJson(res,404,{error:'Checkpoint not found.'});return true;}
+      await this.checkpoint(campaign,'Before checkpoint recovery',live);
+      const restored=normalizeCampaign({...saved,gmCode:campaign.gmCode,backupKey:campaign.backupKey,runtimeSessions:campaign.runtimeSessions,roomOpen:campaign.roomOpen,showcase:campaign.showcase});
+      restored.encounter.encounterId=crypto.randomUUID();restored.encounter.running=false;restored.encounter.hardPaused=true;
+      restored.revision=campaign.revision;await this.save(restored);this.restoreEncounter(code,restored.encounter);
+      sendJson(res,200,{campaign:this.state(restored,token)});return true;
+    }
     if (path === "/api/campaign/backup" && req.method === "GET") {
       if (!this.gmSession(token, code)) {
         sendJson(res, 403, { error: "GM authorization is required to download a campaign backup." });
@@ -2175,6 +2323,7 @@ class CampaignApi {
         sendJson(res, 400, { error: "That backup does not match this campaign." });
         return true;
       }
+      await this.checkpoint(campaign,'Before campaign file replacement',this.liveEncounter(code)||campaign.encounter);
       restored.backupKey = campaign.backupKey;
       // Backups omit transient demo metadata. Preserve the destination's mode
       // so restoring Explore updates its active campaign instead of a shadow
@@ -2411,9 +2560,11 @@ class CampaignApi {
           }
           const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
           for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);TRANSIT.passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          require('./ship-black-hole-gun').cooldowns(transitRoom(next),elapsed*60);const chargedRoom=transitRoom(next);chargedRoom.starships=chargedRoom.starships.filter(s=>require('./ship-devastation').needsPower(s));SHIP_POWER.advance(chargedRoom,elapsed*60);
           CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
           OXYGEN.advance(next.starships,actors,elapsed*60);
           syncCampaignCarry(next);
+          require('./ancestral-crafting').advance(next,elapsed);
           next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + elapsed;
           next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
           next.revision = (Number(next.revision) || 1) + 1;
@@ -2465,6 +2616,7 @@ class CampaignApi {
       }
       const next = clone(body.character);
       next.id = record.id;
+      next.statistics=clone(record.character.statistics||next.statistics||{});
       next.campaignLink = {
         roomCode: campaign.code,
         campaignName: campaign.name,
@@ -2494,6 +2646,7 @@ class CampaignApi {
       next.health.current = !exactGmSave && Number.isFinite(baseCurrentHp) && Number.isFinite(submittedHp)
         ? boundedNumber(serverHp + (submittedHp - baseCurrentHp), -9999, nextMaximumHp)
         : boundedNumber(submittedHp, -9999, nextMaximumHp);
+      require('./ancestral-crafting').preserveUnseen(record.character,next,body.seenCraftedWeapons);
       record.character = next;
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
@@ -2505,11 +2658,11 @@ class CampaignApi {
     if ((path === "/api/campaign/character/change-pc-code" || path === "/api/campaign/character/change-pin") && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
       const pcCode = String(body.pcCode ?? body.pin ?? "");
-      if (!record || !this.characterSession(token, code, record.id) || !pcCode) {
+      if (!record || !this.characterSession(token, code, record.id) || (!pcCode && campaign.interfaceVersion!=='0.3')) {
         sendJson(res, 403, { error: "Authorization and a PC Code are required." });
         return true;
       }
-      if (campaign.characters.some((entry) => entry.id !== record.id && entry.pcCode === pcCode)) {
+      if (campaign.interfaceVersion!=='0.3' && campaign.characters.some((entry) => entry.id !== record.id && entry.pcCode === pcCode)) {
         sendJson(res, 409, { error: "Error: Please try a different code" });
         return true;
       }
@@ -2844,6 +2997,8 @@ class CampaignApi {
       record.character.session ||= { freeRerollsUsed: {}, psychopathAwardsUsed: 0, tacticianReverenceGiven: 0, peacekeeperDramaCardsEarned: 0 };
       let message = "";
       if (action === "playboy-reward" && classId === "playboy-minx") {
+        record.character.statistics||={};record.character.statistics.experienceEarned??=Number(record.character.experience.totalGained)||0;
+        require('./character-statistics').earned(record.character,'experience',5);require('./character-statistics').earned(record.character,'reverence',1);
         record.character.experience.available = (Number(record.character.experience.available) || 0) + 5;
         record.character.experience.totalGained = (Number(record.character.experience.totalGained) || 0) + 5;
         record.character.resources.reverence = Math.min(10, (Number(record.character.resources.reverence) || 0) + 1);
@@ -2854,6 +3009,8 @@ class CampaignApi {
           return true;
         }
         record.character.session.psychopathAwardsUsed = (Number(record.character.session.psychopathAwardsUsed) || 0) + 1;
+        record.character.statistics||={};record.character.statistics.experienceEarned??=Number(record.character.experience.totalGained)||0;
+        require('./character-statistics').earned(record.character,'experience',8);
         record.character.experience.available = (Number(record.character.experience.available) || 0) + 8;
         record.character.experience.totalGained = (Number(record.character.experience.totalGained) || 0) + 8;
         message = `Psychopath kill reward ${record.character.session.psychopathAwardsUsed}/3: +8 Experience.`;
@@ -3134,12 +3291,13 @@ class CampaignApi {
         if (!names[weaponId]) { sendJson(res, 400, { error: "Unknown ancestral weapon." }); return true; }
         const note = {
           id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm",
-          kind: "angiluros-craft-request", requestStatus: "pending", requestedWeaponId: weaponId,
+          kind: "angiluros-craft-request", requestStatus: "crafting", remainingMinutes: Math.max(1, Math.min(999, Math.round(Number(body.craftHours) || 1))) * 60, requestedWeaponId: weaponId,
           requestedWeaponName: names[weaponId], requestedInventoryId: String(body.inventoryId || uid("weaponrow")).slice(0, 100),
           craftHours: Math.max(1, Math.min(999, Math.round(Number(body.craftHours) || 1))),
           message: `${safeCharacterName(record)} spent ${Math.max(1, Math.round(Number(body.craftHours) || 1))} fictional hours crafting ${names[weaponId]} and requests GM approval.`,
           createdAt: new Date().toISOString(), readAt: null,
         };
+        note.message = `${safeCharacterName(record)} started crafting ${names[weaponId]}: ${note.craftHours} fictional hours remaining.`;
         campaign.privateNotes.push(note);
         trimPrivateNotes(campaign);
         await this.save(campaign);
@@ -3150,6 +3308,7 @@ class CampaignApi {
       const note = campaign.privateNotes.find((entry) => entry.id === String(body.noteId || "") && entry.kind === "angiluros-craft-request");
       const decision = body.decision === "approve" ? "approved" : body.decision === "deny" ? "denied" : "";
       if (!note || !decision) { sendJson(res, 400, { error: "Choose a pending crafting request." }); return true; }
+      if (note.requestStatus === "crafting") { sendJson(res, 409, { error: "Crafting is still in progress. Advance campaign time first." }); return true; }
       if (note.requestStatus !== "pending") { sendJson(res, 200, { alreadyResolved: true, campaign: this.state(campaign, token) }); return true; }
       const record = campaign.characters.find((entry) => entry.id === note.characterId);
       if (!record) { sendJson(res, 404, { error: "That character is no longer in the campaign." }); return true; }
@@ -3157,9 +3316,10 @@ class CampaignApi {
       note.requestResolvedAt = new Date().toISOString();
       note.readAt ||= note.requestResolvedAt;
       if (decision === "approved") {
-        applyWeaponTransaction(record.character, { id: note.requestedInventoryId, weaponId: note.requestedWeaponId });
+        require('./ancestral-crafting').grant(record.character,note);
+        record.updatedAt = note.requestResolvedAt;
         note.message = `Approved: ${safeCharacterName(record)} crafted ${note.requestedWeaponName} in ${note.craftHours} fictional hours.`;
-        campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: `Crafting approved: ${note.requestedWeaponName} has been added to your weapons.`, createdAt: note.requestResolvedAt, readAt: null });
+        campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: `Crafting approved: ${note.requestedWeaponName} has been added to your weapon storage (Crafted).`, createdAt: note.requestResolvedAt, readAt: null });
       } else {
         note.message = `Denied: ${safeCharacterName(record)}'s request to craft ${note.requestedWeaponName}.`;
         campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: `The GM denied your ${note.requestedWeaponName} crafting request.`, createdAt: note.requestResolvedAt, readAt: null });
@@ -3613,7 +3773,9 @@ class CampaignApi {
         actor.character.resources.creditsBase -= amount;
         if (targetRace === "android") {
           target.character.experience ||= { available: 0, spent: 0, totalGained: 0 };
-          target.character.experience.available = (Number(target.character.experience.available) || 0) + experience;
+          target.character.statistics||={};target.character.statistics.experienceEarned??=Number(target.character.experience.totalGained)||0;
+        require('./character-statistics').earned(target.character,'experience',experience);
+        target.character.experience.available = (Number(target.character.experience.available) || 0) + experience;
           target.character.experience.totalGained = (Number(target.character.experience.totalGained) || 0) + experience;
         } else {
           target.character.resources.mechanicalExperience = (Number(target.character.resources.mechanicalExperience) || 0) + experience;
@@ -3635,6 +3797,7 @@ class CampaignApi {
           return true;
         }
         actor.character.resources.reverence -= amount;
+        require('./character-statistics').earned(target.character,'reverence',amount);
         target.character.resources.reverence = (Number(target.character.resources.reverence) || 0) + amount;
         actor.character.session.tacticianReverenceGiven = given + amount;
       } else if (operation === "roboticsGrant") {
@@ -3649,6 +3812,8 @@ class CampaignApi {
         actor.character.resources.reverence -= amount;
         const experience = amount * 8;
         target.character.experience ||= { available: 0, spent: 0, totalGained: 0 };
+        target.character.statistics||={};target.character.statistics.experienceEarned??=Number(target.character.experience.totalGained)||0;
+        require('./character-statistics').earned(target.character,'experience',experience);
         target.character.experience.available = (Number(target.character.experience.available) || 0) + experience;
         target.character.experience.totalGained = (Number(target.character.experience.totalGained) || 0) + experience;
       }

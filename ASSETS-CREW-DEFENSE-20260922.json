@@ -1,0 +1,107 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "name": "sic-art-bar",
+      "output": "sic-art-bar.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-fcc3b044-75f0-4a93-8ffb-ab28aeaea5e0.png",
+      "prompt": "Create one landscape sci-fi game card illustration, 3:2 composition, photorealistic painted industrial spaceship interior. A cozy working starship bar: worn bronze counter, small robotic bartender with articulated arms pouring a blue drink, shelves of alien bottles, dark steel wall panels, amber practical lamps, restrained cyan instruments. No people, no text, no logos, no card border. Strong readable central silhouette for a small tabletop RPG card; professional concept art, rich material detail, practical lived-in spaceship technology. This is an illustration asset, not a UI."
+    },
+    {
+      "name": "sic-art-hibernation-chamber",
+      "output": "sic-art-hibernation-chamber.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-4ebe33f4-1bcd-42e9-b198-117ccf4ce058.png",
+      "prompt": "Create one landscape sci-fi game card illustration, 3:2 composition. A single human-sized hibernation capsule in a starship: silver insulated cryogenic pod with frosted glass lid, empty padded interior, green vital indicator lights, coolant pipes, cables and compact engineering controls. Worn hard-surface metal, dark graphite ship room, cold blue-white illumination, photorealistic painted concept art. No person, no text, no logos, no border. Readable at small game-card size."
+    },
+    {
+      "name": "sic-art-brig",
+      "output": "sic-art-brig.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a325a76e-4e58-43ac-be51-200d8fac4c8a.png",
+      "prompt": "Create one landscape sci-fi game card illustration, 3:2 composition. A compact spaceship detention cell seen through a heavy steel barred security door, narrow wall bunk, utilitarian metal bench, recessed amber security light, rugged ship bulkheads, simple mechanical locking assembly. Empty room with no prisoner, no violence, no text, no logo or card frame. Professional realistic sci-fi concept art, restrained industrial palette and clean readable composition for a tabletop equipment card."
+    },
+    {
+      "name": "sic-art-ballistic-rail-repeater",
+      "output": "sic-art-ballistic-rail-repeater.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-56e809d5-a491-47fc-884d-75439ad0f538.png",
+      "prompt": "Create one landscape sci-fi tabletop game equipment illustration, 3:2 composition. A compact external starship ballistic rail repeater: long pair of electromagnetic acceleration rails, squat armored breech, four-round iron slug feed mechanism, exposed copper coils, sturdy graphite and worn gunmetal mount. Mechanical projectile weapon rather than a laser. Three-quarter closeup against dark space with a small portion of ship hull. No text, no logos, no card border, no people. Professional detailed realistic hard-surface concept art, crisp silhouette readable at thumbnail scale."
+    },
+    {
+      "name": "sic-art-hull-plating",
+      "output": "sic-art-hull-plating.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-922fbdac-82f9-4758-8edc-650c71cca351.png",
+      "prompt": "Create one landscape 3:2 sci-fi equipment card illustration: closeup of heavy interlocking armor plates being fitted onto a rugged starship exterior. Layered steel panels, recessed bolts, ceramic sandwich cross-section visible at one corner, purposeful engineering with cool blue reflected starlight, graphite and brushed silver. Photorealistic painted hard-surface concept art. No humans, no letters, no numbers, no logo, no card frame. Strong clear silhouette and textures at thumbnail scale."
+    },
+    {
+      "name": "sic-art-heat-resistance",
+      "output": "sic-art-heat-resistance.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-10ac7e6d-be5a-4551-af35-bb5f00b6e5ec.png",
+      "prompt": "Create one landscape 3:2 sci-fi equipment card illustration of heat-resistant starship hull coating. Close view of black ceramic thermal tiles with copper seams surviving an orange superheated plasma wash, hot glowing outer edge and cool intact protected plating. Clearly a protective hull material, no weapon, no people. Realistic painted industrial science-fiction concept art, strong contrast and readable at small size, no text, no logo, no border."
+    },
+    {
+      "name": "sic-art-laser-resistance",
+      "output": "sic-art-laser-resistance.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-0979d740-ce23-474c-ae1d-b604470406d9.png",
+      "prompt": "Create one landscape 3:2 sci-fi equipment card illustration of laser-resistant starship armor. A focused red laser beam striking faceted silver-blue hull plating, splitting into faint reflected rays and a small brilliant contact flare while the armor stays intact. Close view of engineered reflective ceramic layers, graphite metal support. Professional realistic hard-surface sci-fi concept art. No people, no text, no logo, no card frame. Readable small card composition."
+    },
+    {
+      "name": "sic-art-static-shields",
+      "output": "sic-art-static-shields.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7f003cf4-423c-474e-a378-bd7d12bde8cc.png",
+      "prompt": "Create one landscape 3:2 sci-fi game equipment card illustration. A small robust starship enclosed in a luminous translucent green-blue shield bubble, surrounded by dense fine electromagnetic interference and violet static arcs. Strong central hull silhouette and visibly protective electronic shield, subtle space background, realistic painted science fiction concept art. No text, no numbers, no HUD, no border, no logo. Designed to be legible as a small equipment card."
+    },
+    {
+      "name": "bar-floorplan",
+      "output": "bar-floorplan.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-fce7a609-8593-4fa2-a72d-6f27f227e7c2.png",
+      "prompt": "Top-down orthographic game floorplan asset, camera exactly vertical overhead, no perspective or isometric tilt. Realistic detailed worn spaceship machinery and materials, clean readable footprint at small scale. No words, numbers, logos, characters, grid lines, arrows or UI. Fill the image edge to edge with the requested square room; do not add black margins. Keep the middle of all four sides clear so the game can draw its own doorways. Square 5 by 5 spaceship bar room. A curved brass serving counter along the upper wall with a small robotic bartender, bottle shelves on top wall, two compact booths in upper corners, a pair of small round tables at lower corners. Central floor has a wide open walking route and a clear station spot dead center. Warm amber lights, bronze accents, graphite deck plates. Thin room edges; substantial usable walking floor."
+    },
+    {
+      "name": "hibernation-chamber-floorplan",
+      "output": "hibernation-chamber-floorplan.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e85b85ae-984e-40b8-902c-55378d1280ce.png",
+      "prompt": "Top-down orthographic game floorplan asset, camera exactly vertical overhead, no perspective or isometric tilt. Realistic detailed worn spaceship machinery and materials, clean readable footprint at small scale. No words, numbers, logos, characters, grid lines, arrows or UI. Fill the image edge to edge with the requested square room; do not add black margins. Keep the middle of all four sides clear so the game can draw its own doorways. Square compact 1 by 1 hibernation room. One vertically aligned frosted glass sleeping capsule occupies the center with its head toward the top, silver coolant channels and green life indicators at the sides, narrow accessible perimeter deck, a tiny control pad at lower right. No occupant."
+    },
+    {
+      "name": "brig-floorplan",
+      "output": "brig-floorplan.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c789aec4-a353-4057-9620-404132a93a50.png",
+      "prompt": "Top-down orthographic game floorplan asset, camera exactly vertical overhead, no perspective or isometric tilt. Realistic detailed worn spaceship machinery and materials, clean readable footprint at small scale. No words, numbers, logos, characters, grid lines, arrows or UI. Fill the image edge to edge with the requested square room; do not add black margins. Keep the middle of all four sides clear so the game can draw its own doorways. Square compact 1 by 1 starship brig cell. One narrow built-in bunk along left wall, small stainless sanitation unit upper right, bare dark steel deck with small central drain, a low steel security threshold at bottom, small warm amber corner light. Uncluttered center floor. No prisoner or overhead bars across the floor."
+    },
+    {
+      "name": "ballistic-rail-repeater-control",
+      "output": "ballistic-rail-repeater-control.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ebc3aa8d-f798-4d49-b71e-a83e04a1094e.png",
+      "prompt": "Top-down orthographic game floorplan asset, camera exactly vertical overhead, no perspective or isometric tilt. Realistic detailed worn spaceship machinery and materials, clean readable footprint at small scale. No words, numbers, logos, characters, grid lines, arrows or UI. Fill the image edge to edge with the requested square room; do not add black margins. Keep the middle of all four sides clear so the game can draw its own doorways. Square compact 1 by 1 interior ammunition handling/control bay for an external ballistic rail repeater. Central narrow walking floor, rugged ammunition feed channel at top, copper wiring and four iron projectiles in side wall rack, small recessed targeting readout on right. No staffed chair or station, this weapon is operated remotely from a bridge. Dark steel with tiny amber indicators."
+    },
+    {
+      "name": "ballistic-rail-repeater-barrel",
+      "output": "ballistic-rail-repeater-barrel.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-82b04d4b-ac6e-40b2-8ed2-580f85f69989.png",
+      "prompt": "Top-down orthographic isolated sprite of a compact spaceship ballistic rail repeater, long axis exactly vertical, muzzle points UP and base/breech at BOTTOM. Tall 1:2 bounding rectangle. Two parallel acceleration rails, copper electromagnetic coils, armored gray receiver, four iron slugs visible in breech magazine. Realistic worn gunmetal hard-surface detail. Entire weapon visible, not cropped, transparent background, no shadow outside footprint. No ship, no text, no UI, no people. This is an exterior 1x2 tactical floorplan asset viewed exactly from above."
+    },
+    {
+      "name": "hull-plating-surface",
+      "output": "hull-plating-surface.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-0b86de0f-c21a-4ffe-9cd9-e98e96fe05e5.png",
+      "prompt": "Square orthographic overhead sci-fi game installation preview of reinforced starship hull armor, edge-to-edge steel plates with overlapping reinforced seams, visible bolts, dark graphite recesses, a few pale blue maintenance lights. Heavy layered plating with realistic wear. Flat top-down material texture, no perspective, no room, no furniture, no people, no numbers or text, no labels. Professional realistic spaceship tactical map art."
+    },
+    {
+      "name": "heat-resistance-surface",
+      "output": "heat-resistance-surface.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-aea143be-ed0b-418b-8fd9-cc0b29bf672b.png",
+      "prompt": "Square orthographic overhead sci-fi game installation preview of a starship thermal hull coating. Edge-to-edge black ceramic hexagonal tiles with copper expansion seams, heat-worn ember-orange perimeter accents, subtle scraped surface, dark silver framework. Flat top-down material texture, no room, no furniture, no people, no words or symbols, no border, no perspective. Realistic hard-surface spaceship game art."
+    },
+    {
+      "name": "laser-resistance-surface",
+      "output": "laser-resistance-surface.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-65604a5f-1bae-46e6-bc88-33aee2ce0e5f.png",
+      "prompt": "Square orthographic overhead sci-fi game installation preview of laser-resistant starship hull coating. Edge-to-edge pale blue silver reflective faceted panels, fine triangular microstructure and dark support seams, small recessed bolts, one faint red reflected light streak. Flat top-down material texture, no room, no furniture, no people, no text or symbols, no perspective. Realistic detailed hard-surface spaceship game art."
+    },
+    {
+      "name": "static-shields-field",
+      "output": "static-shields-field.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-d106b098-8158-49ba-808e-6d590ca14504.png",
+      "prompt": "Square orthographic overhead sci-fi game installation preview of a compact electronic static-field module fitted inside an existing shield generator housing. Central green-cyan emitter ring, violet corona filaments, copper induction coils, intricate graphite electronics plate with shielding mesh. Flat top-down equipment closeup, no room walls or floor, no person, no letters, no numbers, no border or UI, no perspective. Readable realistic hard-surface game art."
+    }
+  ]
+}

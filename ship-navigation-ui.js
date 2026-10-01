@@ -11,7 +11,7 @@
     const select=container.ownerDocument.createElement('select');select.className='station-console-select';select.setAttribute('aria-label','Station console');
     let choices=[];
     const refreshChoices=()=>{
-      const state=window.SACombatBridge.state(),person=state.units.find(u=>u.id===unit.id)||unit;
+      const state=window.SACombatBridge.state();if(!state){select.closest('dialog')?.close();return;}const person=state.units.find(u=>u.id===unit.id)||unit;
       choices=window.SAStationAccess.consoles(state,person);
       const options=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.controlled?' / CAPTURED':a.remote?' / REMOTE':''}</option>`).join('');
       if(select.innerHTML!==options){const previous=select.value||currentId;select.innerHTML=options;select.value=previous;}
@@ -33,13 +33,17 @@
     const refreshTimer=setInterval(()=>{if(!select.isConnected){clearInterval(refreshTimer);return;}refreshChoices();},300);
     container.closest('dialog').addEventListener('close',()=>clearInterval(refreshTimer),{once:true});
     if(slidePending){const direction=slidePending;slidePending=0;if(!matchMedia('(prefers-reduced-motion: reduce)').matches)container.closest('dialog').animate([{transform:`translateX(${direction*100}vw)`,opacity:0},{transform:'translateX(0)',opacity:1}],{duration:500});}
-    if(!container.closest('dialog').dataset.standaloneConsole)window.SAConsoleCommon?.mount(container.closest('dialog'),unit);
+    window.SAConsoleCommon?.mount(container.closest('dialog'),unit);
     for(const direction of [-1,1]){const button=container.ownerDocument.createElement('button');button.type='button';button.className='console-swipe '+(direction<0?'previous':'next');button.textContent=direction<0?'\u2039':'\u203a';button.title=direction<0?'Previous console':'Next console';button.setAttribute('aria-label',button.title);button.disabled=choices.length<2;button.onclick=()=>{select.selectedIndex=(select.selectedIndex+direction+choices.length)%choices.length;select.onchange({slideDirection:direction});};container.closest('dialog').append(button);}
   }
   async function toggleHold(unit){
     const bridge=window.SACombatBridge;
     if(!unit||!bridge.confirmGmPlayerAction(unit,unit.consoleHold?'resumeConsole':'holdConsole'))return;
-    if(!unit.consoleHold&&!window.confirm('Hold at 99%?\n\nYour ATB stays at 99% while combat and ship movement continue. Resume fills the final 1% normally; it does not interrupt another action or bypass a GM pause.\n\nYour remaining Command Window time is preserved. Hold is unavailable during unfinished actions.'))return;
+    if(!unit.consoleHold){
+      let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+      const accepted=await new Promise(resolve=>{const dialog=doc.createElement('dialog');dialog.setAttribute('aria-label','Hold at 99%');dialog.style.cssText='max-width:480px;background:#102330;color:#ecf6ff;border:1px solid #63cfe2;padding:24px;border-radius:10px';dialog.innerHTML='<h2>Hold at 99%?</h2><p>Your ATB stays at 99% while combat and ship movement continue. Resume fills the final 1% normally.</p><p>Your remaining Command Window time is preserved. This does not interrupt another action or bypass a GM pause.</p><form method="dialog" style="display:flex;gap:12px;justify-content:flex-end"><button value="cancel">Cancel</button><button value="hold">Hold at 99%</button></form>';dialog.addEventListener('close',()=>{const approved=dialog.returnValue==='hold';dialog.remove();resolve(approved);},{once:true});doc.body.append(dialog);dialog.showModal();});
+      if(!accepted)return;
+    }
     await bridge.action({action:'playerCombatAction',id:unit.id,kind:unit.consoleHold?'resumeConsole':'holdConsole'},'resolve',{throwOnError:true});
   }
   const seatKey=unit=>`${window.SACombatBridge.state()?.roomCode}:${unit?.characterId||unit?.id}`;
@@ -47,14 +51,14 @@
   const xy=p=>({x:Math.sqrt(3)*(p.q+p.r/2),y:1.5*p.r});
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
-  function open(unit,{compact=false}={}){
+  function open(unit,{compact=false,sicId=null}={}){
     unit=window.SACombatBridge.state().units.find(u=>u.id===unit?.id)||unit;
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
     let root=document;try{while(root.defaultView.frameElement)root=root.defaultView.parent.document;}catch{}
     const closing=root.querySelector('dialog[data-operator-id]:not([open])');
     if(closing){closing.addEventListener('close',()=>setTimeout(()=>open(unit,{compact}),0),{once:true});return;}
     if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen()||window.SAWeaponConsoleUI?.isOpen()||window.SALockConsoleUI?.isOpen()||window.SAUtilityConsoleUI?.isOpen())return;
-    const selected=choices.find(a=>a.item.id===(selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
+    const selected=choices.find(a=>a.item.id===(sicId||selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
     if(!compact){combatViews.delete(seatKey(unit));selectedConsoles.set(seatKey(unit),selected.item.id);try{sessionStorage.setItem('sa-console:'+seatKey(unit),selected.item.id);sessionStorage.setItem('sa-console-view:'+seatKey(unit),'console');}catch{}}
     if(!compact&&selected.kind==='shield'){combatViews.delete(seatKey(unit));window.SAShieldConsoleUI.open(unit,selected.item.id);return;}
     if(!compact&&selected.kind==='sensor'){combatViews.delete(seatKey(unit));window.SASensorConsoleUI.open(unit,selected.item.id);return;}
@@ -77,7 +81,7 @@
       <section class="pilot-chart"><div class="pilot-chart-title"><h3>Navigation</h3><span data-flight></span></div><div data-navigation-map>${window.SASpaceMap.markup(initial.starships,initial.shipPositions,false,{navigation:true})}</div><div class="navigation-fields"><label>Hex Q<input name="q" type="number" min="-10000" max="10000" step="1" required></label><label>Hex R<input name="r" type="number" min="-10000" max="10000" step="1" required></label><button type="button" data-zoom=".7" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-zoom="1.4" aria-label="Zoom out" title="Zoom out">&#8722;</button></div></section>
       <section class="pilot-activity"><h3>Combat Activity</h3><div data-activity></div></section>
       <section class="pilot-power"><h3>Action Units</h3><div class="pilot-au" data-au></div><div class="pilot-recharge"><i data-recharge></i></div><fieldset><legend>AU Boosts</legend><div data-boosts></div></fieldset>${waveform}</section>
-      <section class="pilot-input"><h3>Command Processor</h3><div data-factors></div><div class="pilot-input-progress"><i data-input-progress></i></div><output data-input-status></output><output data-estimate></output><div class="pilot-rings" data-rings></div></section>
+      <section class="pilot-input"><h3>Command Processor</h3><div class="pilot-rings" data-rings></div><div data-factors></div><div class="pilot-input-progress"><i data-input-progress></i></div><output data-input-status></output><output data-estimate></output></section>
       <footer><p data-navigation-summary></p><p role="alert" data-error></p><p data-availability></p><button type="submit">Move Ship</button><button type="button" data-leave>Leave Console</button><div class="pilot-vector-array" aria-hidden="true"><small>VECTOR ARRAY</small><svg viewBox="0 0 160 90"><path class="vector-axis" d="M15 45H145M80 5V85"/><g class="vector-orbit"><ellipse cx="80" cy="45" rx="48" ry="24"/><ellipse cx="80" cy="45" rx="26" ry="38"/><circle cx="128" cy="45" r="3"/></g><circle class="vector-core" cx="80" cy="45" r="9"/></svg></div></footer></form>`;
     host.body.append(dialog);dialog.showModal();
     if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
@@ -104,17 +108,15 @@
     const mapObserver=new ResizeObserver(resizeMap);mapObserver.observe(svg);
     const redrawCommands = !compact ? window.SAShipCommandUI.mount(dialog,pilotId) : () => {};
     function redraw(){
+      if(!bridge.state()){dialog.close();return;}
       redrawCommands();
       const state=bridge.state(),pilot=state.units.find(u=>u.id===pilotId),seat=window.SAShipNavigation.station(state,pilot,pilotSicId);
       if(!seat||seat.ship.id!==shipId){dialog.close();return;}
       const access=window.SAShipNavigation.access(state,pilot,pilotSicId),delay=pilot.delayedAction,available=state.activeId===pilotId&&!pilot.consoleHold&&!delay&&!pilot.delayTimer&&!pilot.timedAction&&!state.delayRequest&&!submitting;
       dialog.dataset.input=delay?.shipOrder?'active':'idle';
       const offline=seat.cell.item.disabled||['offline','powered-down'].includes(seat.cell.item.status);
-      if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))b.disabled=!b.matches('[data-close],[data-sound]');return;}
+      if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))b.disabled=!b.matches('[data-close],[data-sound],[data-console-maintenance],[data-local-recovery]');return;}
       if(form.dataset.offline){delete form.dataset.offline;form.querySelectorAll('button,input,select').forEach(b=>b.disabled=false);}
-      const charging=false&&delay?.shipOrder&&!state.hardPaused&&!state.holdPaused&&!host.hidden&&bridge.soundEnabled();
-      if(charging){chargeSound ||= bridge.startEngineCharge();chargeSound?.update(1-delay.remaining/100);}
-      else {chargeSound?.stop();chargeSound=null;}
       const ready=state.activeId===pilotId&&!delay&&!pilot.delayTimer&&!pilot.timedAction;
       const command=ready&&state.command?.unitId===pilotId?state.command:null;
       const fraction=command?.total>0&&!command.expired?Math.max(0,Math.min(1,command.remaining/command.total)):0;
@@ -134,7 +136,7 @@
         dialog.dataset.flash=elapsed%1000<450?'true':'false';
         if(beat!==lastTick){lastTick=beat;bridge.consoleTick();}
       }
-      hold.textContent=pilot.consoleHold?'Resume':'Hold';hold.setAttribute('aria-pressed',String(Boolean(pilot.consoleHold)));hold.disabled=submitting||(!pilot.consoleHold&&!available);
+      hold.textContent=pilot.consoleHold?'Resume':'Hold';hold.classList.toggle('resume-ready',Boolean(pilot.consoleHold));hold.setAttribute('aria-pressed',String(Boolean(pilot.consoleHold)));hold.disabled=submitting||(!pilot.consoleHold&&!available);
       form.querySelector('[data-command-fill]').style.transform=`scaleX(${fraction})`;
       const track=form.querySelector('.pilot-command-track');track.setAttribute('aria-valuenow',String(Math.round(fraction*100)));
       track.setAttribute('aria-valuetext',command?(command.expired?'Command window ended':`${Math.round(fraction*100)} percent remaining`):'No active command window');
@@ -179,19 +181,14 @@
       const fleet=state.starships.map(s=>{
         if(s.contactOnly)return `<div><strong>${esc(s.title)}</strong><small>${s.contactLevel==='unknown'?'Unresolved signal':'Detected / analysis required'}</small></div>`;
         const hull=Number(s.maximumHullHp??s.ship?.maximumHullHp??s.ship?.gridCells?.length)||0,shield=Number(s.maximumShieldHp??s.ship?.maximumShieldHp)||0;
-        return `<div><strong>${esc(s.title)}</strong>${window.SAHealthDisplay.track('hull',s.currentHullHp??s.ship?.currentHullHp??hull,hull,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',s.currentShieldHp??s.ship?.currentShieldHp??shield,shield,bridge.mode()==='gm')}</div>`;
+        return `<div><strong>${esc(s.title)}</strong>${window.SAHealthDisplay.hull(s,bridge.mode()==='gm')}${window.SAHealthDisplay.shields(s,bridge.mode()==='gm')}</div>`;
       }).join('');
       if(fleet!==lastFleet){form.querySelector('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
       const log=(state.log||[]).slice(-25).reverse().map(e=>`<p><time>${esc(e.at)}</time>${window.SAHealthDisplay.logMarkup(e,bridge.mode()==='gm')}</p>`).join('');
       if(log!==lastLog){form.querySelector('[data-activity]').innerHTML=log;lastLog=log;}
       if(!compact){const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(form.querySelector('[data-rings]'),rings);lastRings=rings;}}
-      const contactSignature=JSON.stringify([state.starships.map(s=>[s.id,s.title,s.contactLevel,s.uncertainty,s.destroyedAt,s.missilePhase,s.missileEndedAt]),state.spaceObjects]);
-      if(contactSignature!==lastContacts){
-        const template=host.createElement('template');template.innerHTML=window.SASpaceMap.markup(state.starships,state.shipPositions,false,{navigation:true});
-        const fresh=template.content.querySelector('[data-space-canvas]');
-        svg.replaceChildren(...fresh.childNodes,marker);lastContacts=contactSignature;
-      }
-      for(const g of svg.querySelectorAll('g[data-space-ship]')){const p=points.find(p=>p.id===g.dataset.spaceShip);if(p){const c=xy(p);g.setAttribute('transform',`translate(${c.x} ${c.y})`);}}
+      window.SASpaceMap.update(svg.parentElement,state.starships,state.shipPositions,{navigation:true});
+      if(!marker.isConnected)svg.append(marker);
       for(const g of svg.querySelectorAll('[data-space-missile]')){const ship=state.starships.find(s=>s.id===g.dataset.spaceMissile);g.querySelector('[data-missile-heading]')?.setAttribute('transform',`rotate(${Number(ship?.missileHeading)||0})`);}
       marker.classList.toggle('locked',locked);
       const pixel=svg.viewBox.baseVal.width/Math.max(1,svg.clientWidth);
@@ -271,7 +268,7 @@
   let consoleButton=null;
   function restoreView(){
     const b=window.SACombatBridge,state=b?.state();if(!state)return;
-    const unit=state.units?.find(u=>u.id===b.myUnitId());
+    const unit=b.mode()==='gm'?(state.units?.find(u=>u.id===state.activeId&&u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)||state.units?.find(u=>u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)):state.units?.find(u=>u.id===b.myUnitId());
     let doc=document,owner=window,visible=true;
     try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)visible=false;doc=owner.parent.document;owner=owner.parent;}}catch{visible=false;}
     if(!consoleButton){
@@ -279,12 +276,15 @@
       const goldId='console-gold-'+crypto.randomUUID();
       consoleButton.innerHTML=`<svg aria-hidden="true" viewBox="0 0 300 64" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"><defs><linearGradient id="${goldId}" x2="0" y2="1"><stop stop-color="#fff1a0"/><stop offset=".55" stop-color="#eac145"/><stop offset="1" stop-color="#be8919"/></linearGradient></defs><path d="M1 64 L38 10 Q43 1 54 1 H246 Q257 1 262 10 L299 64Z" fill="url(#${goldId})" stroke="#fff1a2" stroke-width="2"/></svg><span style="position:relative;pointer-events:none">Console View</span>`;
       consoleButton.style.cssText='position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:10000;width:300px;max-width:90vw;min-width:0;height:64px;padding:12px 36px 8px;border:0;border-radius:0;background:transparent;color:#201500;font:900 20px Arial;box-shadow:none;filter:drop-shadow(0 -3px 8px #e9b93470);cursor:pointer';
-      consoleButton.onclick=()=>{const live=b.state()?.units.find(u=>u.id===b.myUnitId());if(live)open(live);};doc.body.append(consoleButton);
+      consoleButton.onclick=()=>{const candidates=b.state()?.units.filter(u=>b.mode()==='gm'?u.team!=='pc'&&window.SAStationAccess.consoles(b.state(),u).length:u.id===b.myUnitId())||[];if(candidates.length===1)open(candidates[0]);else if(candidates.length){const picker=doc.createElement('dialog');picker.innerHTML='<h2>Choose NPC Console</h2>';for(const person of candidates){const choice=doc.createElement('button');choice.textContent=person.characterName;choice.onclick=()=>{picker.close();picker.remove();open(person);};picker.append(choice);}const close=doc.createElement('button');close.textContent='Close';close.onclick=()=>{picker.close();picker.remove();};picker.append(close);doc.body.append(picker);picker.showModal();}};doc.body.append(consoleButton);
     }
-    consoleButton.hidden=!visible||b.mode()!=='player'||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]'));
+    consoleButton.hidden=!visible||!['player','gm'].includes(b.mode())||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]'));
     if(visible)sync(unit);
   }
-  const restoreTimer=setInterval(restoreView,300);
+  window.addEventListener('sa-combat-state',restoreView);
+  document.addEventListener('visibilitychange',restoreView);
+  requestAnimationFrame(restoreView);
+  const restoreTimer=setInterval(restoreView,150);
   window.addEventListener('pagehide',()=>{clearInterval(restoreTimer);consoleButton?.remove();},{once:true});
   window.SAShipNavigationUI={toggle,open,sync,observe,toggleHold,mountSelector,remember,openAction};
 }());

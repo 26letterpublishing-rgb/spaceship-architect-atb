@@ -1,0 +1,22 @@
+# Countermeasure SIC local pass
+
+Added B-108 Ionic Force Displacers, B-111 Hack Alert, B-20 Transport Scrambler and B-107 Ion Disruptor from the original Series B card JPGs. Local implementation only. No commit, push, hosted testing or changes to personal campaigns, Vector or Gold Standard.
+
+- Ionic Force Displacers: 2x3, 12 EN, 7 AU on activation and every 12 active seconds. Standard utility activation spends a turn. Blocks Ion Pulse Cannon and Ion Disruptor damage. Stops on impairment, shutdown, unavailable EN or unpaid upkeep. Upkeep uses shared power simulation, including outside combat and large GM time advances, with cycle skipping.
+- Hack Alert: powered SIC attachment, no separate room or station. Every valid password guess queues its own standard animated D4. A 4 produces a private defending-ship report after animation acknowledgement. GM and assigned crew may acknowledge; hostile boarders cannot. Receipts prevent repeated guesses/acknowledgements from duplicating alerts. Pending checks survive saved encounter state. They do not interrupt the ATB clock while nobody is viewing them.
+- Transport Scrambler: 1x1, 4 EN, one station. Enabled by default. Switch its field off from its console or use normal local SIC power controls. Blocks friendly and hostile transport within eight interior squares of either endpoint. Digital distance choice: straight-line square-center distance, not space hexes or a door-path distance. Each impaired field permits transport on a standard D10 at or below its impairment count. Every overlapping field must permit passage. Conditions are rechecked at arrival; arrival spreading cannot bypass a field. Safety and interference dice remain individual; Exertion cannot alter them.
+- Ion Disruptor: 2x4 EXT plus 1x2 EDG, 14 EN, 20 AU per shot, 5D10 direct Hull damage ignoring shields and reduction. A component lock adds one impairment beyond normal threshold damage. Standard accuracy/damage animation, 24 active-second cooldown beginning when the shot is committed. Disabled by impairment. Cooldown is saved with ship field state and advances outside combat too. Ship AI cannot spend its AU.
+
+New shop cards include rules, prices, crafting recipes, categories and impairment text. Eight AI-generated WebP assets total 696,624 bytes; all longest dimensions are at most 768 pixels. Hack Alert only receives card art because it is a (+) attachment. Exact prompts, source PNGs, output paths, dimensions and tool mode are recorded in ASSETS-COUNTERMEASURES-20260930.json. Generated originals are preserved.
+
+Fresh Explore ships: Hothead and Sunburn have the Ion Disruptor and Displacers; Gatecrasher and Party Crasher have Scramblers; Peekaboo and Hideaway have Hack Alert. The heavier weapon samples have additional EN capacity. Existing user ships are not rewritten. Use a new/reset Explore room to receive the updated fleet.
+
+Mouse verification on disposable localhost:8792: assigned Nova to Hothead, deployed her at the Displacers station, began the encounter, opened the actual PC console, activated the field, observed AU fall from 26 to 19 and the turn finish, then closed/reopened the console and verified active state. Also inspected the ship floorplan and new weapon card registration. No browser console errors were reported. Screenshot: qa-countermeasures/displacers-console.png. The other three mechanics were exercised by automated module/HTTP tests, not complete paired-browser mouse scenarios.
+
+The mouse pass exposed a utility inspection issue before Engage Clock: saved campaign positions were used instead of deployed positions. Field inspection now reads the prepared encounter, covered by an HTTP regression test. The Ion Disruptor card's inherited exterior label was corrected to its actual 2x4 footprint.
+
+Validation: initial full suite 768/768 passed; additional upkeep, component impairment, privacy and prepared-console regressions added. Final results recorded below. All 143 root JavaScript files passed syntax validation. Living backlog updated to 15 candidates in REMAINING-SICS-20260928.md and outputs/Remaining_SICs.docx, .pdf and .txt. All three document pages visually checked after Word PDF rendering (packaged LibreOffice renderer unavailable).
+
+Restart the normal local server and refresh the browser to load the backend changes. Personal saves were not modified during testing.
+
+Final validation: all 771 tests passed; 143 JavaScript syntax checks passed; CRLF-aware diff whitespace check passed. Disposable test browser closed and server stopped after verification.

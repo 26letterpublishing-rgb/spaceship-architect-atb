@@ -74,7 +74,7 @@
       const mathematics=person.mathematicsSkill??(person.team==='npc'?person.mentalSkill:0);
       panel.querySelectorAll('[data-command]').forEach(button=>{
         const kind=button.dataset.command;
-        const reason=busy?'Sending order.':!ready?'Wait for your turn and finish the current action.':['ram','skim','evade'].includes(kind)&&!propulsion?'Operational engines and thrusters required.':['ram','skim','hail'].includes(kind)&&!contacts.length?'No detected ships.':kind==='calculation'&&!(mathematics>=1)?'Requires Mathematics 1 or higher.':'';
+        const reason=kind==='hail'&&window.SAShipMap.staticShieldActive(ship)?'Static Shields block audio/video communications while their Shield is active.':busy?'Sending order.':!ready?'Wait for your turn and finish the current action.':['ram','skim','evade'].includes(kind)&&!propulsion?'Operational engines and thrusters required.':['ram','skim','hail'].includes(kind)&&!contacts.length?'No detected ships.':kind==='calculation'&&!(mathematics>=1)?'Requires Mathematics 1 or higher.':'';
         button.disabled=Boolean(reason);button.title=reason||window.SAActionHelp.descriptions[kind]?.[1]||'';
         if(kind==='break'){const why=!incoming.length?'No incoming locks.':!propulsion?'Working thrusters required.':window.SAShipSensors.masking(state,ship)<=0?'Masking is zero or below: escape enemy sensor range instead.':'';button.disabled ||= Boolean(why);if(why)button.title=why;}
       });
@@ -99,6 +99,7 @@
     const error=panel.querySelector('[data-command-error]');
     sections[2].append(...groups[1].children);error.remove();
     groups.forEach(group=>group.remove());panel.append(tabs,pages,error);
+    const doors=dialog.ownerDocument.createElement('button');doors.type='button';doors.textContent='Door Adjustment';doors.dataset.doorAdjustment='';doors.onclick=()=>window.SAVacuumUI.doors(window.SACombatBridge.state().units.find(u=>u.id===unitId));sections[1].append(doors);
     redraw();return redraw;
   }
   window.SAShipCommandUI={mount,conditionalControls,conditionalPayload,refreshConditional};

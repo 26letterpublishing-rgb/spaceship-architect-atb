@@ -3,7 +3,7 @@ const objects=require('../space-objects');
 const mineral=(id='object-iron',q=0,r=2)=>({id,kind:'mineral',name:'Iron Deposit',mineral:'Iron',quantity:3,q,r});
 function editor(initial=[],ships=[]){
  let draft=structuredClone(initial),panel;
- const fields=Object.fromEntries(Object.entries({kind:'mineral',name:'Iron Deposit',mineral:'Iron',quantity:'1',q:'0',r:'2'}).map(([name,value])=>[name,{value,closest:()=>({hidden:false})}]));
+ const fields=Object.fromEntries(Object.entries({kind:'mineral',name:'Iron Deposit',mineral:'Iron',quantity:'1',miningTarget:'6',intensity:'3',q:'0',r:'2'}).map(([name,value])=>[name,{value,closest:()=>({hidden:false,firstChild:{textContent:''}})}]));
  const nodes={form:{},output:{},'[data-object-list]':{}};
  const host={querySelector:()=>panel};
  const map={parentElement:host,hidden:false,after(node){panel=node;}};

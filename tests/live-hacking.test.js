@@ -171,7 +171,7 @@ test('Scan Area improves the automatic chance only when stationary throughout in
 });
 
 
-test('captured SIC shutdown is receipt-safe and requires a local crew restart',()=>{
+test('captured SIC shutdown is receipt-safe; Bridge can restart but cannot remotely power on',()=>{
  const {room,a,b,unit,open}=fixture(),maintenance=require('../ship-maintenance');
  const sessionId=open().sessionId,session=hacking.state(room).sessions[0];
  assert.throws(()=>hacking.command(room,unit,{kind:'off',sessionId,turnSerial:7,requestId:'denied-off-001'}),/Capture/);
@@ -179,10 +179,11 @@ test('captured SIC shutdown is receipt-safe and requires a local crew restart',(
  const body={kind:'off',sessionId,turnSerial:7,requestId:'captured-off-001'},item=b.ship.sicInventory.find(i=>i.id==='b-laser');
  const result=hacking.command(room,unit,body);assert.equal(result.spent,true);assert.equal(item.status,'powered-down');assert.equal(item.disabled,true);assert.equal(maintenance.points(item),0);assert.equal(session.control,false);
  assert.equal(hacking.command(room,unit,body).duplicate,true);
- b.crewNpcUnitIds=['defender'];const defender={id:'defender',team:'npc',currentHp:20,location:{starshipId:'b',square:42,mesh:0,stationed:true}};room.units.push(defender);room.activeId=defender.id;
+ b.crewNpcUnitIds=['defender'];const defender={id:'defender',team:'npc',currentHp:20,location:{starshipId:'b',square:42,mesh:0,stationed:false}};room.units.push(defender);room.activeId=defender.id;
  assert.equal(maintenance.queue(room,defender,{sicId:item.id,kind:'on',requestId:'remote-on-denied'}).ok,false);
- defender.location={starshipId:'b',square:45,mesh:4,stationed:false};
- const restored=maintenance.queue(room,defender,{sicId:item.id,kind:'on',requestId:'local-on-success'});assert.equal(restored.ok,true,restored.error);assert.ok(item.bootRemaining>0);maintenance.advance(b,item.bootRemaining);assert.equal(item.disabled,false);assert.equal(item.status,'online');assert.equal(maintenance.points(item),0);
+ defender.location={starshipId:'b',square:42,mesh:0,stationed:true};
+ assert.equal(maintenance.queue(room,defender,{sicId:item.id,kind:'on',requestId:'stationed-remote-denied'}).ok,false);
+ const restored=maintenance.queue(room,defender,{sicId:item.id,kind:'restart',requestId:'remote-restart-success'});assert.equal(restored.ok,true,restored.error);assert.ok(item.bootRemaining>0);maintenance.advance(b,item.bootRemaining);assert.equal(item.disabled,false);assert.equal(item.status,'online');assert.equal(maintenance.points(item),0);
 });
 
 

@@ -1,0 +1,23 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "sic-art-transporter.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9f236c23-52c1-4551-b231-95066953cff3.png",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 33768
+    },
+    {
+      "output": "transporter-floorplan.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-f3b044d1-ea25-4734-b348-0dc261507c8d.png",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 42378
+    }
+  ]
+}

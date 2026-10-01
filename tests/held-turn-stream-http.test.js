@@ -35,7 +35,7 @@ test('a final clock update reaches GM and PC streams when an NPC becomes ready w
   const nova = current.units.find(u => u.characterName === 'Nova Vale');
   const slug = current.units.find(u => u.characterName === 'Space Slug');
   const ship = current.starships.find(s => s.id === nova.location.starshipId);
-  const bridge = ship.ship.sicInventory.find(i => i.type === 'bridge-1');
+  const bridge = ship.ship.sicInventory.find(i => require('../ship-map-core').definition(i.type).bridge);
   const cell = ship.ship.placements.find(p => p.sicId === bridge.id).cell;
   await act({ action: 'setCombatLocation', id: nova.id, location: { starshipId: ship.id, square: cell, mesh: 0 } });
   await act({ action: 'nudge', id: nova.id, amount: 100 });

@@ -17,7 +17,7 @@ function occupants(room,ship){
   return (room.units||[]).filter(u=>u.location?.starshipId===ship.id&&!u.location.escapePodId&&ship.ship.gridCells.includes(u.location.square)&&!layout.footprint.get(u.location.square)?.exterior);
 }
 function reconcile(room){
-  let changed=false;
+  let changed=require('./ship-intruders').reconcile(room);
   for(const ship of room.starships||[]){
     const installed=cameras(ship);if(!installed.length&&!ship.ship.surveillanceState)continue;
     let state=ship.ship.surveillanceState;
@@ -27,8 +27,8 @@ function reconcile(room){
     const arrivals=present.filter(id=>!state.present?.includes(id));
     if(arrivals.length){
       const layout=maps.buildLayout(ship.ship);ship.ship.doorStates||={};
-      for(const key of Object.keys(ship.ship.doorStates))ship.ship.doorStates[key]='closed';
-      for(const square of ship.ship.gridCells)for(const side of maps.SIDES){const edge=layout.boundary(square,side.name);if(edge.kind==='door')ship.ship.doorStates[edge.key]='closed';}
+      for(const key of Object.keys(ship.ship.doorStates))ship.ship.doorStates[key]=require('./ship-doors').broken(ship,key)?'open':'closed';
+      for(const square of ship.ship.gridCells)for(const side of maps.SIDES){const edge=layout.boundary(square,side.name);if(edge.kind==='door'&&!require('./ship-doors').broken(ship,edge.key))ship.ship.doorStates[edge.key]='closed';}
       state.reports=[...(state.reports||[]),{id:randomUUID(),at:new Date().toISOString(),text:`Intruder Alert! ${ship.title}: enemy aboard. Doors closed.`}].slice(-20);
       changed=true;
     }

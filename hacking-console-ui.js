@@ -56,7 +56,7 @@
     }
     get('[data-target]').onchange=components;get('[data-session]').onchange=()=>{selected=get('[data-session]').value;save();boardKey='';redraw();};
     get('[data-slots]').onchange=()=>{drafts[selected]=[...view.querySelectorAll('[data-slot]')].map(s=>s.value);save();};
-    get('[data-palette]').onclick=event=>{const letter=event.target.closest('[data-letter]')?.dataset.letter;if(!letter)return;const slots=[...view.querySelectorAll('[data-slot]')];if(slots.some(s=>s.value===letter))return;const slot=slots.find(s=>!s.value);if(slot){slot.value=letter;get('[data-slots]').onchange();slot.focus();}};
+    get('[data-palette]').onclick=event=>{const letter=event.target.closest('[data-letter]')?.dataset.letter;if(!letter)return;const slots=[...view.querySelectorAll('[data-slot]')];const slot=slots.find(s=>!s.value);if(slot){slot.value=letter;get('[data-slots]').onchange();slot.focus();}};
     get('[data-connect]').onclick=()=>send({kind:'open',sicId,targetId:get('[data-target]').value,targetSicId:get('[data-component]').value});
     get('[data-guess]').onclick=()=>send(pending?.intent||{kind:'guess',sessionId:selected,guess:[...view.querySelectorAll('[data-slot]')].map(s=>s.value)});
     get('[data-off]').onclick=()=>send(pending?.intent||{kind:'off',sessionId:selected});

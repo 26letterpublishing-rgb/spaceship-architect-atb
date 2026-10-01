@@ -7,9 +7,9 @@ test('live hacking persists private puzzles and retry receipts across a real res
   async function stop(){if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}}
   t.after(stop);await launch();
   const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
-  const start=await post('campaign/showcase/start',{}),template=await fetch(`${base}/api/campaign/backup?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
+  const start=await post('campaign/showcase/start',{});await require('./helpers/combat-demo.cjs')(base,start);const template=await fetch(`${base}/api/campaign/backup?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const created=await post('campaign/create',{name:'Hacking Persistence',gmCode:'private-hack-test'},201),code=created.campaign.code;let token=created.token;
-  const encounter=template.campaign.encounter,source=encounter.starships.find(s=>s.title==='Wayfinder'),target=encounter.starships.find(s=>s.title==='Red Horizon');
+  const encounter=template.campaign.encounter,source=encounter.starships.find(s=>s.id==='showcase-pc-ship'),target=encounter.starships.find(s=>s.id==='showcase-npc-ship');
   const layout=maps.buildLayout(source.ship),cols=maps.gridColumns(source.ship),cell=source.ship.gridCells.find(n=>!layout.footprint.has(n)&&source.ship.gridCells.includes(n+cols)&&!layout.footprint.has(n+cols));
   source.ship.sicInventory.push({id:'persist-hack',type:'hacking-module-5'});source.ship.placements.push({sicId:'persist-hack',cell});
   source.sensorState={contacts:{[target.id]:{id:target.id,level:'detected',title:target.title,position:{q:2,r:0}}},analyses:{[target.id]:{targetId:target.id,analysis:true,layout:structuredClone(target.ship)}},reports:[],receipts:[],failures:{}};

@@ -36,6 +36,7 @@ function normalizeCombatLocation(value) {
     environment: source.escapePodId ? 'escape-pod' : starshipId ? "starship" : "exterior",
     ...(source.escapePodId ? {escapePodId:safeText(source.escapePodId,'',120)} : {}),
     starshipId,
+    ...(source.planetId?{planetId:safeText(source.planetId,'',120)}:{}),
     square: starshipId ? square : null,
     mesh,
     sicId: starshipId ? safeText(source.sicId, "", 120) : "",
@@ -441,11 +442,12 @@ function sameCombatLocation(first, second) {
   const firstShip = safeText(first?.location?.starshipId, "", 120);
   const secondShip = safeText(second?.location?.starshipId, "", 120);
   if (firstShip || secondShip) return Boolean(firstShip && firstShip === secondShip);
-  return true;
+  return (first?.location?.planetId||'')===(second?.location?.planetId||'');
 }
 
 function targetUnit(room, unit, targetId) {
-  return room.units.find((entry) => entry.id === targetId && entry.id !== unit.id && sameCombatLocation(unit, entry)) || null;
+  if(String(targetId).startsWith('door:'))return require('./ship-doors').targets(room,unit).find(d=>d.id===targetId)||null;
+  return room.units.find((entry) => entry.id === targetId && entry.id !== unit.id && sameCombatLocation(unit, entry)&&(!(unit.team==='pc'&&entry.team==='npc'&&entry.location?.starshipId)||require('./ship-intruders').visible(room,room.starships.find(s=>s.id===entry.location.starshipId),entry))) || null;
 }
 
 function setCombatBrief(unit, kind, label, details = []) {
@@ -512,6 +514,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     catch(error){return {ok:false,error:error.message};}
   }
   const target = requestedTarget?.characterName || "the chosen target";
+  if(requestedTarget?.doorTarget&&!['fire','melee','calledShot'].includes(kind))return {ok:false,error:'Doors can only be targeted with firearms or melee attacks.'};
+  if(requestedTarget?.doorTarget&&(kind==='melee'||weapon?.category==='melee')&&requestedTarget.distance>1)return {ok:false,error:'Move adjacent to the door before a melee attack.'};
   if (kind === "wait3") {
     unit.movementChargeUnits = 0;
     const commandRemaining = room.commandDeadline
@@ -544,7 +548,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       const ship=room.starships.find(s=>s.id===unit.location.starshipId),layout=ship&&shipMaps.buildLayout(ship.ship);let from=unit.location;
       for(const point of requestedRoute){
         if(!layout||!shipMaps.meshStepAllowed(layout,from,point))return {ok:false,error:'Movement must follow the mesh through actual doorways.'};
-        const edge=layout.edge(from.square,point.square);point.doorKey=from.square!==point.square&&edge.kind==='door'?edge.key:'';from=point;
+        const edge=layout.edge(from.square,point.square);if(edge.kind==='door'&&ship.ship.doorStates?.[edge.key]!=='open'&&require('./ship-surveillance').hostile(room,ship,unit))return {ok:false,error:'The closed door blocks intruders. Break it or find an open route.'};point.doorKey=from.square!==point.square&&edge.kind==='door'?edge.key:'';from=point;
       }
     }
     const routeSegment = requestedRoute.slice(0, units);
@@ -857,7 +861,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: weapon.name + " requires at least one completed Charge before firing." };
     const calledShot = kind === "calledShot" || Boolean(body.calledShot);
     const attackType = weapon.category === "melee" ? "melee" : "ranged";
-    const distance = attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0);
+    const distance = requestedTarget.doorTarget?requestedTarget.distance:attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0);
     const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
     const smokePenalty = attackType === "ranged" ? Math.max(0, Number(body.smokePenalty) || 0) : 0;
     const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie: attackType === "ranged" ? aimDie : 0, attackType, strengthDice: unit.strengthDice, situationalAttackModifier: -smokePenalty });
@@ -867,6 +871,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       beginAttack: {
         attackerId: unit.id,
         defenderId: requestedTarget.id,
+        doorTarget:requestedTarget.doorTarget,
         weaponId: weapon.weaponId,
         inventoryId: weapon.inventoryId,
         weaponName: weapon.name,
@@ -901,6 +906,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     return { ok: true, beginAttack: {
       attackerId: unit.id,
       defenderId: requestedTarget.id,
+        doorTarget:requestedTarget.doorTarget,
       weaponId: meleeWeapon.weaponId,
       inventoryId: meleeWeapon.inventoryId,
       weaponName: meleeWeapon.name,

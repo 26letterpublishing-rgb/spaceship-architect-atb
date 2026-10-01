@@ -5,12 +5,12 @@
   function close(){clearTimeout(loadingTimer);removeListener?.();removeListener=null;view?.remove();view=null;key='';pendingAck=null;}
   function tick(){
     const b=window.SACombatBridge,s=b?.state();if(!s)return;
-    if(s.encounterEndedAt||s.units.some(u=>u.delayedAction?.awaitingRoll&&!u.delayedAction.automated)||s.attackResolution||s.itemResolution){close();return;}
+    if(s.encounterEndedAt||s.units.some(u=>u.delayedAction?.awaitingRoll&&!u.delayedAction.automated)||s.attackResolution&&!s.showcase||s.itemResolution&&!s.showcase){close();return;}
     for(const actor of s.units){const a=actor.automationAction;if(a&&Date.now()-a.at<3000&&!seen.has(a.id)){seen.add(a.id);beep(b,host());}}
-    const presenters=[...s.units.filter(u=>u.automationPresentation?.phase==='complete'||u.delayedAction?.id===u.automationPresentation?.id),...s.starships.flatMap(ship=>(ship.ship?.missileState?.flights||[]).filter(m=>m.automated&&m.automationPresentation&&(m.phase==='impact'||m.automationPresentation.phase==='complete')).map(m=>({id:m.unitId,characterName:m.name,automationPresentation:m.automationPresentation})))];
+    const presenters=[...(s.hackingDice||[]),...(s.demoAutomation||[]),...s.units.filter(u=>u.automationPresentation?.personalAttack||u.automationPresentation?.phase==='complete'||u.delayedAction?.id===u.automationPresentation?.id),...s.starships.flatMap(ship=>(ship.ship?.missileState?.flights||[]).filter(m=>m.automated&&m.automationPresentation&&(m.phase==='impact'||m.automationPresentation.phase==='complete')).map(m=>({id:m.unitId,characterName:m.name,automationPresentation:m.automationPresentation})))];
     const unit=presenters.find(u=>u.automationPresentation&&(u.automationPresentation.phase!=='complete'||Date.now()-(u.automationPresentation.completedAt||0)<1800)),r=unit?.automationPresentation,doc=host();
     if(!r){close();return;}
-    if(pendingAck&&pendingAck.rollId===r.id&&!pendingAck.busy){const ack=pendingAck;ack.busy=true;b.action({action:'automationAnimationComplete',id:unit.id,rollId:r.id},'resolve',{throwOnError:true}).then(()=>{if(pendingAck===ack)pendingAck=null;}).catch(()=>{ack.busy=false;});}
+    if(pendingAck&&pendingAck.rollId===r.id&&!pendingAck.busy){const ack=pendingAck;ack.busy=true;b.action(unit.hackAlert?{action:'hackAlertAnimationComplete',starshipId:unit.id,rollId:r.id}:{action:'automationAnimationComplete',id:unit.id,rollId:r.id},'resolve',{throwOnError:true}).then(()=>{if(pendingAck===ack)pendingAck=null;}).catch(()=>{ack.busy=false;});}
     if(key===r.id)return;
     close();key=r.id;
     view=doc.createElement('dialog');view.className='automatic-dice-dialog';view.setAttribute('aria-label','Automated action dice');

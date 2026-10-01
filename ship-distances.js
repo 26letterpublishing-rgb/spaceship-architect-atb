@@ -35,10 +35,18 @@
     if (!Array.isArray(saved) || saved.length !== ships.length || new Set(saved.map(p => p?.id)).size !== ships.length || saved.some(p => !ships.some(ship => ship.id === p?.id) || ![p.q,p.r].every(n => Number.isInteger(n) && Math.abs(n) <= 10000))) throw new Error("Place every ship on a valid hex (coordinates -10000 to 10000).");
     return positions(ships,saved);
   }
+  function roundHex(point){
+    if(!point||![point.q,point.r].every(Number.isFinite))return null;
+    const fq=point.q,fr=point.r;let q=Math.round(fq),r=Math.round(fr),s=Math.round(-fq-fr);
+    const dq=Math.abs(q-fq),dr=Math.abs(r-fr),ds=Math.abs(s+fq+fr);
+    // Resolve shared-edge ties consistently even after floating-point translation.
+    if(dq>ds+1e-10&&dq>dr+1e-10)q=-s-r;else if(dr>ds+1e-10)r=-q-s;
+    return {q:q||0,r:r||0};
+  }
   function hexDistance(a,b) { return Math.max(Math.abs(a.q-b.q), Math.abs(a.r-b.r), Math.abs(a.q+a.r-b.q-b.r)); }
   function fromPositions(ships, saved) {
     const points = positions(ships,saved);
     return ships.flatMap((ship,i) => ships.slice(i+1).map((other,j) => ({ a:ship.id,b:other.id,units:hexDistance(points[i],points[i+j+1]) })));
   }
-  return { key, pairs, update, positions, validatePositions, hexDistance, fromPositions };
+  return { key, pairs, update, positions, validatePositions, roundHex, hexDistance, fromPositions };
 }));

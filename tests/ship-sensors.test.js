@@ -194,10 +194,10 @@ test('analysis preserves expanded split-mount geometry without exposing crew or 
   assert.equal(maps.exteriorError(scanned),'');const geometry=ship=>[...maps.buildLayout(ship).footprint].map(([n,{sicId,column,row,width,height,segment,rotation,stations}])=>[n,{sicId,column,row,width,height,segment,rotation,stations}]);assert.deepEqual(geometry(scanned),geometry(b.ship));
   assert.equal(scanned.secret,undefined);assert.equal(scanned.sicInventory.length,1);assert.equal(view.units.length,1);
 });
-test('completed analysis blocks repeated actions and condition icons follow live damage privately',()=>{
+test('completed analysis permits fresh snapshots and condition icons follow live damage privately',()=>{
  const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;sensors.refresh(room);
  sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analyze-once'});sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
- assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analyze-again'}).error,'Ship Already Analyzed');assert.equal(unit.delayedAction,null);
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:'b',requestId:'analyze-again'}).ok,true);assert.ok(unit.delayedAction);
  b.currentHullHp=21;b.maximumHullHp=56;sensors.refresh(room);const contact=sensors.view(room,'a').starships.find(s=>s.id==='b');
  assert.deepEqual(require('../health-display').segments(contact.currentHullHp,contact.maximumHullHp),require('../health-display').segments(21,56));assert.notEqual(contact.maximumHullHp,56);
  assert.equal(a.sensorState.analyses.b.hull.current,33,'Historical analysis remains a snapshot');

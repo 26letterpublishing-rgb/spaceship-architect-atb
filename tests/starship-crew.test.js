@@ -75,7 +75,7 @@ test('link and save reject negative design EN without altering the saved ship',a
   const saved=await request(api,'POST','/api/campaign/starship/save',{code,token,starship:invalid});
   assert.equal(saved.status,400);assert.match(saved.payload.error,/Not enough EN/);
   assert.equal((await api.campaign(code)).starships[0].ship.sicInventory.length,2);
-  invalid.sicInventory.find(i=>i.id==='engine').type='en-engine-2';
+  invalid.sicInventory.find(i=>i.id==='engine').type='en-engine-2';invalid.gridCells.push(188);
   assert.equal((await request(api,'POST','/api/campaign/starship/save',{code,token,starship:invalid})).status,200);
 });
 

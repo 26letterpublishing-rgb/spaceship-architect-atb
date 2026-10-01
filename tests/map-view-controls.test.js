@@ -6,7 +6,7 @@ function api(){
 }
 function svg(width,height,markers=[]){
  const box={x:-10,y:-5,width:20,height:10};
- return {clientWidth:width,clientHeight:height,viewBox:{baseVal:box},querySelectorAll:()=>markers,getBoundingClientRect:()=>({width:0,height:0}),setAttribute(name,value){if(name==='viewBox')Object.assign(box,Object.fromEntries(['x','y','width','height'].map((key,i)=>[key,Number(value.split(' ')[i])])));}};
+ return {dataset:{},getAttribute:()=>Object.values(box).join(" "),clientWidth:width,clientHeight:height,viewBox:{baseVal:box},querySelectorAll:()=>markers,getBoundingClientRect:()=>({width:0,height:0}),setAttribute(name,value){if(name==='viewBox')Object.assign(box,Object.fromEntries(['x','y','width','height'].map((key,i)=>[key,Number(value.split(' ')[i])])));}};
 }
 const marker=(x,y,planet=false)=>({transform:{baseVal:{consolidate:()=>({matrix:{e:x,f:y}})}},hasAttribute:name=>name==='data-planet'&&planet});
 test('shared fit contains contact markers and full planets using the actual wide or tall viewport',()=>{
@@ -56,7 +56,7 @@ test('every ship scale gets a shield around its artwork and an independent trans
 test('live refresh resizes an existing shield ring and pointer target when ship scale changes',()=>{
  const {maps,document}=api(),ship={id:'ship',title:'Test',currentShieldHp:20,ship:{gridCells:Array.from({length:201},(_,i)=>i)}};
  const element=()=>({attributes:{},dataset:{},style:{setProperty(){}},setAttribute(name,value){this.attributes[name]=String(value);},querySelector:()=>null});
- const hit=element(),ring=element(),body=element();body.dataset.rank='5';hit.attributes.r='.75';ring.attributes.r='.55';
+ const hit=element(),ring=element(),body=element();body.dataset.rank='5';body.dataset.appearance='normal';hit.attributes.r='.75';ring.attributes.r='.55';
  const marker={style:{},querySelector:name=>({'[data-ship-hit]':hit,'[data-shield-ring]':ring,'[data-vessel-body]':body}[name]||null),insertAdjacentHTML(){}};
  const map=svg(600,300);map.querySelector=()=>marker;map.insertAdjacentHTML=()=>{};document.querySelectorAll=selector=>selector==='[data-space-canvas]'?[map]:[];
  maps.refresh([ship],[{id:'ship',q:0,r:0}]);

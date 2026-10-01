@@ -22,7 +22,11 @@
     <link rel="stylesheet" href="weapon-console-ui.css" data-weapon-style>
     <link rel="stylesheet" href="sensor-console-ui.css" data-sensor-style>
     <link rel="stylesheet" href="console-common.css" data-common-console-style>
-  </head>
+  <link rel="stylesheet" href="room-v03.css"><script src="campaign-recovery.js" defer></script><script src="room-v03.js" defer></script>
+  <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
+<link rel="stylesheet" href="quick-prompts.css"><script defer src="quick-prompts.js"></script>
+<link rel="stylesheet" href="crew-logs.css">
+</head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
@@ -32,6 +36,7 @@
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
         <div class="gm-header-actions">
+          <button id="saveCampaignBackup" class="campaign-export-button" type="button">Export Campaign Save File</button>
           <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
           <button id="gmSettingsToggle" class="gm-settings-toggle" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
@@ -80,6 +85,7 @@
         </nav>
 
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
+            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
             <div class="script-heading-actions">
@@ -106,7 +112,7 @@
               <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
-            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
+
           </section>
           <form id="conditionalActionForm" class="tool-card conditional-action-card script-conditional-card">
             <h3>Conditional Prompt / Reward</h3>
@@ -353,8 +359,8 @@
               <h3>Campaign Backup</h3>
               <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
               <div class="campaign-backup-actions">
-                <button id="saveCampaignBackup" type="button">Save Campaign Backup</button>
-                <label class="restore-file compact">Restore This Campaign<input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.json,application/json" /></label>
+
+                <button id="loadCampaignSave" type="button">Load Campaign</button><input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.json,application/json" hidden />
               </div>
             </section>
             <section class="settings-card danger-settings">
@@ -397,6 +403,7 @@
     </div>
   <script src="drama-card-data.js?v=console-feedback-2"></script>
   <script src="ship-map-core.js?v=console-feedback-2"></script>
+    <script src="ship-floorplan-snapshot.js"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="ship-distances.js?v=console-feedback-2"></script>
   <script src="space-objects.js"></script>
@@ -409,6 +416,10 @@
   <script src="transit-status.js"></script>
   <script src="crew-room-status.js"></script>
   <script src="field-utility-status.js"></script>
+  <script src="crew-deployment.js"></script>
+  <script src="result-feedback.js"></script>
   <script type="module" src="gm.js?v=console-feedback-2"></script>
-  </body>
+  <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
+<script src="crew-logs-ui.js"></script>
+</body>
 </html>

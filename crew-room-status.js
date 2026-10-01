@@ -1,12 +1,13 @@
 (function(){
   try{if(parent!==window&&parent.SACrewRoomStatus){window.SACrewRoomStatus=parent.SACrewRoomStatus;const timer=setInterval(()=>{const b=window.SACombatBridge;if(b?.state()&&!b.state().practice)parent.SACrewRoomStatus.update({...b.state(),accessRole:b.mode()==='gm'?'gm':'character'},body=>b.crewRoomRequest(body));},500);window.addEventListener('pagehide',()=>clearInterval(timer));return;}}catch{}
-  let panel,dialog,model,submit,key='';
+  let panel,dialog,model,submit,key='';let fabricationSeen=new Set();
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function mount(){
     if(!panel){const css=document.createElement('link');css.rel='stylesheet';css.href='crew-room-console.css';document.head.append(css);panel=document.createElement('aside');panel.className='crew-medical-status';panel.setAttribute('popover','manual');panel.setAttribute('aria-label','Medbay treatment status');document.body.append(panel);}
   }
   function update(next,callback){
     if(!next)return;model=next;submit=callback;mount();
+    for(const ship of next.starships||[])for(const event of [...(ship.ship?.fabricationState?.events||[]),...(ship.ship?.extractionState?.events||[])]){if(fabricationSeen.has(event.id))continue;fabricationSeen.add(event.id);window.SAResultFeedback?.push('fabrication:'+event.id,ship.title||'Starship Fabrication',event.text,{topLayer:true});}
     const rolls=next.crewRoomRolls||[],gm=next.role==='gm'||next.accessRole==='gm';
     const treating=(next.starships||[]).filter(s=>gm||!next.ownCharacterId||s.crewCharacterIds?.includes(next.ownCharacterId)).flatMap(s=>Object.values(s.ship?.crewRoomState?.rooms||{}).flatMap(r=>(r.jobs||[]).filter(j=>j.phase==='treating').map(j=>({...j,shipId:s.id}))));
     const active=[...treating,...rolls],signature=JSON.stringify(active.map(j=>[j.id,j.phase,Math.ceil(j.remaining||0)]));

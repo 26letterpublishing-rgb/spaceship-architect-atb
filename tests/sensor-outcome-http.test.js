@@ -4,7 +4,7 @@ test('empty scans retain live timing without dice; uncertain scans freeze for ma
  const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-sensor-outcome-'))},stdio:['ignore','pipe','pipe']});
  child.stderr.on('data',c=>process.stderr.write(c));t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
  const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timed out')),8000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timer);resolve(u);}});});
- const post=async(route,body)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.ok(r.ok,JSON.stringify(d));return d;};
+ const post=async(route,body)=>{body=await require('./helpers/confirmed-encounter.cjs')(base,body);const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.ok(r.ok,JSON.stringify(d));return d;};
  const demo=await post('campaign/showcase/start',{}),act=body=>post('action',{roomCode:demo.code,gmToken:demo.gmToken,...body}),state=()=>fetch(`${base}/api/state?room=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());
  await require('./helpers/combat-demo.cjs')(base,demo);
  const initial=await state(),source=initial.starships.find(s=>s.controlType==='pc'),target=initial.starships.find(s=>s.id!==source.id),sensor=maps.installedItems(source).find(i=>maps.definition(i.type).sensor);

@@ -41,7 +41,7 @@
   const cancel = document.querySelector("#cancelCombatAction");
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry']){
+    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry','airlock','breachRepair']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
@@ -106,7 +106,7 @@
   function sameCombatLocation(first, second) {
     const firstShip = String(first?.location?.starshipId || "");
     const secondShip = String(second?.location?.starshipId || "");
-    return firstShip || secondShip ? Boolean(firstShip && firstShip === secondShip) : true;
+    return firstShip || secondShip ? Boolean(firstShip && firstShip === secondShip) : (first?.location?.planetId||'')===(second?.location?.planetId||'');
   }
 
   function targetOptions({ includeLocation = false, includeSelf = false } = {}) {
@@ -115,6 +115,7 @@
     options.push(...(currentState?.units || [])
       .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry))
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`));
+    if(['fire','melee','calledShot'].includes(pendingKind))options.push(...(window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee')||[]).map(d=>`<option value="${esc(d.id)}">${esc(d.characterName)}</option>`));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
 
@@ -216,6 +217,9 @@
 
   function updateAttackPreview() {
     if (!attackWrap || attackWrap.hidden) return;
+    const door=window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee').find(d=>d.id===target.value);
+    distance.disabled=Boolean(door);if(door)distance.value=String(door.distance);
+    note.textContent=door?'Stationary door: roll weapon damage. Three qualifying hits break it open: 40 damage for a Brig cell door, 10 for other doors.':configurations[pendingKind]?.note||'';
     const current = actionWeapon();
     const plan = currentAttackPlan();
     const called = calledShot.checked;
@@ -346,6 +350,7 @@
         for(const patient of patients){const choice=document.createElement('button');choice.textContent=patient.characterName;choice.onclick=()=>{view.close();send('carry',{targetId:patient.id});};view.append(choice);}
         const close=document.createElement('button');close.textContent='Back';close.onclick=()=>view.close();view.append(close);view.onclose=()=>view.remove();document.body.append(view);view.showModal();return;
       }
+      if(['airlock','breachRepair'].includes(kind)){window.SAVacuumUI.action(kind,currentUnit);return;}
       if(kind==='maintenance'){window.SAMaintenanceUI.open(currentUnit);return;}
       if(kind==='holdConsole'){window.SAShipNavigationUI.toggleHold(currentUnit).catch(err=>window.alert(err.message));return;}
       if(kind==='consoleView'){window.SAShipNavigationUI.toggle(currentUnit);return;}
@@ -474,6 +479,10 @@
       if(shortcuts.dataset.key!==key){
         shortcuts.replaceChildren();
         const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div');resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';secondary.className='station-secondary-actions';shortcuts.append(resources,primary,secondary);
+        const categories=[['movement','Movement'],['sensors','Sensors & Comms'],['weapons','Targeting & Weapons'],['defense','Defense'],['utilities','Utilities']];
+        const choose=category=>{shortcuts.dataset.category=category;primary.hidden=!!category;secondary.hidden=!category;for(const row of secondary.querySelectorAll('[data-action-category]'))row.hidden=row.dataset.actionCategory!==category;};
+        const back=document.createElement('button');back.type='button';back.textContent='Back to all actions';back.className='station-category-back';back.onclick=()=>choose('');secondary.append(back);
+        for(const [category,label]of categories){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.actionCategory=category;b.onclick=()=>choose(category);primary.append(b);}choose('');
         for(const [index,[label,selector,tab,id]] of entries.entries()){
           const button=document.createElement('button'),row=document.createElement('div');row.className='station-action-choice';button.type='button';button.textContent=label;button.dataset.stationOrder=index;
           button.onclick=async()=>{
@@ -483,7 +492,7 @@
             const b=window.SACombatBridge;if(!b.confirmGmPlayerAction(currentUnit,'changeGravity'))return;
             try{await b.utilityAction({id:currentUnit.id,sicId:id,kind:'gravity',enabled:!window.SAShipMap.gravityEnabled(access.ship),receipt:crypto.randomUUID()});}catch(error){window.alert(error.message);}
           };
-          (label.startsWith('Fire ')||['Move Ship','Evasive Maneuvers'].includes(label)?primary:secondary).append(row);row.append(button);
+          const category=['Move Ship','Ram','Skim'].includes(label)?'movement':['Scan Area','Scan Hex','Systems Analysis','Life Scan','Share Data','Hail Ship'].includes(label)?'sensors':['Evasive Maneuvers','Break Lock-On','Restore Shield HP','Reinforce Field','Restabilize Shield'].includes(label)?'defense':label.startsWith('Fire ')||['Lock-On','Lock Component'].includes(label)?'weapons':'utilities';row.dataset.actionCategory=category;button.dataset.actionCategory=category;secondary.append(row);row.append(button);row.hidden=true;
           const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
           if(helpKey){button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';button.style.cursor='help';}
         }
@@ -496,7 +505,7 @@
         const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
         button.disabled=disabled||Boolean(reason);button.title=reason||(disabled?'Available during your active turn.':label==='Evasive Maneuvers'?'Roll evasion; Defense lasts 20 combat seconds.':`Choose target and confirm ${label}`);
         let explanation=button.parentElement.querySelector('[data-disabled-reason]');if(!explanation){explanation=document.createElement('small');explanation.dataset.disabledReason='';button.after(explanation);}explanation.hidden=!button.disabled;explanation.textContent=button.disabled?button.title:'';
-        button.closest('.station-action-choice').hidden=selector==='[data-order="restabilize"]'&&access?.remote;
+        button.closest('.station-action-choice').hidden=button.dataset.actionCategory!==shortcuts.dataset.category||(selector==='[data-order="restabilize"]'&&access?.remote);
       }
     }
     actionButtons.forEach((button) => {
@@ -505,12 +514,13 @@
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
 
       if(kind==='carry'){button.textContent=mine?.carryingId?'Place patient down':'Carry';button.hidden=!mine?.carryingId&&!state.units.some(p=>p.id!==mine?.id&&Number(p.currentHp)<=0&&!p.carriedBy&&p.location?.starshipId===mine?.location?.starshipId&&p.location?.square===mine?.location?.square);}
-      if(kind==='holdConsole'){button.hidden=false;button.textContent=mine?.consoleHold?'Resume':'Hold';unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
+      if(kind==='holdConsole'){button.hidden=false;button.textContent=mine?.consoleHold?'Resume':'Hold';button.classList.toggle('is-resume',Boolean(mine?.consoleHold));unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
       if (kind === 'moveStarship') {button.hidden=true;button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=true;unavailable=false;}
+      if(kind==='airlock'||kind==='breachRepair'){const info=window.SAVacuumUI.available(mine,state);button.hidden=kind==='airlock'?!info.airlock:!info.holes?.length;button.textContent=kind==='airlock'?(info.ship?.ship.airlockStates?.[info.airlock?.id]?.open?'Close Airlock':'Open Airlock'):'Repair Hull Breach';}
       if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
-      if(kind==='move')button.textContent=seated?'Leave Console':'Move';
+      if(kind==='move'){button.textContent=seated?'Leave Console':'Move';button.classList.toggle('leave-console-arrow',Boolean(seated));}
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }

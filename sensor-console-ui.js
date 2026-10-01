@@ -23,6 +23,7 @@
     view.querySelectorAll('[data-order]').forEach(button=>{
       const help=button.nextElementSibling,row=host.createElement('div');row.className='sensor-action-row';button.before(row);row.append(button);if(help?.dataset.actionHelp)row.append(help);
     });
+    const snapshots=host.createElement('div');snapshots.innerHTML='<label>Saved interior snapshots<select data-snapshot></select></label><button type="button" data-view-snapshot>View Saved Snapshot</button>';view.querySelector('.sensor-controls').append(snapshots);snapshots.querySelector('button').onclick=()=>{const ship=bridge.state().starships.find(s=>s.id===initial.ship.id),id=snapshots.querySelector('select').value;window.SASensorSnapshot.open(ship?.sensorState?.analyses?.[id]?.snapshot);};
     const contactInfo=host.createElement('small');contactInfo.dataset.contactInfo='';
     view.querySelector('[data-target]').after(contactInfo);
     view.querySelector('.sensor-seat-actions').before(window.SAShipCommandUI.conditionalControls(host));
@@ -40,7 +41,7 @@
     get('[data-map-focus]').onclick=()=>window.SASpaceMap.focusMap(view,get('[data-map-focus]'));
     zoom.onclick=event=>{
       const svg=get('[data-map] svg[data-space-canvas]');if(!svg)return;
-      if(event.target.closest('[data-auto-zoom]')){manualViewBox=null;fitAllContacts=true;lastMap='';redraw();return;}
+      if(event.target.closest('[data-auto-zoom]')){delete svg.dataset.userViewBox;manualViewBox=null;fitAllContacts=true;lastMap='';redraw();return;}
       const button=event.target.closest('[data-zoom]');if(!button)return;
       window.SASpaceMap.zoom(svg,button.dataset.zoom==='in'?.8:1.25);
       manualViewBox=svg.getAttribute('viewBox');
@@ -70,7 +71,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       // A GM operator uses the same contact picture as that crew; GM overview remains omniscient.
       const picture=window.SAShipSensors.view(state,access.ship.id);
       const mapKey=JSON.stringify([picture.starships.map(s=>[s.id,s.title,s.contactLevel,s.destroyedAt,s.missileHeading,s.missilePhase,s.missileEndedAt]),picture.shipPositions,bridge.state().spaceObjects]);
-      if(mapKey!==lastMap){get('[data-map]').innerHTML=window.SASpaceMap.markup(picture.starships,picture.shipPositions,false,{navigation:true});if(manualViewBox)get('[data-map] svg[data-space-canvas]')?.setAttribute('viewBox',manualViewBox);else if(fitAllContacts)window.SASpaceMap.fitRendered(get('[data-map] svg[data-space-canvas]'));else window.SASpaceMap.fitContacts(get('[data-map] svg[data-space-canvas]'),[...picture.starships,...(selecting&&scanPoint?[{id:'sensor-selected-hex'}]:[])],[...picture.shipPositions,...(selecting&&scanPoint?[{id:'sensor-selected-hex',...scanPoint}]:[])]);lastMap=mapKey;}
+      if(mapKey!==lastMap){window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});if(manualViewBox=get('[data-map] svg[data-space-canvas]')?.dataset.userViewBox||manualViewBox)get('[data-map] svg[data-space-canvas]')?.setAttribute('viewBox',manualViewBox);else if(fitAllContacts)window.SASpaceMap.fitRendered(get('[data-map] svg[data-space-canvas]'));else window.SASpaceMap.fitContacts(get('[data-map] svg[data-space-canvas]'),[...picture.starships,...(selecting&&scanPoint?[{id:'sensor-selected-hex'}]:[])],[...picture.shipPositions,...(selecting&&scanPoint?[{id:'sensor-selected-hex',...scanPoint}]:[])]);lastMap=mapKey;}
       const mapSvg=get('[data-map] svg[data-space-canvas]');if(mapSvg&&manualViewBox)for(const rect of mapSvg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,mapSvg.viewBox.baseVal[key]);
       renderScanPlot(state,access.ship,sensor.range,ready);
       const contacts=shipContacts(access.ship);
@@ -79,6 +80,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML=targets||'<option value="">No detected starships</option>';get('[data-target]').value=contacts.some(c=>c.id===previous)?previous:contacts[0]?.id||'';
         const chosen=[...view.querySelectorAll('[data-recipient]:checked')].map(i=>i.value);
         get('[data-recipients]').innerHTML=contacts.map(c=>`<label><input type="checkbox" data-recipient value="${esc(c.id)}" ${chosen.includes(c.id)?'checked':''}>${esc(c.title)}</label>`).join('');lastTargets=targets;}
+      const saved=Object.entries(access.ship.sensorState?.analyses||{}).filter(([,a])=>a.snapshot),select=snapshots.querySelector('select'),savedMarkup=saved.map(([id,a])=>`<option value="${esc(id)}">${esc(a.snapshot.title)} — ${esc(new Date(a.snapshot.at).toLocaleTimeString())}</option>`).join('');if(select.dataset.content!==savedMarkup){const value=select.value;select.innerHTML=savedMarkup;select.dataset.content=savedMarkup;if(saved.some(([id])=>id===value))select.value=value;}snapshots.querySelector('button').disabled=!saved.length;
       const selectedContact=contacts.find(contact=>contact.id===get('[data-target]').value);
       for(const kind of ['area','hex','analysis']){
         const button=get(`[data-order="${kind}"]`),info=window.SAShipSensors.difficulty(state,access.ship.id,kind,selectedContact?.id,{q:Number(q.value),r:Number(r.value)});
@@ -89,7 +91,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
       get('[data-leave]').disabled=busy||!ready;
       const processing=(person.queuedEffects||[]).filter(e=>e.sensorReport).map(e=>`<article><p>Systems Analysis processing</p><strong>${Math.max(0,(100-e.progress)/e.rate).toFixed(1)} sec remaining</strong><progress max="100" value="${e.progress}"></progress></article>`).join('');
-      const reports=processing+(access.ship.sensorState?.reports||[]).map(entry=>`<article><time>${esc(new Date(entry.at).toLocaleTimeString())}</time><p>${window.SAHealthDisplay.logMarkup(entry,true)}</p>${entry.values?.length?`<small>Dice ${entry.values.join(' / ')} | Total ${entry.total}</small>`:''}${entry.analysis?`<div>${window.SAHealthDisplay.track('hull',entry.hull.current,entry.hull.maximum,true)}${window.SAHealthDisplay.track('shield',entry.shield.current,entry.shield.maximum,true)}</div><small>Snapshot at scan completion</small><ul>${entry.components.map(c=>`<li>${esc(c.name)}</li>`).join('')}</ul>`:''}${entry.pending&&bridge.mode()==='gm'?`<button type="button" data-reading="${esc(entry.at)}">Enter Biological Reading</button>`:''}${entry.sharedBy?`<small>Shared by ${esc(entry.sharedBy)}</small>`:''}</article>`).join('')||'<p>No completed scans.</p>';
+      const reports=processing+(access.ship.sensorState?.reports||[]).map(entry=>`<article><time>${esc(new Date(entry.at).toLocaleTimeString())}</time><p>${window.SAHealthDisplay.logMarkup(entry,true)}</p>${entry.values?.length?`<small>Dice ${entry.values.join(' / ')} | Total ${entry.total}</small>`:''}${entry.analysis?`<div>${window.SAHealthDisplay.track('hull',entry.hull.current,entry.hull.maximum,true)}${window.SAHealthDisplay.shieldTracks(entry.shield.layers||[entry.shield],true)}</div><small>Snapshot at scan completion</small><ul>${entry.components.map(c=>`<li>${esc(c.name)}</li>`).join('')}</ul>`:''}${entry.pending&&bridge.mode()==='gm'?`<button type="button" data-reading="${esc(entry.at)}">Enter Biological Reading</button>`:''}${entry.sharedBy?`<small>Shared by ${esc(entry.sharedBy)}</small>`:''}</article>`).join('')||'<p>No completed scans.</p>';
       if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;
         [...get('[data-reports]').children].forEach((article,index)=>{const entry=access.ship.sensorState?.reports?.[index];article.classList.toggle('sensor-detection-alert',Boolean(entry?.detected&&Date.now()-Date.parse(entry.at)<30000));});
       }

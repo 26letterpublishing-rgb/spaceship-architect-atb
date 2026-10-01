@@ -209,3 +209,22 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 
 /* Compact fleet summaries retain readable labels at narrow card widths. */
 .gm-starship-card dl>div{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:5px}.gm-starship-card dl dt{font-size:11px}.gm-starship-card dl dd{font-size:16px;line-height:1.1;max-width:100%;overflow-wrap:anywhere}
+
+.crew-deployment{width:96vw;max-width:none;height:92dvh;max-height:none;background:#08151f;color:#eafaff;border:1px solid #5ed9ed;box-sizing:border-box}.crew-deployment main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:20px;height:calc(100% - 180px);overflow:auto}.crew-deployment section{min-width:0}.crew-deployment svg{display:block;width:100%;max-height:65vh;touch-action:none;background:#031018}.crew-deployment nav{display:flex;flex-wrap:wrap;gap:5px}.crew-deployment button{background:#174050;color:#fff;border:1px solid #87b8c9;padding:9px;cursor:pointer}.crew-deployment button[aria-pressed=true]{border-color:#ffdf72;color:#ffe796}.crew-deployment footer{display:flex;justify-content:space-between;gap:20px}.crew-deployment [data-continue]{background:#246b49}.crew-deployment [data-token]{cursor:grab}
+
+.crew-deployment[open]{display:flex;flex-direction:column;overflow:hidden}.crew-deployment header,.crew-deployment footer,.crew-deployment>p{flex:0 0 auto}.crew-deployment main{flex:1;min-height:0;height:auto}.crew-deployment main section{display:flex;flex-direction:column;min-height:0}.crew-deployment svg{flex:1;min-height:180px;height:100%;max-height:100%;aspect-ratio:auto!important}.crew-deployment h3{margin:8px 0}.crew-deployment nav{flex:0 0 auto;margin-bottom:6px}
+
+/* Ship selection uses the same saved color as the ship's map/combat display. */
+.encounter-ship-option{border-left:4px solid var(--ship-choice-color,#65cbea)}
+.encounter-ship-heading strong{color:var(--ship-choice-color,#65cbea)}
+.encounter-ship-heading input{accent-color:var(--ship-choice-color,#65cbea)}
+.encounter-ship-heading .encounter-ship-focus{color:#c5d8e3;line-height:1.4;margin-top:4px;font-size:11px;text-transform:none}
+.encounter-ship-option.selected{outline:1px solid var(--ship-choice-color,#65cbea)}
+
+.encounter-ship-option .encounter-glow{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 10px;font-size:10px}
+.encounter-ship-option .encounter-glow input[type=color]{width:34px;height:22px;min-height:0;padding:1px;border:1px solid #698597;flex:none}
+.encounter-ship-option .encounter-ship-heading strong{font-size:14px}
+.gm-starship-card{border-left:4px solid var(--ship-choice-color,#65cbea)}
+.gm-starship-card>header h3{color:var(--ship-choice-color,#65cbea)}
+
+[data-save-starship-crew]{background:#48535c!important;color:#fff!important}[data-save-starship-crew].assignments-dirty{background:#20874c!important;color:#fff!important;border-color:#85f4ac!important}

@@ -1,0 +1,45 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "science-lab-floorplan-v2.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-61a55af4-5acc-4d46-81d3-8d1420f8ce4d.png",
+      "description": "Top-down walkable science laboratory, two-by-three footprint.",
+      "dimensions": [
+        384,
+        576
+      ],
+      "bytes": 39242
+    },
+    {
+      "output": "sic-art-3d-printer.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c0b13385-51b9-4631-9d2a-a7c2534299c7.png",
+      "description": "Industrial science-fiction fabrication printer.",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 41356
+    },
+    {
+      "output": "sic-art-mineral-processor.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e6236d81-4f9d-4609-9d6d-c98105b84684.png",
+      "description": "Science-fiction mineral processing machinery.",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 42688
+    },
+    {
+      "output": "sic-art-blueprint.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-3aa83240-ca05-4471-a7b1-f407ed3fc9a6.png",
+      "description": "Holographic blueprint schematic for starship construction.",
+      "dimensions": [
+        384,
+        384
+      ],
+      "bytes": 40632
+    }
+  ]
+}

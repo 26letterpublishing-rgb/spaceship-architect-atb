@@ -1,0 +1,94 @@
+{
+  "tool": "image_gen.imagegen",
+  "mode": "generate",
+  "entries": [
+    {
+      "key": "displacer-card",
+      "prompt": "Landscape science-fiction game card illustration. Ionic Force Displacers: powerful shipboard energy dispersal reactor with twin cyan-white coils cancelling an incoming electric blue ion arc, industrial gunmetal housing, intricate realistic hard-surface machinery, dark navy background, cinematic teal lighting. No people, text, numbers or border.",
+      "target": "sic-art-ionic-displacers.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-02d8954b-36d0-4d69-83af-f49f34266d95.png",
+      "size": 105400,
+      "dimensions": [
+        768,
+        512
+      ]
+    },
+    {
+      "key": "hack-alert-card",
+      "prompt": "Landscape science-fiction game card illustration. Hack Alert: small sophisticated security circuit module attached to a starship computer, amber warning diode, fiber optic cables and glowing crimson intrusion traces on a dark glass display, realistic industrial hardware. No readable text, letters, numbers, people or border.",
+      "target": "sic-art-hack-alert.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-77396784-730f-4345-8749-597697b21148.png",
+      "size": 87324,
+      "dimensions": [
+        768,
+        512
+      ]
+    },
+    {
+      "key": "scrambler-card",
+      "prompt": "Landscape science-fiction game card illustration. Transport Scrambler: compact starship field generator with three nested gold and violet interference rings, particles breaking into shimmering blue static around a transporter silhouette, realistic hard-surface industrial device on dark navy background. No people, readable text, numbers or border.",
+      "target": "sic-art-transport-scrambler.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-b0bf0902-0a6c-454c-80b3-a6f714d677d3.png",
+      "size": 106226,
+      "dimensions": [
+        768,
+        512
+      ]
+    },
+    {
+      "key": "disruptor-card",
+      "prompt": "Landscape science-fiction game card illustration. Ion Disruptor: enormous twin-pronged exterior starship cannon with blue-white electrical arcs jumping between its magnetic rails and a cobalt energy core, three-quarter cinematic view in deep space, realistic gunmetal military science-fiction machinery. No people, text, numbers or border.",
+      "target": "sic-art-ion-disruptor.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-0115f0d8-9dc3-4ec0-b558-580cf22cd9be.png",
+      "size": 105964,
+      "dimensions": [
+        768,
+        512
+      ]
+    },
+    {
+      "key": "displacer-floor",
+      "prompt": "Orthographic top-down spacecraft room floorplan, rectangular 2 wide by 3 long footprint. Industrial cyan ion dispersal coils along left and right walls, open unobstructed central metal walkway, a small console at bottom center. Realistic detailed game floor tile illustration, straight edges, no perspective, no grid, text, people or labels.",
+      "target": "ionic-displacers-floor.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-430ec4af-de71-4b77-88a9-d28fb41fe43e.png",
+      "size": 95948,
+      "dimensions": [
+        512,
+        768
+      ]
+    },
+    {
+      "key": "scrambler-floor",
+      "prompt": "Orthographic top-down spacecraft room floorplan, square footprint. Compact violet and gold transport interference generator along north wall, small control console bottom center, open walkable metal floor in middle. Realistic game floor tile illustration, straight edges, no perspective, no grid, text, people or labels.",
+      "target": "transport-scrambler-floor.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c4a420de-9130-4330-af2b-88af40595f9d.png",
+      "size": 98160,
+      "dimensions": [
+        768,
+        768
+      ]
+    },
+    {
+      "key": "disruptor-control",
+      "prompt": "Orthographic top-down spacecraft weapon control room floorplan, narrow rectangle 1 wide by 2 long. Dark metal walkway through center, blue ion readouts along walls, small operator console at top center. Realistic game floor tile illustration, no perspective, no text, grid, people or labels.",
+      "target": "ion-disruptor-control.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-3cc91873-21e6-4a36-a812-351d3de237f2.png",
+      "size": 53836,
+      "dimensions": [
+        384,
+        768
+      ]
+    },
+    {
+      "key": "disruptor-barrel",
+      "prompt": "Isolated orthographic top-down exterior starship Ion Disruptor barrel, exact top view, long rectangle proportions 2 wide by 4 long. Twin gunmetal prongs, cobalt magnetic rails and blue-white electric core; muzzle points straight UP, mounting base at bottom. Symmetric centered realistic hard surface game sprite. Transparent background. No floor, shadows outside object, labels, text, people, perspective.",
+      "target": "ion-disruptor-barrel.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-21c2712b-6fb6-4c95-a2f2-c1e4c3be8220.png",
+      "size": 43766,
+      "dimensions": [
+        384,
+        768
+      ]
+    }
+  ]
+}

@@ -8,3 +8,7 @@
 .maintenance-history{padding:12px;border-top:1px solid #44707a}.maintenance-history p{font-size:14px;color:#b6efd1;line-height:1.4}
 .interface-notice{position:fixed;inset:auto 12px 12px auto;margin:0;width:min(430px,calc(100vw - 24px));box-sizing:border-box;padding:12px;gap:12px;align-items:center;background:#07171f;color:#effaff;border:1px solid #8ab8c6;border-left:4px solid #f4d164;border-radius:4px;box-shadow:0 4px 18px #0008;font:14px/1.5 Arial,sans-serif;overflow-wrap:anywhere}
 .interface-notice:popover-open{display:flex}.interface-notice span{flex:1;min-width:0}.interface-notice button{flex:0 0 32px;height:32px;padding:0;border:1px solid #8ab8c6;border-radius:4px;background:#183f49;color:#fff;font:22px Arial;cursor:pointer}.interface-notice[data-outcome=error]{border-left-color:#ff566b}.interface-notice[data-outcome=success]{border-left-color:#60e79d}
+
+body:has(.campaign-roll-prompt:not([hidden])) .result-notifications{bottom:118px;max-height:30dvh}
+
+.result-notifications[popover]{inset:auto 12px 12px auto;margin:0;padding:0;border:0;background:transparent;color:inherit}.result-notifications[popover]:not(:popover-open){display:none}

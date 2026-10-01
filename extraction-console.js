@@ -1,0 +1,15 @@
+(function(){
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function mount(dialog,send,roll,current){const host=dialog.querySelector('.crew-room-controls'),box=dialog.ownerDocument.createElement('section');box.innerHTML='<h3>Extraction Operations</h3><label>Target<select data-extraction-target data-utility-control></select></label><button data-extraction-start data-utility-control>Begin Extraction</button><progress data-extraction-progress max="100" value="0" style="width:100%"></progress><p data-extraction-status></p><button data-extraction-roll data-utility-control hidden>Roll Recovery</button><button data-extraction-cancel data-utility-control hidden>Cancel Extraction</button>';host.prepend(box);let info,signature='';const get=s=>box.querySelector(s);
+ get('[data-extraction-start]').onclick=()=>send({kind:'extract-start',targetId:get('select').value});
+ get('[data-extraction-cancel]').onclick=()=>{if(confirm('Cancel this extraction? Progress will be lost.'))send({kind:'extract-cancel',jobId:info.job.id});};
+ get('[data-extraction-roll]').onclick=()=>{const job=info?.job;if(!job?.rollSpec)return;const b=window.SACombatBridge;if(!b.state().practice){const queued=current()?.pendingShipRolls?.find(r=>r.extractionRoll?.jobId===job.id);if(queued)b.openShipRoll?.(current(),queued);return;}roll({sides:job.rollSpec.sides,label:job.rollSpec.attributeLabel,explanation:job.rollSpec.difficultyLabel,extra:{kind:'extract-roll',jobId:job.id,phase:job.phase}});};
+ return {render(next,busy){if(!next)return;info=next;const markup=next.targets.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}${t.uses?' / '+t.uses+' attempts':''}</option>`).join('');if(signature!==markup){const previous=get('select').value;get('select').innerHTML=markup;if(next.targets.some(t=>t.id===previous))get('select').value=previous;signature=markup;}
+ const j=next.job,working=j&&!['complete','cancelled'].includes(j.phase),b=window.SACombatBridge,ready=b.state().practice||b.state().activeId===current()?.id;
+ get('[data-extraction-start]').disabled=busy||working||!next.targets.length||!ready;get('[data-extraction-cancel]').hidden=!working;get('[data-extraction-cancel]').disabled=busy;get('[data-extraction-progress]').value=j?(1-j.remaining/j.seconds)*100:0;
+ const remaining=j?Math.ceil(j.remaining):0;get('[data-extraction-status]').textContent=j?j.paused?'Paused: '+j.paused:j.phase==='working'?j.targetName+' / '+Math.floor(remaining/3600)+'h '+Math.floor(remaining%3600/60)+'m '+remaining%60+'s remaining':j.result||'Recovery dice ready.':next.targets.length?'Choose a target to begin.':'Mining needs an asteroid within one hex. Salvage needs a wreck within sensor range.';
+ get('[data-extraction-roll]').hidden=!j?.rollSpec||!b.state().practice;get('[data-extraction-roll]').disabled=busy;get('[data-extraction-roll]').textContent=j?.rollSpec?.attributeLabel||'Roll Recovery';if(j?.rollSpec&&!b.state().practice)get('[data-extraction-status]').textContent+=' Use the pending ship-roll prompt to resolve recovery.';
+ }};
+ }
+ window.SAExtractionConsole={mount};
+}());

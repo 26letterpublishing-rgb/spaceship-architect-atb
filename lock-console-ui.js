@@ -25,7 +25,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       const observer=access.controlSource||ship,contacts=[...Object.values(observer.sensorState?.contacts||{}),...(access.controlled?[{id:observer.id,title:observer.title,level:'detected'}]:[])].filter(c=>c.level==='detected'&&c.id!==ship.id);lastTargets=options(get('[data-target]'),contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('')||'<option value="">No detected ships</option>',lastTargets);
       const targetId=get('[data-target]').value,target=state.starships.find(s=>s.id===targetId),lock=locks.find(l=>l.targetId===targetId),analysis=window.SAShipSensors.analysis(observer,targetId),failure=ship.lockState?.failures?.[targetId]||0;
       const processing=state.units.flatMap(u=>u.queuedEffects||[]).find(e=>e.sensorReport?.shipId===ship.id&&e.sensorReport.targetId===targetId);
-      const map=window.SASpaceMap.markup(state.starships,state.shipPositions);if(map!==lastMap){window.SALiveDOM.render(get('.lock-scope'),map);lastMap=map;}
+      window.SASpaceMap.update(get('.lock-scope'),state.starships,state.shipPositions);
       get('[data-difficulty]').textContent=target?`${dice.length}D${dice[0]} + Weapon Systems${failure?` + ${failure} retry`:''}. Meet Defense ${target.defenseScore??'?'}. ${def.unlimitedTargets?'Unlimited targets; no AU upkeep.':ownLocks.length?`Additional target: ${def.extraTargetAu} AU / 12 sec.`:'First target: no AU upkeep.'}`:'Detect a ship using Sensors first.';
       get('[data-lock]').disabled=!ready||!targetId||(!lock&&ownLocks.length>=def.maxTargets);get('[data-lock]').textContent=lock?'Target Locked':'Lock-On';
       release.disabled=!lock||Boolean(pending)||busy;

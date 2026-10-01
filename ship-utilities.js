@@ -3,12 +3,16 @@ const stations = require('./station-access');
 const oxygen = require('./ship-oxygen');
 
 function setGravity(room, unit, body, { outsideCombat = false, gm = false, campaign } = {}) {
-  if(stations.access(room,unit,String(body.sicId||''))?.definition.planetaryCleanser)return require('./ship-cleanser').command(room,unit,body,{outsideCombat});
-  if(stations.access(room,unit,String(body.sicId||''))?.definition.cloaking)return require('./ship-cloaking').command(room,unit,body,{outsideCombat});
-  if(stations.access(room,unit,String(body.sicId||''))?.definition.probeLauncher)return require('./ship-probes').command(room,unit,body,{outsideCombat});
-  if(stations.access(room,unit,String(body.sicId||''))?.definition.repairDrone)return outsideCombat?{ok:false,error:'Repair drone orders use an ATB turn during combat.'}:require('./ship-drones').command(room,unit,body);
-  if(stations.access(room,unit,String(body.sicId||''))?.definition.fieldUtility)return require('./ship-field-utilities').command(room,unit,body,{outsideCombat,gm,campaign});
   const access=stations.access(room,unit,String(body.sicId||''));
+  if(access?.definition.blackHoleGun)return require('./ship-black-hole-gun').command(room,unit,body,{outsideCombat});
+  if(access?.definition.devastation)return require('./ship-devastation').command(room,unit,body,{outsideCombat});
+  if(access?.definition.transporter)return require('./ship-transporter').command(room,unit,body,{outsideCombat});
+  if(access?.definition.planetaryCleanser)return require('./ship-cleanser').command(room,unit,body,{outsideCombat});
+  if(access?.definition.gravityField)return require('./ship-black-holes').command(room,unit,body,{outsideCombat});
+  if(access?.definition.cloaking)return require('./ship-cloaking').command(room,unit,body,{outsideCombat});
+  if(access?.definition.probeLauncher)return require('./ship-probes').command(room,unit,body,{outsideCombat});
+  if(access?.definition.repairDrone)return outsideCombat?{ok:false,error:'Repair drone orders use an ATB turn during combat.'}:require('./ship-drones').command(room,unit,body);
+  if(access?.definition.fieldUtility)return require('./ship-field-utilities').command(room,unit,body,{outsideCombat,gm,campaign});
   if(!access||access.blocked||access.definition.utility!=='life-support')return {ok:false,error:'Occupy an available Life Support or bridge station to operate environmental controls.'};
   if(!['gravity','oxygen'].includes(body.kind)||typeof body.enabled!=='boolean')return {ok:false,error:'Choose a gravity or oxygen setting.'};
   if(access.item.impaired||access.item.status==='impaired')return {ok:false,error:'Repair Life Support before changing its environmental settings.'};

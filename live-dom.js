@@ -2,7 +2,7 @@
   function key(node) {
     if (node.nodeType !== 1) return "";
     if (node.localName === "label" && node.querySelector("input,select")) return `label:${key(node.querySelector("input,select"))}`;
-    const identity = ["id", "data-unit-id", "data-ship-combat-lane", "data-starship-id", "data-id", "data-ring-unit", "data-starship-crew", "data-starship-npc-crew", "data-encounter-character", "data-encounter-starship", "data-encounter-npc", "data-staged-npc", "data-staged-location", "data-encounter-distance", "data-npc-editor", "data-npc-field", "name", ...(node.localName === "option" ? ["value"] : [])]
+    const identity = ["id", "data-space-ship", "data-vessel-body", "data-star-ambience", "data-navigation-route", "data-probe-route", "data-unit-id", "data-ship-combat-lane", "data-starship-id", "data-id", "data-ring-unit", "data-starship-crew", "data-starship-npc-crew", "data-encounter-character", "data-encounter-starship", "data-encounter-npc", "data-staged-npc", "data-staged-location", "data-encounter-distance", "data-npc-editor", "data-npc-field", "name", ...(node.localName === "option" ? ["value"] : [])]
       .find(name => node.hasAttribute(name));
     return `${node.localName}:${identity ? `${identity}:${node.getAttribute(identity)}` : node.getAttribute("class")?.split(" ")[0] || ""}:${node.getAttribute("data-action") || ""}`;
   }

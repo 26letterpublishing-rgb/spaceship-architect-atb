@@ -200,7 +200,7 @@
 .ship-navigation-dialog [data-enlarge-navigation]{min-width:0;padding:5px 8px;font-size:12px;white-space:nowrap}
 
 /* Give navigation the largest working area; details remain available beside it. */
-.ship-navigation-dialog:not(.navigation-planner):not(.map-focus) form{grid-template-rows:minmax(80px,auto) minmax(290px,1fr) minmax(160px,.55fr);min-height:600px;gap:12px 16px;padding:16px 38px}
+.ship-navigation-dialog:not(.navigation-planner):not(.map-focus) form{grid-template-rows:11% 38% 43%;min-height:0;gap:4%;padding:0}
 .ship-navigation-dialog .pilot-fleet,.ship-navigation-dialog .pilot-activity{margin-top:0}
 .ship-navigation-dialog .pilot-chart-title{align-items:center;flex-wrap:wrap}.ship-navigation-dialog .pilot-chart-title h3{margin:0}.ship-navigation-dialog .navigation-fields{flex-wrap:wrap;gap:7px}
 .ship-navigation-dialog.map-focus{background:#09191e;overflow:hidden}
@@ -216,3 +216,7 @@
 .ship-navigation-dialog [data-navigation-summary]{font:12px/1.5 Arial;color:#bce6dc;margin:0;padding:6px;border-top:1px solid #3f6468}
 @media(max-width:760px){.ship-navigation-dialog.map-focus form,.navigation-planner form{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(280px,1fr) auto auto;padding:12px 24px;height:auto;min-height:100%}.ship-navigation-dialog.map-focus,.navigation-planner{overflow:auto}.ship-navigation-dialog.map-focus .pilot-chart,.navigation-planner .pilot-chart{grid-row:2;grid-column:1}.ship-navigation-dialog.map-focus .pilot-power,.navigation-planner .pilot-power{display:block;grid-column:1;grid-row:3;max-height:180px;overflow:auto}.ship-navigation-dialog.map-focus footer,.navigation-planner footer{grid-row:4;grid-column:1;display:flex;flex-direction:row;flex-wrap:wrap}.ship-navigation-dialog.map-focus footer button,.navigation-planner footer button{flex:1}.ship-navigation-dialog.map-focus .pilot-identity h2,.navigation-planner .pilot-identity h2{font-size:16px}}
 .ship-navigation-dialog:not(.navigation-planner):not(.map-focus) [data-navigation-summary]{display:none}
+
+.ship-navigation-dialog [data-hold]{background:#85323d!important;color:#fff!important;border-color:#f08b98!important;border-radius:0!important;clip-path:polygon(12% 0,88% 0,100% 25%,100% 75%,88% 100%,12% 100%,0 75%,0 25%);padding-inline:22px;min-height:42px}
+.ship-navigation-dialog [data-hold].resume-ready{background:#247647!important;border-color:#8ae7a9!important;border-radius:50%!important;clip-path:none;aspect-ratio:1;width:68px;justify-self:center}
+.ship-navigation-dialog [data-leave]{border-radius:0!important;clip-path:polygon(0 0,87% 0,100% 50%,87% 100%,0 100%);padding-right:24px!important;min-height:42px}

@@ -841,6 +841,7 @@ let campaignToken = "";
 let campaignPin = "";
 let campaignEditable = false;
 let campaignDirty = false;
+const seenCraftedWeapons = new Set();
 let campaignSaving = false;
 let lastCampaignSyncAt = null;
 let campaignBaselineCredits = 0;
@@ -1061,6 +1062,7 @@ function skillKeyForCustom(id) {
 }
 
 function resolveSkill(characterObject, key) {
+  if (typeof key !== "string") return null;
   if (key.startsWith("base:")) {
     const name = key.slice(5);
     return characterObject.skills[name] ? { skill: characterObject.skills[name], name, custom: false } : null;
@@ -1221,12 +1223,14 @@ function normalizeCharacter(raw) {
       id: String(entry?.id || uid()),
       weaponId,
       held,
+      ...(entry?.craftRequestId ? {craftRequestId:String(entry.craftRequestId),acquisitionMode:"crafted"} : {}),
     };
   });
   normalized.storedWeapons = normalized.storedWeapons.map((entry) => ({
     id: String(entry?.id || uid()),
     weaponId: weaponById(entry?.weaponId) ? String(entry.weaponId) : "",
     held: false,
+    ...(entry?.craftRequestId ? {craftRequestId:String(entry.craftRequestId),acquisitionMode:"crafted"} : {}),
   })).filter((entry) => entry.weaponId);
   const normalizeItem = (entry) => {
     const catalog = gearById(entry?.catalogId);
@@ -1536,6 +1540,7 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
         characterId: campaignCharacterId,
         baseCredits: campaignBaselineCredits,
         baseCurrentHp: campaignBaselineHp,
+        seenCraftedWeapons: [...seenCraftedWeapons, ...character.weapons.map(w=>w.craftRequestId), ...character.storedWeapons.map(w=>w.craftRequestId)].filter(Boolean),
         exact: Boolean(exact && GM_ADJUSTMENT_MODE),
         character,
       }),
@@ -1794,7 +1799,7 @@ function renderCharacterNavigation() {
     const tab = button.dataset.characterTab;
     if (tab === "sheet" || tab === "settings") button.hidden = false;
     if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
-    if (tab === "starships") button.hidden = !(campaignState?.starships?.length) || (!linked && !gmView);
+    if (tab === "starships") button.hidden = !linked && !gmView;
   }
   dom.joinCampaignPanel.hidden = gmView || (!mayJoin && !pending);
   dom.joinCampaignForm.hidden = pending;
@@ -1802,6 +1807,13 @@ function renderCharacterNavigation() {
   dom.roomCode.hidden = !roomCode;
   dom.roomCodeValue.textContent = roomCode && campaignState?.settings?.hideRoomCode ? "••••" : roomCode || "----";
   if (dom.backToMain) dom.backToMain.hidden = linked;
+  const modernRoom = campaignState?.interfaceVersion === '0.3';
+  if(dom.settingsLoadCharacter) dom.settingsLoadCharacter.closest('section').hidden = modernRoom;
+  if(dom.settingsNewCharacter) dom.settingsNewCharacter.closest('section').hidden = modernRoom;
+  dom.settingsLeaveCampaign.textContent = modernRoom ? 'Abandon Character' : 'Leave Campaign';
+  const leaveSection=dom.settingsLeaveCampaign.closest('section');
+  leaveSection.querySelector('h2').textContent=modernRoom?'Abandon Character':'Leave Campaign';
+  leaveSection.querySelector('p').textContent=modernRoom?'Unlink yourself. The character remains saved in this campaign.':'Break this character’s campaign link.';
   dom.settingsLeaveCampaign.disabled = false;
   dom.settingsLeaveCampaign.closest("section").hidden = gmView;
   dom.messageGmForm.hidden = !linked || gmView;
@@ -1882,7 +1894,7 @@ function combatTabActivity(state, ownId) {
 function renderCombatTabAttention(state=dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state?.()) {
   const button=dom.tabs.querySelector('[data-character-tab="atb"]');
   if(!button)return;
-  const activity=activeCharacterTab==='atb'||campaignState?.role==='gm'?'':combatTabActivity(state,campaignState?.ownCharacterId||campaignCharacterId);
+  const activity=activeCharacterTab==='atb'||campaignState?.role==='gm'?'':(combatTabActivity(state,campaignState?.ownCharacterId||campaignCharacterId)||(campaignState?.combatActive&&campaignState?.clockRunning?'running':''));
   button.classList.toggle('combat-tab-attention',Boolean(activity));
   button.dataset.combatActivity=activity;
   button.title=activity==='ready'?'Your character has a combat action or roll waiting.':activity==='running'?'Your character’s ATB is advancing.':'';
@@ -1922,11 +1934,11 @@ function renderCampaignRoster() {
   dom.campaignStarshipRoster.hidden = starships.length === 0;
   dom.campaignStarshipCards.innerHTML = starships.map((record) => {
     const ship = record.ship || {};
-    const hull = ship.confirmed?.gridCells?.length ?? ship.gridCells?.length ?? 0;
+    const hull = record.hullCount ?? ship.confirmed?.gridCells?.length ?? ship.gridCells?.length ?? 0;
     const engines = ship.confirmed?.placements?.length ?? ship.placements?.length ?? 0;
     const characterQuery = campaignState.ownCharacterId ? `&character=${encodeURIComponent(campaignState.ownCharacterId)}` : "";
     return `<article class="campaign-starship-card">
-      <div><span>PC CONTROLLED</span><strong>${escapeHtml(record.title || "Untitled Starship")}</strong><small>${escapeHtml(ship.class || "Unclassified")} | Hull ${hull} | EN ${engines * 5}</small></div>
+      <div><span>PC CONTROLLED</span><strong>${escapeHtml(record.title || "Untitled Starship")}</strong><small>${escapeHtml(ship.class || "Unclassified")} | Hull ${hull} | EN ${record.powerSummary?.en ?? engines * 5}</small></div>
       <button type="button" data-campaign-ship-view="${escapeAttribute(record.id)}">View</button>
     </article>`;
   }).join("");
@@ -2085,9 +2097,14 @@ function playerShipPath(record, start, destination) {
 }
 
 function livePlayerShipRecord(record) {
-  if(!record||playerEncounterView?.encounterEndedAt)return record;
+  if(!record)return record;
   const locations={...record.characterLocations};
+  for(const [id,loc]of Object.entries(locations))if(loc.environment==='surface')delete locations[id];
+  const interiorOccupants=!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
+  for(const u of interiorOccupants)locations[u.id]=u.location;
+  for(const [index,id] of (record.crewCharacterIds||[]).entries())if(!locations[id]&&record.ship.gridCells.length&&record.characterLocations?.[id]?.environment!=='surface'&&!(campaignState?.starships||[]).some(s=>s.id!==record.id&&s.characterLocations?.[id]))locations[id]={square:record.ship.gridCells[Math.min(Math.floor(index/2),record.ship.gridCells.length-1)],mesh:4};
   for(const unit of playerEncounterView?.units||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId))locations[unit.characterId]=unit.location;
+  if(!playerEncounterView?.encounterEndedAt)for(const unit of playerEncounterView?.units||[])if(unit.characterId&&unit.location?.starshipId!==record.id)delete locations[unit.characterId];
   const live=dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state(),ship=live?.starships.find(s=>s.id===record.id);
   const motion={};
   for(const unit of live?.units||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId)){
@@ -2095,7 +2112,7 @@ function livePlayerShipRecord(record) {
     if(point)motion[unit.characterId]={...point,openDoorKeys:[...point.openDoorKeys],walking:point.walking&&live.running&&!live.rollPaused&&!live.pausedForTurn&&!live.hardPaused&&!live.holdPaused};
   }
   const aiStations=(live?.units||[]).filter(u=>u.shipAi&&!u.defeatedAt&&u.location?.starshipId===record.id&&u.location.stationed).map(u=>({id:u.id,name:u.characterName,location:u.location}));
-  return {...record,aiStations,ship:ship&&!live.encounterEndedAt?{...record.ship,...ship.ship}:record.ship,characterLocations:locations,motion};
+  return {...record,interiorOccupants,aiStations,crewHealth:Object.fromEntries((live?.units||[]).filter(u=>u.characterId&&u.location?.starshipId===record.id).map(u=>[u.characterId,u.currentHp])),ship:ship&&!live.encounterEndedAt?{...record.ship,...ship.ship}:record.ship,characterLocations:locations,motion};
 }
 let playerShipEditingId=null;
 function renderPlayerStarships(force = false) {
@@ -2176,7 +2193,8 @@ function renderPlayerStarships(force = false) {
       const ready = active && starshipMoveDraft.locked && !starshipMoveDraft.invalid && (starshipMoveDraft.path?.length || starshipMoveDraft.sameSquareMove);
       const hullMax = Number(ship.maximumHullHp ?? ship.confirmed?.maximumHullHp ?? hull.size); const hullCurrent = Number(ship.currentHullHp ?? ship.confirmed?.currentHullHp ?? hullMax); const shieldMax = Number(ship.maximumShieldHp ?? ship.confirmed?.maximumShieldHp ?? 0); const shieldCurrent = Number(ship.currentShieldHp ?? ship.confirmed?.currentShieldHp ?? shieldMax);
       const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaignState.characters));
-      const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.track("shield", shieldCurrent, shieldMax, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
+      const shieldRecord = !playerEncounterView?.encounterEndedAt && dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state()?.starships.find(s=>s.id===record.id) || record;
+      const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.shields(shieldRecord, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}">Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
       const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
@@ -2217,7 +2235,7 @@ function renderPlayerStarships(force = false) {
   if(fullShipDetails){const template=document.createElement('template');template.innerHTML=markup;for(const record of ships){
     const card=template.content.querySelector(`[data-player-starship="${CSS.escape(record.id)}"]`);
     card.querySelector('header [data-player-ship-begin]')?.remove();
-    for (const button of card.querySelectorAll('header [data-preview-console],header [data-ship-diagnostics]')) button.hidden=true;
+    // Keep console previews and system diagnostics available alongside the detailed floorplan.
     card.classList.add('full-ship-details');card.classList.toggle('is-moving',starshipMoveDraft?.starshipId===record.id);
     const frame=document.createElement('iframe');frame.title=`${record.title} ship details`;
     if(playerShipEditingId===record.id){
@@ -2238,6 +2256,7 @@ function renderPlayerStarships(force = false) {
     if(reports.length){const section=document.createElement('section');section.className='maintenance-history';section.innerHTML='<h3>Maintenance Results</h3>'+reports.slice(0,5).map(r=>`<p>${escapeHtml(r.text)}</p>`).join('');history.append(section);}
   }
   refreshPlayerShipPreview();
+  updateKeyboardMovement();
 }
 
 function refreshPrivateNotes() {
@@ -2312,7 +2331,7 @@ function renderCampaignBank() {
 
 function currentOpenRollRequest() {
   if (!campaignState || !campaignCharacterId) return null;
-  return [...(campaignState.rollRequests || [])].reverse().find((request) => !request.closedAt && request.targetIds.includes(campaignCharacterId) && !request.results?.[campaignCharacterId]) || null;
+  return [...(campaignState.rollRequests || [])].find((request) => !request.closedAt && request.targetIds.includes(campaignCharacterId) && !request.results?.[campaignCharacterId]) || null;
 }
 
 function refreshCampaignRollPrompt() {
@@ -2326,10 +2345,13 @@ function refreshCampaignRollPrompt() {
 }
 
 function receiveCampaignState(nextState) {
+  if(window.SARoomV03?.moveRoom(nextState))return;
+  if(nextState.interfaceVersion==='0.3'&&(!nextState.roomOpen||(campaignEditable&&nextState.role!=='gm'&&nextState.ownCharacterId!==campaignCharacterId))){campaignEditable=false;campaignDirty=false;location.href='room.html?campaign='+campaignCode;return;}
   dom.playerAtbFrame?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   document.querySelector('[data-console-preview-frame]')?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
+  window.SACrewLogs?.update(nextState,campaignToken);
   window.SACrewRoomStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/crew-room',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:nextState.ownCharacterId,...body})}));
   window.SATransitStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/transit',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,...body})}));
   window.SAOxygenUI.update(nextState.oxygen,body=>campaignRequest('/api/campaign/oxygen/roll',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,...body})}),nextState.role==='gm');
@@ -2348,6 +2370,16 @@ function receiveCampaignState(nextState) {
     dom.saveStatus.classList.add("saving");
     return;
   }
+  const localCrafts = new Set([...character.weapons,...character.storedWeapons].map(w=>w.craftRequestId));
+  let deliveredCraft = false;
+  for (const w of [...(remote.character.weapons||[]),...(remote.character.storedWeapons||[])]) {
+    if (!w.craftRequestId) continue;
+    if (!seenCraftedWeapons.has(w.craftRequestId) && !localCrafts.has(w.craftRequestId)) {
+      character.storedWeapons.push({...w,held:false});localCrafts.add(w.craftRequestId);deliveredCraft=true;
+    }
+    seenCraftedWeapons.add(w.craftRequestId);
+  }
+  if (deliveredCraft) renderWeapons();
   const remoteHp = Number(remote.character?.health?.current);
   if (campaignEditable && (campaignDirty || campaignSaving) && Number.isFinite(remoteHp)) {
     const localHp = Number(character.health?.current);
@@ -2405,8 +2437,9 @@ function connectCampaignState() {
     playerEncounterView=positions;
     renderCombatTabAttention();
     if(campaignState){
-      campaignState.combatActive=positions.combatActive;campaignState.deployedShipIds=positions.deployedShipIds||campaignState.deployedShipIds;
-      for(const ship of campaignState.starships||[])for(const unit of positions.units||[]){
+      campaignState.combatActive=positions.combatActive;campaignState.clockRunning=positions.clockRunning;renderCombatStatus();campaignState.deployedShipIds=positions.deployedShipIds||campaignState.deployedShipIds;
+      for(const unit of positions.units||[])for(const ship of campaignState.starships||[]){
+        if(ship.characterLocations)delete ship.characterLocations[unit.characterId];
         if(ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)){
           ship.characterLocations||={};ship.characterLocations[unit.characterId]=unit.location;
         }
@@ -2467,7 +2500,7 @@ async function loadCampaign(code, token = "") {
   const normalized = String(code || "").trim().toUpperCase();
   let state;
   try {
-    state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
+    state = await campaignRequest(`/api/campaign/state?compact=1&code=${encodeURIComponent(normalized)}&token=${encodeURIComponent(token)}`);
     if (state.showcase && !SHOWCASE_MODE) {
       const target = new URL(location.href);
       target.searchParams.set('campaign', normalized);
@@ -2571,7 +2604,8 @@ async function checkJoinStatus() {
 async function requestCampaignJoin(roomCode) {
   const normalized = String(roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
   if (!/^[A-Z0-9]{4}$/.test(normalized)) throw new Error("Enter the complete Campaign Code.");
-  if (character.phase !== "finalized" || !character.access?.pcCode) throw new Error("Finalize this character and choose a PC Code first.");
+  if(await window.SARoomV03?.importIntoRoom(normalized,"character",character))return;
+  if(!character.access?.pcCode)throw Error("Choose a PC Code for this older campaign first.");
   const result = await campaignRequest("/api/campaign/join/request", {
     method: "POST",
     body: JSON.stringify({ code: normalized, pcCode: character.access.pcCode, character }),
@@ -4649,7 +4683,7 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultLabel.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Roll recorded':outcome || "Final Score";
   dom.skillResultScore.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Ready':formatNumber(score);
   const damageMultiplier=skillCheck.damage?skillCheck.damageMultiplier||1:1;
-  if(damageMultiplier>1)dom.skillResultScore.textContent=formatNumber(score*damageMultiplier);
+  if(skillCheck.damage)dom.skillResultScore.textContent=formatNumber(score*damageMultiplier);
   dom.skillResultEquation.textContent = damageMultiplier>1?`${equation} · ${formatNumber(score)} × ${damageMultiplier} = ${formatNumber(score*damageMultiplier)} damage`:equation;
   const ruleLines = rollRuleExplanations();
   dom.skillResultRules.hidden = ruleLines.length === 0;
@@ -4703,6 +4737,13 @@ async function confirmSkillResult() {
   try {
     if (!await submitCampaignRollResult(check.pendingSubmission)) return;
     await submitCombatRollResult(check.pendingSubmission);
+    if(!check.statisticsRecorded&&!check.damage&&!PAGE_PARAMS.has('shipRoll')){
+      const name=resolveSkill(character,check.skillKey)?.name||check.skillName||ATTRIBUTE_DEFS.find(a=>a.key===check.attributeKey)?.label||check.attributeKey;
+      const receipt=check.statisticsReceipt||=crypto.randomUUID();
+      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,score:check.pendingSubmission.score,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
+      else window.SACharacterStatistics.roll(character,name,check.pendingSubmission.score,receipt);
+      check.statisticsRecorded=true;queueSave();
+    }
     if(!PAGE_PARAMS.has('shipRoll')){
       const result=check.pendingSubmission;
       window.SAResultFeedback?.push(`${campaignCode||'local'}:${crypto.randomUUID()}`,dom.skillCheckTitle.textContent,
@@ -5385,14 +5426,15 @@ async function handleGmDirectEdit(element) {
   return true;
 }
 
-function weaponOptions(selectedId) {
+function weaponOptions(selectedId, entry) {
   const angiluros = character.identity.raceId === "angiluros";
   const selected = weaponById(selectedId);
   const available = WEAPONS.filter((weapon) => angiluros ? weapon.angilurosOnly : !weapon.angilurosOnly);
   if (selected && !available.some((weapon) => weapon.id === selected.id)) available.push(selected);
   return [
     `<option value="">Choose a weapon</option>`,
-    ...available.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}${weapon.angilurosOnly ? " - Ancestral" : ` - ${weaponCreditCost(weapon).toLocaleString()} Credits`}</option>`),
+    ...character.storedWeapons.filter(w=>w.acquisitionMode === "crafted").map(w=>`<option value="stored:${escapeAttribute(w.id)}">${escapeHtml(weaponById(w.weaponId)?.name || w.weaponId)} - Crafted (storage)</option>`),
+    ...available.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}${entry?.acquisitionMode === "crafted" && weapon.id === selectedId ? " - Crafted" : weapon.angilurosOnly ? " - Ancestral" : ` - ${weaponCreditCost(weapon).toLocaleString()} Credits`}</option>`),
   ].join("");
 }
 
@@ -5469,7 +5511,7 @@ function renderWeapons() {
     const emptyClass = weapon ? "" : " weapon-empty-stat";
     const chargeTime = weapon?.chargeMode === "movement" ? "Movement" : weapon?.chargeTime || "-";
     return `<div class="weapon-table-row" role="row" data-weapon-row="${escapeAttribute(entry.id)}">
-      <select data-weapon-select="${escapeAttribute(entry.id)}" aria-label="Choose weapon" ${editable ? "" : "disabled"}>${weaponOptions(entry.weaponId)}</select>
+      <select data-weapon-select="${escapeAttribute(entry.id)}" aria-label="Choose weapon" ${editable ? "" : "disabled"}>${weaponOptions(entry.weaponId, entry)}</select>
       <button type="button" class="weapon-held-button ${entry.held ? "active" : ""}" data-hold-weapon="${escapeAttribute(entry.id)}" ${weapon && editable ? "" : "disabled"} aria-pressed="${entry.held ? "true" : "false"}"><span>${entry.held ? "Held" : "Hold"}</span></button>
       <span class="weapon-stat${emptyClass}" data-label="To-Hit">${escapeHtml(weaponStat(weapon?.toHit))}</span>
       <span class="weapon-stat${emptyClass}" data-label="Damage">${escapeHtml(weaponStat(weapon?.damage))}</span>
@@ -5485,7 +5527,7 @@ function renderWeapons() {
   }).join("");
   dom.storedWeaponInventory.innerHTML = character.storedWeapons.map((entry) => {
     const weapon = weaponById(entry.weaponId);
-    return `<div class="stored-weapon-row"><strong>${escapeHtml(weapon?.name || "Weapon")}</strong><span>${escapeHtml(weapon?.sizeClass || "-")} Class</span><button type="button" data-return-weapon="${escapeAttribute(entry.id)}" ${editable && character.weapons.length < 24 ? "" : "disabled"}>Return</button></div>`;
+    return `<div class="stored-weapon-row"><strong>${escapeHtml(weapon?.name || "Weapon")}${entry.acquisitionMode === "crafted" ? " — Crafted" : ""}</strong><span>${escapeHtml(weapon?.sizeClass || "-")} Class</span><button type="button" data-return-weapon="${escapeAttribute(entry.id)}" ${editable && character.weapons.length < 24 ? "" : "disabled"}>Return</button></div>`;
   }).join("");
   dom.storedWeaponEmpty.hidden = Boolean(character.storedWeapons.length);
   renderWeaponSlots();
@@ -5501,7 +5543,7 @@ function requestWeaponMode(weapon, entry) {
   if (weapon.angilurosOnly && character.identity.raceId === "angiluros") {
     const otherFreeChoices = character.weapons.filter((candidate) => candidate.id !== entry?.id && weaponById(candidate.weaponId)?.angilurosOnly).length;
     if (character.phase === "draft" && otherFreeChoices < 3) return Promise.resolve("angiluros-free");
-    return Promise.resolve("angiluros-craft");
+    return askConfirmation({title:"Craft Ancestral Weapon",message:`Would you like to craft ${weapon.name}?`,acceptLabel:"Craft",cancelLabel:"Cancel"}).then(accepted => accepted ? "angiluros-craft" : null);
   }
   const canReceive = mayReceiveGearForFree();
   return new Promise((resolve) => {
@@ -5526,6 +5568,7 @@ function requestWeaponMode(weapon, entry) {
 }
 
 async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
+  if(!campaignCode && mode!=='angiluros-free')throw Error('Weapons and gear must be obtained after joining a campaign.');
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (mode === "receive" && !mayReceiveGearForFree()) {
     notice("Link this character to a campaign before receiving weapons for free.", "error");
@@ -5559,7 +5602,7 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
       body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, weaponId: weapon.id, inventoryId: entry.id, craftHours }),
     });
     if (payload.campaign) receiveCampaignState(payload.campaign);
-    notice(`${weapon.name} requires ${craftHours} fictional hour${craftHours === 1 ? "" : "s"}. Approval sent to the GM.`, "success");
+    notice(`${weapon.name} requires ${craftHours} fictional hour${craftHours === 1 ? "" : "s"}. Crafting started. Advance campaign time, then the GM can approve delivery to storage.`, "success");
     return false;
   }
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
@@ -5764,6 +5807,7 @@ function requestStorageRecipient(item) {
 }
 
 async function addGearItem(item, mode) {
+  if(!campaignCode)throw Error('Weapons and gear must be obtained after joining a campaign.');
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (mode === "receive" && !mayReceiveGearForFree()) {
     notice("Link this character to a campaign before receiving items for free.", "error");
@@ -6287,6 +6331,7 @@ function playWipe(switchCharacter) {
 }
 
 async function beginNewCharacter() {
+  if(campaignState?.interfaceVersion==='0.3'&&campaignState.ownCharacterId){notice('Abandon your current character in Settings before creating another.','error');return;}
   const accepted = await askConfirmation({
     title: "Start a new character?",
     message: "The current character is saved, and a Recovery Draft will be created before the sheet is cleared.",
@@ -6302,6 +6347,7 @@ async function beginNewCharacter() {
     library.push(next);
     activeId = next.id;
     character = next;
+    character.identity.playerName=localStorage.getItem("sa-first-name")||"";
     dom.skillSearch.value = "";
     saveLibrary("New character saved locally");
   });
@@ -6467,9 +6513,9 @@ async function beginFinalization() {
     return;
   }
   if (!manual && !await collectFinalizationChoices()) return;
-  const pcCode = await requestPcCode();
-  if (!pcCode) return;
-  character.access.pcCode = pcCode;
+  // Campaign passwords are chosen at room linking, never stored in portable creation files.
+  character.access ||= {};
+  if(campaignCode && campaignState?.interfaceVersion!=='0.3'){const pcCode=await requestPcCode();if(pcCode===null)return;character.access.pcCode=pcCode;}
   saveLibrary();
   snapshotRecovery("Before Finalization");
   finalizationPresentationActive = true;
@@ -6526,6 +6572,7 @@ function applyResourceGrant(effects) {
 }
 
 async function finishFinalization() {
+  document.getElementById("skipCreationDecimals")?.remove();
   finalizationPresentationActive = true;
   if (!character.creation.classGrantsApplied) {
     applyResourceGrant(rawClassEffects());
@@ -6555,6 +6602,7 @@ async function finishFinalization() {
   notice("Character finalized. Advancement rules are now active.", "success");
   await playFinalizedIdentityReveal();
   finalizationPresentationActive = false;
+  if(PAGE_PARAMS.get('roomCreate'))await finishRoomCreation();
   renderCharacterLayout();
   renderCharacterNavigation();
 }
@@ -6586,6 +6634,8 @@ function openRequestedCampaignRoll() {
 }
 
 function processFinalization() {
+  if(character.phase==='finalized'||character.creation?.skippingDecimals)return;
+  showDecimalSkip();
   if (character.phase !== "finalizing" || diceRoller.isActive()) return;
   if (character.pendingRoll) {
     rollPending();
@@ -6695,7 +6745,7 @@ function rollPending() {
       character.pendingRoll.config = config;
       saveLibrary("Physical roll in progress");
     },
-    onResolved: (result) => showPendingRollToast(pending, result),
+    onResolved: (result) => {pending.resolvedResult=result;showPendingRollToast(pending, result);},
     onSettled: (result) => handleSettledRoll(result),
   }).catch(() => {
     notice("The 3D dice tray could not start. Reload the page to resume this saved roll.", "error");
@@ -6717,7 +6767,9 @@ function handleSettledRoll(result) {
     resolved.skill.creationDecimal = decimal;
     character.creation.finalizationQueue = character.creation.finalizationQueue.filter((key, index) => !(index === 0 && key === pending.skillKey));
     character.pendingRoll = null;
+    character.creation.decimalRollSeen=true;
     saveLibrary("Skill decimal finalized");
+    showDecimalSkip();
     renderAll();
     diceRoller.celebrate(420).then(processFinalization);
     return;
@@ -6765,7 +6817,7 @@ function rerollAdvancement(cost) {
       character.pendingRoll.config = config;
       saveLibrary("Physical reroll in progress");
     },
-    onResolved: (result) => showPendingRollToast(pending, result),
+    onResolved: (result) => {pending.resolvedResult=result;showPendingRollToast(pending, result);},
     onSettled: (result) => handleSettledRoll(result),
   });
 }
@@ -6943,7 +6995,8 @@ function filenameForCharacter() {
 
 async function exportCurrentCharacter() {
   saveLibrary();
-  const payload = { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: new Date().toISOString(), character };
+  const portable=structuredClone(character);delete portable.access;delete portable.campaignLink;
+  const payload = { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: new Date().toISOString(), character:portable };
   const json = JSON.stringify(payload, null, 2);
   const baseName = filenameForCharacter();
   const mobileDevice = Boolean(navigator.userAgentData?.mobile) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
@@ -7187,7 +7240,7 @@ document.addEventListener("click", async (event) => {
     const entry = character.weapons.find((weapon) => weapon.id === storeWeapon.dataset.storeWeapon);
     const weapon = weaponById(entry?.weaponId);
     if (!entry || !weapon) return;
-    character.storedWeapons.push({ id: uid(), weaponId: entry.weaponId, held: false });
+    character.storedWeapons.push({ ...entry, held: false });
     character.weapons = character.weapons.filter((candidate) => candidate.id !== entry.id);
     if (!character.weapons.length) character.weapons.push({ id: uid(), weaponId: "", held: false });
     queueSave();
@@ -7203,8 +7256,8 @@ document.addEventListener("click", async (event) => {
     const weapon = weaponById(entry?.weaponId);
     if (!entry || !weapon) return;
     const empty = character.weapons.find((candidate) => !candidate.weaponId);
-    if (empty) empty.weaponId = entry.weaponId;
-    else character.weapons.push({ id: uid(), weaponId: entry.weaponId, held: false });
+    if (empty) Object.assign(empty,entry,{held:false});
+    else character.weapons.push({ ...entry, held: false });
     character.storedWeapons = character.storedWeapons.filter((candidate) => candidate.id !== entry.id);
     queueSave();
     await saveCampaignCharacter({ force: true });
@@ -7249,11 +7302,23 @@ document.addEventListener("change", async (event) => {
   if (!select || !["draft", "finalized"].includes(character.phase) || (campaignCode && !campaignEditable)) return;
   const entry = character.weapons.find((weapon) => weapon.id === select.dataset.weaponSelect);
   if (!entry) return;
+  if (select.value.startsWith("stored:")) {
+    const stored = character.storedWeapons.find(w=>w.id===select.value.slice(7));
+    if (!stored) { renderWeapons(); return; }
+    character.storedWeapons = character.storedWeapons.filter(w=>w.id!==stored.id);
+    if (entry.weaponId) character.storedWeapons.push({...entry,held:false});
+    delete entry.craftRequestId;
+    delete entry.acquisitionMode;
+    Object.assign(entry,stored,{held:false});
+    queueSave(); await saveCampaignCharacter({force:true}); renderAll(); return;
+  }
   const previousWeaponId = entry.weaponId || "";
   const weapon = weaponById(select.value);
   if (!weapon) {
     entry.weaponId = "";
     entry.held = false;
+    delete entry.craftRequestId;
+    delete entry.acquisitionMode;
     queueSave();
     renderWeapons();
     renderDerived();
@@ -7894,7 +7959,7 @@ dom.createCampaignCharacter?.addEventListener("click", async () => {
     });
     campaignToken = created.token;
     campaignPin = created.pin;
-    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    campaignState = await campaignRequest(`/api/campaign/state?compact=1&code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
     showCampaignCharacter(created.record, { editable: true, token: campaignToken, pin: campaignPin });
     connectCampaignState();
     showPinDisplay({ title: "New Character PIN", message: "Keep this PIN. It unlocks this character for editing and Experience spending." });
@@ -7918,7 +7983,7 @@ dom.importCampaignCharacter?.addEventListener("change", async () => {
     });
     campaignToken = created.token;
     campaignPin = created.pin;
-    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    campaignState = await campaignRequest(`/api/campaign/state?compact=1&code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
     showCampaignCharacter(created.record, { editable: true, token: campaignToken, pin: campaignPin });
     connectCampaignState();
     showPinDisplay({ title: "Imported Character PIN", message: "This imported sheet can be edited now, but it must be approved by the GM before campaign play." });
@@ -7947,7 +8012,7 @@ dom.campaignPinConfirm?.addEventListener("click", async () => {
     });
     campaignToken = unlocked.token;
     campaignPin = enteredPin;
-    campaignState = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
+    campaignState = await campaignRequest(`/api/campaign/state?compact=1&code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken)}`);
     dom.campaignPinModal.hidden = true;
     showCampaignCharacter(unlocked.record, { editable: true, token: campaignToken, pin: campaignPin });
     connectCampaignState();
@@ -8215,6 +8280,7 @@ dom.updateCharacterVersion?.addEventListener("click", updateCurrentCharacterVers
 dom.settingsExportCharacter?.addEventListener("click", exportCurrentCharacter);
 
 dom.settingsLoadCharacter?.addEventListener("change", async () => {
+  if(campaignState?.interfaceVersion === "0.3") return;
   const file = dom.settingsLoadCharacter.files?.[0];
   if (!file) return;
   const accepted = await askConfirmation({
@@ -8239,6 +8305,7 @@ dom.settingsLoadCharacter?.addEventListener("change", async () => {
 });
 
 dom.settingsNewCharacter?.addEventListener("click", async () => {
+  if(campaignState?.interfaceVersion === "0.3") return;
   const accepted = await askConfirmation({
     title: "Replace this character with a new one?",
     message: "This character will leave the campaign. Export Character Data first if you need a portable backup.",
@@ -8252,6 +8319,11 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
 });
 
 dom.settingsLeaveCampaign?.addEventListener("click", async () => {
+  if(campaignState?.interfaceVersion === '0.3') {
+    if(!await askConfirmation({title:'Abandon Character?',message:'The character stays in this campaign and becomes available for another player to link.',acceptLabel:'Abandon Character',cancelLabel:'Stay'}))return;
+    try { const response=await fetch('/api/campaign/v03/abandon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:localStorage.getItem('sa-room-player-'+campaignCode)||localStorage.getItem(campaignTokenKey(campaignCode,campaignCharacterId))})});const data=await response.json();if(!response.ok)throw Error(data.error);location.href='room.html?campaign='+campaignCode; } catch(error){notice(error.message,'error');}
+    return;
+  }
   const pending = character.campaignLink?.status === "pending";
   const accepted = await askConfirmation({
     title: pending ? "Cancel this campaign request?" : "Leave this campaign?",
@@ -8410,7 +8482,7 @@ async function animatePlayerShipMove(card, record, startSquare, startMesh, route
   if (!viewport || !token || !route?.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const viewportRect = viewport.getBoundingClientRect(); const tokenRect = token.getBoundingClientRect();
   const startX = tokenRect.left - viewportRect.left + viewport.scrollLeft + tokenRect.width / 2; const startY = tokenRect.top - viewportRect.top + viewport.scrollTop + tokenRect.height / 2;
-  const ghost = token.cloneNode(true); ghost.className = "player-ship-token is-self player-ship-moving-token"; ghost.style.left = `${startX}px`; ghost.style.top = `${startY}px`; viewport.append(ghost); token.style.opacity = "0";
+  const ghost = token.cloneNode(true); ghost.classList.add("player-ship-token","is-self","player-ship-moving-token"); ghost.style.left = `${startX}px`; ghost.style.top = `${startY}px`; viewport.append(ghost); token.style.opacity = "0";
   const layout = window.SAShipMap.buildLayout(record.ship || {}); let previousSquare = startSquare;
   try {
     for (let index = 0; index < route.length; index += 1) {
@@ -8442,8 +8514,7 @@ async function animatePlayerShipMove(card, record, startSquare, startMesh, route
       previousSquare = square;
     }
   } finally {
-    ghost.remove();
-    token.style.opacity = "";
+    if(control?.keepArrivalGhost)control.cleanup=()=>{ghost.remove();token.style.opacity="";};else{ghost.remove();token.style.opacity = "";}
   }
 }
 
@@ -8647,7 +8718,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
         starshipMoveDraft=null;renderPlayerStarships(true);return;
       }
       const animationRoute = move.meshRoute?.length ? move.meshRoute : [{square:move.destination,mesh:move.destinationMesh}];
-      const walk=playerShipWalk={cancelled:false,position:{square:move.start,mesh:move.startMesh}};
+      const walk=playerShipWalk={cancelled:false,keepArrivalGhost:true,position:{square:move.start,mesh:move.startMesh}};
       await animatePlayerShipMove(confirm.closest(".player-starship-card"), record, move.start, move.startMesh, animationRoute, move.destinationMesh,walk);
       const arrival=walk.cancelled?walk.position:{square:move.destination,mesh:move.destinationMesh};
       const payload = await campaignRequest("/api/campaign/starship/move-character", {
@@ -8661,7 +8732,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
     } catch (error) {
       Object.assign(move,{message:error.message,invalid:true,submitting:false});starshipMoveDraft=move;
       renderPlayerStarships(true);
-    } finally {playerShipWalk=null;}
+    } finally {playerShipWalk?.cleanup?.();playerShipWalk=null;}
   }
 });
 dom.playerStarshipList?.addEventListener("pointerover", (event) => {
@@ -9024,6 +9095,13 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
+async function finishRoomCreation(){
+  const code=PAGE_PARAMS.get('roomCreate');if(!code||character.phase!=='finalized')return;
+  try{const password=await window.SARoomV03.input('Character Ready','Choose your character password');if(password===null){notice('Character saved. Use Finish Joining Room to set a password and enter.');return;}
+  const token=localStorage.getItem(window.SARoomV03.roomKey(code));const result=await window.SARoomV03.api('character/create',{code,token,password,character});window.SARoomV03.openCharacter(result.campaign,token);
+  }catch(error){notice(error.message,'error');}
+}
+
 async function initializeCharacterApp() {
   const params = PAGE_PARAMS;
   const explicitNewCharacter = params.get("new") === "1";
@@ -9040,9 +9118,10 @@ async function initializeCharacterApp() {
     library.push(next);
     activeId = next.id;
     character = next;
+    character.identity.playerName=localStorage.getItem("sa-first-name")||"";
     dom.skillSearch.value = "";
     saveLibrary("New character saved locally");
-    window.history.replaceState({}, "", "character.html");
+    window.history.replaceState({}, "", PAGE_PARAMS.get("roomCreate") ? "character.html?library=1&roomCreate="+encodeURIComponent(PAGE_PARAMS.get("roomCreate")) : "character.html");
     renderAll();
   }
   dom.campaignCode.value = /^[A-Z0-9]{4}$/.test(requestedCode) ? requestedCode : "";
@@ -9052,7 +9131,7 @@ async function initializeCharacterApp() {
     const tokenStorage = SHOWCASE_MODE ? sessionStorage : localStorage;
     let token = gmAccess
       ? sessionStorage.getItem(`sa-gm-token-${requestedCode}`) || localStorage.getItem(`sa-gm-token-${requestedCode}`) || ""
-      : tokenStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || "";
+      : tokenStorage.getItem(campaignTokenKey(requestedCode, requestedCharacter)) || localStorage.getItem("sa-room-player-"+requestedCode) || "";
     try {
       let state = await loadCampaign(requestedCode, token);
       if (!gmAccess && state.role !== "character") {
@@ -9159,11 +9238,11 @@ function updateSharedDamage(request){
  if(!['rolling','result'].includes(request.phase)||check.sharedAnimating||check.sharedShown)return;
  check.sharedAnimating=true;check.currentRollSides=[...request.sides];
  dom.skillCheckModal.hidden=true;document.body.classList.add('skill-roll-active');
- diceRoller.rollPool({sides:request.sides,values:request.values,presentation:'avalanche',damage:true,fusion:false,title:'20,000D12 Damage Roll',subtitle:'Planetary Cleanser • Simulated spectacle',onSettled:values=>{
+ diceRoller.rollPool({sides:request.sides,values:request.values,presentation:'avalanche',damage:true,fusion:false,title:'20,000D12 Damage Roll',subtitle:'Planetary Cleanser',onSettled:values=>{
   if(skillCheck!==check)return;
   diceRoller.stop();document.body.classList.remove('skill-roll-active');dom.skillCheckModal.hidden=false;
-  showSkillResult({score:request.score,equation:'Simulated 20,000D12 damage',outcome:'Damage',diceResults:values});
-  dom.skillDiceTypes.textContent='20,000D12 • SIMULATED';dom.skillDiceValues.textContent='192 illustrated D12s';
+  showSkillResult({score:request.score,equation:'20,000D12 damage',outcome:'Damage',diceResults:values});
+  dom.skillDiceTypes.textContent='20,000D12';dom.skillDiceValues.textContent=request.sides.length+' illustrated D12s';
   dom.skillResultRules.hidden=true;dom.skillResultOutcome.textContent='Confirm to fire the Planetary Cleanser';
   dom.rerollSkillCheck.hidden=true;dom.freeRuleReroll.hidden=true;dom.skillFusionResults.hidden=true;
   check.sharedShown=true;check.sharedAnimating=false;updateSharedDamage(check.sharedDamage);
@@ -9190,8 +9269,8 @@ if(PAGE_PARAMS.has('shipRoll')){
     parent.postMessage({type:'sa-ship-skill-opened',rollId:request.rollId},location.origin);
     if(request.sharedDamage){
       skillCheck.sharedDamage=request;skillCheck.immediateResult=true;
-      dom.skillCheckKicker.textContent='Damage Roll';dom.selectedDicePool.textContent='20,000D12';dom.selectedSkillBonus.textContent='SIMULATED';
-      dom.skillCheckSubtitle.textContent='A simulated planetary damage result with the standard dice animation.';
+      dom.skillCheckKicker.textContent='Damage Roll';dom.selectedDicePool.textContent='20,000D12';dom.selectedSkillBonus.textContent='DAMAGE';
+      dom.skillCheckSubtitle.textContent='Roll damage to unleash the Planetary Cleanser.';
       dom.skillDifficulty.closest('.skill-input-grid').hidden=true;dom.calculateManualSkill.hidden=true;
       dom.skillExertionBlock.hidden=true;dom.skillEquipmentBlock.hidden=true;
       updateSharedDamage(request);return;
@@ -9199,12 +9278,12 @@ if(PAGE_PARAMS.has('shipRoll')){
     if(request.spectator){
       const check=skillCheck;check.currentRollSides=[...request.sides];
       dom.skillCheckModal.hidden=true;document.body.classList.add('skill-roll-active');
-      diceRoller.rollPool({sides:request.sides,values:request.values,presentation:request.simulated&&request.diceFlood?'avalanche':null,color:request.damage?null:0x666a70,damage:request.damage,fusion:!request.damage,title:request.title,subtitle:(request.simulated?'Simulated spectacle • ':'Automatic roll • ')+request.name,onSettled:values=>{
+      diceRoller.rollPool({sides:request.sides,values:request.values,presentation:request.simulated&&request.diceFlood?'avalanche':null,color:request.damage?null:0x666a70,damage:request.damage,fusion:!request.damage,title:request.title,subtitle:(request.simulated?'Damage roll • ':'Automatic roll • ')+request.name,onSettled:values=>{
         if(skillCheck!==check)return;
         diceRoller.stop();document.body.classList.remove('skill-roll-active');dom.skillCheckModal.hidden=false;
         showSkillResult({score:request.score,equation:values.join(' | '),outcome:request.damage?'Damage':'Result',diceResults:values});
         dom.skillResultScore.textContent=formatNumber(request.displayScore??request.score);
-        dom.skillResultOutcome.textContent=request.simulated?'Simulated damage — cinematic display':'Automatic result — no input needed';
+        dom.skillResultOutcome.textContent=request.simulated?'Planetary Cleanser damage':'Automatic result — no input needed';
         dom.exitSkillResult.textContent='Confirming automatically';dom.exitSkillResult.disabled=true;
         dom.rerollSkillCheck.hidden=true;dom.freeRuleReroll.hidden=true;dom.skillFusionResults.hidden=true;
         parent.postMessage({type:'sa-automatic-dice-shown',rollId:request.rollId},location.origin);
@@ -9234,6 +9313,8 @@ window.addEventListener('message',event=>{
     if(event.data?.type==='sa-ship-map-destination'&&record&&!(event.data.preview&&starshipMoveDraft?.locked))previewPlayerShipDestination(record,campaignState?.ownCharacterId||campaignCharacterId,Number(event.data.square),Number(event.data.mesh),!event.data.preview);
     if(event.data?.type==='sa-ship-map-action'&&['begin','confirm','cancel'].includes(event.data.action))card.querySelector(`[data-player-ship-${event.data.action}]`)?.click();
     if(event.data?.type==='sa-ship-map-action'&&event.data.action==='console')card.querySelector('[data-preview-console]')?.click();
+    if(event.data?.type==='sa-ship-map-action'&&event.data.action==='keyboard')card.querySelector('[data-keyboard-movement]')?.click();
+    if(event.data?.type==='sa-ship-map-action'&&event.data.action==='power')card.querySelector('[data-local-power]')?.click();
     if(event.data?.type==='sa-ship-map-action'&&event.data.action==='diagnostics')card.querySelector('[data-ship-diagnostics]')?.click();
     if(event.data?.type==='sa-ship-map-door')card.querySelector(`[data-player-ship-door="${CSS.escape(String(event.data.key))}"]`)?.click();
     if(event.data?.type==='sa-ship-detail-ready'){
@@ -9274,3 +9355,58 @@ window.addEventListener('sa-drone-update',event=>{
     frame.contentWindow?.postMessage({type:'sa-drone-map',shipId,drones:all.filter(d=>d.targetId===shipId)},location.origin);
   }
 });
+
+// Room-level identity is separate from the selected character.
+const roomReturn=document.createElement('button');roomReturn.textContent='Room Lobby / Abandon Character';
+roomReturn.onclick=()=>{if(campaignCode)location.href='room.html?campaign='+campaignCode;};
+document.getElementById('playerSettingsPanel')?.append(roomReturn);
+if(PAGE_PARAMS.get('roomCreate')){const finish=document.createElement('button');finish.textContent='Finish Joining Room';finish.onclick=finishRoomCreation;document.getElementById('playerSettingsPanel')?.append(finish);}
+if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('p');help.textContent='Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.className='v03-panel';document.getElementById('characterWorkspace')?.prepend(help);}
+
+// v0.3: the drawer mirrors existing sheet sections and forwards only roll controls.
+let sheetDrawer=null,sheetDrawerBody=null,sheetDrawerSection='attributes',sheetDrawerOpen=false,sheetDrawerKey='';
+function updateSheetDrawer(){
+ if(PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW||GM_ADJUSTMENT_MODE)return;
+ if(!sheetDrawer){sheetDrawer=document.createElement('aside');sheetDrawer.className='pc-sheet-drawer';const handle=document.createElement('button');handle.className='pc-sheet-handle';handle.textContent='Character Sheet';const panel=document.createElement('section');panel.innerHTML='<nav></nav>';sheetDrawerBody=document.createElement('div');panel.append(sheetDrawerBody);sheetDrawer.append(handle,panel);document.body.append(sheetDrawer);
+ handle.onclick=()=>{sheetDrawerOpen=!sheetDrawerOpen;sheetDrawerSection='attributes';sheetDrawerKey='';updateSheetDrawer();};
+ for(const tab of document.querySelectorAll('[data-sheet-section-tab]')){const button=document.createElement('button');button.textContent=tab.textContent;button.dataset.drawerTab=tab.dataset.sheetSectionTab;button.onclick=()=>{if(sheetDrawerOpen&&sheetDrawerSection===button.dataset.drawerTab)sheetDrawerOpen=false;else{sheetDrawerSection=button.dataset.drawerTab;sheetDrawerOpen=true;}sheetDrawerKey='';updateSheetDrawer();};panel.querySelector('nav').append(button);}}
+ sheetDrawer.hidden=activeCharacterTab==='sheet'||!campaignCharacterId;sheetDrawer.classList.toggle('is-open',sheetDrawerOpen);sheetDrawer.querySelector('section').hidden=!sheetDrawerOpen;if(!sheetDrawerOpen)return;
+ const key=sheetDrawerSection+JSON.stringify([character.attributes,character.skills,character.resources,character.health,character.identity,character.inventory,character.customSkills]);if(key===sheetDrawerKey)return;sheetDrawerKey=key;sheetDrawerBody.replaceChildren();
+ for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
+ sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>b.classList.toggle('active',b.dataset.drawerTab===sheetDrawerSection));
+}
+let statisticsSignature='';
+function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
+setInterval(()=>{updateSheetDrawer();renderCharacterStatistics();},750);
+function showDecimalSkip(){if(!character.creation?.decimalRollSeen||!character.creation.finalizationQueue.length)return;let skip=document.getElementById('skipCreationDecimals');if(skip)return;skip=document.createElement('button');skip.id='skipCreationDecimals';skip.textContent='Skip remaining animations';document.body.append(skip);skip.onclick=()=>{character.creation.skippingDecimals=true;const inFlight=character.pendingRoll;diceRoller.stop();character.pendingRoll=null;for(const key of character.creation.finalizationQueue){const resolved=resolveSkill(character,key);if(!resolved)continue;const result=inFlight?.skillKey===key&&Number.isFinite(inFlight.resolvedResult)?inFlight.resolvedResult:1+Math.floor(Math.random()*10),decimal=result===10?0:result;resolved.skill.tenths=character.identity.raceId==='pattanilia'&&skillCreationLevel(resolved.skill)===0&&result===10?10:skillCreationLevel(resolved.skill)*10+decimal;resolved.skill.creationDecimal=decimal;}character.creation.finalizationQueue=[];skip.remove();saveLibrary('Remaining skill decimals revealed');renderAll();finishFinalization();};}
+
+let keyboardShipId='';
+function keyboardShipMove(key){
+ const directions={w:[0,-1],ArrowUp:[0,-1],s:[0,1],ArrowDown:[0,1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]},step=directions[key.length===1?key.toLowerCase():key];
+ if(!step||playerShipEditingId||!keyboardShipId||activeCharacterTab!=='starships'||campaignState?.combatActive||playerShipWalk||starshipMoveDraft?.submitting||document.querySelector('dialog[open]')||Number(character.health?.current)<=0)return;
+ const record=campaignState?.starships.find(s=>s.id===keyboardShipId),ownId=campaignState?.ownCharacterId||campaignCharacterId,location=record?.characterLocations?.[ownId]||{square:record?.ship?.gridCells?.[0],mesh:4};if(!record||!Number.isInteger(location.square))return;
+ const cols=window.SAShipMap.gridColumns(record),mesh=location.mesh??4,x=location.square%cols*3+mesh%3+step[0],y=Math.floor(location.square/cols)*3+Math.floor(mesh/3)+step[1];if(x<0||y<0||x>=cols*3)return;
+ const square=Math.floor(y/3)*cols+Math.floor(x/3),nextMesh=y%3*3+x%3;if(!record.ship.gridCells.includes(square))return;
+ const card=dom.playerStarshipList.querySelector('[data-player-starship="'+CSS.escape(record.id)+'"]');if(!card)return;
+ card.querySelector('[data-player-ship-begin]')?.click();previewPlayerShipDestination(record,ownId,square,nextMesh,true);
+ if(starshipMoveDraft?.invalid||starshipMoveDraft?.meshRoute?.length>4){starshipMoveDraft=null;renderPlayerStarships(true);return;}
+ dom.playerStarshipList.querySelector('[data-player-starship="'+CSS.escape(record.id)+'"] [data-player-ship-confirm]')?.click();
+}
+async function openLocalSicPower(shipId){
+ const ship=campaignState.starships.find(s=>s.id===shipId),own=campaignState.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square);if(!cell)return;
+ const candidates=[cell.item,...(window.SAShipMap.definition(cell.type).bridge?window.SAShipMap.installedItems(ship).filter(i=>window.SAShipMap.definition(i.type).exterior):[])];
+ const dialog=document.createElement('dialog');dialog.className='v03-dialog';dialog.innerHTML='<h2>SIC Power</h2><p>Power off frees EN. Power on uses this ship’s Bridge/Cockpit reboot time.</p><select aria-label="SIC"></select><p role="status"></p><button data-off>Power Off</button><button data-on>Power On</button><button data-close>Close</button>';
+ const select=dialog.querySelector('select');for(const item of candidates){const o=document.createElement('option');o.value=item.id;o.textContent=window.SAShipMap.definition(item.type).name+(item.bootRemaining>0?' — Restarting ('+Math.ceil(item.bootRemaining)+'s)':item.disabled?' — Off':' — On');select.append(o);}
+ dialog.querySelector('[data-close]').onclick=()=>dialog.close();for(const kind of ['off','on'])dialog.querySelector('[data-'+kind+']').onclick=async()=>{try{const result=await campaignRequest('/api/campaign/starship/power',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId:shipId,characterId:own,sicId:select.value,kind,requestId:crypto.randomUUID()})});receiveCampaignState(result.campaign);dialog.close();}catch(error){dialog.querySelector('[role=status]').textContent=error.message;}};dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
+}
+function updateKeyboardMovement(){if(!dom.playerStarshipList||GM_SHIP_VIEW||playerShipEditingId)return;for(const card of dom.playerStarshipList.querySelectorAll('[data-player-starship]')){const ship=campaignState?.starships.find(s=>s.id===card.dataset.playerStarship);if(!ship?.crewCharacterIds.includes(campaignCharacterId))continue;let toggle=card.querySelector('[data-keyboard-movement]');if(!toggle){toggle=document.createElement('button');toggle.dataset.keyboardMovement='';toggle.onclick=()=>{keyboardShipId=keyboardShipId===ship.id?'':ship.id;updateKeyboardMovement();};(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(toggle);}toggle.textContent=keyboardShipId===ship.id?'WASD / Arrow Keys: On':'WASD / Arrow Keys: Off';toggle.setAttribute('aria-pressed',String(keyboardShipId===ship.id));toggle.hidden=Boolean(campaignState?.combatActive);card.classList.toggle('keyboard-movement-active',keyboardShipId===ship.id&&!campaignState?.combatActive);const own=campaignState?.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square),seated=cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(loc.mesh));const console=card.querySelector('[data-preview-console]');if(console){console.disabled=!seated||cell?.item?.status==='destroyed';console.classList.toggle('station-console-ready',!console.disabled);}let power=card.querySelector('[data-local-power]');if(!power){power=document.createElement('button');power.dataset.localPower='';power.textContent='SIC Power';power.onclick=()=>openLocalSicPower(ship.id);(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(power);}power.disabled=!seated||Boolean(campaignState?.combatActive);card.querySelector('[data-player-ship-details]')?.contentWindow?.postMessage({type:'sa-keyboard-mode',enabled:keyboardShipId===ship.id&&!campaignState?.combatActive,seated:Boolean(seated),consoleEnabled:Boolean(seated&&cell?.item?.status!=='destroyed'),combat:Boolean(campaignState?.combatActive)},location.origin);}}
+setInterval(updateKeyboardMovement,750);
+document.addEventListener('keydown',e=>{if(!keyboardShipId||e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(activeCharacterTab==='starships')e.preventDefault();keyboardShipMove(e.key);}});
+window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='sa-ship-map-key')return;const frame=[...document.querySelectorAll('[data-player-ship-details]')].find(f=>f.contentWindow===e.source);if(frame)keyboardShipMove(e.data.key);});
+
+window.addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="sa-ship-editor-exit")return;const frame=dom.playerStarshipList?.querySelector("[data-player-ship-editor]");if(!frame||frame.contentWindow!==event.source)return;frame.remove();playerShipEditingId=null;renderPlayerStarships(true);notice(event.data.message||"Ship editor closed.");});
+
+document.getElementById('createCampaignShip').onclick=()=>{location.href='starship.html?new=1&roomCreate='+encodeURIComponent(campaignCode);};
+document.getElementById('importCampaignShip').onclick=async()=>{try{const data=await window.SARoomV03.file();if(data)await window.SARoomV03.importIntoRoom(campaignCode,'ship',data);}catch(error){notice(error.message);}};
+
+window.SAInteriorIntruderState=()=>({intruderShips:(campaignState?.starships||[]).filter(s=>s.intrudersDetected).map(s=>({id:s.id,title:s.title}))});

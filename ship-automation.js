@@ -42,12 +42,14 @@ function candidates(room,unit,random=Math.random){
     const shots=[];
     for(const {a} of choices){
       const d=a.definition;
+      if(d.devastation&&require('./ship-devastation').reason(room,a.ship,a.item))continue;
       if(d.missileLauncher){
         if(unit.shipAi&&target.currentShieldHp>0)continue;
         for(const [key,n]of Object.entries(ammo.magazine(ship,a.id)).sort(([a],[b])=>(ammo.catalog[b]?.tier||0)-(ammo.catalog[a]?.tier||0)))if(n>0&&!ammo.catalog[key]?.flares)shots.push({action:'weaponCommand',sicId:a.id,targetId:target.id,ammunition:key,missile:true});
       }else{
+        if(d.ammoMineral==='Iron'&&!weapons.ironAmmo(ship))continue;
         if(target.currentShieldHp>0&&(d.noShieldDamage||d.weaponFamily==='ballistic-rail-cannon'))continue;
-        const p=weapons.profile(d,a.item,range),repeat=d.weaponFamily!=='ballistic-rail-cannon'&&ship.weaponState?.repeatWindow?.[a.id]>0?d.energyCost:0;
+        const p=weapons.profile(d,a.item,range),repeat=!d.devastation&&d.weaponFamily!=='ballistic-rail-cannon'&&ship.weaponState?.repeatWindow?.[a.id]>0?d.energyCost:0;
         if(p.count<=0||unit.shipAi&&(p.cost+repeat)>0)continue;
         shots.push({action:'weaponCommand',sicId:a.id,targetId:target.id,boosts:0,sacrifice:0});
       }

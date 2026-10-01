@@ -1,0 +1,27 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const {CampaignApi}=require('../campaign-api'),craft=require('../ancestral-crafting');
+test('crafting waits for fictional time, then GM approval delivers one stored weapon and survives stale saves',async()=>{
+ const records=new Map(),store={get:async c=>structuredClone(records.get(c)),create:async c=>{records.set(c.code,structuredClone(c));return true;},save:async c=>records.set(c.code,structuredClone(c)),findByName:async()=>[]};
+ const api=new CampaignApi({store,storageMode:'test'});
+ const call=async(path,body,status=200)=>{let result;await api.handle({method:'POST'},{},new URL('http://test/api/campaign/'+path),async()=>body,(_,code,value)=>{assert.equal(code,status,JSON.stringify(value));result=value;});return result;};
+ const room=await call('v03/create',{name:'Crafting'},201),code=room.campaign.code,gm=room.token,p=await call('v03/join',{code,name:'Artisan'});
+ const created=await call('v03/character/create',{code,token:p.token,password:'',character:{phase:'finalized',identity:{characterName:'Artisan',raceId:'angiluros'},computed:{maximumHp:30},health:{current:30},weapons:[],storedWeapons:[]}}),id=created.campaign.ownCharacterId;
+ const requested=await call('angiluros/craft',{code,token:p.token,characterId:id,weaponId:'angiluros-stone-axe',inventoryId:'empty-row',craftHours:2},201);
+ let campaign=await api.campaign(code),note=campaign.privateNotes.find(n=>n.kind==='angiluros-craft-request'),noteId=note.id;
+ assert.equal(note.requestStatus,'crafting');assert.equal(note.remainingMinutes,120);
+ await call('angiluros/craft',{code,token:gm,action:'respond',noteId,decision:'approve'},409);
+ await call('time/pass',{code,token:gm,amount:60,unit:'minutes',requestId:'craft-first-hour'});
+ campaign=await api.campaign(code);note=campaign.privateNotes.find(n=>n.id===noteId);assert.equal(note.remainingMinutes,60);
+ await call('time/pass',{code,token:gm,amount:60,unit:'minutes',requestId:'craft-first-hour'});assert.equal((await api.campaign(code)).privateNotes.find(n=>n.id===noteId).remainingMinutes,60);
+ await call('time/pass',{code,token:gm,amount:60,unit:'minutes',requestId:'craft-second-hour'});
+ campaign=await api.campaign(code);note=campaign.privateNotes.find(n=>n.id===noteId);assert.equal(note.requestStatus,'pending');assert.equal(note.readAt,null);
+ const old=structuredClone(campaign.characters[0].character);
+ await call('angiluros/craft',{code,token:p.token,action:'respond',noteId,decision:'approve'},403);
+ await call('angiluros/craft',{code,token:gm,action:'respond',noteId,decision:'approve'});
+ await call('angiluros/craft',{code,token:gm,action:'respond',noteId,decision:'approve'});
+ let pc=(await api.campaign(code)).characters[0];assert.equal(pc.character.storedWeapons.length,1);assert.equal(pc.character.weapons.length,0);assert.equal(pc.character.storedWeapons[0].acquisitionMode,'crafted');assert.ok(pc.updatedAt);
+ await call('character/save',{code,token:p.token,characterId:id,character:old});pc=(await api.campaign(code)).characters[0];assert.equal(pc.character.storedWeapons.length,1);
+ const moved=structuredClone(pc.character);moved.weapons=moved.storedWeapons;moved.storedWeapons=[];
+ await call('character/save',{code,token:p.token,characterId:id,character:moved,seenCraftedWeapons:[noteId]});pc=(await api.campaign(code)).characters[0];assert.equal(pc.character.weapons.length,1);assert.equal(pc.character.storedWeapons.length,0);
+});
+test('partial crafting progress and completion survive serialization',()=>{let c={privateNotes:[{id:'n',kind:'angiluros-craft-request',requestStatus:'crafting',remainingMinutes:1,characterName:'A',requestedWeaponName:'Axe'}]};craft.advance(c,.5);c=JSON.parse(JSON.stringify(c));craft.advance(c,.5);assert.equal(c.privateNotes[0].requestStatus,'pending');craft.advance(c,200);assert.equal(c.privateNotes[0].remainingMinutes,0);});

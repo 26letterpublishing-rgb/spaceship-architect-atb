@@ -49,8 +49,9 @@ function validatePreparation(body, campaign, normalizeShips) {
   if(starships.some(ship=>campaign.starships.find(s=>s.id===ship.id)?.ship.warpState?.phase==='traveling'))throw new Error('A ship traveling in warp is outside the battlefield. Exit warp before selecting it for another encounter.');
   for (const record of starships) { const error = shipMap.exteriorError(record.ship); if (error) throw new Error(error); }
   if (!Array.isArray(units) || !units.length || units.length > 200) throw new Error("Choose between one and 200 combatants.");
-  const normalized = normalizeShips(starships.map(record=>{const saved=campaign.starships.find(s=>s.id===record.id);return {...record,ship:{...record.ship,...Object.fromEntries(['warpState','destructState','warpFuel','minerals','transitReceipts','missileAmmo','missileState','crewRoomState','fieldState'].map(key=>[key,saved.ship?.[key]??null]))}};}));
-  for(const ship of normalized)ship.ship.missileState={flights:[],cooldowns:{},receipts:[]};
+  const normalized = normalizeShips(starships.map(record=>{const saved=campaign.starships.find(s=>s.id===record.id);return structuredClone(saved);}));
+  for(const ship of normalized)require('./ship-state').apply(ship,campaign.starships.find(s=>s.id===ship.id));
+  for(const ship of normalized)if(ship.ship.missileState)ship.ship.missileState.flights=[];
   if (normalized.length !== starships.length) throw new Error("Invalid starship selection.");
   const seen = new Set();
   for (const unit of units) {

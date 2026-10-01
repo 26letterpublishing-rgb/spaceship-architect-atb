@@ -30,9 +30,9 @@ function challenge(secret, reduction=0) {
 function evaluate(answer, candidates, guess) {
   if(!Array.isArray(guess)||guess.length!==answer.length)throw Error(`Fill all ${answer.length} code positions.`);
   if(guess.some(letter=>typeof letter!=='string'||!candidates.includes(letter)))throw Error('Use only the available letters.');
-  if(new Set(guess).size!==guess.length)throw Error('Each letter can appear only once.');
   const exact=guess.filter((letter,index)=>letter===answer[index]).length;
-  const present=guess.filter(letter=>answer.includes(letter)).length;
+  const remaining=[...answer];let present=0;
+  for(const letter of guess){const index=remaining.indexOf(letter);if(index>=0){present++;remaining.splice(index,1);}}
   return {exact,misplaced:present-exact,success:exact===answer.length};
 }
 function swap(secret, first, second) {

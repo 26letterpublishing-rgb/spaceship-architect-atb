@@ -55,7 +55,7 @@ for (let tier=1;tier<=9;tier++) {
   const type=`sensors-${tier}`,data=window.SAShipMap.definition(type);
   SIC_CATALOG[type]={...data,category:'sensor',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
   const card=document.createElement('section');card.className='sic-market-item';
-card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Sensor <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Sensor Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>${data.diceCount}D${data.die} / Range ${data.range} Units</strong><p>One installed Sensor system per ship. Operate from a cockpit or bridge; no local stations.</p><p>Scan Area, Scan Hex, Systems Analysis and Life Scan. Life Scan counts non-Android characters aboard other ships in a selected hex, excluding your own ship.</p></section><footer><span><small>If Impaired</small>${data.diceCount}D${data.impairedDie} / Range ${data.impairedRange}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Sensor <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Sensor Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>${data.diceCount}D${data.die} / Range ${data.range} Units</strong><p>One installed Sensor system per ship. Operate at its local station or remotely from a cockpit or bridge.</p><p>Scan Area, Scan Hex, Systems Analysis and Life Scan. Life Scan counts non-Android characters aboard other ships in a selected hex, excluding your own ship.</p></section><footer><span><small>If Impaired</small>${data.diceCount}D${data.impairedDie} / Range ${data.impairedRange}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
 
@@ -68,20 +68,27 @@ for(const family of ['cpu-security','hacking-module'])for(let tier=1;tier<=(fami
   card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${cpu?'Security':'Hacking'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Computer Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}<p>${cpu?'Strongest operational firewall applies.':'Detect and analyze a ship before opening an intrusion. Minimum one password letter.'}</p></section><footer><span><small>If Impaired</small>${impaired}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
-for(const type of ['warp-drive-zero',...Array.from({length:5},(_,i)=>`warp-drive-${i+1}`),'warp-drive-x','ew-ftl-drive','ballistic-rail-cannon','self-destruct']){
+for(const type of ['warp-drive-zero',...Array.from({length:5},(_,i)=>`warp-drive-${i+1}`),'warp-drive-x','ew-ftl-drive','ballistic-rail-cannon','ballistic-rail-repeater','self-destruct']){
   const data=window.SAShipMap.definition(type);
   SIC_CATALOG[type]={...data,category:data.warp?'warp':data.weapon?'weapon':'utility',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const rules=data.instantWarp?'<strong>Instant jump / 2 Grade S fuel cells</strong><p>Activation takes 120 active seconds and spends all current AU. No thrusters required.</p><p>While impaired, roll D8 on activation: a result at or below impairment points destroys the ship.</p>':data.warp?`<strong>${data.warpSecondsPerParsec<3600?`${data.warpSecondsPerParsec/60} minutes`:`${data.warpSecondsPerParsec/3600} hours`} / parsec</strong><p>Activation: ${data.warpRounds*12} seconds. Requires ${data.warpThrusters} operational thrusters.</p><p>Fuel grades: ${data.warpFuelGrades.join(', ')}. Fuel is consumed one cell at a time. Travel advances in real time and when the GM advances campaign time.</p><p>Stations ${data.stations.length}. Each occupied station with Engineering 3+ reduces activation by 12 seconds.</p>`:data.weapon?'<strong>6D6 damage / 1 Iron per shot</strong><p>Always Manual Fire, including locked targets. Cannot damage active shields. No AU cost.</p>':'<strong>Two registered crewmembers must approve.</strong><p>Bridge add-on. Any registered crewmember can cancel. Generated EN must exceed 15.</p><p>Blast: one D12 per four maximum Hull HP, within 2 units. Damage is rolled manually.</p>';
+  const rules=data.instantWarp?'<strong>Instant jump / 2 Grade S fuel cells</strong><p>Activation takes 120 active seconds and spends all current AU. No thrusters required.</p><p>While impaired, roll D8 on activation: a result at or below impairment points destroys the ship.</p>':data.warp?`<strong>${data.warpSecondsPerParsec<3600?`${data.warpSecondsPerParsec/60} minutes`:`${data.warpSecondsPerParsec/3600} hours`} / parsec</strong><p>Activation: ${data.warpRounds*12} seconds. Requires ${data.warpThrusters} operational thrusters.</p><p>Fuel grades: ${data.warpFuelGrades.join(', ')}. Fuel is consumed one cell at a time. Travel advances in real time and when the GM advances campaign time.</p><p>Stations ${data.stations.length}. Each occupied station with Engineering 3+ reduces activation by 12 seconds.</p>`:data.burstShots?'<strong>Four shots per turn / 1D10 each</strong><p>Roll Manual Fire separately for every shot, including locked targets. Add 1 to target Defense per Unit away. No shield damage.</p><p>Uses 1 Iron per shot. Up to four shots, limited by available Iron. One Fast input and one ATB action for the burst; damage is rolled separately for each hit. No EN or AU cost.</p>':data.weapon?'<strong>6D6 damage / 1 Iron per shot</strong><p>Always Manual Fire, including locked targets. Cannot damage active shields. No AU cost.</p>':'<strong>Two registered crewmembers must approve.</strong><p>Bridge add-on. Any registered crewmember can cancel. Generated EN must exceed 15.</p><p>Blast: one D12 per four maximum Hull HP, within 2 units. Damage is rolled manually.</p>';
   const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.warp?'Warp':data.weapon?'Weapon':'Security'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Size</dt><dd>${data.bridgeAddon?'Bridge add-on':data.mixed?'1x3 EXT + 1x1 EDG':`${data.width}x${data.height}`}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${data.instantWarp?'D8 at or below impairment points: ship explodes.':data.warp?'Double activation time and fuel consumption.':data.weapon?'Lose 2D6 per impairment.':'No impairment effect.'}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.warp?'Warp':data.weapon?'Weapon':'Security'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Size</dt><dd>${data.bridgeAddon?'Bridge add-on':data.mixed?`1x${data.exteriorRows} EXT + 1x1 EDG`:`${data.width}x${data.height}`}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${data.instantWarp?'D8 at or below impairment points: ship explodes.':data.warp?'Double activation time and fuel consumption.':data.burstShots?'Deals 1D6 damage instead.':data.weapon?'Lose 2D6 per impairment.':'No impairment effect.'}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
 const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 for(const [type,rules,impairment] of [
-  ['cloaking-device','Spend 12 AU to add +25 Masking while active. Shields drop. Cannot fire weapons or spend AU on other systems until deactivated.','Does not function while impaired.'],
+  ['hull-breach-repair-drone','Automatically visits the oldest hull breach first. Move Speed 7: seven movement squares per three active seconds, through actual doors. After arrival roll D6 every 12 active seconds; 5+ seals the breach. Failed attempts increase to D8, D10, then D12. Interior bots cannot be attacked. Deployed bots keep working without bay power and never close airlocks.','Active drone completes its queue; if its bay is damaged or missing, it then vanishes.'],
+  ['analysis-screening','Attach to an SIC. Each Systems Analysis rolls D6: 1–4 conceals this component. Previously discovered information remains last-known, unconfirmed. Does not hide lifeforms from Life Scan.','No impairment effect.'],
+  ['mining-laser','Work an asteroid within one hex for four hours per attempt. Roll D10 strictly below the GM’s mining number, then use the Random Mineral Chart. Minerals go to ship storage. Each attempt consumes one asteroid use, successful or not; exhausted asteroids disappear. GM Pass Time advances work. Leaving range or losing power pauses progress.','Does not function while impaired.'],
+  ['vulture-drone','Salvage one wreck within sensor range in 240 active seconds. Recover one randomly selected installed SIC with zero impairment points into ship storage. Each wreck can be salvaged once; successful salvage removes its debris. Power or control interruption pauses work. Losing the drone or wreck cancels it. Masking 10.','One impairment destroys the drone.'],
+  ...[1,2].map(tier=>{const d=window.SAShipMap.definition('devastation-laser-'+tier);return ['devastation-laser-'+tier,`Charge for ${d.chargeSeconds} active seconds, including outside combat. Costs ${d.chargeAu} AU immediately and every 12 seconds while charging or holding the one stored charge. Deals 10D${d.damageDie} laser damage. After firing, cool down for ${d.cooldownSeconds} active seconds before charging again. Cannot fire uncharged. Loss of AU, EN, or weapon integrity releases the charge. Standard accuracy/Lock-On and damage dice.`, 'Does not function while impaired; becomes unstable. Repair before charging again.'];}),
+  ['gravity-absolution-field','Active field prevents black-hole pull, movement penalties and center damage. Requires operational shields; their protection is suspended while active. Costs 3 AU immediately and every 12 seconds. Shuts down when AU is insufficient.','Does not function while impaired.'],
+  ['land-wheels','Four exterior wheel mounts. Surface driving: maximum Move = 10 × EN; MPH = 20 + 10 × EN (1–6 EN). Start at Move 1; +1 per move action. Reference capability only; base installation reserves 1 EN.','Each impairment reduces maximum Move by 25% of undamaged maximum.'],
+  ['cloaking-device','Cloak: +50 Masking stationary, +25 in motion, or +10 with active shields. Automatically costs 12 AU every 12 seconds; switches off if unaffordable. Weapons require deactivation.','Does not function while impaired.'],
   ['surv-camera','One surveillance station connects cameras throughout the entire starship. Automatically alerts crew when enemies board and closes all doors. An operator at this station sees interior crew positions; an enemy at the station or with a successful connected hack sees them too.','Destroyed by one impairment.'],
   ['tractor-beam','Forces separation from one target within 2 units. Target hull must be half your hull or less. Cannot grip through active shields. Release when finished.','Does not function while impaired.'],
-  ['manipulation-arm','Remote robotic manipulation on the same space hex. Record cargo, extraction or salvage operations; the GM adjudicates resulting inventory changes.','Functions every other SvS round: 24 active seconds between operations.'],
+  ['manipulation-arm','Automatically rescues a floating character when this ship enters their hex, placing them beside an airlock. Requires an operational arm. Remote robotic manipulation on the same hex is also available; the GM adjudicates other cargo operations.','Functions every other SvS round: 24 active seconds between operations.'],
   ['docking-bay','Up to four docked ships with combined Hull at most half the carrier Hull. Sealed decompression chamber. Enlarge its footprint free in construction; hull still costs normally. Optional energy-shield doorway costs 2,500 and removes decompression. GM confirms consent.','Ships cannot enter or exit.'],
   ...Array.from({length:5},(_,n)=>{
     const type=`repair-drone-${n+1}`,d=window.SAShipMap.definition(type),timing=window.SADelayRules.repairDroneSettings(d.tier),seconds=(100/window.SADelayRules.calculate(timing).rate).toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
@@ -95,41 +102,59 @@ for(const [type,rules,impairment] of [
   ...Array.from({length:5},(_,n)=>{const d=window.SAShipMap.definition(`probe-${n+1}`);return [`probe-${n+1}`,`${d.probeDice.length}D${d.probeDice[0]} Sensors. Range equals the ship’s current Sensor Range. Relays only while within the owner’s sensor range; no probe-to-probe relays. Move ${d.moveSpeed}; Masking / Defense ${d.masking}. Requires a Probe Launcher.`, 'Destroyed by one impairment.'];}),
   ['backup-generator','Provides 3 EN, including while impaired. Minimum one clear square from another Engine; larger Engines retain their own clearance. No operator station needed.','No effect on EN output.'],
   ...Array.from({length:4},(_,n)=>{const type=`antenna-${n+1}`,d=window.SAShipMap.definition(type);return [type,`Adds 1D${d.bonusDie} to Sensor rolls and +${d.rangeBonus} Sensor Range. Extra dice use normal Sensor roll fusion, not a flat bonus. Requires an installed, online Sensor system. Each installed, online antenna contributes.`,`Bonus die becomes 1D${d.impairedDie}; range bonus remains.`];}),
+  ['transporter','Transports up to five living crew from this room to a selected square on another ship within 8 Units. Requires Lock-On, Systems Analysis and shields down on both ships. Planet surfaces are valid destinations. Includes 50 reusable transponders, automatically issued to selected passengers. 12 active seconds; arrival is revalidated. No AU cost.','Each impairment adds a 10% chance of death per passenger; roll one standard D10 per passenger.'],
   ['escape-pods','Jettisons up to three occupants. Supports most atmospheric entries and parachute landings, with auto-linguistic distress beacon and basic rescue AI. Single launch until recovered.','Each occupant takes 20 fixed damage per impairment.'],
   ['ripple-reflector','Ripple hits do zero damage and reflect to the attacker. Apply Ripple range reduction at twice the distance. Passive while powered on; reflected shots do not reflect again.','Still reflects, but this ship receives the same damage.'],
   ['vr-training-room','Virtual simulations for training and entertainment. Requires Life Support and gravity. Once per campaign day, each character may train one skill. At 4.0 or below, manually roll D4 and add that many tenths. Above 4.0 and below 6.0, gain +0.1 without rolling. VR gives no bonuses at 6.0 or higher. Safety protocols optional.','Glitchy simulations; GM discretion. Training awards unavailable until repaired.'],
   ['medbay','Patients inside recover 1 HP every 3 seconds. At 0 HP, prepare for 60 seconds first. After 5 minutes at 0 HP the patient is dead and cannot be healed; this deadline continues during preparation.','Treatment is unavailable while impaired.'],
   ['gym','3x3 exercise room. Physical training and recreation for crew; no automatic skill or attribute awards.','General destruction; GM decides details.'],
-  ['science-lab','Detailed analysis of objects, beings and anomalies. +4 to Research, Science/Physics and Astronomy checks while using the laboratory. Stores up to 5,000 minerals. The GM supplies discoveries.','Information is unreliable; research bonus unavailable.'],
+  ['bar','5x5 social room serving drinks. Optional robotic bartender. Drinks and intoxication are roleplayed; no automatic skill bonuses.','Robotic bartender gives an incorrect order 50% of the time. Use the standard D6: 1–3 incorrect, 4–6 correct.'],
+  ['hibernation-chamber','Long-trip hibernation for one occupant. Requires operational Life Support. Wake manually anytime; emergency monitoring wakes the occupant for an encounter, damage, loss of power or unsafe oxygen.','Sleeping occupant loses 25% of current HP, rounded up, and awakens.'],
+  ['brig','Prisoner detainment cell with a GM-managed custody register. Reinforced doors require three hits of at least 40 damage; weaker hits do nothing. System Repairs and Diagnostics restores them. Increase its footprint free in construction; supporting hull still costs normally.','General destruction. GM records the consequences and decides their effects.'],
+  ['science-lab','Detailed analysis of objects, beings and anomalies. +4 to Research, Science/Physics and Astronomy checks while using the laboratory. Displays shared ship mineral storage. Bonus applies to every character inside this room. The GM supplies discoveries.','Information is unreliable; research bonus unavailable.'],
+  ['3d-printer','Science Lab upgrade with no floorplan. All ship blueprints are shared. Six jobs per printer, including the active job. Minerals are consumed when each job starts. Uses each SIC’s printed crafting time. Completed SICs enter ship storage. Printed resale value: 25% of original price.','Pauses with the host lab; destruction loses the unfinished item.'],
+  ['mineral-processor','Science Lab upgrade with no floorplan. Converts minerals using the recipes on page 132. One unit per cycle. Six queued cycles per processor. Minerals are consumed when a cycle starts. GM Pass Time advances progress.','Pauses with the host lab; destruction loses the unfinished mineral.'],
+  ['blueprint','Choose Buy blueprint on a craftable SIC. Unlocks that SIC for every 3D Printer on this starship. Does not consume floor space or minerals; each print consumes its recipe minerals.','N/A'],
   ['holographic-projector','Bridge (+). Internal holographic projection; +2 to Navigate rolls aboard this ship. Enables holographic interaction with Ship AI.','No impairment effect.'],
+  ['hull-plating','One per ship. Adds 10% Hull HP per Scale Rank, rounded down, without changing Scale Rank. Costs 450 credits per Hull section, including triangular sections. Future Hull additions cost an extra 450 each. Covers the whole Hull with no floor space.','N/A'],
+  ['heat-resistance','One per ship. Reduces Heat damage reaching the Hull by 75%. Costs 75 credits per Hull section, including triangular sections. Future Hull additions cost an extra 75 each. Covers the whole Hull with no floor space.','N/A'],
+  ['laser-resistance','One per ship. Halves Laser damage reaching the Hull, rounded down. Costs 300 credits per Hull section, including triangular sections. Future Hull additions cost an extra 300 each. Covers the whole Hull with no floor space.','N/A'],
+  ['burst-shield-reactivator','Shield (+). Automatically reactivates its collapsed shield after 120 powered seconds, returning with one third of maximum Shield HP (rounded up). Pays 2 AU per 12 seconds of recovery; pauses when unfunded. With Emergency Shield Recharger: 48 seconds. One per Shield. Local manual restabilization remains available and takes priority.','N/A'],
+  ['emergency-shield-recharger','Shield (+). Automatically reactivates its collapsed shield in 48 active seconds (4 SvS rounds), returning with 1 Shield HP. Diverts all AU during recovery; Burst Shield Reactivator may draw from this supply and raises returning HP to one third. Turn off the host Shield to suspend recovery and release AU. One per Shield.','N/A'],
+  ['static-shield','Attach inside a Shield system with no extra floor space. While that Shield has HP and is active, adds +4 Masking and blocks audio/video communications and enemy hacking. Hacking Bugs bypass this protection. One per Shield; the Masking bonus does not stack.','N/A'],
   ['vulnerability-fortification','Attach to a SIC: +1 Damage Threshold per purchase. First costs 500 credits; each additional purchase on that same SIC doubles in price. No floorplan.','No impairment effect.'],
   ['power-core-damper','Engine (+). Reduces this Engine’s required clearance by one square. One effective Damper per Engine. No floorplan.','No impairment effect.'],
   ['scramble-box','Enemies suffer -1 to component Lock-On rolls against adjacent SICs. Cannot be adjacent to another Scramble Box.','Does not function.'],
+  ['ionic-force-displacers','Activate for 7 AU, then pay 7 AU automatically every 12 active seconds. While active, nullifies Ion Pulse Cannon and Ion Disruptor hits. Turns off if power, integrity or AU upkeep is lost.','Does not function while impaired.'],
+  ['transport-scrambler','Blocks incoming and outgoing transport within 8 interior squares, including friendly transport. Switch off its field to permit transport.','Each impairment gives a 10% chance of passing the field. Roll one D10 per overlapping impaired field; every field must allow passage.'],
+  ['hack-alert','Attach inside a SIC. Each password guess against that SIC rolls one D4 with the standard dice display. A 4 alerts the defending bridge. No separate floorplan.','Not applicable.'],
+  ['ion-disruptor','Spend 20 AU to fire 5D10 directly at Hull, ignoring shields and all damage reduction. A targeted SIC takes one extra impairment in addition to threshold damage. Cooldown: 24 active seconds. Ionic Force Displacers nullify the hit.','Does not function while impaired.'],
+  ['black-hole-gun','Spend 1 Dark Phazon and n(n+1)/2 AU for intensity n: 1, 3, 6, 10 AU. Choose a hex within 5 units. The purple orb travels 1 hex per 12 active seconds. On arrival it creates a black hole; after each 15 active seconds of pull its intensity falls by 1, disappearing at zero. No friendly immunity. Cooldown 360 seconds.','Cannot fire; repair and restart.'],
   ['library','Local galactic database and shared crew research archive. The GM confirms updates near information nodes. Database cannot be memorized by Ship AI.','Database inaccessible.'],
   ['meeting-room','Private crew briefing room with a shared agenda and completed-item checklist. No combat bonuses.','General destruction; GM discretion.'],
   ['ship-ai','Bridge add-on, limit one. 4D6 per attribute, every skill +2.5. Optional Defense or Offense automation; never spends AU. Bridge (+): no floorplan; may overlap other (+) add-ons. Requires a free bridge station for ship actions and cannot leave the bridge. Detects bridge hacking automatically.','N/A.'],
 ]){
   const data=window.SAShipMap.definition(type);SIC_CATALOG[type]={...data,category:data.engine?'engine':data.antenna?'sensor':data.shipAi?'bridge':'utility',shortLabel:data.label,enOutput:data.output||0,clearance:data.clearance||0,floorplan:data.image};
   const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.probe||data.probeLauncher||data.probeAttachment?'Probe':data.engine?'Engine':data.antenna?'Sensors':data.shipAi?'Bridge':'Utility'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name} floorplan" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.addon?(data.addon==='any'?'SIC':data.addon==='engine'?'Engine':['probe','probe-module'].includes(data.addon)?'Probe':'Bridge')+' (+)':data.bridgeAddon?'Bridge (+)':data.planetaryCleanser?'3x6 EXT + 3x3 EDG':data.mixed?'1x3 EXT + 1x2 EDG':data.width+'x'+data.height+(data.edge?' EDG':data.exterior?' EXT':'')}</dd></div><div><dt>Skill</dt><dd>${data.skill||(data.shipAi?'Computer Systems':'Engineering')}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><p>${rules}</p><strong>${data.shipAi?'Occupies a bridge station':'Stations '+data.stations.length}</strong></section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.shieldRecovery?'Shield':data.probe||data.probeLauncher||data.probeAttachment?'Probe':data.engine?'Engine':data.antenna?'Sensors':data.shipAi?'Bridge':data.weapon?'Weapon':'Utility'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name}${data.cardArt||data.addon?' equipment':' floorplan'}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.addon?(data.addon==='any'?'SIC':data.addon==='science'?'Science Lab':data.addon==='engine'?'Engine':data.addon==='hull'?'Hull':data.addon==='shield'?'Shield':['probe','probe-module'].includes(data.addon)?'Probe':'Bridge')+' (+)':data.bridgeAddon?'Bridge (+)':data.blackHoleGun?'2x5 EXT + 1x2 EDG':(data.devastation||data.ionDisruptor)?'2x4 EXT + 1x2 EDG':data.planetaryCleanser?'3x6 EXT + 3x3 EDG':type==='mining-laser'?'1x3 EXT + 1x1 EDG':data.mixed?'1x3 EXT + 1x2 EDG':data.width+'x'+data.height+(data.edge?' EDG':data.exterior?' EXT':'')}</dd></div><div><dt>Skill</dt><dd>${data.skill||(data.shipAi?'Computer Systems':'Engineering')}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><p>${rules}</p><strong>${data.shipAi?'Occupies a bridge station':'Stations '+data.stations.length}</strong></section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
-for(let tier=1;tier<=5;tier++){
-  const type=`missile-launcher-${tier}`,data=window.SAShipMap.definition(type);
+for(const tier of [1,2,3,4,5,'mine']){
+  const type=tier==='mine'?'mine-launcher':`missile-launcher-${tier}`,data=window.SAShipMap.definition(type);
   SIC_CATALOG[type]={...data,category:'weapon',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
   const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Missile <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}</strong></div></header><img class="sic-poker-art" src="${data.cardArt}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security</dt><dd>${tier}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.exteriorRows} EXT + 1x2 EDG</dd></div><div><dt>Skill</dt><dd>Weapon Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>Magazine: ${data.capacity} rounds</strong><p>Launch at a locked target. One launch per 12 active combat seconds. Stations 1.</p><p>Missiles purchased separately. Loaded rounds cannot be targeted individually. A launched missile pursues independently of Lock-On.</p></section><footer><span><small>If Impaired</small>Destroyed by one impairment.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.mineLauncher?'Mine':'Missile'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.cardArt}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.mineLauncher?'1x2 EDG':data.width+'x'+data.exteriorRows+' EXT + 1x2 EDG'}</dd></div><div><dt>Skill</dt><dd>Weapon Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>Magazine: ${data.capacity} rounds</strong><p>${data.mineLauncher?data.description:'Launch at a locked target. One launch per 12 active combat seconds. Stations 1.'}</p><p>${data.mineLauncher?'Mines purchased separately. Stations 1.':'Missiles purchased separately. Loaded rounds cannot be targeted individually. A launched missile pursues independently of Lock-On.'}</p></section><footer><span><small>If Impaired</small>Destroyed by one impairment.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
 for(const [type,data] of Object.entries(window.SAMissileAmmo.catalog)){
   SIC_CATALOG[type]={...data,category:'missile-ammo'};
   const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Ammunition <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="${data.name}" loading="lazy"><section class="sic-poker-rules">${data.flares?'<strong>Three flares per use</strong><p>Choose a missile for each flare and flip a coin. A winning flip sends it away from pursuit.</p>':`<strong>${data.count>1?'Four projectiles, each ':''}${data.dice}D8 x5 hull damage</strong><p>No damage multiplier against shields. No component targeting.</p><p>Masking / Defense ${data.masking}. Speed ${data.acceleration}, +${data.acceleration} per 12 seconds; caps at ${data.acceleration*5}.</p><p>One damage destroys a missile.</p>`}<p>One use. Loaded into a Missile Launcher, not placed on the floorplan.</p></section></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
+  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Ammunition <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="${data.name}" loading="lazy"><section class="sic-poker-rules">${data.description?`<p>EN N/A · Security ${data.security??'N/A'} · Mine L. (+)<br>Weapon Systems · ${data.crafting}</p><p>${data.description}</p><p>Masking ${data.masking??'N/A'} / Damage Threshold ${data.threshold??'N/A'}</p>`:data.flares?'<strong>Three flares per use</strong><p>Choose a missile for each flare and flip a coin. A winning flip sends it away from pursuit.</p>':`<strong>${data.count>1?'Four projectiles, each ':''}${data.dice}D8 x5 hull damage</strong><p>No damage multiplier against shields. No component targeting.</p><p>Masking / Defense ${data.masking}. Speed ${data.acceleration}, +${data.acceleration} per 12 seconds; caps at ${data.acceleration*5}.</p><p>One damage destroys a missile.</p>`}<p>${data.seeker?'Stored upgrade for one mine.':data.mine?'One use. Loaded into a Mine Launcher (+); no separate floorplan.':'One use. Loaded into a Missile Launcher, not placed on the floorplan.'}</p></section></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   document.querySelector('.sic-card-gallery').append(card);
 }
 for(const [grade,data] of Object.entries(window.SAShipMap.fuelCatalog)){
   const type=`warp-fuel-${grade.toLowerCase()}`;SIC_CATALOG[type]={...data,name:`Warp Fuel ${grade}`,category:'fuel'};
-  const card=document.createElement('section');card.className='sic-market-item';card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Grade ${grade} Fuel Cell details"><header class="sic-poker-heading"><span>Fuel <small>${data.cardNumber}</small></span><div><h3>Grade ${grade} Fuel Cell</h3><strong>Price: ${data.price.toLocaleString()}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="Grade ${grade} Fuel Cell" loading="lazy"><section class="sic-poker-rules"><strong>${Number((data.parsecs*3.26).toFixed(4))} light-years per cell</strong><p>${Number(data.parsecs.toFixed(4))} parsecs. Check drive compatibility.</p><p>Consumed when used. Unused cells remain in ship stores; early exit discards the active cell's remaining range.</p></section><footer><span><small>Crafting</small>${data.crafting}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;document.querySelector('.sic-card-gallery').append(card);
+  const card=document.createElement('section');card.className='sic-market-item';card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Grade ${grade} Fuel Cell details"><header class="sic-poker-heading"><span>Fuel <small>${data.cardNumber}</small></span><div><h3>Grade ${grade} Fuel Cell</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="Grade ${grade} Fuel Cell" loading="lazy"><section class="sic-poker-rules"><strong>${Number((data.parsecs*3.26).toFixed(4))} light-years per cell</strong><p>${Number(data.parsecs.toFixed(4))} parsecs. Check drive compatibility.</p><p>Consumed when used. Unused cells remain in ship stores; early exit discards the active cell's remaining range.</p></section><footer><span><small>Crafting</small>${data.crafting}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;document.querySelector('.sic-card-gallery').append(card);
 }
 for(const family of ['darkveil','beam-laser','ripple-cannon','ion-pulse-cannon'])for(let tier=1;tier<=(family==='darkveil'?10:family==='ion-pulse-cannon'?5:8);tier++){
   const type=`${family}-${tier}`,data=window.SAShipMap.definition(type),dark=family==='darkveil',beam=family==='beam-laser',ripple=family==='ripple-cannon';
@@ -156,7 +181,7 @@ for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`brid
   SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
   const card = document.createElement("section"); card.className="sic-market-item";
   const isShield=Boolean(data.shield);
-  const rules=isShield?`<strong>${data.shieldHp} Shield HP / Reduction ${data.shieldReduction}</strong><p>Regenerates ${data.shieldRegeneration} HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: ${data.restabilizeSeconds} powered seconds and ${data.restabilizeAu} AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${(data.rebootSeconds||96)/12} SvS rounds.</p>`;
+  const rules=isShield?`<strong>${data.shieldHp} Shield HP / Reduction ${data.shieldReduction}</strong><p>Regenerates ${data.shieldRegeneration} HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: ${data.restabilizeSeconds} powered seconds and ${data.restabilizeAu} AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${data.rebootSeconds||96} seconds.</p>`;
   const impairment=isShield?'Damage received is doubled. No AU abilities.':type==='cockpit-1'?'Occupant takes damage, reduced by 20.':`Random station destroyed; occupant damage reduced by ${data.threshold}.`;
 card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${isShield?'Shield':'Bridge'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}${isShield?'+':''}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}${data.edge?' EDG':''}</dd></div><div><dt>Skill</dt><dd>${isShield?'Engineering':'Computer Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
   SIC_CATALOG[type].category=isShield?'shield':'bridge';
@@ -206,7 +231,7 @@ for (const [family, items] of families) {
   const stack = document.createElement("details"); stack.className = "sic-family-stack";
   const summary = document.createElement("summary");
   summary.setAttribute("aria-label", `${family}: expand ${items.length} card${items.length === 1 ? "" : "s"}`);
-  const ordered = [...items].sort((a, b) => Number(b.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0) - Number(a.querySelector("h3").textContent.match(/\d+$/)?.[0] || 0));
+  const ordered = [...items].sort((a, b) => Number(b.querySelector("h3").textContent.match(/\d+$/)?.[0] || 99) - Number(a.querySelector("h3").textContent.match(/\d+$/)?.[0] || 99));
   const preview = document.createElement("div"); preview.className = "sic-stack-preview sic-market-item"; preview.setAttribute("aria-hidden", "true"); preview.inert = true;
   for (const [index, item] of ordered.entries()) {
     const card = previewSicCard(item.querySelector("[data-sic-card]"));
@@ -219,6 +244,22 @@ for (const [family, items] of families) {
   const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
   stack.append(summary, cards); market.append(stack);
   summary.addEventListener("click", event => { event.preventDefault(); openSicFamily(family, items, summary); });
+}
+
+const marketEntries=[...market.children].filter(node=>node.matches('.sic-market-item,.sic-family-stack'));
+const marketHosts=sicCategoryHosts(marketEntries,market,node=>node.querySelector('[data-sic-card]')?.dataset.sicCard,'market');
+marketEntries.forEach(node=>marketHosts.get(node).append(node));
+
+function sicCategoryHosts(items,container,typeFor,variant){
+  const hosts=new Map(),entries=items.map(value=>({type:typeFor(value),value}));
+  for(const group of window.SASicCategories.group(entries,entry=>SIC_CATALOG[entry.type]||window.SAShipMap.definition(entry.type))){
+    const section=document.createElement('fieldset');section.className=`sic-category sic-category-${variant}`;section.dataset.sicCategory=group.id;section.style.setProperty('--category-color',group.color);section.style.setProperty('--category-count',Math.min(4,group.items.length));
+    const legend=document.createElement('legend'),toggle=document.createElement('button');toggle.type='button';legend.append(toggle);
+    const body=document.createElement('div');body.className='sic-category-body';section.append(legend,body);container.append(section);
+    const key='sa-sic-category-'+variant+'-'+group.id;const setClosed=closed=>{body.hidden=closed;toggle.textContent=group.label+' '+(closed?'+':'−');toggle.setAttribute('aria-expanded',String(!closed));};setClosed(variant==='market'?sessionStorage.getItem(key)!=='open':sessionStorage.getItem(key)==='closed');toggle.onclick=()=>{setClosed(!body.hidden);sessionStorage.setItem(key,body.hidden?'closed':'open');};
+    group.items.forEach(entry=>hosts.set(entry.value,body));
+  }
+  return hosts;
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -259,13 +300,19 @@ function constructionState(source) {
     warpFuel: window.SAShipMap.resourceCounts(source?.warpFuel,['F','D','C','B','A','S']),
     minerals: window.SAShipMap.resourceCounts(source?.minerals),
     missileAmmo: JSON.parse(JSON.stringify(source?.missileAmmo||{})),
+    missileStorage: JSON.parse(JSON.stringify(source?.missileStorage||{})),
+    airlocks: JSON.parse(JSON.stringify(source?.airlocks||[])),
+    airlockStates: JSON.parse(JSON.stringify(source?.airlockStates||{})),
+    breachState: JSON.parse(JSON.stringify(source?.breachState||null)),
     atmosphereState: JSON.parse(JSON.stringify(source?.atmosphereState||null)),
     cleanserState: JSON.parse(JSON.stringify(source?.cleanserState||null)),
+    gravityFieldState: JSON.parse(JSON.stringify(source?.gravityFieldState||null)),
     cloakState: JSON.parse(JSON.stringify(source?.cloakState||null)),
     mapColor: source?.mapColor, mapHeading: source?.mapHeading,
     fieldState: JSON.parse(JSON.stringify(source?.fieldState||null)),
     droneState: JSON.parse(JSON.stringify(source?.droneState||null)),
     probeState: JSON.parse(JSON.stringify(source?.probeState||null)),
+    fabricationState: JSON.parse(JSON.stringify(source?.fabricationState||null)),
     resourceReceipts: [...(source?.resourceReceipts||[])],
     originOffset: Number.isInteger(source?.originOffset)?source.originOffset:0,
     triangleCells: window.SAShipMap.triangleCells(source||{}),
@@ -280,9 +327,11 @@ function constructionState(source) {
           weaponFacing: [0,90,180,270].includes(item.weaponFacing)?item.weaponFacing:undefined,
           exteriorRotation: [0,90,180,270].includes(Number(item.exteriorRotation))?Number(item.exteriorRotation):0,
           placedAt: Number(item.placedAt)||0,
-          ...Object.fromEntries(['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable'].filter(key=>item[key]!==undefined).map(key=>[key,clone(item[key])])),
+          ...Object.fromEntries(['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable','blueprintType','printed','printedFor','salvaged','salvageSource'].filter(key=>item[key]!==undefined).map(key=>[key,clone(item[key])])),
           bayWidth: item.type==='docking-bay'?Math.max(2,Math.min(60,Math.floor(Number(item.bayWidth)||2))):undefined,
           bayHeight: item.type==='docking-bay'?Math.max(2,Math.min(60,Math.floor(Number(item.bayHeight)||2))):undefined,
+          brigWidth: item.type==='brig'?Math.max(1,Math.min(60,Math.floor(Number(item.brigWidth)||1))):undefined,
+          brigHeight: item.type==='brig'?Math.max(1,Math.min(60,Math.floor(Number(item.brigHeight)||1))):undefined,
           stationLayout: item.stationLayout === "corners-v1" ? "corners-v1" : undefined,
           storage: !placedIds.has(String(item.id)) && (item.pendingPurchase ? Boolean(item.storage) : item.storage !== false),
           pendingDisposition: item.pendingDisposition === "sell" || item.pendingDisposition === "destroy" ? item.pendingDisposition : "",
@@ -313,6 +362,7 @@ function loadDraft() {
     const activeId = shipStorage.getItem(ACTIVE_STARSHIP_KEY) || "";
     const saved = library.find((ship) => ship?.id === activeId) || JSON.parse(shipStorage.getItem(STORAGE_KEY) || "{}");
     const identity = {
+      floorplanSnapshot:saved.floorplanSnapshot,
       title: saved.title || "", affiliation: saved.affiliation || "", class: saved.class || "",
       reputationSelections: Array.isArray(saved.reputationSelections) && saved.reputationSelections.length === 5
         ? saved.reputationSelections.map((value) => Math.max(0, Math.min(10, Number(value) || 0))) : fresh.reputationSelections,
@@ -333,7 +383,8 @@ function loadDraft() {
   } catch { return fresh; }
 }
 
-let draft = loadDraft();
+let draft = pageParameters.has('new') ? defaultDraft() : loadDraft();
+if(pageParameters.has('new')){const url=new URL(location.href);url.searchParams.delete('new');history.replaceState(null,'',url);}
 GRID_SIZE=window.SAShipMap.gridColumns(draft);
 let mapView = {...loadMapView(),...window.SAShipMap.loadViewPreferences(loadMapView())};
 window.SAShipMap.onViewPreferences(prefs=>{Object.assign(mapView,prefs);renderAll();});
@@ -399,7 +450,7 @@ function restoreWorkingState(state) {
   GRID_SIZE=window.SAShipMap.gridColumns(restored);splitPlacement=null;
   draft.groupCredits = restored.groupCredits;
   draft.zoneRows = restored.zoneRows;
-  draft.gridCells = restored.gridCells;draft.triangleCells=restored.triangleCells;
+  draft.airlocks=restored.airlocks;draft.gridCells = restored.gridCells;draft.triangleCells=restored.triangleCells;
   draft.sicInventory = restored.sicInventory;
   draft.placements = restored.placements;
 }
@@ -410,16 +461,16 @@ function pendingCost() {
   const confirmedCells = new Set(draft.confirmed.gridCells.map(n=>window.SAShipMap.remapSquare(n,draft.confirmed,draft)));
   const additions = [...workingCells].filter((cell) => !confirmedCells.has(cell)).length;
   const removals = [...confirmedCells].filter((cell) => !workingCells.has(cell)).length;
-  const purchases = draft.sicInventory.filter((item) => item.pendingPurchase).reduce((total, item) => total + window.SAShipMap.sicPrice(item), 0);
-  const sales = draft.sicInventory.filter((item) => !item.pendingPurchase && item.pendingDisposition === "sell").reduce((total, item) => total + Math.ceil(window.SAShipMap.sicPrice(item) / 2), 0);
-  return ((additions - removals) * HULL_COST) + (window.SAShipMap.triangleCells(draft).length-window.SAShipMap.triangleCells(draft.confirmed).length)*300 + purchases - sales;
+  const purchases = draft.sicInventory.filter((item) => item.pendingPurchase).reduce((total, item) => total + window.SAShipMap.sicPrice(item,draft), 0);
+  const sales = draft.sicInventory.filter((item) => !item.pendingPurchase && item.pendingDisposition === "sell").reduce((total, item) => total + Math.ceil(window.SAShipMap.sicPrice(item) / (item.printed?4:2)), 0);
+  return ((additions - removals) * HULL_COST) + (window.SAShipMap.triangleCells(draft).length-window.SAShipMap.triangleCells(draft.confirmed).length)*300 + purchases - sales + window.SAShipMap.hullUpgradeResizeCost(draft,draft.confirmed);
 }
 function selectedSic() {
   return draft.sicInventory.find((item) => item.id === selectedSicId && !item.storage && !item.pendingDisposition) || null;
 }
 function sicDefinition(itemOrType) {
   const base = SIC_CATALOG[typeof itemOrType === "string" ? itemOrType : itemOrType?.type] || SIC_CATALOG["en-engine-1"];
-  return typeof itemOrType === "object" && itemOrType ? { ...base, ...window.SAShipMap.componentDefinition(itemOrType), price:window.SAShipMap.sicPrice(itemOrType), threshold:window.SAShipMap.effectiveThreshold(draft,itemOrType) } : base;
+  return typeof itemOrType === "object" && itemOrType ? { ...base, ...window.SAShipMap.componentDefinition(itemOrType), name:itemOrType.type==='blueprint'?'Blueprint ('+(SIC_CATALOG[itemOrType.blueprintType]?.name||'Unknown SIC')+')':base.name, price:window.SAShipMap.sicPrice(itemOrType,itemOrType.pendingPurchase&&base.hullUpgrade?draft:undefined), threshold:window.SAShipMap.effectiveThreshold(draft,itemOrType) } : base;
 }
 function placementCells(placement) {
   const item=draft.sicInventory.find(i=>i.id===placement?.sicId);
@@ -468,24 +519,7 @@ function makeWall(side, segment = "full") {
 }
 
 function toggleDoor(key) {
-  if (mapView.mode !== "explore") {
-    showMessage("Switch to Explore to operate doors.", "error");
-    return;
-  }
-  if (!canOperateDoors()) {
-    showMessage("Only a listed crewmember can operate this door.", "error");
-    return;
-  }
-  draft.doorStates ||= {};
-  draft.doorStates[key] = draft.doorStates[key] === "open" ? "closed" : "open";
-  saveDraft();
-  const open = draft.doorStates[key] === "open";
-  document.querySelectorAll(`[data-door-key="${key}"]`).forEach((door) => {
-    door.classList.toggle("is-open", open);
-    door.title = `${open ? "Close" : "Open"} door`;
-    door.setAttribute("aria-label", door.title);
-    door.setAttribute("aria-pressed", String(open));
-  });
+  showMessage('Remote door controls are available at a Bridge station: Command → Door Adjustment.');
 }
 
 function makeDoor(index, adjacent, side) {
@@ -578,12 +612,12 @@ function validateSicPlacement(sicId, cell, exteriorCell=placementForSic(sicId)?.
   const definition = sicDefinition(item); const cells = placementCells({sicId,cell,exteriorCell});
   if(definition.addon){const host=window.SAShipMap.addonHost(draft,item);return {legal:Boolean(host&&host.placement.cell===cell),cells:[],reason:host?'Add-on attached.':'Choose an installed compatible host SIC.'};}
   if(definition.bridgeAddon){const legal=window.SAShipMap.bridgeAddonPlacement(draft,cell);return {legal,reason:legal?'Bridge add-on ready.':'Select an installed Bridge or Cockpit square.',cells:[]};}
-  if(definition.landing){
+  if(definition.landing||definition.multiMount){
     if(draft.placements.some(p=>p.sicId!==sicId&&draft.sicInventory.find(i=>i.id===p.sicId)?.type===item.type))return {legal:false,reason:`Only one ${definition.name} may be installed.`,cells:[]};
     if(draft.gridCells.length>definition.hullLimit)return {legal:false,reason:`${definition.name} supports at most ${definition.hullLimit} hull squares.`,cells:[]};
     if(definition.hullSystem){const legal=window.SAShipMap.hullSymmetry(draft).symmetric;return {legal,reason:legal?'Hull wings ready.':'Aerofoil requires a horizontally or vertically symmetrical hull.',cells:[]};}
     const mounts=placementForSic(sicId)?.mountCells||[];
-    return {legal:window.SAShipMap.multiMountPlacement(draft,item,mounts),reason:'Hover requires four separate exterior mounts, each attached to the hull.',cells:mounts};
+    return {legal:window.SAShipMap.multiMountPlacement(draft,item,mounts),reason:`${definition.name} requires four separate exterior mounts, each attached to the hull.`,cells:mounts};
   }
   const expectedArea=window.SAShipMap.placementParts(item,{cell,exteriorCell}).reduce((sum,part)=>sum+part.entry.width*part.entry.height,0);
   if (cells.length !== expectedArea) return { legal: false, reason: `${definition.name} does not fit at the edge of the construction grid.`, cells };
@@ -597,7 +631,7 @@ function validateSicPlacement(sicId, cell, exteriorCell=placementForSic(sicId)?.
     if (definition.thruster && others.length >= 4) return { legal: false, reason: "A ship may have at most four installed thrusters. Additional thrusters can remain in storage.", cells };
     if (!window.SAShipMap.exteriorPlacement(draft, item.type, cell, sicId)) return { legal: false, reason: "Attach this exterior SIC to an outer hull wall, outside the ship and clear of other SICs.", cells };
   } else if (cells.some((candidate) => !draft.gridCells.includes(candidate))) return { legal: false, reason: `Purchase all ${definition.width * definition.height} required hull squares first.`, cells };
-  if (cells.some((candidate) => { const occupant = placementAt(candidate); return occupant && occupant.sicId !== sicId; })) return { legal: false, reason: "That area already contains a SIC.", cells };
+  if (draft.placements.some(placement => placement.sicId !== sicId && placementCells(placement).some(candidate => cells.includes(candidate)))) return { legal: false, reason: "That area already contains a SIC.", cells };
   if (definition.category === "engine") {
     const tooClose = draft.placements.find((placement) => {
       if (placement.sicId === sicId) return false;
@@ -665,7 +699,7 @@ function selectedPlacementCandidate(cell) {
   if(data.multiMount){
     const cells=[...(splitPlacement?.id===item.id?splitPlacement.cells||[]:[]),cell];
     const duplicate=draft.placements.some(p=>p.sicId!==item.id&&draft.sicInventory.find(i=>i.id===p.sicId)?.type===item.type);
-    return {legal:!duplicate&&draft.gridCells.length<=data.hullLimit&&window.SAShipMap.multiMountPlacement(draft,item,cells,false),cells,reason:duplicate?'Only one Hover system may be installed.':'Choose a separate empty exterior square attached to an outer hull wall.'};
+    return {legal:!duplicate&&(!data.hullLimit||draft.gridCells.length<=data.hullLimit)&&window.SAShipMap.multiMountPlacement(draft,item,cells,false),cells,reason:duplicate?`Only one ${data.name} may be installed.`:'Choose a separate empty exterior square attached to an outer hull wall.'};
   }
   if(data.hullSystem){const result=validateSicPlacement(item.id,cell);return {...result,legal:result.legal&&draft.gridCells.includes(cell),cells:[cell]};}
   if(!sicDefinition(item).mixed)return validateSicPlacement(item.id,cell);
@@ -703,14 +737,16 @@ function placeSelectedSic(cell) {
 function removePlacedSic(placement) {
   rememberForUndo();
   const item = draft.sicInventory.find((sic) => sic.id === placement.sicId);
+  if(sicDefinition(item).hullUpgrade){showMessage('Use the Hull upgrade inventory controls to refund, sell or destroy it.','error');return;}
   draft.placements = draft.placements.filter((entry) => entry.sicId !== placement.sicId);
   if (item) item.storage = !item.pendingPurchase;
   saveDraft();
   showMessage(item?.pendingPurchase ? `${sicDefinition(item).name} returned to the Installation Queue.` : `${sicDefinition(item).name} moved into Storage.`);
   renderAll();
 }
-let triangleHullMode=false;
+let triangleHullMode=false,airlockBuildMode=false,airlockOperation="add",airlockToMove=null;
 function toggleHullCell(index) {
+  if(airlockBuildMode){editAirlock(index);return;}
   if(triangleHullMode){toggleTriangleHull(index);return;}
   const occupied = placementAt(index);
   if (occupied) { removePlacedSic(occupied); return; }
@@ -741,7 +777,7 @@ function paintHullCell(index) {
 }
 
 function beginHullPaint(index, event) {
-  if(triangleHullMode)return;
+  if(triangleHullMode||airlockBuildMode)return;
   if (document.body.classList.contains('ship-details-view')) return;
   if (window.matchMedia("(max-width: 820px)").matches || mapView.mode !== "build" || selectedSic() || placementAt(index)) return;
   event.preventDefault();
@@ -768,8 +804,10 @@ function handleGridClick(index, cell, mobile) {
   placeSelectedSic(index);
 }
 function renderGridCells() {
+  const airlockCandidates=new Set(airlockBuildMode?window.SAShipMap.airlockCandidates(draft).map(a=>a.square):[]);
   const hull = new Set(draft.gridCells);
   const layout = window.SAShipMap.buildLayout(draft);
+  shipGrids.forEach(grid => window.SAFloorplanSnapshot?.mount(grid,draft,{fullGrid:true}));
   const placementMap = layout.footprint;
   const placementActive = Boolean(selectedSic())&&!document.body.classList.contains('ship-details-view');
   shipGrids.forEach((grid) => {
@@ -794,6 +832,8 @@ function renderGridCells() {
       cell.classList.toggle("construction-error", validation.cells.has(index));
       cell.replaceChildren();
       cell.insertAdjacentHTML("beforeend", window.SAShipMap.surfaceMarkup(layout, index));
+      cell.style.removeProperty('outline');cell.style.removeProperty('outline-offset');
+      if(airlockCandidates.has(index)){cell.style.outline='2px solid #59dfb0';cell.style.outlineOffset='-3px';}
       cell.style.removeProperty("--sic-basic-color"); cell.style.removeProperty("--sic-floorplan"); cell.style.removeProperty("--sic-tint"); cell.style.removeProperty("--sic-bg-size"); cell.style.removeProperty("--sic-bg-x"); cell.style.removeProperty("--sic-bg-y");
       if (placement) {
         const x = occupied.column; const y = occupied.row;
@@ -870,6 +910,18 @@ function fittedInteriorView(cells, columns, rows, viewport, detailed=false) {
   return {zoom:Math.max(.2,Math.min(6,tileLimit,.94*20/(right-left+padding),.88*20/(bottom-top+padding))),
     panX:50-((left+right+1)/2)/columns*100,panY:50-((top+bottom+1)/2)/rows*100};
 }
+function zoomShipGrid(factor){
+ const grid=enlargedShipInterior?.grid||shipGrids.find(g=>g.getClientRects().length),viewport=grid?.parentElement;if(!grid||!viewport)return;
+ const box=viewport.getBoundingClientRect(),before=grid.getBoundingClientRect(),x=(box.left+box.width/2-before.left)/before.width,y=(box.top+box.height/2-before.top)/before.height;
+ grid.style.transition='none';mapView.zoom=Math.max(.2,Math.min(5,mapView.zoom*factor));applyGridTransform();
+ const after=grid.getBoundingClientRect();mapView.panX+=(box.left+box.width/2-after.left-x*after.width)/after.width*100;mapView.panY+=(box.top+box.height/2-after.top-y*after.height)/after.height*100;
+ applyGridTransform();saveMapView();requestAnimationFrame(()=>grid.style.transition='');
+}
+function focusShipCharacter(){
+  const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),record=linkedCampaignState?.starships.find(s=>s.id===draft.id),loc=record?.characterLocations?.[own];
+  if(!loc){fitShipToViewport();return;}
+  Object.assign(mapView,{zoom:20/15,panX:50-(loc.square%GRID_SIZE+.5)/GRID_SIZE*100,panY:50-(Math.floor(loc.square/GRID_SIZE)+.5)/(draft.zoneRows||20)*100});saveMapView();applyGridTransform();
+}
 function fitShipToViewport() {
   const visible=[...new Set([...draft.gridCells,...window.SAShipMap.triangleCells(draft),...window.SAShipMap.buildLayout(draft).footprint.keys()])];
   const viewport=(enlargedShipInterior?.viewport||shipGrids.find(grid=>grid.getClientRects().length)?.parentElement)?.getBoundingClientRect();
@@ -924,30 +976,38 @@ function locateInstalledSic(item) {
   });
 }
 
-function renderInventoryList(container, kind) {
+function renderInventoryList(container, kind, onlyId=null) {
   container.replaceChildren();
   const [title, description] = inventoryHeadings[kind];
   const header = document.createElement("header");
   header.innerHTML = `<strong>${title}</strong><small>${description}</small>`; container.append(header);
-  const items = inventoryGroup(kind);
+  const recent=new Set(draft.sicInventory.slice(-3).map(i=>i.id));
+  const items = inventoryGroup(kind).filter(i=>onlyId?i.id===onlyId:recent.has(i.id));
   if (!items.length) {
     const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "None"; container.append(empty); return;
   }
+  const categoryHosts=sicCategoryHosts(items,container,item=>item.type,'list');
   items.forEach((item) => {
     const definition = sicDefinition(item);
     const card = document.createElement("article"); card.className = `inventory-sic inventory-${kind}`;
     const placement = placementForSic(item.id);
     const name = document.createElement("div"); name.className = "inventory-sic-name";
-    const saleValue = Math.ceil(definition.price / 2);
+    const saleValue = Math.ceil(definition.price / (item.printed?4:2));
     const detail = item.pendingDisposition === "sell" ? `Sale pending · +${formatCredits(saleValue)} cr`
       : item.pendingDisposition === "destroy" ? "Destruction pending"
-        : definition.addon?'Attached to '+escapeHtml(sicDefinition(draft.sicInventory.find(i=>i.id===item.attachTo)||'').name||'stored host'):definition.bridgeAddon?'Bridge add-on':definition.hullSystem?'Hull wings':definition.multiMount?`${placement?'4 mounts installed':'4 exterior mounts'} / ${formatCredits(definition.price)} cr`:placement ? `Grid ${Math.floor(placement.cell / GRID_SIZE) + 1}, ${placement.cell % GRID_SIZE + 1}` : `${definition.width}×${definition.height} · ${formatCredits(definition.price)} cr`;
+        : item.type==='blueprint'?'Shared by all ship printers':definition.hullUpgrade?'Attached to the whole Hull':definition.addon?(item.attachTo?'Attached to '+escapeHtml(sicDefinition(draft.sicInventory.find(i=>i.id===item.attachTo)||'').name):'Choose a host when installing'):definition.bridgeAddon?'Bridge add-on':definition.hullSystem?'Hull wings':definition.multiMount?`${placement?'4 mounts installed':'4 exterior mounts'} / ${formatCredits(definition.price)} cr`:placement ? `Grid ${Math.floor(placement.cell / GRID_SIZE) + 1}, ${placement.cell % GRID_SIZE + 1}` : `${definition.width}×${definition.height} · ${formatCredits(definition.price)} cr`;
     name.innerHTML = `<strong>${escapeHtml(definition.name)}</strong><small>${detail}</small>`;
     const actions = document.createElement("div"); actions.className = "inventory-sic-actions";
-    if (kind === "pending" && item.pendingDisposition) {
+    if(definition.hullUpgrade&&!item.pendingDisposition){
+      actions.append(inventoryButton('Locate Hull','locate-sic',()=>locateInstalledSic(item)));
+      if(item.pendingPurchase)actions.append(inventoryButton('Refund in Full','refund-sic',()=>refundPendingSic(item)));
+      else actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`,'sell-sic',()=>markSicDisposition(item,'sell')),inventoryButton('Destroy','destroy-sic',()=>markSicDisposition(item,'destroy')));
+    } else if (kind === "pending" && item.pendingDisposition) {
       actions.append(inventoryButton("Keep SIC", "keep-sic", () => {
-        rememberForUndo(); item.pendingDisposition = ""; saveDraft(); showMessage("The SIC will remain in Storage."); renderAll();
+        keepSicDisposition(item);
       }));
+    } else if (item.type==='blueprint'&&item.pendingPurchase) {
+      actions.append(inventoryButton("Refund in Full", "refund-sic", () => refundPendingSic(item)));
     } else if (kind === "pending" || kind === "queue") {
       actions.append(inventoryButton(selectedSicId === item.id ? "Cancel Placement" : "Place", selectedSicId === item.id ? "is-selected" : "", () => {
         selectedSicId = selectedSicId === item.id ? null : item.id;splitPlacement=null;
@@ -961,7 +1021,7 @@ function renderInventoryList(container, kind) {
       actions.append(inventoryButton("Remove", "store-sic", () => removePlacedSic(placement)));
       actions.append(inventoryButton(item.type === "vulnerability-fortification" ? "Purchase Duplicate (choose host)" : `Purchase Duplicate (${formatCredits(definition.price)})`, "duplicate-sic", () => purchaseSic(item.type)));
     } else {
-      actions.append(inventoryButton("Install", "install-sic", () => moveSicToQueue(item)));
+      if(item.type!=='blueprint')actions.append(inventoryButton("Install", "install-sic", () => moveSicToQueue(item)));
       if (item.pendingPurchase) actions.append(inventoryButton("Refund in Full", "refund-sic", () => refundPendingSic(item)));
       else {
         actions.append(inventoryButton(`Sell ${formatCredits(saleValue)}`, "sell-sic", () => markSicDisposition(item, "sell")));
@@ -971,12 +1031,27 @@ function renderInventoryList(container, kind) {
     if(!item.pendingDisposition&&definition.mixed&&(!placement||Number.isInteger(placement.exteriorCell))){
       actions.append(inventoryButton('Rotate Interior','rotate-sic',()=>rotateSic(item,'interior')),inventoryButton('Rotate Exterior','rotate-sic',()=>rotateSic(item,'exterior')));
     }else if (!item.pendingDisposition && definition.width !== definition.height) actions.append(inventoryButton(`Rotate (${definition.width}x${definition.height})`, "rotate-sic", () => rotateSic(item)));
-    if(item.type==='docking-bay'&&!item.pendingDisposition){
-      const size=document.createElement('label');size.textContent='Bay size ';size.style.display='flex';size.style.gap='6px';
-      for(const [key,label]of [['bayWidth','Width'],['bayHeight','Height']]){const input=document.createElement('input');input.type='number';input.min='2';input.max='60';input.step='1';input.value=item[key]||2;input.setAttribute('aria-label','Docking Bay '+label);input.style.width='60px';input.onchange=()=>{const value=Number(input.value);if(!Number.isInteger(value)||value<2||value>60){input.value=item[key]||2;return;}const before=getWorkingState(),previous=item[key];item[key]=value;const p=placementForSic(item.id),result=p&&validateSicPlacement(item.id,p.cell);if(result&&!result.legal){item[key]=previous;input.value=previous||2;showMessage(result.reason,'error');return;}undoState=before;saveDraft();renderAll();};size.append(input);}actions.append(size);
+    if(['docking-bay','brig'].includes(item.type)&&!item.pendingDisposition){
+      const brig=item.type==='brig',minimum=brig?1:2,prefix=brig?'brig':'bay',title=brig?'Brig':'Docking Bay';
+      const size=document.createElement('label');size.textContent=title+' size (hull costs normally) ';size.style.display='flex';size.style.gap='6px';size.style.flexWrap='wrap';
+      for(const [key,label]of [[prefix+'Width','Width'],[prefix+'Height','Height']]){const input=document.createElement('input');input.type='number';input.min=String(minimum);input.max='60';input.step='1';input.value=item[key]||minimum;input.setAttribute('aria-label',title+' '+label);input.style.width='60px';input.onchange=input.onblur=()=>{input.value=resizeSic(item.id,key,input.value);};size.append(input);}actions.append(size);
     }
-    card.append(name, actions); container.append(card);
+    card.append(name, actions); categoryHosts.get(item).append(card);
   });
+}
+
+function resizeSic(sicId,key,rawValue) {
+  const item=draft.sicInventory.find(entry=>entry.id===sicId);
+  if(!item||!['brig','docking-bay'].includes(item.type)||item.pendingDisposition)return '';
+  const minimum=item.type==='brig'?1:2,prefix=item.type==='brig'?'brig':'bay',previous=item[key];
+  if(![prefix+'Width',prefix+'Height'].includes(key))return previous||minimum;
+  const value=Number(rawValue);
+  if(!Number.isInteger(value)||value<minimum||value>60){showMessage(`Room dimensions must be whole numbers from ${minimum} to 60.`,'error');return previous||minimum;}
+  if(value===Number(previous||minimum))return value;
+  const before=getWorkingState();item[key]=value;
+  const placement=placementForSic(sicId),result=placement&&validateSicPlacement(sicId,placement.cell);
+  if(result&&!result.legal){if(previous===undefined)delete item[key];else item[key]=previous;showMessage(result.reason,'error');return previous||minimum;}
+  undoState=before;saveDraft();renderAll();return value;
 }
 
 function refundPendingSic(item) {
@@ -994,17 +1069,24 @@ function rotateSic(item,segment) {
   undoState=before;mobilePreviewCell=null;clearPlacementPreview();saveDraft();renderAll();
 }
 function moveSicToStorage(item) {
+  if(sicDefinition(item).hullUpgrade){showMessage('Hull upgrades cover the whole ship. Refund, sell or destroy the upgrade to remove it.','error');return;}
   rememberForUndo(); item.storage = true; if (selectedSicId === item.id) selectedSicId = null;
   saveDraft(); showMessage(`${sicDefinition(item).name} moved into Storage.`); renderAll();
 }
 function moveSicToQueue(item) {
+  if(item.type==='blueprint'){showMessage('Blueprints are already available to every printer on this ship.');return;}
   if(sicDefinition(item).probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===item.attachTo&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed'&&draft.placements.some(p=>p.sicId===i.id)).length>=4){showMessage('This Probe Launcher already holds four probes. Store or remove one first.','error');return;}
-  if(sicDefinition(item).addon){const host=window.SAShipMap.addonHost(draft,item);if(!host){showMessage('Reinstall this add-on’s host SIC first.','error');return;}rememberForUndo();item.storage=false;item.pendingDisposition='';draft.placements.push({sicId:item.id,cell:host.placement.cell});saveDraft();renderAll();return;}
+  if(sicDefinition(item).addon){const host=window.SAShipMap.addonHost(draft,item);if(!host){purchaseAddon(item.type,item);return;}rememberForUndo();item.storage=false;item.pendingDisposition='';draft.placements.push({sicId:item.id,cell:host.placement.cell});saveDraft();renderAll();return;}
   rememberForUndo(); item.storage = false; item.pendingDisposition = ""; selectedSicId = item.id;
   saveDraft(); showMessage(`${sicDefinition(item).name} moved to the Installation Queue. Select its hull area.`); renderAll();
 }
+function keepSicDisposition(item){
+  rememberForUndo();item.pendingDisposition='';
+  if(sicDefinition(item).hullUpgrade){item.storage=false;const host=window.SAShipMap.addonHost(draft,item);if(host&&!placementForSic(item.id))draft.placements.push({sicId:item.id,cell:host.placement.cell});}
+  saveDraft();showMessage(sicDefinition(item).hullUpgrade?'The upgrade will continue covering the Hull.':'The SIC will remain in Storage.');renderAll();
+}
 function markSicDisposition(item, disposition) {
-  const definition = sicDefinition(item); const saleValue = Math.ceil(definition.price / 2);
+  const definition = sicDefinition(item); const saleValue = Math.ceil(definition.price / (item.printed?4:2));
   const message = disposition === "sell"
     ? `Sell this ${definition.name} for ${formatCredits(saleValue)} credits when changes are confirmed?`
     : `Destroy this ${definition.name} permanently when changes are confirmed?`;
@@ -1015,12 +1097,13 @@ function markSicDisposition(item, disposition) {
 
 function renderInventory() {
   document.querySelectorAll("[data-sic-list]").forEach((container) => renderInventoryList(container, container.dataset.sicList));
-  const purchased = draft.sicInventory.filter((item) => !item.pendingDisposition);
+  const purchased = draft.sicInventory;
   document.querySelectorAll("[data-purchased-sic-gallery]").forEach((gallery) => {
     gallery.replaceChildren();
     if (!purchased.length) {
       const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "No SICs purchased yet."; gallery.append(empty); return;
     }
+    const categoryHosts=sicCategoryHosts(purchased,gallery,item=>item.type,'owned');
     purchased.forEach((item, index) => {
       const definition = sicDefinition(item);
       const button = document.createElement("button");
@@ -1040,7 +1123,7 @@ function renderInventory() {
       }
       button.title = `Open ${definition.name} card`;
       button.setAttribute("aria-label", `Open ${definition.name} card`);
-      gallery.append(button);
+      categoryHosts.get(item).append(button);
     });
   });
 }
@@ -1140,7 +1223,7 @@ function renderShipStores(){
     panel.querySelector('[data-fuel-buy]').onsubmit=e=>{e.preventDefault();saveShipStock({purchaseGrade:e.target.grade.value,quantity:Number(e.target.quantity.value)});};
     panel.querySelector('[data-stock-adjust] form').onsubmit=e=>{e.preventDefault();const [kind,name]=e.target.resource.value.split(':');saveShipStock({[kind]:{[name]:Number(e.target.quantity.value)}});};
   }
-  const fuel=window.SAShipMap.resourceCounts(draft.warpFuel,['F','D','C','B','A','S']),names=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron'];
+  const fuel=window.SAShipMap.resourceCounts(draft.warpFuel,['F','D','C','B','A','S']),names=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron','Dark Phazon','Phazon','Ragnaron','Transpherion','Rupium','Crixium'];
   const minerals=window.SAShipMap.resourceCounts(draft.minerals,[...new Set([...names,...Object.keys(draft.minerals||{})])]);
   const markup=`<dl>${Object.entries(fuel).map(([k,v])=>`<div><dt>Warp ${k}</dt><dd>${v}</dd></div>`).join('')}</dl><dl>${Object.entries(minerals).map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
   const values=panel.querySelector('[data-stock-values]');if(values.innerHTML!==markup)values.innerHTML=markup;
@@ -1149,9 +1232,9 @@ function renderShipStores(){
   const readonly=pageParameters.get('details')==='1'||pageParameters.has('embeddedRecord');
   let magazines=panel.querySelector('[data-magazines]');if(!magazines){magazines=document.createElement('div');magazines.dataset.magazines='';panel.querySelector('[data-stock-values]').after(magazines);}
   const launchers=draft.sicInventory.filter(i=>window.SAShipMap.definition(i.type).missileLauncher);
-  const magazineMarkup='<h3>Missile Magazines</h3>'+launchers.map(i=>`<p><strong>${escapeHtml(SIC_CATALOG[i.type].name)}</strong> ${window.SAMissileAmmo.used(draft,i.id)} / ${SIC_CATALOG[i.type].capacity}: ${Object.entries(draft.missileAmmo?.[i.id]||{}).filter(([,n])=>n>0).map(([type,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[type]?.name||type)}`).join(', ')||'Empty'}</p>`).join('')+(!readonly&&launchers.length?'<button type="button" data-buy-missiles>Purchase &amp; Load Missiles</button>':'');
+  const magazineMarkup='<h3>Ammunition Storage</h3><p>'+ (Object.entries(draft.missileStorage||{}).filter(([,n])=>n>0).map(([id,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[id]?.name||id)}`).join(', ')||'Empty')+'</p><h3>Loaded Magazines</h3>'+launchers.map(i=>`<p><strong>${escapeHtml(SIC_CATALOG[i.type].name)}</strong> ${window.SAMissileAmmo.used(draft,i.id)} / ${SIC_CATALOG[i.type].capacity}: ${Object.entries(draft.missileAmmo?.[i.id]||{}).filter(([,n])=>n>0).map(([type,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[type]?.name||type)}`).join(', ')||'Empty'}</p>`).join('')+(!readonly?'<button type="button" data-buy-missiles>Purchase Ammunition</button>':'');
   if(magazines.innerHTML!==magazineMarkup){magazines.innerHTML=magazineMarkup;magazines.querySelector('button')?.addEventListener('click',()=>purchaseMissile('missile-1'));}
-  magazines.hidden=!launchers.length;
+  magazines.hidden=false;
   panel.querySelector('[data-stock-adjust]').hidden=Boolean(linkedCampaignState&&linkedCampaignState.role!=='gm')||readonly;
   panel.querySelector('[data-fuel-buy]').hidden=readonly;
   panel.querySelectorAll('button').forEach(b=>b.disabled=Boolean(linkedCampaignState?.combatActive));
@@ -1168,11 +1251,11 @@ function renderShipStores(){
 function purchaseMissile(type){
   const launchers=draft.sicInventory.filter(i=>window.SAShipMap.definition(i.type).missileLauncher&&draft.placements.some(p=>p.sicId===i.id));
   let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
-  const view=host.createElement('dialog');view.className='missile-load-dialog';view.setAttribute('aria-label','Load Missile Magazine');
+  const view=host.createElement('dialog');view.className='missile-load-dialog';view.setAttribute('aria-label','Purchase Ammunition');
   view.style.cssText='width:520px;max-width:95vw;background:#08141c;color:white;padding:24px;border:2px solid #d4ae64';
-  view.innerHTML=`<h2>Load Missile Magazine</h2><form><label>Launcher<select name="launcher" aria-label="Missile launcher">${launchers.map((i,n)=>`<option value="${escapeHtml(i.id)}">${escapeHtml(SIC_CATALOG[i.type].name)} #${n+1}</option>`).join('')}</select></label><label>Ammunition<select name="ammunition" aria-label="Ammunition">${Object.values(window.SAMissileAmmo.catalog).map(a=>`<option value="${a.id}" ${a.id===type?'selected':''}>${a.name} / ${a.price} credits</option>`).join('')}</select></label><label>Quantity<input name="quantity" aria-label="Missile quantity" type="number" min="1" step="1" value="1" required></label><p data-space></p><button type="submit" ${launchers.length?'':'disabled'}>Purchase &amp; Load</button><button type="button" data-close>Close</button><p role="status"></p></form>`;
+  view.innerHTML=`<h2>Purchase Ammunition</h2><form><label hidden>Launcher<select name="launcher" aria-label="Missile launcher">${launchers.map((i,n)=>`<option value="${escapeHtml(i.id)}">${escapeHtml(SIC_CATALOG[i.type].name)} #${n+1}</option>`).join('')}</select></label><label>Ammunition<select name="ammunition" aria-label="Ammunition">${Object.values(window.SAMissileAmmo.catalog).map(a=>`<option value="${a.id}" ${a.id===type?'selected':''}>${a.name} / ${a.price} credits</option>`).join('')}</select></label><label>Quantity<input name="quantity" aria-label="Missile quantity" type="number" min="1" step="1" value="1" required></label><p data-space></p><button type="submit" >Purchase Ammunition</button><button type="button" data-close>Close</button><p role="status"></p></form>`;
   const form=view.querySelector('form');for(const label of form.querySelectorAll('label'))label.style.cssText='display:grid;gap:6px;margin:12px 0';
-  function update(){const item=launchers.find(i=>i.id===form.launcher.value),free=item?SIC_CATALOG[item.type].capacity-window.SAMissileAmmo.used(draft,item.id):0;form.quantity.max=free;view.querySelector('[data-space]').textContent=item?`${free} empty slots. Group Credits ${draft.groupCredits.toLocaleString()}`:'Install and confirm a Missile Launcher first.';form.querySelector('[type=submit]').disabled=free<1;}
+  function update(){form.quantity.max=10000;view.querySelector('[data-space]').textContent=`Available launchers fill automatically; surplus stays in storage. Reload at the launcher during play. Group Credits ${draft.groupCredits.toLocaleString()}`;form.querySelector('[type=submit]').disabled=false;}
   form.onchange=update;form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;await saveShipStock({purchaseMissile:form.ammunition.value,launcherId:form.launcher.value,quantity:Number(form.quantity.value)});view.querySelector('[role=status]').textContent=document.querySelector('[data-ship-stores] output').textContent;update();};
   view.querySelector('[data-close]').onclick=()=>view.close();view.onclose=()=>view.remove();host.body.append(view);view.showModal();update();
 }
@@ -1184,12 +1267,9 @@ async function saveShipStock(change){
     if(code){
       const credentials=activeCampaignCredentials(code),result=await campaignApi('/api/campaign/starship/resources',{code,...credentials,starshipId:draft.id,requestId:uid('stock'),...change});
       linkedCampaignState=result.campaign;
-      for(const key of ['warpFuel','minerals','missileAmmo','groupCredits','resourceReceipts'])draft[key]=clone(result.starship.ship[key]??(key==='groupCredits'?0:key==='resourceReceipts'?[]:{}));
+      for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])draft[key]=clone(result.starship.ship[key]??(key==='groupCredits'?0:key==='resourceReceipts'?[]:{}));
     }else if(change.purchaseMissile){
-      const item=draft.sicInventory.find(i=>i.id===change.launcherId),definition=window.SAShipMap.definition(item?.type),round=window.SAMissileAmmo.catalog[change.purchaseMissile],count=change.quantity;
-      if(!definition.missileLauncher||!draft.placements.some(p=>p.sicId===item.id)||!round||!Number.isInteger(count)||count<1||window.SAMissileAmmo.used(draft,item.id)+count>definition.capacity)throw Error('Choose an installed launcher with enough empty magazine slots.');
-      if(draft.groupCredits<round.price*count)throw Error('Not enough Group Credits.');
-      draft.groupCredits-=round.price*count;draft.missileAmmo||={};draft.missileAmmo[item.id]||={};draft.missileAmmo[item.id][round.id]=(draft.missileAmmo[item.id][round.id]||0)+count;
+      window.SAMissileAmmo.purchase(draft,change.purchaseMissile,change.quantity,window.SAShipMap.definition);
     }else if(change.purchaseGrade){
       const fuel=window.SAShipMap.fuelCatalog[change.purchaseGrade],count=change.quantity;
       if(!Number.isInteger(count)||count<1||count>10000)throw Error('Enter a whole quantity from 1 to 10000.');
@@ -1294,8 +1374,7 @@ gridModeButtons.forEach((button) => button.addEventListener("click", () => {
 gridZoomButtons.forEach((button) => button.addEventListener("click", () => {
   const action = button.dataset.gridZoom;
   if (action === "fit") { fitShipToViewport(); return; }
-  mapView.zoom = Math.max(.2, Math.min(6, mapView.zoom*(action==="in"?1.25:.8)));
-  saveMapView(); applyGridTransform();
+  zoomShipGrid(action==="in"?1.25:.8);
 }));
 document.querySelectorAll("[data-grid-pan]").forEach((button) => button.addEventListener("click", () => {
   const step = 8 / Math.max(0.5, mapView.zoom);
@@ -1307,16 +1386,19 @@ document.querySelectorAll("[data-grid-pan]").forEach((button) => button.addEvent
   saveMapView(); applyGridTransform();
 }));
 shipGrids.forEach((grid) => {
-  let panGesture = null;
+  let panGesture = null, suppressPanClick=false;
+  grid.addEventListener("click",event=>{if(suppressPanClick){event.preventDefault();event.stopImmediatePropagation();}},true);
   grid.addEventListener("pointerdown", (event) => {
-    if (window.matchMedia("(max-width: 820px)").matches) return;
+
     if (mapView.mode !== "explore" || event.target.closest(".sa-map-door")) return;
-    panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY };
-    grid.setPointerCapture?.(event.pointerId);
-    grid.classList.add("is-panning");
+    panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY, moved:false };
+
   });
   grid.addEventListener("pointermove", (event) => {
     if (!panGesture) return;
+    if(!panGesture.moved&&Math.hypot(event.clientX-panGesture.x,event.clientY-panGesture.y)<6)return;
+    if(!panGesture.moved){grid.setPointerCapture?.(event.pointerId);grid.classList.add("is-panning");}
+    panGesture.moved=true;suppressPanClick=true;
     const rect = grid.getBoundingClientRect();
     mapView.panX = panGesture.panX + ((event.clientX - panGesture.x) / rect.width * 100);
     mapView.panY = panGesture.panY + ((event.clientY - panGesture.y) / rect.height * 100);
@@ -1324,28 +1406,34 @@ shipGrids.forEach((grid) => {
   });
   const finishPan = () => {
     if (!panGesture) return;
-    panGesture = null; grid.classList.remove("is-panning"); saveMapView();
+    panGesture = null; grid.classList.remove("is-panning"); saveMapView();setTimeout(()=>suppressPanClick=false,0);
   };
   grid.addEventListener("pointerup", finishPan);
   grid.addEventListener("pointercancel", finishPan);
 });
+function clearPurchaseFeedback(){const feedback=document.querySelector('[data-purchase-feedback]');if(feedback){feedback.textContent='';delete feedback.dataset.tone;}}
+function showSicPurchaseFeedback(message,tone='error',localFeedback){
+  showMessage(message,tone);const feedback=document.querySelector('[data-purchase-feedback]');if(feedback){feedback.textContent=message;feedback.dataset.tone=tone;}if(localFeedback)localFeedback.textContent=message;
+}
+function rejectSicPurchase(message,localFeedback){
+  showSicPurchaseFeedback(message,'error',localFeedback);return false;
+}
 function purchaseSic(type) {
-  if(SIC_CATALOG[type]?.addon){purchaseAddon(type);return true;}
+  if(type==='blueprint')return rejectSicPurchase('Choose Buy blueprint on the SIC you want to craft.');
+  clearPurchaseFeedback();
+  if(SIC_CATALOG[type]?.addon)return purchaseAddon(type);
   if(SIC_CATALOG[type]?.category==='missile-ammo'){purchaseMissile(type);return true;}
-  const definition = SIC_CATALOG[type]; if (!definition) return;
+  const definition = SIC_CATALOG[type]; if (!definition) return false;
   if(definition.fuel){saveShipStock({purchaseGrade:definition.grade,quantity:1});document.querySelector('[data-starship-tab="sheet"]')?.click();document.querySelector('[data-ship-stores]')?.scrollIntoView({block:'center'});return;}
-  const feedback = document.querySelector("[data-purchase-feedback]");
-  if (feedback) feedback.textContent = "";
-  const reject = message => { showMessage(message, "error"); if (feedback) feedback.textContent = message; };
-  if (pendingCost() + definition.price > draft.groupCredits) { reject(`Not enough Group Credits to purchase ${definition.name}.`); return; }
-  if(definition.hullLimit&&draft.gridCells.length>definition.hullLimit){reject(`${definition.name} cannot be purchased for a ship larger than ${definition.hullLimit} hull squares.`);return;}
+  if (pendingCost() + definition.price > draft.groupCredits) return rejectSicPurchase(`Not enough Group Credits to purchase ${definition.name}.`);
+  if(definition.hullLimit&&draft.gridCells.length>definition.hullLimit)return rejectSicPurchase(`${definition.name} cannot be purchased for a ship larger than ${definition.hullLimit} hull squares.`);
   rememberForUndo();
   const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   draft.sicInventory.push({ id, type, rotation: 0, stationLayout: "corners-v1", pendingPurchase: true, storage: false, pendingDisposition: "" });
   selectedSicId = id; mapView.mode = "build"; saveDraft(); saveMapView();
   document.querySelector('[data-starship-tab="sheet"]')?.click();
   showMessage(definition.exterior ? `${definition.name}: select empty space attached to an outer hull wall.` : `${definition.name} added to pending purchases. Select its ${definition.width}×${definition.height} hull area to install it.`, "success"); renderAll();
-  if(definition.multiMount)showMessage('Decent (Hover): select four separate exterior squares attached to the hull. All four mounts share this one SIC purchase.');
+  if(definition.multiMount)showMessage(`${definition.name}: select four separate exterior squares attached to the hull. All four mounts share this one SIC purchase.`);
   if(definition.bridgeAddon)showMessage('Select an installed Bridge or Cockpit square to attach '+definition.name+'. It does not occupy additional hull space.');
   else if(definition.hullSystem)showMessage('Decent (Aerofoil): the hull must mirror horizontally or vertically; internal equipment need not match. Select any hull square to install the wings. Runway landing requires Move 5+.');
   return true;
@@ -1367,7 +1455,9 @@ async function confirmConstruction() {
   if(confirmingConstruction)return;
   const before=clone(draft);
   if(splitPlacement){showMessage('Place the exterior section or cancel placement before confirming.','error');return;}
+  const airlockError=window.SAShipMap.ensureAirlocks(draft);
   validation = inspectConstruction();
+  if(airlockError)validation.errors.push(airlockError);
   if (validation.errors.length) {
     showMessage(validation.errors.join(" "), "error"); renderGridCells(); renderConstructionControls(); return;
   }
@@ -1377,6 +1467,7 @@ async function confirmConstruction() {
   draft.placements = draft.placements.filter((placement) => !removedIds.has(placement.sicId));
   draft.sicInventory = draft.sicInventory.filter((item) => !item.pendingDisposition);
   draft.sicInventory.forEach((item) => {
+    if(SIC_CATALOG[item.type]?.hullUpgrade)item.purchasePrice=window.SAShipMap.sicPrice(item,draft);
     item.pendingPurchase = false; item.pendingDisposition = "";
     item.storage = !placementForSic(item.id);
   });
@@ -1385,7 +1476,7 @@ async function confirmConstruction() {
   undoState = null; selectedSicId = null; mobilePreviewCell = null;
   mapView.mode = "explore";
   confirmingConstruction=true;confirmButtons.forEach(b=>b.disabled=true);
-  try{await syncLinkedStarship(true);}catch(error){draft=before;showMessage('Changes were not confirmed: '+error.message,'error');renderConstructionControls();return;}finally{confirmingConstruction=false;}
+  try{draft.floorplanSnapshot=await window.SAFloorplanSnapshot.compile(draft);await syncLinkedStarship(true);}catch(error){draft=before;showMessage('Changes were not confirmed: '+error.message,'error');renderConstructionControls();return;}finally{confirmingConstruction=false;}
   saveDraft(); saveMapView();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
   renderSavedStarships(); renderCampaignLink(); renderAll();
@@ -1456,7 +1547,8 @@ function duplicateStarship() {
 }
 function exportStarship() {
   if (!draft.confirmedOnce) return;
-  const payload = { format: "spaceship-architect-2e-starship", version: 1, exportedAt: new Date().toISOString(), starship: clone(draft) };
+  const portable=clone(draft);delete portable.campaignLink;delete portable.crewCharacterIds;delete portable.crewmemberNames;
+  const payload = { format: "spaceship-architect-2e-starship", version: 1, exportedAt: new Date().toISOString(), starship: portable };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob); const link = document.createElement("a");
   link.href = url; link.download = `${(draft.title || "starship").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.sa2ship`;
@@ -1483,10 +1575,10 @@ function activeCampaignCredentials(code) {
   const operator = pageParameters.get("character")?{id:pageParameters.get("character")}:currentDoorOperator();
   const characterToken = operator?.id ? localStorage.getItem(`sa-character-token-${code}-${operator.id}`) || sessionStorage.getItem(`sa-character-token-${code}-${operator.id}`) || "" : "";
   const gmToken = localStorage.getItem(`sa-gm-token-${code}`) || sessionStorage.getItem(`sa-gm-token-${code}`) || "";
-  return pageParameters.get("embedded")==="pc"?{token:characterToken,characterId:operator?.id||""}:{ token: gmToken || characterToken, characterId: gmToken ? "" : operator?.id || "" };
+  return pageParameters.get("embedded")==="pc"?{token:characterToken,characterId:operator?.id||""}:{ token: gmToken || characterToken || localStorage.getItem("sa-room-player-"+code) || "", characterId: gmToken ? "" : operator?.id || "" };
 }
 async function campaignApi(path, body = null, method = "POST") {
-  if(pageParameters.get('details')==='1'&&method!=='GET')throw new Error('Open Edit Ship to make changes.');
+  if(pageParameters.get('details')==='1'&&method!=='GET'&&path!=='/api/campaign/starship/details')throw new Error('Open Edit Ship to make changes.');
   const response = await fetch(path, { method, headers: body === null ? undefined : { "Content-Type": "application/json" }, body: body === null ? undefined : JSON.stringify(body) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "The campaign server rejected that request.");
@@ -1498,6 +1590,10 @@ async function refreshLinkedCampaign() {
   const credentials = activeCampaignCredentials(code);
   try { linkedCampaignState = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(code)}&token=${encodeURIComponent(credentials.token)}`, null, "GET"); }
   catch { linkedCampaignState = null; }
+  const latest=linkedCampaignState?.starships?.find(s=>s.id===draft.id);
+  if(latest && !confirmingConstruction && draft.campaignLink && (latest.buildRevision||0)!==(draft.campaignLink.buildRevision||0)){
+    draft={...draft,...clone(latest.ship),confirmed:constructionState(latest.ship),campaignLink:{...draft.campaignLink,buildRevision:latest.buildRevision||0}};selectedSicId=null;undoState=null;saveDraft();document.body.classList.add("ship-details-view");applyDraftToUi();renderAll();showMessage("Another crew member confirmed changes. Your editor has closed and the latest ship is displayed. Reopen Upgrade to edit again.","error");if(parent!==window)parent.postMessage({type:"sa-ship-editor-exit",message:"Another crew member confirmed ship changes. Your editor has closed; reopen Upgrade to edit the latest ship."},location.origin);
+  }
   renderCampaignLink();
   renderLiveStats();
 }
@@ -1513,7 +1609,7 @@ function renderCampaignLink() {
   const npcSelected = new Set(linkedCampaignState?.starships?.find(ship => ship.id === draft.id)?.crewNpcUnitIds || []);
   linkStarshipForms.forEach((form) => { form.hidden = Boolean(linked); });
   document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
-  document.querySelectorAll("[data-save-starship-crew]").forEach((button) => { button.hidden = !linked; });
+  document.querySelectorAll("[data-save-starship-crew]").forEach((button) => { button.hidden = !linked || linkedCampaignState?.role !== "gm"; });
   if (!linked) {
     document.querySelectorAll("[data-link-starship]").forEach((button) => { button.disabled = false; button.title = draft.confirmedOnce ? "" : "Confirm Ship First"; });
     document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { list.innerHTML = '<span class="empty-inventory">Link this ship to assign crew.</span>'; });
@@ -1523,8 +1619,8 @@ function renderCampaignLink() {
   document.querySelectorAll("[data-linked-campaign-code]").forEach((node) => { node.textContent = linked.roomCode; });
   document.querySelectorAll("[data-linked-control-type]").forEach((node) => { node.textContent = linked.controlType === "gm" ? "GM Controlled" : "PC Controlled"; });
   const overview = (id, npc = false, fallback = null) => window.SACrewOverview.markup(window.SACrewOverview.details(id, npc, linkedCampaignState?.combatShipIds ? (linkedCampaignState.starships||[]).filter(s=>linkedCampaignState.combatShipIds.includes(s.id)) : linkedCampaignState?.starships || [], linkedCampaignState?.crewLocations || [], fallback));
-  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" data-starship-crew="${escapeHtml(record.id)}" value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}${overview(record.id)}</span></label>`).join("") : linkedCampaignState ? "<p>No characters have joined this campaign yet.</p>" : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
-  const npcMarkup = linkedCampaignState?.role === "gm" ? `<h4>NPC Crew</h4>${(linkedCampaignState.npcRoster || []).map(unit => `<label class="starship-crew-option"><input type="checkbox" data-npc-crew data-starship-npc-crew="${escapeHtml(unit.id)}" value="${escapeHtml(unit.id)}" ${npcSelected.has(unit.id) ? "checked" : ""}/><span>${escapeHtml(unit.characterName)}${overview(unit.id, true, unit)}</span></label>`).join("") || "<p>Add an NPC in Encounter Control to make it available here.</p>"}` : "";
+  const markup = records.length ? records.map((record) => `<label class="starship-crew-option"><input type="checkbox" data-starship-crew="${escapeHtml(record.id)}" ${linkedCampaignState?.role !== "gm" ? "disabled" : ""} value="${escapeHtml(record.id)}" ${selected.has(record.id) ? "checked" : ""}/><span>${escapeHtml(record.character?.identity?.characterName || "Unnamed Character")}</span></label>`).join("") : linkedCampaignState ? "<p>No characters have joined this campaign yet.</p>" : "<p>Campaign characters could not be loaded. Reopen this ship from the GM Starships tab.</p>";
+  const npcMarkup = linkedCampaignState?.role === "gm" ? `<h4>NPC Crew</h4>${(linkedCampaignState.npcRoster || []).map(unit => `<label class="starship-crew-option"><input type="checkbox" data-npc-crew data-starship-npc-crew="${escapeHtml(unit.id)}" value="${escapeHtml(unit.id)}" ${npcSelected.has(unit.id) ? "checked" : ""}/><span>${escapeHtml(unit.characterName)}</span></label>`).join("") || "<p>Add an NPC in Encounter Control to make it available here.</p>"}` : "";
   document.querySelectorAll("[data-starship-crew-list]").forEach((list) => { window.SALiveDOM.render(list, markup + npcMarkup); });
 }
 async function linkStarship(event) {
@@ -1532,6 +1628,7 @@ async function linkStarship(event) {
   if (!draft.confirmedOnce || !statesMatch(draft, draft.confirmed)) { campaignMessage("Confirm Ship First", "error"); return; }
   const form = event.currentTarget; const code = form.querySelector("[data-starship-campaign-code]").value.trim().toUpperCase();
   try {
+    if(await window.SARoomV03?.importIntoRoom(code,"ship",draft))return;
     const result = await campaignApi("/api/campaign/starship/link", { code, controlType: form.querySelector("[data-starship-control-type]").value, starship: draft });
     draft.campaignLink = { roomCode: code, campaignName: result.campaignName, controlType: result.starship.controlType, accessKey: result.accessKey };
     draft.crewCharacterIds = []; saveDraft(); linkedCampaignState = null; await refreshLinkedCampaign(); campaignMessage("Starship linked successfully.");
@@ -1540,7 +1637,7 @@ async function linkStarship(event) {
 async function syncLinkedStarship(strict=false) {
   if (!draft.campaignLink?.roomCode || !draft.confirmedOnce) return;
   const link = draft.campaignLink; const credentials = activeCampaignCredentials(link.roomCode);
-  try { await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, starship: draft }); }
+  try { const result=await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, buildRevision:link.buildRevision||0, starship: draft }); link.buildRevision=result.starship.buildRevision||0; }
   catch (error) { if(strict)throw error;campaignMessage(`Saved locally. Campaign sync needs attention: ${error.message}`, "error"); }
 }
 
@@ -1567,7 +1664,7 @@ document.querySelectorAll("[data-save-starship-crew]").forEach((button) => butto
   const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
   try {
     const result = await campaignApi("/api/campaign/starship/crew", { code: draft.campaignLink.roomCode, token: credentials.token, characterId: credentials.characterId, starshipId: draft.id, crewCharacterIds, crewNpcUnitIds });
-    draft.crewCharacterIds = result.starship.crewCharacterIds; saveDraft(); campaignMessage("Crew assignments saved."); await refreshLinkedCampaign();
+    button.classList.remove('assignments-dirty');draft.crewCharacterIds = result.starship.crewCharacterIds; saveDraft(); campaignMessage("Crew assignments saved."); await refreshLinkedCampaign();
   } catch (error) { campaignMessage(error.message, "error"); }
 }));
 
@@ -1589,17 +1686,21 @@ let activeFamilyDialog = null;
 let disposeFamilyDialog = null;
 function attachFloorplanPreview(card,type,container) {
   const d=SIC_CATALOG[type],art=card.querySelector('.sic-poker-art');
-  if(!art||!d?.width||!d.height||d.hullSystem||!d.image)return;
+  if(!art||!d?.image||(!d.floorplanPreview&&(!d.width||!d.height||d.hullSystem)))return;
   let popup;
   const hide=()=>{popup?.remove();popup=null;};
   art.addEventListener('pointerenter',()=>{
-    hide();popup=cardHost.createElement('aside');popup.className='sic-floorplan-preview';
-    popup.innerHTML=`<strong>${escapeHtml(d.name)} floorplan</strong><img src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)} floorplan"><small>${d.width} × ${d.height}${d.exterior?' EXT':''}</small>`;
-    container.append(popup);const r=art.getBoundingClientRect(),w=cardHost.defaultView.innerWidth,h=cardHost.defaultView.innerHeight;
+    const previewDocument=container.ownerDocument;
+    hide();popup=previewDocument.createElement('aside');popup.className='sic-floorplan-preview';
+    const installation=Boolean(d.floorplanPreview),label=installation?'installation preview':'floorplan';
+    const size=installation?(d.addon==='hull'?'Whole-hull coating · no floor space':'Inside its Shield · no extra floor space'):d.mixed?`${d.width} × ${d.exteriorRows} EXT + ${d.interiorWidth||d.width} × ${d.interiorRows||d.height-d.exteriorRows} EDG`:`${d.width} × ${d.height}${d.exterior?' EXT':''}`;
+    popup.innerHTML=`<strong>${escapeHtml(d.name)} ${label}</strong>${d.mixed&&d.sprite?`<img class="sic-preview-exterior" src="${escapeHtml(d.sprite)}" alt="${escapeHtml(d.name)} exterior">`:''}<img src="${escapeHtml(d.floorplanPreview||d.image)}" alt="${escapeHtml(d.name)} ${label}"><small>${escapeHtml(size)}</small>`;
+    container.append(popup);const r=art.getBoundingClientRect(),w=previewDocument.defaultView.innerWidth,h=previewDocument.defaultView.innerHeight;
     popup.style.left=`${Math.max(8,Math.min(w-248,r.left-248))}px`;popup.style.top=`${Math.max(8,Math.min(h-popup.offsetHeight-8,r.top))}px`;
   });
   art.addEventListener('pointerleave',hide);art.addEventListener('pointerdown',hide);
 }
+market.querySelectorAll('[data-sic-card]').forEach(card=>attachFloorplanPreview(card,card.dataset.sicCard,document.body));
 function openSicFamily(family, items, trigger) {
   if (activeFamilyDialog) return;
   const dialog = cardHost.createElement("dialog");
@@ -1658,6 +1759,7 @@ function openSicCard(sicCard, trigger = sicCard) {
   inspectedTrigger = trigger;
   const cloneCard = previewSicCard(sicCard);
   const installedItem = draft.sicInventory.find(item => item.id === trigger?.dataset.openSicId);
+  if(!installedItem&&window.SAFabrication.recipe(cloneCard.dataset.sicPreview)&&!VIEW_ONLY_MODE){const buy=cardHost.createElement("button");buy.className="sic-buy-blueprint";buy.textContent="Buy blueprint";buy.onclick=()=>openBlueprintPurchase(cloneCard.dataset.sicPreview);sicCardDialog._blueprintAction=buy;}
   if (installedItem) {
     decorateOwnedCard(cloneCard,installedItem);
     const locate = cardHost.createElement("button"); locate.type = "button"; locate.className = "sic-inspector-locate"; locate.textContent = "Locate";
@@ -1666,7 +1768,25 @@ function openSicCard(sicCard, trigger = sicCard) {
     cloneCard.append(locate);
   }
   sicCardDialog.style.setProperty("--card-accent", cardAccent(cloneCard.dataset.sicPreview));
-  sicCardDialog.querySelector("[data-sic-card-dialog-body]").replaceChildren(cloneCard);
+  const body=sicCardDialog.querySelector("[data-sic-card-dialog-body]");body.replaceChildren(cloneCard);
+  const tools=cardHost.createElement('aside');tools.className='sic-inspector-tools';if(sicCardDialog._blueprintAction){tools.append(sicCardDialog._blueprintAction);delete sicCardDialog._blueprintAction;}body.prepend(tools);
+  const definition=SIC_CATALOG[cloneCard.dataset.sicPreview];
+  if(definition&&(definition.shipControl||definition.shield||definition.sensor||definition.weapon||definition.lockOn||definition.utility||definition.hacking)){
+    const preview=cardHost.createElement('button');preview.textContent='Preview Console';preview.style.cssText='background:#586570;color:#fff;border:1px solid #becbd0';
+    preview.onclick=()=>{const frame=cardHost.createElement('iframe');frame.title='Static console preview';frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';frame.src='index.html?catalogPreview='+encodeURIComponent(cloneCard.dataset.sicPreview);cardHost.body.append(frame);};tools.prepend(preview);
+  }
+  sicCardDialog.classList.remove("is-zoomed");sicCardDialog.style.removeProperty("--inspection-width");
+  let cardZoom=1;
+  body.onwheel=event=>{
+    if(!event.target.closest('[data-sic-preview]'))return;
+    event.preventDefault();
+    const maxZoom=Math.max(.65,(cardHost.defaultView.innerWidth-(tools.childElementCount?172:48))/350);
+    cardZoom=Math.max(.65,Math.min(maxZoom,cardZoom+(event.deltaY<0?.2:-.2)));
+    cloneCard.style.zoom=cardZoom;
+    sicCardDialog.classList.add("is-zoomed");
+    sicCardDialog.style.setProperty("--inspection-width",`${350*cardZoom+(tools.childElementCount?170:46)}px`);
+  };
+  if(installedItem&&!VIEW_ONLY_MODE&&!document.body.classList.contains("ship-details-view")){const panel=cardHost.createElement("aside");panel.className="sic-context-actions";const kind=Object.keys(inventoryHeadings).find(k=>inventoryGroup(k).some(i=>i.id===installedItem.id));if(kind){renderInventoryList(panel,kind,installedItem.id);panel.addEventListener("click",e=>{if(e.target.closest("button"))closeSicCard();});body.append(panel);}}
   sicCardDialog.showModal();
   if (!reducedCardMotion()) sicCardDialog.animate([{ opacity: 0, transform: "translateY(35px) scale(.72) rotate(-4deg)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
 }
@@ -1756,6 +1876,7 @@ async function initializeStarshipPage() {
   } else if (requestedShipId && campaignCode) {
     const credentials = activeCampaignCredentials(campaignCode);
     try {
+      await campaignApi('/api/campaign/starship/details',{code:campaignCode,token:credentials.token,ids:[requestedShipId]});
       const state = await campaignApi(`/api/campaign/state?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(credentials.token)}`, null, "GET");
       const record = (state.starships || []).find((entry) => entry.id === requestedShipId);
       if (record) {
@@ -1763,9 +1884,9 @@ async function initializeStarshipPage() {
           ...defaultDraft(), ...clone(record.ship), id: record.id, title: record.title || record.ship.title,
           confirmed: constructionState(record.ship),
           confirmedOnce: true, crewCharacterIds: clone(record.crewCharacterIds || []),
-          campaignLink: { roomCode: campaignCode, campaignName: state.name, controlType: record.controlType, accessKey: draft.campaignLink?.accessKey || "" },
+          campaignLink: { buildRevision:record.buildRevision||0, roomCode: campaignCode, campaignName: state.name, controlType: record.controlType, accessKey: draft.campaignLink?.accessKey || "" },
         };
-        for(const key of ['warpFuel','minerals','missileAmmo','groupCredits','resourceReceipts'])if(record.ship[key]!==undefined){draft[key]=clone(record.ship[key]);draft.confirmed[key]=clone(record.ship[key]);}
+        for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])if(record.ship[key]!==undefined){draft[key]=clone(record.ship[key]);draft.confirmed[key]=clone(record.ship[key]);}
         linkedCampaignState = state; saveDraft();
       }
     } catch (error) { campaignMessage(error.message, "error"); }
@@ -1798,10 +1919,10 @@ function drawDetailsCrew(){
   for(const ai of aiStations)for(const grid of shipGrids){const cell=grid.querySelector(`[data-grid-index="${ai.location.square}"]`);if(!cell)continue;const marker=grid.querySelector(`[data-ai-unit-id="${CSS.escape(ai.id)}"]`)||document.createElement('i');marker.className='ship-detail-crew ship-detail-ai';marker.dataset.aiUnitId=ai.id;marker.dataset.shipAi='true';marker.title=ai.name+' (bridge station)';marker.style.left=`${(ai.location.mesh%3+.5)/3*100}%`;marker.style.top=`${(Math.floor(ai.location.mesh/3)+.5)/3*100}%`;if(marker.parentElement!==cell)cell.append(marker);}
   for(const [id,loc] of Object.entries(record?.characterLocations||{}))for(const grid of shipGrids){
     const cell=grid.querySelector(`[data-grid-index="${loc.square}"]`);if(!cell)continue;
-    const person=linkedCampaignState.characters.find(c=>c.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.motion?.[id];
-    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;marker.style.setProperty('--token-color',record.crewColors?.[id]||person?.character?.presentation?.atbColor||'#39e58f');
+    const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.motion?.[id];
+    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
     if(!marker.querySelector('.crew-figure'))marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);
-    marker.title=(person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
+    marker.title=(occupant?.name||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
     marker.dataset.walking=String(Boolean(motion?.walking));
     if(motion){marker.style.left=`${motion.x/GRID_SIZE*100}%`;marker.style.top=`${motion.y/(draft.zoneRows||20)*100}%`;marker.style.setProperty('--crew-heading',`${motion.heading}deg`);if(marker.parentElement!==grid)grid.append(marker);}
     else{marker.style.left=`${((mesh%3)+.5)/3*100}%`;marker.style.top=`${(Math.floor(mesh/3)+.5)/3*100}%`;if(marker.parentElement!==cell)cell.append(marker);}
@@ -1817,7 +1938,7 @@ window.addEventListener('message',event=>{
   if(JSON.stringify(previous?.ship)!==JSON.stringify(record.ship)){
     draft={...draft,...clone(record.ship),title:record.title,confirmed:constructionState(record.ship),campaignLink:null};
     shipFields.forEach(field=>{field.value=draft[field.dataset.shipField]||(field.type==='color'?window.SAShipMap.shipColor(draft):'');});renderAll();
-  }else drawDetailsCrew();
+  }else{drawDetailsCrew();renderEmbeddedMovement();}
 });
 function renderVisibleMapControls(){
   for(const grid of shipGrids){
@@ -1842,25 +1963,32 @@ function renderEmbeddedMovement(){
     const controlHost=enlargedShipInterior?.grid===grid?enlargedShipInterior.controlHost:grid.closest('.desktop-sheet')||grid.closest('.mobile-grid-panel');
     let controls=enlargedShipInterior?.grid===grid?enlargedShipInterior.controls:controlHost.querySelector('.embedded-move-controls');
     if(!controls){controls=document.createElement('div');controls.className='embedded-move-controls';controls.innerHTML='<button type="button" data-action="begin">Move</button><button type="button" data-action="confirm">Confirm</button><button type="button" data-action="cancel">Cancel</button><output role="status"></output>';controlHost.append(controls);controls.onclick=e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action)parent.postMessage({type:'sa-ship-map-action',action},location.origin);};
-      grid.addEventListener('pointerdown',e=>{if(embeddedMove)e.stopImmediatePropagation();},true);
+
       grid.addEventListener('pointermove',e=>{
-        if(!embeddedMove||embeddedMove.submitting||embeddedMove.locked)return;
+        if(!embeddedMove||embeddedMove.submitting||embeddedMove.locked||grid.classList.contains('is-panning'))return;
         const cell=e.target.closest('[data-grid-index]');if(!cell)return;
         const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);
         if(!draft.gridCells.includes(square))return;
         const mesh=Math.max(0,Math.min(2,Math.floor((e.clientY-r.top)/r.height*3)))*3+Math.max(0,Math.min(2,Math.floor((e.clientX-r.left)/r.width*3)));
         parent.postMessage({type:'sa-ship-map-destination',square,mesh,preview:true},location.origin);
       });
-      grid.addEventListener('click',e=>{const door=e.target.closest('[data-door-key]');if(door){e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'sa-ship-map-door',key:door.dataset.doorKey},location.origin);return;}if(!embeddedMove||embeddedMove.submitting)return;const cell=e.target.closest('[data-grid-index]');if(!cell)return;const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);if(!draft.gridCells.includes(square))return;const x=Math.max(0,Math.min(2,Math.floor((e.clientX-r.left)/r.width*3))),y=Math.max(0,Math.min(2,Math.floor((e.clientY-r.top)/r.height*3)));e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'sa-ship-map-destination',square,mesh:y*3+x},location.origin);},true);
+      grid.addEventListener('click',e=>{if(!embeddedMove||embeddedMove.submitting)return;const cell=e.target.closest('[data-grid-index]');if(!cell)return;const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);if(!draft.gridCells.includes(square))return;const x=Math.max(0,Math.min(2,Math.floor((e.clientX-r.left)/r.width*3))),y=Math.max(0,Math.min(2,Math.floor((e.clientY-r.top)/r.height*3)));e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'sa-ship-map-destination',square,mesh:y*3+x},location.origin);},true);
     }
 
     if(!controls.querySelector('[data-action=console]')){
-      for(const [action,label] of [['console','Toggle Console'],['diagnostics','System Repairs and Diagnostics']]){
+      for(const [action,label] of [['console','Toggle Console'],['diagnostics','System Repairs and Diagnostics'],['keyboard','WASD / Arrow Keys: Off'],['power','SIC Power']]){
         const button=document.createElement('button');button.type='button';button.dataset.action=action;button.textContent=label;controls.append(button);
       }
     }
     controls.classList.toggle('is-selecting',Boolean(embeddedMove));
     for(const action of ['console','diagnostics'])controls.querySelector(`[data-action=${action}]`).disabled=Boolean(embeddedMove);
+    const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),loc=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterLocations?.[own];
+    const seat=loc&&window.SAShipMap.buildLayout(draft).footprint.get(Number(loc.square));
+    const onSeat=embeddedStationState?.seated??seat?.stations.some(s=>s.x===seat.column&&s.y===seat.row&&s.mesh===Number(loc.mesh));
+    controls.querySelector('[data-action=console]').disabled=Boolean(embeddedMove)||!(embeddedStationState?.consoleEnabled??(onSeat&&seat?.item?.status!=='destroyed'));
+    controls.querySelector('[data-action=power]').disabled=!onSeat||embeddedStationState?.combat;
+    controls.querySelector('[data-action=keyboard]').textContent='WASD / Arrow Keys: '+(embeddedKeyboardMode?'On':'Off');
+    controls.querySelector('[data-action=keyboard]').hidden=Boolean(embeddedStationState?.combat);
     const ready=embeddedMove?.locked&&!embeddedMove.invalid&&(embeddedMove.path?.length||embeddedMove.sameSquareMove);
     controls.querySelector('[data-action=begin]').hidden=Boolean(embeddedMove);
     for(const key of ['confirm','cancel'])controls.querySelector(`[data-action=${key}]`).hidden=!embeddedMove;
@@ -1889,7 +2017,7 @@ window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-move-preview'||!pageParameters.has('embeddedRecord'))return;
   const beginningMove=!embeddedMove&&event.data.move;
   embeddedMove=event.data.move;let changed=false;
-  if(beginningMove)requestAnimationFrame(fitShipToViewport);
+  if(beginningMove&&!embeddedKeyboardMode)requestAnimationFrame(fitShipToViewport);
   for(const key of ['labels','walls','stations','highResolution','combatMesh','hull'])if(typeof event.data.view?.[key]==='boolean'&&mapView[key]!==event.data.view[key]){mapView[key]=event.data.view[key];changed=true;}
   if(changed)renderAll();else renderEmbeddedMovement();
 });
@@ -1897,7 +2025,7 @@ window.SAEmbeddedShipMovement={async animate(id,start,startMesh,route,endMesh,mo
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const steps=route.map((p,i)=>typeof p==='object'?p:{square:p,mesh:i===route.length-1?endMesh:4});route=steps.map(p=>p.square);
   const grid=shipGrids.find(g=>g.getBoundingClientRect().width>0),token=grid?.querySelector(`[data-crew-id="${CSS.escape(id)}"]`);if(!token)return;
-  const ghost=token.cloneNode(true);ghost.className='ship-detail-crew player-ship-moving-token';ghost.removeAttribute('data-crew-id');ghost.dataset.walking=String(window.SAShipMap.gravityEnabled(draft));grid.append(ghost);token.style.opacity='0';
+  const ghost=token.cloneNode(true);ghost.classList.add('ship-detail-crew','player-ship-moving-token');ghost.removeAttribute('data-crew-id');ghost.dataset.walking=String(window.SAShipMap.gravityEnabled(draft));grid.append(ghost);token.style.opacity='0';
   const pos=(n,m)=>({left:`${(n%GRID_SIZE+((m%3)+.5)/3)/GRID_SIZE*100}%`,top:`${(Math.floor(n/GRID_SIZE)+(Math.floor(m/3)+.5)/3)/(draft.zoneRows||20)*100}%`});Object.assign(ghost.style,pos(start,startMesh));
   try{for(let i=0;i<route.length;i++){
     if(control.cancelled)break;
@@ -1912,7 +2040,7 @@ window.SAEmbeddedShipMovement={async animate(id,start,startMesh,route,endMesh,mo
     control.onProgress=f=>{const x=Math.round(ax+(bx-ax)*f),y=Math.round(ay+(by-ay)*f);control.position={square:Math.floor(y/3)*GRID_SIZE+Math.floor(x/3),mesh:y%3*3+x%3};};
     try{await window.SAShipMap.playWalkingAnimation(a,duration,()=>window.SAShipMap.gravityEnabled(draft),walking=>{ghost.dataset.walking=String(walking);},control);}finally{a.cancel();}Object.assign(ghost.style,to);
     if(closed)doors.forEach(d=>d.classList.remove('is-open'));
-  }}finally{ghost.remove();token.style.opacity='';}
+  }}finally{control.cleanup=()=>{ghost.remove();token.style.opacity='';};if(!control.keepArrivalGhost)control.cleanup();}
 }};
 window.SAStarshipEditor={hasChanges:()=>!statesMatch(draft,draft.confirmed)||Boolean(splitPlacement)};
 
@@ -1935,32 +2063,46 @@ function installTriangleControls(){
   if(VIEW_ONLY_MODE||document.body.classList.contains('ship-details-view'))return;
   for(const host of document.querySelectorAll('.construction-zone-controls')){
     if(host.querySelector('[data-triangle-hull]'))continue;
+    const tools=document.createElement('span');tools.className='airlock-builder-tools';tools.innerHTML='<strong>Airlocks</strong> <button type="button" data-airlock-action="add">Add</button> <button type="button" data-airlock-action="move">Reposition</button> <button type="button" data-airlock-action="remove">Remove</button> <button type="button" data-airlock-action="cancel">Done / Cancel</button>';host.append(tools);
+    tools.onclick=e=>{const button=e.target.closest('[data-airlock-action]');if(!button)return;airlockOperation=button.dataset.airlockAction;airlockToMove=null;airlockBuildMode=airlockOperation!=='cancel';triangleHullMode=false;cancelPlacement();mapView.mode='build';renderAll();showMessage(airlockOperation==='move'?'Click the airlock to move, then a highlighted empty outer hull square.':airlockOperation==='remove'?'Click an airlock to remove it. Every ship must retain at least one.':airlockOperation==='add'?'Click a highlighted outer hull square to place an airlock.':'Airlock editing closed.');};
     const label=document.createElement('label');label.innerHTML='<input type="checkbox" data-triangle-hull> Triangle Hull — 300 credits';host.append(label);
-    label.querySelector('input').onchange=e=>{triangleHullMode=e.target.checked;cancelPlacement();mapView.mode='build';document.querySelectorAll('[data-triangle-hull]').forEach(i=>i.checked=triangleHullMode);renderAll();};
+    label.querySelector('input').onchange=e=>{triangleHullMode=e.target.checked;airlockBuildMode=false;document.querySelectorAll('[data-airlock-build]').forEach(n=>n.checked=false);cancelPlacement();mapView.mode='build';document.querySelectorAll('[data-triangle-hull]').forEach(i=>i.checked=triangleHullMode);renderAll();};
   }
   for(const grid of shipGrids){if(grid.dataset.trianglePreview)return;grid.dataset.trianglePreview='true';
     grid.addEventListener('pointermove',e=>{grid.querySelectorAll('.sa-hull-triangle.is-preview').forEach(n=>n.remove());if(!triangleHullMode||mapView.mode!=='build'||selectedSic())return;const cell=e.target.closest('[data-grid-index]');if(!cell)return;const n=Number(cell.dataset.gridIndex);if(window.SAShipMap.triangleCells(draft).includes(n))return;const next={...draft,triangleCells:[...window.SAShipMap.triangleCells(draft),n]};if(!window.SAShipMap.triangleError(next)&&!window.SAShipMap.exteriorError(next))cell.insertAdjacentHTML('beforeend',window.SAShipMap.triangleMarkup(draft,n,true));});
     grid.addEventListener('pointerleave',()=>grid.querySelectorAll('.sa-hull-triangle.is-preview').forEach(n=>n.remove()));
   }
 }
-function purchaseAddon(type){
-  const def=SIC_CATALOG[type],hosts=draft.placements.map(p=>draft.sicInventory.find(i=>i.id===p.sicId)).filter(i=>i&&!i.pendingDisposition&&(!sicDefinition(i).addon||def.addon==='probe-module'&&sicDefinition(i).probe)&&(def.addon==='probe-module'?sicDefinition(i).probe&&window.SAShipMap.addonHost(draft,i):def.addon==='any'?Number(sicDefinition(i).threshold)>0:def.addon==='engine'?sicDefinition(i).engine:def.addon==='probe'?sicDefinition(i).probeLauncher:sicDefinition(i).bridge));
-  if(!hosts.length){showMessage('Install a compatible host SIC before purchasing '+def.name+'.','error');return;}
+function purchaseHullUpgrade(type){
+  const definition=SIC_CATALOG[type],price=window.SAShipMap.hullSections(draft)*definition.hullSquarePrice;
+  if(!draft.gridCells.length)return rejectSicPurchase('Build the Hull before purchasing a Hull upgrade.');
+  if(draft.sicInventory.some(item=>item.type===type&&!item.pendingDisposition))return rejectSicPurchase(`Only one ${definition.name} per ship.`);
+  if(!Number.isSafeInteger(price)||pendingCost()+price>draft.groupCredits)return rejectSicPurchase(`Not enough Group Credits. ${definition.name} costs ${formatCredits(price)} for the whole Hull.`);
+  rememberForUndo();const id=uid(type);draft.sicInventory.push({id,type,attachTo:'hull',purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:draft.gridCells[0]});
+  clearPurchaseFeedback();saveDraft();renderAll();showSicPurchaseFeedback(`${definition.name} covers all ${window.SAShipMap.hullSections(draft)} Hull sections. Confirm Changes to finish.`,'success');return true;
+}
+function purchaseAddon(type,storedItem=null){
+  if(SIC_CATALOG[type]?.hullUpgrade)return purchaseHullUpgrade(type);
+  const def=SIC_CATALOG[type],hosts=draft.placements.map(p=>draft.sicInventory.find(i=>i.id===p.sicId)).filter(i=>i&&!i.storage&&!i.pendingDisposition&&(!sicDefinition(i).addon||def.addon==='probe-module'&&sicDefinition(i).probe)&&(def.addon==='probe-module'?sicDefinition(i).probe&&window.SAShipMap.addonHost(draft,i):def.addon==='any'?Number(sicDefinition(i).threshold)>0:def.addon==='science'?i.type==='science-lab':def.addon==='engine'?sicDefinition(i).engine:def.addon==='shield'?sicDefinition(i).shield:def.addon==='probe'?sicDefinition(i).probeLauncher:sicDefinition(i).bridge));
+  if(!hosts.length)return rejectSicPurchase('Install a compatible host SIC before purchasing '+def.name+'.');
   const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options';dialog.setAttribute('aria-label','Attach '+def.name);
   dialog.innerHTML='<h2>'+escapeHtml(def.name)+'</h2><label>Attach to SIC<select data-addon-host>'+hosts.map(i=>`<option value="${escapeHtml(i.id)}">${escapeHtml(sicDefinition(i).name)} (${escapeHtml(i.id.slice(-5))})</option>`).join('')+'</select></label><p data-addon-price></p><p role="alert"></p><button type="button" data-addon-buy>Purchase and Attach</button><button type="button" data-addon-cancel>Cancel</button>';
-  const host=()=>draft.sicInventory.find(i=>i.id===dialog.querySelector('select').value),cost=()=>type==='vulnerability-fortification'?500*2**draft.sicInventory.filter(i=>i.type===type&&i.attachTo===host().id&&!i.pendingDisposition).length:def.price;
-  const price=()=>dialog.querySelector('[data-addon-price]').textContent=cost().toLocaleString()+' credits';dialog.querySelector('select').onchange=price;price();
+  if(storedItem)dialog.querySelector('[data-addon-buy]').textContent='Install stored SIC';
+  const host=()=>draft.sicInventory.find(i=>i.id===dialog.querySelector('select').value),cost=()=>storedItem?0:type==='vulnerability-fortification'?500*2**draft.sicInventory.filter(i=>i.type===type&&i.attachTo===host().id&&!i.pendingDisposition).length:def.price;
+  const price=()=>dialog.querySelector('[data-addon-price]').textContent=cost().toLocaleString()+' credits';dialog.querySelector('select').onchange=()=>{clearPurchaseFeedback();dialog.querySelector('[role=alert]').textContent='';price();};price();
   dialog.querySelector('[data-addon-cancel]').onclick=()=>dialog.close();
-  dialog.querySelector('[data-addon-buy]').onclick=()=>{const parent=host(),price=cost(),alert=dialog.querySelector('[role=alert]');if(def.probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===parent.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed').length>=4){alert.textContent='This Probe Launcher already holds four probes. Store or remove one first.';return;}if(type==='power-core-damper'&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition)){alert.textContent='This Engine already has a Power Core Damper.';return;}if(!Number.isSafeInteger(price)||pendingCost()+price>draft.groupCredits){alert.textContent='Not enough Group Credits.';return;}rememberForUndo();const id=uid(type),placement=placementForSic(parent.id);draft.sicInventory.push({id,type,attachTo:parent.id,purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:placement.cell});saveDraft();renderAll();showMessage(def.name+' attached to '+sicDefinition(parent).name+'. Confirm Changes to finish.','success');dialog.close();};
-  dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
+  dialog.querySelector('[data-addon-buy]').onclick=()=>{const parent=host(),price=cost(),alert=dialog.querySelector('[role=alert]');if(def.probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===parent.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed').length>=4)return rejectSicPurchase('This Probe Launcher already holds four probes. Store or remove one first.',alert);if(def.shieldRecovery&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has this recovery add-on.',alert);if(def.staticShield&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has Static Shields.',alert);if(type==='power-core-damper'&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Engine already has a Power Core Damper.',alert);if(!Number.isSafeInteger(price)||pendingCost()+price>draft.groupCredits)return rejectSicPurchase('Not enough Group Credits.',alert);rememberForUndo();const id=storedItem?.id||uid(type),placement=placementForSic(parent.id);if(storedItem){storedItem.attachTo=parent.id;storedItem.storage=false;storedItem.pendingDisposition='';draft.placements=draft.placements.filter(p=>p.sicId!==id);}else draft.sicInventory.push({id,type,attachTo:parent.id,purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:placement.cell});clearPurchaseFeedback();saveDraft();renderAll();showSicPurchaseFeedback(def.name+' attached to '+sicDefinition(parent).name+'. Confirm Changes to finish.','success');dialog.close();return true;};
+  dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();return true;
 }
 installTriangleControls();
 
 function syncAddonPositions(){for(const p of [...draft.placements]){const item=draft.sicInventory.find(i=>i.id===p.sicId);if(!item||!sicDefinition(item).addon)continue;const host=window.SAShipMap.addonHost(draft,item);if(host)p.cell=host.placement.cell;else{draft.placements=draft.placements.filter(a=>a!==p);item.storage=true;}}}
 
 function decorateOwnedCard(card,item){
+ if(item.type==='blueprint'){const title=card.querySelector('h3');if(title)title.textContent='Blueprint ('+(SIC_CATALOG[item.blueprintType]?.name||'Unknown SIC')+')';}
+ if(item.printed){const rules=card.querySelector('.sic-poker-rules');if(rules)rules.insertAdjacentHTML('beforeend','<small>3D printed · resale 25% · '+(item.printedFor?'Licensed to this ship':'Open licence until installed')+'</small>');}
  const threshold=card.querySelector('footer span:last-child');if(threshold&&Number(window.SAShipMap.definition(item.type).threshold)>0)threshold.innerHTML='<small>Damage Threshold</small>'+window.SAShipMap.effectiveThreshold(draft,item);
- if(item.type==='vulnerability-fortification'){const price=card.querySelector('.sic-poker-heading strong');if(price)price.textContent='Price: '+window.SAShipMap.sicPrice(item).toLocaleString();}
+ if(item.type==='vulnerability-fortification'||SIC_CATALOG[item.type]?.hullUpgrade){const price=card.querySelector('.sic-poker-heading strong');if(price)price.textContent='Price: '+sicDefinition(item).price.toLocaleString();}
 }
 
 // Expand the live interior rather than copying a picture; routes, doors and confirmation stay connected.
@@ -1985,7 +2127,7 @@ async function enlargeShipInterior(viewport,source){
     .interior-actions>.embedded-move-controls button{width:auto!important;min-height:38px}.interior-actions>.embedded-move-controls output{flex:1 0 100%;text-align:center}.interior-actions select{min-height:36px;max-width:280px;color:#ecfaff;background:#11323e}
     .crew-token{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--token-color,#50dfff)!important;min-width:24px;min-height:24px}
   `;shadow.append(style);
-  const body=doc.createElement('body');body.className='enlarged-body';body.innerHTML='<header class="interior-header"><strong></strong><nav><button type="button" data-large-zoom="out" aria-label="Zoom out">−</button><button type="button" data-large-zoom="in" aria-label="Zoom in">+</button><button type="button" data-large-zoom="fit">Fit Ship</button><button type="button" data-large-close>Back</button></nav></header><main class="interior-stage"></main><footer class="interior-actions"></footer>';
+  const body=doc.createElement('body');body.className='enlarged-body';body.innerHTML='<header class="interior-header"><strong></strong><nav><button type="button" data-large-zoom="out" aria-label="Zoom out">−</button><button type="button" data-large-zoom="in" aria-label="Zoom in">+</button><button type="button" data-large-zoom="fit">Fit Ship</button><button type="button" data-large-zoom="focus">Enlarge / Character</button><button type="button" data-large-close>Back</button></nav></header><main class="interior-stage"></main><footer class="interior-actions"></footer>';
   body.querySelector('strong').textContent=draft.title||'Starship Interior';shadow.append(body);doc.body.append(shell);
   const grid=viewport.querySelector('.ship-grid'),controlHost=grid.closest('.desktop-sheet')||grid.closest('.mobile-grid-panel'),controls=controlHost?.querySelector('.embedded-move-controls');
   const marker=document.createComment('interior viewport'),controlMarker=document.createComment('interior actions');
@@ -1995,9 +2137,10 @@ async function enlargeShipInterior(viewport,source){
   const resize=()=>{const box=body.querySelector('.interior-stage').getBoundingClientRect();viewport.style.setProperty('--expanded-side',Math.max(100,Math.min(box.width-12,box.height-12))+'px');};
   const observer=new ResizeObserver(resize);observer.observe(body.querySelector('.interior-stage'));enlargedShipInterior.observer=observer;
   shell.addEventListener('cancel',e=>{e.preventDefault();closeEnlargedShipInterior();});
+  shell.addEventListener('keydown',e=>{if(embeddedKeyboardMode&&!e.target.closest('input,select,textarea')&&['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
   shell.addEventListener('pointerup',finishHullPaint);shell.addEventListener('pointercancel',finishHullPaint);
   body.querySelector('[data-large-close]').onclick=closeEnlargedShipInterior;
-  body.querySelectorAll('[data-large-zoom]').forEach(button=>button.onclick=()=>{const action=button.dataset.largeZoom;if(action==='fit')fitShipToViewport();else{mapView.zoom=Math.max(.2,Math.min(6,mapView.zoom*(action==='in'?1.25:.8)));applyGridTransform();}});
+  body.querySelectorAll('[data-large-zoom]').forEach(button=>button.onclick=()=>{const action=button.dataset.largeZoom;if(action==='fit')fitShipToViewport();else if(action==='focus')focusShipCharacter();else zoomShipGrid(action==='in'?1.25:.8);});
   shell.showModal();resize();
   await Promise.race([Promise.all(loading),new Promise(resolve=>owner.setTimeout(resolve,2500))]);
   if(enlargedShipInterior?.shell===shell){resize();fitShipToViewport();window.SACrewTokens?.decorate(grid);}
@@ -2009,6 +2152,35 @@ function closeEnlargedShipInterior(){
 }
 for(const viewport of document.querySelectorAll('[data-grid-viewport]')){
   const panel=viewport.closest('.mobile-grid-panel'),toolbar=viewport.querySelector('.grid-zoom-controls')||panel?.querySelector('.grid-zoom-controls');
-  if(!toolbar)continue;const button=document.createElement('button');button.type='button';button.textContent='Enlarge Map';button.setAttribute('aria-label','Enlarge ship interior');button.onclick=()=>enlargeShipInterior(viewport,button);toolbar.append(button);
+  if(!toolbar)continue;const button=document.createElement('button');button.type='button';button.textContent='Enlarge Map';button.setAttribute('aria-label','Enlarge ship interior');button.onclick=()=>enlargeShipInterior(viewport,button);toolbar.append(button);const focus=document.createElement('button');focus.type='button';focus.textContent='Enlarge / Character';focus.onclick=focusShipCharacter;toolbar.append(focus);
 }
 window.addEventListener('pagehide',closeEnlargedShipInterior);
+
+// Poll only linked editors; confirmed changes invalidate another open draft.
+setInterval(()=>{if(draft.campaignLink&&!confirmingConstruction&&!document.hidden)refreshLinkedCampaign();},3000);
+
+if(pageParameters.get("campaign")&&pageParameters.get("details")!=="1"&&!VIEW_ONLY_MODE){const cancel=document.createElement("button");cancel.textContent="Cancel Upgrade";cancel.className="cancel-upgrade";cancel.onclick=async()=>{cancel.disabled=true;try{await refreshLinkedCampaign();const saved=linkedCampaignState?.starships.find(s=>s.id===draft.id);if(!saved){showMessage("Cannot reload the confirmed ship while disconnected. Reconnect and cancel again.","error");return;}draft={...defaultDraft(),...clone(saved.ship),id:saved.id,title:saved.title,confirmed:constructionState(saved.ship),confirmedOnce:true,campaignLink:{...draft.campaignLink,buildRevision:saved.buildRevision||0}};selectedSicId=null;undoState=null;splitPlacement=null;saveDraft();document.body.classList.add("ship-details-view");applyDraftToUi();showMessage("Upgrade canceled. No pending purchases were spent.");if(parent!==window)parent.postMessage({type:"sa-ship-editor-exit",message:"Upgrade canceled. No pending purchases were spent."},location.origin);}finally{cancel.disabled=false;}};document.querySelector("main")?.prepend(cancel);}
+
+var embeddedKeyboardMode=false,embeddedStationState=null;window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===parent&&e.data?.type==='sa-keyboard-mode'){embeddedKeyboardMode=!!e.data.enabled;embeddedStationState=e.data;renderEmbeddedMovement();document.body.classList.toggle('keyboard-movement-active',embeddedKeyboardMode);}});
+if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(embeddedKeyboardMode)e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
+
+if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href='room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
+
+function openBlueprintPurchase(type){
+ const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
+}
+for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
+
+function editAirlock(square){
+ const old=(draft.airlocks||[]).find(a=>a.square===square),candidate=window.SAShipMap.airlockCandidates(draft).find(a=>a.square===square);
+ if(airlockOperation==='move'&&!airlockToMove){if(!old){showMessage('Select an existing airlock first.','error');return;}airlockToMove=old.id;showMessage('Now choose a highlighted empty outer hull square.');return;}
+ if(airlockOperation==='remove'){if(!old)return;rememberForUndo();draft.airlocks=draft.airlocks.filter(a=>a!==old);window.SAShipMap.ensureAirlocks(draft);}
+ else{if(old||!candidate){showMessage('Choose a highlighted blank outside hull square.','error');return;}rememberForUndo();if(airlockToMove)draft.airlocks=draft.airlocks.filter(a=>a.id!==airlockToMove);draft.airlocks=[...(draft.airlocks||[]),{id:airlockToMove||crypto.randomUUID(),...candidate}];airlockToMove=null;}
+ saveDraft();renderAll();showMessage('Airlock layout updated. Confirm Changes to save the ship.');
+}
+
+document.addEventListener('change',event=>{
+ if(!event.target.matches('[data-starship-crew],[data-starship-npc-crew]'))return;
+ const host=event.target.closest('[data-crew-campaign-tools],.gm-starship-card')||event.target.parentElement.parentElement.parentElement.parentElement;
+ for(const button of host.querySelectorAll('[data-save-starship-crew]'))button.classList.add('assignments-dirty');
+});

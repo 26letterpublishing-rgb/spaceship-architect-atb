@@ -68,6 +68,7 @@ function queue(room, unit, body) {
     const call = data.calls.find(c => c.id === body.callId);
     if (!call || (body.kind !== 'endCall' && call.status !== 'incoming')) return {ok:false,error:'That call is no longer awaiting an answer.'};
     const other = room.starships.find(s => s.id === call.shipId);
+    if(body.kind==='accept'&&(maps.staticShieldActive(ship)||(other&&maps.staticShieldActive(other))))return {ok:false,error:'Static Shields block audio/video communications while their Shield is active.'};
     const status = body.kind === 'accept' ? 'connected' : 'closed';
     call.status = status;
     const paired = other && cooperation.state(other).calls.find(c => c.id === call.id);
@@ -86,6 +87,7 @@ function queue(room, unit, body) {
   sensors.refresh(room);
   const target = room.starships.find(s => s.id === body.targetId && s.id !== ship.id);
   if (['hail','ram','skim'].includes(body.kind) && (!target || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected')) return {ok:false,error:'Choose a detected ship.'};
+  if(body.kind==='hail'&&(maps.staticShieldActive(ship)||maps.staticShieldActive(target)))return {ok:false,error:'Static Shields block audio/video communications while their Shield is active.'};
   if (['ram','skim'].includes(body.kind) && !body.trigger && !sameHex(room,ship,target)) return {ok:false,error:'Both ships must occupy the same hex.'};
   let trigger=null;
   if(body.trigger){
@@ -123,6 +125,7 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   }
   if (order.kind === 'hail') {
     if (!target || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected') return report(ship,'Hail cancelled: contact lost.');
+    if(maps.staticShieldActive(ship)||maps.staticShieldActive(target))return report(ship,'Hail cancelled: Static Shields block audio/video communications.');
     if(distances.hexDistance(position(room,ship.id),order.disclosedPosition)>5)return report(ship,'Hail cancelled: disclosed position is now more than 5 Units from the ship.');
     const own = {id:order.receipt,shipId:target.id,title:target.title,status:'outgoing'};
     data.calls = [own,...data.calls].slice(0,20);
@@ -172,7 +175,16 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   report(ship,`${names[order.kind]} connected with ${target.title}.`,result);
   report(target,`${ship.title} completed a ${names[order.kind].toLowerCase()} against this ship.`);
 }
+function reconcileCalls(room){
+  for(const ship of room.starships||[])for(const call of ship.commandSystems?.calls||[]){
+    if(call.status==='closed')continue;const other=room.starships.find(s=>s.id===call.shipId);
+    if(!maps.staticShieldActive(ship)&&!(other&&maps.staticShieldActive(other)))continue;
+    call.status='closed';const paired=other?.commandSystems?.calls?.find(c=>c.id===call.id);if(paired)paired.status='closed';
+    report(ship,'Hail closed: Static Shields block audio/video communications.');if(other)report(other,'Hail closed: Static Shields block audio/video communications.');
+  }
+}
 function advance(room, seconds, before = null, rollDie = sides => require('node:crypto').randomInt(1,sides+1)) {
+  reconcileCalls(room);
   for (const ship of room.starships || []) {
     cooperation.advance(ship,seconds);
     const data=cooperation.state(ship),armed=data.armed;
@@ -222,4 +234,4 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
     }else if(armed.remaining<=0){data.armed=null;report(ship,'Conditional order expired without its trigger.');}
   }
 }
-module.exports = {queue,resolveInput,advance,sameHex,ROLL_ACTIONS,validateTrigger,armExternal};
+module.exports = {queue,resolveInput,advance,reconcileCalls,sameHex,ROLL_ACTIONS,validateTrigger,armExternal};

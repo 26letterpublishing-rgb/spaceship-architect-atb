@@ -23,6 +23,7 @@
 .sic-card-gallery{width:100%;max-width:none;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:28px 24px;padding:16px 8px;box-sizing:border-box}
 .sic-purchase-feedback{position:sticky;top:0;z-index:20;padding:10px 12px;border-left:3px solid #ff687d;color:#ffc1cb;background:#30151d;font:700 14px/1.35 Arial,sans-serif}
 .sic-purchase-feedback:empty{display:none}
+.sic-purchase-feedback[data-tone="success"]{border-left-color:#63e89c;color:#c5ffdf;background:#103426}
 .sic-card-gallery>.sic-market-item{padding-top:34px}
 .sic-card-gallery>.sic-market-item>.sic-purchase-button{top:48px}
 .sic-market-item>.sic-purchase-button{width:98px!important;right:9px;font-size:12px}
@@ -100,3 +101,50 @@
 .sic-inspection .sic-display-card .sic-poker-rules p{font-size:12px!important}
 
 .sic-floorplan-preview{position:fixed;z-index:10000;pointer-events:none;width:224px;padding:10px;background:#071c29;border:1px solid #71d1e1;border-radius:8px;box-shadow:0 8px 32px #000c;display:grid;gap:8px;color:#fff;font:14px system-ui}.sic-floorplan-preview img{width:100%;max-height:260px;object-fit:contain}.sic-floorplan-preview small{color:#bce7ef}
+.sic-floorplan-preview:has(.sic-preview-exterior) img{max-height:140px}
+
+/* Compact category boundaries preserve the existing cards and their controls. */
+.sic-category{min-width:0;box-sizing:border-box;margin:0;padding:12px;border:1px solid color-mix(in srgb,var(--category-color) 40%,#16303c);border-radius:5px;background:#07131b66}
+.sic-category>legend{float:none;width:auto;padding:0 7px;font:700 11px/1.2 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--category-color)}
+.sic-card-gallery{display:flex;flex-wrap:wrap;align-items:flex-start;gap:20px;padding:12px 0}
+.sic-category-market{flex:1 1 calc(var(--category-count)*290px);max-width:100%}
+.sic-category-market>.sic-category-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,275px),1fr));align-items:start;gap:18px}
+.sic-category-market .sic-category-body>.sic-market-item{padding-top:34px}
+.sic-category-market .sic-category-body>.sic-market-item>.sic-purchase-button{top:48px}
+.purchased-sic-grid{display:flex!important;flex-wrap:wrap;gap:12px!important;padding:10px 0!important;max-width:none;align-items:flex-start;min-height:0}
+.sic-category-owned{flex:0 1 auto;max-width:100%;padding:14px 10px 10px}
+.sic-category-owned>.sic-category-body{display:flex;flex-wrap:wrap;gap:12px;max-width:1275px}
+.sic-category-owned .purchased-sic-thumbnail{flex:0 0 116.667px;width:116.667px!important;height:163.334px!important}
+.sic-category-list{padding:5px;margin:6px 0;border-radius:3px}
+.sic-category-list>legend{font-size:9px;letter-spacing:.03em;padding:0 4px}
+.sic-category-list .inventory-sic:last-child{margin-bottom:0}
+@media(max-width:640px){.sic-card-gallery{gap:14px}.sic-category-market{padding:8px;flex-basis:100%}.sic-category-owned .purchased-sic-thumbnail{flex-basis:104px;width:104px!important;height:145.6px!important}}
+
+.sic-context-actions{min-width:220px;max-width:340px;padding:14px;background:#10232d;border:1px solid #4bc3d3;color:#ecfbff}.sic-context-actions .inventory-sic-actions{display:flex;flex-wrap:wrap;gap:8px}.sic-context-actions button{background:#183844;color:white;border:1px solid #76bccb}.sic-card-dialog [data-sic-card-dialog-body]:has(.sic-context-actions){display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center}
+
+/* Owned cards keep their actions alongside the face on desktop. */
+.sic-card-dialog.sic-inspection:has(.sic-context-actions){width:min(740px,calc(100vw - 28px))}
+.sic-card-dialog [data-sic-card-dialog-body]:has(.sic-context-actions){align-items:flex-start}
+.sic-context-actions{box-sizing:border-box;flex:1 1 260px;line-height:1.45}
+.sic-context-actions>strong{display:block;margin-bottom:6px}
+.sic-context-actions .inventory-sic>strong{display:block}
+.sic-context-actions .inventory-sic-actions{margin-top:12px}
+.sic-context-actions button{padding:8px 12px}
+
+.sic-context-actions header strong,.sic-context-actions header small,.sic-context-actions .inventory-sic-name strong,.sic-context-actions .inventory-sic-name small{display:block}
+.sic-context-actions header small,.sic-context-actions .inventory-sic-name small{color:#aec8d2;margin-top:4px}
+
+/* Expand the inspector with its card; only the viewport limits its size. */
+.sic-card-dialog.sic-inspection.is-zoomed{width:var(--inspection-width);max-width:100vw;max-height:100dvh;padding-top:8px;border-radius:0}
+.sic-card-dialog.sic-inspection.is-zoomed [data-sic-card-dialog-body]{display:flex;flex-direction:column;align-items:center;overflow:visible;max-height:none}
+.sic-card-dialog.sic-inspection.is-zoomed .sic-display-card{flex:none;max-width:none!important;animation:none;transform:none}
+.sic-inspection>[data-close-sic-card]{position:sticky;display:block;margin:0 0 6px auto;top:0;z-index:20}
+
+.sic-buy-blueprint{background:#075a91!important;color:#fff!important;border:1px solid #78caff!important;border-radius:4px;padding:5px 9px;font-size:12px;align-self:flex-start}.sic-poker-card>.sic-buy-blueprint{position:absolute;bottom:5px;left:5px;z-index:3}.blueprint-purchase{max-height:95vh;overflow:auto}.blueprint-purchase .sic-poker-card{width:350px;max-width:80vw}
+
+.sic-inspector-tools{position:sticky;top:16px;align-self:flex-start;display:flex;flex-direction:column;gap:8px;min-width:112px;z-index:5}.sic-inspector-tools button{width:112px;font-size:12px;padding:7px;zoom:1}.sic-inspector-tools:empty{display:none}
+
+.sic-card-dialog.sic-inspection:has(.sic-inspector-tools:not(:empty)){width:var(--inspection-width,510px);max-width:100vw}
+.sic-card-dialog.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){display:flex;flex-direction:row;align-items:flex-start;gap:12px;flex-wrap:nowrap}
+.sic-inspector-tools{flex:0 0 112px}
+.sic-inspection [data-sic-card-dialog-body]>.sic-display-card{flex-shrink:0}

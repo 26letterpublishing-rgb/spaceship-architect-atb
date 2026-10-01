@@ -123,8 +123,12 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
       if(passengers.some(p=>!p||p.unit?.shipAi||p.loc?.starshipId!==ship.id||maps.buildLayout(ship.ship).footprint.get(Number(p.loc.square))?.sicId!==access.id||p.unit?.delayedAction||p.unit?.timedAction||p.unit?.medbayTreatment))throw Error('All passengers must be physically inside the pod and free of pending actions.');
       const pod={sicId:access.id,passengers:passengers.map(p=>({id:p.id,name:p.name})),...point(room,ship.id),at:Date.now(),impairments:Math.max(Number(access.item.impairmentPoints)||0,impaired(access.item)?1:0)};pod.id=randomUUID();
       data.pods||=[];data.pods.push(pod);details.launched=pod.id;
-      let launchDamage=0;for(const person of passengers){const unpaid=Math.max(0,pod.impairments-(details.paid?.[person.id]||0));if(unpaid){person.hp-=20*unpaid;launchDamage+=20*unpaid;}if(person.unit){stopUnit(person.unit,'pod:'+pod.id);person.unit.location={starshipId:ship.id,escapePodId:pod.id,stationed:false};}if(person.record)ship.characterLocations[person.id]={escapePodId:pod.id,stationed:false};else{const saved=campaign?.npcRoster?.find(n=>n.id===person.id);if(saved)Object.assign(saved,{location:person.unit.location,escapedAt:person.unit.escapedAt,defeatedAt:person.unit.defeatedAt,atb:0});}}
+      let launchDamage=0;for(const person of passengers){const unpaid=Math.max(0,pod.impairments-(details.paid?.[person.id]||0));if(unpaid){person.hp-=20*unpaid;launchDamage+=20*unpaid;}if(person.unit){stopUnit(person.unit,'pod:'+pod.id);person.unit.location={environment:'escape-pod',starshipId:'',square:null,mesh:4,escapePodId:pod.id,stationed:false};}if(person.record)(ship.characterLocations||={})[person.id]={environment:'escape-pod',square:null,escapePodId:pod.id,stationed:false};else{const saved=campaign?.npcRoster?.find(n=>n.id===person.id);if(saved)Object.assign(saved,{location:person.unit.location,escapedAt:person.unit.escapedAt,defeatedAt:person.unit.defeatedAt,atb:0});}}
       text='Escape pod launched with '+passengers.map(p=>p.name).join(', ')+'. Distress beacon active.'+(launchDamage?' Impaired pod: '+launchDamage+' total fixed HP damage across its passengers.':'');
+    }else if(type==='ionic-displacers'||type==='transport-scrambler'){
+      if(body.kind!==type||typeof body.enabled!=='boolean')throw Error('Choose field on or off.');
+      if(type==='ionic-displacers'&&body.enabled&&!details.enabled){if(impaired(access.item))throw Error('Repair Ionic Force Displacers first.');if(unit.shipAi||!power.spend(room,ship.id,7))throw Error('Activation requires 7 AU. Ship AI cannot spend AU.');details.remaining=12;}
+      details.enabled=body.enabled;text=access.definition.name+(body.enabled?' active.':' deactivated.');
     }else if(type==='ripple-reflector'){
       if(body.kind!=='reflector'||typeof body.enabled!=='boolean')throw Error('Choose reflector on or off.');details.enabled=body.enabled;text='Ripple reflection '+(body.enabled?'enabled':'disabled')+(impaired(access.item)?'. Impaired: incoming damage also reaches this ship.':'.');
     }
@@ -133,7 +137,7 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
   }catch(error){return {ok:false,error:error.message};}
 }
 function advance(room,seconds=0){
-  let changed=false;
+  let changed=require('./ship-countermeasures').advance(room,0);
   for(const ship of room.starships||[]){
     for(const [id,d]of Object.entries(ship.ship.fieldState?.systems||{})){
       const previous=d.cooldown||0;
@@ -144,7 +148,7 @@ function advance(room,seconds=0){
         else{const p=point(room,ship.id);place(room,target,{q:p.q+d.tether.q,r:p.r+d.tether.r});}
       }
     }
-    for(const pod of ship.ship.fieldState?.pods||[])if(!pod.recovered)for(const passenger of pod.passengers){const u=room.units?.find(u=>(u.characterId||u.id)===passenger.id);if(u){stopUnit(u,'pod:'+pod.id);u.location={starshipId:ship.id,escapePodId:pod.id,stationed:false};}}
+    for(const pod of ship.ship.fieldState?.pods||[])if(!pod.recovered)for(const passenger of pod.passengers){const u=room.units?.find(u=>(u.characterId||u.id)===passenger.id);if(u){stopUnit(u,'pod:'+pod.id);u.location={environment:'escape-pod',starshipId:'',square:null,mesh:4,escapePodId:pod.id,stationed:false};}}
     const dock=ship.ship.fieldState?.dockedIn;
     if(dock){const host=room.starships.find(s=>s.id===dock.shipId),reason='docked:'+dock.shipId+':'+dock.sicId;
       if(!host||host.destroyedAt||host.currentHullHp<=0){state(ship).dockedIn=null;ship.escapedAt=null;for(const u of room.units||[])resumeUnit(u,reason);report(ship,'Carrier lost. Emergency separation; GM adjudicates wreckage consequences.');}

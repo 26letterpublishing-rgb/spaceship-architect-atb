@@ -1,0 +1,26 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "map-black-hole.webp",
+      "source": "C:/Users/zombi/.codex/generated_images/01a0a7de-5eb2-78d1-846e-920d46b20f50/exec-4ab7471a-309c-468d-8521-7682557eb0f8.png",
+      "maximumDimension": 128,
+      "purpose": "Transparent black-hole map sprite",
+      "bytes": 7788
+    },
+    {
+      "output": "sic-art-gravity-absolution-field.webp",
+      "source": "C:/Users/zombi/.codex/generated_images/01a0a7de-5eb2-78d1-846e-920d46b20f50/exec-53a7817a-4845-4994-ba9a-4e741f86b99f.png",
+      "maximumDimension": 512,
+      "purpose": "Gravity Absolution Field card / 4x4 floorplan",
+      "bytes": 83482
+    },
+    {
+      "output": "sic-art-land-wheels.webp",
+      "source": "C:/Users/zombi/.codex/generated_images/01a0a7de-5eb2-78d1-846e-920d46b20f50/exec-82e4a2ea-28e9-457e-8622-173bac6bd04a.png",
+      "maximumDimension": 256,
+      "purpose": "Land Wheels card / exterior mounts",
+      "bytes": 14782
+    }
+  ]
+}

@@ -12,10 +12,9 @@ function command(room,unit,body,{outsideCombat=false}={}){
     if(power.output(ship,room.units).en<power.demand(ship))return {ok:false,error:'Insufficient EN to operate the Cloaking Device.'};
     if(ship.auCommands?.length||(room.units||[]).some(u=>u.delayedAction?.shipOrder?.shipId===ship.id||u.delayedAction?.weaponOrder?.shipId===ship.id||u.delayedAction?.missileOrder?.shipId===ship.id))return {ok:false,error:'Finish pending ship and weapon orders before cloaking.'};
     if(!power.spend(room,ship.id,12))return {ok:false,error:'Cloaking requires 12 available AU.'};
-    for(const s of Object.values(ship.shieldSystems||{})){s.hp=0;s.restabilization=null;s.protection=0;s.protectionRemaining=0;}
-    ship.currentShieldHp=0;ship.ship.currentShieldHp=0;data.sicId=access.item.id;
+    data.sicId=access.item.id;data.remaining=12;
   }
   data.active=body.enabled;data.receipts=[...(data.receipts||[]),{id:receipt,enabled:body.enabled}].slice(-40);
-  return {ok:true,ship,enabled:data.active};
+  return {ok:true,ship,enabled:data.active,resetAtb:!outsideCombat,text:`${unit.characterName}: Cloaking Device ${data.active?'activated':'deactivated'} aboard ${ship.title}${outsideCombat?'':'; turn used'}.`};
 }
 module.exports={command};

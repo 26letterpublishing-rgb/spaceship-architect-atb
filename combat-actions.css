@@ -962,3 +962,14 @@
   margin-block: auto;
   overflow: visible;
 }
+
+[data-station-shortcuts] .station-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+[data-station-shortcuts] [hidden]{display:none!important}
+[data-action-category=movement]{--action-color:#125d88}[data-action-category=sensors]{--action-color:#67448a}[data-action-category=weapons]{--action-color:#8d4b15}[data-action-category=defense]{--action-color:#12685f}[data-action-category=utilities]{--action-color:#43505b}
+[data-station-shortcuts] button[data-action-category]{background:linear-gradient(#ffffff18,transparent),var(--action-color)!important;color:#fff!important;border:1px solid #ffffff70;min-height:46px!important}
+.station-category-back{grid-column:1/-1}.station-secondary-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+button[data-combat-action=holdConsole]{background:#a32938!important;color:white!important;clip-path:polygon(20% 0,80% 0,100% 20%,100% 80%,80% 100%,20% 100%,0 80%,0 20%);border-radius:0!important;min-height:48px}
+button[data-combat-action=holdConsole].is-resume{background:#187844!important;clip-path:none;border-radius:50%!important;aspect-ratio:1;width:64px;justify-self:center}
+button.leave-console-arrow{clip-path:polygon(0 0,84% 0,100% 50%,84% 100%,0 100%);border-radius:0!important;padding-right:23px!important}
+
+button[data-combat-action=holdConsole]{width:72px!important;height:72px!important;min-width:72px!important;max-width:72px!important;min-height:72px!important;max-height:72px!important;flex:0 0 72px!important;aspect-ratio:1!important;justify-self:center;box-sizing:border-box;padding:0!important;clip-path:polygon(29.29% 0,70.71% 0,100% 29.29%,100% 70.71%,70.71% 100%,29.29% 100%,0 70.71%,0 29.29%)}

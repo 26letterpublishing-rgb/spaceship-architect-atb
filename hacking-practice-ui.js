@@ -15,8 +15,6 @@
   function tokenNode(letter){const span=document.createElement('span');span.className='hacking-token';span.textContent=letter;span.style.setProperty('--token',color(letter));return span;}
   function put(letter){
     if(!board||busy||pending||board.solved||expired)return;
-    const previous=draft.indexOf(letter),replaced=draft[selected]||null;
-    if(previous>=0&&previous!==selected)draft[previous]=replaced;
     draft[selected]=letter;selected=(selected+1)%board.length;persist();render();$('#slots').children[selected]?.focus();
   }
   function render(){
@@ -69,7 +67,7 @@
   $('#setup').onsubmit=event=>{event.preventDefault();create();};$('#guessForm').onsubmit=submit;
   $('#endPractice').onclick=async event=>{
     event.preventDefault();if(busy)return;busy=true;render();
-    try{if(token)await request('DELETE');try{sessionStorage.removeItem(key);}catch{}location.assign('index.html');}
+    try{if(token)await request('DELETE');try{sessionStorage.removeItem(key);}catch{}window.close();setTimeout(()=>{if(!window.closed)location.assign('index.html');},150);}
     catch(error){$('#error').textContent=error.message;busy=false;render();}
   };
   $('#clearGuess').onclick=()=>{draft=Array(board.length).fill(null);selected=0;persist();render();$('#slots').children[0]?.focus();};

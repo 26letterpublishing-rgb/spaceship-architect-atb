@@ -1,17 +1,18 @@
 (function(){
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;}
-  function consoleFields(view,initial){
+  function consoleFields(view,initial,reload){
     const doc=view.ownerDocument,fields=doc.createElement('div');fields.dataset.missileFields='';
-    fields.innerHTML='<label>Loaded ammunition<select data-ammunition aria-label="Loaded ammunition"></select></label><div data-flare-fields hidden></div><output data-magazine></output>';
+    fields.innerHTML='<label>Loaded ammunition<select data-ammunition aria-label="Loaded ammunition"></select></label><div data-flare-fields hidden></div><label data-seeker-label hidden><input type="checkbox" data-seeker> Fit Magnetic Seeker (one from storage)</label><output data-magazine></output><button type="button" data-reload>Reload from Storage</button><small data-reload-reason></small>';
     view.querySelector('[data-sacrifice]').closest('label').before(fields);
+    fields.querySelector('[data-reload]').onclick=()=>reload?.();
     let signature='';
-    function order(){return {ammunition:fields.querySelector('select').value,flares:[...fields.querySelectorAll('[data-flare-row]')].map(row=>({targetId:row.querySelector('[data-flare-target]').value,result:row.querySelector('[data-coin]').value,direction:row.querySelector('[data-direction]').value===''?null:Number(row.querySelector('[data-direction]').value)}))};}
+    function order(){return {ammunition:fields.querySelector('select').value,seeker:fields.querySelector('[data-seeker]').checked,flares:[...fields.querySelectorAll('[data-flare-row]')].map(row=>({targetId:row.querySelector('[data-flare-target]').value,result:row.querySelector('[data-coin]').value,direction:row.querySelector('[data-direction]').value===''?null:Number(row.querySelector('[data-direction]').value)}))};}
     function update(state,unit,access,ready,busy){
       const magazine=window.SAMissileAmmo.magazine(access.ship,access.id),choices=Object.entries(magazine).filter(([,count])=>count>0),select=fields.querySelector('[data-ammunition]'),key=JSON.stringify(choices);
       if(signature!==key){const old=select.value;select.innerHTML=choices.map(([id,count])=>`<option value="${esc(id)}">${esc(window.SAMissileAmmo.catalog[id]?.name||id)} (${count})</option>`).join('')||'<option value="">Empty magazine</option>';if(choices.some(([id])=>id===old))select.value=old;signature=key;}
       const round=window.SAMissileAmmo.catalog[select.value],flares=fields.querySelector('[data-flare-fields]'),observer=access.controlSource||access.ship;
-      flares.hidden=!round?.flares;
+      flares.hidden=!round?.flares;fields.querySelector('[data-seeker-label]').hidden=!round?.mine||round.web;fields.querySelector('[data-seeker]').disabled=!(window.SAMissileAmmo.storage(access.ship)['magnetic-seeker']>0);if(fields.querySelector('[data-seeker]').disabled)fields.querySelector('[data-seeker]').checked=false;
       const contacts=Object.values(observer.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&c.isMissile&&c.missilePhase==='flying');
       if(round?.flares){
         if(!flares.childElementCount)flares.innerHTML=Array.from({length:3},(_,i)=>`<fieldset data-flare-row><legend>Flare ${i+1}</legend><label>Missile<select data-flare-target aria-label="Flare ${i+1} target"></select></label><label>Coin flip<select data-coin aria-label="Flare ${i+1} coin"><option value="">Confirm flip</option><option value="heads">Heads: deflect</option><option value="tails">Tails: no effect</option></select></label><label>Direction roll (D6)<select data-direction aria-label="Flare ${i+1} direction"><option value="">Confirm D6</option>${['East','Southeast','Southwest','West','Northwest','Northeast'].map((s,n)=>`<option value="${n}">${n+1}: ${s}</option>`).join('')}</select></label></fieldset>`).join('');
@@ -20,17 +21,20 @@
       for(const row of flares.querySelectorAll('[data-flare-row]'))row.querySelector('[data-direction]').disabled=row.querySelector('[data-coin]').value!=='heads';
       const target=view.querySelector('[data-target]'),targetId=target.selectedOptions[0]?.dataset.ship||target.value,lock=window.SAShipWeapons.weaponLock(state,unit,access.ship,targetId,access.controlled),cooldown=access.ship.ship.missileState?.cooldowns?.[access.id]||0;
       const pending=unit.delayedAction;
+      const stored=Object.entries(window.SAMissileAmmo.storage(access.ship)).filter(([id])=>!window.SAMissileAmmo.catalog[id]?.seeker&&Boolean(window.SAMissileAmmo.catalog[id]?.mine)===Boolean(access.definition.mineLauncher)).reduce((n,[id,v])=>n+v,0),reloadReason=access.remote||access.controlled?'Station physically at the launcher to reload.':!ready||busy||state.rollPaused?'Available on your turn after current actions finish.':window.SAMissileAmmo.used(access.ship,access.id)>=access.definition.capacity?'Magazine full.':!stored?'No missiles in storage.':'';
+      fields.querySelector('[data-reload]').disabled=Boolean(reloadReason);fields.querySelector('[data-reload-reason]').textContent=`Storage: ${stored} rounds. ${reloadReason}`;
       fields.querySelector('[data-magazine]').textContent=`MAGAZINE ${window.SAMissileAmmo.used(access.ship,access.id)} / ${access.definition.capacity}`;
       view.querySelector('[data-fire]').textContent=round?.flares?'Deploy Missile Flares':`Launch ${round?.name||'Missile'}`;
-      view.querySelector('[data-warning]').textContent=cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:!round?'Magazine empty. Purchase and load rounds in Ship Details outside combat.':round.flares?'Three manual coin flips. For heads, roll D6 for deflection direction.':!lock?'Acquire a target Lock-On first.':'Lock acquired. Launched missiles keep pursuing even after the lock is lost.';
+      view.querySelector('[data-warning]').textContent=cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:!round?'Magazine empty. Reload from storage at the launcher.':round.flares?'Three manual coin flips. For heads, roll D6 for deflection direction.':!lock?'Acquire a target Lock-On first.':'Lock acquired. Launched missiles keep pursuing even after the lock is lost.';
       view.querySelector('[data-formula]').textContent=round?.flares?'Three flares / one magazine slot':round?`${round.count>1?'Four independent missiles, each ':''}${round.dice}D8 x5 hull damage; no multiplier against shields. Defense ${round.masking}. Speed ${round.acceleration} Units/12s; +${round.acceleration} every 12 active seconds, maximum ${round.acceleration*5}.`:'';
       view.querySelector('[data-au]').textContent=`${access.ship.auState?.available??access.ship.auState?.current??0} AU / LAUNCH 0 AU`;
       view.querySelector('[data-input]').value=pending?.missileOrder?100-pending.remaining:0;
-      view.querySelector('[data-input-text]').textContent=pending?.missileOrder?`Launch input: ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Launcher ready';
-      target.closest('label').hidden=Boolean(round?.flares);
-      const valid=round?.flares?order().flares.length===3&&order().flares.every(f=>f.result&&(f.result==='tails'||Number.isInteger(f.direction))&&contacts.some(c=>c.id===f.targetId)):lock;
+      view.querySelector('[data-input-text]').textContent=pending?.missileOrder?`${pending.missileOrder.reload?"Reload":"Launch"} input: ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Launcher ready';
+      target.closest('label').hidden=Boolean(round?.flares||round?.mine);
+      const valid=round?.mine?true:round?.flares?order().flares.length===3&&order().flares.every(f=>f.result&&(f.result==='tails'||Number.isInteger(f.direction))&&contacts.some(c=>c.id===f.targetId)):lock;
       view.querySelector('[data-fire]').disabled=Boolean(busy||!ready||!round||cooldown>0||!valid||state.rollPaused);
-      const reason=view.querySelector('[data-fire-reason]');if(reason){reason.textContent=busy?'Submitting launch...':!ready?'Available on your turn after current actions finish.':!round?'Magazine empty. Load missiles in Ship Details.':cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} seconds.`:!valid?(round.flares?'Complete the flare targets and dice results.':'Lock onto the target first.'):state.rollPaused?'Finish the pending dice roll.':'';reason.hidden=!view.querySelector('[data-fire]').disabled;reason.style.display=reason.hidden?'none':'block';}
+      const reason=view.querySelector('[data-fire-reason]');if(reason){reason.textContent=busy?'Submitting launch...':!ready?'Available on your turn after current actions finish.':!round?'Magazine empty. Reload from storage at the launcher.':cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} seconds.`:!valid?(round.flares?'Complete the flare targets and dice results.':'Lock onto the target first.'):state.rollPaused?'Finish the pending dice roll.':'';reason.hidden=!view.querySelector('[data-fire]').disabled;reason.style.display=reason.hidden?'none':'block';}
+      if(round?.mine){view.querySelector('[data-warning]').textContent=cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:'Deploy on your current hex. Maximum three mines per hex. Your ship is immune.';view.querySelector('[data-formula]').textContent=round.description;}
       select.disabled=busy||Boolean(pending);
     }
     return {order,update};

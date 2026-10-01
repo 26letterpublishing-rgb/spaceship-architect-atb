@@ -1,0 +1,11 @@
+body dialog.black-hole-console:not(.map-focus) .sensor-chart{grid-row:2/4!important;display:flex;flex-direction:column;gap:8px;overflow:hidden!important}
+body dialog.black-hole-console:not(.map-focus) .sensor-controls{grid-row:2/4!important}
+body dialog.black-hole-console:not(.map-focus) .shared-power{grid-row:2!important}
+body dialog.black-hole-console:not(.map-focus) .shared-timeline{grid-column:1!important;grid-row:3!important}
+body dialog.black-hole-console .sensor-chart [data-map]{flex:1;min-height:120px;height:auto}
+body dialog.black-hole-console .sensor-chart [data-map]>.space-map{height:100%;min-height:0;aspect-ratio:auto;margin:0;overflow:hidden}
+body dialog.black-hole-console .sensor-chart [data-map] svg{height:100%;width:100%}
+body dialog.black-hole-console .sensor-coordinates{flex-shrink:0}
+body dialog.black-hole-console .sensor-controls>img{max-height:150px!important;flex-shrink:0;border:1px solid #8668a7;border-radius:4px}
+body dialog.black-hole-console .sensor-controls p{margin:0;line-height:1.4}
+body dialog.black-hole-console [data-fire]{background:#552d72;border-color:#d496ff;min-height:48px}

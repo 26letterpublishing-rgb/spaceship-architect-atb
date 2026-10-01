@@ -10,3 +10,5 @@ body .crew-token{background:transparent!important;box-shadow:none!important;bord
 @keyframes crew-stride{from{transform:translateY(-2px)}to{transform:translateY(2px)}}
 @keyframes crew-step{from{transform:translateY(-5px)}to{transform:translateY(4px)}}
 @media(prefers-reduced-motion:reduce){.crew-walking .crew-left-limb,.crew-walking .crew-right-limb,.crew-walking .crew-foot{animation:none}}
+
+.crew-is-fallen .crew-figure{transform:none;min-width:28px;opacity:.8}.crew-is-fallen .crew-figure path{stroke-width:2}

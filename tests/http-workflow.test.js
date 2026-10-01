@@ -36,8 +36,9 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   });
   const post = async (route, body, expected = 200) => {
     const response = await fetch(`${base}/api/campaign/${route}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000),
-    });
+      // Explore constructs the entire sample fleet; ordinary campaign requests retain the tighter budget.
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(route==='showcase/start'?15000:5000),
+    }).catch(error=>{throw new Error(`${route}: ${error.message}`,{cause:error});});
     const result = await response.json();
     assert.equal(response.status, expected, `${route}: ${JSON.stringify(result)}`);
     return result;
@@ -84,7 +85,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     assert.deepEqual(assigned.starship.crewCharacterIds, [owner]);
   }
   await post("starship/crew", { code, token: playerTokens[1], characterId: "http-bram", starshipId: "http-gm-ship", crewCharacterIds: ["http-bram"] }, 403);
-  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42],sicInventory:[{id:'thruster',type:'ionic-pulse-thruster-2',rotation:90},{id:'power',type:'en-engine-2'},...Array.from({length:6},(_,i)=>({id:`stored-${i}`,type:'exhaust-thruster-1',storage:true}))],placements:[{sicId:'thruster',cell:20},{sicId:'power',cell:21}]};
+  const exteriorShip={id:'http-exterior',title:'Exterior validation',confirmedOnce:true,gridCells:[21,22,41,42,43],sicInventory:[{id:'thruster',type:'ionic-pulse-thruster-2',rotation:90},{id:'power',type:'en-engine-2'},...Array.from({length:6},(_,i)=>({id:`stored-${i}`,type:'exhaust-thruster-1',storage:true}))],placements:[{sicId:'thruster',cell:20},{sicId:'power',cell:21}]};
   await post('starship/link',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:21}]}},400);
   const exteriorLinked=await post('starship/link',{code,token,starship:exteriorShip},201);
   assert.equal(exteriorLinked.starship.ship.placements[0].cell,20);
@@ -95,7 +96,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   await post('starship/save',{code,token,starship:{...exteriorShip,placements:[{sicId:'thruster',cell:200}]}},400);
   const combat = async (payload, expected = 200) => {
     const response = await fetch(`${base}/api/action`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomCode: code, gmToken: token, ...payload }) });
+      body: JSON.stringify(await require("./helpers/confirmed-encounter.cjs")(base,{ roomCode: code, gmToken: token, ...payload })) });
     const state = await response.json();
     assert.equal(response.status, expected, JSON.stringify(state));
     return state;
@@ -106,7 +107,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   } };
   const exteriorEncounter=await combat({action:'syncEncounterStarships',starships:[{id:exteriorShip.id,ship:exteriorShip}]});
   assert.equal(exteriorEncounter.starships[0].ship.placements[0].cell,20);
-  assert.equal(exteriorEncounter.starships[0].ship.gridCells.length,4);
+  assert.equal(exteriorEncounter.starships[0].ship.gridCells.length,5);
   assert.equal(exteriorEncounter.starships[0].ship.sicInventory[0].rotation,90);
   assert.equal(exteriorEncounter.starships[0].ship.sicInventory.length,8);
   let encounter = await combat({ action: "syncEncounterStarships", starships: [auShip] });
@@ -126,7 +127,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(encounter.starships[0].auState.current, 24);
   const paused = encounter.starships[0].auState.progress;
   await new Promise(resolve => setTimeout(resolve, 250));
-  encounter = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  encounter = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   assert.equal(encounter.starships[0].auState.progress, paused);
   await combat({ action: "spendShipAu", starshipId: auShip.id, amount: 999 }, 409);
   const npcId = encounter.units.find(unit => unit.team === "npc").id;
@@ -137,7 +138,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.deepEqual(preservedNpc.starship.crewNpcUnitIds, [npcId]);
   await combat({ action: "clearEncounter" });
   await combat({ action: "addUnit", npcRosterId: npcId, characterName: "AU Clock Test", team: "npc", speed: 1, location: {starshipId:auShip.id,square:0,mesh:4} });
-  const restoredNpc = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  const restoredNpc = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   assert.equal(restoredNpc.units[0].id, npcId);
   await combat({ action: "addUnit", npcRosterId: npcId, team: "npc", characterName: "Duplicate", speed: 1, location: {starshipId:auShip.id,square:0,mesh:4} }, 409);
   const ships = Array.from({length:6}, (_, i) => ({...auShip, id:`pair-${i}`}));
@@ -159,8 +160,8 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   for(const ship of demoState.starships){
     const maps=require('../ship-map-core'),nav=require('../ship-navigation');
     assert.equal(maps.exteriorError(ship.ship),'');
-    assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,2);
-    assert.ok(ship.ship.sicInventory.some(item=>item.type==='lock-on-9'));
+    assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,4);
+    assert.ok(ship.ship.sicInventory.some(item=>maps.definition(item.type).lockOn));
     assert.ok(ship.ship.sicInventory.some(item=>item.type===`rapid-laser-${ship.controlType==='pc'?5:4}`));
     const cockpit=ship.ship.sicInventory.find(item=>maps.definition(item.type).shipControl);
     const cell=ship.ship.placements.find(p=>p.sicId===cockpit.id).cell;
@@ -173,12 +174,15 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.ok(!demoState.units.some(unit => unit.id === demoPc.id));
   demoState = await demoAction({action:"clearEncounter",preparing:true});
   assert.equal(demoState.units.length, 0, "preparation must not restore the demo roster");
+  const fixtureBackup=await (await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`)).json();
+  const fixtureShip=fixtureBackup.campaign.starships.find(s=>s.id===auShip.id);fixtureShip.ship={...fixtureShip.ship,...structuredClone(auShip.ship)};
+  await post('restore',{code,token,backup:fixtureBackup});
   const preparation = { action: "prepareEncounter", preparationId: "http-preparation-001", mode: "starship", starships: [auShip], shipDistances: [],
     shipPositions:[{id:auShip.id,q:12,r:-9}],
     units: ["http-aster", "http-bram"].map(characterId => ({ characterId, characterName: characterId, team: "pc", speed: 4, commandWindow: 10, location: { starshipId: auShip.id, square: 0, mesh: 4 } })) };
-  const beforeInvalid = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  const beforeInvalid = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   await combat({ ...preparation, units: [...preparation.units, preparation.units[0]] }, 400);
-  const afterInvalid = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  const afterInvalid = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   assert.deepEqual(afterInvalid.units, beforeInvalid.units, "invalid setup must preserve all old combatants");
   assert.deepEqual(afterInvalid.starships, beforeInvalid.starships);
   await combat({ ...preparation, gmToken: "", characterId: "http-aster", characterToken: playerTokens[0] }, 403);
@@ -210,10 +214,10 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(persisted.encounter.units.length, 2);
   connection.abort();
   await new Promise(resolve => setTimeout(resolve, 3250));
-  const disconnected = await (await fetch(`${base}/api/state?room=${code}`)).json();
+  const disconnected = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   assert.equal(disconnected.units[0].playerConnected, false, "disconnect callbacks must update the replacement unit, not the discarded one");
   const flightShips=['http-gm-ship','http-menu-ship'].map((id,i)=>({id,title:`Flight ${i+1}`,crewCharacterIds:[i?'http-bram':'http-aster'],ship:{
-    id,title:`Flight ${i+1}`,confirmedOnce:true,gridCells:[21,22,41,42],
+    id,title:`Flight ${i+1}`,confirmedOnce:true,gridCells:[21,22,41,42,43],
     sicInventory:[{id:'cp',type:'cockpit-1'},{id:'th',type:'ionic-pulse-thruster-1'},{id:'au',type:'au-engine-1'},{id:'en',type:'en-engine-2'}],
     placements:[{sicId:'cp',cell:21},{sicId:'th',cell:20},{sicId:'au',cell:42},{sicId:'en',cell:22}]}}));
   for(const ship of flightShips) await post('starship/save',{code,token,starship:ship.ship});
@@ -264,13 +268,28 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
     restarted.once('error',error=>{clearTimeout(timer);reject(error);});
     restarted.stdout.on('data',chunk=>{const url=String(chunk).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});
   });
-  const resumed=await (await fetch(`${base}/api/state?room=${code}`)).json();
+  const resumed=await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();
   assert.deepEqual(resumed.shipPositions,flightSave.shipPositions);
   assert.deepEqual(resumed.starships[0].navigation,flightSave.starships[0].navigation);
   assert.equal(resumed.starships[0].auState.current,flightSave.starships[0].auState.current);
   assert.equal(resumed.running,false);assert.equal(resumed.hardPaused,true);
   token=(await post('open',{name:'HTTP Crew Regression',gmCode:'local-test-gm'})).token;
   const noUndo=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomCode:code,gmToken:token,action:'reset'})});assert.equal(noUndo.status,409);assert.match((await noUndo.json()).error,/No previous action/);flight=await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();assert.deepEqual(flight.starships[0].navigation,flightSave.starships[0].navigation);
+  // Exercise new vacuum state through the real HTTP preparation and roll paths.
+  const hazardShip={id:'hazard-http',title:'Airlock test',ship:{gridCells:[21,22,23,41,42,43,61,62,63],sicInventory:[],placements:[],airlocks:[{id:'hatch',square:21,side:'top'}],airlockStates:{},breachState:{holes:{},processed:{}},extractionState:{jobs:{},receipts:[],events:[]}}};
+  await combat({action:'clearEncounter',preparing:true});
+  let hazard=await combat({action:'syncEncounterStarships',starships:[hazardShip]});
+  assert.equal(hazard.starships[0].ship.airlocks[0].id,'hatch');
+  assert.deepEqual(hazard.starships[0].ship.extractionState.jobs,{});
+  hazard=await combat({action:'addUnit',characterName:'Airlock Tester',team:'npc',speed:4,physicalAttribute:2,maximumHp:30,currentHp:30,location:{starshipId:hazardShip.id,square:21,mesh:4}});
+  const occupant=hazard.units.find(u=>u.characterName==='Airlock Tester');
+  await combat({action:'operateAirlock',id:occupant.id,starshipId:hazardShip.id,airlockId:'hatch'},409);
+  hazard=await combat({action:'operateAirlock',id:occupant.id,starshipId:hazardShip.id,airlockId:'hatch',confirmed:true});
+  const suction=hazard.units.find(u=>u.id===occupant.id).pendingShipRolls[0];
+  assert.equal(suction.rollSpec.difficulty,16);assert.equal(suction.breachCheck.hazardId,'hatch');
+  hazard=await combat({action:'rollShipAction',id:occupant.id,rollId:suction.id,score:0,diceResults:suction.rollSpec.sides.map(()=>1)});
+  assert.ok(hazard.units.find(u=>u.id===occupant.id).vacuum);
+  assert.equal(hazard.units.find(u=>u.id===occupant.id).location.starshipId,'');
   for (const file of ["/data/campaigns.json", "/server.js", "/campaign-api.js", "/.git/config"]) {
     assert.equal((await fetch(base + file)).status, 404, file);
   }

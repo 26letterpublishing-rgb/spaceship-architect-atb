@@ -1,0 +1,68 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "output": "sic-art-mine-launcher.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-85a7f16a-12bc-4cb5-99a8-d6f82e429dec.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 27300
+    },
+    {
+      "output": "mine-launcher-floor.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-44a3e213-2880-461a-ab50-ba9aebbf091f.png",
+      "maximumDimensions": [
+        384,
+        512
+      ],
+      "bytes": 30608
+    },
+    {
+      "output": "sic-art-space-mine-1.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-013de847-6dea-4ff0-861f-901d84b3f76a.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 15590
+    },
+    {
+      "output": "sic-art-space-mine-2.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-35c06bea-c896-4489-ab0f-ecb57f93808f.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 16728
+    },
+    {
+      "output": "sic-art-space-mine-3.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-f5a23592-5cee-4a8a-8c74-d51c1ff1a17a.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 15846
+    },
+    {
+      "output": "sic-art-static-electron-web.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-98b41303-4f37-4623-856d-be3a2dbc75f5.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 34108
+    },
+    {
+      "output": "sic-art-magnetic-seeker.webp",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-dbe89a34-8cc3-47a6-a112-4b068f8088e4.png",
+      "maximumDimensions": [
+        384,
+        384
+      ],
+      "bytes": 16484
+    }
+  ]
+}

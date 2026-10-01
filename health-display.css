@@ -1,4 +1,6 @@
 span.sa-health-track { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 0; padding: 0; border: 0; background: none; vertical-align: middle; }
+span.sa-shield-groups { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 5px 12px; max-width: 100%; min-width: 0; padding: 0; border: 0; background: none; vertical-align: middle; }
+span.sa-shield-group { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 0; border: 0; background: none; }
 .sa-health-track > small { font-size: .7rem; color: #edf6fb; white-space: nowrap; }
 .sa-health-track:has(.sa-health-icon.shield) > small { color: #4be88c; }
 .sa-health-track:has(.sa-health-icon.hull) > small { color: #dce2e7; }

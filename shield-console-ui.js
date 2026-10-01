@@ -9,7 +9,7 @@
     const view=host.createElement('dialog');dialog=view;view.className='shield-console-dialog';view.setAttribute('aria-label','Shield console');
     view.dataset.operatorId=unit.id;
     view.innerHTML=`<header><div><small data-connection></small><h2>${esc(initial.ship.title)} / Shields</h2></div><div class="shield-command"><strong data-turn role="status"></strong><progress data-turn-progress max="1" value="0" aria-label="Command window remaining"></progress></div><div data-console-switch><button type="button" data-sound aria-label="Toggle sound">${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
-      <main><section class="shield-field"><h3>Field Integrity</h3><div class="shield-emitter"><img src="${initial.item.type}-card.png" alt="Shield field generator"><div data-condition></div></div><p data-field-state role="status"></p><div class="shield-energy-trace" aria-hidden="true"></div><div data-factors class="shield-factors"></div><p data-recovery></p><progress data-recovery-progress max="1" value="0" aria-label="Restabilization progress"></progress></section>
+      <main><section class="shield-field"><h3>Field Integrity</h3><div class="shield-emitter"><img src="${initial.item.type}-card.png" alt="Shield field generator"><div data-condition></div></div><div class="shield-readout"><strong data-shield-hp aria-label="Ship shield HP"></strong><p data-field-state role="status"></p></div><div class="shield-energy-trace" aria-hidden="true"></div><div data-factors class="shield-factors"></div><p data-recovery></p><progress data-recovery-progress max="1" value="0" aria-label="Restabilization progress"></progress></section>
       <section class="shield-operations"><h3>Auxiliary Power</h3><strong data-au></strong><progress data-au-progress max="100" value="0" aria-label="AU recharge"></progress><p data-reserved></p><label>Purchases <input type="number" min="1" max="100" value="1" step="1" data-amount></label><div class="shield-order"><button type="button" data-order="restore">Restore Shield HP</button><small>5 AU / +1 HP</small></div><div class="shield-order"><button type="button" data-order="reinforce">Reinforce Field</button><small>3 AU / +1 reduction per hit</small></div><p data-protection></p><button type="button" data-order="restabilize">Restabilize Shield</button><p data-rest-rule>${initial.definition.restabilizeAu} AU / ${initial.definition.restabilizeSeconds} powered seconds before crew bonuses. Local operators' ATB freezes until completion.</p><progress data-input max="1.5" value="0" aria-label="Console input progress"></progress><p data-input-status role="status"></p><p data-error role="alert"></p><div class="shield-navigation-actions"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section>
       <section class="shield-activity"><h3>Fleet Condition</h3><div data-fleet></div><h3>Combat Activity</h3><div data-log></div></section><section class="shield-timeline"><div class="pilot-rings" data-rings></div></section></main>`;
     host.body.append(view);view.showModal();
@@ -19,7 +19,7 @@
     function redraw(){
       const state=bridge.state(),person=state.units.find(u=>u.id===unit.id),a=window.SAStationAccess.access(state,person,sicId);
       if(!a||a.seat.key!==initial.seat.key){view.close();return;}
-      const shield=a.ship.shieldSystems?.[sicId],au=a.ship.auState||{},pending=a.ship.auCommands?.find(c=>c.unitId===person.id),rest=shield?.restabilization;
+      const shield=a.ship.shieldSystems?.[sicId],au=a.ship.auState||{},pending=a.ship.auCommands?.find(c=>c.unitId===person.id),rest=shield?.restabilization,auto=shield?.addonRecovery;
       if(!shield)return;
       const ready=state.activeId===person.id&&!person.delayedAction&&!person.delayTimer&&!person.timedAction&&!person.shieldRestabilizing;
       const command=ready&&state.command?.unitId===person.id?state.command:null;
@@ -33,16 +33,17 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       if(alerting&&beat!==lastBeat){lastBeat=beat;bridge.consoleTick();}
       get('[data-connection]').textContent=`${a.remote?'REMOTE ACCESS':'LOCAL STATION'} / ${window.SAShipMap.definition(a.seat.cell.type).name} / ${person.characterName}`;
       view.dataset.remote=String(a.remote);
-      get('[data-condition]').innerHTML=window.SAHealthDisplay.track('shield',shield.hp,a.definition.shieldHp,bridge.mode()==='gm');
-      get('[data-field-state]').textContent=rest?'RESTABILIZATION IN PROGRESS':shield.hp<=0?'FIELD COLLAPSED':a.item.impaired||a.item.status==='impaired'?'IMPAIRED / AU CONTROLS OFFLINE':'FIELD STABLE';
+      get('[data-condition]').innerHTML=window.SAHealthDisplay.track('shield',window.SAHealthDisplay.presentation(a.ship).shieldSystems?.[sicId]?.hp??shield.hp,a.definition.shieldHp,bridge.mode()==='gm');
+      get('[data-shield-hp]').textContent=`${window.SAHealthDisplay.presentation(a.ship).currentShieldHp ?? shield.hp} / ${a.ship.maximumShieldHp ?? a.definition.shieldHp} HP`;
+      get('[data-field-state]').textContent=auto?'AUTOMATIC SHIELD RECOVERY':rest?'RESTABILIZATION IN PROGRESS':shield.hp<=0?'FIELD COLLAPSED':a.item.impaired||a.item.status==='impaired'?'IMPAIRED / AU CONTROLS OFFLINE':'FIELD STABLE';
       view.dataset.field=shield.hp>0?'online':'burst';
       get('[data-au]').textContent=`${au.available??au.current??0} / ${au.maximum??0} AU`;
       get('[data-au-progress]').value=au.current>=au.maximum?100:au.progress||0;
-      get('[data-reserved]').textContent=au.reserved?`${au.reserved} AU reserved for pending commands`:'';
+      get('[data-reserved]').textContent=auto?.emergency&&!auto.paused?'Emergency Shield Recharger: all AU diverted':au.reserved?`${au.reserved} AU reserved for pending commands`:'';
       const factors=shield.factors||{};
       get('[data-factors]').innerHTML=Object.entries(factors).map(([name,n])=>`<div><span class="pilot-factor" title="${esc(name)}: ${n} of 4">${bridge.delayIcon(n)}</span><small>${{Ingenuity:'Crew Sync',Efficiency:'Throughput',Performance:'Response'}[name]}</small></div>`).join('');
-      get('[data-recovery]').textContent=rest?`${rest.paused||'Restabilizing'} / ${Math.round(rest.progress*100)}% / ${rest.auSpent} of ${a.definition.restabilizeAu} AU supplied`:`Regeneration: ${a.definition.shieldRegeneration} HP / ${Number(shield.regenerationSeconds).toFixed(1)} sec`;
-      get('[data-recovery-progress]').hidden=!rest;get('[data-recovery-progress]').value=rest?.progress||0;
+      get('[data-recovery]').textContent=auto?`${auto.paused||(auto.burst&&auto.funded<=0?'Waiting for AU':'Automatic shield recovery')} / ${Math.max(0,auto.total-auto.elapsed).toFixed(1)} sec / returns ${auto.burst?Math.ceil(a.definition.shieldHp/3):1} HP${auto.emergency?' / all AU diverted':' / 2 AU per 12 sec'}`:rest?`${rest.paused||'Restabilizing'} / ${Math.round(rest.progress*100)}% / ${rest.auSpent} of ${a.definition.restabilizeAu} AU supplied`:`Regeneration: ${a.definition.shieldRegeneration} HP / ${Number(shield.regenerationSeconds).toFixed(1)} sec`;
+      get('[data-recovery-progress]').hidden=!rest&&!auto;get('[data-recovery-progress]').value=auto?auto.elapsed/auto.total:rest?.progress||0;
       get('[data-protection]').textContent=shield.protectionRemaining>0?`+${shield.protection} reduction / ${shield.protectionRemaining.toFixed(1)} sec remaining`:'Reinforcement lasts 12 combat seconds. Adding protection does not extend its timer.';
       const count=Number(amount.value),valid=Number.isInteger(count)&&count>=1&&count<=100,impaired=a.item.impaired||a.item.status==='impaired';
       for(const button of view.querySelectorAll('[data-order]')){
@@ -57,7 +58,7 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       get('[data-leave]').disabled=busy||!ready||Boolean(person.shieldRestabilizing);
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
       window.SAConsoleCommon.updateSound(view);
-      const fleet=state.starships.map(ship=>ship.contactOnly?`<div><strong>${esc(ship.title)}</strong><small>${ship.contactLevel==='detected'?'Detected / condition unscanned':'Unresolved signal'}</small></div>`:`<div><strong>${esc(ship.title)}</strong>${window.SAHealthDisplay.track('hull',ship.currentHullHp,ship.maximumHullHp,bridge.mode()==='gm')}${window.SAHealthDisplay.track('shield',ship.currentShieldHp,ship.maximumShieldHp,bridge.mode()==='gm')}</div>`).join('');
+      const fleet=state.starships.map(ship=>ship.contactOnly?`<div><strong>${esc(ship.title)}</strong><small>${ship.contactLevel==='detected'?'Detected / condition unscanned':'Unresolved signal'}</small></div>`:`<div><strong>${esc(ship.title)}</strong>${window.SAHealthDisplay.hull(ship,bridge.mode()==='gm')}${window.SAHealthDisplay.shields(ship,bridge.mode()==='gm')}</div>`).join('');
       if(fleet!==lastFleet){get('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
       const log=(state.log||[]).slice(-20).reverse().map(e=>`<p><small>${esc(e.at)}</small>${window.SAHealthDisplay.logMarkup(e,bridge.mode()==='gm')}</p>`).join('');
       if(log!==lastLog){get('[data-log]').innerHTML=log;lastLog=log;}

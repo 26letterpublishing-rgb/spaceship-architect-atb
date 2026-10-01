@@ -27,7 +27,7 @@ test('both rectangular thruster families preserve rotated footprints and emissio
   for (const family of ['exhaust','ionic-pulse']) for(let tier=2;tier<=5;tier++) for(const rotation of [0,90]) {
     const item={id:'t',type:`${family}-thruster-${tier}`,rotation}, d=maps.componentDefinition(item), origin=126;
     for(const [mount,angle] of [[origin-20,0],[origin+d.width,90],[origin+d.height*20,180],[origin-1,270]]) {
-      const ship={gridCells:[mount],sicInventory:[item],placements:[{sicId:'t',cell:origin}]};
+      const ship={gridCells:Array.from({length:angle%180?d.height:d.width},(_,i)=>mount+i*(angle%180?20:1)),sicInventory:[item],placements:[{sicId:'t',cell:origin}]};
       assert.equal(maps.exteriorError(ship),'');
       const restored=JSON.parse(JSON.stringify(ship)),layout=maps.buildLayout(restored);
       assert.equal(layout.footprint.size,d.width*d.height);

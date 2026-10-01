@@ -12,24 +12,24 @@ function people(campaign,room=null){
   for(const record of campaign?.characters||[]){
     const character=record.character,unit=room?.units.find(u=>u.characterId===record.id);
     const assigned=(campaign.starships||[]).find(s=>s.crewCharacterIds?.includes(record.id)&&s.characterLocations?.[record.id]);
-    if(unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
+    if(unit?.vacuum||unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
     const shipId=unit?.location?.starshipId||assigned?.id;
     if(!shipId)continue;
     const dice=(character.attributes?.health||[]).filter(n=>n>=0).map(n=>[4,6,8,10,12][n]).filter(Boolean);
     const skill=character.skills?.['Athletics/Endurance'];
     result.push({id:record.id,characterId:record.id,unitId:unit?.id,shipId,name:character.identity?.characterName||'Crew',
       location:unit?.location||assigned?.characterLocations?.[record.id],movement:unit?.timedAction,dice,skill:Math.max(0,typeof skill==='object'?(Number(skill?.tenths)||0)/10:Number(skill)||0),
-      immune:character.identity?.raceId==='android',
+      immune:require('./breathing').independent(character),
       get hp(){return Number(unit?.currentHp??character.health?.current??0);},
       set hp(value){if(unit)unit.currentHp=value;character.health||={};character.health.current=value;record.updatedAt=new Date().toISOString();}
     });
   }
   for(const unit of room?.units||campaign?.npcRoster||[]){
     if(unit.characterId)continue;
-    if(unit.location?.escapePodId)continue;
+    if(unit.vacuum||unit.location?.escapePodId)continue;
     const shipId=unit.location?.starshipId||(campaign.starships||[]).find(s=>s.crewNpcUnitIds?.includes(unit.id))?.id;
     if(!shipId)continue;
-    result.push({id:unit.id,unitId:unit.id,characterId:null,shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:unit.shipAi||unit.raceId==='android'||unit.raceType==='mechanical',
+    result.push({id:unit.id,unitId:unit.id,characterId:null,shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:require('./breathing').independent(unit),
       get hp(){return Number(unit.currentHp??unit.maximumHp??0);},set hp(value){unit.currentHp=value;}});
   }
   return result;

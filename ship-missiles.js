@@ -15,32 +15,45 @@ function queue(room,unit,body,input){
   if(data.receipts.includes(receipt))return {ok:true,duplicate:true,ship};
   if(room.activeId!==unit.id||unit.delayedAction||unit.consoleHold||unit.timedAction||unit.delayTimer||unit.shieldRestabilizing||pending(room))return {ok:false,error:'Wait for your turn and finish the pending action.'};
   if(ship.currentHullHp<=0||ship.escapedAt||ship.ship.warpState?.phase==='traveling'||power.output(ship,room.units).en<1)return {ok:false,error:'The launcher ship or its power supply is unavailable.'};
+  if(body.kind==='reload-missiles'){
+    if(access.remote||access.controlled)return {ok:false,error:'Station physically at this Missile Launcher to reload.'};
+    if(ammo.used(ship,access.id)>=access.definition.capacity)return {ok:false,error:'The magazine is full.'};
+    if(!Object.entries(ammo.storage(ship)).some(([key,n])=>n>0&&!ammo.catalog[key]?.seeker&&Boolean(ammo.catalog[key]?.mine)===Boolean(access.definition.mineLauncher)))return {ok:false,error:'No missiles remain in storage.'};
+    data.receipts=[...data.receipts,receipt].slice(-256);
+    unit.delayedAction={id:'reload-'+receipt,kind:'action',label:'Reload Missile Launcher',rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,rollConfirmed:true,settings:input,missileOrder:{reload:true,shipId:ship.id,sicId:access.id,station:access.seat.key}};
+    return {ok:true,ship,reload:true};
+  }
   if(data.cooldowns[access.id]>EPS||room.units.some(u=>u.delayedAction?.missileOrder?.sicId===access.id&&u.delayedAction.missileOrder.shipId===ship.id))return {ok:false,error:'This launcher may fire only once per 12 active combat seconds.'};
-  if(!kind||!(ammo.magazine(ship,access.id)[kind.id]>0))return {ok:false,error:'Load ammunition into this launcher outside combat.'};
+  if(!kind||Boolean(kind.mine)!==Boolean(access.definition.mineLauncher)||!(ammo.magazine(ship,access.id)[kind.id]>0))return {ok:false,error:'Magazine empty. Station at the launcher and reload from storage.'};
+  if(kind.mine&&require('./ship-mines').count(room,targets.point(room,ship.id))>=3)return {ok:false,error:'Maximum three mines per hex. Move before deploying another mine.'};
+  if(body.seeker&&(!kind.mine||kind.web||!(ammo.storage(ship)['magnetic-seeker']>0)))return {ok:false,error:'Purchase a Magnetic Seeker and select an explosive mine.'};
   sensors.refresh(room);locks.refresh(room);
   const target=targets.find(room,body.targetId);
-  if(!kind.flares&&(!target||target.id===ship.id||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))return {ok:false,error:'Acquire an accessible target Lock-On before launching.'};
-  if(!kind.flares&&body.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),body.targetSicId))return {ok:false,error:'Acquire a controlled lock on the selected component first.'};
+  if(!kind.flares&&!kind.mine&&(!target||target.id===ship.id||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))return {ok:false,error:'Acquire an accessible target Lock-On before launching.'};
+  if(!kind.flares&&!kind.mine&&body.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),body.targetSicId))return {ok:false,error:'Acquire a controlled lock on the selected component first.'};
   let flares;
   if(kind.flares){
     flares=body.flares;
     if(!Array.isArray(flares)||flares.length!==3||flares.some(f=>!['heads','tails'].includes(f.result)||(f.result==='heads'&&(!Number.isInteger(f.direction)||f.direction<0||f.direction>5))||!targets.flights(room).some(m=>m.id===f.targetId&&m.phase==='flying')||(access.controlSource||ship).sensorState?.contacts?.[f.targetId]?.level!=='detected'))return {ok:false,error:'Confirm three coin flips against detected missiles and choose their deflection directions.'};
   }
   data.receipts=[...data.receipts,receipt].slice(-256);
-  unit.delayedAction={id:'launch-'+receipt,kind:'action',label:kind.flares?'Deploy Missile Flares':`Launch ${kind.name}`,rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,rollConfirmed:true,settings:input,missileOrder:{shipId:ship.id,sicId:access.id,station:access.seat.key,targetId:target?.id,targetSicId:kind.flares?null:body.targetSicId||null,ammunition:kind.id,flares,captured:Boolean(access.controlled)}};
+  unit.delayedAction={id:'launch-'+receipt,kind:'action',label:kind.flares?'Deploy Missile Flares':`Launch ${kind.name}`,rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,rollConfirmed:true,settings:input,missileOrder:{shipId:ship.id,sicId:access.id,station:access.seat.key,targetId:target?.id,targetSicId:kind.flares?null:body.targetSicId||null,ammunition:kind.id,seeker:Boolean(body.seeker),flares,captured:Boolean(access.controlled)}};
   return {ok:true,ship};
 }
 function authorizedLock(room,unit,access,targetId){return require('./ship-weapons').weaponLock(room,unit,access.ship,targetId,access.controlled);}
 function resolveInput(room,unit){
   const task=unit.delayedAction,order=task?.missileOrder;if(!order)return;
   unit.delayedAction=null;
+  if(order.reload){const ship=room.starships.find(s=>s.id===order.shipId),access=stations.access(room,unit,order.sicId);if(!ship||!access||access.remote||access.controlled||access.blocked||access.seat.key!==order.station||access.item.impaired||access.item.impairmentPoints){if(ship)report(ship,'Reload interrupted; missiles remain in storage.');return;}const count=ammo.load(ship,access.id,access.definition.capacity);report(ship,`Missile Launcher reloaded: ${count} rounds from storage.`,{operatorId:unit.id});return;}
+
   const ship=room.starships.find(s=>s.id===order.shipId),access=stations.access(room,unit,order.sicId),kind=ammo.catalog[order.ammunition],target=targets.find(room,order.targetId);
   if(!ship)return;
-  if(maps.cloaked(ship)||!access||access.blocked||access.seat.key!==order.station||access.item.impaired||access.item.impairmentPoints>0||access.item.status==='impaired'||ship.currentHullHp<=0||ship.escapedAt||power.output(ship,room.units).en<1||(!kind.flares&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))){
+  if(maps.cloaked(ship)||!access||access.blocked||access.seat.key!==order.station||access.item.impaired||access.item.impairmentPoints>0||access.item.status==='impaired'||ship.currentHullHp<=0||ship.escapedAt||power.output(ship,room.units).en<1||(!kind.flares&&!kind.mine&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))){
     report(ship,'Missile launch interrupted. The unfired round remains in the magazine.',{operatorId:unit.id});return;
   }
   if(!(ammo.magazine(ship,access.id)[kind.id]>0)){report(ship,'Launch cancelled: no loaded ammunition remains.',{operatorId:unit.id});return;}
-  if(order.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),order.targetSicId)){report(ship,'Launch cancelled: selected component lock was lost. The round remains in the magazine.',{operatorId:unit.id});return;}
+  if(!kind.mine&&order.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),order.targetSicId)){report(ship,'Launch cancelled: selected component lock was lost. The round remains in the magazine.',{operatorId:unit.id});return;}
+  if(kind.mine){const placed=require('./ship-mines').deploy(room,ship,unit,task,kind);report(ship,placed?`${kind.name} deployed on the current hex.`:'Mine deployment cancelled: hex full or seeker unavailable. Ammunition retained.',{operatorId:unit.id});return;}
   ship.ship.missileAmmo[access.id][kind.id]--;
   state(ship).cooldowns[access.id]=ROUND;
   if(kind.flares){
@@ -51,12 +64,13 @@ function resolveInput(room,unit){
   }
   const origin=targets.point(room,ship.id),destination=targets.point(room,target.id);
   const knownItem=sensors.analysis(access.controlSource||ship,target.id)?.layout?.sicInventory?.find(i=>i.id===order.targetSicId);
-  for(let n=0;n<kind.count;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+(kind.count>1?` / ${n+1}`:''),slot:n,salvoSize:kind.count,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,speed:kind.acceleration,masking:kind.masking,dice:kind.dice,heading:heading(origin,destination),launchedAt:Date.now()});
+  room.missileSerial=Math.max(Number(room.missileSerial)||0,...targets.flights(room).map(m=>Number(m.serial)||0))+1;
+  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,speed:kind.acceleration,masking:kind.masking,dice:kind.dice,heading:heading(origin,destination),launchedAt:Date.now()});
   report(ship,`${kind.name} launched: ${kind.count} inbound projectile${kind.count===1?'':'s'}; pursuing ${target.title}.`,{operatorId:unit.id,missileLaunch:true,targetId:target.id});
 }
 function heading(a,b){return Math.atan2(1.5*(b.r-a.r),Math.sqrt(3)*((b.q-a.q)+(b.r-a.r)/2))*180/Math.PI;}
 function nextEvent(room){
-  let time=Infinity;
+  let time=require('./ship-mines').active(room).length?.2:Infinity;
   for(const m of targets.flights(room).filter(m=>m.phase==='flying')){
     const target=m.targetId&&targets.find(room,m.targetId),p=target&&targets.point(room,target.id);
     if(m.targetId&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'))return 0;
@@ -67,7 +81,7 @@ function nextEvent(room){
 }
 function advance(room,seconds){
   if(!(seconds>0)||pending(room))return;
-  for(const ship of room.starships){const data=state(ship);for(const id of Object.keys(data.cooldowns))data.cooldowns[id]=Math.max(0,data.cooldowns[id]-seconds);data.flights=[...data.flights.filter(m=>['flying','impact'].includes(m.phase)),...data.flights.filter(m=>!['flying','impact'].includes(m.phase)).slice(-128)];}
+  for(const ship of room.starships){const data=state(ship);for(const id of Object.keys(data.cooldowns))data.cooldowns[id]=Math.max(0,data.cooldowns[id]-seconds);data.flights=[...data.flights.filter(m=>['flying','impact','mine','web'].includes(m.phase)),...data.flights.filter(m=>!['flying','impact','mine','web'].includes(m.phase)).slice(-128)];}
   for(const m of targets.flights(room).filter(m=>m.phase==='flying')){
     const target=m.targetId&&targets.find(room,m.targetId),p=target&&targets.point(room,target.id);
     if(m.targetId&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling')){m.phase='expired';m.endedAt=Date.now();continue;}
@@ -76,6 +90,12 @@ function advance(room,seconds){
     if(p&&length<=distance+EPS){m.position={q:p.q,r:p.r};m.phase='impact';m.arrivedAt=Date.now();}
     else if(length>EPS){m.position.q+=delta.q/length*distance;m.position.r+=delta.r/length*distance;}
     m.age+=seconds;m.speed=m.acceleration*Math.min(5,1+Math.floor((m.age+EPS)/ROUND));
+    m.traveled=(m.traveled||0)+Math.min(distance,length);
+    if(m.splitCount>1&&(m.traveled>=m.splitDistance||m.phase==='impact')){
+      const count=m.splitCount;m.splitCount=1;m.salvoSize=count;m.name+=' / 1';
+      const owner=room.starships.find(s=>s.id===m.sourceId);
+      for(let n=1;n<count;n++)state(owner).flights.push({...m,id:m.id+'-fragment-'+n,name:m.name.replace(/ \/ 1$/, ' / '+(n+1)),slot:n,position:{...m.position}});
+    }
     if(m.deflected&&m.age>=600){m.phase='expired';m.endedAt=Date.now();}
   }
 }

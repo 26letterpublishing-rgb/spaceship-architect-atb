@@ -1,0 +1,21 @@
+.v03-menu{max-width:780px;margin:3vh auto;display:grid;gap:18px;padding:20px}.v03-join{padding:30px;border:1px solid #45dfff;background:#102937;text-align:center}.v03-join h1{font-size:clamp(26px,4vw,42px);margin:0 0 20px}.v03-join input{font-size:22px;max-width:100%;text-align:center}.v03-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.v03-actions>*{flex:1;min-width:180px}.v03-menu button,.v03-menu a,.v03-panel button{padding:12px;color:#e7faff;background:#163846;border:1px solid #65b4c5;border-radius:5px;cursor:pointer;text-decoration:none}.v03-panel{padding:18px;border:1px solid #3c6574;margin:12px 0;background:#081b25}.v03-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.v03-dialog{background:#102430;color:#f0fbff;border:1px solid #55cbe8;max-width:min(580px,95vw);padding:24px}.v03-dialog::backdrop{background:#000b}.v03-dialog input{display:block;margin:12px 0;width:100%;padding:12px;background:#05141b;color:white}.v03-dialog button{margin:8px;padding:10px}.v03-version{position:fixed;bottom:10px;right:14px;color:#8daeba;font-size:14px;z-index:20}.v03-status{color:#ffdf7a;white-space:pre-wrap}.v03-lobby{max-width:1200px;margin:auto;padding:24px}.v03-lobby h1{color:#6de1ff}.v03-spectator{width:100%;height:78vh;border:1px solid #46727e}.v03-management{border:1px solid #496979;padding:14px;margin:14px 0}.v03-management button{margin:6px}.v03-management input,.v03-management select{max-width:280px}.v03-tutorial{position:fixed;bottom:20px;left:20px;max-width:380px;padding:18px;background:#122e3f;border:1px solid #ffe270;z-index:10000}.welcome-panel .campaign-main-menu{display:none!important}#appVersion{display:none!important}
+
+.v03-reference{width:94vw;height:92vh;max-width:none;max-height:none;background:#07151d;border:1px solid #62bbce;padding:8px}.v03-reference iframe{display:block;width:100%;height:calc(100% - 44px);border:0}.v03-reference>button{height:38px;background:#1c3d4b;color:#fff}
+
+.v03-menu>label:has([data-tutorial]){display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;font-size:12px}
+.v03-menu input[data-tutorial]{appearance:auto;width:18px;height:18px;min-width:18px;padding:0;margin:0;accent-color:#51cddd}
+
+.v03-tutorial{color:#f2fbff}.v03-dialog button,.v03-tutorial button{background:#dceaf0;color:#102430;border:1px solid #7694a3;border-radius:4px;padding:10px}.gm-roll-notice{position:fixed;right:20px;bottom:20px;z-index:100000;max-width:460px;background:#102d3c;color:#effaff;border:1px solid #60d8ed;padding:18px;box-shadow:0 8px 36px #000a}.gm-roll-notice button{background:#dceaf0;color:#102430;padding:8px 20px}
+#campaignCombatStatus{display:block;font-size:10px;line-height:1.4;letter-spacing:.04em}#campaignCombatStatus[hidden]{display:none}.player-fleet-actions{padding:12px}.player-fleet-actions p{font-size:13px;color:#a6c5d5}
+
+/* Native dialog buttons must never inherit white text over the browser's light default. */
+dialog button{background-color:#173b49;color:#f0fbff;border:1px solid #71a6b8}dialog button:disabled{color:#b6c9d2;background-color:#293943}dialog[aria-label="Hold at 99%"] button{background:#deebef;color:#102330;text-shadow:none;padding:10px 18px;border:1px solid #79abb8}
+
+:where(button){background-color:#163846;color:#edfaff}#campaignCombatStatus{background:transparent;padding:0;margin-top:3px}
+
+.cleanser-blast-warning{font-size:12px;color:#ffdc85;line-height:1.45}
+
+.campaign-export-button {background:#9e2637!important;color:#fff!important;border:1px solid #ee8290!important;border-radius:6px;padding:9px 14px;font-weight:700;}
+[data-player-ship-upgrade] {background:#186748!important;color:#fff!important;border:1px solid #63d9a3!important;}
+.sic-category-body[hidden]{display:none!important;}
+.sic-category legend button{background:transparent;color:inherit;border:0;padding:3px 8px;font:inherit;cursor:pointer;}

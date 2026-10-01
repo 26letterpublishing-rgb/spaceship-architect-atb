@@ -14,7 +14,9 @@
     <link rel="stylesheet" href="ship-map-presentation.css?v=console-feedback-2" />
     <link rel="stylesheet" href="crew-overview.css?v=console-feedback-2" />
     <link rel="stylesheet" href="sic-cards.css?v=console-feedback-2" />
-  </head>
+    <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
+<link rel="stylesheet" href="room-v03.css"><script src="room-v03.js" defer></script>
+</head>
   <body>
     <header class="starship-header">
       <div class="starship-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></div>
@@ -385,7 +387,7 @@
           <section class="sic-market-item"><article class="sic-poker-card nutritional-supplement-card" data-sic-card="nutritional-supplement" tabindex="0" aria-label="Nutritional Supplement details">
             <header class="sic-poker-heading"><span>Utility <small>A-30</small></span><div><h3>Nut. Supplement</h3><strong>Price: 850</strong></div></header>
             <img class="sic-poker-art" src="nutritional-supplement-graphic.png" alt="Nutritional Supplement paste dispenser advertising over 20 flavors" />
-            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>3</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradom, 5 hrs</dd></div></dl>
+            <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>3</dd></div><div><dt>Security Level</dt><dd>5</dd></div><div><dt>Size</dt><dd>1×1</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>Paradon, 5 hrs</dd></div></dl>
             <section class="sic-poker-rules"><p>Dispenses thick paste that contains all the nutrients required to survive.</p><strong>OVER 20 AVAILABLE FLAVORS!</strong><p>Requires Life Support.</p></section>
             <footer><span><small>If Impaired</small>One random flavor is available only.</span><span><small>Damage Threshold</small>10</span></footer>
           </article>
@@ -396,12 +398,15 @@
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
     <script src="delay-rules.js"></script>
     <script src="ship-map-core.js?v=console-feedback-2"></script>
+    <script src="ship-fabrication.js"></script>
+    <script src="ship-floorplan-snapshot.js"></script>
     <script src="missile-ammunition.js"></script>
     <script src="ship-power.js?v=console-feedback-2"></script>
     <script src="ship-print.js"></script>
     <script src="live-dom.js?v=console-feedback-2"></script>
     <script src="crew-overview.js?v=console-feedback-2"></script>
     <script src="drone-map.js"></script>
+  <script src="sic-categories.js"></script>
   <script src="starship.js?v=console-feedback-2"></script>
   </body>
 </html>

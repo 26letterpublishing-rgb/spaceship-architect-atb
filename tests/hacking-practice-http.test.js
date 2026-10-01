@@ -12,7 +12,7 @@ test('practice API keeps secrets private, validates retries and cannot alter enc
   for(const field of ['answer','password','secret','decoys','receipts'])assert.ok(!JSON.stringify(await get(a.token)).includes(`"${field}"`));
   assert.equal((await fetch(base+'/hacking-puzzle.js')).status,404);assert.equal((await fetch(base+'/hacking-practice.js')).status,404);
   await post('/api/hacking/practice',body,'invalid-token',404);
-  await post('/api/hacking/practice',{requestId:'invalid-letters',guess:['Z','Z','Z']},a.token,400);
+  await post('/api/hacking/practice',{requestId:'invalid-letters',guess:['?','?','?']},a.token,400);
   assert.equal((await fetch(base+'/api/hacking/practice',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://unrelated.example'},body:JSON.stringify({operation:'create',security:3,firewall:2,tier:1})})).status,403);
   const after=await fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r=>r.json());
   for(const field of ['activeId','running','pausedForTurn','hardPaused','units','starships','log'])assert.deepEqual(after[field],before[field],field+' unchanged');

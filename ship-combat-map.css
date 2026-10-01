@@ -120,3 +120,6 @@
 @media(max-width:600px){.inline-ship-move-selecting .inline-map-toolbar>div{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 @media(min-width:1000px){.inline-ship-move-selecting .inline-map-footer .combat-map-stats.combat-map-stats{grid-template-columns:repeat(9,minmax(0,1fr))}}
 @media(max-width:600px){.inline-ship-move-selecting .inline-map-footer .combat-map-stats.combat-map-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Keep large interiors from forcing page-wide layout on live meter updates. */
+.inline-map-viewport.inline-map-viewport{contain:layout paint}

@@ -40,6 +40,7 @@
   style.textContent+='.console-pause-notice{position:absolute;top:13%;left:25%;right:25%;z-index:20;background:#22080eee;border:1px solid #ff596b;color:#ff5b6e;font:bold 22px Arial;text-align:center;padding:12px;pointer-events:none;overflow-wrap:anywhere}.console-pause-notice[hidden]{display:none}@media(max-width:850px){.console-pause-notice{top:0;left:0;right:0;font-size:17px}}';
   const timer=setInterval(()=>{
     const b=bridge(),state=b?.state(),view=doc.querySelector(`dialog[open][data-console-owner="${window.SAConsoleCommon?.ownerId}"]`);
+    if(!state){sound?.stop();sound=null;phase='';typingIcon.hidden=true;return;}
     const unit=state?.units.find(u=>u.id===(view?.dataset.operatorId||b?.myUnitId()));
     const running=Boolean(view&&unit&&!state.practice&&state.running&&!state.rollPaused&&!state.pausedForTurn&&!state.hardPaused&&!state.holdPaused&&!doc.hidden);
     if(view){
@@ -55,7 +56,7 @@
     const ship=state?.starships.find(s=>s.id===unit?.location?.starshipId),aux=ship?.auCommands?.find(c=>c.unitId===unit?.id);
     const charging=running&&!delay&&!unit.delayTimer&&!unit.timedAction&&!unit.consoleHold&&unit.atb<state.threshold;
     if(view)view.dataset.atbCharging=String(charging);
-    const next=running&&b.soundEnabled()?(delay&&!delay.awaitingRoll||aux?'input':processing?'analysis':charging?'atb':''):'';
+    const next=running&&b.soundEnabled()?(delay&&!delay.awaitingRoll?delay.shipOrder?'engine':'input':aux?'input':processing?'analysis':charging?'atb':''):'';
     const typingVisible=Boolean(view&&!state.practice&&(delay&&!delay.awaitingRoll||aux));
     typingIcon.hidden=!typingVisible;
     if(typingVisible){if(typingIcon.parentElement!==view)view.append(typingIcon);typingIcon.dataset.running=String(running);typingIcon.setAttribute('aria-label',running?'Typing console input':'Console input paused');typingIcon.title=running?'Typing console input':'Console input paused';}
