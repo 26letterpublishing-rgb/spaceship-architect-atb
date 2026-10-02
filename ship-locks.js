@@ -11,7 +11,7 @@
   const points=item=>Number(item.impairmentPoints)||(item.impaired||item.status==='impaired'?1:0);
   function installed(ship,id){return (ship?.ship.placements||[]).map(p=>ship.ship.sicInventory.find(i=>i.id===p.sicId)).filter(i=>stations.online(i)&&maps.definition(i.type).lockOn&&(!id||i.id===id)).sort((a,b)=>maps.definition(b.type).tier-maps.definition(a.type).tier)[0];}
   const definition=(ship,id)=>maps.definition(installed(ship,id)?.type||'lock-on-1');
-  const sourceLocks=(ship,id)=>state(ship).targets.filter(l=>l.systemId===id);
+  const sourceLocks=(ship,id)=>state(ship).targets.filter(l=>!l.sharedFrom&&l.systemId===id);
   function breakDifficulty(ship,targetId){const lock=state(ship).targets.find(l=>l.targetId===targetId);return definition(ship,lock?.systemId).breakDifficulty||13;}
   const position=(room,id)=>targets.point(room,id);
   const inRange=(room,ship,target)=>Boolean(!ship.escapedAt&&!target.escapedAt&&ship.ship.warpState?.phase!=='traveling'&&target.ship.warpState?.phase!=='traveling'&&sensors.installed(ship)&&distances.hexDistance(position(room,ship.id),position(room,target.id))<=sensors.rangeAgainst(room,ship,target));
@@ -20,6 +20,7 @@
   function refresh(room,seconds=0){
     for(const ship of room.starships||[]){
       const data=state(ship);data.impairments ||= {};
+      data.targets=data.targets.filter(l=>!l.sharedFrom);
       for(const lock of [...data.targets]){
         if(lock.controllerUnitId&&!ship.hackedSystems?.some(h=>(h.bridge||h.sicId===lock.systemId)&&h.unitId===lock.controllerUnitId)){drop(ship,lock.targetId,'hacked connection ended');continue;}
         lock.systemId ||= installed(ship)?.id;
@@ -34,8 +35,37 @@
       // Each targeting system has its own free target and prepaid upkeep blocks.
       for(const id of new Set(data.targets.map(l=>l.systemId))){const cost=definition(ship,id).extraTargetAu;if(!cost)continue;for(const extra of sourceLocks(ship,id).slice(1)){extra.remaining=(extra.remaining??12)-Math.max(0,seconds);while(extra.remaining<=0){if(!power.spend(room,ship.id,cost)){drop(ship,extra.targetId,'not enough Auxiliary power to maintain additional target');break;}extra.remaining+=12;}}}
     }
+    shareLocks(room,Math.max(0,seconds));
   }
-  function locked(room,ship,targetId){const target=targets.find(room,targetId);return Boolean(installed(ship)&&target&&inRange(room,ship,target)&&state(ship).targets.some(t=>t.targetId===targetId));}
+  function shareLocks(room,seconds){
+    for(const source of room.starships||[]){
+      const config=source.ship.triangulatorState;if(!config)continue;
+      const layout=maps.buildLayout(source.ship);
+      const online=maps.installedItems(source).some(i=>{if(!maps.definition(i.type).lockSharing||!stations.online(i)||points(i))return false;const cell=[...layout.footprint].find(([,c])=>c.sicId===i.id)?.[0];return cell!==undefined&&layout.sides.some(side=>side.valid(cell)&&maps.definition(layout.footprint.get(cell+side.offset)?.type).lockOn);});
+      const native=state(source).targets.filter(l=>!l.sharedFrom);
+      config.pending||={};const seen=new Set();
+      if(online&&source.currentHullHp>0&&!source.escapedAt&&power.output(source,room.units).en>=power.demand(source))for(const id of config.recipients||[]){
+        const recipient=room.starships.find(s=>s.id===id);if(!recipient||recipient.id===source.id||recipient.currentHullHp<=0||recipient.escapedAt||!installed(recipient))continue;
+        const reach=2*Math.max(sensors.installed(source)?.range||0,sensors.installed(recipient)?.range||0);
+        if(distances.hexDistance(position(room,source.id),position(room,id))>reach)continue;
+        for(const lock of native){if(maps.definition(installed(recipient).type).tier<definition(source,lock.systemId).tier)continue;
+          const key=JSON.stringify([id,lock.systemId,lock.targetId]);seen.add(key);config.pending[key]=(config.pending[key]??12)-seconds;
+          if(config.pending[key]>1e-7)continue;
+          state(recipient).targets.push({...lock,systemId:installed(recipient).id,controllerUnitId:null,sharedFrom:source.id});
+          const target=targets.find(room,lock.targetId);if(target)sensors.detect(room,recipient,target);
+        }
+      }
+      for(const key of Object.keys(config.pending))if(!seen.has(key))delete config.pending[key];
+    }
+  }
+  function configureSharing(room,unit,body,{outsideCombat=false}={}){
+    const access=stations.access(room,unit,body.sicId);if(!access?.definition.lockSharing||access.blocked||points(access.item))return {ok:false,error:'Use an operational Lock-On Triangulator.'};
+    if(!outsideCombat&&(room.activeId!==unit.id||unit.delayedAction||unit.timedAction||unit.consoleHold))return {ok:false,error:'Wait for your turn.'};
+    if(!Array.isArray(body.recipients)||body.recipients.length>100||body.recipients.some(id=>typeof id!=='string'||id===access.ship.id||!room.starships.some(s=>s.id===id&&(!outsideCombat||s.controlType==='pc'))))return {ok:false,error:'Choose ships from the available fleet.'};
+    access.ship.ship.triangulatorState={recipients:[...new Set(body.recipients)],pending:{}};
+    return {ok:true,ship:access.ship,text:'Lock sharing recipients updated. Compatible linked ships receive maintained locks after 12 active seconds; the source pays its normal upkeep.'};
+  }
+  function locked(room,ship,targetId){const target=targets.find(room,targetId);return Boolean(installed(ship)&&target&&target.currentHullHp>0&&!ship.escapedAt&&state(ship).targets.some(t=>t.targetId===targetId&&(t.sharedFrom||inRange(room,ship,target))));}
   const skill=(unit,kind)=>Math.max(0,Number(kind==='break'?unit.pilotSkill:kind==='sic'?unit.sensorSkill:unit.weaponSystemsSkill) || Number(unit.team==='npc'?unit.mentalSkill:0)||0);
   const bars=n=>n>=6?4:n>=5?3:n>=3?2:n>=1?1:0;
   function settings(unit,kind,tier=1){const value={base:10,factors:{Situation:0,Execution:0,Quality:Math.min(4,tier),Performance:0,Efficiency:0,Ingenuity:bars(skill(unit,kind))}};return {...value,rate:delays.calculate(value).rate};}
@@ -82,7 +112,7 @@
       if(kind==='lock'&&sourceLocks(ship,item.id).length>=1&&def.extraTargetAu&&unit.shipAi)return {ok:false,error:'Ship AI never spends AU.'};
       if(kind==='lock'&&sourceLocks(ship,item.id).length>=1&&def.extraTargetAu&&!power.spend(room,ship.id,def.extraTargetAu))return {ok:false,error:`Not enough Auxiliary power: additional target needs ${def.extraTargetAu} AU per 12 seconds.`};
     }
-    const input=settings(unit,kind,kind==='break'?1:def.tier),order={shipId:ship.id,targetId:target.id,kind,systemId:item?.id,controlSicId:access?.id||seat.cell.sicId,targetSicId:body.targetSicId,station:seat.key,controllerUnitId:access?.controlled?unit.id:null,secondTargetPaid:kind==='lock'&&sourceLocks(ship,item.id).length>=1};
+    const input=settings(unit,kind,kind==='break'?1:def.tier),order={shipId:ship.id,targetId:target.id,kind,systemId:item?.id,controlSicId:access?.id||seat.cell.sicId,targetSicId:body.targetSicId,station:seat.key,controllerUnitId:access?.controlled&&!access.remotePilot?unit.id:null,secondTargetPaid:kind==='lock'&&sourceLocks(ship,item.id).length>=1};
     unit.delayedAction={id:`lock-${receipt}`,kind:'action',label:kind==='break'?'Break Lock-On':kind==='sic'?'Lock Component':'Lock-On',rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings:input,lockOrder:order,rollSpec:rollSpec(room,unit,order)};
     data.receipts=[...data.receipts,receipt].slice(-256);return {ok:true,ship};
   }
@@ -110,5 +140,5 @@
     }else {const key=(order.kind==='sic'?'sic:':'')+target.id;data.failures[key]=(data.failures[key]||0)+1;}
     return report(ship,`${pending.label}: ${success?'SUCCESS':'FAILED'} (${Number(total.toFixed(2))} vs ${difficulty}).`,{lockResult:true,success,targetId:target.id,total,difficulty,operatorId:unit.id});
   }
-  return {state,components,hasComponent,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty};
+  return {configureSharing,shareLocks,state,components,hasComponent,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty};
 }));

@@ -218,7 +218,8 @@
   function updateAttackPreview() {
     if (!attackWrap || attackWrap.hidden) return;
     const door=window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee').find(d=>d.id===target.value);
-    distance.disabled=Boolean(door);if(door)distance.value=String(door.distance);
+    const mapped=window.SACombatRules?.mappedDistance(currentState,currentUnit,selectedTargetUnit());
+    distance.disabled=Boolean(door)||mapped!==null&&mapped!==undefined;if(door)distance.value=String(door.distance);else if(mapped!==null&&mapped!==undefined)distance.value=String(mapped);
     note.textContent=door?'Stationary door: roll weapon damage. Three qualifying hits break it open: 40 damage for a Brig cell door, 10 for other doors.':configurations[pendingKind]?.note||'';
     const current = actionWeapon();
     const plan = currentAttackPlan();

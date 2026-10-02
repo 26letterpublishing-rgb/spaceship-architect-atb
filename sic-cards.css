@@ -148,3 +148,9 @@
 .sic-card-dialog.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){display:flex;flex-direction:row;align-items:flex-start;gap:12px;flex-wrap:nowrap}
 .sic-inspector-tools{flex:0 0 112px}
 .sic-inspection [data-sic-card-dialog-body]>.sic-display-card{flex-shrink:0}
+
+/* Keep inspector actions inside the dialog so clicks cannot hit its backdrop. */
+.sic-card-dialog.sic-inspection:has(.sic-inspector-tools:not(:empty)){width:min(var(--inspection-width,560px),calc(100vw - 24px))}
+.sic-card-dialog.sic-inspection:has(.sic-context-actions):has(.sic-inspector-tools:not(:empty)){width:min(var(--inspection-width,920px),calc(100vw - 24px))}
+.sic-card-dialog.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){justify-content:flex-start;flex-wrap:wrap}
+.sic-card-dialog.sic-inspection.is-zoomed .sic-context-actions{flex-basis:100%}

@@ -861,7 +861,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     if (weapon.requiredCharge && chargeCount < 1) return { ok: false, error: weapon.name + " requires at least one completed Charge before firing." };
     const calledShot = kind === "calledShot" || Boolean(body.calledShot);
     const attackType = weapon.category === "melee" ? "melee" : "ranged";
-    const distance = requestedTarget.doorTarget?requestedTarget.distance:attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0);
+    const distance = requestedTarget.doorTarget?requestedTarget.distance:combatRules.mappedDistance(room,unit,requestedTarget)??(attackType === "melee" ? 1 : Math.max(0, Number(body.distance) || 0));
     const aimDie = Math.max(0, Number(unit.aim?.aimDie) || 0);
     const smokePenalty = attackType === "ranged" ? Math.max(0, Number(body.smokePenalty) || 0) : 0;
     const plan = combatRules.attackPlan(weapon, { distance, charges: chargeCount, aimDie: attackType === "ranged" ? aimDie : 0, attackType, strengthDice: unit.strengthDice, situationalAttackModifier: -smokePenalty });

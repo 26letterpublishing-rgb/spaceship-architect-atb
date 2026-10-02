@@ -49,6 +49,7 @@
     let lastRings='',lastFleet='';
     function tick(){
       const state=b.state();if(!state){view.close();return;}const person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,view.dataset.sicId),homeShip=state.starships.find(s=>s.id===person?.location?.starshipId),ship=access?.controlled?access.ship:homeShip;if(!ship)return;
+      view.classList.toggle('remote-link-active',Boolean(access?.remotePilot));
       const au=ship.auState||{},available=au.available??au.current??0;
       updateSound(view);restoreChoices();
       const local=person?.location&&homeShip&&window.SAShipMap.buildLayout(homeShip.ship).footprint.get(person.location.square),target=access?.item||ship.ship.sicInventory.find(i=>i.id===view.dataset.sicId),localSeat=person?.location?.stationed&&local?.sicId===view.dataset.sicId;
@@ -66,7 +67,7 @@
       compromised.querySelector('strong').textContent=access?.offline?'SIC POWERED OFF':'CONSOLE COMPROMISED';
       compromised.querySelector('p').textContent=access?.offline?'Use local maintenance to turn this SIC on.':'Electronic controls locked';
       compromised.hidden=!access?.blocked;view.classList.toggle('is-compromised',Boolean(access?.blocked));
-      remoteBanner.hidden=!access?.controlled;view.classList.toggle('is-remote-hack',Boolean(access?.controlled));
+      remoteBanner.hidden=!access?.controlled;remoteBanner.textContent=access?.remotePilot?'REMOTE SIGNAL / '+access.ship.title:'Operating Via HACK';view.classList.toggle('is-remote-hack',Boolean(access?.controlled));
       for(const region of view.querySelectorAll('main,.pilot-command-controls,.lock-controls,.shield-operations,.utility-controls'))region.inert=Boolean(access?.blocked);
       defense.setAttribute('aria-label',access?.controlled?'Captured ship Defense':'Own ship Defense');
       defense.textContent=`DEFENSE ${ship?.defenseScore??'?'}`+(access?.controlled?` / ${ship.title} AU`:'')+(view.classList.contains('combat-order-dialog')?` / AU ${Number(available.toFixed(1))} of ${au.maximum||0}`:'');
@@ -75,7 +76,7 @@
         view.querySelector('[data-common-recharge]').value=au.maximum&&au.current>=au.maximum?100:au.progress||0;
         view.querySelector('.shared-au-cells').style.setProperty('--charge',`${au.maximum?available/au.maximum*100:0}%`);
         view.querySelector('[data-common-power-note]').textContent=(au.reserved?`${au.reserved} AU reserved. `:'')+(!au.maximum?'No AU output':available>=au.maximum?'Fully charged':state.practice?'Recharge follows campaign time':'Recharge follows combat time');
-        const fleet=(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}</strong><span>${Number.isFinite(s.currentHullHp)?window.SAHealthDisplay.hull(s,b.mode()==='gm')+window.SAHealthDisplay.shields(s,b.mode()==='gm'):'Condition unknown'} / Defense ${s.defenseScore??'?'}</span></p>`).join('');if(fleet!==lastFleet){view.querySelector('[data-common-fleet]').innerHTML=fleet;lastFleet=fleet;}
+        const fleet=(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}${s.id===ship?.id?' · '+s.currentHullHp+'/'+s.maximumHullHp+' HP':''}</strong><span>${Number.isFinite(s.currentHullHp)?window.SAHealthDisplay.hull(s,b.mode()==='gm')+window.SAHealthDisplay.shields(s,b.mode()==='gm'):'Condition unknown'} / Defense ${s.defenseScore??'?'}</span></p>`).join('');if(fleet!==lastFleet){view.querySelector('[data-common-fleet]').innerHTML=fleet;lastFleet=fleet;}
         const rings=manageRings&&view.querySelector('[data-rings]');if(rings){const html=b.pilotRings();if(html!==lastRings){window.SALiveDOM.render(rings,html);lastRings=html;}}
       }
       const busy=Boolean(view.dataset.switching||view.dataset.utilityPending||person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));

@@ -15,3 +15,19 @@ body dialog.surveillance-console.shared-console-layout>.shared-seat{grid-column:
 .surveillance-console .surveillance-monitors{flex:1;min-height:0;grid-template-rows:repeat(2,minmax(0,1fr))}.surveillance-console .surveillance-monitor{display:flex;flex-direction:column;min-height:0}.surveillance-console .surveillance-monitor svg{flex:1;min-height:40px;height:auto}.surveillance-console .surveillance-desk>img{max-height:150px;object-fit:contain}
 @media(max-width:720px){body dialog.surveillance-console.shared-console-layout{display:flex!important;flex-direction:column!important;padding:10px 34px!important;overflow:auto!important;height:100dvh!important}body dialog.surveillance-console.shared-console-layout>header{flex:0 0 auto;flex-wrap:wrap}body dialog.surveillance-console.shared-console-layout>.surveillance-coverage{flex:0 0 550px}body dialog.surveillance-console.shared-console-layout>.surveillance-desk{flex:0 0 auto}body dialog.surveillance-console.shared-console-layout>.shared-power{flex:0 0 auto}body dialog.surveillance-console.shared-console-layout>.shared-timeline{flex:0 0 190px}.surveillance-console .surveillance-monitors{grid-template-rows:repeat(3,minmax(0,1fr))}}
 .security-room-scene{position:relative;height:240px;overflow:hidden;margin-bottom:16px}.security-room-scene img{width:100%;height:100%;object-fit:cover}.security-room-scene i{position:absolute;inset:0;background:repeating-linear-gradient(transparent 0 5px,#8dffe50d 6px 7px);animation:security-interference 11s infinite;pointer-events:none}@keyframes security-interference{0%,91%,96%,100%{opacity:.15;transform:none}92%,94%{opacity:.8;transform:translateX(3px)}}@media(prefers-reduced-motion:reduce){.security-room-scene i{animation:none}}
+
+/* Occupied-room feeds grow into available space; the status desk only uses its content height. */
+body dialog.surveillance-console.shared-console-layout{grid-template-rows:96px minmax(300px,1fr) minmax(110px,auto) 60px!important}
+.surveillance-console .surveillance-desk{grid-template-columns:1fr 1fr;align-content:start;padding:12px 16px;gap:16px}
+.surveillance-console .surveillance-desk p{margin:4px 0}
+.surveillance-console .surveillance-monitors{grid-template-rows:none;grid-auto-rows:minmax(130px,1fr);overflow:auto}
+.surveillance-monitor{position:relative;isolation:isolate}
+.surveillance-monitor::after{content:"";position:absolute;inset:30px 8px 26px;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,#b6ffe321 3px 4px);opacity:.35;animation:camera-static 1.7s steps(5) infinite}
+.surveillance-monitor svg{animation:camera-pan 18s ease-in-out infinite alternate;transform-origin:center}
+.surveillance-monitor:nth-child(2n) svg{animation-delay:-9s}
+.security-room-scene{flex:0 0 clamp(110px,22vh,230px)}
+.security-room-scene img{animation:security-room-drift 22s ease-in-out infinite alternate}
+@keyframes camera-static{0%,100%{opacity:.22;transform:translateY(0)}35%{opacity:.45;transform:translateY(2px)}70%{opacity:.3;transform:translateY(-2px)}}
+@keyframes camera-pan{from{transform:scale(1.02) translateX(-.5%)}to{transform:scale(1.025) translateX(.5%)}}
+@keyframes security-room-drift{from{transform:scale(1.02) translateX(-.4%)}to{transform:scale(1.03) translateX(.4%)}}
+@media(prefers-reduced-motion:reduce){.surveillance-monitor::after,.surveillance-monitor svg,.security-room-scene img{animation:none}}

@@ -3,6 +3,7 @@
   const host=()=>{let d=document;try{while(d.defaultView.frameElement)d=d.defaultView.parent.document;}catch{}return d;};
   function sound(kind){
     const b=window.SACombatBridge;if(!b?.soundEnabled()||host().hidden)return;
+    if(kind==='missile'){try{audio ||= new AudioContext();audio.resume();const t=audio.currentTime,n=audio.sampleRate*1.2,buffer=audio.createBuffer(1,n,audio.sampleRate),samples=buffer.getChannelData(0);let low=0;for(let i=0;i<n;i++){low=(low+.08*(Math.random()*2-1))/1.08;samples[i]=low*4;}const source=audio.createBufferSource(),filter=audio.createBiquadFilter(),gain=audio.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.setValueAtTime(300,t);filter.frequency.exponentialRampToValueAtTime(3200,t+.12);filter.frequency.exponentialRampToValueAtTime(180,t+1.15);gain.gain.setValueAtTime(.001,t);gain.gain.exponentialRampToValueAtTime(.8,t+.07);gain.gain.exponentialRampToValueAtTime(.001,t+1.2);source.connect(filter);filter.connect(gain);gain.connect(audio.destination);source.start(t);source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};}catch{}return;}
     if(kind==='explosion'){const clip=new Audio(new URL('ship-explosion.mp3',location.href));clip.volume=.85;clip.play().catch(()=>{});return;}
     if(kind==='impact'){try{audio ||= new AudioContext();if(audio.state==='suspended')audio.resume();const t=audio.currentTime,g=audio.createGain(),osc=audio.createOscillator();osc.type='sine';osc.frequency.setValueAtTime(95,t);osc.frequency.exponentialRampToValueAtTime(45,t+.14);g.gain.setValueAtTime(.001,t);g.gain.linearRampToValueAtTime(.025,t+.012);g.gain.exponentialRampToValueAtTime(.001,t+.16);osc.connect(g);g.connect(audio.destination);osc.start(t);osc.stop(t+.17);}catch{}return;}
     try{audio ||= new AudioContext();if(audio.state==='suspended')audio.resume();const start=audio.currentTime;
@@ -81,6 +82,7 @@
         // Let the confirmed dice dialog close before the visible burst and impact.
         setTimeout(()=>{if(e.operatorId&&e.weaponFamily!=='missile')bolts(e,e.source);setTimeout(()=>impact(e.targetId,destroyed,e.weaponFamily==='missile'),e.weaponFamily==='missile'?0:700);},250);
       }
+      if(e.missileLaunch)sound('missile');
       if(e.incomingLock||e.lockResult&&e.success)sound('lock');
     }
     for(const ship of state.starships){
@@ -88,7 +90,7 @@
       for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){const wreck=Boolean(ship.destroyedAt)&&Date.now()>=Math.max(Date.parse(ship.destroyedAt)+2400,debrisAfter.get(ship.id)||0);marker.classList.toggle('ship-wreck',wreck);if(!wreck)marker.querySelector('[data-debris]')?.remove();if(wreck){const label=marker.querySelector(':scope > text'),name=(ship.title||ship.ship?.title||'Starship').split(' — ')[0]+' [DESTROYED]';if(label&&label.textContent!==name)label.textContent=name;if(!marker.querySelector('[data-debris]')){const debris=d.createElementNS('http://www.w3.org/2000/svg','g'),radius=Number(marker.querySelector('circle')?.getAttribute('r'))||.3;debris.dataset.debris='';for(let n=0;n<18;n++){const pixel=d.createElementNS(debris.namespaceURI,'rect');pixel.setAttribute('x',Math.sin(n*13.37)*radius*1.5);pixel.setAttribute('y',Math.cos(n*4.91)*radius);pixel.setAttribute('width',radius*.22);pixel.setAttribute('height',radius*.22);pixel.setAttribute('fill','currentColor');debris.append(pixel);}marker.append(debris);}}}
       const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)setTimeout(()=>popup('VICTORY',`${ship.title} is the last surviving ship.`),2200);}
     }
-    for(const d of surfaces())for(const p of d.querySelectorAll('[data-activity] p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');
+    for(const d of surfaces())for(const p of d.querySelectorAll('[data-activity] p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');else if(/ENEMY LOCK-ON/.test(p.textContent))p.classList.add('enemy-lock-log-entry');
     if(seen.size>3000){seen.clear();events.forEach(e=>seen.add(e.id));}
     initialized=true;
   }

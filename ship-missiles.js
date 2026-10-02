@@ -1,14 +1,18 @@
 const maps=require('./ship-map-core'),stations=require('./station-access'),targets=require('./ship-targets'),ammo=require('./missile-ammunition');
 const sensors=require('./ship-sensors'),locks=require('./ship-locks'),power=require('./ship-power'),shields=require('./ship-shields'),distances=require('./ship-distances');
 const ROUND=12,EPS=1e-7;
+const torpedo={id:'phazon-torpedo',name:'Phazon Torpedo',count:1,dice:3,acceleration:8,masking:0};
+const impaired=item=>Boolean(item.impaired||item.impairmentPoints>0||item.status==='impaired');
+const torpedoReady=(room,ship,target)=>target&&!target.isMissile&&!target.isDrone&&!target.isProbe&&distances.hexDistance(targets.point(room,ship.id),targets.point(room,target.id))<=24+EPS;
+const phazon=ship=>Number(ship.ship.minerals?.Phazon)||0;
 function state(ship){const data=ship.ship.missileState ||= {};data.flights||=[];data.cooldowns||={};data.receipts||=[];return data;}
 const pending=room=>targets.flights(room).some(m=>m.phase==='impact');
 function reconcile(room){let count=0;for(const m of targets.flights(room)){if(!['impact','flying'].includes(m.phase)||!m.targetId)continue;const target=targets.find(room,m.targetId);if(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'){m.phase='expired';m.endedAt=Date.now();count++;}}return count;}
-function report(ship,text,extra={}){const r={id:require('node:crypto').randomUUID(),at:new Date().toISOString(),text,...extra};const s=sensors.knowledge(ship);s.reports=[r,...s.reports].slice(0,40);if(extra.impact){ship.weaponState||={receipts:[],reports:[]};ship.weaponState.reports=[r,...ship.weaponState.reports].slice(0,40);}return r;}
+function report(ship,text,extra={}){const r={id:require('node:crypto').randomUUID(),at:new Date().toISOString(),text,...extra};const s=sensors.knowledge(ship);s.reports=[r,...s.reports].slice(0,40);if(extra.impact||extra.missileLaunch){ship.weaponState||={receipts:[],reports:[]};ship.weaponState.reports=[r,...ship.weaponState.reports].slice(0,40);}return r;}
 function queue(room,unit,body,input){
   const access=stations.access(room,unit,body.sicId);
-  if(!access||access.blocked||!access.definition.missileLauncher||access.item.impaired||access.item.impairmentPoints>0||access.item.status==='impaired')return {ok:false,error:'Use an undamaged Missile Launcher at an accessible station.'};
-  const ship=access.ship,data=state(ship),receipt=String(body.requestId||''),kind=ammo.catalog[body.ammunition];
+  if(!access||access.blocked||!access.definition.missileLauncher||(!access.definition.phazonTorpedo&&impaired(access.item)))return {ok:false,error:'Use an undamaged Missile Launcher at an accessible station.'};
+  const ship=access.ship,data=state(ship),receipt=String(body.requestId||''),kind=access.definition.phazonTorpedo?torpedo:ammo.catalog[body.ammunition];
   if(maps.cloaked(ship))return {ok:false,error:'Deactivate Cloaking before firing missiles or flares.'};
   if(['__proto__','constructor','prototype'].includes(access.id))return {ok:false,error:'Invalid launcher identifier.'};
   if(!/^[\w-]{8,100}$/.test(receipt))return {ok:false,error:'Invalid launch receipt.'};
@@ -16,6 +20,7 @@ function queue(room,unit,body,input){
   if(room.activeId!==unit.id||unit.delayedAction||unit.consoleHold||unit.timedAction||unit.delayTimer||unit.shieldRestabilizing||pending(room))return {ok:false,error:'Wait for your turn and finish the pending action.'};
   if(ship.currentHullHp<=0||ship.escapedAt||ship.ship.warpState?.phase==='traveling'||power.output(ship,room.units).en<1)return {ok:false,error:'The launcher ship or its power supply is unavailable.'};
   if(body.kind==='reload-missiles'){
+    if(access.definition.phazonTorpedo)return {ok:false,error:'Phazon is drawn directly from mineral storage.'};
     if(access.remote||access.controlled)return {ok:false,error:'Station physically at this Missile Launcher to reload.'};
     if(ammo.used(ship,access.id)>=access.definition.capacity)return {ok:false,error:'The magazine is full.'};
     if(!Object.entries(ammo.storage(ship)).some(([key,n])=>n>0&&!ammo.catalog[key]?.seeker&&Boolean(ammo.catalog[key]?.mine)===Boolean(access.definition.mineLauncher)))return {ok:false,error:'No missiles remain in storage.'};
@@ -24,12 +29,13 @@ function queue(room,unit,body,input){
     return {ok:true,ship,reload:true};
   }
   if(data.cooldowns[access.id]>EPS||room.units.some(u=>u.delayedAction?.missileOrder?.sicId===access.id&&u.delayedAction.missileOrder.shipId===ship.id))return {ok:false,error:'This launcher may fire only once per 12 active combat seconds.'};
-  if(!kind||Boolean(kind.mine)!==Boolean(access.definition.mineLauncher)||!(ammo.magazine(ship,access.id)[kind.id]>0))return {ok:false,error:'Magazine empty. Station at the launcher and reload from storage.'};
+  if(!kind||Boolean(kind.mine)!==Boolean(access.definition.mineLauncher)||(!access.definition.phazonTorpedo&&!(ammo.magazine(ship,access.id)[kind.id]>0)))return {ok:false,error:'Magazine empty. Station at the launcher and reload from storage.'};
   if(kind.mine&&require('./ship-mines').count(room,targets.point(room,ship.id))>=3)return {ok:false,error:'Maximum three mines per hex. Move before deploying another mine.'};
   if(body.seeker&&(!kind.mine||kind.web||!(ammo.storage(ship)['magnetic-seeker']>0)))return {ok:false,error:'Purchase a Magnetic Seeker and select an explosive mine.'};
   sensors.refresh(room);locks.refresh(room);
   const target=targets.find(room,body.targetId);
   if(!kind.flares&&!kind.mine&&(!target||target.id===ship.id||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))return {ok:false,error:'Acquire an accessible target Lock-On before launching.'};
+  if(access.definition.phazonTorpedo&&(body.targetSicId||!torpedoReady(room,ship,target)||phazon(ship)<1||(ship.auState?.available||0)<8))return {ok:false,error:'Requires a whole ship within 24 units, one Phazon and 8 AU.'};
   if(!kind.flares&&!kind.mine&&body.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),body.targetSicId))return {ok:false,error:'Acquire a controlled lock on the selected component first.'};
   let flares;
   if(kind.flares){
@@ -40,21 +46,21 @@ function queue(room,unit,body,input){
   unit.delayedAction={id:'launch-'+receipt,kind:'action',label:kind.flares?'Deploy Missile Flares':`Launch ${kind.name}`,rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,rollConfirmed:true,settings:input,missileOrder:{shipId:ship.id,sicId:access.id,station:access.seat.key,targetId:target?.id,targetSicId:kind.flares?null:body.targetSicId||null,ammunition:kind.id,seeker:Boolean(body.seeker),flares,captured:Boolean(access.controlled)}};
   return {ok:true,ship};
 }
-function authorizedLock(room,unit,access,targetId){return require('./ship-weapons').weaponLock(room,unit,access.ship,targetId,access.controlled);}
+function authorizedLock(room,unit,access,targetId){return require('./ship-weapons').weaponLock(room,unit,access.ship,targetId,access.controlled&&!access.remotePilot);}
 function resolveInput(room,unit){
   const task=unit.delayedAction,order=task?.missileOrder;if(!order)return;
   unit.delayedAction=null;
   if(order.reload){const ship=room.starships.find(s=>s.id===order.shipId),access=stations.access(room,unit,order.sicId);if(!ship||!access||access.remote||access.controlled||access.blocked||access.seat.key!==order.station||access.item.impaired||access.item.impairmentPoints){if(ship)report(ship,'Reload interrupted; missiles remain in storage.');return;}const count=ammo.load(ship,access.id,access.definition.capacity);report(ship,`Missile Launcher reloaded: ${count} rounds from storage.`,{operatorId:unit.id});return;}
 
-  const ship=room.starships.find(s=>s.id===order.shipId),access=stations.access(room,unit,order.sicId),kind=ammo.catalog[order.ammunition],target=targets.find(room,order.targetId);
+  const ship=room.starships.find(s=>s.id===order.shipId),access=stations.access(room,unit,order.sicId),kind=order.ammunition===torpedo.id?torpedo:ammo.catalog[order.ammunition],target=targets.find(room,order.targetId);
   if(!ship)return;
-  if(maps.cloaked(ship)||!access||access.blocked||access.seat.key!==order.station||access.item.impaired||access.item.impairmentPoints>0||access.item.status==='impaired'||ship.currentHullHp<=0||ship.escapedAt||power.output(ship,room.units).en<1||(!kind.flares&&!kind.mine&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))){
+  if(maps.cloaked(ship)||!access||access.blocked||access.seat.key!==order.station||(!access.definition.phazonTorpedo&&impaired(access.item))||ship.currentHullHp<=0||ship.escapedAt||power.output(ship,room.units).en<1||(!kind.flares&&!kind.mine&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'||!authorizedLock(room,unit,access,target.id)))){
     report(ship,'Missile launch interrupted. The unfired round remains in the magazine.',{operatorId:unit.id});return;
   }
-  if(!(ammo.magazine(ship,access.id)[kind.id]>0)){report(ship,'Launch cancelled: no loaded ammunition remains.',{operatorId:unit.id});return;}
+  if(kind!==torpedo&&!(ammo.magazine(ship,access.id)[kind.id]>0)){report(ship,'Launch cancelled: no loaded ammunition remains.',{operatorId:unit.id});return;}
   if(!kind.mine&&order.targetSicId&&!locks.hasComponent(authorizedLock(room,unit,access,target.id),order.targetSicId)){report(ship,'Launch cancelled: selected component lock was lost. The round remains in the magazine.',{operatorId:unit.id});return;}
   if(kind.mine){const placed=require('./ship-mines').deploy(room,ship,unit,task,kind);report(ship,placed?`${kind.name} deployed on the current hex.`:'Mine deployment cancelled: hex full or seeker unavailable. Ammunition retained.',{operatorId:unit.id});return;}
-  ship.ship.missileAmmo[access.id][kind.id]--;
+  if(kind===torpedo){if(!torpedoReady(room,ship,target)||phazon(ship)<1||!power.spend(room,ship.id,8)){report(ship,'Torpedo launch cancelled: range, Phazon or AU unavailable.',{operatorId:unit.id});return;}ship.ship.minerals.Phazon--;}else ship.ship.missileAmmo[access.id][kind.id]--;
   state(ship).cooldowns[access.id]=ROUND;
   if(kind.flares){
     const directions=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
@@ -62,10 +68,11 @@ function resolveInput(room,unit){
     for(const flip of order.flares){const m=targets.flights(room).find(m=>m.id===flip.targetId&&m.phase==='flying');if(m&&flip.result==='heads'){m.targetId=null;m.direction={q:directions[flip.direction][0],r:directions[flip.direction][1]};m.deflected=true;}}
     report(ship,'Three missile flares deployed. Heads deflects; tails leaves pursuit unchanged.',{operatorId:unit.id});return;
   }
+  require('./ship-relays').fired(room,ship,target,access.id,{missile:true});
   const origin=targets.point(room,ship.id),destination=targets.point(room,target.id);
   const knownItem=sensors.analysis(access.controlSource||ship,target.id)?.layout?.sicInventory?.find(i=>i.id===order.targetSicId);
   room.missileSerial=Math.max(Number(room.missileSerial)||0,...targets.flights(room).map(m=>Number(m.serial)||0))+1;
-  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,speed:kind.acceleration,masking:kind.masking,dice:kind.dice,heading:heading(origin,destination),launchedAt:Date.now()});
+  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,speed:kind.acceleration,masking:kind.masking,dice:kind.dice,...(kind===torpedo?{torpedo:true,dieSides:impaired(access.item)?8:10,damageMultiplier:impaired(access.item)?1:2,maxRange:24,uninterceptable:true}:{}),heading:heading(origin,destination),launchedAt:Date.now()});
   report(ship,`${kind.name} launched: ${kind.count} inbound projectile${kind.count===1?'':'s'}; pursuing ${target.title}.`,{operatorId:unit.id,missileLaunch:true,targetId:target.id});
 }
 function heading(a,b){return Math.atan2(1.5*(b.r-a.r),Math.sqrt(3)*((b.q-a.q)+(b.r-a.r)/2))*180/Math.PI;}
@@ -85,12 +92,13 @@ function advance(room,seconds){
   for(const m of targets.flights(room).filter(m=>m.phase==='flying')){
     const target=m.targetId&&targets.find(room,m.targetId),p=target&&targets.point(room,target.id);
     if(m.targetId&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling')){m.phase='expired';m.endedAt=Date.now();continue;}
-    const delta=p?{q:p.q-m.position.q,r:p.r-m.position.r}:m.direction||{q:1,r:0},length=Math.max(Math.abs(delta.q),Math.abs(delta.r),Math.abs(delta.q+delta.r)),distance=m.speed*seconds/ROUND;
+    const delta=p?{q:p.q-m.position.q,r:p.r-m.position.r}:m.direction||{q:1,r:0},length=Math.max(Math.abs(delta.q),Math.abs(delta.r),Math.abs(delta.q+delta.r)),distance=Math.min(m.speed*seconds/ROUND,m.maxRange?Math.max(0,m.maxRange-(m.traveled||0)):Infinity);
     m.heading=heading({q:0,r:0},delta);
     if(p&&length<=distance+EPS){m.position={q:p.q,r:p.r};m.phase='impact';m.arrivedAt=Date.now();}
     else if(length>EPS){m.position.q+=delta.q/length*distance;m.position.r+=delta.r/length*distance;}
-    m.age+=seconds;m.speed=m.acceleration*Math.min(5,1+Math.floor((m.age+EPS)/ROUND));
+    m.age+=seconds;m.speed=m.torpedo?8:m.acceleration*Math.min(5,1+Math.floor((m.age+EPS)/ROUND));
     m.traveled=(m.traveled||0)+Math.min(distance,length);
+    if(m.maxRange&&m.traveled>=m.maxRange-EPS&&m.phase==='flying'){m.phase='expired';m.endedAt=Date.now();}
     if(m.splitCount>1&&(m.traveled>=m.splitDistance||m.phase==='impact')){
       const count=m.splitCount;m.splitCount=1;m.salvoSize=count;m.name+=' / 1';
       const owner=room.starships.find(s=>s.id===m.sourceId);
@@ -104,7 +112,7 @@ function resolveDamage(room,id,total,campaign){
   if(!m)return {ok:false,error:'Missile not found.'};
   if(m.phase==='exploded')return {ok:true,duplicate:true};
   if(m.phase!=='impact')return {ok:false,error:'This missile is not awaiting impact damage.'};
-  if(!Number.isInteger(total)||total<m.dice||total>m.dice*8)return {ok:false,error:`Confirm the total of the ${m.dice}D8 damage dice.`};
+  if(!Number.isInteger(total)||total<m.dice||total>m.dice*(m.dieSides||8))return {ok:false,error:`Confirm the total of the ${m.dice}D${m.dieSides||8} damage dice.`};
   const target=targets.find(room,m.targetId);
   m.phase='exploded';m.endedAt=Date.now();m.rolled=total;
   if(target?.isMissile||target?.isDrone||target?.isProbe){
@@ -115,7 +123,7 @@ function resolveDamage(room,id,total,campaign){
   }
   let podInjuries=0;
   if(target&&target.currentHullHp>0&&!target.escapedAt){
-    shields.refresh(room);const damage=total*(target.currentShieldHp>0?1:5),before={hull:target.currentHullHp,shield:target.currentShieldHp};shields.damage(room,target.id,damage);
+    shields.refresh(room);const damage=total*(m.torpedo?m.damageMultiplier:target.currentShieldHp>0?1:5),before={hull:target.currentHullHp,shield:target.currentShieldHp};shields.damage(room,target.id,damage);
     const result={hullDamage:before.hull-target.currentHullHp,shieldDamage:before.shield-target.currentShieldHp};
     const item=target.ship.sicInventory.find(i=>i.id===m.targetSicId),componentHit=Boolean(result.hullDamage&&item&&target.ship.placements.some(p=>p.sicId===item.id));
     result.impairments=0;

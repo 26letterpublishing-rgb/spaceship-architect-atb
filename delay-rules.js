@@ -16,10 +16,10 @@
     return {base:settings.base,flat,percent,critBonus,rate:Math.ceil((beforeCrit+critBonus)*10)/10,labels};
   }
   const repairDroneSettings=tier=>({base:6,factors:{Situation:0,Execution:0,Quality:Math.min(4,Math.max(1,tier)),Performance:0,Efficiency:0,Ingenuity:0}});
-  function afterRoll(baseSeconds,score,difficulty){
+  function afterRoll(baseSeconds,score,difficulty,autoSuccess=false){
     const base=Math.max(0,Number(baseSeconds)||0);
     if(!Number.isFinite(score)||!Number.isFinite(difficulty))return {baseSeconds:base,seconds:base,margin:0,outcome:'No fixed difficulty'};
-    const margin=Math.max(0,score-difficulty),criticalSuccess=difficulty>0&&score>=difficulty*2,criticalFailure=difficulty>0&&score<=Math.floor(difficulty/2);
+    const margin=Math.max(0,score-difficulty),criticalSuccess=(autoSuccess&&difficulty<=0&&score>0)||(difficulty>0&&score>=difficulty*2),criticalFailure=difficulty>0&&score<=Math.floor(difficulty/2);
     const seconds=criticalFailure?base*2:(base-margin)*(criticalSuccess?.5:1);
     return {baseSeconds:base,seconds:Math.max(1,Math.round(seconds*1000)/1000),margin,outcome:criticalFailure?'Critical Failure':criticalSuccess?'Critical Success':score>=difficulty?'Success':'Failure'};
   }

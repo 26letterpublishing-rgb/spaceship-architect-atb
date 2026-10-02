@@ -6,6 +6,7 @@ function online(room,ship,item){
   return Boolean(item&&stations.online(item)&&!item.impaired&&!item.impairmentPoints&&item.status!=='impaired'&&!ship.destroyedAt&&!ship.escapedAt&&power.output(ship,room.units).en>=power.demand(ship));
 }
 function hostile(room,ship,unit){
+  if(unit.securityDroid?.shipId===ship.id)return false;
   if(ship.crewCharacterIds?.includes(unit.characterId)||ship.crewNpcUnitIds?.includes(unit.id)||unit.shipAi&&unit.location?.starshipId===ship.id)return false;
   const home=room.starships.find(s=>s.crewCharacterIds?.includes(unit.characterId)||s.crewNpcUnitIds?.includes(unit.id));
   if(home?.id===ship.id)return false;
@@ -40,9 +41,13 @@ function inspect(room,unit,sicId){
   const access=stations.access(room,unit,sicId);
   if(!access?.definition.surveillance||access.blocked||!online(room,access.ship,access.item))throw Error('Occupy an operational Surv. Camera station, or maintain a successful camera hack.');
   const ship=access.ship;
+  const layout=maps.buildLayout(ship.ship),rooms=new Map();
+  for(const [square,cell] of layout.footprint){if(cell.exterior)continue;if(!rooms.has(cell.sicId))rooms.set(cell.sicId,{id:cell.sicId,name:maps.definition(cell.type).name||cell.type,cells:[]});rooms.get(cell.sicId).cells.push(square);}
+  const corridors=ship.ship.gridCells.filter(square=>!layout.footprint.has(square));
+  if(corridors.length)rooms.set('corridors',{id:'corridors',name:'Corridors',cells:corridors});
   // Only visual identity and current interior position; never sheets, HP, ATB or secrets.
   return {shipId:ship.id,title:ship.title,controlled:Boolean(access.controlled),columns:maps.gridColumns(ship.ship),rows:maps.gridRows(ship.ship),
-    cells:[...ship.ship.gridCells],doors:{...ship.ship.doorStates},
+    cells:[...ship.ship.gridCells],rooms:[...rooms.values()],doors:{...ship.ship.doorStates},
     crew:occupants(room,ship).map(u=>({name:u.characterName||'Crew',square:u.location.square,mesh:u.location.mesh,hostile:hostile(room,ship,u)})),
     reports:(ship.ship.surveillanceState?.reports||[]).slice(-5)};
 }

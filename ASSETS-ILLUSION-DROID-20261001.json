@@ -1,0 +1,32 @@
+[
+  {
+    "name": "illusion-card",
+    "prompt": "Square isolated sci fi holographic projection machine equipment icon, compact black metallic four lens projector emitting violet holographic ghost ship, realistic painted game inventory asset, three quarter view, no text no floorplan no room",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ac5165a8-c6d0-4a45-a4da-878111274771.png"
+  },
+  {
+    "name": "illusion-floor",
+    "prompt": "Top down orthographic sci fi 2 by 2 square holographic projection room floorplan, metal tiles, central circular violet projector, operator desk at bottom left, no roof no perspective no text, fills square",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-d5cbd464-8d18-4ddc-a423-b3111c8ebfed.png"
+  },
+  {
+    "name": "illusion-console",
+    "prompt": "Wide 16:9 in-universe science fiction hologram projection workstation, dark graphite frame subtle violet illuminated circuitry, central empty holographic chamber and smaller ghost ship wireframe monitors, realistic game environment, no text no people, clear center composition",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-f90cdc67-1d28-430b-8e13-59014208f531.png"
+  },
+  {
+    "name": "security-droid-card",
+    "prompt": "Square isolated science fiction security droid hovering spherical armored gunmetal robot with two heavy repeating ballistic cannons and a red optical eye, realistic detailed game inventory equipment art, three quarter view, no text no room",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-d2a0e76f-14b3-4386-ae75-b8e0ed017228.png"
+  },
+  {
+    "name": "security-droid-console",
+    "prompt": "Wide 16:9 in universe science fiction security robot control station, dark gunmetal with amber status lights and red threat radar on central glass display, side mechanical panels, realistic detailed game environment, no readable text no characters",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-892be637-7068-4f23-b81d-40d9020b75f5.png"
+  },
+  {
+    "name": "illusion-monster",
+    "prompt": "Isolated top down cosmic Cthulhu inspired galactic monster sprite for space hex map, immense alien octopus dragon with folded bat wings and curling tentacles in circular silhouette, emerald charcoal skin purple bioluminescent rim, detailed realistic game art, no stars no background no text",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a26d1ffb-aee1-4a14-8e15-9d8abbaaeda8.png"
+  }
+]

@@ -119,7 +119,7 @@ function resolve(room,body,{gm=false,unit=null}={}){
   if(e.phase==='rolling'){e.phase='result';e.resultShownAt=Date.now();}
   else if(!['result','firing','complete'].includes(e.phase))throw Error('Roll the damage first.');
  }else if(body.kind==='confirm'){
-  if(e.phase==='result'){previewImpact(room,e);e.phase='firing';e.startedAt=Date.now();e.endsAt=e.startedAt+CINEMATIC;}
+  if(e.phase==='result'){const source=room.starships.find(s=>s.id===e.shipId),weapon=source&&maps.installedItems(source).find(i=>maps.definition(i.type).planetaryCleanser);for(const target of room.starships)if(source&&target.id!==source.id&&distances.hexDistance(shipPoint(room,target.id),e.aimHex||{q:e.q,r:e.r})<3)require('./ship-relays').fired(room,source,target,weapon?.id);previewImpact(room,e);e.phase='firing';e.startedAt=Date.now();e.endsAt=e.startedAt+CINEMATIC;}
   else if(!['firing','complete'].includes(e.phase))throw Error('View the damage result before firing.');
  }else throw Error('Choose a valid damage step.');
  return e;

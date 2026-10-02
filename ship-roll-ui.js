@@ -51,7 +51,7 @@
       if(event.data?.type==='sa-ship-skill-cancel')return;
       if(event.data?.type==='sa-ship-skill-result'&&event.data.rollId===pending.id&&!busy){
         busy=true;
-        try{await bridge.action({action:'rollShipAction',id:unit.id,rollId:pending.id,score:event.data.score,diceResults:event.data.diceResults,exertion:event.data.exertion||0},'resolve',{throwOnError:true});close();}
+        try{await bridge.action({action:'rollShipAction',id:unit.id,rollId:pending.id,score:event.data.score,autoSuccess:event.data.autoSuccess,diceResults:event.data.diceResults,exertion:event.data.exertion||0},'resolve',{throwOnError:true});close();}
         catch(e){error.textContent=e.message;const retry=doc.createElement('button');retry.textContent='Retry Submit';retry.onclick=()=>{retry.remove();busy=false;receive(event);};retry.style.cssText='background:#183b4a;color:white;border:1px solid #90d8e9;padding:10px';error.append(retry);const revise=doc.createElement('button');revise.textContent='Reopen Dice';revise.style.cssText=retry.style.cssText;revise.onclick=()=>{busy=false;error.replaceChildren();watchLoad();frame.src=new URL('character.html?shipRoll=1',location.href).href;};error.append(revise);}
       }
     };

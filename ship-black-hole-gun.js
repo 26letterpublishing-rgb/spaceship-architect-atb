@@ -22,6 +22,7 @@ function command(room,unit,body,{outsideCombat=false}={}){try{
  a.ship.ship.minerals[mineral]--;data.cooldowns[a.id]=360;
  const distance=distances.hexDistance(origin,{q,r}),id='object-'+crypto.randomUUID();room.spaceObjects||=[];
  room.spaceObjects.push({id,kind:'object',name:'Black Hole Orb '+id.slice(-6).toUpperCase(),q:origin.q,r:origin.r,quantity:1,mineral:null,gunOrb:{target:{q,r},intensity,remaining:distance*12},pullCycle:{remaining:0,fields:[]}});
+ for(const target of room.starships)if(target.id!==a.ship.id&&distances.hexDistance(distances.positions(room.starships,room.shipPositions).find(p=>p.id===target.id),{q,r})<.5)require('./ship-relays').fired(room,a.ship,target,a.id);
  data.receipts.push({id:receipt,fingerprint});data.receipts=data.receipts.slice(-100);
  return {ok:true,ship:a.ship,resetAtb:true,text:'Black Hole Gun launched toward '+q+', '+r+'; intensity '+intensity+', '+cost(intensity)+' AU and 1 Dark Phazon spent.'};
  }catch(error){return {ok:false,error:error.message};}}

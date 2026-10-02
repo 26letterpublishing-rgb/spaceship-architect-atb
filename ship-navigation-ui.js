@@ -13,7 +13,7 @@
     const refreshChoices=()=>{
       const state=window.SACombatBridge.state();if(!state){select.closest('dialog')?.close();return;}const person=state.units.find(u=>u.id===unit.id)||unit;
       choices=window.SAStationAccess.consoles(state,person);
-      const options=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.controlled?' / CAPTURED':a.remote?' / REMOTE':''}</option>`).join('');
+      const options=choices.map(a=>`<option value="${esc(a.item.id)}">${esc(a.definition.name)}${a.remotePilot?' / REMOTE — '+esc(a.ship.title):a.controlled?' / CAPTURED':a.remote?' / REMOTE':''}</option>`).join('');
       if(select.innerHTML!==options){const previous=select.value||currentId;select.innerHTML=options;select.value=previous;}
       container.closest('dialog')?.querySelectorAll('.console-swipe').forEach(button=>button.disabled=choices.length<2);
     };
@@ -181,7 +181,7 @@
       const fleet=state.starships.map(s=>{
         if(s.contactOnly)return `<div><strong>${esc(s.title)}</strong><small>${s.contactLevel==='unknown'?'Unresolved signal':'Detected / analysis required'}</small></div>`;
         const hull=Number(s.maximumHullHp??s.ship?.maximumHullHp??s.ship?.gridCells?.length)||0,shield=Number(s.maximumShieldHp??s.ship?.maximumShieldHp)||0;
-        return `<div><strong>${esc(s.title)}</strong>${window.SAHealthDisplay.hull(s,bridge.mode()==='gm')}${window.SAHealthDisplay.shields(s,bridge.mode()==='gm')}</div>`;
+        return `<div><strong>${esc(s.title)}${s.id===seat.ship.id?' · '+s.currentHullHp+'/'+s.maximumHullHp+' HP':''}</strong>${window.SAHealthDisplay.hull(s,bridge.mode()==='gm')}${window.SAHealthDisplay.shields(s,bridge.mode()==='gm')}</div>`;
       }).join('');
       if(fleet!==lastFleet){form.querySelector('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
       const log=(state.log||[]).slice(-25).reverse().map(e=>`<p><time>${esc(e.at)}</time>${window.SAHealthDisplay.logMarkup(e,bridge.mode()==='gm')}</p>`).join('');

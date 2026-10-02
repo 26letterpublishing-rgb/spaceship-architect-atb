@@ -4505,6 +4505,7 @@ function renderSkillSetup() {
   renderSkillExertion();
   renderSkillEquipment();
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
+  updateAutoSuccess();
 }
 
 function renderSkillAttributeChoices() {
@@ -4680,6 +4681,7 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillAttributeStage.hidden = true;
   dom.skillSetupStage.hidden = true;
   dom.skillResultStage.hidden = false;
+  dom.skillDifficulty.classList.remove('auto-success-difficulty');
   dom.skillResultLabel.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Roll recorded':outcome || "Final Score";
   dom.skillResultScore.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Ready':formatNumber(score);
   const damageMultiplier=skillCheck.damage?skillCheck.damageMultiplier||1:1;
@@ -4691,12 +4693,12 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultOutcome.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Outcome after input delay':outcome;
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
-  dom.skillDiceTypes.textContent = manual
+  dom.skillDiceTypes.textContent = skillCheck.autoSuccess ? "AUTOMATIC CRITICAL SUCCESS" : manual
     ? "MANUAL ROLL"
     : diceResults.length
       ? `DICE: ${diceResults.map((result, index) => `D${resultSides[index] || "?"}`).join("  |  ")}`
       : "NO ATTRIBUTE DICE";
-  dom.skillDiceValues.textContent = manual
+  dom.skillDiceValues.textContent = skillCheck.autoSuccess ? "NO DICE REQUIRED" : manual
     ? `ENTERED SCORE: ${formatNumber(score)}`
     : diceResults.length
       ? `VALUES: ${diceResults.join("  |  ")}`
@@ -4818,7 +4820,7 @@ function submitCombatMessage(message) {
 async function submitCombatRollResult({ score, manual, diceResults }) {
   const check = skillCheck, request = check?.combatRequest;
   if(request?.rollRole==='ship'){
-    skillCheck.combatSubmitted=true;parent.postMessage({type:'sa-ship-skill-result',rollId:request.attackId,score,manual,diceResults,exertion:check.committedExertion||0},location.origin);return;
+    skillCheck.combatSubmitted=true;parent.postMessage({type:'sa-ship-skill-result',rollId:request.attackId,score,manual,diceResults,autoSuccess:Boolean(check.autoSuccess),exertion:check.committedExertion||0},location.origin);return;
   }
   if (!request || check.combatSubmitted) return;
   check.combatSubmitted = true;
@@ -5207,7 +5209,31 @@ function calculateManualSkillResult() {
   });
 }
 
+function autoSuccessMinimum() {
+  if(!skillCheck||skillCheck.damage||skillCheck.sharedDamage||String(dom.skillDifficulty.value).trim()===''||!Number.isFinite(Number(dom.skillDifficulty.value))||Number(dom.skillDifficulty.value)>0)return null;
+  const profile=rollRuleProfile(),resolved=skillCheckResolvedSkill(),exertion=(skillCheck.committedExertion||0)+(skillCheck.stagedExertion||0);
+  let count=skillCheck.activeSides.length+(skillCheck.stagedExertion||0);
+  if(profile.raceId==='everliving-brethren'&&profile.attributeKey==='perception'||profile.raceId==='xithx'&&profile.skillName==='Stealth/Hide')count=Math.max(0,count-1);
+  const fused=fusionResults(Array(count).fill(1),profile),values=[...(skillCheck.preservedFusions||[]).map(f=>f.value),...fused.fusions.map(f=>f.value),...fused.leftovers].sort((a,b)=>b-a);
+  const epoc=profile.raceId==='epoc'&&['strength','health','dexterity','perception'].includes(profile.attributeKey),other=profile.classId==='other'&&character.creation.classAttributeChoice===profile.attributeKey;
+  const contribution=pool=>{const f=fusionResults(pool,profile),v=[...(skillCheck.preservedFusions||[]).map(x=>x.value),...f.fusions.map(x=>x.value),...f.leftovers].sort((a,b)=>b-a);return v.slice(0,2).reduce((a,b)=>a+b,0)+(other?v.slice(2).reduce((a,b)=>a+b,0)/10:0)-(epoc?pool.filter(x=>x===1).length:0);};
+  let minimum=contribution(Array(count).fill(1));const limit=Math.min(12,Math.max(1,Math.ceil(minimum+(epoc?count:0)))),pool=[];
+  if(count<=10){const visit=(left,first)=>{if(!left){minimum=Math.min(minimum,contribution(pool));return;}for(let face=first;face<=limit;face++){pool.push(face);visit(left-1,face);pool.pop();}};visit(count,1);}else minimum=Math.min(2,count)-(epoc?count:0);
+  let score=minimum+(Number.isFinite(skillCheck.overrideBonus)?skillCheck.overrideBonus:skillCheck.attributeOnly?0:combinedSkillBonusTenths(resolved.name,resolved.skill)/10)+exertion+selectedSkillEquipment().reduce((n,r)=>n+r.bonus,0);
+  if(character.statuses?.intoxicated)score+=['charisma','willpower'].includes(profile.attributeKey)?2:['dexterity','intellect'].includes(profile.attributeKey)?-3:0;
+  if(profile.classId==='ninja'&&profile.skillName==='Stealth/Hide')score+=exertion*4;
+  if(profile.raceId==='antropic'&&character.identity.raceType==='fluffy'){if(profile.attributeKey==='strength')score-=2;if(profile.skillName==='Jump')score+=5;}
+  if(profile.raceId==='skeder'&&profile.skillName==='Jump')score+=3;
+  if(profile.raceId==='android'&&profile.skillName==='Initiative')score+=5;
+
+  return score>0?score:null;
+}
+function updateAutoSuccess(){if(!skillCheck)return;const enabled=autoSuccessMinimum()!==null;dom.skillDifficulty.classList.toggle('auto-success-difficulty',enabled);if(!skillCheck.sharedDamage)dom.rollSkillCheck.textContent=enabled?'Auto Succeed':'Roll for Me';}
 function rollSkillCheck() {
+  if(skillCheck)skillCheck.autoSuccess=false;
+  const automatic=autoSuccessMinimum();
+  if(automatic!==null){skillCheck.difficulty=dom.skillDifficulty.value;if(!commitSkillCheckCosts())return;skillCheck.immediateResult=true;skillCheck.autoSuccess=true;showSkillResult({score:automatic,equation:'Auto Succeed — minimum possible result is above zero.',outcome:'Critical Success',manual:true,diceResults:[]});return;}
+
   if (!skillCheck || !skillCheck.attributeKey) return;
   if(skillCheck.sharedDamage){
     dom.rollSkillCheck.disabled=true;
@@ -5270,6 +5296,8 @@ function beginSkillReroll() {
       ...Array.from({ length: skillCheck.committedExertion }, () => 12),
     ];
   }
+  skillCheck.autoSuccess = false;
+  skillCheck.immediateResult = false;
   skillCheck.newFusions = [];
   skillCheck.selectedFusionIds = new Set();
   skillCheck.stagedExertion = 0;
@@ -7899,6 +7927,7 @@ dom.skillExertionMeter.addEventListener("click", (event) => {
   skillCheck.stagedExertion = skillCheck.stagedExertion === spend ? 0 : spend;
   renderSkillExertion();
   dom.selectedDicePool.textContent = skillCheckPoolLabel();
+  updateAutoSuccess();
 });
 
 dom.skillEquipmentChoices?.addEventListener("click", (event) => {
@@ -7908,10 +7937,11 @@ dom.skillEquipmentChoices?.addEventListener("click", (event) => {
   if (skillCheck.selectedEquipment.has(id)) skillCheck.selectedEquipment.delete(id);
   else skillCheck.selectedEquipment.add(id);
   renderSkillEquipment();
+  updateAutoSuccess();
 });
 
 dom.skillDifficulty.addEventListener("input", () => {
-  if (skillCheck) skillCheck.difficulty = dom.skillDifficulty.value;
+  if (skillCheck) skillCheck.difficulty = dom.skillDifficulty.value;updateAutoSuccess();
 });
 
 dom.skillFusionChoices.addEventListener("click", (event) => {
@@ -8637,7 +8667,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   if (starshipMoveDraft?.submitting && !event.target.closest('[data-player-ship-cancel]')) return;
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const upgrade=event.target.closest('[data-player-ship-upgrade]');
-  if(upgrade){starshipMoveDraft=null;playerShipEditingId=upgrade.dataset.playerShipUpgrade;renderPlayerStarships(true);return;}
+  if(upgrade){if(campaignState?.combatActive){window.alert('you cannot perform this action in combat');return;}starshipMoveDraft=null;playerShipEditingId=upgrade.dataset.playerShipUpgrade;renderPlayerStarships(true);return;}
   if(event.target.closest('[data-player-ship-return]')){
     const frame=dom.playerStarshipList.querySelector('[data-player-ship-editor]');
     if(frame?.contentWindow?.SAStarshipEditor?.hasChanges()&&!window.confirm('Discard unconfirmed ship edits and return to the ship?'))return;

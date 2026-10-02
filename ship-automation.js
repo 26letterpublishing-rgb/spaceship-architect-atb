@@ -9,6 +9,7 @@ function move(room,unit,ship,loc,station=true){
   return {action:'playerCombatAction',kind:'move',route:(route.length?route:[loc]).map(p=>({...p,environment:'starship',starshipId:ship.id,sicId:loc.sicId})),stationOnArrival:station,stationSlot:loc.mesh,stationName:maps.definition(ship.ship.sicInventory.find(i=>i.id===loc.sicId)?.type).name};
 }
 function candidates(room,unit,random=Math.random){
+  if(unit.securityDroid)return require('./ship-security-droids').candidates(room,unit);
   const ship=room.starships.find(s=>s.id===unit.location?.starshipId);
   if(!ship&&!unit.shipAi){
     const enemy=room.units.find(u=>u.id!==unit.id&&u.currentHp>0&&!u.defeatedAt&&!u.location?.starshipId&&(u.team==='pc'||u.allyNpc)!==(unit.team==='pc'||unit.allyNpc));

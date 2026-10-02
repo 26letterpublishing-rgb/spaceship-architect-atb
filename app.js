@@ -3059,7 +3059,7 @@ function gmNpcRollDefinition(attack, rollRole, rollingUnit) {
         : `Damage Formula: ${attack.plan?.damageFormula || "Resolve manually"}`,
     };
   }
-  const dice = Array.isArray(rollingUnit?.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
+  const dice = rollRole==='defender'&&rollingUnit?.dodgeDice ? [...rollingUnit.dodgeDice] : Array.isArray(rollingUnit?.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
   if (rollRole === "attacker" && attack.attackType !== "melee" && Number(attack.aimDie) > 0) dice.push(Number(attack.aimDie));
   const skill = rollRole === "attacker"
     ? Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Wrestle/Disarm" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0

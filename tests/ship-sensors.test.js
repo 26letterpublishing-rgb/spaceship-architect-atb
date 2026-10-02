@@ -19,7 +19,7 @@ test('Scan Area reaches 50 percent farther for two active seconds and retains su
  const roll=()=>6;roll.submittedScore=16;sensors.resolveInput(room,unit,roll);
  assert.equal(a.sensorState.contacts.b.level,'detected');assert.equal(sensors.pulseRange(a),18);assert.equal(sensors.rangeAgainst(room,a,b),12,'Lock and hacking ranges remain normal');
  sensors.advance(room,.5,()=>3);assert.equal(a.sensorState.pulse.remaining,1.5);
- const restored=JSON.parse(JSON.stringify(room)),own=restored.starships[0];sensors.advance(restored,1.5,()=>3);assert.equal(own.sensorState.pulse,undefined);sensors.refresh(restored);assert.equal(own.sensorState.contacts.b.level,'detected');assert.equal(sensors.pulseRange(own),12);
+ const restored=JSON.parse(JSON.stringify(room)),own=restored.starships[0];sensors.advance(restored,1.5,()=>3);assert.equal(own.sensorState.pulse,undefined);sensors.refresh(restored);assert.equal(own.sensorState.contacts.b.level,'last-known');assert.equal(sensors.pulseRange(own),12);
  assert.equal(sensors.view(room,'b').starships.find(s=>s.id==='a')?.sensorState,undefined);
 });
 
@@ -72,8 +72,8 @@ test('passive unknown contacts never reveal identity, crew, layout, route or tru
 test('passive detection, no contact above 30, zero Masking and tracking boundaries',()=>{
   const {room,a,b}=fixture();b.sensorScenarioMasking=10;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'detected');
   room.shipPositions[1].q=24;sensors.refresh(room);assert.ok(a.sensorState.contacts.b);
-  room.shipPositions[1].q=24.01;sensors.refresh(room);assert.equal(a.sensorState.contacts.b,undefined);
-  room.shipPositions[1].q=10;b.sensorScenarioMasking=31;sensors.refresh(room);assert.equal(a.sensorState.contacts.b,undefined);
+  room.shipPositions[1].q=24.01;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'last-known');
+  room.shipPositions[1].q=10;b.sensorScenarioMasking=31;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'detected');
   b.sensorScenarioMasking=0;room.shipPositions[1].q=24;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'detected');
 });
 test('impairment uses lower dice/range, offline sensors lose contacts',()=>{

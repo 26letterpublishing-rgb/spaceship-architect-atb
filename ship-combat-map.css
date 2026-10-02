@@ -20,6 +20,8 @@
 .inline-map-zoom{display:flex;justify-content:center;gap:8px}
 .inline-map-zoom button{width:48px!important;min-width:0!important;height:30px!important;min-height:30px!important;padding:3px 8px!important;border-radius:4px!important;transform:none!important;font:700 17px Arial!important}
 .inline-map-zoom button::before,.inline-map-zoom button::after{display:none!important}
+.inline-map-zoom button[data-interior-fit],.inline-map-zoom button[data-interior-focus]{width:auto!important;min-width:82px!important;flex:0 0 auto;white-space:nowrap;font-size:13px!important}
+.inline-map-zoom{flex-wrap:wrap}
 .inline-map-actions [data-inline-cancel-move]{background:#582531!important;border-color:#ff8c9c!important;color:#fff!important}
 .inline-map-actions [data-inline-confirm-move]{background:#ffe074!important;border-color:#fff0ac!important;color:#171400!important}
 .inline-map-toolbar>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px!important}
@@ -123,3 +125,7 @@
 
 /* Keep large interiors from forcing page-wide layout on live meter updates. */
 .inline-map-viewport.inline-map-viewport{contain:layout paint}
+
+.combat-map-label{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;word-break:normal!important;overflow-wrap:normal!important;font-size:clamp(7px,calc(var(--cell-size,54px)*.18),12px)!important;pointer-events:none}
+
+.combat-token[data-security-droid="true"]{background:transparent url(security-droid-card.webp) center/contain no-repeat!important;border:0!important;border-radius:0!important}.combat-token[data-security-droid="true"]::before,.combat-token[data-security-droid="true"]::after,.combat-token[data-security-droid="true"] span{display:none!important}

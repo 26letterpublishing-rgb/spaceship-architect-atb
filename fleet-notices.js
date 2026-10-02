@@ -8,7 +8,9 @@
  }
  function place(){
   if(!banner)return;
-  const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;
+  let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+  if(!doc.querySelector('link[data-fleet-notices-style]')){const link=doc.createElement('link');link.href=new URL('fleet-notices.css',location.href);link.rel='stylesheet';link.dataset.fleetNoticesStyle='';doc.head.append(link);}
+  const host=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;
   if(banner.parentElement!==host){const visible=banner.matches(':popover-open');if(visible)banner.hidePopover();host.append(banner);if(visible)banner.showPopover();}
   if(damage&&damage.parentElement!==host){const visible=damage.matches(':popover-open');if(visible)damage.hidePopover();host.append(damage);if(visible)damage.showPopover();}
   if(activity&&activity.parentElement!==host){const visible=activity.matches(':popover-open');if(visible)activity.hidePopover();host.append(activity);if(visible)activity.showPopover();}
@@ -53,5 +55,5 @@
   window.dispatchEvent(new CustomEvent('sa-drone-update',{detail:status.drones||[]}));
  }
  window.SAFleetNotices={update};
- if(window===window.parent&&document.getElementById('unitList')){const timer=setInterval(()=>{const notices=window.SACombatBridge?.state()?.fleetNotices;if(notices)update({notices});},250);window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});}
+ if(document.getElementById('unitList')){const timer=setInterval(()=>{const notices=window.SACombatBridge?.state()?.fleetNotices;if(notices)update({notices});},250);window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});}
 }());

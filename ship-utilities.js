@@ -4,6 +4,10 @@ const oxygen = require('./ship-oxygen');
 
 function setGravity(room, unit, body, { outsideCombat = false, gm = false, campaign } = {}) {
   const access=stations.access(room,unit,String(body.sicId||''));
+  if(access?.definition.illusion)return require('./ship-illusions').command(room,unit,body,{outsideCombat});
+  if(access?.definition.securityDroid)return require('./ship-security-droids').command(room,unit,body);
+  if(access?.definition.remoteController||access?.definition.remoteReceiver)return require('./ship-remotes').command(room,unit,body,{outsideCombat,campaign});
+  if(access?.definition.lockSharing)return require('./ship-locks').configureSharing(room,unit,body,{outsideCombat});
   if(access?.definition.blackHoleGun)return require('./ship-black-hole-gun').command(room,unit,body,{outsideCombat});
   if(access?.definition.devastation)return require('./ship-devastation').command(room,unit,body,{outsideCombat});
   if(access?.definition.transporter)return require('./ship-transporter').command(room,unit,body,{outsideCombat});

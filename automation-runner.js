@@ -11,7 +11,7 @@ async function exploreAttack(room,seconds,{act,publish}){
   let show=unit.automationPresentation;
   if(show?.id!==key){
     const damage=role==='damage',formula=damage?require('./combat-rules').parseDiceFormula(a.plan.damageFormula):null;
-    const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(unit.dexterityDice||[])];
+    const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(role==='defender'&&unit.dodgeDice?unit.dodgeDice:unit.dexterityDice||[])];
     if(role==='attacker'&&a.attackType!=='melee'&&a.aimDie>0)sides.push(a.aimDie);
     const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:['Melee','Wrestle/Disarm'].includes(a.plan.attackSkill)?unit.meleeSkill:unit.projectileSkill)||0;
     const values=sides.map(s=>crypto.randomInt(1,s+1)),score=(damage?values.reduce((n,v)=>n+v,0):sensors.fusedTotal(values))+bonus;

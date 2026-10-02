@@ -368,3 +368,7 @@ body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-ac
 .keyboard-movement-active .embedded-move-route{display:none!important}.keyboard-movement-active .embedded-move-target{outline:0!important;box-shadow:none!important;background-color:transparent!important}.embedded-move-controls [data-action=console]:not(:disabled){background:#196143;color:white;border-color:#65e1a1}.embedded-move-controls [data-action=console]:disabled{background:#41494e;color:#c1c7cc}.embedded-move-controls [data-action=keyboard],.embedded-move-controls [data-action=power]{flex-basis:100%}
 
 [data-save-starship-crew]{background:#48535c!important;color:#fff!important}[data-save-starship-crew].assignments-dirty{background:#20874c!important;color:#fff!important;border-color:#85f4ac!important}
+
+.sic-grid-label{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;word-break:normal!important;overflow-wrap:normal!important;font-size:clamp(7px,calc(var(--cell-size,54px)*.18),12px)!important}
+
+.sheet-weapon-summary{box-sizing:border-box;height:100%;overflow:auto;background:#101010;color:white;border:1px solid #bbb;padding:4px;font:6.5px/1.35 Arial,sans-serif;pointer-events:auto}.sheet-weapon-summary>strong{display:block;font-size:8px;border-bottom:1px solid #888}.sheet-weapon-summary p{margin:3px 0;padding-bottom:3px;border-bottom:1px solid #555}

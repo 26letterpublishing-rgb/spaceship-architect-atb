@@ -97,8 +97,8 @@
       allowed = units <= effectiveRange;
       rangeExplanation = allowed ? `Within the ${effectiveRange}-unit maximum; no standard Range modifiers.` : `Out of range: maximum ${effectiveRange} units.`;
     } else {
-      const bands = units > 0 ? Math.ceil(units / effectiveRange) : 0;
-      attackRangeModifier = -bands;
+      const bands = units > 0 ? Math.floor((units + 1e-8) / effectiveRange) : 0;
+      attackRangeModifier = bands ? -bands : 0;
       defenseRangeModifier = bands;
       rangeExplanation = `${bands} Range band${bands === 1 ? "" : "s"}: To-Hit ${attackRangeModifier >= 0 ? "+" : ""}${attackRangeModifier}, Defense +${defenseRangeModifier}.`;
     }
@@ -169,5 +169,14 @@
     };
   }
 
-  return { attackPlan, resolveAttack, resolveDamage, parseDiceFormula, formatDiceFormula };
+  function mappedDistance(state, attacker, defender) {
+    const a=attacker?.location,b=defender?.location;
+    if(!a?.starshipId||a.starshipId!==b?.starshipId||![a.square,a.mesh,b.square,b.mesh].every(Number.isInteger))return null;
+    const ship=state.starships?.find(s=>s.id===a.starshipId)?.ship;
+    if(!ship)return null;
+    const columns=Number(ship.zoneColumns)||20;
+    const x=p=>p.square%columns*3+p.mesh%3,y=p=>Math.floor(p.square/columns)*3+Math.floor(p.mesh/3);
+    return Math.hypot(x(a)-x(b),y(a)-y(b));
+  }
+  return { mappedDistance, attackPlan, resolveAttack, resolveDamage, parseDiceFormula, formatDiceFormula };
 });

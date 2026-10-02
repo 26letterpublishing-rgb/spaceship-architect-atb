@@ -97,7 +97,7 @@
         sweep.elapsed = Math.max(0,sweep.elapsed-12);
         for (const target of targets.all(room)) {
           const state=knowledge(observer), contact=state.contacts[target.id];
-          if (target.id===observer.id || target.destroyedAt || target.escapedAt || target.ship.warpState?.phase==='traveling' || contact?.level==='detected' ||
+          if (target.id===observer.id || target.destroyedAt || target.escapedAt || target.ship.warpState?.phase==='traveling' || contact?.level==='detected' || contact?.level==='last-known' ||
               distances.hexDistance(point(room,observer.id),point(room,target.id))>sensor.range*2) continue;
           if (pick(4) >= Math.min(4,1+sweep.bonus)) continue;
           const offset=offsets[pick(offsets.length)], targetPoint=point(room,target.id);
@@ -123,9 +123,9 @@
     const state = knowledge(observer);
     if(state.contacts[target.id]?.level!=='detected')report(observer,{detected:true,shipClass:target.ship.class||'Unknown',nature:target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship',targetId:target.id,text:`${target.title}${target.ship.class?` Class ${target.ship.class}`:''} ${target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship'} detected. Affiliation: ${target.ship.affiliation||'Unknown'}`});
     return state.contacts[target.id] = { ...state.contacts[target.id],uncertainty:undefined,id:target.id, level:'detected', title:target.title,
-      mapColor:maps.shipColor(target),mapHeading:maps.shipHeading(target),mapPowered:target.navigation?.phase==='powered',cloaked:maps.cloaked(target),position:point(room,target.id),hullCondition:condition(target.currentHullHp,target.maximumHullHp),shieldCondition:condition(target.currentShieldHp,target.maximumShieldHp), size:(target.ship.gridCells || []).length,
+      mapColor:maps.shipColor(target),mapHeading:maps.shipHeading(target),mapPowered:target.navigation?.phase==='powered',cloaked:maps.cloaked(target),position:{...point(room,target.id)},hullCondition:condition(target.currentHullHp,target.maximumHullHp),shieldCondition:condition(target.currentShieldHp,target.maximumShieldHp), size:(target.ship.gridCells || []).length,
       shieldConditions:state.analyses[target.id]?.layout ? analyzedShieldConditions(target,state.analyses[target.id].layout) : undefined,
-      faction:target.ship.affiliation || '', nature:target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship', isProbe:Boolean(target.isProbe),probeTier:target.probeTier,probeInhibitor:target.probeInhibitor,probeThreshold:target.isProbe?target.maximumHullHp:undefined,probeOwnerId:target.isProbe&&target.probeOwnerId===observer.id?observer.id:undefined,isFloatingBody:Boolean(target.isFloatingBody),isSalvageDrone:Boolean(target.isSalvageDrone),isDrone:Boolean(target.isDrone),droneTier:target.droneTier,droneSprite:target.droneSprite,droneThreshold:target.isDrone?target.maximumHullHp:undefined,droneOwnerId:target.isDrone&&target.droneOwnerId===observer.id?observer.id:undefined,isMine:Boolean(target.isMine),mineThreshold:target.mineThreshold,mineArt:target.mineArt,isMissile:Boolean(target.isMissile),missileHeading:target.missileHeading,missileSlot:target.missileSlot,missileSalvoSize:target.missileSalvoSize,missilePhase:target.missilePhase,missileSpeed:target.missileSpeed,missileEndedAt:target.missileEndedAt,destroyedAt:target.destroyedAt, defenseScore:defense(room,target), evasionRemaining:Math.max(0,...(target.commandSystems?.evasions||[]).map(e=>e.remaining??20)) };
+      faction:target.ship.affiliation || '', nature:target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship', isProbe:Boolean(target.isProbe),probeTier:target.probeTier,probeInhibitor:target.probeInhibitor,probeThreshold:target.isProbe?target.maximumHullHp:undefined,probeOwnerId:target.isProbe&&target.probeOwnerId===observer.id?observer.id:undefined,isFloatingBody:Boolean(target.isFloatingBody),isSalvageDrone:Boolean(target.isSalvageDrone),isDrone:Boolean(target.isDrone),droneTier:target.droneTier,droneSprite:target.droneSprite,droneThreshold:target.isDrone?target.maximumHullHp:undefined,droneOwnerId:target.isDrone&&target.droneOwnerId===observer.id?observer.id:undefined,isMine:Boolean(target.isMine),mineThreshold:target.mineThreshold,mineArt:target.mineArt,isMissile:Boolean(target.isMissile),uninterceptable:Boolean(target.uninterceptable),isTorpedo:Boolean(target.isTorpedo),missileHeading:target.missileHeading,missileSlot:target.missileSlot,missileSalvoSize:target.missileSalvoSize,missilePhase:target.missilePhase,missileSpeed:target.missileSpeed,missileEndedAt:target.missileEndedAt,destroyedAt:target.destroyedAt, defenseScore:defense(room,target), evasionRemaining:Math.max(0,...(target.commandSystems?.evasions||[]).map(e=>e.remaining??20)) };
   }
   function refresh(room) {
     room.sensorMode ||= (room.starships || []).some(ship => (ship.ship?.sicInventory || []).some(item => maps.definition(item.type).sensor));
@@ -137,10 +137,14 @@
         if((target.isProbe&&target.probeOwnerId===observer.id)||(target.isDrone&&target.droneOwnerId===observer.id)||(target.isMissile&&target.projectile?.sourceId===observer.id)){detect(room,observer,target);continue;}
         if (target.id === observer.id) continue;
         if(observer.escapedAt||target.escapedAt||observer.ship.warpState?.phase==='traveling'||target.ship.warpState?.phase==='traveling'){delete state.contacts[target.id];continue;}
-        const sources=[{position:point(room,observer.id),range:rangeAgainst(room,observer,target)},...targets.probes(room).filter(p=>p.ownerId===observer.id&&p.linked&&!(target.isProbe&&target.probeOwnerId===observer.id)).map(p=>({position:p.position,range:(sensor?.range||0)*(masking(room,target,observer)<=0?2:1)}))];
+        if(observer.lockState?.targets?.some(l=>l.sharedFrom&&l.targetId===target.id)){detect(room,observer,target);continue;}
+        const sources=[{position:point(room,observer.id),range:state.pulse?.remaining>0?scanRangeAgainst(room,observer,target):rangeAgainst(room,observer,target)},...targets.probes(room).filter(p=>p.ownerId===observer.id&&p.linked&&!(target.isProbe&&target.probeOwnerId===observer.id)).map(p=>({position:p.position,range:(sensor?.range||0)*(masking(room,target,observer)<=0?2:1)}))];
         const nearest=sources.sort((a,b)=>(distances.hexDistance(a.position,point(room,target.id))-a.range)-(distances.hexDistance(b.position,point(room,target.id))-b.range))[0];
         const distance=distances.hexDistance(nearest.position,point(room,target.id)),range=nearest.range,contact=state.contacts[target.id];
-        if (contact?.level === 'detected' && !(maps.cloaked(target)&&!contact.cloaked) && sensor && distance <= range * 2) { detect(room,observer,target); continue; }
+        if (contact?.level === 'detected' && !(maps.cloaked(target)&&!contact.cloaked) && sensor && distance <= range) { detect(room,observer,target); continue; }
+        if(contact?.level==='last-known'&&sensor&&distance<=range&&!(maps.cloaked(target)&&!contact.cloaked)){detect(room,observer,target);continue;}
+        if(contact?.level==='detected'&&(!sensor||distance>range)){state.contacts[target.id]={...contact,level:'last-known',title:'Last Known Location',mapColor:'#ff575f',mapPowered:false,uncertainty:0};continue;}
+        if(contact?.level==='last-known'&&(!sensor||distance>range))continue;
         if (contact?.passive && !(maps.cloaked(target)&&!contact.cloaked) && sensor && !target.destroyedAt && distance<=sensor.range*2 && !(distance<=range && masking(room,target,observer)<=10)) continue;
         if (contact) delete state.contacts[target.id];
         if (!sensor || distance > range) continue;
@@ -174,6 +178,7 @@
     return {minimum,maximum};
   }
   function automaticScan(room,unit,order){
+    if(typeof window==='undefined'&&require('./ship-illusions').scanned(room,order).length)return null;
     if(['life','lifeArea'].includes(order?.kind))return outsideHex(room,order)?null:[];
     if(!['area','hex','analysis'].includes(order?.kind))return null;
     const ship=room.starships.find(s=>s.id===order.shipId),sensor=ship&&installed(ship);if(!sensor)return [];
@@ -197,6 +202,7 @@
   }
   function outsideHex(room,order){const ship=room.starships.find(s=>s.id===order?.shipId);return Boolean(ship&&order.hex&&distances.hexDistance(point(room,ship.id),order.hex)>(installed(ship)?.range||0));}
   function scanChecks(room,order){
+    if(typeof window==='undefined'&&require('./ship-illusions').scanned(room,order).length)return [];
     const ship=room.starships.find(s=>s.id===order?.shipId);if(!ship)return [];
     if(['life','lifeArea'].includes(order.kind))return outsideHex(room,order)?[{difficulty:15}]:[];
     if(order.kind==='analysis'){const target=targets.find(room,order.targetId);return target?[{targetId:target.id,difficulty:defense(room,target)}]:[];}
@@ -325,6 +331,7 @@
       if (automatic===null ? total+proximity >= difficulty : automatic.some(s=>s.id===other.id)) { detect(room,observer,other).masking=masking(room,other,observer); found++; }
       else if(state.contacts[other.id]){state.contacts[other.id].scanLowerBound=Math.max(state.contacts[other.id].scanLowerBound||0,total);}
     }
+    if(typeof window==='undefined')require('./ship-illusions').resolveScan(room,observer,order);
     const objectRefs=order.kind==='area'?(room.spaceObjects||[]).filter(o=>!o.collectedBy&&distances.hexDistance(point(room,observer.id),o)<=pulseRange(observer)+1e-8).map(o=>({id:o.id,label:o.name+(o.destroyedAt?' / Destroyed':'')})):[];
     const summary=found?`${order.kind === 'hex' ? 'Hex' : 'Area'} scan complete: ${found} contact${found===1?'':'s'} detected.`:'No contacts resolved in the scanned area. Unknown markers indicate approximate locations.';
     const scenery=order.kind==='area'?(objectRefs.length?' Objects within sensor range: '+objectRefs.map(o=>o.label).join(', ')+'.':' No map objects within sensor range.'):'';
@@ -366,7 +373,7 @@
     for (const contact of Object.values(contacts)) {
       // Contacts contain intelligence only, never enemy inventories, layout, movement orders or crew.
       const analysis=contact.level==='detected' && data.analyses[contact.id]?.layout ? data.analyses[contact.id] : null;
-      own.push({id:contact.id,title:contact.title,size:contact.size,mapColor:contact.mapColor,mapHeading:contact.mapHeading,mapPowered:contact.mapPowered,isProbe:contact.isProbe,probeTier:contact.probeTier,probeInhibitor:contact.probeInhibitor,probeOwnerId:contact.probeOwnerId,probePosition:contact.isProbe?contact.position:undefined,isFloatingBody:contact.isFloatingBody,isSalvageDrone:contact.isSalvageDrone,isDrone:contact.isDrone,droneTier:contact.droneTier,droneSprite:contact.droneSprite,droneOwnerId:contact.droneOwnerId,dronePosition:contact.isDrone?contact.position:undefined,isMine:contact.isMine,mineThreshold:contact.mineThreshold,mineArt:contact.mineArt,isMissile:contact.isMissile,missilePosition:contact.isMissile?contact.position:undefined,missileHeading:contact.missileHeading,missileSlot:contact.missileSlot,missileSalvoSize:contact.missileSalvoSize,missilePhase:contact.missilePhase,missileSpeed:contact.missileSpeed,missileEndedAt:contact.missileEndedAt,destroyedAt:contact.destroyedAt,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:contact.hullCondition,maximumHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:6,currentShieldHp:contact.shieldCondition,maximumShieldHp:6,contactLevel:contact.level,uncertainty:contact.uncertainty,
+      own.push({id:contact.id,title:contact.title,size:contact.size,mapColor:contact.mapColor,mapHeading:contact.mapHeading,mapPowered:contact.mapPowered,isProbe:contact.isProbe,probeTier:contact.probeTier,probeInhibitor:contact.probeInhibitor,probeOwnerId:contact.probeOwnerId,probePosition:contact.isProbe?contact.position:undefined,isFloatingBody:contact.isFloatingBody,isSalvageDrone:contact.isSalvageDrone,isDrone:contact.isDrone,droneTier:contact.droneTier,droneSprite:contact.droneSprite,droneOwnerId:contact.droneOwnerId,dronePosition:contact.isDrone?contact.position:undefined,isMine:contact.isMine,mineThreshold:contact.mineThreshold,mineArt:contact.mineArt,isMissile:contact.isMissile,uninterceptable:contact.uninterceptable,isTorpedo:contact.isTorpedo,missilePosition:contact.isMissile?contact.position:undefined,missileHeading:contact.missileHeading,missileSlot:contact.missileSlot,missileSalvoSize:contact.missileSalvoSize,missilePhase:contact.missilePhase,missileSpeed:contact.missileSpeed,missileEndedAt:contact.missileEndedAt,destroyedAt:contact.destroyedAt,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:contact.hullCondition,maximumHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:6,currentShieldHp:contact.shieldCondition,maximumShieldHp:6,contactLevel:contact.level,uncertainty:contact.uncertainty,
         isCloaked:contact.level==='detected'&&Boolean(contact.cloaked),
         shieldConditions:analysis?copy(contact.shieldConditions||analysis.shield?.layers?.map(layer=>condition(layer.current,layer.maximum))||[]):undefined,
         ship:analysis?copy(analysis.layout):{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:publicContact(contact)});
@@ -394,12 +401,13 @@
       delayRequest:ids.has(state.delayRequest?.unitId) ? state.delayRequest : null,
       attackResolution:state.attackResolution && ids.has(state.attackResolution.attackerId) ? state.attackResolution : null,
       itemResolution:state.itemResolution && ids.has(state.itemResolution.healerId) ? state.itemResolution : null,
-      vehicles:[],areaEffects:[],lastInterruptedId:null,
+      vehicles:[],areaEffects:[],lastInterruptedId:ids.has(state.lastInterruptedId)?state.lastInterruptedId:null,
       log:state.log.filter(e => e.starshipId === observerId),sensorObserverId:observerId || null};
   }
   function difficulty(state,shipId,kind,targetId,hex){
     const ship=state.starships.find(s=>s.id===shipId),contact=ship?.sensorState?.contacts?.[targetId];
     let value=null;
+    if(typeof window==='undefined'&&require('./ship-illusions').scanned(state,{shipId,kind,targetId,hex}).length)return {value:null,label:'Difficulty unknown'};
     if(kind==='life'||kind==='lifeArea')value=outsideHex(state,{shipId,hex})?15:0;
     else if(kind==='analysis'&&Number.isFinite(contact?.defenseScore))value=contact.defenseScore;
     else if(kind!=='analysis'&&Number.isFinite(contact?.masking)){

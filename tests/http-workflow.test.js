@@ -125,6 +125,8 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   await new Promise(resolve => setTimeout(resolve, 4250));
   encounter = await combat({ action: "setHardPaused", paused: true });
   assert.equal(encounter.starships[0].auState.current, 24);
+  const blockedBuild=await post('starship/save',{code,token:playerTokens[0],characterId:'http-aster',starship:{id:'http-gm-ship'}},409);
+  assert.equal(blockedBuild.error,'you cannot perform this action in combat');
   const paused = encounter.starships[0].auState.progress;
   await new Promise(resolve => setTimeout(resolve, 250));
   encounter = await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();

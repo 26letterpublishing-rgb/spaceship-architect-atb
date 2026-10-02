@@ -12,7 +12,7 @@ export const SKILL_DESCRIPTIONS = Object.freeze({
   "Art/Music": "Added when attempting to play a musical instrument or create a work of art.",
   "Astronomy": "Added when the positioning of the stars becomes relevant to the situation.",
   "Athletics/Endurance": "Aids in physically strenuous and active activities. Add this skill's full rating to Move Speed. Spending one Exertion adds the whole-number portion again for one CvC round (3 seconds).",
-  "Awareness": "Added when testing reaction time, noticing something, or searching. This skill is also added directly to Reaction Defense.",
+  "Awareness": "Added when testing reaction time, noticing something, or searching. In ATB combat, incoming character attacks use a free Dexterity + Dodge/Block roll.",
   "Break Free/Escape": "Added when attempting to escape another character's grasp, break free from restraints, or perform a similar escape.",
   "Caretaking/Nurture": "Added when caring for sick or elderly people, or infants, for extended periods.",
   "Catch/Throw": "Added when attempting to catch or throw an object.",

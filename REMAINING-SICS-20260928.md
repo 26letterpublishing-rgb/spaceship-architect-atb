@@ -2,67 +2,43 @@
 
 Updated October 1 2026
 
-Eight SICs remain in the current scope, ordered from simpler to more complex. These estimates include rules, original art, consoles, multiplayer behavior, saves and tests. No remaining card is Simple end to end; each needs a rules or interaction decision.
+No in-scope SIC is entirely unstarted. Four earlier SIC implementations still require final integration verification before they should be treated as complete. This list tracks that remaining work rather than presenting unverified code as finished.
 
-Completed in this pass: Analysis Screening (B-114) and Hull Breach Repair Drone (B-122). The drone follows interior paths at Move Speed 7 and uses the printed escalating repair dice. The earlier Mining Lasers and Vulture Drone are also complete.
+This pass implements Sensor Lure or Illusion (B-74) and Security Droid (B-73), with generated artwork, consoles, server rules and tests. The full local suite passes 857 tests. Browser card and console previews were checked; extended live multiplayer playtesting remains recommended.
 
 Omitted by request: Reverse Targeting ID, Separation Module, Custom Build and SICs designed specifically for FTL battles, including FTL Burst and FTL Lock-On. Ordinary installed warp travel remains unchanged.
 
 ## Simple
 
-None remaining without a meaningful rules or interaction decision.
+None remaining in the Simple category.
 
 ## Moderate
 
-### 1 Relay Pulse Sub Triangulator (B-117)
+### 1 Lock On Triangulator (B-121)
 
-Reveal the location of a ship firing on its owner, only to the correct viewers. Reuse sensor contacts and the existing attack pipeline.
+Implemented locally; final multiplayer and out-of-combat selection verification remains. Shares locks automatically with selected ships, including enemy ships. The source pays upkeep. The link survives while either ship can reach the other within twice its own sensor range.
 
-**To settle:** Decide how long the exact position remains known and whether it follows later movement. Confirm whether cloaked attackers retain their cloaked appearance when revealed.
+**Verification:** No unanswered user rule. Verify asymmetric sensor ranges, lost sources and saved recipient selections.
 
-### 2 Pulse Relay Echo Reverberator (B-115)
+### 2 Phazon Torpedo Launcher (B-109)
 
-Weapon attachment that increases the misleading signal distance from three to six units. Existing unknown-contact markers provide the presentation.
+Implemented locally; final purchase, projectile and damage workflow verification remains. Footprint 1x2 EDG plus 1x3 EXT; EN 6; move speed 8; range 24; lock required; damage 3D10 multiplied by 2; shields apply normally.
 
-**To settle:** Choose manual false-hex selection or an automatic legal hex. Decide when to select it and whether the same false location persists across repeated shots.
-
-### 3 Lock On Triangulator (B-121)
-
-Share qualifying locks after the converted delay. Enforce adjacency and remove dependent locks when the source is lost.
-
-**To settle:** Choose automatic sharing versus selecting recipients. Confirm maintenance AU responsibility and what happens when either ship changes its Lock-On system.
+**Verification:** No unanswered user rule. Audit ordinary missile purchases alongside mineral ammunition, interception and layered shields.
 
 ## Complex
 
-### 4 Phazon Torpedo Launcher (B-109)
+### 3 Remote Receiver (B-113)
 
-Extend projectile travel with mineral and AU costs, interception immunity and component impairment damage.
+Implemented locally alongside Remote Controller; final permission and multiplayer verification remains. Local crew can cancel remote actions. Hacked access requires a carried remote.
 
-**To settle:** Confirm the digital travel speed, maximum range, aim rules, mineral consumption timing and interaction with layered shields. Omit printed FTL battle behavior.
+**Verification:** No unanswered user rule. Verify unseen receiver selection, local override, range loss and hacked control.
 
-### 5 Sensor Lure or Illusion (B-74)
+### 4 Remote Controller (B-112)
 
-Present a believable decoy with independent enemy visibility and restricted scanning.
+Implemented locally; final interaction verification remains. Bridge-equivalent access, detachable Size C inventory controller, range 10, multiple linked receivers. Mirrored movement uses the same relative displacement; incompatible actions are skipped.
 
-**To settle:** Define what the owner chooses: appearance, name, heading, location and motion. Decide how locks, attacks, physical contact and its impaired appearance reveal the illusion.
-
-### 6 Remote Receiver (B-113)
-
-Pair an installed receiver with authorized remote operators and preserve pairing through saves. Implement alongside Remote Controller.
-
-**To settle:** Define owner consent, local override, unpairing and permissions. Confirm what hacking the receiver or controlling Bridge grants.
-
-### 7 Remote Controller (B-112)
-
-Operate a paired ship with shared resources, range limits and synchronized actions. The detachable controller needs a character inventory flow.
-
-**To settle:** Decide which actions are available, whose ATB is spent, how concurrent operators are resolved, and what happens when signal or power is lost.
-
-### 8 Security Droid (B-73)
-
-Add a persistent interior combatant with autonomous movement, intruder recognition, door interactions and attacks.
-
-**To settle:** Choose warning, capture and lethal modes; target priorities; who may override it; and whether it gets an independent ATB. Confirm storage, repairs and behavior after its control system is hacked.
+**Verification:** No unanswered user rule. Audit mirrored action timing and costs, portable access, maintenance routing and saved links.
 
 ## Maintenance
 
@@ -70,4 +46,4 @@ Omitted by request: Reverse Targeting ID, Separation Module, Custom Build and SI
 
 After each SIC pass, verify working behavior, remove completed entries, update the count and date, reassess dependencies and regenerate the output documents. Read the original card before implementation.
 
-Completed in this pass: Analysis Screening (B-114) and Hull Breach Repair Drone (B-122). The drone follows interior paths at Move Speed 7 and uses the printed escalating repair dice. The earlier Mining Lasers and Vulture Drone are also complete.
+This pass implements Sensor Lure or Illusion (B-74) and Security Droid (B-73), with generated artwork, consoles, server rules and tests. The full local suite passes 857 tests. Browser card and console previews were checked; extended live multiplayer playtesting remains recommended.

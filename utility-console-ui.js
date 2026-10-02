@@ -59,12 +59,16 @@
   }
   async function open(unit,sicId){
     const selected=window.SAStationAccess.access(window.SACombatBridge.state(),unit,sicId);
+    if(selected?.definition.illusion||selected?.definition.securityDroid)return window.SAIllusionDroidConsole.open(unit,sicId);
     if(selected?.definition.transporter)return window.SATransporterConsole.open(unit,sicId);
     if(selected?.definition.cloaking||selected?.definition.gravityField)return openCloak(unit,sicId);
     if(selected?.definition.blackHoleGun)return window.SABlackHoleGunConsole.open(unit,sicId);
     if(selected?.definition.planetaryCleanser)return window.SACleanserConsole.open(unit,sicId);
     if(selected?.definition.surveillance)return window.SASurveillanceConsole.open(unit,sicId);
     if(selected?.definition.probeLauncher)return window.SAProbeConsole.open(unit,sicId);
+    if(selected?.definition.remoteController||selected?.definition.remoteReceiver)return window.SARemoteConsole.open(unit,sicId);
+    if(selected?.definition.lockSharing)return window.SALockSharingConsole.open(unit,sicId);
+    if(selected?.definition.relayTriangulator)return window.SARelayConsole.open(unit,sicId);
     if(selected?.definition.breachDrone)return window.SABreachDroneConsole.open(unit,sicId);
     if(selected?.definition.repairDrone)return window.SADroneConsole.open(unit,sicId);
     if(selected?.definition.fieldUtility)return window.SAFieldUtilityConsole.open(unit,sicId);

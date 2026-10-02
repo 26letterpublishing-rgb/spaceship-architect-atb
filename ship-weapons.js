@@ -97,9 +97,9 @@
     if(shot.count>100)return {ok:false,error:'Choose at most 100 damage dice per shot.'};
     if(!Number.isInteger(boosts)||boosts<0||boosts>100||(boosts&&!shot.boostAllowed)||(sacrifice&&shot.family!=='rapid-laser'))return {ok:false,error:'This weapon cannot use that AU option.'};
     locks.refresh(room);
-    const selectedLock=weaponLock(room,unit,access.ship,target.id,access.controlled);
+    const selectedLock=weaponLock(room,unit,access.ship,target.id,access.controlled&&!access.remotePilot);
     if(body.targetSicId&&!locks.hasComponent(selectedLock,body.targetSicId))return {ok:false,error:'Acquire a controlled lock on the selected component first.'};
-    if(access.definition.requiresLock&&!weaponLock(room,unit,access.ship,target.id,access.controlled))return {ok:false,error:'Beam Lasers require a target lock you control. A captured weapon also needs its Lock-On SIC captured.'};
+    if(access.definition.requiresLock&&!weaponLock(room,unit,access.ship,target.id,access.controlled&&!access.remotePilot))return {ok:false,error:'Beam Lasers require a target lock you control. A captured weapon also needs its Lock-On SIC captured.'};
     if(!shot.count&&shot.family!=='rapid-laser')return {ok:false,error:'No damage dice remain at this range and power setting.'};
     if(rail&&!ironAmmo(access.ship))return {ok:false,error:access.definition.name+' requires 1 Iron per shot.'};
     const surcharge = !access.definition.devastation&&!access.definition.ionDisruptor&&!rail&&data.repeatWindow?.[access.id] > 0 ? access.definition.energyCost : 0;
@@ -111,10 +111,10 @@
     if(access.definition.ionDisruptor)require('./ship-field-utilities').system(access.ship,access.id).cooldown=24;else data.repeatWindow[access.id] ||= 12;
     const input = settings(unit,access.definition.tier);
     unit.delayedAction = {id:`laser-${receipt}`,kind:'action',label:`Fire ${access.definition.name}${burst?` (shot 1/${burst.total})`:''}`,rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings:input,
-      weaponOrder:{shipId:access.ship.id,sicId:access.id,targetSicId:body.targetSicId||null,station:access.seat.key,targetId:target.id,sacrifice,boosts,range,captured:Boolean(access.controlled),weaponFamily:shot.family,manualOnly:Boolean(manualOnly),noShieldDamage:Boolean(rail||access.definition.noShieldDamage),dieSides:shot.dieSides||access.definition.damageDie||4,weaponName:access.definition.name,...(burst?{burst}:{}),damageType:access.definition.damageType||(['rapid-laser','beam-laser'].includes(shot.family)?'laser':rail?'ballistic':undefined)}};
+      weaponOrder:{shipId:access.ship.id,sicId:access.id,targetSicId:body.targetSicId||null,station:access.seat.key,targetId:target.id,sacrifice,boosts,range,captured:Boolean(access.controlled&&!access.remotePilot),weaponFamily:shot.family,manualOnly:Boolean(manualOnly),noShieldDamage:Boolean(rail||access.definition.noShieldDamage),dieSides:shot.dieSides||access.definition.damageDie||4,weaponName:access.definition.name,...(burst?{burst}:{}),damageType:access.definition.damageType||(['rapid-laser','beam-laser'].includes(shot.family)?'laser':rail?'ballistic':undefined)}};
     unit.delayedAction.rollSpec = rollSpec(room,unit,unit.delayedAction.weaponOrder);
     locks.refresh(room);
-    const lock=weaponLock(room,unit,access.ship,target.id,access.controlled);
+    const lock=weaponLock(room,unit,access.ship,target.id,access.controlled&&!access.remotePilot);
     if(lock&&!manualOnly){unit.delayedAction.weaponOrder.locked=true;unit.delayedAction.weaponOrder.targetSicId=body.targetSicId||null;unit.delayedAction.rollConfirmed=true;}
     data.receipts = [...data.receipts,receipt].slice(-256);
     return {ok:true,ship:access.ship};
@@ -152,6 +152,7 @@
     locks.refresh(room);
     if(locked&&!weaponLock(room,unit,ship,target.id,order.captured)){post({text:'Shot cancelled: controlled target lock was lost during input. Committed AU was consumed.'});return;}
     if(access.definition.devastation)require('./ship-devastation').fire(ship,access.id);
+    require('./ship-relays').fired(room,ship,target,order.sicId);
     const hit = locked || total >= defense;
     const maximum = access.item.impaired || access.item.status === 'impaired' ? 1 : 4;
     const reflection=hit&&access.definition.weaponFamily==='ripple-cannon'?reflector(room,target):null;

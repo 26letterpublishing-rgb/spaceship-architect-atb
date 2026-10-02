@@ -84,7 +84,7 @@ function passTime(ship,minutes){
     if(!item||item.id!==job.sicId){report(job,'Diagnostics cancelled: the operator left the SIC room. No repair was completed.');return false;}
     job.remainingMinutes-=minutes;
     if(job.remainingMinutes>0)return true;
-    restore(item);ship.ship.doorDamage={};report(job,`${maps.definition(item.type).name}: System Repairs and Diagnostics complete. All ship doors repaired. All impairment cleared; repair difficulty reset to 10. Power state is unchanged.`);return false;
+    restore(item);ship.ship.doorDamage={};require('./ship-security-droids').repair(ship);report(job,`${maps.definition(item.type).name}: System Repairs and Diagnostics complete. All ship doors repaired. All impairment cleared; repair difficulty reset to 10. Power state is unchanged.`);return false;
   });
   advance(ship,minutes*60);
 }

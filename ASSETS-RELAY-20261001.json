@@ -1,0 +1,38 @@
+[
+  {
+    "file": "relay-triangulator-card.webp",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-1d179de5-159c-4274-a550-3ed80ffa3efd.png",
+    "generated": true,
+    "tool": "image_gen",
+    "width": 512,
+    "height": 512,
+    "bytes": 28642
+  },
+  {
+    "file": "echo-reverberator-card.webp",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a586d92a-c2e2-4be7-8e36-e7b64ac3975c.png",
+    "generated": true,
+    "tool": "image_gen",
+    "width": 512,
+    "height": 512,
+    "bytes": 37548
+  },
+  {
+    "file": "relay-triangulator-floor.webp",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-676fa3ae-8035-414e-bc41-ed1ed5f0a4ba.png",
+    "generated": true,
+    "tool": "image_gen",
+    "width": 384,
+    "height": 384,
+    "bytes": 25952
+  },
+  {
+    "file": "relay-triangulator-console.webp",
+    "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9fe1d97d-3ced-4b3d-a6c7-6ea7d710ac70.png",
+    "generated": true,
+    "tool": "image_gen",
+    "width": 1280,
+    "height": 720,
+    "bytes": 101674
+  }
+]

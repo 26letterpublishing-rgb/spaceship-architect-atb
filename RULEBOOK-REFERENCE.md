@@ -405,3 +405,8 @@ User overrides: Self-Destruct needs two distinct registered crewmembers instead 
 ## September 15 digital overrides: Repair Drone 1 and Defense
 
 Jason confirmed Defense is the difficulty: ties hit. Repair Drone 1 (Series B, B-54) has Masking/Defense 12, threshold 14 and is destroyed by one impairment. Preserve the printed 1x1 EDG, 750-credit, EN 2, Security 2, Engineering, Argol/6-hour specifications. The printed ship-round cadence is superseded for this drone by Slow base 6 plus level-based Quality 1 using the existing half-circle delayed-action formula: rate 8, 12.5 active seconds per automatic 1D4 Hull repair. This is an explicit exception to manual dice and its result animation must not block play. Same-position repairs of other ships take one ATB order; separation returns the drone to its owner. See LOCAL-DRONE-ALERTS-PASS.md.
+
+
+## October 1 illusion droid and personal range conversion
+
+B74 uses user-defined appearances and fifth-scan/contact discovery, per observing ship. Digital bounded wander is one hex per 12 active seconds within two hexes of its anchor. B73 retains printed 50HP, 3D10+2 attack and 3D8 damage; Utility has no floorplan. Digital choices are Bridge attachment, Move7, ATB10, Range5 and free Dodge3D8+1. Only registered crew can be exempted. All normal character attacks use the free Dodge workflow; no raw Reaction Defense bypass. Personal firearm range bands round down, applying both -1 accuracy and +1 target defense per completed band; mapped ship distance is authoritative. See ../outputs/Illusion_Droid_Update_Report.txt for verification limits.

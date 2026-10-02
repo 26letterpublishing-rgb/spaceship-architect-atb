@@ -220,3 +220,7 @@
 .ship-navigation-dialog [data-hold]{background:#85323d!important;color:#fff!important;border-color:#f08b98!important;border-radius:0!important;clip-path:polygon(12% 0,88% 0,100% 25%,100% 75%,88% 100%,12% 100%,0 75%,0 25%);padding-inline:22px;min-height:42px}
 .ship-navigation-dialog [data-hold].resume-ready{background:#247647!important;border-color:#8ae7a9!important;border-radius:50%!important;clip-path:none;aspect-ratio:1;width:68px;justify-self:center}
 .ship-navigation-dialog [data-leave]{border-radius:0!important;clip-path:polygon(0 0,87% 0,100% 50%,87% 100%,0 100%);padding-right:24px!important;min-height:42px}
+
+.pilot-fleet [data-fleet]>div,[data-fleet]>div{display:flex!important;flex-wrap:wrap;align-items:center;justify-content:flex-start!important;gap:5px}[data-fleet]>div>strong{flex-basis:100%}[data-fleet] .hull-health{margin:0!important;align-self:center!important}
+
+[data-fleet] .sa-health-track{position:static!important;margin:0!important;float:none!important;transform:none!important;align-self:center!important;justify-content:flex-start!important}[data-fleet]>div{align-content:center}[data-common-fleet] .sa-health-track{vertical-align:middle}

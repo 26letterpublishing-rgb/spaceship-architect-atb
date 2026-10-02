@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require.resolve('../character.js'),'utf8');
 const start=source.indexOf('function showSkillResult('),end=source.indexOf('\nasync function confirmSkillResult',start);
 function display(damage,multiplier,score){
- const nodes={},dom=new Proxy(nodes,{get:(target,key)=>target[key]||=( {})});
+ const nodes={},dom=new Proxy(nodes,{get:(target,key)=>target[key]||=({classList:{remove(){}}})});
  const skillCheck={damage,damageMultiplier:multiplier,preservedFusions:[],currentRollSides:[10]};
  const context={dom,skillCheck,PAGE_PARAMS:new URLSearchParams('shipRoll=1'),character:{resources:{reverence:0}},formatNumber:String,rollRuleExplanations:()=>[],renderFusionSelectionState(){},reverenceRerollCost:()=>2,availableFreeReroll:()=>null};
  vm.runInNewContext(source.slice(start,end)+';showSkillResult({score:'+score+',equation:"dice total",outcome:"",diceResults:['+score+']});',context);

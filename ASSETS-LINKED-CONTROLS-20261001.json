@@ -1,0 +1,71 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "name": "lock-triangulator-card",
+      "prompt": "Create one game equipment card icon for a Lock-On Triangulator: a compact industrial sci-fi signal processing device with three articulated gold/cyan antenna heads surrounding a glowing teal targeting crystal. Isometric product render, entire object isolated on genuinely transparent background. Weathered dark metal, precision details, realistic painted game asset. No room, no floorplan, no text or border. Square composition.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a6bde9ed-13e1-47d4-8e48-32177a58c600.png",
+      "output": "lock-triangulator-card.webp"
+    },
+    {
+      "name": "lock-triangulator-floor",
+      "prompt": "A square top-down orthographic floorplan tile for an industrial spacecraft Lock-On Triangulator room. Dark metal floor plates, three small teal processing racks against upper wall, one operator control desk and seat at bottom edge, walkable open center. No perspective, no text, no grid, no outer space. Detailed realistic painted game floor tile filling square image.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-4e271c9b-23bd-41a1-a1f5-55032ecb797f.png",
+      "output": "lock-triangulator-floor.webp"
+    },
+    {
+      "name": "lock-triangulator-console",
+      "prompt": "Wide 16:9 first person in-universe spacecraft lock-sharing console. Dark brushed steel control panel framing three cyan radar disks linked by thin gold illuminated paths, little physical switches, central broad empty dark glass display with subtle cyan grid for live UI overlay. No readable text, no equipment icon, no floorplan, no people. Realistic industrial science fiction game background.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-40ca905b-a47c-4553-b2f8-a1e90f8c976f.png",
+      "output": "lock-triangulator-console.webp"
+    },
+    {
+      "name": "torpedo-card",
+      "prompt": "Single isolated Phazon Torpedo Launcher equipment icon for a spacecraft game. An imposing long twin-rail energy torpedo tube with bright violet phazon containment rings, dark worn steel and gold warning accents. Three-quarter product view, whole object in square composition, genuinely transparent background. No text, no floorplan, no room.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ff08f490-c27f-40d3-a751-40c5fbc74833.png",
+      "output": "torpedo-card.webp"
+    },
+    {
+      "name": "torpedo-floor",
+      "prompt": "Top down orthographic floorplan, narrow 1 by 2 rectangular spacecraft torpedo control room, dark metal tiled floor, violet instrument racks along upper wall, operator chair and console at bottom, clear central walkway. No people, no labels, no grid, no perspective, realistic painted science fiction game room tile. Portrait 1:2.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e4b1f561-00cd-4119-8820-b8acfee6cc65.png",
+      "output": "torpedo-floor.webp"
+    },
+    {
+      "name": "torpedo-barrel",
+      "prompt": "Top-down orthographic spaceship Phazon torpedo launcher exterior sprite. Long vertical dark metal twin-rail cannon with violet containment core, muzzle facing top, mounting base bottom, full object visible on genuine transparent background. Aspect ratio 2:3. No floor or room or text. Realistic game sprite.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-300714fd-2388-4cea-9bf1-a126f2db928d.png",
+      "output": "torpedo-barrel.webp"
+    },
+    {
+      "name": "remote-card",
+      "prompt": "Isolated equipment card illustration of a science-fiction remote controller docking pedestal with detachable handheld remote resting in its cradle. Dark industrial metal with amber grips and cyan buttons, three-quarter product render, genuinely transparent background. Entire object, no room, no floorplan, no labels. Square.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ed88af25-db7e-489b-bf17-09057706fd79.png",
+      "output": "remote-card.webp"
+    },
+    {
+      "name": "receiver-card",
+      "prompt": "Isolated equipment card illustration of a compact science-fiction remote receiver upgrade module. Small armored dark steel receiver box with two cyan antenna prongs, amber status lights and cable sockets. Three-quarter product render, genuine transparent background. No room, no floorplan, no text. Square.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-18af1534-3c26-48f4-80a5-afd741e94592.png",
+      "output": "receiver-card.webp"
+    },
+    {
+      "name": "remote-floor",
+      "prompt": "Portrait 1:2 top-down orthographic floorplan of a small industrial spacecraft remote control room. Dark steel floor, transmission rack upper end, single pilot chair and remote control docking desk lower end, amber and cyan indicators. Walkable middle, no people, no lettering or grid. Realistic painted game floor tile fills image.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-bc71f1db-c790-456c-b1b0-237f33b31b17.png",
+      "output": "remote-floor.webp"
+    },
+    {
+      "name": "remote-console",
+      "prompt": "Wide 16:9 immersive first person spacecraft remote control station. Worn black metal desk with amber handles, transmission dials, broad dark central monitor and two auxiliary cyan screens showing faint ship wireframe silhouettes. No readable labels, no people, not a floorplan, not an isolated equipment icon. Detailed industrial science fiction scene with space for live controls to overlay.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-194c394e-be9f-4e3c-9fa0-e0547bc1ea5c.png",
+      "output": "remote-console.webp"
+    },
+    {
+      "name": "torpedo-console",
+      "prompt": "Wide 16:9 in-universe spacecraft Phazon Torpedo fire control console. Dark metal frame, violet energy gauges and glowing violet containment diagram along edges, broad empty dark radar glass center for live target map, physical amber buttons. No text or people, no floorplan or detached product icon. Realistic science fiction game background.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-d1e10d7c-1b44-4976-93ec-cb2e0b1bbaf6.png",
+      "output": "torpedo-console.webp"
+    }
+  ]
+}

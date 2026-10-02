@@ -1607,6 +1607,8 @@ class CampaignApi {
       const crewAccess = Boolean(characterId && record.crewCharacterIds.includes(characterId) && this.characterSession(token, code, characterId));
       const ownerAccess = Boolean(!record.crewCharacterIds.length && body.accessKey && body.accessKey === record.accessKey);
       if (!gmAccess && !crewAccess && !ownerAccess) { sendJson(res, 403, { error: "Only assigned crew or the GM may edit this starship." }); return true; }
+      const combat=this.liveEncounter(code)||campaign.encounter;
+      if(!gmAccess&&combat?.hasEngagedClock&&!combat.encounterEndedAt){sendJson(res,409,{error:'you cannot perform this action in combat'});return true;}
       if(campaign.interfaceVersion==='0.3' && Number(body.buildRevision??-1)!==(record.buildRevision||0)){sendJson(res,409,{error:"Another crew member confirmed changes. Reopen this ship to use its latest layout."});return true;}
       if(JSON.stringify(body.starship?.resourceReceipts||[])!==JSON.stringify(record.ship.resourceReceipts||[])){sendJson(res,409,{error:'Ship stores changed while this builder was open. Reopen the ship before saving construction.'});return true;}
       const exteriorError = SHIP_MAP.exteriorError(body.starship);
@@ -1887,7 +1889,7 @@ class CampaignApi {
       if(Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot operate a console.'});return true;}
       const loc=record.characterLocations?.[characterId],cell=loc&&SHIP_MAP.buildLayout(record.ship).footprint.get(loc.square);
       const unit={id:characterId,characterId,location:{...loc,starshipId:record.id,sicId:cell?.sicId}};
-      const result=require('./ship-utilities').setGravity({starships:[record],units:[unit]},unit,body,{outsideCombat:true});
+      const result=require('./ship-utilities').setGravity({starships:campaign.starships,units:[unit]},unit,body,{outsideCombat:true,campaign});
       if(!result.ok){sendJson(res,409,{error:result.error});return true;}
       OXYGEN.sync(campaign.starships,OXYGEN.people(campaign));
       this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
