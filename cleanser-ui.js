@@ -1,7 +1,7 @@
 (function(){
  let consoleView=null,opening=false,cinema=null,eventId='',music=null,impact=null,hum=null,frame=null,diceStarted=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const host=()=>{let d=document;try{while(d.defaultView.frameElement)d=d.defaultView.parent.document;}catch{}return d;};
+ const host=()=>{let d=document;try{while(d.defaultView.frameElement&&!d.defaultView.frameElement.hasAttribute('data-explore-perspective'))d=d.defaultView.parent.document;}catch{}return d;};
  function style(doc){if(doc.querySelector('[data-cleanser-style]'))return;const l=doc.createElement('link');l.rel='stylesheet';l.href=new URL('cleanser.css',location.href).href;l.dataset.cleanserStyle='';doc.head.append(l);}
  // Every visual phase is sampled from server-owned active seconds, never wall time.
  function stationChargeVisual(s,complete=false,reduced=false){
@@ -33,7 +33,7 @@
    <footer class="cleanser-station-footer"><div class="cleanser-operator"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="cleanser-atb-track" cx="36" cy="36" r="29"/><circle data-atb-ring pathLength="100" cx="36" cy="36" r="29" transform="rotate(-90 36 36)" stroke-dasharray="0 100"/><text data-atb-percent x="36" y="40" text-anchor="middle">0%</text></svg><div><small>OPERATOR ATB · ${esc(unit.characterName)}</small><strong data-operator-state>STANDBY</strong><span data-command-time></span></div></div><div class="cleanser-footer-actions"><button data-hold type="button">Hold</button><button data-leave type="button">Leave Console</button></div></footer>`;
   doc.body.append(v);v.showModal();let busy=false,pending=null,targetKey='',targetImageKey='';const nodes=new Map(),get=s=>{if(!nodes.has(s))nodes.set(s,v.querySelector(s));return nodes.get(s);},reduced=doc.defaultView.matchMedia?.('(prefers-reduced-motion: reduce)');
   function draw(){
-   const room=b.state(),person=room.units.find(u=>u.id===unit.id),live=window.SAStationAccess.access(room,person,sicId);
+   const room=b.state(),person=room?.units?.find(u=>u.id===unit.id),live=window.SAStationAccess.access(room,person,sicId);
    if(!live||!person){v.close();return;}const ship=live.ship,s=ship.ship.cleanserState||{},charging=s.phase==='charging',targets=stationTargets(room,ship),event=room.planetaryEvent?.shipId===ship.id?room.planetaryEvent:null,complete=['awaitingRoll','rolling','result','firing'].includes(event?.phase);
    const lockedId=charging?s.targetId:complete?event.targetId:null,options=lockedId&&!targets.some(t=>t.id===lockedId)?[...targets,{id:lockedId,name:(charging?s.targetName:event.targetName)||'Locked target',kind:charging?s.targetKind:event.targetKind}]:targets;
    const key=JSON.stringify(options.map(t=>[t.id,t.name,t.kind]));if(key!==targetKey){const old=lockedId||get('[data-target]').value;get('[data-target]').innerHTML=options.length?options.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} · ${t.kind==='starship'?'Starship':'Planet'}</option>`).join(''):'<option value="">No eligible targets</option>';if(options.some(t=>t.id===old))get('[data-target]').value=old;targetKey=key;}

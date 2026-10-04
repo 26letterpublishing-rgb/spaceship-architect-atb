@@ -973,3 +973,103 @@ button[data-combat-action=holdConsole].is-resume{background:#187844!important;cl
 button.leave-console-arrow{clip-path:polygon(0 0,84% 0,100% 50%,84% 100%,0 100%);border-radius:0!important;padding-right:23px!important}
 
 button[data-combat-action=holdConsole]{width:72px!important;height:72px!important;min-width:72px!important;max-width:72px!important;min-height:72px!important;max-height:72px!important;flex:0 0 72px!important;aspect-ratio:1!important;justify-self:center;box-sizing:border-box;padding:0!important;clip-path:polygon(29.29% 0,70.71% 0,100% 29.29%,100% 70.71%,70.71% 100%,29.29% 100%,0 70.71%,0 29.29%)}
+
+/* Personal actions and ship categories are separate, stable surfaces. A tall
+   Hold control must never stretch First Aid, inventory, or category buttons. */
+body .combat-action-grid { align-items: start !important; align-content: start !important; }
+body .combat-action-grid > button { align-self: start; height: auto; }
+body .combat-action-grid button { white-space: normal; overflow-wrap: normal; word-break: normal; }
+body .combat-action-grid button:disabled { opacity: .68; }
+body .combat-action-grid > [data-station-shortcuts] { order: 9; min-width: 0; }
+body [data-station-shortcuts][hidden],
+body [data-station-shortcuts] .station-action-choice[hidden] { display: none !important; }
+body [data-station-shortcuts] .station-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  align-items: start;
+  gap: 6px;
+}
+body [data-station-shortcuts] button[data-station-category] {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 52px !important;
+  padding: 7px 8px;
+  border-radius: 5px;
+  border: 1px solid #64818e;
+  font: 13px/1.2 Arial, sans-serif !important;
+  text-transform: none;
+  box-shadow: none;
+}
+body [data-station-shortcuts] button[data-station-category] strong { font: inherit; font-weight: 700; }
+body [data-station-shortcuts] button[data-station-category] small { font: 11px/1.2 Arial, sans-serif; color: #e4edf3; }
+body [data-station-shortcuts] button[data-station-category][aria-pressed=true] {
+  outline: 2px solid #ffe18a;
+  outline-offset: 1px;
+  border-color: #fff1b8;
+  box-shadow: inset 0 -4px #ffe18a;
+}
+body [data-station-shortcuts] .station-secondary-actions {
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #547787;
+  border-radius: 5px;
+  background: #071820;
+  align-items: start;
+}
+body [data-station-category-title] {
+  grid-column: 1 / -1;
+  margin: 0 0 3px;
+  color: #ffdf83;
+  font: 700 13px/1.3 Arial, sans-serif;
+  text-transform: none;
+}
+body [data-station-shortcuts] .station-action-choice > button[data-station-order] {
+  min-height: 40px !important;
+  padding: 8px !important;
+  font: 700 13px/1.25 Arial, sans-serif !important;
+  text-transform: none;
+}
+body .combat-turn-controls {
+  order: 10;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #46616b;
+}
+body .combat-turn-controls > [data-turn-control-status] {
+  flex: 1 1 170px;
+  color: #bccdd6;
+  text-align: left;
+  font: 12px/1.4 Arial, sans-serif;
+}
+body .combat-turn-controls > button:not([data-combat-action=holdConsole]) {
+  flex: 0 1 auto;
+  width: auto;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+body .combat-turn-controls button[data-combat-action=holdConsole] {
+  font: 700 12px/1.2 Arial, sans-serif !important;
+  text-transform: none;
+  align-self: center;
+}
+body .combat-turn-controls button[data-combat-action=holdConsole].is-resume {
+  clip-path: none !important;
+  border-radius: 50% !important;
+}
+@media (max-width: 440px) {
+  body [data-station-shortcuts] .station-primary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body [data-station-shortcuts] .station-secondary-actions { grid-template-columns: 1fr !important; }
+}
+.evade-step-picker { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; box-sizing: border-box; border: 1px solid #80cadb; border-radius: 6px; background: #091e29; color: #e4f8ff; font: 15px/1.4 Arial, sans-serif; }
+.evade-step-picker::backdrop { background: #000a; }
+.evade-step-picker .evade-step-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.evade-step-picker .evade-step-options button { margin: 0; min-width: 0; width: 100%; }
+.evade-step-picker .evade-step-options button:disabled { opacity: .5; cursor: not-allowed; }

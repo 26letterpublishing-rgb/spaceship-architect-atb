@@ -1,13 +1,24 @@
 (function(){
   let panel,model,submit,dialog,collapsed=false;const phases=new Map();
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function host(){if(!panel||panel.hidden)return;const target=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;if(panel.querySelectorAll('article').length===1&&target.dataset.transitShip===panel.querySelector('article')?.dataset.transitShip){if(panel.matches(':popover-open'))panel.hidePopover();return;}if(panel.parentElement!==target)target.append(panel);if(!panel.matches(':popover-open'))panel.showPopover();}
+  function host(){
+    if(!panel||panel.hidden)return;
+    const target=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;
+    // Forms and map dialogs need their entire viewport, including their footer.
+    // Keep the live status available in consoles, then restore it after dialogs close.
+    const unrelatedDialog=target!==document.body&&!target.dataset.operatorId;
+    const ownTransitConsole=panel.querySelectorAll('article').length===1&&target.dataset.transitShip===panel.querySelector('article')?.dataset.transitShip;
+    if(unrelatedDialog||ownTransitConsole){if(panel.matches(':popover-open'))panel.hidePopover();return;}
+    if(panel.parentElement!==target)target.append(panel);
+    if(!panel.matches(':popover-open'))panel.showPopover();
+  }
   new MutationObserver(events=>{if(events.some(e=>e.target instanceof HTMLDialogElement||[...e.addedNodes,...e.removedNodes].some(n=>n instanceof HTMLDialogElement)))host();}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
   function actors(ship){return [...(model.characters||[]).filter(c=>ship.crewCharacterIds?.includes(c.id)).map(c=>({characterId:c.id,name:c.character?.identity?.characterName||c.id})),...(model.npcRoster||[]).filter(u=>ship.crewNpcUnitIds?.includes(u.id)).map(u=>({id:u.id,name:u.characterName}))];}
   function update(next,callback){
     if(!next)return;model=next;submit=callback;
     if(!panel){const css=document.createElement('link');css.rel='stylesheet';css.href='transit-console.css';document.head.append(css);panel=document.createElement('aside');panel.className='transit-status';panel.setAttribute('popover','manual');panel.setAttribute('aria-label','Warp and Self-Destruct status');document.body.append(panel);panel.onclick=click;}
-    const ships=(model.starships||[]).filter(s=>model.role==='gm'||s.crewCharacterIds?.includes(model.ownCharacterId));
+    // Galaxy journeys own their countdown and cancellation controls on the map.
+    const ships=(model.starships||[]).filter(s=>model.role==='gm'||s.crewCharacterIds?.includes(model.ownCharacterId)).filter(s=>!s.ship.warpState?.campaignClock||['approvals','countdown','blastPending'].includes(s.ship.destructState?.phase));
     for(const ship of ships){
       const warp=ship.ship.warpState,previous=phases.get(ship.id);
       if(previous==='traveling'&&['arrived','exited','interrupted'].includes(warp?.phase)){

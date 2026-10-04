@@ -24,13 +24,33 @@
     panel.innerHTML=`<div class="command-controls"><label>Detected Ship<select data-command-target></select></label><div class="command-coordinate"><label>Disclosed Q<input type="number" step="1" data-disclosed-q></label><label>Disclosed R<input type="number" step="1" data-disclosed-r></label></div><div class="command-action-row"><button type="button" data-command="hail">Hail Ship</button></div><label>Prepare For<select data-prepared-action>${Object.entries(actions).map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select></label><div class="command-action-row"><button type="button" data-command="team">Team Execution</button></div><div class="command-action-row"><button type="button" data-command="calculation">Preemptive Calculation</button></div></div><div class="command-controls"><h3>Maneuvers</h3><div class="command-action-row"><button type="button" data-command="evade">Evasive Maneuvers</button></div><div class="command-action-row"><button type="button" data-command="ram">Ram</button></div><div class="command-action-row"><button type="button" data-command="skim">Skim</button></div><div data-command-calls></div><p data-command-error role="alert"></p><div data-command-preparations></div></div>`;
     chart.append(panel);
     const lockControls=dialog.ownerDocument.createElement('div');lockControls.innerHTML='<label>Incoming Lock<select data-break-target aria-label="Incoming targeting ship"></select></label><div class="command-action-row"><button type="button" data-command="break">Break Lock-On</button></div>';panel.querySelectorAll('.command-controls')[1].append(lockControls);
+    const descend=dialog.ownerDocument.createElement('button');descend.type='button';descend.hidden=true;descend.onclick=()=>{if(confirm('Descend to this planet? Ship actions will be unavailable for 60 active seconds.'))void send({kind:'descend',targetId:descend.dataset.planet});};panel.querySelectorAll('.command-controls')[1].append(descend);
     const stepButton=dialog.ownerDocument.createElement('button');stepButton.type='button';stepButton.textContent='Evade Step';stepButton.hidden=true;
     panel.querySelectorAll('.command-controls')[1].append(stepButton);
     stepButton.onclick=()=>{
-      const text=dialog.ownerDocument.defaultView.prompt('One-Unit evasion destination (Hex Q, Hex R):');
-      if(!text)return;const values=text.split(',').map(n=>Number(n.trim()));
-      if(values.length!==2||!values.every(Number.isInteger)){panel.querySelector('[data-command-error]').textContent='Enter whole-number Q, R coordinates.';return;}
-      void send({kind:'evadeStep',destination:{q:values[0],r:values[1]}});
+      const state=window.SACombatBridge.state(),person=state.units.find(u=>u.id===unitId),ship=window.SAShipNavigation.station(state,person,dialog.dataset.sicId)?.ship;
+      const points=window.SAShipDistances.positions(state.starships,state.shipPositions),start=points.find(p=>p.id===ship?.id),attacker=points.find(p=>p.id===ship?.commandSystems?.evadeStep?.attackerId);
+      if(!start||!attacker)return;
+      const picker=dialog.ownerDocument.createElement('dialog');picker.className='combat-result-popup evade-step-picker';
+      const heading=dialog.ownerDocument.createElement('h2');heading.textContent='Choose an evasion step';
+      const note=dialog.ownerDocument.createElement('p');note.textContent='Move up to one hex without getting closer to the attacker. Only safe directions are selectable.';
+      const options=dialog.ownerDocument.createElement('div');options.className='evade-step-options';
+      const center=window.SAShipDistances.roundHex(start),distance=window.SAShipDistances.hexDistance(start,attacker);
+      const names=new Map(['1,0|East','0,1|South-east','-1,1|South-west','-1,0|West','0,-1|North-west','1,-1|North-east'].map(value=>value.split('|')));
+      let available=0;
+      for(let q=-1;q<=1;q++)for(let r=-1;r<=1;r++){
+        if(Math.abs(q+r)>1)continue;
+        const destination={q:center.q+q,r:center.r+r},length=window.SAShipDistances.hexDistance(start,destination);
+        if(length<=1e-8||length>1+1e-8)continue;
+        const button=dialog.ownerDocument.createElement('button');button.type='button';button.textContent=names.get(`${q},${r}`)||'Nearest hex';
+        button.disabled=window.SAShipDistances.hexDistance(destination,attacker)<distance-1e-8;
+        button.title=button.disabled?'This direction moves closer to the attacker.':'Evade one hex '+button.textContent.toLowerCase();
+        if(!button.disabled)available++;
+        button.onclick=()=>{picker.close();void send({kind:'evadeStep',destination});};options.append(button);
+      }
+      if(!available)note.textContent='No whole hex is currently within one unit and at least as far from the attacker. Continue moving, then try again.';
+      const cancel=dialog.ownerDocument.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>picker.close();
+      picker.append(heading,note,options,cancel);picker.addEventListener('close',()=>picker.remove(),{once:true});dialog.append(picker);picker.showModal();
     };
     const conditional=conditionalControls(dialog.ownerDocument);
     chart.append(conditional);
@@ -68,6 +88,7 @@
       if(options!==lastTargets){
         for(const select of panel.querySelectorAll('[data-command-target],[data-trigger-target]')){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;}lastTargets=options;
       }
+      const p=window.SAShipDistances.positions(state.starships,state.shipPositions).find(p=>p.id===ship.id),planet=(state.spaceObjects||[]).find(o=>o.kind==='planet'&&!o.destroyedAt&&p&&window.SAShipDistances.hexDistance(window.SAShipDistances.roundHex(p),window.SAShipDistances.roundHex(o))===0);descend.hidden=!planet||!window.SAShipMap.capabilities(ship).some(c=>['hover','aerofoil'].includes(c.key)&&c.available);descend.dataset.planet=planet?.id||'';descend.textContent=ship.ship.descentState?.phase==='descending'?'Descending: '+Math.ceil(ship.ship.descentState.remaining)+' seconds':'Descend to planet '+(planet?.name||'');descend.disabled=busy||state.activeId!==unitId||ship.ship.descentState?.phase==='descending';
       const ready=state.activeId===unitId&&!person.delayedAction&&!person.timedAction&&!person.delayTimer&&!person.consoleHold&&!person.shieldRestabilizing;
       const propulsion=window.SAShipNavigation.access(state,person,dialog.dataset.sicId);
       const incoming=ship.incomingLocks||[],enemy=panel.querySelector('[data-break-target]'),old=enemy.value,enemyHtml=incoming.map(l=>`<option value="${esc(l.shipId)}">${esc(l.title)}</option>`).join('')||'<option value="">No incoming locks</option>';if(enemy.innerHTML!==enemyHtml){enemy.innerHTML=enemyHtml;if(incoming.some(l=>l.shipId===old))enemy.value=old;}
@@ -91,14 +112,14 @@
     const sections=['Hail','Preparation','Maneuvers'].map((name,index)=>{
       const page=dialog.ownerDocument.createElement('div');page.className='command-section';page.dataset.section=name;page.setAttribute('role','tabpanel');page.hidden=index!==0;
       const tab=dialog.ownerDocument.createElement('button');tab.type='button';tab.textContent=name;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',String(index===0));
-      tab.onclick=()=>{for(const p of pages.children)p.hidden=p!==page;for(const b of tabs.children)b.setAttribute('aria-selected',String(b===tab));};
+      tab.onclick=()=>{for(const p of pages.children)p.hidden=p!==page;for(const b of tabs.children)b.setAttribute('aria-selected',String(b===tab));left[0].hidden=name==='Preparation';};
       tabs.append(tab);pages.append(page);return page;
     });
-    sections[0].append(...left.slice(0,3),panel.querySelector('[data-command-calls]'));
+    sections[0].append(...left.slice(1,3),panel.querySelector('[data-command-calls]'));
     sections[1].append(...left.slice(3),panel.querySelector('[data-command-preparations]'));
     const error=panel.querySelector('[data-command-error]');
     sections[2].append(...groups[1].children);error.remove();
-    groups.forEach(group=>group.remove());panel.append(tabs,pages,error);
+    groups.forEach(group=>group.remove());left[0].classList.add('command-shared-target');panel.append(tabs,left[0],pages,error);
     const doors=dialog.ownerDocument.createElement('button');doors.type='button';doors.textContent='Door Adjustment';doors.dataset.doorAdjustment='';doors.onclick=()=>window.SAVacuumUI.doors(window.SACombatBridge.state().units.find(u=>u.id===unitId));sections[1].append(doors);
     redraw();return redraw;
   }

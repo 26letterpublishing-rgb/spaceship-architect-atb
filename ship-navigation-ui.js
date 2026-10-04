@@ -21,7 +21,7 @@
     select.onchange=async event=>{
       const view=select.closest('dialog');if(view.dataset.switching)return;view.dataset.switching='true';
       const direction=event?.slideDirection||(select.selectedIndex<choices.findIndex(a=>a.item.id===currentId)?-1:1);slidePending=direction;
-      try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished;}catch{slidePending=0;return;}
+      try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished;}catch{slidePending=0;}
       if(!view.isConnected||!view.open){slidePending=0;return;}
       selectedConsoles.set(seatKey(unit),select.value);
       try{sessionStorage.setItem('sa-console:'+seatKey(unit),select.value);}catch{}
@@ -40,7 +40,7 @@
     const bridge=window.SACombatBridge;
     if(!unit||!bridge.confirmGmPlayerAction(unit,unit.consoleHold?'resumeConsole':'holdConsole'))return;
     if(!unit.consoleHold){
-      let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+      let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
       const accepted=await new Promise(resolve=>{const dialog=doc.createElement('dialog');dialog.setAttribute('aria-label','Hold at 99%');dialog.style.cssText='max-width:480px;background:#102330;color:#ecf6ff;border:1px solid #63cfe2;padding:24px;border-radius:10px';dialog.innerHTML='<h2>Hold at 99%?</h2><p>Your ATB stays at 99% while combat and ship movement continue. Resume fills the final 1% normally.</p><p>Your remaining Command Window time is preserved. This does not interrupt another action or bypass a GM pause.</p><form method="dialog" style="display:flex;gap:12px;justify-content:flex-end"><button value="cancel">Cancel</button><button value="hold">Hold at 99%</button></form>';dialog.addEventListener('close',()=>{const approved=dialog.returnValue==='hold';dialog.remove();resolve(approved);},{once:true});doc.body.append(dialog);dialog.showModal();});
       if(!accepted)return;
     }
@@ -54,9 +54,9 @@
   function open(unit,{compact=false,sicId=null}={}){
     unit=window.SACombatBridge.state().units.find(u=>u.id===unit?.id)||unit;
     const bridge=window.SACombatBridge, initial=bridge.state(), choices=window.SAStationAccess.consoles(initial,unit);
-    let root=document;try{while(root.defaultView.frameElement)root=root.defaultView.parent.document;}catch{}
+    let root=document;try{while(root.defaultView.frameElement&&!root.defaultView.frameElement.hasAttribute('data-explore-perspective'))root=root.defaultView.parent.document;}catch{}
     const closing=root.querySelector('dialog[data-operator-id]:not([open])');
-    if(closing){closing.addEventListener('close',()=>setTimeout(()=>open(unit,{compact}),0),{once:true});return;}
+    if(closing){closing.addEventListener('close',()=>setTimeout(()=>open(unit,{compact,sicId}),0),{once:true});return;}
     if(!choices.length||activeDialog||window.SAShieldConsoleUI?.isOpen()||window.SASensorConsoleUI?.isOpen()||window.SAWeaponConsoleUI?.isOpen()||window.SALockConsoleUI?.isOpen()||window.SAUtilityConsoleUI?.isOpen())return;
     const selected=choices.find(a=>a.item.id===(sicId||selectedConsoles.get(seatKey(unit))||rememberedConsole(seatKey(unit))))||choices.find(a=>!a.remote)||choices[0];
     if(!compact){combatViews.delete(seatKey(unit));selectedConsoles.set(seatKey(unit),selected.item.id);try{sessionStorage.setItem('sa-console:'+seatKey(unit),selected.item.id);sessionStorage.setItem('sa-console-view:'+seatKey(unit),'console');}catch{}}
@@ -71,7 +71,7 @@
     if(!seated)return;
     const pilotId=unit.id,shipId=seated.ship.id;
     if(!compact)combatViews.delete(seatKey(unit));
-    let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+    let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
     const dialog=host.createElement('dialog');activeDialog=dialog;
     dialog.className=`ship-navigation-dialog${compact?' navigation-planner':''}`;dialog.setAttribute('aria-label',compact?'Move ship':'Pilot console');
     dialog.dataset.operatorId=unit.id;
@@ -164,7 +164,8 @@
       if(submit.hidden)submit.disabled=true;
       form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?(delay.shipOrder?'Coordinates are being entered.':`${delay.label||'Console action'} in progress.`):state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>(au.available??au.current)?`Boosts need ${cost} AU; ${au.available??au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
       submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Confirm Move';
-      form.querySelector('[data-leave]').disabled=!available;
+      form.querySelector('[data-leave]').hidden=Boolean(pilot?.shipAi);
+      form.querySelector('[data-leave]').disabled=!available||Boolean(pilot?.shipAi);
       const settings=delay?.settings||window.SAShipNavigation.inputSettings(state,pilot,pilotSicId);
       const factors=Object.entries(factorNames).map(([name,label])=>`<div title="${name}: ${settings.factors[name]} of 4"><span class="pilot-factor" aria-label="${name} ${settings.factors[name]} of 4">${bridge.delayIcon(settings.factors[name])}</span><small>${label}</small></div>`).join('');
       if(factors!==lastFactors){form.querySelector('[data-factors]').innerHTML=factors;lastFactors=factors;}
@@ -254,16 +255,16 @@
   };
   function openAction(unit,sicId,selector,tab){
     if(selector==='[data-hack]'){window.SAHackingConsoleUI.open(unit,sicId);return;}
-    if(selector==='[data-move-ship]'){open(unit,{compact:true});return;}
+    if(selector==='[data-move-ship]'){open(unit,{compact:true,sicId});return;}
     if(selector==='[data-command="evade"]'){void window.SACombatOrderUI.evade(unit);return;}
     selectedConsoles.set(seatKey(unit),sicId);open(unit);
-    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     const view=doc.querySelector('dialog[data-operator-id="'+CSS.escape(unit.id)+'"]');if(!view)return;
     if(tab){view.querySelector('[data-command-page]')?.click();[...view.querySelectorAll('.command-tabs button')].find(b=>b.textContent===tab)?.click();}
     if(view.classList.contains('lock-console')){const name=selector==='[data-break]'?'Incoming':selector==='[data-sic]'?'Component':'Ship';[...view.querySelectorAll('.lock-mode-tabs button')].find(b=>b.textContent===name)?.click();}
     remember(unit);window.SACombatOrderUI.prepare(view,unit,selector,tab);
   }
-  function toggle(unit){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}const view=doc.querySelector('dialog[open][data-operator-id="'+CSS.escape(unit.id)+'"]');if(view){remember(unit);view.close();}else open(unit);}
+  function toggle(unit){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}const view=doc.querySelector('dialog[open][data-operator-id="'+CSS.escape(unit.id)+'"]');if(view){remember(unit);view.close();}else open(unit);}
   // Re-entering a tab need not produce a new combat state (especially while paused).
   let consoleButton=null;
   function restoreView(){

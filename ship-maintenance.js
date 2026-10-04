@@ -21,14 +21,16 @@ function advance(ship, seconds) {
   }
 }
 function queue(room, unit, body) {
-  const ship = room.starships.find(s=>s.id===unit?.location?.starshipId), localItem = ship && local(ship,unit.location);
-  const requested=ship?.ship.sicInventory.find(i=>i.id===body.sicId);
-  if (!['repair','off','on','restart'].includes(body.kind)) return {ok:false,error:'Choose a maintenance operation.'};
-  const cell=ship&&maps.buildLayout(ship.ship).footprint.get(unit.location.square);
-  const seat=stations.conscious(unit)&&unit.location.stationed&&cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(unit.location.mesh));
-  const remotePower=['off','restart'].includes(body.kind)&&seat&&maps.definition(localItem?.type).bridge&&ship.ship.placements.some(p=>p.sicId===requested?.id);
+  const remote=stations.access(room,unit,body.sicId);
+  const remoteBridge=remote?.remotePilot&&['off','restart'].includes(body.kind);
+  const ship=remoteBridge?remote.ship:room.starships.find(s=>s.id===unit?.location?.starshipId),loc=unit?.location;
+  const localItem=ship&&local(ship,loc),requested=ship?.ship.sicInventory.find(i=>i.id===body.sicId);
+  if(!['repair','off','on','restart'].includes(body.kind))return {ok:false,error:'Choose a maintenance operation.'};
+  const cell=ship&&maps.buildLayout(ship.ship).footprint.get(loc.square);
+  const seat=remoteBridge||stations.conscious(unit)&&loc.stationed&&cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(loc.mesh));
+  const remotePower=remoteBridge||['off','restart'].includes(body.kind)&&seat&&maps.definition(localItem?.type).bridge&&ship.ship.placements.some(p=>p.sicId===requested?.id);
   const item=remotePower?requested:localItem;
-  if (!item || item.id !== body.sicId || !seat || unit.timedAction) return {ok:false,error:'Station at this SIC to repair or power it on. A Bridge station can remotely power off or restart installed SICs.'};
+  if(!item||item.id!==body.sicId||!seat||unit.timedAction)return {ok:false,error:'Station at this SIC to repair or power it on. A Bridge station can remotely power off or restart installed SICs.'};
   const receipt=String(body.requestId||'');ship.maintenanceReceipts ||= [];
   if(!/^[\w-]{8,100}$/.test(receipt))return {ok:false,error:'Invalid maintenance receipt.'};
   if(ship.maintenanceReceipts.includes(receipt))return {ok:true,duplicate:true};
@@ -38,8 +40,8 @@ function queue(room, unit, body) {
     unit.delayedAction={id:`repair-${receipt}`,kind:'action',label:'Repair SIC',rate:100/9,total:100,remaining:100,consumeTurn:true,resolving:false,maintenanceOrder:{shipId:ship.id,sicId:item.id,square:unit.location.square}};
   }else{
     const cell=maps.buildLayout(ship.ship).footprint.get(unit.location.square);
-    if(!unit.location.stationed||!cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(unit.location.mesh)))return {ok:false,error:'Occupy this SIC’s station to change its power state.'};
-    const crew=(ship.crewCharacterIds||ship.ship.crewCharacterIds||[]).includes(unit.characterId)||(ship.crewNpcUnitIds||ship.ship.crewNpcUnitIds||[]).includes(unit.id);
+    if(!remoteBridge&&(!unit.location.stationed||!cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(unit.location.mesh))))return {ok:false,error:'Occupy this SIC’s station to change its power state.'};
+    const crew=remoteBridge||(ship.crewCharacterIds||ship.ship.crewCharacterIds||[]).includes(unit.characterId)||(ship.crewNpcUnitIds||ship.ship.crewNpcUnitIds||[]).includes(unit.id);
     if(!crew)return {ok:false,error:'Registered ship crew administration rights are required.'};
     if(body.kind==='off'){
       item.disabled=true;item.status='powered-down';item.bootRemaining=0;

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script src="explore-session.js"></script>
     <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
   <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="view-ready.css">
@@ -60,7 +61,7 @@
       <div class="construction-summary" aria-label="Confirmed ship statistics">
         <span>Hull <strong data-live-stat="hull">0</strong></span><span>Shields <strong data-live-stat="shield">0</strong></span><span>EN <strong data-live-stat="en" data-en-part="available">0</strong> / <strong data-live-stat="en" data-en-part="max">0</strong></span><span>AU <strong data-live-stat="au">0</strong></span><span>HSM <strong data-live-stat="hsm">0</strong></span><span>Move <strong data-propulsion="rawSpeed">0</strong></span><span>Masking <strong data-live-stat="masking">0</strong></span>
       </div>
-      <p class="construction-budget-note">Hull: 1,000 credits per square. New standalone design budget: 999,999 credits. Pending purchases are charged on Confirm Changes.</p>
+      <p class="construction-budget-note">Hull costs 1,000 credits per square. Build the hull, buy and place SICs, then Confirm Changes. The Group Credits display includes your current design budget.</p>
       <section class="desktop-sheet" aria-label="Starship sheet based on the original InDesign layout">
         <img class="blueprint-source" src="ship-sheet-template.svg?v=20260909-ionic-1" alt="Spaceship Architect starship sheet" />
         <svg class="desktop-live-stats" viewBox="0 0 612 792" aria-hidden="true">
@@ -398,6 +399,7 @@
     <dialog id="sicCardDialog" class="sic-card-dialog" aria-label="SIC card details"><button type="button" data-close-sic-card aria-label="Close card">×</button><div data-sic-card-dialog-body></div></dialog>
     <script src="delay-rules.js"></script>
     <script src="ship-map-core.js?v=console-feedback-2"></script>
+<script src="ship-walking.js"></script>
     <script src="ship-fabrication.js"></script>
     <script src="ship-floorplan-snapshot.js"></script>
     <script src="missile-ammunition.js"></script>

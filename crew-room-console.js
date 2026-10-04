@@ -3,7 +3,7 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function open(unit,sicId){
     if(view||opening)return;opening=true;const serial=++openSerial,b=window.SACombatBridge;
-    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     try{
       for(const file of ['console-common.css','crew-room-console.css']){const href=new URL(file,location.href).href;if([...doc.styleSheets].some(s=>s.href===href))continue;await new Promise((resolve,reject)=>{const link=doc.createElement('link');link.rel='stylesheet';link.href=href;link.onload=resolve;link.onerror=()=>reject(Error('Room console styles could not load.'));doc.head.append(link);});}
       const access=window.SAStationAccess.access(b.state(),unit,sicId);if(!access?.definition.crewRoom)return;
@@ -28,7 +28,7 @@
       for(const control of dialog.querySelectorAll('[data-utility-control]'))control.disabled=true;
       doc.body.append(dialog);dialog.showModal();let initialized=false,info,busy=false,polling=false,disposed=false,noteKey='',skillKey='',attributeKey='',skillInitialized=false,patientKey='',trainingRoll=null;
       if(ai&&window.SAShipMap.installedItems(access.ship).some(i=>i.type==='holographic-projector'&&window.SAShipMap.operational(i))){const hologram=doc.createElement('img');hologram.className='ship-ai-hologram';hologram.src='sic-art-holographic-projector.webp';hologram.alt='Ship AI holographic projection';dialog.querySelector('.crew-room-scene').append(hologram);}
-      const get=s=>dialog.querySelector(s),status=get('[data-status]'),current=()=>b.state().units.find(u=>u.id===unit.id),body=extra=>({id:unit.id,characterId:unit.characterId||undefined,starshipId:access.ship.id,sicId,...extra});
+      const get=s=>dialog.querySelector(s),status=get('[data-status]'),current=()=>b.state()?.units?.find(u=>u.id===unit.id),body=extra=>({id:unit.id,characterId:unit.characterId||undefined,starshipId:access.ship.id,sicId,...extra});
       if(type==='library'){
         const shelf=doc.createElement('section');shelf.className='crew-library-shelf';const title=doc.createElement('h3');title.textContent='Crew Logs & Library Data';const refresh=doc.createElement('button');refresh.type='button';refresh.dataset.utilityControl='';refresh.textContent='Read Shared Archive';const records=doc.createElement('div');shelf.append(title,refresh,records);get('.crew-room-records').append(shelf);
         refresh.onclick=async()=>{refresh.disabled=true;try{const data=await b.crewLogRequest({kind:'library',starshipId:access.ship.id});records.replaceChildren();for(const entry of [...data.logs,...data.entries]){const row=doc.createElement('details'),label=doc.createElement('summary'),copy=doc.createElement('p');label.textContent=entry.title||`${entry.characterName} / ${entry.name} / Session ${entry.session}`;copy.textContent=entry.text;copy.style.whiteSpace='pre-wrap';row.append(label,copy);records.append(row);}if(!records.children.length)records.textContent='No shared records yet.';}catch(e){status.textContent=e.message;}finally{refresh.disabled=false;}};

@@ -336,7 +336,7 @@
       }).join("")}</div>` : "";
       const stations = stationMarkers(ship, sic, square);
       const destination = preview?.square === square ? `<i class="combat-map-preview-dot ${preview.color}" style="left:${(((preview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(preview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-      return `<div class="${classes}" title="${esc(sic?.label||'')}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" title="${esc(sic.label)}" style="width:${sic.width*100}%;height:${sic.height*100}%;inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
+      return `<div class="${classes}" title="${esc(sic?.label||'')}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" title="${esc(sic.label)}" style="width:${sic.width*100}%;height:${sic.height*100}%;--sic-width:${sic.width};--sic-height:${sic.height};--sic-words:${String(sic.label).trim().split(/\s+/).length};--sic-longest:${Math.max(...String(sic.label).split(/\s+/).map(word=>word.length))};inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(ship, layout, square) : ""}${stations}${tokens}${destination}</div>`;
     }).join("");
     const movingMarkup = units.map((unit) => {
       const moving = movementPresentation(unit); if (!moving) return "";
@@ -454,7 +454,7 @@
         }).join("")}</div>` : "";
         const stations = stationMarkers(record, sic, square);
         const destination = activePreview?.square === square ? `<i class="combat-map-preview-dot ${activePreview.color}" style="left:${(((activePreview.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(activePreview.mesh / 3) + .5) / 3) * 100}%"></i>` : "";
-        squares.push(`<div class="${cellClasses}" title="${esc(sic?.label||'')}" data-inline-square="${square}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" title="${esc(sic.label)}" style="width:${sic.width*100}%;height:${sic.height*100}%;inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
+        squares.push(`<div class="${cellClasses}" title="${esc(sic?.label||'')}" data-inline-square="${square}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${sic&&sic.column===0&&sic.row===0 ? `<span class="combat-map-label" title="${esc(sic.label)}" style="width:${sic.width*100}%;height:${sic.height*100}%;--sic-width:${sic.width};--sic-height:${sic.height};--sic-words:${String(sic.label).trim().split(/\s+/).length};--sic-longest:${Math.max(...String(sic.label).split(/\s+/).map(word=>word.length))};inset:0">${esc(sic.label)}</span>` : ""}${mesh}${mapView.walls ? boundaryMarkup(record, layout, square) : ""}${stations}${tokens}${destination}</div>`);
       }
     }
     const moving = units.map((unit) => {
@@ -769,7 +769,7 @@
     renderGrid();
     renderStats();
     stop.hidden = unit?.timedAction?.kind !== "move";
-    leaveStation.hidden = !unit?.location?.stationed || combatState?.activeId !== unit?.id;
+    leaveStation.hidden = Boolean(unit?.shipAi) || !unit?.location?.stationed || combatState?.activeId !== unit?.id;
     confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : preview?.station ? "Station" : "Confirm Move";
   }
 
@@ -994,7 +994,7 @@
   });
   window.SACombatMap = {
     chooseStartingLocation(state,preferred,name){
-      let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+      let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
       return new Promise(resolve=>{
         const view=doc.createElement('dialog');view.setAttribute('aria-label','Starting location');view.style.cssText='width:min(900px,94vw);max-height:90dvh;background:#081923;color:#e5f8ff;border:1px solid #6de0ed;padding:18px';
         view.innerHTML=`<h2>Starting location: ${esc(name)}</h2><label>Starship <select aria-label="Starting starship">${state.starships.map(s=>`<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('')}</select></label><p role="status">Choose a starting square.</p><div data-start-grid style="overflow:auto;max-height:60vh;margin:12px 0"></div><button type="button" data-back>Back</button> <button type="button" data-start disabled>Confirm starting location</button>`;
@@ -1020,6 +1020,7 @@
       return {route:path.map(point=>completeLocation(ship,point)),station,stationName:footprint(ship).get(square)?.label||'SIC',turnSerial:unit.turnSerial};
     },
     openMove(unit) {
+      if (unit?.shipAi) return;
       mapView.hull = false;
       selectedUnitId = unit.id;
       selectedShipId = unit.location?.starshipId || "";

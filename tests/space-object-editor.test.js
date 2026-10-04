@@ -2,15 +2,15 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const objects=require('../space-objects');
 const mineral=(id='object-iron',q=0,r=2)=>({id,kind:'mineral',name:'Iron Deposit',mineral:'Iron',quantity:3,q,r});
 function editor(initial=[],ships=[]){
- let draft=structuredClone(initial),panel;
+ let draft=structuredClone(initial),panel,pending;
  const fields=Object.fromEntries(Object.entries({kind:'mineral',name:'Iron Deposit',mineral:'Iron',quantity:'1',miningTarget:'6',intensity:'3',q:'0',r:'2'}).map(([name,value])=>[name,{value,closest:()=>({hidden:false,firstChild:{textContent:''}})}]));
- const nodes={form:{},output:{},'[data-object-list]':{}};
+ const nodes={form:{},output:{},'[data-object-list]':{},'[data-object-count]':{}};
  const host={querySelector:()=>panel};
  const map={parentElement:host,hidden:false,after(node){panel=node;}};
- const context={window:{SASpaceObjects:objects},document:{createElement:()=>({dataset:{},querySelector:selector=>selector.startsWith('[name=')?fields[selector.slice(6,-1)]:nodes[selector]})},crypto:require('node:crypto').webcrypto,Uint32Array,FormData:class{get(key){return fields[key].value;}}};
+ const context={window:{SASpaceObjects:objects,SASpaceMap:{beginObjectPlacement(_map,request){pending=request;}}},document:{createElement:()=>({dataset:{},querySelector:selector=>selector.startsWith('[name=')?fields[selector.slice(6,-1)]:nodes[selector]})},crypto:require('node:crypto').webcrypto,Uint32Array,FormData:class{get(key){return fields[key].value;}}};
  vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../space-object-editor'),'utf8'),context);
  const bind=()=>context.window.SASpaceObjectEditor.bind(map,()=>draft,next=>{draft=next;bind();},{getPositions:()=>ships});bind();
- return {fields,nodes,bind,get draft(){return draft;},move(id,q,r){draft=objects.withPositions(draft,[{id,q,r}]);},add(){nodes.form.onsubmit({preventDefault(){},target:nodes.form});},remove(id){nodes['[data-object-list]'].onclick({target:{closest:()=>({dataset:{removeObject:id}})}});}};
+ return {fields,nodes,bind,get draft(){return draft;},move(id,q,r){draft=objects.withPositions(draft,[{id,q,r}]);},add(){nodes.form.onsubmit({preventDefault(){},target:nodes.form,submitter:{hasAttribute:()=>true}});},beginPlacement(){nodes.form.onsubmit({preventDefault(){},target:nodes.form});},place(q,r){const request=pending;pending=null;request.onPlace({q,r});},cancel(){pending.onCancel();pending=null;},get pending(){return pending;},remove(id){nodes['[data-object-list]'].onclick({target:{closest:()=>({dataset:{removeObject:id}})}});}};
 }
 test('adding and removing scenery use the current moved positions without requiring an editor refresh',()=>{
  const e=editor([mineral(),mineral('object-second',1,2)]);
@@ -29,6 +29,27 @@ test('object type/mineral changes update automatic names and retain the GM custo
  e.fields.kind.value='planet';e.fields.kind.onchange();assert.equal(e.fields.name.value,'Unnamed Planet');
  e.fields.kind.value='mineral';e.fields.kind.onchange();e.fields.mineral.value='Magnesium';e.fields.mineral.onchange();assert.equal(e.fields.name.value,'Magnesium Deposit');
  e.fields.name.value='Grave of the Titans';e.fields.kind.value='asteroid';e.fields.kind.onchange();assert.equal(e.fields.name.value,'Grave of the Titans');
+});
+
+test('mouse placement waits for a chosen hex, preserves concurrent moves, and cancels without adding',()=>{
+ const e=editor([mineral()]);e.fields.kind.value='planet';e.fields.kind.onchange();e.fields.name.value='New World';e.beginPlacement();
+ assert.equal(e.draft.length,1,'entering placement mode must not add at a hidden default position');assert.equal(e.pending.name,'New World');
+ e.move('object-iron',19,-4);e.fields.name.value='Changed after placement began';e.place(4,6);
+ assert.equal(e.draft.length,2);assert.equal(e.draft[0].q,19);assert.equal(e.draft[0].r,-4);assert.equal(e.draft[1].name,'New World');assert.equal(e.draft[1].q,4);assert.equal(e.draft[1].r,6);
+ e.beginPlacement();e.cancel();assert.equal(e.draft.length,2);assert.match(e.nodes.output.textContent,/cancelled/);
+});
+
+test('map placement pans without dropping an object, snaps a click to a hex and supports Escape',()=>{
+ const source=fs.readFileSync(require.resolve('../space-map'),'utf8'),start=source.indexOf('  function beginObjectPlacement('),end=source.indexOf('  function bindEditor(',start);
+ const listeners={},placed=[];let cancelled=0,viewBox='0 0 40 20';
+ const svg={viewBox:{baseVal:{x:0,y:0,width:40,height:20}},getBoundingClientRect:()=>({width:400,height:200}),getScreenCTM:()=>({inverse:()=>({})}),setAttribute:(name,value)=>{if(name==='viewBox')viewBox=value;}};
+ const container={dataset:{},focus(){},setPointerCapture(){},releasePointerCapture(){},querySelector:()=>svg,addEventListener:(name,fn)=>{listeners[name]=fn;}};
+ const context={DOMPoint:class{constructor(x,y){this.x=x;this.y=y;}matrixTransform(){return this;}},coverViewport(){}};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ context.installObjectPlacement(container);context.beginObjectPlacement(container,{name:'Test world',onPlace:p=>placed.push(p),onCancel:()=>cancelled++});
+ const event=(x,y)=>({button:0,pointerId:1,clientX:x,clientY:y,target:{closest:()=>svg},preventDefault(){},stopImmediatePropagation(){}});
+ listeners.pointerdown(event(0,0));listeners.pointermove(event(20,10));listeners.pointerup(event(20,10));assert.equal(placed.length,0);assert.equal(viewBox,'-2 -1 40 20');assert.ok(container._objectPlacement);
+ listeners.pointerdown(event(Math.sqrt(3)*2.5,1.5));listeners.pointerup(event(Math.sqrt(3)*2.5,1.5));assert.equal(placed.length,1);assert.equal(placed[0].q,2);assert.equal(placed[0].r,1);assert.equal(container._objectPlacement,null);
+ context.beginObjectPlacement(container,{name:'Cancel world',onPlace:p=>placed.push(p),onCancel:()=>cancelled++});listeners.keydown({...event(0,0),key:'Escape'});assert.equal(cancelled,1);assert.equal(placed.length,1);assert.equal(container._objectPlacement,null);
 });
 test('suggested planet placement avoids occupied footprints, stays bounded and does not alter existing positions',()=>{
  const occupied=[{...mineral(),q:10000,r:10000},{id:'object-planet',kind:'planet',q:9999,r:10000}];const before=structuredClone(occupied);

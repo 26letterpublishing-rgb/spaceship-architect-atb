@@ -81,6 +81,11 @@ function engineerCount(room, ship, sicId) {
   }
   return seats.size;
 }
+function activationSeconds(room, ship, planned) {
+  if (planned.instantWarp) return 120;
+  const item=drive(ship,planned.sicId);
+  return Math.max(1,maps.definition(item.type).warpRounds*planned.fuelMultiplier-engineerCount(room,ship,planned.sicId))*ROUND_SECONDS;
+}
 function stop(ship) {
   if (ship.navigation) Object.assign(ship.navigation, { phase:'stopped', speed:0, remaining:0 });
 }
@@ -169,7 +174,7 @@ function command(room, actor, body = {}, { outsideCombat = false } = {}) {
       const planned = plan(ship, body.distanceLY, { sicId:body.sicId });
       if (!planned.ok) return planned;
       const engineers = engineerCount(room, ship, body.sicId);
-      const total = planned.instantWarp?120:Math.max(1, available.definition.warpRounds * planned.fuelMultiplier - engineers) * ROUND_SECONDS;
+      const total = activationSeconds(room, ship, planned);
       let faultRoll=null;
       if(planned.instantWarp){
         if(planned.impaired){const dice=body.diceResults;if(!Array.isArray(dice)||dice.length!==1||!Number.isInteger(dice[0])||dice[0]<1||dice[0]>8)return fail('Roll and confirm the standard D8 for the impaired EW-FTL Drive.');faultRoll=dice[0];}
@@ -224,8 +229,8 @@ function advance(room, seconds) {
   if (!finite(seconds) || seconds < 0 || room.hardPaused || room.holdPaused) return events;
   for (const ship of room.starships || []) {
     const state = data(ship).warpState;
-    if(state?.phase==='traveling')events.push(...passTime(ship,seconds/60).events);
-    if (state?.phase === 'activating') {
+    if(!state?.campaignClock && state?.phase==='traveling')events.push(...passTime(ship,seconds/60).events);
+    if (!state?.campaignClock && state?.phase === 'activating') {
       const available = hardware(room, ship, state.sicId);
       const position = distances.positions(room.starships, room.shipPositions || []).find(p => p.id === ship.id);
       if (!available.ok || moving(ship) || impaired(available.item) !== state.impaired || distances.hexDistance(position, state.origin) > EPS) {
@@ -282,7 +287,7 @@ function nextEvent(room) {
   let remaining = Infinity;
   for (const ship of room.starships || []) {
     const warp = data(ship).warpState, destruct = data(ship).destructState;
-    if (warp?.phase === 'activating') remaining = Math.min(remaining, Math.max(0, warp.remaining));
+    if (!warp?.campaignClock && warp?.phase === 'activating') remaining = Math.min(remaining, Math.max(0, warp.remaining));
     if (destruct?.phase === 'countdown') remaining = Math.min(remaining, Math.max(0, destruct.remaining));
   }
   return remaining;
@@ -301,4 +306,4 @@ function resolveBlast(room, shipId, total) {
   return { ok:true, ship, events:[{ kind:'destructExploded', shipId, id:state.id, targetIds:[...state.targetIds], total }] };
 }
 
-module.exports = { PARSEC_LY, ROUND_SECONDS, FUEL_PARSECS, plan, command, advance, nextEvent, passTime, resolveBlast };
+module.exports = { PARSEC_LY, ROUND_SECONDS, FUEL_PARSECS, plan, hardware, activationSeconds, command, advance, nextEvent, passTime, resolveBlast };

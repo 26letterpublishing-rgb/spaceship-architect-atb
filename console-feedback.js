@@ -8,7 +8,7 @@
     return {stop:()=>clearInterval(timer)};
   }
   const bridge=()=>window.SACombatBridge;
-  function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;}
+  function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;}
   function hexAt(event,svg){
     const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
     const fq=Math.sqrt(3)/3*p.x-p.y/3,fr=2*p.y/3;let q=Math.round(fq),r=Math.round(fr),s=Math.round(-fq-fr);

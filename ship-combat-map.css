@@ -16,6 +16,7 @@
 .expanded-interior-dialog .inline-map-toolbar>span{display:block;font-size:13px}
 .expanded-interior-dialog [data-expand-interior]{display:none}
 .expanded-interior-dialog .inline-map-footer .combat-map-stats{display:none}
+.expanded-interior-dialog .inline-map-zoom{display:none}
 .inline-map-actions{position:relative;justify-content:center!important;background:#07131f;padding:4px;border-bottom:1px solid #54dced}
 .inline-map-zoom{display:flex;justify-content:center;gap:8px}
 .inline-map-zoom button{width:48px!important;min-width:0!important;height:30px!important;min-height:30px!important;padding:3px 8px!important;border-radius:4px!important;transform:none!important;font:700 17px Arial!important}
@@ -126,6 +127,9 @@
 /* Keep large interiors from forcing page-wide layout on live meter updates. */
 .inline-map-viewport.inline-map-viewport{contain:layout paint}
 
-.combat-map-label{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;word-break:normal!important;overflow-wrap:normal!important;font-size:clamp(7px,calc(var(--cell-size,54px)*.18),12px)!important;pointer-events:none}
+.combat-map-label{white-space:normal!important;overflow:visible!important;text-overflow:clip;padding:3px;box-sizing:border-box;word-break:normal!important;overflow-wrap:normal!important;font-size:clamp(7px,calc(var(--cell-size,54px)*.18),12px)!important;pointer-events:none}
 
 .combat-token[data-security-droid="true"]{background:transparent url(security-droid-card.webp) center/contain no-repeat!important;border:0!important;border-radius:0!important}.combat-token[data-security-droid="true"]::before,.combat-token[data-security-droid="true"]::after,.combat-token[data-security-droid="true"] span{display:none!important}
+
+/* Expanded maps own the viewport, independent of nested campaign column styles. */
+body .expanded-interior-dialog>[data-inline-ship-map],body .expanded-interior-dialog .inline-map-viewport{width:100%!important;max-width:none!important;min-width:0!important;justify-self:stretch!important;height:100%!important;aspect-ratio:auto!important}

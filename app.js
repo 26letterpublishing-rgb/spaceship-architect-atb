@@ -1566,7 +1566,7 @@ function shipCombatColumnsMarkup(units, includeMap=true) {
 function renderShipCombatColumns() {
   // Keep authoritative state and alerts live, but do not rebuild covered interiors.
   try{if(document.hidden||window.frameElement&&!window.frameElement.getClientRects().length)return;}catch{}
-  let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+  let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
   if(host.querySelector('dialog[open][data-console-owner]')){window.SASpaceMap.refresh?.(state.starships,state.shipPositions,gmKnowledgeObserver());return;}
   const template = document.createElement("template");
   template.innerHTML = shipCombatColumnsMarkup(state.units,false);
@@ -1799,6 +1799,8 @@ function receiveState(nextState, { force = false, streamReset = false } = {}) {
   const previousUnits = new Map((state?.units || []).map((unit) => [unit.id, unit]));
   const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
+  window.SALandingApproval?.update(state,mode,action);
+
   window.SAShipNavigationUI?.observe(state);
   if (newlyDefeated.length) {
     if (mode === "player") beginDefeatSequence();
@@ -1848,7 +1850,8 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
     if (response.status === 404) {
       setConnected(false, "The encounter is temporarily unavailable. Your current view is preserved; reconnect or use campaign recovery.");
     } else {
-      setConnected(false, "The ATB room server rejected that action. Try again.");
+      setConnected(true);
+      connectionStatus.textContent = failure?.error || "That action is unavailable. Your encounter is still connected.";
     }
     if (throwOnError) {const error=new Error(failure?.error || "The action could not be completed. Check that this is still the pilot's turn.");error.status=response.status;throw error;}
     return state;
@@ -1923,7 +1926,7 @@ window.SACombatBridge = {
     const label = String(kind || "action").replace(/([A-Z])/g, " $1").toLowerCase();
     return confirm(`Act for ${unit.characterName || unit.playerName || "this player"}?\n\nThis will use ${label} on the player's turn.`);
   },
-  requestRender: ()=>{if(state?.practice){setTimeout(()=>{let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('dialog[data-operator-id][open]')&&!window.SAUtilityConsoleUI?.isOpen())parent.postMessage({type:'sa-close-console-preview'},location.origin);},300);}else render();},
+  requestRender: ()=>{if(state?.practice){setTimeout(()=>{let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('dialog[data-operator-id][open]')&&!window.SAUtilityConsoleUI?.isOpen())parent.postMessage({type:'sa-close-console-preview'},location.origin);},300);}else render();},
 };
 
 function setMode(next) {
@@ -1953,7 +1956,7 @@ function encounterStateUrl(code = currentRoomCode) {
 
 function connectEvents() {
   if (events) events.close();
-  if (!currentRoomCode) return;
+  if (!currentRoomCode || window.SAExploreSession?.active()===false) return;
   let streamState=null;
   events = new EventSource(`/events?delta=1&room=${encodeURIComponent(currentRoomCode)}&unit=${encodeURIComponent(myUnitId || "")}&token=${encodeURIComponent(mode === 'gm' || embeddedGm ? gmCampaignToken : campaignCharacterToken)}`);
   const source = events;
@@ -3295,6 +3298,7 @@ function renderAreaEffects() {
 }
 
 function render() {
+  if(window.SAExploreSession?.active()===false)return;
   const nextPanelKey=state?.activeId?`${state.activeId}:${activeUnit()?.turnSerial||0}`:'';
   if(nextPanelKey!==panelTurnKey){collapsedNpcTurnId='';collapsedPlayerTurnId='';panelTurnKey=nextPanelKey;}
   if (!currentRoomCode && mode !== "welcome" && mode !== "roomJoin") {
@@ -3391,10 +3395,10 @@ function render() {
   if (mode === "gm" && active && !state.attackResolution) {
     window.SACombatActions?.render({ mine: active, state, isMyTurn: state.activeId === active.id, hasPendingDelayRequest: false });
   }
-  const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && !mine;
+  const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && (!mine || Boolean(state.encounterEndedAt));
   const waitingThree = mine?.timedAction?.kind === "wait";
   const movingThroughShip = mine?.timedAction?.kind === "move" && Boolean(mine.location?.starshipId);
-  const showMineOverlay = mode === "player" && !playerDeathSequence && Boolean(mine) && !waitingThree && !movingThroughShip && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
+  const showMineOverlay = mode === "player" && !playerPreviewMode && !playerDeathSequence && Boolean(mine) && !waitingThree && !movingThroughShip && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
   document.body.classList.toggle("other-turn-active", mode === "player" && !playerDeathSequence && (Boolean(state.activeAction) || (Boolean(active) && active.id !== myUnitId)));
@@ -3970,7 +3974,25 @@ visualModeToggle.addEventListener("click", () => {
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.title="Undo the last action and restore its preceding state";
-resetAll.addEventListener("click", () => {if(confirm("Undo the last action? A recovery checkpoint will be saved first."))action({ action: "reset" }, "resolve");});
+let encounterConfirmationPending=false;
+function confirmEncounterChange(title,message,acceptLabel,requiredText=null){
+  if(encounterConfirmationPending)return Promise.resolve(false);
+  encounterConfirmationPending=true;
+  const encounterId=state?.encounterId;
+  let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
+  return new Promise(resolve=>{
+    const dialog=doc.createElement('dialog'),heading=doc.createElement('h2'),description=doc.createElement('p'),form=doc.createElement('form'),cancel=doc.createElement('button'),accept=doc.createElement('button');
+    dialog.className='combat-result-popup';dialog.setAttribute('aria-label',title);heading.textContent=title;description.textContent=message;cancel.type='button';cancel.textContent='Cancel';accept.type='submit';accept.textContent=acceptLabel;
+    let field=null,accepted=false;
+    if(requiredText!==null){const label=doc.createElement('label');label.textContent='Campaign name';field=doc.createElement('input');field.type='text';field.autocomplete='off';label.append(field);form.append(label);accept.disabled=true;field.addEventListener('input',()=>{accept.disabled=field.value!==requiredText;});}
+    const controls=doc.createElement('div');controls.style.cssText='display:flex;gap:12px;justify-content:flex-end;margin-top:18px';controls.append(cancel,accept);form.append(controls);dialog.append(heading,description,form);
+    cancel.onclick=()=>dialog.close();form.onsubmit=event=>{event.preventDefault();if(requiredText!==null&&field.value!==requiredText)return;accepted=true;dialog.close();};
+    const abandon=()=>dialog.close();window.addEventListener('pagehide',abandon,{once:true});
+    dialog.addEventListener('close',()=>{window.removeEventListener('pagehide',abandon);dialog.remove();encounterConfirmationPending=false;resolve(accepted&&state?.encounterId===encounterId);},{once:true});
+    doc.body.append(dialog);dialog.showModal();cancel.focus();
+  });
+}
+resetAll.addEventListener("click", async () => {if(await confirmEncounterChange('Undo last action?','A recovery checkpoint will be saved before restoring the preceding state.','Undo Last Action'))await action({ action: "reset" }, "resolve");});
 gmMuteSound.addEventListener("click", () => {
   if (mode === "player") {
     if (alertsEnabled) disablePlayerAlerts();
@@ -4000,11 +4022,11 @@ restorePlayerTurn?.addEventListener("click", () => {
   collapsedPlayerTurnId = "";
   renderPlayerCommand(state?.units.find((entry) => entry.id === myUnitId) || null);
 });
-clearEncounter.addEventListener("click", () => {
-  const name=campaignState?.name;if(!name)return;if(prompt(`Clear every character? A recovery checkpoint will be saved. Type ${name} to confirm.`)===name)action({action:"clearEncounter",confirmCampaignName:name},"danger");
+clearEncounter.addEventListener("click", async () => {
+  const name=campaignState?.name;if(!name)return;if(await confirmEncounterChange('Clear encounter?',`Clear every character? A recovery checkpoint will be saved. Type ${name} to confirm.`,'Clear Encounter',name))await action({action:"clearEncounter",confirmCampaignName:name},"danger");
 });
-exitCombat.addEventListener("click", () => {
-  if (!confirm("End this combat for everyone and return to the campaign controls?")) return;
+exitCombat.addEventListener("click", async () => {
+  if (!await confirmEncounterChange('End combat?','End this combat for everyone and return to the campaign controls?','End Combat')) return;
   void action({ action: "exitEncounter" }, "danger",{throwOnError:true}).then(() => {
     if (embeddedGm) window.parent.postMessage({ type: "sa-combat-ended" },window.location.origin);
     else returnToWelcome("Combat ended. Create or join a room when ready.");
@@ -4598,6 +4620,7 @@ function queueVisibleCombatRecovery() {
   visibleRecoveryTimer = setTimeout(recoverVisibleCombatState, 80);
 }
 if(window.frameElement){let wasVisible=false;new ResizeObserver(()=>{const visible=Boolean(window.frameElement?.getClientRects().length);if(visible&&!wasVisible)render();wasVisible=visible;}).observe(window.frameElement);}
+window.addEventListener('sa-perspective-visibility',event=>{if(event.detail.active){connectEvents();queueVisibleCombatRecovery();}else{events?.close();events=null;}});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) { queueVisibleCombatRecovery(); resumeAudio(); }
 });
@@ -4724,7 +4747,7 @@ else startSavedEncounter();
 document.addEventListener('click',event=>{
  const button=event.target.closest('[data-remove-combat-ship]');if(!button||mode!=='gm')return;
  const ship=state.starships.find(s=>s.id===button.dataset.removeCombatShip);if(!ship)return;
- let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+ let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
  const d=doc.createElement('dialog');d.setAttribute('aria-label','Remove starship from combat');d.style.cssText='max-width:520px;padding:24px;background:#102630;color:#eef9ff;border:1px solid #ff9d94';
  const h=doc.createElement('h2'),p=doc.createElement('p'),yes=doc.createElement('button'),no=doc.createElement('button');h.textContent='Remove '+ship.title+'?';p.textContent='This removes the ship and everyone aboard from this encounter. The saved ship and crew assignments remain in the campaign.';yes.textContent='Remove from Combat';no.textContent='Cancel';yes.style.cssText='background:#923d41;color:white;margin-right:12px';no.style.cssText='background:#244c5d;color:white';no.onclick=()=>d.close();yes.onclick=async()=>{yes.disabled=true;try{await action({action:'removeStarship',starshipId:ship.id},'danger',{throwOnError:true});d.close();}catch(error){p.textContent=error.message;yes.disabled=false;}};d.append(h,p,yes,no);doc.body.append(d);d.onclose=()=>d.remove();d.showModal();
 });

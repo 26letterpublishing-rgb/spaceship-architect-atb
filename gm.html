@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script src="drama-notices.js"></script>
+    <script src="explore-session.js"></script>
   <link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
   <link rel="stylesheet" href="oxygen-ui.css">
     <link rel="stylesheet" href="ship-pass2.css">
@@ -26,6 +28,8 @@
   <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
 <link rel="stylesheet" href="quick-prompts.css"><script defer src="quick-prompts.js"></script>
 <link rel="stylesheet" href="crew-logs.css">
+<link rel="stylesheet" href="campaign-starmaps.css">
+<script src="campaign-starmaps-ui.js" defer></script>
 </head>
   <body>
     <main class="gm-shell">
@@ -77,20 +81,21 @@
       <section id="gmWorkspace" class="gm-workspace" hidden>
         <nav class="gm-tabs" aria-label="GM Control Panel sections">
           <button type="button" data-tab="script" class="active">Script</button>
-          <button type="button" data-tab="characters">Characters</button>
+          <button type="button" data-tab="campaign">Campaign</button><button type="button" data-tab="characters">Characters</button>
           <button type="button" data-tab="starships">Starships</button>
           <button type="button" data-tab="prompt">Prompt / Give</button>
           <button type="button" data-tab="inbox">Inbox <strong id="gmInboxCount">0</strong></button>
           <button type="button" data-tab="atb">Combat</button>
         </nav>
 
+        <section class="gm-tab" data-tab-panel="campaign" hidden></section>
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
             <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
             <div class="script-heading-actions">
               <label>Recipient<select id="scriptRecipient"><option value="all">All PCs</option></select></label>
-              <strong id="scriptSaveState">Saved</strong>
+              <strong id="scriptSaveState" role="status">Saved</strong><button id="saveScriptNow" type="button">Save Notes</button>
             </div>
           </div>
           <div class="script-chapter-console">
@@ -108,14 +113,14 @@
               <label>Command<select id="scriptCommandType"><option value="">Direct Roll</option></select></label>
               <label>Attribute<select id="scriptAttribute"></select></label>
               <label>Skill<select id="scriptSkill"></select></label>
-              <label>Difficulty (Optional)<input id="scriptDifficulty" type="number" min="0" step="0.1" /></label>
-              <label class="check-field"><input id="scriptHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
+              <label>Difficulty (Optional)<input id="scriptDifficulty" type="number" step="0.1" /></label>
+              <p class="roll-visibility-note"><input id="scriptHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
               <button id="insertScriptCommand" type="button">Insert Command</button>
             </div>
 
           </section>
           <form id="conditionalActionForm" class="tool-card conditional-action-card script-conditional-card">
-            <h3>Conditional Prompt / Reward</h3>
+            <h3>Conditional Prompt / Reward</h3><p class="form-hint">Send to the Recipient chosen at the top of this Story Console. All PCs includes offline characters; they can roll when they return.</p>
             <label>Saved Keyword<select id="conditionalActionSelect"><option value="">New Action...</option></select></label>
             <label>Keyword<input id="conditionalKeyword" maxlength="60" placeholder="SPOT CROWN" required /></label>
             <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
@@ -127,12 +132,12 @@
             <div class="roll-grid">
               <label>Attribute<select id="conditionalAttribute"></select></label>
               <label>Skill<select id="conditionalSkill"></select></label>
-              <label>Difficulty<input id="conditionalDifficulty" type="number" min="0" step="0.1" required /></label>
-              <label class="check-field"><input id="conditionalHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
+              <label>Difficulty<input id="conditionalDifficulty" type="number" step="0.1" required /></label>
+              <p class="roll-visibility-note"><input id="conditionalHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
             </div>
             <div class="conditional-action-buttons">
               <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
-              <button id="sendConditionalAction" type="button">Send to Selected</button>
+              <button id="sendConditionalAction" type="button">Send to Story Recipient</button>
               <button id="deleteConditionalAction" class="danger" type="button" disabled>Delete</button>
             </div>
             <p id="conditionalActionMessage" class="tool-message" role="status"></p>
@@ -218,7 +223,8 @@
               <h3>Recharge Items</h3>
               <p>Restore carried Jet-Packs, Power Shields, and Mobile Zero-Point Energy for the selected characters.</p>
               <button id="rechargeItems" class="primary" type="button">Send Recharge</button>
-              <hr />
+              </section>
+            <section class="tool-card time-tool-card">
               <h3>Pass Time</h3>
               <label>Amount<input id="passTimeAmount" type="number" min="0.01" step="any" value="1" /></label>
               <label>Time Unit<select id="passTimeUnit"><option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days" selected>Days</option><option value="weeks">Weeks</option></select></label>
@@ -252,8 +258,8 @@
               <div class="roll-grid">
                 <label>Attribute<select id="promptAttribute"></select></label>
                 <label>Skill<select id="promptSkill"></select></label>
-                <label>Difficulty (Optional)<input id="promptDifficulty" type="number" min="0" step="0.1" /></label>
-                <label class="check-field"><input id="promptHideDifficulty" type="checkbox" disabled /> Difficulties are visible</label>
+                <label>Difficulty (Optional)<input id="promptDifficulty" type="number" step="0.1" /></label>
+                <p class="roll-visibility-note"><input id="promptHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
               </div>
               <button class="primary" type="submit">Send Roll Request</button>
             </form>
@@ -364,7 +370,7 @@
               </div>
             </section>
             <section class="settings-card danger-settings">
-              <h3>Campaign Access</h3>
+              <h3>Campaign Access</h3><p>Close Room stops the session without deleting it. Delete Campaign permanently removes its hosted data; export a save file first.</p>
               <button id="deleteCampaign" class="danger" type="button">Delete Campaign</button>
               <button id="gmLogout" class="quiet" type="button">Log Out</button>
             </section>
@@ -395,7 +401,7 @@
         <p id="gmDramaPlayedBy" class="gm-drama-played-by"></p>
         <article id="gmDramaCardDisplay" class="gm-drama-card" data-category="">
           <header><span id="gmDramaCardCategory">Drama Card</span><b id="gmDramaCardNumber">#00</b></header>
-          <div><span class="gm-drama-sigil" aria-hidden="true">SA</span><h2 id="gmDramaCardName">Drama Card</h2><p id="gmDramaCardRules"></p></div>
+          <div><h2 id="gmDramaCardName">Drama Card</h2><p id="gmDramaCardRules"></p></div>
           <footer id="gmDramaCardHandling"></footer>
         </article>
         <button id="dismissGmDramaCard" class="primary" type="button">Dismiss</button>

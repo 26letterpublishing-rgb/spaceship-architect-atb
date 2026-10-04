@@ -3,7 +3,7 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function open(unit,sicId){
     if(view||opening)return;opening=true;const ticket=++serial,b=window.SACombatBridge;let doc=document;
-    try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     try{
       for(const file of ['console-common.css','crew-room-console.css','field-utility-console.css']){const href=new URL(file,location.href).href;if([...doc.styleSheets].some(s=>s.href===href))continue;await new Promise((resolve,reject)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=href;l.onload=resolve;l.onerror=()=>reject(Error('Console styles could not load.'));doc.head.append(l);});}
       const access=window.SAStationAccess.access(b.state(),unit,sicId);if(!access?.definition.fieldUtility)return;
@@ -22,7 +22,7 @@
       <output data-status role="status" aria-live="polite"></output></section><section class="lock-reports crew-room-records"><h3>Operation Report</h3><p data-report></p><h3>Recovered Cargo</h3><ul data-cargo></ul></section><div class="utility-seat"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div>`;
       if(ion||scrambler){const cargo=dialog.querySelector('[data-cargo]');cargo.previousElementSibling.hidden=true;cargo.hidden=true;}
       doc.body.append(dialog);dialog.showModal();let info,busy=false,polling=false,disposed=false,timer,targetKey='',passengerKey='',lastReport='';
-      const get=s=>dialog.querySelector(s),current=()=>b.state().units.find(u=>u.id===unit.id),body=extra=>({id:unit.id,characterId:unit.characterId||undefined,starshipId:access.ship.id,sicId,...extra});
+      const get=s=>dialog.querySelector(s),current=()=>b.state()?.units?.find(u=>u.id===unit.id),body=extra=>({id:unit.id,characterId:unit.characterId||undefined,starshipId:access.ship.id,sicId,...extra});
       function redraw(){
         const person=current(),active=window.SAStationAccess.access(b.state(),person,sicId);if(!active){dialog.close();return;}
         const ready=Boolean(b.state().practice||b.state().activeId===unit.id&&!b.state().rollPaused&&!person.delayedAction&&!person.timedAction&&!person.consoleHold);

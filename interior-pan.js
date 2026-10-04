@@ -7,5 +7,5 @@
   doc.addEventListener('pointercancel',()=>{if(drag)drag.viewport.style.cursor='';drag=null;suppress=false;},true);
   doc.addEventListener('click',e=>{if(suppress){e.preventDefault();e.stopImmediatePropagation();}},true);
  }
- window.SAInteriorPan={bind};bind(document);try{let doc=document;while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;bind(doc);}catch{}
+ window.SAInteriorPan={bind};bind(document);try{let doc=document;while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;bind(doc);}catch{}
 }());

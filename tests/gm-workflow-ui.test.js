@@ -1,0 +1,23 @@
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../gm.js'),'utf8');
+const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
+function selector(){let markup='';return{value:'',dataset:{},options:[],get innerHTML(){return markup;},set innerHTML(value){markup=value;this.options=[...value.matchAll(/value="([^"]*)"/g)].map(m=>({value:m[1]}));this.value=this.options[0]?.value||'';}};}
+test('GM Settings choices survive roster refresh and fall back only when the selected character vanishes',()=>{
+ const c=vm.createContext({});vm.runInContext(section('function syncChoiceOptions','function storyRecipientIds'),c);const input=selector();c.syncChoiceOptions(input,'<option value="a">A</option><option value="b">B</option>');input.value='b';c.syncChoiceOptions(input,'<option value="a">A renamed</option><option value="b">B</option>');assert.equal(input.value,'b');c.syncChoiceOptions(input,'<option value="a">A</option>');assert.equal(input.value,'a');
+});
+test('unsaved banker and command-window choices survive live updates after blur',()=>{
+ const c=vm.createContext({});vm.runInContext(section('function syncChoiceOptions','function storyRecipientIds'),c);const input={value:'',dataset:{}};c.syncSettingDraft(input,'10');assert.equal(input.value,'10');input.value='25';c.syncSettingDraft(input,'10');assert.equal(input.value,'25');c.syncSettingDraft(input,'25');assert.equal(input.dataset.savedValue,'25');c.syncSettingDraft(input,'30');assert.equal(input.value,'30');
+});
+test('Story Console recipients use its visible selection and All PCs includes offline characters',()=>{
+ const c=vm.createContext({dom:{scriptRecipient:{value:'all'}},campaign:{characters:[{id:'a',connected:true},{id:'b',connected:false}]}});vm.runInContext(section('function storyRecipientIds','function renderSettings'),c);assert.deepEqual([...c.storyRecipientIds()],['a','b']);c.dom.scriptRecipient.value='b';assert.deepEqual([...c.storyRecipientIds()],['b']);c.dom.scriptRecipient.value='deleted';assert.deepEqual([...c.storyRecipientIds()],[]);
+});
+function savingContext(){const requests=[],messages=[];const c=vm.createContext({campaign:{scriptChapters:[{id:'one',script:'old'},{id:'two',script:'untouched'}]},active:'one',editor:'first edit',scriptDirty:true,scriptSaveInFlight:null,scriptSaveTimer:null,clearTimeout(){},code:'TEST',token:'gm',dom:{scriptSaveState:{},message:{}},showMessage:(_node,text)=>messages.push(text),api:(url,body)=>new Promise((resolve,reject)=>requests.push({url,body,resolve,reject}))});c.scriptSource=()=>c.editor;c.scriptChapters=()=>c.campaign.scriptChapters;c.activeScriptChapter=()=>c.campaign.scriptChapters.find(ch=>ch.id===c.active);vm.runInContext(section('async function saveScript()','async function sendRollRequest'),c);return{c,requests,messages};}
+test('typing during a slow script save remains dirty and the next save serializes the newer text',async()=>{
+ const {c,requests}=savingContext();const first=c.saveScript();assert.equal(requests.length,1);c.editor='second edit';const second=c.saveScript();assert.equal(requests.length,1);requests[0].resolve({});await new Promise(resolve=>setImmediate(resolve));assert.equal(c.scriptDirty,true);assert.equal(requests.length,2);assert.equal(requests[1].body.script,'second edit');requests[1].resolve({});await Promise.all([first,second]);assert.equal(c.scriptDirty,false);assert.equal(c.campaign.scriptChapters[0].script,'second edit');assert.equal(c.dom.scriptSaveState.textContent,'Saved');
+});
+test('failed autosave prevents chapter navigation and retains the editable draft',async()=>{
+ const {c,requests,messages}=savingContext();c.receiveCampaign=()=>{};vm.runInContext(section('async function changeScriptChapter','dom.openForm.addEventListener'),c);const change=c.changeScriptChapter('add');requests[0].reject(new Error('Connection lost'));await assert.rejects(change,/Connection lost/);assert.equal(requests.length,1);assert.equal(c.scriptDirty,true);assert.equal(c.editor,'first edit');assert.match(c.dom.scriptSaveState.textContent,/edits retained/);assert.equal(messages.length,1);
+});
+test('script save completion only updates the captured chapter',async()=>{
+ const {c,requests}=savingContext();const saving=c.saveScript();c.active='two';c.editor='other draft';requests[0].resolve({});await saving;assert.equal(c.campaign.scriptChapters[0].script,'first edit');assert.equal(c.campaign.scriptChapters[1].script,'untouched');assert.equal(c.scriptDirty,true);
+});

@@ -1,24 +1,16 @@
-.enemy-lock-banner[popover]{position:fixed;inset:0 0 auto;margin:0;width:100%;box-sizing:border-box;border:1px solid #ff7979;background:#970b19;color:white;text-align:center;font:bold 18px/1.4 sans-serif;padding:5px 12px;pointer-events:none;box-shadow:0 2px 8px #0009}
-body.has-enemy-lock{padding-top:38px!important}body.has-enemy-lock dialog[open]{max-height:calc(100dvh - 80px)}
-.drone-repair-notice[popover]{position:fixed;inset:auto 18px 20px auto;margin:0;padding:10px 14px;border:1px solid #89e5d1;background:#09242ded;color:#e8fff8;font:15px sans-serif;pointer-events:none;border-radius:8px}
-.drone-repair-notice:popover-open{display:flex;align-items:center;gap:12px}.repair-d4{display:inline-grid;place-items:center;width:38px;height:38px;background:#d7ffed;color:#073329;clip-path:polygon(50% 0,100% 100%,0 100%);padding-top:7px;box-sizing:border-box}
-
-body.has-enemy-lock dialog.shared-console-layout,body.has-enemy-lock dialog.ship-navigation-dialog{top:38px!important;height:calc(100dvh - 38px)!important;max-height:calc(100dvh - 38px)!important}
-
-.damaged-systems-warning[popover]{position:fixed;inset:0 0 auto;margin:0;width:100%;height:30px;box-sizing:border-box;border:1px solid #ff7a87;background:#350c14;color:#fff;font:bold 14px/28px Arial;padding:0 12px}
-.damaged-systems-warning:popover-open{display:flex;gap:10px;align-items:center}.damaged-systems-warning>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.enemy-lock-banner,.damaged-systems-warning,.combat-activity-banner,.drone-repair-notice{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:8px 14px;margin:0;pointer-events:auto;font:600 15px/1.4 Arial,sans-serif;overflow-wrap:anywhere}
+.enemy-lock-banner{border:1px solid #ff7979;background:#970b19;color:#fff;font-size:18px}
+.enemy-lock-banner>.notice-dismiss{margin-left:auto}
+.damaged-systems-warning{border:1px solid #ff7a87;background:#350c14;color:#fff}
+.damaged-systems-warning>span:nth-child(2){flex:1;min-width:0}
 .damaged-system-light{flex:0 0 12px;height:12px;border-radius:50%;background:#ff233f;box-shadow:0 0 6px #ff234a;animation:damaged-system-pulse 1.5s ease-in-out infinite}
-body.has-enemy-lock .damaged-systems-warning{top:38px}
-body.has-damaged-systems{--fleet-warning-height:30px;padding-top:var(--fleet-warning-height)!important}body.has-damaged-systems.has-enemy-lock{--fleet-warning-height:68px}
-body.has-damaged-systems dialog.shared-console-layout,body.has-damaged-systems dialog.ship-navigation-dialog{top:var(--fleet-warning-height)!important;height:calc(100dvh - var(--fleet-warning-height))!important;max-height:calc(100dvh - var(--fleet-warning-height))!important}
-@keyframes damaged-system-pulse{50%{opacity:.35}}
-@media(prefers-reduced-motion:reduce){.damaged-system-light{animation:none}}
-.combat-activity-banner[popover]{position:fixed;inset:0 0 auto;margin:0;box-sizing:border-box;width:100%;padding:8px 14px;background:#ffe077;color:#000;border:1px solid #c99624;font:bold 16px/1.35 Arial;text-align:center;pointer-events:none;max-height:110px;overflow:hidden}
-body.has-enemy-lock .combat-activity-banner{top:38px}body.has-damaged-systems .combat-activity-banner{top:var(--fleet-warning-height,30px)}
+.combat-activity-banner{background:#ffe077;color:#111;border:1px solid #c99624;font-size:16px}
+.combat-activity-banner>.notice-dismiss{margin-left:auto}
 .combat-activity-banner.detection-alert{background:#970b19;color:#fff;border-color:#ff7979;animation:detection-banner-pulse 1.25s ease-in-out infinite}
-@keyframes detection-banner-pulse{50%{background:#da2639;box-shadow:0 0 16px #ff354c80}}
-@media(prefers-reduced-motion:reduce){.combat-activity-banner.detection-alert{animation:none}}
-
+.drone-repair-notice{border:1px solid #89e5d1;background:#09242d;color:#e8fff8}.drone-repair-notice>span{flex:1}
+.repair-d4{display:inline-grid;place-items:center;flex:0 0 38px;width:38px;height:38px;background:#d7ffed;color:#073329;clip-path:polygon(50% 0,100% 100%,0 100%);padding-top:7px;box-sizing:border-box}
+@keyframes damaged-system-pulse{50%{opacity:.35}}@keyframes detection-banner-pulse{50%{background:#da2639;box-shadow:0 0 16px #ff354c80}}
+@media(prefers-reduced-motion:reduce){.damaged-system-light,.combat-activity-banner.detection-alert{animation:none}}
 .repair-d4[data-sides="6"]{clip-path:none;border-radius:5px;padding-top:0}
 .repair-d4[data-sides="8"]{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);padding-top:0}
 .repair-d4[data-sides="10"]{clip-path:polygon(50% 0,100% 35%,82% 85%,50% 100%,18% 85%,0 35%);padding-top:0}

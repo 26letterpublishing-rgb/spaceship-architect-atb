@@ -1,7 +1,7 @@
 // Fresh Explore-only ships. Do not rewrite user campaigns or historical test fixtures.
 const maps=require('./ship-map-core'),power=require('./ship-power');
-module.exports=function build({id,title,side='pc',color,focus,types=[],large=false,crew=[],npcs=[]}){
- const columns=40,rows=36,width=large?18:16,height=large?18:16,origin=8*columns+10;
+module.exports=function build({id,title,side='pc',color,focus,types=[],large=false,everything=false,crew=[],npcs=[]}){
+ const columns=40,rows=36,width=everything?20:large?18:16,height=everything?20:large?18:16,origin=8*columns+10;
  const data={id,title,class:focus,affiliation:'Explore Features',zoneColumns:columns,zoneRows:rows,confirmedOnce:true,gridCells:maps.rectangleCells({zoneColumns:columns,zoneRows:rows},origin,width,height),sicInventory:[],placements:[],doorStates:{},mapColor:color,groupCredits:250000,minerals:{},warpFuel:{F:20,D:20,C:20,B:20,A:20,S:20},missileAmmo:{},missileStorage:{}};
  const record={id,title,controlType:side,crewCharacterIds:crew,crewNpcUnitIds:npcs,characterLocations:{},ship:data};
  function add(type,host){
@@ -15,22 +15,23 @@ module.exports=function build({id,title,side='pc',color,focus,types=[],large=fal
   else if(d.mixed){for(const n of data.gridCells){const cells=maps.rectangleCells(data,n,d.interiorWidth||d.width,(d.interiorRows||d.height-d.exteriorRows));if(cells.length!==(d.interiorWidth||d.width)*(d.interiorRows||d.height-d.exteriorRows)||cells.some(c=>!data.gridCells.includes(c)||layout.footprint.get(c)?.sicId)||data.gridCells.includes(n-columns))continue;const ext=n-d.exteriorRows*columns;if(maps.mixedPlacement(data,item,n,ext))candidates.push({cell:n,exteriorCell:ext});}}
   else if(d.exterior){for(let n=0;n<columns*rows;n++){const cells=maps.rectangleCells(data,n,d.width,d.height);if(cells.length!==d.width*d.height||cells.some(c=>data.gridCells.includes(c)||layout.footprint.get(c)?.sicId)||!cells.some(c=>[c-1,c+1,c-columns,c+columns].some(x=>data.gridCells.includes(x))))continue;if(maps.exteriorPlacement(data,type,n,item.id))candidates.push({cell:n});}}
   else if(d.hullSystem)candidates=[{cell:origin}];
-  else if(type==='en-au-engine-6')candidates=[{cell:data.sicInventory.some(i=>i.type===type)?origin+(height-6)*columns+width-6:origin}];
+  else if(everything&&d.engine){const n=data.sicInventory.filter(i=>maps.definition(i.type).engine).length;candidates=[{cell:origin+([2,2,14,14][n])*columns+([0,14,0,14][n])}];}
+  else if(type==='en-au-engine-6'&&!everything)candidates=[{cell:data.sicInventory.some(i=>i.type===type)?origin+(height-6)*columns+width-6:origin}];
   else for(const n of data.gridCells){const cells=maps.rectangleCells(data,n,d.width,d.height);if(cells.length===d.width*d.height&&cells.every(c=>data.gridCells.includes(c)&&!layout.footprint.get(c)?.sicId)&&(!d.edge||maps.componentAtEdge(data,n,item)))candidates.push({cell:n});}
   for(const p of candidates){const parts=maps.placementSquares(data,item,p);if(!d.addon&&!d.bridgeAddon&&!d.hullSystem&&parts.some(c=>layout.footprint.get(c)?.sicId))continue;data.sicInventory.push(item);data.placements.push({sicId:item.id,...p});if(!maps.exteriorError(data))return item;data.sicInventory.pop();data.placements.pop();}
   throw Error(title+': no legal position for '+type);
  }
  const baseline=['en-au-engine-6','en-au-engine-6','bridge-4','sensors-8','life-support','nutritional-supplement','cpu-security-4','lock-on-8','shield-5','repair-drone-3','medbay','meeting-room','gym','library','escape-pods','surv-camera','exhaust-thruster-5','exhaust-thruster-5','exhaust-thruster-5','ionic-pulse-thruster-3'];
  // Place large/edge rooms first, then fill around them; attachments follow hosts.
- const unique=[...baseline.filter(t=>!types.includes(t)),...types];const plain=unique.filter(t=>!maps.definition(t).addon&&!maps.definition(t).bridgeAddon),attached=unique.filter(t=>maps.definition(t).addon||maps.definition(t).bridgeAddon);
- plain.sort((a,b)=>Number(b==='en-au-engine-6')-Number(a==='en-au-engine-6')||Number(Boolean(maps.definition(b).mixed))-Number(Boolean(maps.definition(a).mixed))||(maps.definition(b).width*maps.definition(b).height)-(maps.definition(a).width*maps.definition(a).height));
+ const unique=[...(everything?[]:baseline).filter(t=>!types.includes(t)),...types];const plain=unique.filter(t=>!maps.definition(t).addon&&!maps.definition(t).bridgeAddon),attached=unique.filter(t=>maps.definition(t).addon||maps.definition(t).bridgeAddon);
+ plain.sort((a,b)=>Number(Boolean(everything&&maps.definition(b).engine))-Number(Boolean(everything&&maps.definition(a).engine))||Number(b==='en-au-engine-6')-Number(a==='en-au-engine-6')||Number(Boolean(maps.definition(b).mixed))-Number(Boolean(maps.definition(a).mixed))||Number(everything&&Boolean(maps.definition(b).lockOn||maps.definition(b).lockSharing))-Number(everything&&Boolean(maps.definition(a).lockOn||maps.definition(a).lockSharing))||(maps.definition(b).width*maps.definition(b).height)-(maps.definition(a).width*maps.definition(a).height));
  for(const t of [...plain,...attached])add(t);
  if(!types.some(t=>maps.definition(t).weapon))add('rapid-laser-3');
  if(types.includes('probe-launcher')){const launcher=data.sicInventory.find(i=>i.type==='probe-launcher');for(const tier of [1,3,4,5])add('probe-'+tier,launcher);data.sicInventory.push({id:id+'-spare-probe',type:'probe-2',storage:true,attachTo:launcher.id});const probe=data.sicInventory.find(i=>i.type==='probe-5');for(const t of ['shield-breacher','hacking-bug','warp-bubble-inhibitor'])add(t,probe);}
- if(types.includes('3d-printer'))for(const t of ['sensors-7','exhaust-thruster-1','life-support','medbay','static-shield','holographic-projector'])data.sicInventory.push({id:id+'-blueprint-'+t,type:'blueprint',blueprintType:t,storage:true});
+ if(types.includes('3d-printer'))for(const t of everything?Object.keys(maps.catalog).filter(t=>require('./ship-fabrication').recipe(t)):['sensors-7','exhaust-thruster-1','life-support','medbay','static-shield','holographic-projector'])data.sicInventory.push({id:id+'-blueprint-'+t,type:'blueprint',blueprintType:t,storage:true});
  for(const r of require('./ship-fabrication').recipes)for(const n of [r.name,...Object.keys(r.minerals)])data.minerals[n]=1000;
  for(const i of data.sicInventory){if(i.type==='mine-launcher'){data.missileAmmo[i.id]={'space-mine-1':1,'space-mine-2':1,'space-mine-3':1,'static-electron-web':1};for(const t of ['space-mine-1','space-mine-2','space-mine-3','static-electron-web','magnetic-seeker'])data.missileStorage[t]=12;}if(i.type.startsWith('missile-launcher-')){data.missileAmmo[i.id]={'missile-1':2,'missile-flares':1};data.missileStorage['missile-1']=20;data.missileStorage['missile-2']=20;data.missileStorage['missile-flares']=10;}}
- if(types.includes('planetary-cleanser')||types.includes('ion-disruptor'))data.sicInventory.find(i=>i.type==='en-au-engine-6').type='en-engine-6';
+ if(!everything&&(types.includes('planetary-cleanser')||types.includes('ion-disruptor')))data.sicInventory.find(i=>i.type==='en-au-engine-6').type='en-engine-6';
  record.currentHullHp=record.maximumHullHp=maps.hullHp(data);data.currentHullHp=record.currentHullHp;data.maximumHullHp=record.maximumHullHp;
  maps.ensureAirlocks(data);const error=maps.exteriorError(data)||power.constructionError(record);if(error)throw Error(title+': '+error);if(maps.propulsion(record).moveSpeed<=0)throw Error(title+': cannot move');return record;
 };

@@ -36,7 +36,7 @@ test('builder cancelling a Hull upgrade sale restores coverage and pending price
  const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('../starship.js'),'utf8');
  const draft=hull(12),item=add(draft,'hull-plating');Object.assign(item,{purchasePrice:4500,pendingDisposition:'sell',storage:true});
  const context={draft,SIC_CATALOG:maps.catalog,window:{SAShipMap:maps},rememberForUndo(){},saveDraft(){},showMessage(){},renderAll(){},placementForSic:id=>draft.placements.find(p=>p.sicId===id)};
- for(const [name,next]of [['sicDefinition','placementCells'],['keepSicDisposition','markSicDisposition']]){const start=source.indexOf('function '+name+'(');vm.runInNewContext(source.slice(start,source.indexOf('function '+next+'(',start)),context);}
+ for(const [name,next]of [['sicDefinition','placementCells'],['keepSicDisposition','markSicDisposition']]){const start=source.indexOf('function '+name+'(');vm.runInNewContext(source.slice(start,source.indexOf('function '+next+'(',start)).replace(/async\s*$/,''),context);}
  context.keepSicDisposition(item);assert.equal(item.storage,false);assert.equal(item.pendingDisposition,'');assert.equal(maps.exteriorError(draft),'');assert.equal(maps.hullHp(draft),13);
  assert.equal(context.sicDefinition(item).price,4500,'Confirmed item resale uses its last confirmed cost');item.pendingPurchase=true;assert.equal(context.sicDefinition(item).price,5400,'Pending item displays the entire current Hull price');
  draft.placements=[];item.pendingDisposition='sell';item.storage=true;context.keepSicDisposition(item);assert.equal(draft.placements.length,1);assert.equal(maps.exteriorError(draft),'');

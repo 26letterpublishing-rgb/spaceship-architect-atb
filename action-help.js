@@ -20,7 +20,7 @@
   function open(key, owner = document) {
     const copy = descriptions[key];
     if (!copy) return;
-    try { while (owner.defaultView.frameElement) owner = owner.defaultView.parent.document; } catch {}
+    try { while(owner.defaultView.frameElement&&!owner.defaultView.frameElement.hasAttribute('data-explore-perspective')) owner = owner.defaultView.parent.document; } catch {}
     if (active) {active.close();active.remove();}
     const dialog = owner.createElement('dialog'); active = dialog;
     dialog.className = 'ship-action-help';

@@ -1,6 +1,6 @@
 (function(){
   const seen=new Set(),hp=new Map(),debrisAfter=new Map(),impactShakes=new WeakMap();let initialized=false,audio=null;
-  const host=()=>{let d=document;try{while(d.defaultView.frameElement)d=d.defaultView.parent.document;}catch{}return d;};
+  const host=()=>{let d=document;try{while(d.defaultView.frameElement&&!d.defaultView.frameElement.hasAttribute('data-explore-perspective'))d=d.defaultView.parent.document;}catch{}return d;};
   function sound(kind){
     const b=window.SACombatBridge;if(!b?.soundEnabled()||host().hidden)return;
     if(kind==='missile'){try{audio ||= new AudioContext();audio.resume();const t=audio.currentTime,n=audio.sampleRate*1.2,buffer=audio.createBuffer(1,n,audio.sampleRate),samples=buffer.getChannelData(0);let low=0;for(let i=0;i<n;i++){low=(low+.08*(Math.random()*2-1))/1.08;samples[i]=low*4;}const source=audio.createBufferSource(),filter=audio.createBiquadFilter(),gain=audio.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.setValueAtTime(300,t);filter.frequency.exponentialRampToValueAtTime(3200,t+.12);filter.frequency.exponentialRampToValueAtTime(180,t+1.15);gain.gain.setValueAtTime(.001,t);gain.gain.exponentialRampToValueAtTime(.8,t+.07);gain.gain.exponentialRampToValueAtTime(.001,t+1.2);source.connect(filter);filter.connect(gain);gain.connect(audio.destination);source.start(t);source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};}catch{}return;}
@@ -36,6 +36,7 @@
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     for(const doc of surfaces()){
       for(const e of doc.querySelectorAll(`[data-space-ship="${CSS.escape(id)}"],[data-ship-combat-lane="${CSS.escape(id)}"] .tactical-ring-svg,[data-ship-combat-lane="${CSS.escape(id)}"] .meter,[data-ring-group="${CSS.escape(id)}"] .tactical-ring-svg`)){
+        if(e.closest('[data-space-editable="true"]'))continue;
         if(stage&&!stage.contains(e))continue;
         const map=e.hasAttribute('data-space-ship'),matrix=e.getScreenCTM?.(),scale=matrix?Math.hypot(matrix.a,matrix.b):1,shift=(map?1.5:3)/Math.max(.0001,scale);
         e.animate([{filter:'none'},{filter:'brightness(1.5) sepia(1) saturate(6) hue-rotate(320deg)'},{filter:'none'}],{duration:explosion?1100:650});
@@ -52,6 +53,7 @@
     present(1600);
     if(matchMedia('(prefers-reduced-motion: reduce)').matches){sound('blaster');return;}
     for(const doc of surfaces())for(const svg of doc.querySelectorAll('[data-space-canvas]')){
+      if(svg.dataset.spaceEditable==='true')continue;
       if(stage&&!stage.contains(svg))continue;
       const from=svg.querySelector(`[data-space-ship="${CSS.escape(shipId)}"]`),to=svg.querySelector(`[data-space-ship="${CSS.escape(event.targetId)}"]`);if(!from||!to||from===to)continue;
       const p=new DOMPoint(0,0).matrixTransform(from.getCTM()).matrixTransform(svg.getCTM().inverse()),q=new DOMPoint(0,0).matrixTransform(to.getCTM()).matrixTransform(svg.getCTM().inverse());

@@ -1,7 +1,9 @@
 (function(){
   function unavailable(state,unit,access,label,selector){
     const ship=access?.ship;if(!ship)return 'Console unavailable.';
+    if(!access?.definition)return 'Console unavailable.';
     if(access.definition.crewRoom&&access.definition.utility!=='medbay')return 'Available outside combat.';
+    if(access.offline)return 'SIC is powered off. Open its console to restore power locally.';
     if(access.blocked)return 'Console compromised. Move to the SIC for local power-off or reboot.';
     if(selector==='[data-utility]'&&access.definition.utility==='life-support'&&(access.item.impaired||access.item.status==='impaired'))return 'Repair Life Support before changing gravity.';
     const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected');

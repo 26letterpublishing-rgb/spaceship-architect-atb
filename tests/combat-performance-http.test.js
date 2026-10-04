@@ -16,7 +16,7 @@ test('cached assets, private incremental streams and GM-owned damage pause', {ti
   s=await act({action:'weaponCommand',id:nova.id,sicId:gun.id,targetId:target.id,requestId:'gm-owned-laser'});let pending=s.units.find(u=>u.id===nova.id).delayedAction;assert.equal(pending.rollController,'gm');assert.equal(s.rollPaused,true);
   const player=room.players.find(p=>p.id===nova.characterId);
   const campaignView=await fetch(base+`/api/campaign/state?code=${room.code}&token=${player.token}`).then(r=>r.json());
-  assert.equal(campaignView.combatActive,true);
+  assert.equal(campaignView.combatActive,true,JSON.stringify({engaged:(await state()).hasEngagedClock,ended:(await state()).encounterEndedAt,log:(await state()).log.slice(0,6)}));
   assert.equal(campaignView.starships.find(s=>s.id===ship.id).characterLocations[player.id].square,cp.cell);
   assert.equal(campaignView.starships.find(s=>s.id===ship.id).characterLocations[player.id].mesh,0);
   await post('/api/campaign/starship/move-character',{code:room.code,token:player.token,starshipId:ship.id,characterId:player.id,square:cp.cell,mesh:1},409);

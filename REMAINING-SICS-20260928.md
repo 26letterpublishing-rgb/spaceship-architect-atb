@@ -1,49 +1,25 @@
 # Remaining SICs
 
-Updated October 1 2026
+Updated October 3 2026
 
-No in-scope SIC is entirely unstarted. Four earlier SIC implementations still require final integration verification before they should be treated as complete. This list tracks that remaining work rather than presenting unverified code as finished.
+No in-scope SIC remains to be added. Simple: 0. Moderate: 0. Complex: 0. There are no outstanding rule questions for the implemented catalog.
 
-This pass implements Sensor Lure or Illusion (B-74) and Security Droid (B-73), with generated artwork, consoles, server rules and tests. The full local suite passes 857 tests. Browser card and console previews were checked; extended live multiplayer playtesting remains recommended.
+## Final integration checks completed
 
-Omitted by request: Reverse Targeting ID, Separation Module, Custom Build and SICs designed specifically for FTL battles, including FTL Burst and FTL Lock-On. Ordinary installed warp travel remains unchanged.
+Lock On Triangulator: asymmetric sensor range sharing, source upkeep, delayed sharing and removal of unavailable links are covered by automated tests.
 
-## Simple
+Phazon Torpedo Launcher: 1x2 EDG plus 1x3 EXT, 6 EN, mineral and AU costs, speed 8, range 24, damage and duplicate-resolution protection are covered. Ordinary missiles purchased alongside a torpedo launcher now retain their storage correctly.
 
-None remaining in the Simple category.
+Remote Receiver and Remote Controller: portable pairing, saved links, hacked access, receiver visibility, Bridge maintenance permissions, relative mirrored movement and unavailable-action skipping are covered. Local Bridge access remains available.
 
-## Moderate
+## Excluded by request
 
-### 1 Lock On Triangulator (B-121)
+Reverse Targeting ID, Separation Module, Custom Build, and SICs specifically for FTL battles, including FTL Burst and FTL Lock-On. Ordinary warp travel is supported by the new Galaxy Map.
 
-Implemented locally; final multiplayer and out-of-combat selection verification remains. Shares locks automatically with selected ships, including enemy ships. The source pays upkeep. The link survives while either ship can reach the other within twice its own sensor range.
+## Verification and next phase
 
-**Verification:** No unanswered user rule. Verify asymmetric sensor ranges, lost sources and saved recipient selections.
+The full local regression suite passed 874 tests. GM Galaxy Map creation, solar-system editing, saved-system combat preparation, player navigation and enlarged ship interiors were inspected in the browser. This is local work; it has not been committed, pushed or deployed.
 
-### 2 Phazon Torpedo Launcher (B-109)
+The next phase is multiplayer playtesting and optimization. Automated coverage does not replace a long session with several players, especially for simultaneous remote orders, boarding and large fleets.
 
-Implemented locally; final purchase, projectile and damage workflow verification remains. Footprint 1x2 EDG plus 1x3 EXT; EN 6; move speed 8; range 24; lock required; damage 3D10 multiplied by 2; shields apply normally.
-
-**Verification:** No unanswered user rule. Audit ordinary missile purchases alongside mineral ammunition, interception and layered shields.
-
-## Complex
-
-### 3 Remote Receiver (B-113)
-
-Implemented locally alongside Remote Controller; final permission and multiplayer verification remains. Local crew can cancel remote actions. Hacked access requires a carried remote.
-
-**Verification:** No unanswered user rule. Verify unseen receiver selection, local override, range loss and hacked control.
-
-### 4 Remote Controller (B-112)
-
-Implemented locally; final interaction verification remains. Bridge-equivalent access, detachable Size C inventory controller, range 10, multiple linked receivers. Mirrored movement uses the same relative displacement; incompatible actions are skipped.
-
-**Verification:** No unanswered user rule. Audit mirrored action timing and costs, portable access, maintenance routing and saved links.
-
-## Maintenance
-
-Omitted by request: Reverse Targeting ID, Separation Module, Custom Build and SICs designed specifically for FTL battles, including FTL Burst and FTL Lock-On. Ordinary installed warp travel remains unchanged.
-
-After each SIC pass, verify working behavior, remove completed entries, update the count and date, reassess dependencies and regenerate the output documents. Read the original card before implementation.
-
-This pass implements Sensor Lure or Illusion (B-74) and Security Droid (B-73), with generated artwork, consoles, server rules and tests. The full local suite passes 857 tests. Browser card and console previews were checked; extended live multiplayer playtesting remains recommended.
+Maintain this list after each catalog change. Reopen an item if playtesting finds incomplete behavior; do not add the deliberately excluded cards without a new decision.

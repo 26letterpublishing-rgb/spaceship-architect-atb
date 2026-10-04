@@ -98,7 +98,7 @@
   function advance(room, seconds, sliced=false) {
     if (!(seconds > 0) || !Number.isFinite(seconds)) return;
     const gravity=typeof module==='object'&&module.exports?require('./ship-black-holes'):null;
-    if(gravity&&!sliced&&seconds>0&&(room.starships?.some(s=>s.ship.missileState?.flights?.some(m=>['mine','web'].includes(m.phase)))||room.spaceObjects?.some(o=>o.kind==='black-hole'||o.gunOrb)||room.starships?.some(s=>s.ship.gravityFieldState?.active))){let left=seconds;while(left>1e-8){const slice=Math.min(.25,left);advance(room,slice,true);left-=slice;}return;}
+    if(gravity&&!sliced&&seconds>0&&(room.starships?.some(s=>s.ship.missileState?.flights?.some(m=>['mine','web'].includes(m.phase)))||room.spaceObjects?.some(o=>o.kind==='black-hole'||o.kind==='sun'||o.gunOrb)||room.starships?.some(s=>s.ship.gravityFieldState?.active))){let left=seconds;while(left>1e-8){const slice=Math.min(.25,left);advance(room,slice,true);left-=slice;}return;}
     const before=distances.positions(room.starships||[],room.shipPositions);
     if (!(seconds > 0) || !Number.isFinite(seconds)) return;
     room.shipPositions = distances.positions(room.starships || [], room.shipPositions);

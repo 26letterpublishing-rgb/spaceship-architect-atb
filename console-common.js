@@ -12,10 +12,18 @@
     }
   }
   function standby(state,person){if(state.practice)return 'OUT OF COMBAT';const active=state.units.find(u=>u.id===state.activeId);return state.hiddenActiveTurn?'Awaiting GM action':active&&active.id!==person.id?`STANDBY / ${active.characterName}'s turn`:state.running&&!state.hardPaused&&!state.holdPaused?'STANDBY / ATB charging':'STANDBY / ATB paused';}
+  function bindConsoleExit(view,unit,bridge){
+    const remember=()=>window.SAShipNavigationUI.remember(bridge.state()?.units?.find(person=>person.id===unit.id)||unit);
+    // Only deliberate exits change the preferred view. Programmatic closes are
+    // also used for console switching and temporary dice/action dialogs.
+    view.addEventListener('click',event=>{if(event.target.closest?.('[data-close]'))remember();},true);
+    view.addEventListener('cancel',remember);
+  }
   function mount(view,unit){
     if(!view||view.dataset.commonMounted)return;view.dataset.commonMounted='1';
     view.dataset.consoleOwner=ownerId;
     const doc=view.ownerDocument,b=window.SACombatBridge;
+    bindConsoleExit(view,unit,b);
     const choiceKey='sa-console-choices:'+location.search+':'+unit.id+':'+(view.dataset.sicId||view.className);let choices={};try{choices=JSON.parse(sessionStorage.getItem(choiceKey)||'{}');}catch{}
     const choiceId=el=>el.id||el.name||[...el.attributes].filter(a=>a.name.startsWith('data-')).map(a=>a.name+'='+a.value).join('|')||String([...view.querySelectorAll('select')].indexOf(el));
     const restored=new WeakSet();const restoreChoices=()=>{for(const select of view.querySelectorAll('select:not(.station-console-select)')){if(restored.has(select)||!select.options.length)continue;const saved=choices[choiceId(select)];if(saved!==undefined&&[...select.options].some(o=>o.value===saved)){select.value=saved;restored.add(select);select.dispatchEvent(new Event('change',{bubbles:true}));}else if(saved===undefined)restored.add(select);}};
@@ -23,7 +31,7 @@
     const maintenance=doc.createElement('button');maintenance.type='button';maintenance.dataset.consoleMaintenance='';maintenance.textContent='SIC Maintenance';
     maintenance.onclick=()=>{const person=b.state().units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(b.state(),person,view.dataset.sicId);if(access?.controlled&&!access?.offline){const module=window.SAStationAccess.consoles(b.state(),person).find(a=>a.kind==='hacking'&&!a.controlled);if(module)window.SAHackingConsoleUI?.open(person,module.id);return;}window.SAMaintenanceUI?.open(person,view.dataset.sicId);};
     const service=doc.createElement('section');service.className='console-service-panel';service.setAttribute('aria-label','SIC service controls');
-    for(const [kind,label] of [['on','⏻ Power On'],['off','⏻ Power Off'],['restart','↻ Restart SIC'],['repair','⚒ Repair SIC']]){const button=doc.createElement('button');button.type='button';button.dataset.consoleMaintenance=kind;button.textContent=label;button.onclick=()=>{const person=b.state().units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(b.state(),person,view.dataset.sicId);if(access?.controlled){maintenance.onclick();return;}window.SAMaintenanceUI?.open(person,view.dataset.sicId,kind);};service.append(button);}view.append(service);
+    for(const [kind,label] of [['on','⏻ Power On'],['off','⏻ Power Off'],['restart','↻ Restart SIC'],['repair','⚒ Repair SIC']]){const button=doc.createElement('button');button.type='button';button.dataset.consoleMaintenance=kind;button.textContent=label;button.onclick=()=>{const person=b.state().units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(b.state(),person,view.dataset.sicId);if(access?.remotePilot){if(['off','restart'].includes(kind))void b.action({action:'shipMaintenance',id:unit.id,sicId:view.dataset.sicId,kind,requestId:crypto.randomUUID()},'resolve',{throwOnError:true}).catch(e=>alert(e.message));return;}if(access?.controlled){maintenance.onclick();return;}window.SAMaintenanceUI?.open(person,view.dataset.sicId,kind);};service.append(button);}view.append(service);
     const compromised=doc.createElement('section');compromised.className='console-compromised';compromised.hidden=true;
     compromised.innerHTML='<strong>CONSOLE COMPROMISED</strong><p>Electronic controls locked</p><button type="button" data-local-recovery>Local SIC Maintenance</button>';
     view.append(compromised);
@@ -48,13 +56,13 @@
     const remoteBanner=doc.createElement('strong');remoteBanner.className='console-hack-banner';remoteBanner.textContent='Operating Via HACK';remoteBanner.hidden=true;view.querySelector('header>div')?.prepend(remoteBanner);
     let lastRings='',lastFleet='';
     function tick(){
-      const state=b.state();if(!state){view.close();return;}const person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,view.dataset.sicId),homeShip=state.starships.find(s=>s.id===person?.location?.starshipId),ship=access?.controlled?access.ship:homeShip;if(!ship)return;
+      const state=b.state();if(!state){view.close();return;}const person=state.units.find(u=>u.id===unit.id);if(!person){view.close();return;}const access=window.SAStationAccess.access(state,person,view.dataset.sicId),homeShip=state.starships.find(s=>s.id===person.location?.starshipId),ship=access?.controlled?access.ship:homeShip;if(!ship)return;
       view.classList.toggle('remote-link-active',Boolean(access?.remotePilot));
       const au=ship.auState||{},available=au.available??au.current??0;
       updateSound(view);restoreChoices();
       const local=person?.location&&homeShip&&window.SAShipMap.buildLayout(homeShip.ship).footprint.get(person.location.square),target=access?.item||ship.ship.sicInventory.find(i=>i.id===view.dataset.sicId),localSeat=person?.location?.stationed&&local?.sicId===view.dataset.sicId;
       for(const button of service.querySelectorAll('[data-console-maintenance]')){const kind=button.dataset.consoleMaintenance,requiresLocal=['on','repair'].includes(kind),busy=!!(person?.delayedAction||person?.timedAction||person?.delayTimer||person?.consoleHold),ready=state.practice||state.activeId===person?.id;
-        const reason=access?.controlled&&kind!=='off'?'Local access required.':requiresLocal&&!localSeat?'Occupy this SIC’s station.':busy?'Finish the current action.':!ready?'Available during your turn.':kind==='repair'&&state.practice?'Repair requires combat time.':!target?'System unavailable.':kind==='repair'&&!(target.impairmentPoints>0||target.impaired)?'No impairment to repair.':kind==='on'&&window.SAStationAccess.online(target)?'Already online.':kind==='off'&&!window.SAStationAccess.online(target)&&!target.bootRemaining?'Already off.':'';
+        const reason=access?.controlled&&!access.remotePilot&&kind!=='off'?'Local access required.':requiresLocal&&!localSeat?'Occupy this SIC’s station.':busy?'Finish the current action.':!ready?'Available during your turn.':kind==='repair'&&state.practice?'Repair requires combat time.':!target?'System unavailable.':kind==='repair'&&!(target.impairmentPoints>0||target.impaired)?'No impairment to repair.':kind==='on'&&window.SAStationAccess.online(target)?'Already online.':kind==='off'&&!window.SAStationAccess.online(target)&&!target.bootRemaining?'Already off.':'';
         button.disabled=!!reason;button.title=reason||button.textContent;
       }
 
@@ -82,7 +90,7 @@
       const busy=Boolean(view.dataset.switching||view.dataset.utilityPending||person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
       for(const control of view.querySelectorAll('.console-swipe,.station-console-select')){control.disabled=busy||(control.classList.contains('console-swipe')&&window.SAStationAccess.consoles(state,person).length<2);control.title=busy?'Finish the current action before switching consoles':control.classList.contains('previous')?'Previous console':control.classList.contains('next')?'Next console':'Choose a console';}
       if(state.practice){for(const control of view.querySelectorAll('button,input,select'))if(!control.matches(previewAllowed)){control.disabled=true;control.title='Unavailable outside combat';}view.querySelector('[data-close]').textContent='Close Console';}
-      for(const button of view.querySelectorAll('[data-hold]'))button.classList.toggle('resume-ready',Boolean(person.consoleHold));
+      for(const button of view.querySelectorAll('[data-hold]')){const held=Boolean(person.consoleHold);button.classList.toggle('resume-ready',held);button.setAttribute('aria-pressed',String(held));if(button.textContent!==(held?'Resume':'Hold'))button.textContent=held?'Resume':'Hold';}
     }
     tick();
     if(b.state()?.catalogPreview)requestAnimationFrame(()=>requestAnimationFrame(()=>{

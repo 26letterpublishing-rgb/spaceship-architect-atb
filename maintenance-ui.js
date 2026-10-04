@@ -5,7 +5,7 @@
     const bridge=window.SACombatBridge,state=bridge.state(),ship=state.starships.find(s=>s.id===unit?.location?.starshipId);
     let item=ship&&window.SAShipMap.buildLayout(ship.ship).footprint.get(unit.location.square)?.item;
     if(!item)return;const localId=item.id,isBridge=!!window.SAShipMap.definition(item.type).bridge;if(isBridge&&sicId)item=ship.ship.sicInventory.find(i=>i.id===sicId)||item;
-    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     const view=doc.createElement('dialog');active=view;view.setAttribute('aria-label','SIC Maintenance');
     view.style.cssText='width:min(460px,calc(100vw - 40px));padding:22px;border:1px solid #59d2d8;border-radius:6px;background:#06151d;color:#e5f5f7;font:15px/1.5 Arial,sans-serif';
     const heading=doc.createElement('h2');heading.textContent=window.SAShipMap.definition(item.type).name||item.type;

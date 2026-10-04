@@ -29,6 +29,7 @@ test('a final clock update reaches GM and PC streams when an NPC becomes ready w
     const data = await response.json(); assert.equal(response.status, 200, JSON.stringify(data)); return data;
   };
   const room = await post('/api/campaign/showcase/start', {});
+  await require('./helpers/combat-demo.cjs')(base,room);
   const act = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());
   let current = await act({ action: 'setHardPaused', paused: true });

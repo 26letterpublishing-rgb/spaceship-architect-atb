@@ -4066,3 +4066,9 @@ body.embedded-modal-host .backup-conflict-dialog {
 }
 .combat-location-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px}.combat-location-group{min-width:0;padding:8px;border:1px solid #334b60;background:rgba(5,13,22,.72)}.combat-location-group>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;padding:5px 7px;border-bottom:2px solid #7653c5}.combat-location-group>header strong{text-transform:uppercase}.combat-location-group>header small{color:#95a8b7;font-size:.5rem}.combat-location-units{display:grid;gap:7px}.combat-location-units .unit-card{min-width:0}.empty-location-group{margin:8px;color:#667b8d;font-size:.68rem;text-align:center}.stationed-marker{display:block;margin:-5px 8px 3px;color:#69e9ff;font-size:.48rem;font-weight:900;text-align:right}.combat-location-groups.two-columns .unit-card{font-size:.92em}
 @media(max-width:700px){.combat-location-groups{grid-template-columns:1fr}.combat-location-group{padding:6px}.combat-location-groups.two-columns .unit-card{font-size:1em}}
+
+/* Checkboxes and radios are controls, not full-width text fields. */
+input[type="checkbox"],input[type="radio"]{appearance:auto;box-sizing:border-box;width:18px;height:18px;min-width:18px;min-height:18px;max-width:18px;flex:0 0 18px;margin:0;padding:0;accent-color:#35cfe8;vertical-align:middle;cursor:pointer}
+label:has(>input[type="checkbox"]),label:has(>input[type="radio"]){display:flex;align-items:center;gap:8px;text-transform:none;line-height:1.45}
+button:focus-visible,a:focus-visible{outline:2px solid #b9f6ff;outline-offset:3px}
+select option,select optgroup{color:#edf7ff;background:#0b1925}

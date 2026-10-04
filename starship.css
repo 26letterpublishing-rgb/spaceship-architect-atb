@@ -92,6 +92,9 @@ button,input{font:inherit}input{width:100%;min-width:0;border:0;border-bottom:1p
 .starship-library{display:grid;grid-template-columns:minmax(220px,420px) 1fr auto;align-items:end;gap:10px;margin-top:8px;padding:9px 11px;border:1px solid #314b63;background:#07131f}.starship-library label{display:grid;gap:4px;color:#8ea4b8;font-size:.62rem;text-transform:uppercase}.starship-library select{min-height:38px}.starship-library-actions{display:flex;gap:6px;flex-wrap:wrap}.starship-library-actions button,.import-starship-button{min-height:36px;padding:8px 13px;border:1px solid #4d6b82;border-radius:4px;color:#eaf6ff;background:#102233;font:800 .62rem Arial,sans-serif;text-transform:uppercase;cursor:pointer}.import-starship-button{display:inline-flex;align-items:center}.import-starship-button input{display:none}.starship-library>strong{align-self:center;color:#63e7a3;font-size:.62rem;text-transform:uppercase}.starship-library button:disabled{opacity:.38}.ship-identity-strip{margin-top:8px}.starship-campaign-panel{margin-top:10px;padding:18px;border:1px solid #405d76;background:linear-gradient(180deg,#0c1d2d,#060e18)}.starship-campaign-panel>header span{color:#5ee8ff;font-size:.62rem;text-transform:uppercase}.starship-campaign-panel h2{margin:2px 0}.starship-campaign-panel p{color:#96aabd}.starship-link-form{display:grid;grid-template-columns:minmax(160px,300px) minmax(160px,260px) auto;align-items:end;gap:10px;max-width:850px}.starship-link-form label{display:grid;gap:5px;color:#9eb2c4;font-size:.66rem;text-transform:uppercase}.starship-link-form input{text-transform:uppercase}.starship-campaign-status{display:grid;grid-template-columns:1fr 1fr auto;align-items:center;gap:10px;padding:12px;border:1px solid #3e687c;background:#091825}.starship-campaign-status div{display:grid;gap:2px}.starship-campaign-status span,.starship-campaign-status small{color:#89a2b6;font-size:.6rem;text-transform:uppercase}.starship-campaign-status strong{color:#64e8ff}.starship-crew-panel{margin-top:12px;padding:12px;border:1px solid #344f65;background:#07131e}.starship-crew-panel header{display:flex;justify-content:space-between;gap:12px}.starship-crew-panel h3{margin:0}.starship-crew-panel small{max-width:620px;color:#8fa5b8}.starship-crew-panel>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin:10px 0}.starship-crew-option{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #314a5e;background:#0a1a27}.starship-campaign-message{min-height:20px;color:#ffcf68}.starship-campaign-message[data-tone="error"]{color:#ff8293}
 /* Transparent high-resolution cells reveal uninterrupted stars. Five-square guides remain inside hull at normal line weight. */
 .ship-grid.high-resolution .ship-grid-cell:not(.is-selected){border:0!important;box-shadow:none!important}.ship-grid .ship-grid-cell.is-selected:nth-child(20n+5),.ship-grid .ship-grid-cell.is-selected:nth-child(20n+10),.ship-grid .ship-grid-cell.is-selected:nth-child(20n+15){border-right:0}.ship-grid .ship-grid-cell.is-selected:nth-child(n+81):nth-child(-n+100),.ship-grid .ship-grid-cell.is-selected:nth-child(n+181):nth-child(-n+200),.ship-grid .ship-grid-cell.is-selected:nth-child(n+281):nth-child(-n+300){border-bottom:0}
+/* Empty construction squares must remain visible even with high-resolution art. */
+.ship-grid.build-mode .ship-grid-cell:not(.is-selected):not(.has-sic){box-shadow:inset 0 0 0 1px rgba(104,175,202,.4)!important;background:rgba(9,33,47,.3)!important}
+.ship-grid.build-mode .ship-grid-cell:not(.is-selected):not(.has-sic):hover{background:rgba(66,202,231,.25)!important;box-shadow:inset 0 0 0 2px #73e7fa!important}
 @media(max-width:820px){.starship-library{grid-template-columns:1fr}.starship-library-actions{display:grid;grid-template-columns:repeat(3,1fr)}.starship-library-actions button,.import-starship-button{justify-content:center}.starship-library>strong{text-align:right}.starship-link-form{grid-template-columns:1fr}.starship-campaign-status{grid-template-columns:1fr 1fr}.starship-campaign-status button{grid-column:1/-1}.starship-crew-panel header{display:block}}
 
 /* Multi-SIC shipyard pass: shared branding, footprint art, and compact crew linking. */
@@ -372,3 +375,32 @@ body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-ac
 .sic-grid-label{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;word-break:normal!important;overflow-wrap:normal!important;font-size:clamp(7px,calc(var(--cell-size,54px)*.18),12px)!important}
 
 .sheet-weapon-summary{box-sizing:border-box;height:100%;overflow:auto;background:#101010;color:white;border:1px solid #bbb;padding:4px;font:6.5px/1.35 Arial,sans-serif;pointer-events:auto}.sheet-weapon-summary>strong{display:block;font-size:8px;border-bottom:1px solid #888}.sheet-weapon-summary p{margin:3px 0;padding-bottom:3px;border-bottom:1px solid #555}
+
+/* Interior names wrap at word boundaries instead of clipping inside narrow rooms. */
+.sic-grid-label{white-space:normal!important;overflow:visible!important;text-overflow:clip;word-break:normal!important;overflow-wrap:normal!important;padding:3px;box-sizing:border-box;line-height:1.15}
+
+.sic-grid-label{font-size:min(12px,calc((var(--cell-size,54px) * var(--sic-width,1) - 6px) / var(--sic-longest,10) * 1.5))!important}
+
+/* Keep the construction work surface close to its tools on desktop. */
+.starship-tabs .ship-print-button{margin:4px 6px 4px auto;flex:0 0 auto;font-size:12px}
+.ship-capabilities{margin:8px 0;padding:9px 12px;border:1px solid #334c5e;background:#0a1924;font-size:14px}
+.ship-capabilities summary{cursor:pointer;color:#dbecef;font-weight:700}
+.ship-capabilities>div>h3{display:none}.ship-capabilities p{line-height:1.5}
+.construction-command-bar{align-items:center;gap:12px;padding:7px 10px;flex-wrap:wrap}
+.construction-command-bar button{min-height:40px;font-size:15px;min-width:240px}
+.construction-command-bar output[hidden]{display:none!important}
+@media(min-width:821px){
+ .ship-identity-strip{grid-template-columns:100px minmax(190px,1.5fr) minmax(140px,1fr) minmax(120px,.8fr);align-items:center}
+ .ship-identity-strip label{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0}
+ .ship-identity-strip .ship-glow-field{flex-direction:row;align-items:center}
+ .ship-identity-strip label>span{font-size:11px}.ship-identity-strip input{min-width:0;width:100%;box-sizing:border-box}
+ .ship-identity-strip .ship-glow-field input{width:42px;flex:0 0 42px}
+ .starship-library{grid-template-columns:minmax(250px,1fr) auto auto}
+ .starship-library select{flex:1;min-width:0;background:#0d2432;color:#ecf9ff;border:1px solid #577b8e}
+ .construction-summary{gap:8px 18px;padding:9px 12px}
+ .construction-summary [data-airlock-tools]{flex-wrap:wrap}
+}
+
+.ship-stores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}.ship-stores>h3,.ship-stores>[data-stock-values],.ship-stores>output{grid-column:1/-1}.ship-stores [data-stock-values]{display:grid;grid-template-columns:minmax(210px,1fr) minmax(0,3fr);gap:14px}.ship-stores .stock-fuel,.ship-stores .stock-minerals,.ship-stores .stock-missiles{padding:14px;border:1px solid var(--stock-color);border-radius:6px;background:color-mix(in srgb,var(--stock-color) 7%,#051019);min-width:0}.stock-fuel{--stock-color:#f5a34a}.stock-minerals{--stock-color:#ed81ce}.stock-missiles{--stock-color:#cfd5dc}.ship-stores [data-stock-values] h3,.ship-stores .stock-missiles h3{color:var(--stock-color);margin:0 0 12px}.ship-stores [data-stock-values] dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:5px 14px;margin:0}.ship-stores [data-stock-values] dl>div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff16;padding:5px 0}.ship-stores dt,.ship-stores dd{margin:0}.ship-stores>[data-stock-adjust]{grid-column:1/-1}.ship-stores .stock-missiles{grid-row:3;grid-column:1/-1}@media(max-width:850px){.ship-stores,.ship-stores [data-stock-values]{grid-template-columns:1fr}}
+
+.ship-stores [hidden],.ship-stores>output:empty{display:none!important}.ship-stores .stock-missiles dl,.stock-magazine-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:5px 18px;margin:0 0 16px}.ship-stores .stock-missiles dl>div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff16;padding:5px 0}.stock-magazine-list p{margin:0;padding:8px 0}

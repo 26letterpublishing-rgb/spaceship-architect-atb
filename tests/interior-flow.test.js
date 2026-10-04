@@ -19,6 +19,7 @@ test('interior fit shows the whole ship and bounds a tiny ship’s tile size',()
  const tiny=fit([0],20,20,{width:900,height:900},true);
  assert.ok(tiny.zoom*900/20<=96);
  assert.equal(fit([],20,20,{width:600,height:600},false).zoom,1);
+ const wide=fit(bounds(40,10,10,30,8),40,40,{width:1400,height:600,squareTiles:true},true);assert.ok(wide.zoom*30*30<1400);assert.ok(wide.zoom*30*8<600);assert.ok(wide.zoom>tall.zoom);
 });
 test('interior detail fitting uses less construction margin without hiding hull edges',()=>{
  const cells=bounds(20,4,4,7,9),view={width:700,height:700};

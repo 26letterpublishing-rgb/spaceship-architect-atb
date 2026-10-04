@@ -25,7 +25,7 @@
 .storage-qty { color:#ffe58a; text-align:center; font-weight:900; }
 .storage-actions { display:grid; grid-template-columns:1fr 1fr; justify-content:center; gap:5px; }
 .storage-actions .give,.storage-give-actions .give { border-color:#ff72c8; color:#ffd5f0; background:linear-gradient(180deg,#8b2c68,#3d1430); }
-.gear-panel.locked .panel-heading::after { content:"Finalize this character to manage items"; margin-left:auto; color:#f8cb66; font-size:.54rem; }
+.gear-panel.locked .panel-heading::after { content:attr(data-lock-reason); margin-left:auto; color:#f8cb66; font-size:.54rem; }
 @media (max-width:760px) {
   .gear-table-head { display:none; }
   .gear-inventory,.stored-gear-inventory { gap:7px; padding:7px; }

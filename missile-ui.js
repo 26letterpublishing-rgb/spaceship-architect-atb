@@ -1,6 +1,6 @@
 (function(){
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;}
+  function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;}
   function consoleFields(view,initial,reload){
     const doc=view.ownerDocument,fields=doc.createElement('div');fields.dataset.missileFields='';
     fields.innerHTML='<label>Loaded ammunition<select data-ammunition aria-label="Loaded ammunition"></select></label><div data-flare-fields hidden></div><label data-seeker-label hidden><input type="checkbox" data-seeker> Fit Magnetic Seeker (one from storage)</label><div class="missile-magazine-row"><output data-magazine></output></div><button type="button" data-reload>Reload from Storage</button><small data-reload-reason></small>';

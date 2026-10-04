@@ -141,7 +141,7 @@ function advance(room,seconds=0){
   for(const ship of room.starships||[]){
     for(const [id,d]of Object.entries(ship.ship.fieldState?.systems||{})){
       const previous=d.cooldown||0;
-      d.cooldown=Math.max(0,(d.cooldown||0)-seconds);
+      if(previous>0)d.cooldown=Math.max(0,previous-seconds);
       if(Math.ceil(previous)!==Math.ceil(d.cooldown))changed=true;
       if(d.tether){const item=maps.installedItems(ship).find(i=>i.id===id),target=room.starships.find(s=>s.id===d.tether.targetId);
         if(!item||!stations.online(item)||impaired(item)||!present(ship)||!present(target)||target.currentShieldHp>0||hull(target)>hull(ship)/2||power.output(ship,room.units).en<power.demand(ship)){d.tether=null;changed=true;report(ship,'Tractor hold released: target or beam unavailable.');}
@@ -154,7 +154,7 @@ function advance(room,seconds=0){
       if(!host||host.destroyedAt||host.currentHullHp<=0){state(ship).dockedIn=null;ship.escapedAt=null;for(const u of room.units||[])resumeUnit(u,reason);report(ship,'Carrier lost. Emergency separation; GM adjudicates wreckage consequences.');}
       else{place(room,ship,point(room,host.id));ship.escapedAt=reason;for(const u of room.units||[])if(u.location?.starshipId===ship.id&&!u.location.escapePodId)stopUnit(u,reason);}
     }
-    if(ship.ship.fieldState){const p=point(room,ship.id);ship.ship.fieldState.position={q:p.q,r:p.r};}
+    if(ship.ship.fieldState&&(ship.ship.fieldState.position||dock||ship.ship.fieldState.pods?.length||Object.values(ship.ship.fieldState.systems||{}).some(d=>d.tether))){const p=point(room,ship.id);ship.ship.fieldState.position={q:p.q,r:p.r};}
   }
   for(const vessel of room.starships||[])for(const item of maps.installedItems(vessel).filter(i=>i.type==='docking-bay')){const details=system(vessel,item.id),ships=bayOccupants(room,vessel,item.id).map(s=>({id:s.id,rank:maps.scaleRank(s),mapColor:maps.shipColor(s)}));if(JSON.stringify(details.dockedShips||[])!==JSON.stringify(ships)){details.dockedShips=ships;changed=true;}}
   return changed;

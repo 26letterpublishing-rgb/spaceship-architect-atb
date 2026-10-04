@@ -28,8 +28,9 @@ test('Hover is one four-mount SIC with one EN demand and four attached rendering
 });
 test('Aerofoil checks hull mirrors, not internal equipment or construction-zone alignment',()=>{
   const ship={gridCells:hull(),sicInventory:[{id:'wings',type:'decent-aerofoil'},{id:'nut',type:'nutritional-supplement'}],placements:[{sicId:'wings',cell:105},{sicId:'nut',cell:108}]};
+  assert.match(maps.exteriorError(ship),/Land Wheels/);ship.sicInventory.push({id:'wheels',type:'land-wheels'});ship.placements.push({sicId:'wheels',cell:85,mountCells:[85,109,188,164]});
   assert.deepEqual(maps.hullSymmetry(ship),{horizontal:true,vertical:true,symmetric:true});
-  assert.equal(maps.exteriorError(ship),'');assert.equal(power.demand({ship}),5);assert.equal(maps.buildLayout(ship).footprint.size,1);
+  assert.equal(maps.exteriorError(ship),'');assert.equal(power.demand({ship}),6);assert.equal(maps.buildLayout(ship).footprint.size,5);
   ship.gridCells=ship.gridCells.filter(n=>n!==105);assert.equal(maps.hullSymmetry(ship).symmetric,false);assert.match(maps.exteriorError(ship),/symmetrical/);
   ship.gridCells=hull().filter(n=>![105,108].includes(n));assert.equal(maps.hullSymmetry(ship).vertical,true);
   ship.gridCells=hull().filter(n=>![105,165].includes(n));assert.equal(maps.hullSymmetry(ship).horizontal,true);
@@ -49,6 +50,7 @@ test('atmospheric MPH does not change space movement, and impaired entry is only
   const speed=maps.propulsion(ship).moveSpeed;assert.equal(speed,20);
   ship.sicInventory.push({id:'h',type:'decent-hover',impaired:true},{id:'a',type:'decent-aerofoil'});ship.placements.push({sicId:'h',cell:104,mountCells:[104,124,144,164]},{sicId:'a',cell:105});
   assert.equal(maps.propulsion(ship).moveSpeed,speed);
+  assert.equal(maps.capabilities(ship).find(c=>c.key==='aerofoil').available,false);ship.sicInventory.push({id:'wheels',type:'land-wheels'});ship.placements.push({sicId:'wheels',cell:105});
   const caps=maps.capabilities(ship);assert.match(caps.find(c=>c.key==='hover').detail,/200 MPH.*8D10/);assert.match(caps.find(c=>c.key==='aerofoil').detail,/800 MPH/);
   assert.equal(caps.find(c=>c.key==='aerofoil').available,true);
   ship.placements.push({...ship.placements.at(-2)});assert.match(maps.exteriorError(ship),/only once/);

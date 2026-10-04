@@ -298,7 +298,7 @@
   }
 
   for(const entry of Object.values(catalog)){
-    if(entry.mixed&&entry.weapon&&!entry.manualOnly&&!entry.missileLauncher){entry.image=image(entry.weaponFamily==='ion-pulse-cannon'?'lock-on-1-floor-plan.png':'weapon-room-floor-plan.png');entry.sprite=`${entry.weaponFamily}-tiers.svg#tier-${entry.tier}`;entry.cardArt=entry.sprite;}
+    if(['beam-laser','ripple-cannon','ion-pulse-cannon'].includes(entry.weaponFamily)){entry.image=image(entry.weaponFamily==='ion-pulse-cannon'?'lock-on-1-floor-plan.png':'weapon-room-floor-plan.png');entry.sprite=`${entry.weaponFamily}-tiers.svg#tier-${entry.tier}`;entry.cardArt=entry.sprite;}
     if(entry.darkveil){entry.cardArt=`darkveil-tiers.svg#tier-${entry.tier}`;entry.image=image('darkveil-tiers.svg')+`#tier-${entry.tier}`;}
   }
 
@@ -476,7 +476,7 @@
       const item=items.find(i=>definition(i.type).landing===kind);if(!item)continue;
       const def=definition(item.type),placement=(ship.placements||[]).find(p=>p.sicId===item.id);
       const valid=(ship.gridCells||[]).length<=def.hullLimit&&(kind==='hover'?multiMountPlacement(ship,item,placement?.mountCells):hullSymmetry(ship).symmetric);
-      add(kind,kind==='hover'?'Vertical planetary landing':'Runway landing',`${speed*(kind==='hover'?10:40)} MPH maximum in atmosphere. ${kind==='hover'?'Four external hover generators.':'Long, flat runway; minimum Move 5 (200 MPH) to land.'}${item.impaired||item.status==='impaired'?' Impaired: atmospheric entry causes 8D10 Heat hull damage (manual roll).':''}`,operational(item)&&valid&&(kind==='hover'||speed>=5));
+      add(kind,kind==='hover'?'Vertical planetary landing':'Runway landing',`${speed*(kind==='hover'?10:40)} MPH maximum in atmosphere. ${kind==='hover'?'Four external hover generators.':'Requires Land Wheels and a long, flat runway; minimum Move 5 (200 MPH) to land.'}${item.impaired||item.status==='impaired'?' Impaired: atmospheric entry causes 8D10 Heat hull damage (manual roll).':''}`,operational(item)&&valid&&(kind==='hover'||speed>=5&&items.some(i=>i.type==='land-wheels'&&operational(i))));
     }
     if(items.some(i=>i.type==='land-wheels'))add('land-wheels','Surface driving','At 1–6 EN: maximum Move = 10 × EN; MPH = 20 + 10 × EN. Starts at Move 1; +1 per move action. Each impairment removes 25% of undamaged maximum. Narrative surface movement; base installation costs 1 EN.',items.some(i=>i.type==='land-wheels'&&operational(i)));
     if(items.some(i=>i.type==='gravity-absolution-field'))add('gravity-absolution-field','Black-hole immunity','When active: no gravitational pull, movement penalty or center damage. Requires shields, suspends protection, costs 3 AU / 12 seconds.',items.some(i=>i.type==='gravity-absolution-field'&&operational(i)&&!i.impairmentPoints&&!i.impaired));
@@ -585,6 +585,7 @@
       if(data.landing||data.multiMount){
         if(inventory.filter(i=>installed.has(i.id)&&i.type===item.type).length>1)return `Only one ${data.name} may be installed.`;
         if((ship.gridCells||[]).length>data.hullLimit)return `${data.name} supports at most ${data.hullLimit} hull squares.`;
+        if(data.landing==='aerofoil'&&!inventory.some(i=>i.type==='land-wheels'&&installed.has(i.id)&&!i.storage&&!i.pendingDisposition))return 'Decent (Aerofoil) requires installed Land Wheels.';
         if(data.hullSystem&&!hullSymmetry(ship).symmetric)return 'Decent (Aerofoil) requires a horizontally or vertically symmetrical hull.';
         if(data.multiMount&&!multiMountPlacement(ship,item,p.mountCells))return `${data.name} requires four separate exterior mounts, each attached to the hull.`;
         if(data.hullSystem||data.multiMount)continue;

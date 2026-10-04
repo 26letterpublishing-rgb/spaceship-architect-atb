@@ -1,7 +1,7 @@
 (function(){
   let dialog=null,notice=null,lastLog='',result='',until=0,forced='',cleanupDialog=null;
   const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.[0];
-  const host=()=>{let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;};
+  const host=()=>{let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;};
   let warmed=null;
   function prepareDice(doc){
     if(warmed?.view.isConnected)return warmed;

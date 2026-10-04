@@ -53,7 +53,8 @@ function next(room,unit){
  if(job.delta){const p=require('./ship-targets').point(room,target.id);body.destination={q:Math.round(p.q+job.delta.q),r:Math.round(p.r+job.delta.r)};body.boostIds=[];}
  let result;power.spend(room,home.id,4);
  try{
-  if(body.action==='weaponCommand')result=require('./ship-weapons').queue(room,unit,body);
+  if(body.action==='shipMaintenance')result=require('./ship-maintenance').queue(room,unit,body);
+  else if(body.action==='weaponCommand')result=require('./ship-weapons').queue(room,unit,body);
   else if(body.action==='lockCommand')result=require('./ship-locks').queue(room,unit,body);
   else if(body.action==='sensorCommand')result=require('./ship-sensors').queue(room,unit,body);
   else if(body.action==='shipCommand')result=require('./ship-commands').queue(room,unit,body);
@@ -73,6 +74,8 @@ function project(visible,full,characterId){
  let result={...visible,starships:[...visible.starships],shipPositions:[...visible.shipPositions]};
  for(const remote of remotes){
   const home=result.starships.find(s=>s.id===remote.home.id);if(home)home.ship={...home.ship,remoteState:structuredClone(remote.home.ship.remoteState)};
+  // A paired, powered receiver is an authorized connection even beyond ordinary sensors.
+  for(const linked of remote.links){if(!result.starships.some(s=>s.id===linked.id))result.starships.push(structuredClone(linked));if(!result.shipPositions.some(p=>p.id===linked.id)){const p=full.shipPositions.find(p=>p.id===linked.id);if(p)result.shipPositions.push({...p});}}
   const target=remote.links.find(s=>s.id===remote.state.selected?.[identity(unit)]);if(!target)continue;
   const picture=require('./ship-sensors').view({...full,sensorObserverId:null},target.id);
   for(const ship of picture.starships){const i=result.starships.findIndex(s=>s.id===ship.id);if(i<0)result.starships.push(ship);else if(ship.id===target.id)result.starships[i]=ship;}

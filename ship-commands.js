@@ -45,6 +45,7 @@ function armExternal(room,unit,system){
   report(ship,'Conditional order armed for 12 combat seconds (2 AU spent).');
 }
 function queue(room, unit, body) {
+  if(body.kind==='descend')return require('./ship-descent').queue(room,unit,body);
   const seat = navigation.station(room, unit, body.sicId);
   if (!seat || !maps.definition(seat.cell.type).bridge) return {ok:false,error:'Remain at an operational, uncompromised cockpit or bridge.'};
   const ship = seat.ship, data = cooperation.state(ship), receipt = String(body.requestId || '');

@@ -527,6 +527,7 @@ function normalizeStarshipRecord(raw) {
     crewCharacterIds: validCrew,
     crewNpcUnitIds: [...new Set((Array.isArray(source.crewNpcUnitIds) ? source.crewNpcUnitIds : ship.crewNpcUnitIds || []).map(String))].slice(0, 100),
     characterLocations,
+    characterWalks:clone(source.characterWalks||{}),
     auState:source.auState?{current:Math.max(0,Number(source.auState.current)||0),progress:Math.max(0,Number(source.auState.progress)||0)}:null,
     createdAt: source.createdAt || new Date().toISOString(),
     updatedAt: source.updatedAt || new Date().toISOString(),
@@ -543,6 +544,8 @@ function starshipStationAt(record, square, mesh) {
 
 function publicStarship(record) {
   const copy = clone(record);
+  copy.constructionCost=require('./ship-budget').cost(record.ship||{});
+  copy.powerSummary=SHIP_POWER.output(record,[]);
   delete copy.accessKey;
   if(copy.ship)delete copy.ship.oxygenState;
   if(copy.ship){delete copy.ship.surveillanceState;delete copy.ship.intruderState;}
@@ -566,7 +569,7 @@ function defaultCampaign({ code, name, gmCode }) {
     characters: [],
     starships: [],
     joinRequests: [],
-    shipCredits: 0,
+    shipCredits: 100000,
     bankerCharacterId: null,
     awardHistory: [],
     itemTransactions: [],
@@ -744,6 +747,8 @@ function campaignBackup(campaign) {
       characterCount: campaign.characters.length,
     },
     campaign: clone({
+      starmaps: clone(campaign.starmaps||null),
+      activeSystem: clone(campaign.activeSystem||null),
       interfaceVersion: campaign.interfaceVersion,
       roomOpen: campaign.roomOpen,
       imports: campaign.imports,
@@ -822,7 +827,7 @@ function campaignComparison(hosted, backup) {
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
   const character = clone(record.character);
   if (!gm && !own) delete character.access;
-  if (!gm && !own && character.resources) delete character.resources.dramaCards;
+  // The roster shares hand size, never the identities of another player’s cards.
   return {
     id: record.id,
     pcCode: gm || own ? record.pcCode : undefined,
@@ -981,7 +986,19 @@ class CampaignApi {
     try{for(const campaign of this.campaignCache.values()){
       const tick=this.environmentTicks.get(campaign.code)||{at:now,saved:now},seconds=Math.max(0,(now-tick.at)/1000);tick.at=now;this.environmentTicks.set(campaign.code,tick);
       const combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null,ships=room?.starships||campaign.starships;
-      const transitActive=!combat&&ships.some(s=>['activating','traveling'].includes(s.ship.warpState?.phase)||['countdown','approvals'].includes(s.ship.destructState?.phase));
+      const galaxy=require('./campaign-starmaps'),travel=galaxy.tick(campaign,now,combat);
+      if(travel.changed){
+        for(const client of this.clients.get(campaign.code)||[]){const session=this.session(client.token,campaign.code);writeEvent(client.response,'galaxy-travel',galaxy.travelPacket(campaign,session?.role==='gm',now,combat));}
+        if(travel.finished||now-(tick.travelSaved||0)>=5000){await this.save(campaign,{broadcast:travel.finished});tick.travelSaved=now;}
+      }
+      const walkingShips=!combat?ships.filter(s=>Object.keys(s.characterWalks||{}).length):[];
+      if(walkingShips.length){
+        let finished=false;
+        for(const ship of walkingShips){for(const id of require('./ship-walking').advance(ship,now)){finished=true;this.characterMoved(campaign.code,ship.id,id,ship.characterLocations[id]);}for(const [id,loc]of Object.entries(ship.characterLocations||{})){const passenger=campaign.npcRoster?.find(n=>n.id===loc.carryingId);if(passenger)passenger.location={...loc,starshipId:ship.id,carryingId:null,carriedBy:id,stationed:false};}}
+        for(const client of this.clients.get(campaign.code)||[]){const session=this.session(client.token,campaign.code);writeEvent(client.response,'ship-walks',{serverNow:now,ships:walkingShips.filter(s=>session?.role==='gm'||s.controlType==='pc').map(s=>({id:s.id,characterLocations:s.characterLocations,characterWalks:s.characterWalks}))});}
+        if(finished)await this.save(campaign);
+      }
+      const transitActive=!combat&&ships.some(s=>!s.ship.warpState?.campaignClock&&['activating','traveling'].includes(s.ship.warpState?.phase)||['countdown','approvals'].includes(s.ship.destructState?.phase));
       const fieldActive=!combat&&ships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.cooldown>0||d.tether));
       const systemsActive=!combat&&ships.some(s=>Object.values(s.ship.blackHoleGunState?.cooldowns||{}).some(n=>n>0)||require('./ship-devastation').needsPower(s)||Object.entries(s.ship.fieldState?.systems||{}).some(([id,d])=>d.enabled&&s.ship.sicInventory.some(i=>i.id===id&&i.type==='ionic-force-displacers'))||s.ship.cloakState?.active||s.ship.gravityFieldState?.active||s.ship.sicInventory.some(i=>i.bootRemaining>0));
       const roomsReconciled=!combat&&CREW_ROOMS.reconcile(transitRoom(campaign),campaign);
@@ -1022,6 +1039,8 @@ class CampaignApi {
         ? campaign.rollRequests.filter((request) => request.targetIds.includes(ownId))
         : [];
     return {
+      starmaps: require("./campaign-starmaps").view(campaign,gm),
+      activeSystem: gm?clone(campaign.activeSystem||null):undefined,
       interfaceVersion: campaign.interfaceVersion,
       roomOpen: campaign.roomOpen,
       playerId: this.session(token,campaign.code)?.playerId || null,
@@ -1039,10 +1058,11 @@ class CampaignApi {
       role: gm ? "gm" : ownId ? "character" : "viewer",
       ownCharacterId: ownId,
       combatActive: !this.canPassTime(campaign.code),
+      serverNow: Date.now(),
       clockRunning:Boolean((this.liveEncounter(campaign.code)||campaign.encounter)?.running&&!(this.liveEncounter(campaign.code)||campaign.encounter)?.hardPaused),
       deployedShipIds: (campaign.encounter?.starships||[]).filter(s=>campaign.starships.some(record=>record.id===s.id&&(gm||record.controlType==='pc'||record.crewCharacterIds?.includes(ownId)))).map(s=>s.id),
       libraryTargets: gm ? CREW_ROOMS.libraryTargets(campaign,!this.canPassTime(campaign.code)?this.liveEncounter(campaign.code):null) : undefined,
-      spaceObjects: clone(gm?(campaign.encounter?.spaceObjects||[]).filter(o=>!o.collectedBy):require("./spectator-view").objects(campaign.encounter||{spaceObjects:[]},campaign.starships.filter(s=>session?.role==='viewer'?s.controlType==='pc':s.crewCharacterIds?.includes(ownId)))),
+      spaceObjects: clone(gm?(campaign.spaceObjects||campaign.encounter?.spaceObjects||[]).filter(o=>!o.collectedBy):require("./spectator-view").objects(campaign.encounter||{spaceObjects:[]},campaign.starships.filter(s=>session?.role==='viewer'?s.controlType==='pc':s.crewCharacterIds?.includes(ownId)))),
       crewRoomRolls:CREW_ROOMS.rolls((!this.canPassTime(campaign.code)&&this.liveEncounter(campaign.code))||transitRoom(campaign)).filter(r=>gm||(r.characterId===ownId&&r.controller!=='gm')),
       oxygen: this.environment(campaign,token),
       script: gm ? campaign.script : undefined,
@@ -1090,8 +1110,8 @@ class CampaignApi {
         .filter((record) => gm || record.controlType === "pc")
         .map(record=>{
           const live=this.liveEncounter(campaign.code)||campaign.encounter;
-          if(campaign.showcase&&session?.compactShowcase&&!session.loadedShipIds?.includes(record.id)&&!record.crewCharacterIds?.includes(ownId)&&!live?.starships?.some(s=>s.id===record.id)){if(!showcaseSummaryCache.has(record.ship))showcaseSummaryCache.set(record.ship,SHIP_POWER.output(record,[]));return {id:record.id,title:record.title,controlType:record.controlType,crewCharacterIds:record.crewCharacterIds,crewNpcUnitIds:record.crewNpcUnitIds,characterLocations:record.characterLocations,lazyLayout:true,sensorSummary:SHIP_MAP.sensorStats(record),powerSummary:showcaseSummaryCache.get(record.ship),hullCount:record.ship.gridCells.length,ship:{title:record.title,class:record.ship.class,mapColor:record.ship.mapColor,gridCells:[],placements:[],sicInventory:[],maximumHullHp:record.ship.maximumHullHp}};}
-          const visible=publicStarship(record);if(!gm&&session?.role!=='viewer'&&!record.crewCharacterIds?.includes(ownId)){delete visible.ship.cleanserState;delete visible.ship.atmosphereState;delete visible.ship.cloakState;delete visible.ship.crewRoomState;delete visible.ship.fabricationState;delete visible.ship.fieldState;delete visible.ship.droneState;delete visible.ship.probeState;}
+          if(campaign.showcase&&session?.compactShowcase&&!session.loadedShipIds?.includes(record.id)&&!record.crewCharacterIds?.includes(ownId)&&!live?.starships?.some(s=>s.id===record.id)){if(!showcaseSummaryCache.has(record.ship))showcaseSummaryCache.set(record.ship,SHIP_POWER.output(record,[]));return {id:record.id,title:record.title,constructionCost:require('./ship-budget').cost(record.ship||{}),controlType:record.controlType,crewCharacterIds:record.crewCharacterIds,crewNpcUnitIds:record.crewNpcUnitIds,characterLocations:record.characterLocations,lazyLayout:true,sensorSummary:SHIP_MAP.sensorStats(record),powerSummary:showcaseSummaryCache.get(record.ship),hullCount:record.ship.gridCells.length,ship:{title:record.title,class:record.ship.class,mapColor:record.ship.mapColor,warpState:record.ship.warpState?Object.fromEntries(['phase','remaining','targetLY','traveledLY'].map(key=>[key,record.ship.warpState[key]])):undefined,gridCells:[],placements:[],sicInventory:[],maximumHullHp:record.ship.maximumHullHp}};}
+          const visible=publicStarship(record);if(campaign.interfaceVersion==='0.3'&&!campaign.showcase){visible.ship.groupCredits=campaign.shipCredits;visible.ship.allowCreditDebt=campaign.sessionNumber===0;if(visible.ship.confirmed)visible.ship.confirmed.groupCredits=campaign.shipCredits;}if(!gm&&session?.role!=='viewer'&&!record.crewCharacterIds?.includes(ownId)){delete visible.ship.cleanserState;delete visible.ship.atmosphereState;delete visible.ship.cloakState;delete visible.ship.crewRoomState;delete visible.ship.fabricationState;delete visible.ship.fieldState;delete visible.ship.droneState;delete visible.ship.probeState;}
           const encounter=this.liveEncounter(campaign.code)||campaign.encounter;
           const interiorRoom=encounter?.hasEngagedClock&&!encounter.encounterEndedAt?encounter:transitRoom(campaign);const interiorShip=interiorRoom.starships.find(s=>s.id===record.id)||record;require('./ship-intruders').reconcile(interiorRoom);visible.intrudersDetected=Boolean(interiorShip.ship.intruderState?.detected?.length);visible.interiorOccupants=(interiorRoom.units||[]).filter(u=>u.team==='npc'&&u.location?.starshipId===record.id&&(gm||require('./ship-intruders').visible(interiorRoom,interiorShip,u))).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:clone(u.location)}));
           const shieldSource=encounter?.starships?.find(ship=>ship.id===record.id);
@@ -1138,6 +1158,7 @@ class CampaignApi {
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
+      require("./campaign-starmaps").saveSystem(next,encounter);
       const ending=encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt;
       const authoritative=ending||encounter.hasEngagedClock&&!encounter.encounterEndedAt;
       let transitChanged=false;
@@ -1155,7 +1176,7 @@ class CampaignApi {
       }
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
-      Object.assign(campaign, { encounter: next.encounter, ...(ending||transitChanged?{starships:next.starships}:{}), npcRoster, updatedAt, revision });
+      Object.assign(campaign, { starmaps:next.starmaps, spaceObjects:next.spaceObjects, encounter: next.encounter, ...(ending||transitChanged?{starships:next.starships}:{}), npcRoster, updatedAt, revision });
       if(transitChanged&&Date.now()-(this.lastShipBroadcast?.get(code)||0)>=2000){(this.lastShipBroadcast||=new Map()).set(code,Date.now());await this.broadcast(code,campaign);}
       if(locationsChanged)for(const client of this.clients.get(code)||[]){
         const gm=this.session(client.token,code)?.role==='gm';
@@ -1348,7 +1369,7 @@ class CampaignApi {
       campaign.showcase = true;
       campaign.characters = characters;
       campaign.starships = [pcShip, npcShip];
-      campaign.shipCredits = 25000;
+      campaign.shipCredits = 9999999;
       campaign.settings.hideRoomCode = false;
       const selectedNpcs = ['Space Slug','Civilian','Security Guard','Final Boss'].map(name=>SHOWCASE_NPCS.find(npc=>npc.name===name));
       const pcSquares = [pcShip.ship.placements.find(p=>require('./ship-map-core').definition(pcShip.ship.sicInventory.find(i=>i.id===p.sicId)?.type).bridge).cell];
@@ -1382,8 +1403,10 @@ class CampaignApi {
         weapons: [{ inventoryId: `showcase-npc-${index}-weapon`, weaponId: npc.heldWeaponId }], heldWeaponId: `showcase-npc-${index}-weapon`, items: [],
         location: showcaseLocation(npcShip.id, npcSquares[index]??(npcSquares[0]+index)), travelRoute: [],
       })));
+      for(const unit of units)if(unit.characterId)pcShip.characterLocations[unit.characterId]=clone(unit.location);
       campaign.encounter = { running: false, pausedForTurn: false, resumeAfterTurn: false, activeId: null, activeAction: null, attackResolution: null, itemResolution: null, vehicles: [], areaEffects: [], activeSource: null, commandRemaining: null, commandTotal: 0, commandExpired: false, hardPaused: false, holdPaused: false, commandHeldRemaining: null, lastInterruptedId: null, lastInterruptedAt: 0, encounterEndedAt: null, delayRequest: null, hasEngagedClock: false, threshold: 100, starships: campaign.starships, units, log: [{ id: uid("log"), at: new Date().toLocaleTimeString(), text: "Explore Features encounter prepared. Engage the clock when ready." }] };
       campaign.starships=[...campaign.starships,...require('./showcase-variants')()];
+      require('./campaign-starmaps').seedShowcase(campaign);
       const normalized = normalizeCampaign(campaign);
       normalized.showcase = true;
       normalized.encounter.showcase = true;
@@ -1535,7 +1558,7 @@ class CampaignApi {
       const session=this.session(token,code),gm=this.gmSession(token,code);if(!session){sendJson(res,403,{error:'Join the room first.'});return true;}
       const ids=[...new Set((Array.isArray(body.ids)?body.ids:[]).map(String))],ships=campaign.starships.filter(s=>ids.includes(s.id)&&(gm||s.controlType==='pc'));
       if(ships.length!==ids.length||ids.length>6){sendJson(res,403,{error:'Choose up to six available ships.'});return true;}
-      session.loadedShipIds=[...new Set([...(session.loadedShipIds||[]),...ids])];sendJson(res,200,{starships:ships.map(publicStarship)});return true;
+      session.loadedShipIds=[...new Set([...(session.loadedShipIds||[]),...ids])];sendJson(res,200,{starships:ships.map(record=>{const result=publicStarship(record);if(campaign.interfaceVersion==='0.3'&&!campaign.showcase){result.ship.groupCredits=campaign.shipCredits;result.ship.allowCreditDebt=campaign.sessionNumber===0;if(result.ship.confirmed)result.ship.confirmed.groupCredits=campaign.shipCredits;}return result;})});return true;
     }
     if (path === "/api/campaign/state" && req.method === "GET") {
       const currentSession=this.session(token,code);if(currentSession&&url.searchParams.get('compact')==='1')currentSession.compactShowcase=true;
@@ -1653,6 +1676,8 @@ class CampaignApi {
         for(const key of ['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable','printed','printedFor','salvaged','salvageSource']){if(key in prior)item[key]=clone(prior[key]);else delete item[key];}
       }
       for(const item of updated.ship.sicInventory)if(item.printed&&updated.ship.placements.some(p=>p.sicId===item.id)){if(item.printedFor&&item.printedFor!==record.id){sendJson(res,409,{error:'This printed SIC is licensed to another starship.'});return true;}item.printedFor=record.id;}
+      if(campaign.interfaceVersion==='0.3'&&!campaign.showcase){try{require('./ship-budget').spend(campaign,require('./ship-budget').buildDelta(record.ship,updated.ship,Array.isArray(body.destroyedIds)?body.destroyedIds:[]));updated.ship.groupCredits=campaign.shipCredits;updated.ship.allowCreditDebt=campaign.sessionNumber===0;if(updated.ship.confirmed)updated.ship.confirmed.groupCredits=campaign.shipCredits;}catch(error){sendJson(res,409,{error:error.message});return true;}}
+      updated.ship.constructionCost=require('./ship-budget').cost(updated.ship);
       updated.buildRevision=(record.buildRevision||0)+1;
       updated.controlType = record.controlType;
       updated.crewCharacterIds = record.crewCharacterIds;
@@ -1681,8 +1706,11 @@ class CampaignApi {
       }
       const validIds = new Set(campaign.characters.map((entry) => entry.id));
       record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
-      const encounterNpcIds = new Set([...(campaign.npcRoster || []), ...(campaign.encounter?.units || []).filter(unit => unit.team === "npc")].map(unit => String(unit.id)));
-      if (gmAccess && Array.isArray(body.crewNpcUnitIds)) record.crewNpcUnitIds = [...new Set(body.crewNpcUnitIds.map(String))].filter(id => encounterNpcIds.has(id));
+      const liveNpcs=(this.liveEncounter(code)?.units||[]).filter(u=>u.team==='npc');
+      campaign.npcRoster=[...new Map([...(campaign.npcRoster||[]),...(campaign.encounter?.units||[]).filter(u=>u.team==='npc'),...liveNpcs].map(u=>[u.id,clone(u)])).values()];
+      const encounterNpcIds=new Set(campaign.npcRoster.map(u=>String(u.id)));
+      if(gmAccess&&Array.isArray(body.crewNpcUnitIds)){const ids=[...new Set(body.crewNpcUnitIds.map(String))];if(ids.some(id=>!encounterNpcIds.has(id))){sendJson(res,409,{error:'The NPC roster changed. Refresh and assign the current NPC.'});return true;}record.crewNpcUnitIds=ids;}
+      for(const list of [this.liveEncounter(code)?.starships,campaign.encounter?.starships]){const live=list?.find(s=>s.id===record.id);if(live){live.crewCharacterIds=clone(record.crewCharacterIds);live.crewNpcUnitIds=clone(record.crewNpcUnitIds||[]);}}
       record.characterLocations ||= {};
       for (const id of Object.keys(record.characterLocations)) if (!record.crewCharacterIds.includes(id)) delete record.characterLocations[id];
       record.ship.crewCharacterIds = clone(record.crewCharacterIds);
@@ -1739,6 +1767,7 @@ class CampaignApi {
         const receipt=String(body.requestId||'');if(!/^[\w-]{8,100}$/.test(receipt))throw Error('A stock transaction receipt is required.');
         record.ship.resourceReceipts ||= [];
         if(!record.ship.resourceReceipts.includes(receipt)){
+          const sharedBudget=campaign.interfaceVersion==='0.3'&&!campaign.showcase;if(sharedBudget){record.ship.groupCredits=campaign.shipCredits;record.ship.allowCreditDebt=campaign.sessionNumber===0;}
           if(body.grantMineral){
             const name=String(body.grantMineral).trim(),quantity=Number(body.quantity);
             if(!gm||!/^[A-Za-z][A-Za-z .-]{0,39}$/.test(name)||['constructor','prototype'].includes(name)||!Number.isInteger(quantity)||quantity<1||quantity>1000000)throw Error('Choose a mineral name and a positive whole quantity.');
@@ -1751,7 +1780,7 @@ class CampaignApi {
           }else if(body.purchaseGrade){
             const grade=String(body.purchaseGrade),price={F:50,D:100,C:300,B:800,A:2400,S:5000}[grade],quantity=Number(body.quantity);
             if(!price||!Number.isInteger(quantity)||quantity<1||quantity>10000)throw Error('Choose a fuel grade and a whole quantity.');
-            if(Number(record.ship.groupCredits||0)<price*quantity)throw Error('Not enough ship Group Credits.');
+            if(!record.ship.allowCreditDebt&&Number(record.ship.groupCredits||0)<price*quantity)throw Error('Not enough ship Group Credits.');
             record.ship.warpFuel ||= {};record.ship.warpFuel[grade]=(Number(record.ship.warpFuel[grade])||0)+quantity;record.ship.groupCredits-=price*quantity;
           }else{
             if(!gm)throw Error('Only the GM may adjust stock without purchasing fuel.');
@@ -1766,6 +1795,7 @@ class CampaignApi {
             }
             Object.assign(record.ship,changes);
           }
+          if(sharedBudget)campaign.shipCredits=record.ship.groupCredits;
           record.ship.resourceReceipts=[...record.ship.resourceReceipts,receipt].slice(-200);
           if(record.ship.confirmed)for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])record.ship.confirmed[key]=clone(record.ship[key]??{});
           await this.save(campaign);
@@ -1941,16 +1971,26 @@ class CampaignApi {
       if(record.characterLocations?.[characterId]?.escapePodId){sendJson(res,409,{error:'This character is in an escape pod and must be rescued before moving aboard.'});return true;}
       if(CREW_ROOMS.inTreatment(transitRoom(campaign),characterId)){sendJson(res,409,{error:'Use Wake Now in the Hibernation Chamber before moving.'});return true;}
       if(!gmAccess&&Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot move.'});return true;}
-      if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
       record.characterLocations ||= {};
+      require('./ship-walking').advance(record);
       const previous=record.characterLocations[characterId];
+      if(body.stop){delete (record.characterWalks||{})[characterId];await this.save(campaign);this.characterMoved(code,record.id,characterId,previous);sendJson(res,200,{moved:true,campaign:this.state(campaign,token)});return true;}
+      if (!record.ship.gridCells.includes(square)) { sendJson(res, 400, { error: "Choose a location inside the starship." }); return true; }
+      if(record.characterWalks?.[characterId]){sendJson(res,409,{error:'This character is already walking. Stop before choosing another destination.'});return true;}
       if(previous&&!gmAccess&&!SHIP_MAP.meshRoute(SHIP_MAP.buildLayout(record.ship),{square:previous.square,mesh:previous.mesh??4},{square,mesh})){sendJson(res,409,{error:'No route through the doorways reaches that location.'});return true;}
-      const occupied = Object.entries(record.characterLocations).filter(([id, location]) => id !== characterId && Number(location.square) === square && Number(location.mesh) === mesh).length;
+      const occupied = Object.entries(record.characterLocations).filter(([id, location]) => {if(id===characterId)return false;const reserved=record.characterWalks?.[id]?.destination;return [location,reserved].some(loc=>loc&&Number(loc.square)===square&&Number(loc.mesh)===mesh);}).length;
       const station = body.stationed ? starshipStationAt(record, square, mesh) : null;
       const aiSeat=require('./ship-ai').reservedSeat(record);if(aiSeat&&Number(aiSeat.square)===square&&Number(aiSeat.mesh)===mesh){sendJson(res,409,{error:'That station is reserved by Ship AI. Turn automation off to free it.'});return true;}
       if (station && occupied >= 1) { sendJson(res, 409, { error: "That station is already occupied." }); return true; }
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return true; }
-      record.characterLocations[characterId] = { carryingId:previous?.carryingId||null, square, mesh, stationed: Boolean(station), stationSlot: station ? mesh : null };
+      const destination={carryingId:previous?.carryingId||null,square,mesh,stationed:Boolean(station),stationSlot:station?mesh:null};
+      if(body.animate&&previous){
+        const speed=Number(campaign.characters.find(c=>c.id===characterId)?.character.computed?.moveSpeed)||3;
+        record.characterWalks||={};record.characterWalks[characterId]=require('./ship-walking').plan(record,characterId,destination,speed);
+        record.characterLocations[characterId]={...previous,stationed:false,stationSlot:null};
+        await this.save(campaign);sendJson(res,200,{moved:true,campaign:this.state(campaign,token)});return true;
+      }
+      record.characterLocations[characterId] = destination;
       if(previous?.carryingId){const target=previous.carryingId,loc={square,mesh,starshipId:record.id,stationed:false,carriedBy:characterId};if(record.crewCharacterIds.includes(target))record.characterLocations[target]=loc;else{const npc=campaign.npcRoster?.find(n=>n.id===target);if(npc)npc.location=loc;}}
       require('./ship-maintenance').passTime(record,0);
       record.updatedAt = new Date().toISOString();
@@ -2340,8 +2380,8 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/delete" && req.method === "POST") {
-      if (!this.gmSession(token, code) || body.campaignName !== campaign.name || !passwordMatches(body.gmCode ?? body.password, campaign.gmCode)) {
-        sendJson(res, 403, { error: "GM authorization, the GM Code, and the exact campaign name are required." });
+      if (!this.gmSession(token, code) || body.campaignName !== campaign.name || (campaign.interfaceVersion !== "0.3" && !passwordMatches(body.gmCode ?? body.password, campaign.gmCode))) {
+        sendJson(res, 403, { error: campaign.interfaceVersion === "0.3" ? "GM authorization and the exact campaign name are required." : "GM authorization, the GM Code, and the exact campaign name are required." });
         return true;
       }
       for (const client of this.clients.get(code) || []) {
@@ -2560,8 +2600,9 @@ class CampaignApi {
             record.updatedAt = new Date().toISOString();
             next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${Number(elapsed.toFixed(3))} minutes. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
           }
+          require('./campaign-starmaps').advance(next,elapsed);
           const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
-          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);TRANSIT.passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);if(!ship.ship.warpState?.campaignClock)TRANSIT.passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
           require('./ship-black-hole-gun').cooldowns(transitRoom(next),elapsed*60);const chargedRoom=transitRoom(next);chargedRoom.starships=chargedRoom.starships.filter(s=>require('./ship-devastation').needsPower(s));SHIP_POWER.advance(chargedRoom,elapsed*60);
           CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
           OXYGEN.advance(next.starships,actors,elapsed*60);
@@ -3138,6 +3179,7 @@ class CampaignApi {
         return true;
       }
 
+      const previousCardIds=new Set((campaign.dramaDeck?.hands?.[record.id]||[]).map(card=>typeof card==='string'?card:card.id));
       const result = award.resource === "shipCredits"
         ? (() => {
             const before = characterRewardSnapshot(record, campaign);
@@ -3171,6 +3213,7 @@ class CampaignApi {
         claimed: true,
         resource: result.appliedResource,
         appliedAmount: result.appliedAmount,
+        cards: result.appliedResource==='dramaCards'?(this.state(campaign,token).dramaDeck?.hand||[]).filter(card=>!previousCardIds.has(card.id)):[],
         campaign: this.state(campaign, token),
       });
       return true;

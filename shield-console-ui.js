@@ -5,11 +5,11 @@
     if(dialog)return;
     const bridge=window.SACombatBridge,initial=window.SAStationAccess.access(bridge.state(),unit,sicId);
     if(!initial||initial.kind!=='shield')return;
-    let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+    let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
     const view=host.createElement('dialog');dialog=view;view.className='shield-console-dialog';view.setAttribute('aria-label','Shield console');
     view.dataset.operatorId=unit.id;
     view.innerHTML=`<header><div><small data-connection></small><h2>${esc(initial.ship.title)} / Shields</h2></div><div class="shield-command"><strong data-turn role="status"></strong><progress data-turn-progress max="1" value="0" aria-label="Command window remaining"></progress></div><div data-console-switch><button type="button" data-sound aria-label="Toggle sound">${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
-      <main><section class="shield-field"><h3>Field Integrity</h3><div class="shield-emitter"><img src="${initial.item.type}-card.png" alt="Shield field generator"><div data-condition></div></div><div class="shield-readout"><strong data-shield-hp aria-label="Ship shield HP"></strong><p data-field-state role="status"></p></div><div class="shield-energy-trace" aria-hidden="true"></div><div data-factors class="shield-factors"></div><p data-recovery></p><progress data-recovery-progress max="1" value="0" aria-label="Restabilization progress"></progress></section>
+      <main><section class="shield-field"><h3>Field Integrity</h3><div class="shield-emitter"><svg class="shield-integrity-display" viewBox="0 0 300 220" role="img" aria-label="Selected shield integrity"><g fill="none" stroke="#57ad8e"><ellipse cx="150" cy="105" rx="125" ry="82" stroke-dasharray="3 7"/><ellipse cx="150" cy="105" rx="95" ry="90" transform="rotate(38 150 105)"/><ellipse cx="150" cy="105" rx="95" ry="90" transform="rotate(-38 150 105)"/><circle cx="150" cy="105" r="67" stroke="#223e36" stroke-width="8"/><circle data-integrity-ring cx="150" cy="105" r="67" pathLength="100" stroke="#89ffca" stroke-width="8" transform="rotate(-90 150 105)"/></g><text data-layer-hp x="150" y="104" text-anchor="middle" fill="#e5fff4" font-size="28" font-weight="bold"></text><text x="150" y="126" text-anchor="middle" fill="#9cdcc5" font-size="11">SELECTED SHIELD LAYER</text></svg><div data-condition></div></div><div class="shield-readout"><strong data-shield-hp aria-label="Ship shield HP"></strong><p data-field-state role="status"></p></div><div class="shield-energy-trace" aria-hidden="true"></div><div data-factors class="shield-factors"></div><p data-recovery></p><progress data-recovery-progress max="1" value="0" aria-label="Restabilization progress"></progress></section>
       <section class="shield-operations"><h3>Auxiliary Power</h3><strong data-au></strong><progress data-au-progress max="100" value="0" aria-label="AU recharge"></progress><p data-reserved></p><label>Purchases <input type="number" min="1" max="100" value="1" step="1" data-amount></label><div class="shield-order"><button type="button" data-order="restore">Restore Shield HP</button><small>5 AU / +1 HP</small></div><div class="shield-order"><button type="button" data-order="reinforce">Reinforce Field</button><small>3 AU / +1 reduction per hit</small></div><p data-protection></p><button type="button" data-order="restabilize">Restabilize Shield</button><p data-rest-rule>${initial.definition.restabilizeAu} AU / ${initial.definition.restabilizeSeconds} powered seconds before crew bonuses. Local operators' ATB freezes until completion.</p><progress data-input max="1.5" value="0" aria-label="Console input progress"></progress><p data-input-status role="status"></p><p data-error role="alert"></p><div class="shield-navigation-actions"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section>
       <section class="shield-activity"><h3>Fleet Condition</h3><div data-fleet></div><h3>Combat Activity</h3><div data-log></div></section><section class="shield-timeline"><div class="pilot-rings" data-rings></div></section></main>`;
     host.body.append(view);view.showModal();
@@ -17,7 +17,7 @@
     window.SAShipNavigationUI.mountSelector(get('[data-console-switch]'),unit,sicId,()=>view.close());
     const dismiss=()=>window.SAShipNavigationUI.remember(bridge.state().units.find(u=>u.id===unit.id));
     function redraw(){
-      const state=bridge.state(),person=state.units.find(u=>u.id===unit.id),a=window.SAStationAccess.access(state,person,sicId);
+      const state=bridge.state(),person=state?.units?.find(u=>u.id===unit.id),a=window.SAStationAccess.access(state,person,sicId);
       if(!a||a.seat.key!==initial.seat.key){view.close();return;}
       const shield=a.ship.shieldSystems?.[sicId],au=a.ship.auState||{},pending=a.ship.auCommands?.find(c=>c.unitId===person.id),rest=shield?.restabilization,auto=shield?.addonRecovery;
       if(!shield)return;
@@ -34,6 +34,9 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       get('[data-connection]').textContent=`${a.remote?'REMOTE ACCESS':'LOCAL STATION'} / ${window.SAShipMap.definition(a.seat.cell.type).name} / ${person.characterName}`;
       view.dataset.remote=String(a.remote);
       get('[data-condition]').innerHTML=window.SAHealthDisplay.track('shield',window.SAHealthDisplay.presentation(a.ship).shieldSystems?.[sicId]?.hp??shield.hp,a.definition.shieldHp,bridge.mode()==='gm');
+      const shownHp=window.SAHealthDisplay.presentation(a.ship).shieldSystems?.[sicId]?.hp??shield.hp;
+      get('[data-layer-hp]').textContent=`${shownHp} / ${a.definition.shieldHp}`;
+      get('[data-integrity-ring]').setAttribute('stroke-dasharray',`${Math.max(0,Math.min(100,100*shownHp/a.definition.shieldHp))} 100`);
       get('[data-shield-hp]').textContent=`${window.SAHealthDisplay.presentation(a.ship).currentShieldHp ?? shield.hp} / ${a.ship.maximumShieldHp ?? a.definition.shieldHp} HP`;
       get('[data-field-state]').textContent=auto?'AUTOMATIC SHIELD RECOVERY':rest?'RESTABILIZATION IN PROGRESS':shield.hp<=0?'FIELD COLLAPSED':a.item.impaired||a.item.status==='impaired'?'IMPAIRED / AU CONTROLS OFFLINE':'FIELD STABLE';
       view.dataset.field=shield.hp>0?'online':'burst';

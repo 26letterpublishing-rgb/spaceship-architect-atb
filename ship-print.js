@@ -1,7 +1,7 @@
 (function(){
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function open(ship,title){
-    let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+    let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
     const dialog=host.createElement('dialog');dialog.className='ship-print-options';dialog.setAttribute('aria-label','Print starship');
     dialog.innerHTML='<h2>Print Starship</h2><label>Floorplan <select aria-label="Print resolution"><option value="high">High resolution</option><option value="low">Low resolution</option></select></label><p>One page, fitted to paper. Small squares print at half an inch when space allows.</p><button type="button" data-print>Print</button> <button type="button" data-cancel>Cancel</button>';
     host.body.append(dialog);dialog.showModal();dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());

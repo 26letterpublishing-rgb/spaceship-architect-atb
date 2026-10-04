@@ -10,3 +10,6 @@
 .devastation-status{display:grid;gap:8px;padding:12px;border:1px solid #a2374e;background:#240c15;margin-bottom:12px}.devastation-status strong{display:block;background:#571024;color:#fff;padding:12px;text-align:center;letter-spacing:.07em}.devastation-status[data-phase="ready"] strong{animation:devastation-ready 1.8s ease-in-out infinite}.devastation-status progress{width:100%;accent-color:#d93658}.devastation-status p,.devastation-status small{color:#f2bbc6;margin:0}.devastation-status button{background:#481c29;color:#fff;border:1px solid #b35168}.devastation-status button:disabled{background:#27232b;color:#b2a5ae;opacity:1}@keyframes devastation-ready{0%,100%{background:#480d1c;box-shadow:0 0 4px #aa173344}50%{background:#8c1930;box-shadow:0 0 19px #ef305666}}@media(prefers-reduced-motion:reduce){.devastation-status[data-phase="ready"] strong{animation:none;background:#711329}}
 
 .missile-magazine-row{display:block;margin:8px 0}.weapon-controls [data-reload]{display:block;margin:8px 0}.weapon-controls [data-reload-reason]{display:block;margin:6px 0;line-height:1.4}
+.weapon-console .weapon-plot h3{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.weapon-console .weapon-plot h3 span{margin-left:auto}
+.weapon-console .weapon-enlarge-map{flex:0 0 auto;min-width:0;min-height:28px;padding:4px 8px;font-size:11px;white-space:nowrap}

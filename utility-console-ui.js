@@ -40,7 +40,7 @@
   }
   async function openCloak(unit,sicId){
     if(view||opening)return;opening=true;const b=window.SACombatBridge;
-    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     try{await styles(doc);}finally{opening=false;}
     const initial=window.SAStationAccess.access(b.state(),unit,sicId);if(!initial)return;
     const gravityField=initial.definition.gravityField;const isActive=ship=>gravityField?Boolean(ship.ship.gravityFieldState?.active):window.SAShipMap.cloaked(ship);
@@ -77,11 +77,11 @@
     if(view||opening)return;opening=true;
     const b=window.SACombatBridge;
     const sourceFrame=window.frameElement;
-    let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+    let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
     try{await styles(doc);}catch(error){opening=false;window.alert(error.message);b.requestRender();return;}
     opening=false;
     if(sourceFrame&&!sourceFrame.isConnected)return;
-    const initial=window.SAStationAccess.access(b.state(),b.state().units.find(u=>u.id===unit.id),sicId);
+    const initial=window.SAStationAccess.access(b.state(),b.state()?.units?.find(u=>u.id===unit.id),sicId);
     if(initial?.kind!=='utility')return;
     const life=initial.definition.utility==='life-support';
     const dialog=doc.createElement('dialog');view=dialog;dialog.className='utility-console lock-console';dialog.dataset.operatorId=unit.id;dialog.setAttribute('aria-label',initial.definition.name+' console');

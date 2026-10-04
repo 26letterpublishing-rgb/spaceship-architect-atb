@@ -74,8 +74,12 @@ async function handle(api, context) {
       return reply(200,{token:nextToken,campaign:api.state(campaign,nextToken)});
     }
     const campaign=await api.campaign(code);
-    if(!campaign || campaign.interfaceVersion!=='0.3') return reply(404,{error:'That v0.3 room is not available.'});
-    if(!campaign.roomOpen) return reply(410,{error:'The GM has closed this room.'});
+    // Explore rooms use temporary legacy sessions but the same galaxy editor.
+    // Only this authenticated map action crosses the version gate; imports,
+    // ownership and room management retain the ordinary v0.3 requirements.
+    const showcaseMap=['starmap','ship/duplicate'].includes(action)&&campaign?.showcase===true;
+    if(!campaign || campaign.interfaceVersion!=='0.3'&&!showcaseMap) return reply(404,{error:'That v0.3 room is not available.'});
+    if(!campaign.roomOpen&&!showcaseMap) return reply(410,{error:'The GM has closed this room.'});
     campaign.players ||= []; campaign.imports ||= []; campaign.runtimeSessions ||= {};
     if(action==='join') {
       const name=String(body.name || '').trim(); if(!name) throw Error('Enter your first name.');
@@ -86,7 +90,10 @@ async function handle(api, context) {
     const session=api.session(token,code); if(!session) return reply(403,{error:'Join the room first.'});
     const gm=session.role==='gm';
     const player=campaign.players.find(p=>p.id===session.playerId);
-    if(action==='claim' || action==='assign') {
+    if(action==='starmap'){
+      const result=require('./campaign-starmaps').command(campaign,body,{gm,characterId:session.characterId,combatActive:!api.canPassTime(code)});
+      if(result.quote)return reply(200,result);
+    } else if(action==='claim' || action==='assign') {
       if(action==='assign' && !gm) return reply(403,{error:'GM access required.'});
       const recipient=action==='assign'?campaign.players.find(p=>p.id===body.playerId):player;
       const record=campaign.characters.find(c=>c.id===body.characterId);
@@ -108,7 +115,15 @@ async function handle(api, context) {
       const data=kind==='character'?cleanCharacter(body.data):copy(body.data?.starship || body.data?.ship || body.data);
       if(kind==='character' && (!data.identity || !data.attributes || !String(data.identity.characterName||'').trim())) throw Error('Choose a character file containing a name and attributes.');
       if(kind==='ship' && !data?.confirmedOnce) throw Error('Confirm ship construction before importing.');
+      if(kind==='ship')data.constructionCost=require('./ship-budget').cost(data);
       campaign.imports.push({id:id('import'),kind,data,playerId:player?.id,status:'pending',requestedAt:new Date().toISOString()});
+    } else if(action==='ship/duplicate') {
+      if(!gm)throw Error('Only the GM may duplicate a starship.');
+      const original=campaign.starships.find(s=>s.id===body.shipId);if(!original)throw Error('Starship not found.');
+      const source=copy(original.ship);source.id=id('ship');source.title=(original.title||'Starship')+' (Copy)';delete source.campaignLink;
+      for(const key of ['characterLocations','crewCharacterIds','crewNpcUnitIds'])source[key]=key==='characterLocations'?{}:[];
+      for(const key of ['remoteState','triangulatorState','cleanserState','navigation','warpState','destructState','fieldState','encounterState','sensorState','intruderState','transporterState'])delete source[key];
+      campaign.starships.push(normalizeStarshipRecord({id:source.id,title:source.title,ship:source,controlType:original.controlType,crewCharacterIds:[],crewNpcUnitIds:[],characterLocations:{}}));
     } else if(action==='import/respond') {
       if(!gm) return reply(403,{error:'GM approval required.'});
       const request=campaign.imports.find(r=>r.id===body.requestId && r.status==='pending'); if(!request) throw Error('That request has already been handled.');
@@ -117,7 +132,7 @@ async function handle(api, context) {
           const source=copy(request.data);source.id=id('ship'); delete source.campaignLink;
           const record=normalizeStarshipRecord({id:source.id,ship:source,controlType:'pc',crewCharacterIds:[]});
           const error=shipMap.exteriorError(source)||shipPower.constructionError(record);if(error)throw Error(error);
-          campaign.starships.push(record); request.shipId=record.id;
+          record.ship.constructionCost=require('./ship-budget').cost(record.ship);if(typeof body.useGroupCredits!=='boolean')throw Error('Choose whether to purchase this ship using Group Credits.');if(body.useGroupCredits)require('./ship-budget').spend(campaign,record.ship.constructionCost);record.ship.groupCredits=campaign.shipCredits;campaign.starships.push(record); request.shipId=record.id;
         }
         if(request.kind==='character') { request.data.phase='finalized'; request.data.pendingRoll=null; request.data.advancementOpen=false; }
         request.status='approved';

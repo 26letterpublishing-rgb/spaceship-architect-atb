@@ -1,7 +1,7 @@
 (function(){
   let active=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function host(){let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}return doc;}
+  function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;}
   function style(doc){if(doc.querySelector('[data-hacking-style]'))return;const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('hacking-console.css',location.href).href;link.dataset.hackingStyle='';doc.head.append(link);}
   function open(unit,sicId){
     if(active)return;
@@ -13,7 +13,7 @@
     const storageKey=`sa-live-hacking:${b.state().roomCode}:${unit.id}:${sicId}`;
     let drafts={};try{drafts=JSON.parse(sessionStorage.getItem(storageKey)||'{}');selected=drafts.selected||'';pending=drafts.pending||null;}catch{}
     const save=()=>{drafts.selected=selected;drafts.pending=pending;try{sessionStorage.setItem(storageKey,JSON.stringify(drafts));}catch{}};
-    const person=()=>b.state().units.find(u=>u.id===unit.id);
+    const person=()=>b.state()?.units?.find(u=>u.id===unit.id);
     const session=()=>person()?.hackingSessions?.find(s=>s.id===selected);
     function components(){const ship=b.state().starships.find(s=>s.id===initial.ship.id),analysis=ship?.sensorState?.analyses?.[get('[data-target]').value];const old=get('[data-component]').value;
       const options=(analysis?.layout?.sicInventory||[]).filter(i=>Number.isInteger(window.SAShipMap.definition(i.type).security)&&window.SAShipMap.definition(i.type).security>0).map(i=>`<option value="${esc(i.id)}">${esc(window.SAShipMap.definition(i.type).name)}</option>`).join('');

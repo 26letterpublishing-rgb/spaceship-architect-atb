@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-function api(){
+function api(combatState=null){
  const document={addEventListener(){},querySelector:()=>({}),defaultView:{frameElement:null,CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}}}};
- const context={window:{SAShipDistances:require('../ship-distances'),SAShipMap:require('../ship-map-core')},document,CSS:{escape:value=>value},requestAnimationFrame:fn=>fn(),location:{href:'http://localhost/'}};
+ const context={window:{SAShipDistances:require('../ship-distances'),SAShipMap:require('../ship-map-core'),SACombatBridge:{state:()=>combatState}},document,CSS:{escape:value=>value},requestAnimationFrame:fn=>fn(),location:{href:'http://localhost/'}};
  vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../space-map'),'utf8'),context);return {maps:context.window.SASpaceMap,document};
 }
 function svg(width,height,markers=[]){
@@ -62,4 +62,25 @@ test('live refresh resizes an existing shield ring and pointer target when ship 
  maps.refresh([ship],[{id:'ship',q:0,r:0}]);
  const expected=maps.markup([ship],[{id:'ship',q:0,r:0}],true).match(/data-shield-ring r="([^"]+)"/)[1];
  assert.equal(ring.attributes.r,expected);assert.equal(hit.attributes.r,expected);assert.ok(Number(expected)>1.6);
+});
+
+
+test('editable maps do not inherit last-known markers from another live encounter',()=>{
+ const ghost={id:'ghost-contact',title:'Stale battle contact',gmContactMarker:true,contactLevel:'last-known',position:{q:80,r:40},ship:{gridCells:[]}};
+ const {maps}=api({gmContactMarkers:[ghost]});
+ assert.doesNotMatch(maps.markup([],[],true),/ghost-contact|Stale battle contact/);
+ assert.match(maps.markup([],[],false),/ghost-contact/);
+});
+
+test('a live map can refresh an unchanged empty scene without rebuilding its SVG',()=>{
+ const {maps}=api(),map={querySelectorAll:()=>[],querySelector:()=>null};
+ const container={_spaceStructure:JSON.stringify([[],[]]),querySelector:()=>map,querySelectorAll:()=>[]};
+ assert.equal(maps.update(container,[],[]),map);
+});
+
+test('live combat updates cannot move or restyle a preparation or solar-system draft',()=>{
+ const {maps,document}=api();
+ const editor={dataset:{spaceEditable:'true'},querySelectorAll(){throw Error('Live refresh touched an editable draft');},getAttribute(){throw Error('Live refresh touched an editable draft');}};
+ document.querySelectorAll=selector=>selector==='[data-space-canvas]'?[editor]:[];
+ assert.doesNotThrow(()=>maps.refresh([{id:'existing-ship',ship:{gridCells:[0]}}],[{id:'existing-ship',q:40,r:-20}]));
 });

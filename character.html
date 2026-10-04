@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
+<script src="drama-notices.js"></script>
+    <script src="explore-session.js"></script>
     <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
   <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="ship-pass2.css">
@@ -30,6 +32,8 @@
 <link rel="stylesheet" href="character-v03.css"><script src="character-statistics.js"></script>
 <link rel="stylesheet" href="crew-logs.css">
 <script defer src="interior-pan.js"></script>
+<link rel="stylesheet" href="campaign-starmaps.css">
+<script src="campaign-starmaps-ui.js" defer></script>
 </head>
   <body>
     <header class="creator-header">
@@ -41,6 +45,7 @@
         <div id="syncIndicator" class="sync-indicator local" title="Saved on this device"><i aria-hidden="true"></i><span>LOCAL</span></div>
       </div>
       <button id="creatorTitle" class="creator-title" type="button"><span id="creatorRoleLabel">Second Edition</span><h1 id="creatorCampaignTitle">Character Creator</h1></button>
+      <div class="pc-header-tools"><button id="pcHeaderSound" class="pc-settings-button" type="button" aria-label="Mute sounds" title="Mute sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button><button id="pcSettingsButton" class="pc-settings-button" type="button" aria-label="Settings" title="Settings">⚙</button></div>
     </header>
 
     <section id="gmAdjustmentBar" class="gm-adjustment-bar" hidden>
@@ -54,7 +59,7 @@
       <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
       <button type="button" data-character-tab="starships" hidden>Starships</button>
       <button type="button" data-character-tab="atb" hidden>Combat <small id="campaignCombatStatus" role="status" hidden><strong>OUT OF COMBAT</strong></small></button>
-      <button type="button" data-character-tab="settings">Settings</button>
+
 
     </nav>
 
@@ -85,6 +90,7 @@
             <div class="campaign-lobby-actions" hidden><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
           </div>
           <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" /></label></div>
+          <div class="campaign-group-credits" data-group-credits>Group Credits <strong>0</strong></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
           <section id="campaignStarshipRoster" class="campaign-starship-roster" hidden>
             <header><span>CAMPAIGN FLEET</span><h2>Starships</h2></header>
@@ -156,7 +162,7 @@
           <span id="phaseBadge" class="phase-badge">Next Step</span>
           <div id="nextRequirement" class="workflow-requirements" role="list" aria-label="Available character creation steps"></div>
           <small id="workflowDetail">All currently available creation steps are shown.</small>
-          <small class="creation-roadmap">Creation: Attributes &rarr; Skills &rarr; optional background/FUBS &rarr; Finalize &rarr; PC access code.</small>
+          <small class="creation-roadmap">Creation: Attributes &rarr; Skills &rarr; optional background/FUBS &rarr; Finalize. Set a character password when joining a campaign.</small>
         </div>
         <div class="workflow-counters" aria-label="Current character creation totals">
           <div><span>Experience</span><strong id="workflowExperience">0 / 0</strong></div>
@@ -483,6 +489,7 @@
     </section>
 
     <section id="playerStarshipsPanel" class="character-page-panel character-tool-page player-starships-panel" data-character-panel="starships" hidden>
+      <div class="starship-group-credits campaign-group-credits" data-group-credits>Group Credits <strong>0</strong></div>
       <header class="character-tool-heading"><span>ASSIGNED VESSELS</span><h1>Starships</h1><p>Your position and everyone currently aboard update with the campaign.</p></header>
       <div class="player-fleet-actions"><button type="button" id="createCampaignShip">Create Starship</button><button type="button" id="importCampaignShip">Import Starship</button><p>New ships are sent to the GM for approval. The GM assigns crew; assigned crew can upgrade and operate their ships.</p></div><div id="playerStarshipList" class="player-starship-list"></div>
     </section>
@@ -747,7 +754,7 @@
         <article id="dramaCardDisplay" class="drama-card-display" data-category="">
           <header><span id="dramaCardCategory">Drama Card</span><b id="dramaCardNumber">#00</b></header>
           <div class="drama-card-core">
-            <div class="drama-card-sigil" aria-hidden="true"><span>SA</span></div>
+
             <h2 id="dramaCardDialogTitle">Drama Card</h2>
             <p id="dramaCardRules"></p>
           </div>
@@ -832,6 +839,7 @@
     <script src="ship-map-core.js?v=console-feedback-2"></script>
     <script src="ship-floorplan-snapshot.js"></script>
     <script src="ship-power.js?v=console-feedback-2"></script>
+    <script src="space-map.js?v=travel-20261004"></script>
     <script src="health-display.js?v=console-feedback-2"></script>
     <script src="live-dom.js"></script>
     <script src="fleet-notices.js"></script>

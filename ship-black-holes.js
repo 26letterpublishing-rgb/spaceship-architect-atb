@@ -1,6 +1,6 @@
 'use strict';
 const maps=require('./ship-map-core'),distances=require('./ship-distances'),power=require('./ship-power'),stations=require('./station-access');
-const holes=room=>(room.spaceObjects||[]).filter(o=>o.kind==='black-hole');
+const holes=room=>(room.spaceObjects||[]).filter(o=>o.kind==='black-hole'||o.kind==='sun');
 function shieldInstalled(ship){return maps.installedItems(ship).some(i=>maps.definition(i.type).shield&&maps.operational(i));}
 const immune=maps.gravityFieldActive;
 function strength(hole,position){return Math.max(0,hole.intensity-distances.hexDistance(hole,distances.roundHex(position)));}
@@ -62,13 +62,13 @@ function advance(room,seconds,before=[],pull=true){
   const steps=Math.max(1,Math.ceil(distances.hexDistance(previous,p)*4));let crossed=false;
   for(let n=0;n<=steps&&!crossed;n++){const hex=distances.roundHex({q:previous.q+(p.q-previous.q)*n/steps,r:previous.r+(p.r-previous.r)*n/steps});crossed=fields.some(h=>hex.q===h.q&&hex.r===h.r);}
   if(crossed||pullPosition(fields,p,state,seconds)){
-   ship.currentHullHp=0;ship.ship.currentHullHp=0;ship.navigation={...ship.navigation,phase:'stopped',speed:0,remaining:0};delete state.pullCycle;reports.push(ship.title+' was destroyed in a black hole.');
+   ship.currentHullHp=0;ship.ship.currentHullHp=0;ship.navigation={...ship.navigation,phase:'stopped',speed:0,remaining:0};delete state.pullCycle;reports.push(ship.title+' was destroyed in '+(fields.some(h=>h.kind==='sun'&&distances.hexDistance(h,p)<1)?'the center of a sun.':'a black hole.'));
   }
  }
  if(pull){
   for(const {owner,job} of require('./ship-targets').salvagers(room)){if(job.position&&pullPosition(fields,job.position,job,seconds)){const item=owner.ship.sicInventory.find(i=>i.id===job.sicId);if(item){item.impaired=true;item.impairmentPoints=Math.max(1,item.impairmentPoints||0);}reports.push('Vulture Drone lost in a black hole.');}}
   require('./ship-extraction').advance(room,null,0);
-  room.spaceObjects=(room.spaceObjects||[]).filter(object=>object.kind==='black-hole'||object.gunOrb||!pullPosition(fields,object,object,seconds));
+  room.spaceObjects=(room.spaceObjects||[]).filter(object=>['black-hole','sun'].includes(object.kind)||object.gunOrb||!pullPosition(fields,object,object,seconds));
  }
  room.shipDistances=distances.fromPositions(room.starships||[],room.shipPositions);return reports;
 }

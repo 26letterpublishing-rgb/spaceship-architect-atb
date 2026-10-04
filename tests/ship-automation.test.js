@@ -40,3 +40,12 @@ test('NPC repair destination remains a repair action instead of walking back to 
 test('AI can share its host square with another plus add-on and reserve it outside combat',()=>{const f=fixture();f.ship.ship.sicInventory.push({id:'destruct',type:'self-destruct'});f.ship.ship.placements.push({sicId:'destruct',cell:22});assert.equal(maps.exteriorError(f.ship.ship),'');ai.configure(f.room,f.ship,'offense');assert.ok(ai.reservedSeat(f.ship));ai.configure(f.room,f.ship,'off');assert.equal(ai.reservedSeat(f.ship),null);});
 test('every fallback station is a real accessible station, including rotated split weapons',()=>{const f=combat();for(const loc of policy.seats(f.a)){const u={...f.unit,shipAi:false,location:loc};assert.ok(require('../station-access').station(f.room,u),JSON.stringify(loc));}f.unit.shipAi=false;f.unit.location.stationed=false;assert.equal(policy.candidates(f.room,f.unit)[0].kind,'enterStation');});
 test('launched automatic missile still rolls once when its NPC operator has been removed',async()=>{const f=combat();f.room.units=[];const m={id:'orphan-missile',sourceId:'a',targetId:'b',unitId:'removed-npc',name:'Missile 1',automated:true,phase:'impact',dice:2};require('../ship-missiles').state(f.a).flights.push(m);let calls=0;const h={act:async body=>{calls++;assert.equal(body.action,'missileDamage');assert.ok(body.score>=2&&body.score<=16);m.phase='exploded';return {ok:true};},publish(){},off(){}};await runner.step(f.room,.5,h);assert.equal(calls,0);m.automationPresentation.animationComplete=true;for(let i=0;i<8;i++)await runner.step(f.room,.5,h);assert.equal(calls,1);assert.equal(m.automationPresentation.displayScore,m.automationPresentation.score*5);});
+
+test('Ship AI holds at its reserved bridge without automation acting, then resumes',async()=>{
+ const f=combat(),hold=require('../console-hold'),loc=structuredClone(f.unit.location);let actions=0;
+ const h={pushLog(){},clearActiveCommand(){},moveToNextTurnOrClock(){}};
+ assert.equal(hold.resolve(f.room,f.unit,'holdConsole',h).ok,true);assert.equal(f.unit.atb,99);
+ await runner.step(f.room,1,{act:async()=>{actions++;return {ok:true};},publish(){},off(){}});
+ assert.equal(actions,0);assert.deepEqual(f.unit.location,loc);assert.equal(f.unit.automationMode,'offense');
+ assert.equal(hold.resolve(f.room,f.unit,'resumeConsole',h).ok,true);assert.equal(f.unit.consoleHold,null);
+});

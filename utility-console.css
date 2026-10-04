@@ -17,3 +17,6 @@
 .sic-console-scanline{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 5px,#b785ff10 6px 7px);animation:projection-monitor 8s linear infinite}@keyframes projection-monitor{to{transform:translateY(14px)}}@media(prefers-reduced-motion:reduce){.sic-console-scanline{animation:none}}
 .illusion-droid-console .utility-controls label:has(input[type="checkbox"]){display:flex;align-items:center;gap:8px;min-height:32px;text-align:left}
 .illusion-droid-console .utility-controls input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;margin:0}
+
+/* Keep the serving surface registered to the illustrated cup at every size. */
+.utility-console .nut-dispenser{width:100%;height:auto;aspect-ratio:16/9;flex:0 0 auto;min-height:0}.nut-dispenser-scene{object-fit:contain}.nut-dispenser .nut-paste{left:49.7%;top:55%;height:7%;width:.6%}.utility-console .nut-dispenser .nut-blob,.utility-console[data-texture=thick] .nut-dispenser .nut-blob,.utility-console[data-texture=chunky] .nut-dispenser .nut-blob{left:46%;top:61.6%;bottom:auto;width:8%;height:1.8%;clip-path:none;border-radius:50%;box-shadow:inset 0 -2px 2px #0005,inset 0 1px #fff5}

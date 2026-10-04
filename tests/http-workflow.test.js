@@ -175,7 +175,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   demoState = await demoAction({action:"removeUnit",id:demoPc.id});
   assert.ok(!demoState.units.some(unit => unit.id === demoPc.id));
   demoState = await demoAction({action:"clearEncounter",preparing:true});
-  assert.equal(demoState.units.length, 0, "preparation must not restore the demo roster");
+  assert.equal(demoState.units.filter(u=>!u.shipAi&&!u.securityDroid).length, 0, "preparation must not restore the demo roster");
   const fixtureBackup=await (await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`)).json();
   const fixtureShip=fixtureBackup.campaign.starships.find(s=>s.id===auShip.id);fixtureShip.ship={...fixtureShip.ship,...structuredClone(auShip.ship)};
   await post('restore',{code,token,backup:fixtureBackup});

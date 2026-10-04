@@ -7,7 +7,7 @@
     const bridge = window.SACombatBridge, initial = window.SAStationAccess.access(bridge.state(),unit,sicId);
     if (!initial || initial.kind !== 'sensor') return;
     let host = document;
-    try { while (host.defaultView.frameElement) host = host.defaultView.parent.document; } catch {}
+    try { while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective')) host = host.defaultView.parent.document; } catch {}
     if (!host.querySelector('link[data-sensor-style]')) {
       const style = host.createElement('link');style.rel='stylesheet';style.href=new URL('sensor-console-ui.css',location.href).href;style.dataset.sensorStyle='';host.head.append(style);
     }
@@ -50,7 +50,7 @@
     const ownPosition=bridge.state().shipPositions.find(p=>p.id===initial.ship.id);q.value=Math.round(ownPosition?.q||0);r.value=Math.round(ownPosition?.r||0);
     window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());
     function redraw() {
-      const state=bridge.state(),person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);
+      const state=bridge.state(),person=state?.units?.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);
       if (!access || access.seat.key!==initial.seat.key) {view.close();return;}
       const sensor=window.SAShipSensors.installed(access.ship),settings=window.SAShipSensors.inputSettings(access.ship);
       const ready=state.activeId===person.id&&!person.delayedAction&&!person.delayTimer&&!person.timedAction&&!person.consoleHold;

@@ -213,6 +213,8 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .crew-deployment{width:96vw;max-width:none;height:92dvh;max-height:none;background:#08151f;color:#eafaff;border:1px solid #5ed9ed;box-sizing:border-box}.crew-deployment main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:20px;height:calc(100% - 180px);overflow:auto}.crew-deployment section{min-width:0}.crew-deployment svg{display:block;width:100%;max-height:65vh;touch-action:none;background:#031018}.crew-deployment nav{display:flex;flex-wrap:wrap;gap:5px}.crew-deployment button{background:#174050;color:#fff;border:1px solid #87b8c9;padding:9px;cursor:pointer}.crew-deployment button[aria-pressed=true]{border-color:#ffdf72;color:#ffe796}.crew-deployment footer{display:flex;justify-content:space-between;gap:20px}.crew-deployment [data-continue]{background:#246b49}.crew-deployment [data-token]{cursor:grab}
 
 .crew-deployment[open]{display:flex;flex-direction:column;overflow:hidden}.crew-deployment header,.crew-deployment footer,.crew-deployment>p{flex:0 0 auto}.crew-deployment main{flex:1;min-height:0;height:auto}.crew-deployment main section{display:flex;flex-direction:column;min-height:0}.crew-deployment svg{flex:1;min-height:180px;height:100%;max-height:100%;aspect-ratio:auto!important}.crew-deployment h3{margin:8px 0}.crew-deployment nav{flex:0 0 auto;margin-bottom:6px}
+.crew-deployment h2{margin:0 0 8px;font-size:21px}.crew-deployment header p{margin:0 0 10px;font-size:13px}.crew-deployment nav button{font-size:13px;padding:6px 10px}.crew-deployment .deployment-tools{display:flex;align-items:end;gap:8px;margin-bottom:8px;flex:0 0 auto}.crew-deployment .deployment-tools label{flex:1;min-width:0;font-size:12px}.crew-deployment select{display:block;width:100%;min-width:0;margin-top:4px;background:#112b38;color:#ecf9ff;border:1px solid #74a7bb;padding:7px}.crew-deployment .deployment-tools button{flex:0 0 auto;font-size:12px}.crew-deployment main:has(>section:only-child){grid-template-columns:1fr}.crew-deployment>p{margin:6px 0;min-height:1.2em;font-size:13px}.crew-deployment footer button{font-size:13px}.crew-deployment footer{gap:8px}
+@media(min-width:800px){.crew-deployment main>section:only-child{display:grid;grid-template-columns:260px minmax(0,1fr);grid-template-rows:auto auto 1fr;gap:8px}.crew-deployment main>section:only-child>svg{grid-column:2;grid-row:1/4;align-self:stretch}.crew-deployment main>section:only-child .deployment-tools{flex-direction:column;align-items:stretch;align-self:start}.crew-deployment main>section:only-child nav{align-self:start}.crew-deployment main>section:only-child .deployment-tools label{flex:none}}
 
 /* Ship selection uses the same saved color as the ship's map/combat display. */
 .encounter-ship-option{border-left:4px solid var(--ship-choice-color,#65cbea)}
@@ -228,3 +230,47 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-starship-card>header h3{color:var(--ship-choice-color,#65cbea)}
 
 [data-save-starship-crew]{background:#48535c!important;color:#fff!important}[data-save-starship-crew].assignments-dirty{background:#20874c!important;color:#fff!important;border-color:#85f4ac!important}
+
+/* Checkboxes and radios are controls, not full-width text fields. */
+input[type="checkbox"],input[type="radio"]{appearance:auto;box-sizing:border-box;width:18px;height:18px;min-width:18px;min-height:18px;max-width:18px;flex:0 0 18px;margin:0;padding:0;accent-color:#35cfe8;vertical-align:middle;cursor:pointer}
+label:has(>input[type="checkbox"]),label:has(>input[type="radio"]){display:flex;align-items:center;gap:8px;text-transform:none;line-height:1.45}
+button:focus-visible,a:focus-visible{outline:2px solid #b9f6ff;outline-offset:3px}
+select option,select optgroup{color:#edf7ff;background:#0b1925}
+
+/* Count actual navigation items instead of leaving a seventh tab on a new row. */
+.gm-tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);min-width:0}
+.gm-tabs button{min-width:0;max-width:none;padding:7px clamp(5px,1vw,14px);min-height:46px;font-size:clamp(12px,1vw,15px);line-height:1.3;overflow-wrap:normal;white-space:normal}
+.gm-tabs button[data-tab="campaign"]{--tab-color:#71b7f5;--tab-dark:#163552}
+.status-message:empty,.tool-message:empty{display:none}
+.status-message:not(:empty),.tool-message:has(.status-dismiss){display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid #334d60;background:#091723;min-height:42px;font-size:14px;line-height:1.5}
+.status-message>span,.tool-message>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.status-dismiss{flex:0 0 34px;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;margin-left:auto;border-radius:4px;font:22px/1 Arial,sans-serif;pointer-events:auto;color:#eefaff;background:#183545;box-shadow:none}
+.gm-tabs button.active strong{color:inherit}
+@media(max-width:700px){.gm-tabs{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-columns:auto}.gm-tabs button{font-size:12px;padding:7px 4px}.tab-heading,.section-title{flex-wrap:wrap}}
+@media(max-width:420px){.gm-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Keep administration controls reachable when the campaign header cannot fit
+   in one row. The content, rather than the viewport, determines its height. */
+.gm-header>*{min-width:0}.campaign-heading strong{overflow-wrap:anywhere}
+#encounterCharacterList:has(.encounter-ship-option){max-height:60vh;overflow-y:auto;overscroll-behavior:contain;padding:2px 6px 2px 2px;scrollbar-gutter:stable}
+.encounter-ship-option:not(.selected) :is(.encounter-ship-crew,.encounter-glow){display:none}
+.begin-encounter{position:sticky;bottom:8px;z-index:4;box-shadow:0 2px 16px #000c}
+@media(max-width:1100px){
+  .gm-header,.interface-banner-hidden .gm-header{grid-template-columns:minmax(140px,.8fr) minmax(0,1fr);gap:8px}
+  .gm-header .gm-brand{grid-column:1;order:0}
+  .gm-header .campaign-heading{grid-column:2;order:0;justify-content:flex-end;flex-wrap:wrap;gap:6px}
+  .gm-header .gm-header-actions{grid-column:1/-1;order:1;flex-wrap:wrap;min-width:0}
+  .gm-header-actions .campaign-export-button{margin-right:auto;max-width:100%;white-space:normal}
+  .interface-banner-hidden .gm-header .campaign-heading{grid-column:1/-1}
+}
+
+.target-grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:8px}
+.target-option{min-height:62px;padding:10px 12px;cursor:pointer}.target-option>span{display:grid;gap:4px;min-width:0}.target-option strong{font-size:15px;line-height:1.35;color:#eaf7ff;overflow-wrap:anywhere}.target-option small{display:block;font-size:12px;line-height:1.3;color:#a9c7d8}.target-option:has(input:checked){border-color:#6be4ff;background:#123447}
+.tool-card label,.builder-grid label,.roll-grid label,.target-console>label{font-size:12px;line-height:1.4}.tool-card .section-title small,.section-title>small{font-size:12px}.tool-card input,.tool-card select,.builder-grid input,.builder-grid select{font-size:14px}
+
+.roll-visibility-note,.form-hint{margin:0;color:#abc6d6;font-size:12px;line-height:1.5;text-transform:none}.roll-visibility-note{align-self:center;padding:8px;border-left:2px solid #377c8c}.settings-card label{font-size:12px}.settings-card p{font-size:13px;line-height:1.55}.pin-readout{gap:12px;flex-wrap:wrap}.pin-readout span{font-size:11px}.pin-readout strong{overflow-wrap:anywhere;letter-spacing:normal}
+
+#promptTab .tool-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}#promptTab .tool-card{min-width:0;min-height:0;align-self:start}#promptTab .tool-card .roll-grid{display:grid;grid-template-columns:1fr}#promptTab .tool-card button{width:auto;min-height:36px;max-width:100%}#promptTab .tool-card textarea{min-height:96px}#promptTab .tool-card h3{font-size:1rem}#promptTab .tool-message:empty{display:none}@media(max-width:1500px){#promptTab .tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1050px){#promptTab .tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){#promptTab .tool-grid{grid-template-columns:1fr}}.ship-construction-cost{color:#79eca6;font-size:.8rem;white-space:nowrap}
+
+.gm-drama-card{width:min(470px,88vw);max-height:78vh;aspect-ratio:5/7}.gm-drama-card>div{align-content:center;gap:20px;padding:20px;min-height:0;overflow:auto}.gm-drama-card h2,.gm-drama-card h3{font-size:clamp(24px,2.5vw,36px);line-height:1.1}.gm-drama-card p{font-size:clamp(17px,1.5vw,23px);line-height:1.4}.gm-drama-card>footer{font-size:13px}.gm-drama-card-mini-face>div{align-content:center;gap:16px;padding:22px 26px}.gm-drama-card-mini-face h4{font-size:2.8rem}.gm-drama-card-mini-face p{font-size:1.9rem;line-height:1.25}
+#promptTab .roll-tool-card{grid-column:span 2}#promptTab .roll-tool-card .roll-grid{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:650px){#promptTab .roll-tool-card{grid-column:auto}#promptTab .roll-tool-card .roll-grid{grid-template-columns:1fr}}

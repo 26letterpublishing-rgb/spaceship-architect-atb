@@ -16,13 +16,13 @@
  }
  function open(unit,sicId){
   if(currentView)return;const b=window.SACombatBridge,initial=window.SAStationAccess.access(b.state(),unit,sicId);if(!initial?.definition.surveillance)return;
-  let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+  let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
   for(const name of ['utility-console.css','console-common.css','surveillance-console.css'])if(!doc.querySelector(`link[href="${name}"]`)){const l=doc.createElement('link');l.rel='stylesheet';l.href=name;doc.head.append(l);}
   const view=doc.createElement('dialog');currentView=view;view.className='utility-console lock-console surveillance-console';view.dataset.operatorId=unit.id;view.dataset.sicId=sicId;view.setAttribute('aria-label','Surv. Camera console');
   view.innerHTML=`<header><div><small>${esc(unit.characterName)} / SHIP SECURITY</small><h2>Surv. Camera</h2></div><div data-selector></div><button data-sound type="button">${b.soundIcon()}</button><button data-close type="button">Combat View</button></header><section class="surveillance-coverage"><div class="security-room-scene"><img src="security-console-scene.webp" alt="Ship security monitoring room"><i aria-hidden="true"></i></div><div class="surveillance-heading"><strong data-feed-status>Connecting cameras…</strong><span>SHIP-WIDE COVERAGE</span></div><div class="surveillance-monitors" data-monitors></div><p class="surveillance-legend">● Crew &nbsp; <span>● Intruder</span> &nbsp; Amber lines: closed doors</p></section><section class="surveillance-desk"><div><h3>Interior crew positions</h3><div data-crew></div></div><div><h3>Security activity</h3><p>Automatic intruder alerts and door closure remain active without an operator.</p><output data-status role="status"></output><p data-report></p></div></section><section class="utility-seat"><button data-hold type="button">Hold</button><button data-leave type="button">Leave Station</button></section>`;
-  const get=s=>view.querySelector(s),person=()=>b.state().units.find(u=>u.id===unit.id);let closed=false,busy=false,last='';
+  const get=s=>view.querySelector(s),person=()=>b.state()?.units?.find(u=>u.id===unit.id);let closed=false,busy=false,last='';
   function clear(message){last='';get('[data-monitors]').replaceChildren();get('[data-crew]').replaceChildren();get('[data-report]').textContent='';get('[data-feed-status]').textContent='CAMERA FEED UNAVAILABLE';get('[data-status]').textContent=message;}
-  function controls(){const p=person(),ready=b.state().activeId===p?.id&&!p?.timedAction&&!p?.delayedAction&&!p?.delayTimer;
+  function controls(){if(!b.state()){view.close();return;}const p=person(),ready=b.state().activeId===p?.id&&!p?.timedAction&&!p?.delayedAction&&!p?.delayTimer;
    get('[data-hold]').hidden=Boolean(b.state().practice);get('[data-hold]').disabled=!ready&&!p?.consoleHold;get('[data-hold]').textContent=p?.consoleHold?'Resume':'Hold';get('[data-leave]').hidden=Boolean(b.state().practice);get('[data-leave]').disabled=!ready;
    const access=window.SAStationAccess.access(b.state(),p,sicId);if(!access||access.blocked)clear('Connection lost. Return to an available station or restore camera access.');
   }

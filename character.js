@@ -1378,6 +1378,7 @@ let activeId = activeRecovery?.character?.id || localStorage.getItem(ACTIVE_KEY)
 if (!library.some((entry) => entry.id === activeId)) activeId = library[0].id;
 let character = library.find((entry) => entry.id === activeId) || library[0];
 let gearDraft = null;
+let gearPurchasePending = false;
 const pendingGearAdds = new Set();
 
 function saveLibrary(message = "Saved locally") {
@@ -1623,11 +1624,7 @@ function renderTabbedStatus() {
   renderCombatStatus();
   const hpRatio = maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0;
   const heartUnits = Math.round(hpRatio * 6);
-  dom.tabStatusHearts.innerHTML = Array.from({ length: 3 }, (_, index) => {
-    const units = Math.max(0, Math.min(2, heartUnits - index * 2));
-    const empty = units === 2 ? "0%" : units === 1 ? "50%" : "100%";
-    return `<svg class="hud-heart" style="--heart-empty:${empty}" viewBox="0 0 24 22" aria-hidden="true"><path class="hud-heart-base" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/><path class="hud-heart-fill" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/></svg>`;
-  }).join("");
+  dom.tabStatusHearts.innerHTML = hpHeartIcons(current, maximum);
   dom.tabStatusHearts.closest(".hud-health")?.classList.toggle("half-heart-emergency", heartUnits === 1 && current > 0);
   dom.tabStatusHearts.closest(".hud-health")?.classList.toggle("zero-heart-emergency", heartUnits === 0 && maximum > 0);
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
@@ -1702,6 +1699,7 @@ function renderCharacterHeader() {
 }
 
 function renderPlayerSoundSetting() {
+  const sound=document.getElementById('pcHeaderSound');if(sound){sound.classList.toggle('muted',!playerSoundsEnabled);sound.title=playerSoundsEnabled?'Mute sounds':'Unmute sounds';sound.setAttribute('aria-label',sound.title);sound.setAttribute('aria-pressed',String(!playerSoundsEnabled));}
   dom.playerSoundToggle?.querySelectorAll("[data-player-sounds]").forEach((button) => {
     const selected = (button.dataset.playerSounds === "true") === playerSoundsEnabled;
     button.classList.toggle("active", selected);
@@ -1771,7 +1769,7 @@ async function loadPlayerAtb({ reload = false } = {}) {
 }
 
 function showCharacterPanel(tab = "sheet") {
-  const available = [...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
+  const available = tab==='settings'||[...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
   const previousTab = activeCharacterTab;
   activeCharacterTab = available ? tab : "sheet";
   if(SHOWCASE_MODE&&campaignCode)sessionStorage.setItem(exploreTabKey,activeCharacterTab);
@@ -1834,7 +1832,7 @@ function renderCharacterNavigation() {
   } else if (!linked) {
     dom.joinCampaignStatus.innerHTML = "";
   }
-  if (![...dom.tabs.querySelectorAll("[data-character-tab]")].some((button) => button.dataset.characterTab === activeCharacterTab && !button.hidden)) {
+  if (activeCharacterTab!=='settings'&&![...dom.tabs.querySelectorAll("[data-character-tab]")].some((button) => button.dataset.characterTab === activeCharacterTab && !button.hidden)) {
     activeCharacterTab = "sheet";
   }
   renderTabbedStatus();
@@ -1847,6 +1845,7 @@ function campaignViewerRecords() {
 }
 
 function openCampaignSheetViewer(recordId) {
+  if(recordId===campaignState?.ownCharacterId&&campaignEditable){showCharacterPanel('sheet');return;}
   const records = campaignViewerRecords();
   const index = records.findIndex((entry) => entry.id === recordId);
   if (index < 0) return;
@@ -1859,7 +1858,7 @@ function openCampaignSheetViewer(recordId) {
   dom.campaignSheetViewerPosition.textContent = `${index + 1} / ${records.length}`;
   dom.previousCampaignSheet.disabled = records.length < 2;
   dom.nextCampaignSheet.disabled = records.length < 2;
-  const src = `character.html?campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(record.id)}&embedded=1&campaignView=1`;
+  const src = `character.html?campaign=${encodeURIComponent(campaignCode)}&character=${encodeURIComponent(record.id)}&embedded=1&campaignView=1${SHOWCASE_MODE?'&showcase=1':''}`;
   if (dom.campaignSheetFrame.dataset.characterId !== record.id) {
     dom.campaignSheetFrame.dataset.characterId = record.id;
     dom.campaignSheetFrame.style.height = "900px";
@@ -1909,6 +1908,14 @@ function renderCombatStatus() {
   status.querySelector('strong').textContent=active?'IN COMBAT':'OUT OF COMBAT';
   status.dataset.active=String(active);
 }
+function hpHeartIcons(current,maximum){
+  const heartUnits=Math.round(Math.max(0,Math.min(1,maximum>0?current/maximum:0))*6);
+  return Array.from({ length: 3 }, (_, index) => {
+    const units = Math.max(0, Math.min(2, heartUnits - index * 2));
+    const empty = units === 2 ? "0%" : units === 1 ? "50%" : "100%";
+    return `<svg class="hud-heart" style="--heart-empty:${empty}" viewBox="0 0 24 22" aria-hidden="true"><path class="hud-heart-base" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/><path class="hud-heart-fill" d="M12 21C10.4 18.9 1 13.2 1 6.8 1 2.4 6.3-.2 12 4.1 17.7-.2 23 2.4 23 6.8 23 13.2 13.6 18.9 12 21Z"/></svg>`;
+  }).join("");
+}
 function renderCampaignRoster() {
   renderCombatStatus();
   if (!campaignState) {
@@ -1923,10 +1930,12 @@ function renderCampaignRoster() {
   dom.campaignRosterCards.innerHTML = records.length ? records.map((record) => {
     const name = campaignCharacterName(record);
     const player = campaignPlayerName(record);
+    const pc=record.character||{},hp=Number(pc.health?.current)||0,max=Number(pc.computed?.maximumHp)||hp;
+    const held=(pc.weapons||[]).filter(w=>w.held).map(w=>weaponById(w.weaponId)?.name||w.name||'Weapon');
     return `<article class="campaign-character-card" style="--character-color:${escapeAttribute(record.character?.presentation?.atbColor || "#39e58f")}">
-      <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong></div>
+      <div><span>${escapeHtml(player)}</span><strong>${escapeHtml(name)}</strong><div class="campaign-pc-vitals"><span class="hud-hearts" aria-label="HP ${hp}/${max}">${hpHeartIcons(hp,max)}<small>${hp}/${max} HP</small></span><span>Drama Cards <b>${Number(pc.resources?.dramaCards)||0}</b></span><span>Reverence <b>${Number(pc.resources?.reverence)||0}</b></span></div><small class="campaign-held-weapons">Holding: ${escapeHtml(held.join(', ')||'Unarmed')}</small></div>
       <div class="campaign-character-card-actions">
-        <button type="button" data-campaign-view="${record.id}">View Sheet</button>
+        <button type="button" data-campaign-view="${record.id}">${record.id===campaignState.ownCharacterId?'Edit My Sheet':'View Sheet'}</button>
       </div>
     </article>`;
   }).join("") : '<p class="campaign-empty-roster">No characters have joined this campaign yet.</p>';
@@ -1938,7 +1947,7 @@ function renderCampaignRoster() {
     const engines = ship.confirmed?.placements?.length ?? ship.placements?.length ?? 0;
     const characterQuery = campaignState.ownCharacterId ? `&character=${encodeURIComponent(campaignState.ownCharacterId)}` : "";
     return `<article class="campaign-starship-card">
-      <div><span>PC CONTROLLED</span><strong>${escapeHtml(record.title || "Untitled Starship")}</strong><small>${escapeHtml(ship.class || "Unclassified")} | Hull ${hull} | EN ${record.powerSummary?.en ?? engines * 5}</small></div>
+      <div><span>PC CONTROLLED</span><strong>${escapeHtml(record.title || "Untitled Starship")}</strong><span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span><small>${escapeHtml(ship.class || "Unclassified")} | Hull ${hull} | EN ${record.powerSummary?.en ?? engines * 5}</small></div>
       <button type="button" data-campaign-ship-view="${escapeAttribute(record.id)}">View</button>
     </article>`;
   }).join("");
@@ -2002,6 +2011,7 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
   renderCampaignBank();
   refreshCampaignRollPrompt();
   renderCharacterNavigation();
+  window.SACampaignMapUI?.update(campaignState,campaignToken);
   suppressCampaignSave = false;
 }
 
@@ -2100,19 +2110,19 @@ function livePlayerShipRecord(record) {
   if(!record)return record;
   const locations={...record.characterLocations};
   for(const [id,loc]of Object.entries(locations))if(loc.environment==='surface')delete locations[id];
-  const interiorOccupants=!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
+  const interiorOccupants=campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
   for(const u of interiorOccupants)locations[u.id]=u.location;
   for(const [index,id] of (record.crewCharacterIds||[]).entries())if(!locations[id]&&record.ship.gridCells.length&&record.characterLocations?.[id]?.environment!=='surface'&&!(campaignState?.starships||[]).some(s=>s.id!==record.id&&s.characterLocations?.[id]))locations[id]={square:record.ship.gridCells[Math.min(Math.floor(index/2),record.ship.gridCells.length-1)],mesh:4};
-  for(const unit of playerEncounterView?.units||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId))locations[unit.characterId]=unit.location;
-  if(!playerEncounterView?.encounterEndedAt)for(const unit of playerEncounterView?.units||[])if(unit.characterId&&unit.location?.starshipId!==record.id)delete locations[unit.characterId];
+  for(const unit of (campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt?playerEncounterView?.units:[])||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId))locations[unit.characterId]=unit.location;
+  if(campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt)for(const unit of playerEncounterView?.units||[])if(unit.characterId&&unit.location?.starshipId!==record.id)delete locations[unit.characterId];
   const live=dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state(),ship=live?.starships.find(s=>s.id===record.id);
   const motion={};
-  for(const unit of live?.units||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId)){
+  for(const unit of (campaignState?.combatActive&&!live?.encounterEndedAt?live?.units:[])||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId)){
     const point=dom.playerAtbFrame.contentWindow.SACombatMap?.movementPresentation(unit);
     if(point)motion[unit.characterId]={...point,openDoorKeys:[...point.openDoorKeys],walking:point.walking&&live.running&&!live.rollPaused&&!live.pausedForTurn&&!live.hardPaused&&!live.holdPaused};
   }
   const aiStations=(live?.units||[]).filter(u=>u.shipAi&&!u.defeatedAt&&u.location?.starshipId===record.id&&u.location.stationed).map(u=>({id:u.id,name:u.characterName,location:u.location}));
-  return {...record,interiorOccupants,aiStations,crewHealth:Object.fromEntries((live?.units||[]).filter(u=>u.characterId&&u.location?.starshipId===record.id).map(u=>[u.characterId,u.currentHp])),ship:ship&&!live.encounterEndedAt?{...record.ship,...ship.ship}:record.ship,characterLocations:locations,motion};
+  return {...record,interiorOccupants,aiStations,crewHealth:Object.fromEntries((live?.units||[]).filter(u=>u.characterId&&u.location?.starshipId===record.id).map(u=>[u.characterId,u.currentHp])),ship:ship&&campaignState?.combatActive&&!live.encounterEndedAt?{...record.ship,...ship.ship}:record.ship,characterLocations:locations,motion};
 }
 let playerShipEditingId=null;
 function renderPlayerStarships(force = false) {
@@ -2182,7 +2192,7 @@ function renderPlayerStarships(force = false) {
       }).join("")}</div>` : `<button type="button" data-player-ship-destination="${square}" data-player-ship-mesh="4" data-player-ship-id="${escapeAttribute(record.id)}" aria-label="Choose ship location"></button>`) : "";
       const doors = playerShipMapView.walls && hull.has(square) ? playerShipBoundaryMarkup(record, layout, square) : "";
       const label = playerShipMapView.labels && sicLabel && occupied.column === 0 && occupied.row === 0
-        ? `<span class="player-ship-label" style="width:${occupied.width * 100}%;height:${occupied.height * 100}%">${escapeHtml(sicLabel)}</span>` : "";
+        ? `<span class="player-ship-label" title="${escapeAttribute(sicLabel)}" style="width:${occupied.width * 100}%;height:${occupied.height * 100}%;--sic-width:${occupied.width};--sic-height:${occupied.height};--sic-words:${sicLabel.trim().split(/\s+/).length};--sic-longest:${Math.max(...sicLabel.split(/\s+/).map(word=>word.length))}">${escapeHtml(sicLabel)}</span>` : "";
       return `<div class="${classes}" data-player-ship-square="${square}" style="${style}">${window.SAShipMap.surfaceMarkup(layout,square)}${label}${destinationButtons}${stationMarkers}${tokens}${doors}</div>`;
     }).join("");
     const people = crew.map((entry) => `<div class="player-starship-person" style="--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}"><i></i><strong>${escapeHtml(campaignCharacterName(entry))}</strong></div>`).join("");
@@ -2198,7 +2208,7 @@ function renderPlayerStarships(force = false) {
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}">Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
       const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
-      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")}</h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
+      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
   }).join("");
   const current = starshipMoveDraft && dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(starshipMoveDraft.starshipId)}"]`);
   if(current && fullShipDetails) current.classList.add('is-moving');
@@ -2290,6 +2300,7 @@ function refreshPrivateNotes() {
 }
 
 function renderCampaignBank() {
+  for(const box of document.querySelectorAll('[data-group-credits]')){box.hidden=!campaignState;box.querySelector('strong').textContent=Math.round(Number(campaignState?.shipCredits)||0).toLocaleString();}
   dom.campaignBankCard.hidden = !campaignState || !campaignCharacterId;
   if (!campaignState || !campaignCharacterId) return;
   const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
@@ -2320,7 +2331,10 @@ function renderCampaignBank() {
   dom.bankOperation.innerHTML = operations.map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("");
   if (operations.some(([value]) => value === previousOperation)) dom.bankOperation.value = previousOperation;
   const targetOperations = ["giftPersonal", "giftShip", "mechanicalExperience", "giftReverence", "roboticsGrant"];
-  dom.bankTarget.innerHTML = campaignState.characters.filter((entry) => entry.id !== campaignCharacterId).map((entry) => `<option value="${entry.id}">${escapeHtml(campaignCharacterName(entry))}</option>`).join("");
+  const previousBankTarget = dom.bankTarget.value;
+  const bankTargets = campaignState.characters.filter((entry) => entry.id !== campaignCharacterId);
+  dom.bankTarget.innerHTML = bankTargets.map((entry) => `<option value="${entry.id}">${escapeHtml(campaignCharacterName(entry))}</option>`).join("");
+  if (bankTargets.some(entry => entry.id === previousBankTarget)) dom.bankTarget.value = previousBankTarget;
   const poolRestricted = !mayUsePool && ["deposit", "withdraw", "giftShip"].includes(dom.bankOperation.value);
   dom.bankConfirm.disabled = !campaignEditable || poolRestricted;
   dom.bankConfirm.textContent = !campaignEditable ? "Enter PC Code to Transfer" : poolRestricted ? "Banker Authorization Required" : "Confirm Transfer";
@@ -2345,12 +2359,15 @@ function refreshCampaignRollPrompt() {
 }
 
 function receiveCampaignState(nextState) {
+  const walkClockOffset=Number.isFinite(nextState.serverNow)?nextState.serverNow-Date.now():0;
+  for(const record of nextState.starships||[])record.walkClockOffset=walkClockOffset;
   if(window.SARoomV03?.moveRoom(nextState))return;
   if(nextState.interfaceVersion==='0.3'&&(!nextState.roomOpen||(campaignEditable&&nextState.role!=='gm'&&nextState.ownCharacterId!==campaignCharacterId))){campaignEditable=false;campaignDirty=false;location.href='room.html?campaign='+campaignCode;return;}
   dom.playerAtbFrame?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   document.querySelector('[data-console-preview-frame]')?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
+  window.SACampaignMapUI?.update(nextState,campaignToken);
   window.SACrewLogs?.update(nextState,campaignToken);
   window.SACrewRoomStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/crew-room',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:nextState.ownCharacterId,...body})}));
   window.SATransitStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/transit',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,...body})}));
@@ -2430,6 +2447,7 @@ function connectCampaignState() {
   campaignEvents?.close();
   if (!campaignCode) return;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
+  campaignEvents.addEventListener('galaxy-travel',event=>window.SACampaignMapUI?.travel(JSON.parse(event.data)));
   campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
   campaignEvents.addEventListener('oxygen',event=>window.SAOxygenUI.update(JSON.parse(event.data),body=>campaignRequest('/api/campaign/oxygen/roll',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,...body})}),campaignState?.role==='gm'));
   campaignEvents.addEventListener('encounter-locations',event=>{
@@ -2438,13 +2456,19 @@ function connectCampaignState() {
     renderCombatTabAttention();
     if(campaignState){
       campaignState.combatActive=positions.combatActive;campaignState.clockRunning=positions.clockRunning;renderCombatStatus();campaignState.deployedShipIds=positions.deployedShipIds||campaignState.deployedShipIds;
-      for(const unit of positions.units||[])for(const ship of campaignState.starships||[]){
+      for(const unit of (positions.combatActive&&!positions.encounterEndedAt?positions.units:[])||[])for(const ship of campaignState.starships||[]){
         if(ship.characterLocations)delete ship.characterLocations[unit.characterId];
         if(ship.id===unit.location?.starshipId&&ship.crewCharacterIds.includes(unit.characterId)){
           ship.characterLocations||={};ship.characterLocations[unit.characterId]=unit.location;
         }
       }
     }
+    if(activeCharacterTab==='starships')renderPlayerStarships();
+  });
+  campaignEvents.addEventListener('ship-walks',event=>{
+    if(campaignState?.combatActive)return;
+    const packet=JSON.parse(event.data);
+    for(const update of packet.ships||[]){const record=campaignState?.starships?.find(s=>s.id===update.id);if(record)Object.assign(record,update,{walkClockOffset:(packet.serverNow||Date.now())-Date.now()});}
     if(activeCharacterTab==='starships')renderPlayerStarships();
   });
   campaignEvents.addEventListener("character-kicked", (event) => {
@@ -2691,7 +2715,7 @@ function notice(message, type = "", duration = 4800) {
 function dramaCardMiniMarkup(card) {
   return `<article class="drama-card-mini-face" data-category="${escapeAttribute(card.category || "")}">
     <header><span>${escapeHtml(card.category || "Drama Card")}</span><b>#${String(card.number || 0).padStart(2, "0")}</b></header>
-    <div class="drama-card-mini-core"><span class="drama-card-mini-sigil" aria-hidden="true">SA</span><h4>${escapeHtml(card.name || "Drama Card")}</h4><p>${escapeHtml(card.text || "")}</p></div>
+    <div class="drama-card-mini-core"><h4>${escapeHtml(card.name || "Drama Card")}</h4><p>${escapeHtml(card.text || "")}</p></div>
     <footer>${escapeHtml(card.handling || "Reveal, resolve, then discard.")}</footer>
   </article>`;
 }
@@ -2750,24 +2774,26 @@ function showNextDramaAlert() {
   openDramaCard(alert.card, { alert });
 }
 
+const dramaReceiptQueue=[];
 function closeDramaCard() {
   const dismissedAlert = Boolean(activeDramaAlert);
+  window.SADramaNotices.ack(campaignCode,campaignCharacterId,activeDramaAlert?.id);
   dom.dramaCardModal.hidden = true;
   dom.dramaCardDisplay.classList.remove("playing");
   delete dom.dramaCardModal.dataset.mode;
   dom.playDramaCard.dataset.confirming = "false";
   activeDramaAlert = null;
   selectedDramaCard = null;
-  if (dismissedAlert) requestAnimationFrame(showNextDramaAlert);
+  if(dramaReceiptQueue.length)requestAnimationFrame(()=>openDramaCard(dramaReceiptQueue.shift(),{receipt:true}));
+  else if (dismissedAlert) requestAnimationFrame(showNextDramaAlert);
 }
 
 function processDramaPlayEvents(nextState) {
   const events = Array.isArray(nextState?.dramaDeck?.playEvents) ? nextState.dramaDeck.playEvents : [];
   if (dramaEventCampaignCode !== nextState?.code) {
     dramaEventCampaignCode = nextState?.code || "";
-    knownDramaPlayIds = new Set(events.map((event) => event.id));
+    knownDramaPlayIds = window.SADramaNotices.read(nextState.code,nextState.ownCharacterId);
     dramaAlertQueue = [];
-    return;
   }
   for (const event of events) {
     if (!event?.id || knownDramaPlayIds.has(event.id)) continue;
@@ -4529,7 +4555,7 @@ function renderSkillAttributeChoices() {
 function openSkillDescription(skillKey) {
   const resolved = resolveSkill(character, skillKey);
   let host = window;
-  try { while (host.parent !== host && host.parent.document) host = host.parent; } catch {}
+  try { while (host.parent !== host && !host.frameElement?.hasAttribute('data-explore-perspective') && host.parent.document) host = host.parent; } catch {}
   const doc = host.document;
   if (!resolved || doc.querySelector('.skill-description-dialog')) return;
   const defaultAttribute = SKILL_ASSOCIATED_ATTRIBUTE[resolved.name] || 'intellect';
@@ -5764,7 +5790,9 @@ function closeGearPicker() {
 function renderGear() {
   if (!dom.gearInventory) return;
   const editable = ["draft", "finalized"].includes(character.phase) && (!campaignCode || campaignEditable);
-  document.querySelector(".gear-panel")?.classList.toggle("locked", !editable);
+  const gearPanel=document.querySelector(".gear-panel");
+  gearPanel?.classList.toggle("locked", !editable);
+  if(gearPanel)gearPanel.querySelector('.panel-heading')?.setAttribute('data-lock-reason',character.phase==='finalizing'?'Finish character creation to manage items':'Viewing only — open your own Character Sheet to manage items');
   dom.addGearRow.disabled = !editable;
   dom.storeGearButton.disabled = !editable || !character.items.length;
   const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
@@ -5776,7 +5804,7 @@ function renderGear() {
       <input class="gear-name" data-gear-field="name" autocomplete="off" value="${escapeAttribute(entry.name)}" aria-label="Item name" ${editable ? "" : "disabled"} />
       <textarea class="gear-description" data-gear-field="description" aria-label="Item description" ${editable ? "" : "disabled"}>${escapeHtml(entry.description)}</textarea>
       <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
-      <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
+      <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" ${editable ? "" : "disabled"} />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
       <div class="gear-actions">${pending
         ? `${manualReceive ? "" : `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button>`}${canReceive ? `<button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button>` : ""}<button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
         : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
@@ -5835,7 +5863,13 @@ function requestStorageRecipient(item) {
 }
 
 async function addGearItem(item, mode) {
+  if(gearPurchasePending){notice('An item transaction is already in progress.','error');return false;}
+  const owner={id:character.id,code:campaignCode,characterId:campaignCharacterId,token:campaignToken,name:character.identity.characterName||'the previous character'};
+  const ownsView=()=>character.id===owner.id&&campaignCode===owner.code&&campaignCharacterId===owner.characterId&&campaignToken===owner.token;
+  gearPurchasePending=true;
+  try{
   if(!campaignCode)throw Error('Weapons and gear must be obtained after joining a campaign.');
+  if(!campaignEditable&&!GM_ADJUSTMENT_MODE&&!(manualInputMode()&&character.phase==='draft'))throw Error('Link an editable character before adding items.');
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (mode === "receive" && !mayReceiveGearForFree()) {
     notice("Link this character to a campaign before receiving items for free.", "error");
@@ -5851,17 +5885,18 @@ async function addGearItem(item, mode) {
     });
     if (!accepted) return false;
   }
+  if(!ownsView())throw Error('Character changed. The item transaction was canceled.');
   if (campaignCode && campaignCharacterId && campaignEditable) {
     const payload = await campaignRequest("/api/campaign/item/transaction", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, item: gearPayload(item) }),
+      body: JSON.stringify({ code: owner.code, token: owner.token, characterId: owner.characterId, mode, item: gearPayload(item) }),
     });
-    const remote = payload.campaign?.characters?.find((record) => record.id === campaignCharacterId)?.character;
+    if(!ownsView())throw Error('Item transaction completed for '+owner.name+'. Reopen that character to see the updated inventory.');
+    const remote = payload.campaign?.characters?.find((record) => record.id === owner.characterId)?.character;
     if (remote) {
       character.resources.creditsBase = Number(remote.resources?.creditsBase) || 0;
       character.items = deepCopy(remote.items || character.items);
       campaignBaselineCredits = character.resources.creditsBase;
-      campaignDirty = false;
     }
     if (payload.campaign) receiveCampaignState(payload.campaign);
     renderResources();
@@ -5872,6 +5907,7 @@ async function addGearItem(item, mode) {
     queueSave();
   }
   return true;
+  }finally{gearPurchasePending=false;}
 }
 
 async function removeCarriedItem(entry, { reason = "removed" } = {}) {
@@ -7636,6 +7672,8 @@ dom.gearCatalogPicker?.addEventListener("change", () => {
 dom.gearPickerCancel?.addEventListener("click", closeGearPicker);
 
 async function confirmGearPicker(mode) {
+  if(gearPurchasePending)return;
+  const ownerId=character.id,picker=gearDraft,ownsPicker=()=>character.id===ownerId&&gearDraft===picker;
   mode = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft") ? "receive" : mode;
   if (!gearDraft?.name.trim()) {
     updateGearPickerActions();
@@ -7648,7 +7686,9 @@ async function confirmGearPicker(mode) {
   // A negative-balance confirmation must replace the picker, not sit underneath it.
   dom.gearPickerModal.hidden = true;
   try {
-    if (await addGearItem(item, mode)) {
+    const added=await addGearItem(item, mode);
+    if(!ownsPicker())return;
+    if (added) {
       const itemName = item.name;
       closeGearPicker();
       renderAll();
@@ -7657,10 +7697,11 @@ async function confirmGearPicker(mode) {
       dom.gearPickerModal.hidden = false;
     }
   } catch (error) {
+    if(!ownsPicker()){notice(error.message,"error");return;}
     dom.gearPickerModal.hidden = false;
     dom.gearPickerError.textContent = error.message;
   } finally {
-    if (!dom.gearPickerModal.hidden) updateGearPickerActions();
+    if (ownsPicker()&&!dom.gearPickerModal.hidden) updateGearPickerActions();
   }
 }
 
@@ -7700,7 +7741,8 @@ dom.gearInventory?.addEventListener("click", async (event) => {
         pendingGearAdds.delete(entry.id);
         renderAll();
       }
-    } catch (error) { notice(error.message, "error"); addMode.disabled = false; }
+    } catch (error) { notice(error.message, "error"); }
+    finally { addMode.disabled=false;renderGear(); }
     return;
   }
   const minus = event.target.closest("[data-gear-minus]");
@@ -8667,16 +8709,16 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   if (starshipMoveDraft?.submitting && !event.target.closest('[data-player-ship-cancel]')) return;
   const ownId = campaignState?.ownCharacterId || campaignCharacterId;
   const upgrade=event.target.closest('[data-player-ship-upgrade]');
-  if(upgrade){if(campaignState?.combatActive){window.alert('you cannot perform this action in combat');return;}starshipMoveDraft=null;playerShipEditingId=upgrade.dataset.playerShipUpgrade;renderPlayerStarships(true);return;}
+  if(upgrade){if(campaignState?.combatActive){await askConfirmation({title:'Combat Is Active',message:'you cannot perform this action in combat',singleAction:true,cancelLabel:'Okay'});return;}starshipMoveDraft=null;playerShipEditingId=upgrade.dataset.playerShipUpgrade;renderPlayerStarships(true);return;}
   if(event.target.closest('[data-player-ship-return]')){
     const frame=dom.playerStarshipList.querySelector('[data-player-ship-editor]');
-    if(frame?.contentWindow?.SAStarshipEditor?.hasChanges()&&!window.confirm('Discard unconfirmed ship edits and return to the ship?'))return;
+    if(frame?.contentWindow?.SAStarshipEditor?.hasChanges()&&!await askConfirmation({title:'Discard Ship Edits?',message:'Discard unconfirmed ship edits and return to the ship? Confirmed changes remain saved.',acceptLabel:'Discard Edits',danger:true}))return;
     frame?.remove();playerShipEditingId=null;renderPlayerStarships(true);return;
   }
   const diagnostics = event.target.closest("[data-ship-diagnostics]");
   if(diagnostics){
     const operator=diagnostics.closest('[data-player-starship]')?.querySelector('[data-diagnostics-character]')?.value||ownId;
-    if(!window.confirm('Begin 55 minutes of System Repairs and Diagnostics? The character must remain in the SIC room while the GM passes time.'))return;
+    if(!await askConfirmation({title:'System Repairs and Diagnostics',message:'Begin 55 minutes of System Repairs and Diagnostics? The character must remain in the SIC room while the GM passes time.',acceptLabel:'Begin Diagnostics'}))return;
     diagnostics.disabled=true;
     try{
       const payload=await campaignRequest('/api/campaign/starship/diagnostics',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId:diagnostics.dataset.shipDiagnostics,characterId:operator})});
@@ -8701,6 +8743,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   }
   if (!record || (!ownId && campaignState?.role !== "gm")) return;
   if (begin) {
+    if(record.characterWalks?.[ownId]){try{const payload=await campaignRequest('/api/campaign/starship/move-character',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId,characterId:ownId,stop:true})});receiveCampaignState(payload.campaign);notice('Walking stopped.','success');}catch(error){notice(error.message,'error');}return;}
     if(Number(character.health?.current)<=0){notice('Unconscious characters cannot move.','error');return;}
     let combatUnit=null;
     if(campaignState?.combatActive){
@@ -8747,18 +8790,15 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
         await view.SACombatBridge.action({action:'playerCombatAction',id:unit.id,kind:'move',route:plan.route,stationOnArrival:Boolean(plan.station),stationName:plan.stationName,stationSlot:move.destinationMesh},'resolve',{throwOnError:true});
         starshipMoveDraft=null;renderPlayerStarships(true);return;
       }
-      const animationRoute = move.meshRoute?.length ? move.meshRoute : [{square:move.destination,mesh:move.destinationMesh}];
-      const walk=playerShipWalk={cancelled:false,keepArrivalGhost:true,position:{square:move.start,mesh:move.startMesh}};
-      await animatePlayerShipMove(confirm.closest(".player-starship-card"), record, move.start, move.startMesh, animationRoute, move.destinationMesh,walk);
-      const arrival=walk.cancelled?walk.position:{square:move.destination,mesh:move.destinationMesh};
+      const arrival={square:move.destination,mesh:move.destinationMesh};
       const payload = await campaignRequest("/api/campaign/starship/move-character", {
         method: "POST",
-        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, ...arrival, stationed: !walk.cancelled&&Boolean(move.station), stationSlot: arrival.mesh }),
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, ...arrival, animate:true, stationed:Boolean(move.station), stationSlot: arrival.mesh }),
       });
       starshipMoveDraft = null;
       if (payload.campaign) receiveCampaignState(payload.campaign);
       renderPlayerStarships(true);
-      notice(walk.cancelled?"Movement stopped.":"Character moved aboard the starship.", "success");
+      notice("Walking to the selected location.", "success");
     } catch (error) {
       Object.assign(move,{message:error.message,invalid:true,submitting:false});starshipMoveDraft=move;
       renderPlayerStarships(true);
@@ -8844,6 +8884,7 @@ dom.privateNotesList?.addEventListener("click", async (event) => {
           : payload.resource === "shipCredits"
             ? "Group Credits"
             : "Experience";
+      if(payload.cards?.length){dramaReceiptQueue.push(...payload.cards);if(dom.dramaCardModal.hidden)openDramaCard(dramaReceiptQueue.shift(),{receipt:true});}
       playRewardChime(payload.resource);
       notice(amount > 0 ? `${amount.toLocaleString()} ${rewardName} received.` : "Reward processed.", "success");
     } catch (error) {
@@ -9391,19 +9432,29 @@ const roomReturn=document.createElement('button');roomReturn.textContent='Room L
 roomReturn.onclick=()=>{if(campaignCode)location.href='room.html?campaign='+campaignCode;};
 document.getElementById('playerSettingsPanel')?.append(roomReturn);
 if(PAGE_PARAMS.get('roomCreate')){const finish=document.createElement('button');finish.textContent='Finish Joining Room';finish.onclick=finishRoomCreation;document.getElementById('playerSettingsPanel')?.append(finish);}
-if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('p');help.textContent='Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.className='v03-panel';document.getElementById('characterWorkspace')?.prepend(help);}
+if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');help.className='v03-panel v03-creation-context';const text=document.createElement('p');const creatingFor=PAGE_PARAMS.get('roomCreate');text.textContent=creatingFor?`Creating a character for room ${creatingFor}. Finish the sheet and choose a password to start playing. Weapons and gear become available after finalization.`:'Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.append(text);if(creatingFor){const back=document.createElement('a');back.href='room.html?campaign='+encodeURIComponent(creatingFor);back.textContent='Return to Room';back.title='Your character draft is saved on this device.';help.append(back);}document.getElementById('characterWorkspace')?.prepend(help);}
 
 // v0.3: the drawer mirrors existing sheet sections and forwards only roll controls.
 let sheetDrawer=null,sheetDrawerBody=null,sheetDrawerSection='attributes',sheetDrawerOpen=false,sheetDrawerKey='';
+function sheetDrawerRevision(section){
+ const fields={identity:['identity','advantagesNotes','notes','crew','statuses'],attributes:['attributes','identity','experience','creation','resources'],skills:['skills','customSkills','attributes','identity','statuses','resources'],substats:['attributes','skills','customSkills','identity','health','resources','gmAdjustments','statuses'],resources:['resources','experience','creation','attributes','identity','health','session'],supplies:['items','storedItems','weapons','storedWeapons','attributes','skills','customSkills','identity','resources']};
+ return JSON.stringify([section,character.id,character.phase,character.advancementOpen,Boolean(character.pendingRoll),campaignEditable,...(fields[section]||[]).map(field=>character[field]),section==='resources'?[campaignState?.shipCredits,campaignState?.dramaHand]:null]);
+}
+function copySheetReferenceState(control,original){
+ if('value' in original)control.value=original.value;
+ if('checked' in original)control.checked=original.checked;
+ if(original.tagName==='SELECT')control.selectedIndex=original.selectedIndex;
+}
 function updateSheetDrawer(){
  if(PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW||GM_ADJUSTMENT_MODE)return;
  if(!sheetDrawer){sheetDrawer=document.createElement('aside');sheetDrawer.className='pc-sheet-drawer';const handle=document.createElement('button');handle.className='pc-sheet-handle';handle.textContent='Character Sheet';const panel=document.createElement('section');panel.innerHTML='<nav></nav>';sheetDrawerBody=document.createElement('div');panel.append(sheetDrawerBody);sheetDrawer.append(handle,panel);document.body.append(sheetDrawer);
  handle.onclick=()=>{sheetDrawerOpen=!sheetDrawerOpen;sheetDrawerSection='attributes';sheetDrawerKey='';updateSheetDrawer();};
  for(const tab of document.querySelectorAll('[data-sheet-section-tab]')){const button=document.createElement('button');button.textContent=tab.textContent;button.dataset.drawerTab=tab.dataset.sheetSectionTab;button.onclick=()=>{if(sheetDrawerOpen&&sheetDrawerSection===button.dataset.drawerTab)sheetDrawerOpen=false;else{sheetDrawerSection=button.dataset.drawerTab;sheetDrawerOpen=true;}sheetDrawerKey='';updateSheetDrawer();};panel.querySelector('nav').append(button);}}
  sheetDrawer.hidden=activeCharacterTab==='sheet'||!campaignCharacterId;sheetDrawer.classList.toggle('is-open',sheetDrawerOpen);sheetDrawer.querySelector('section').hidden=!sheetDrawerOpen;if(!sheetDrawerOpen)return;
- const key=sheetDrawerSection+JSON.stringify([character.attributes,character.skills,character.resources,character.health,character.identity,character.inventory,character.customSkills]);if(key===sheetDrawerKey)return;sheetDrawerKey=key;sheetDrawerBody.replaceChildren();
- for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
- sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>b.classList.toggle('active',b.dataset.drawerTab===sheetDrawerSection));
+ const key=sheetDrawerRevision(sheetDrawerSection);if(key===sheetDrawerKey)return;sheetDrawerKey=key;const scrollTop=sheetDrawerBody.scrollTop,scrollLeft=sheetDrawerBody.scrollLeft;sheetDrawerBody.replaceChildren();
+ for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];copySheetReferenceState(control,original);if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
+ sheetDrawerBody.scrollTop=scrollTop;sheetDrawerBody.scrollLeft=scrollLeft;
+ sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>{const active=b.dataset.drawerTab===sheetDrawerSection;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
 }
 let statisticsSignature='';
 function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
@@ -9413,7 +9464,7 @@ function showDecimalSkip(){if(!character.creation?.decimalRollSeen||!character.c
 let keyboardShipId='';
 function keyboardShipMove(key){
  const directions={w:[0,-1],ArrowUp:[0,-1],s:[0,1],ArrowDown:[0,1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]},step=directions[key.length===1?key.toLowerCase():key];
- if(!step||playerShipEditingId||!keyboardShipId||activeCharacterTab!=='starships'||campaignState?.combatActive||playerShipWalk||starshipMoveDraft?.submitting||document.querySelector('dialog[open]')||Number(character.health?.current)<=0)return;
+ if(!step||playerShipEditingId||!keyboardShipId||activeCharacterTab!=='starships'||campaignState?.combatActive||campaignState?.starships?.some(s=>s.characterWalks?.[campaignCharacterId])||playerShipWalk||starshipMoveDraft?.submitting||document.querySelector('dialog[open]')||Number(character.health?.current)<=0)return;
  const record=campaignState?.starships.find(s=>s.id===keyboardShipId),ownId=campaignState?.ownCharacterId||campaignCharacterId,location=record?.characterLocations?.[ownId]||{square:record?.ship?.gridCells?.[0],mesh:4};if(!record||!Number.isInteger(location.square))return;
  const cols=window.SAShipMap.gridColumns(record),mesh=location.mesh??4,x=location.square%cols*3+mesh%3+step[0],y=Math.floor(location.square/cols)*3+Math.floor(mesh/3)+step[1];if(x<0||y<0||x>=cols*3)return;
  const square=Math.floor(y/3)*cols+Math.floor(x/3),nextMesh=y%3*3+x%3;if(!record.ship.gridCells.includes(square))return;
@@ -9440,3 +9491,6 @@ document.getElementById('createCampaignShip').onclick=()=>{location.href='starsh
 document.getElementById('importCampaignShip').onclick=async()=>{try{const data=await window.SARoomV03.file();if(data)await window.SARoomV03.importIntoRoom(campaignCode,'ship',data);}catch(error){notice(error.message);}};
 
 window.SAInteriorIntruderState=()=>({intruderShips:(campaignState?.starships||[]).filter(s=>s.intrudersDetected).map(s=>({id:s.id,title:s.title}))});
+
+document.getElementById('pcSettingsButton')?.addEventListener('click',()=>showCharacterPanel('settings'));
+document.getElementById('pcHeaderSound')?.addEventListener('click',()=>dom.playerSoundToggle?.querySelector(`[data-player-sounds="${!playerSoundsEnabled}"]`)?.click());

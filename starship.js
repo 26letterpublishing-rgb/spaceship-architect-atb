@@ -6,6 +6,7 @@ const BUILD_VERSION = 3;
 const HULL_COST = window.SAShipMap.HULL_COST;
 let GRID_SIZE = 20;
 const pageParameters = new URLSearchParams(location.search);
+const NEW_SHIP_REQUEST = pageParameters.get("new") === "1";
 const shipStorage=pageParameters.get('showcase')==='1'?sessionStorage:localStorage;
 const EMBEDDED_GM_MODE = pageParameters.get("embedded") === "gm";
 if (EMBEDDED_GM_MODE||pageParameters.get("embedded")==="pc") document.body.classList.add("embedded-gm-starship");
@@ -299,7 +300,9 @@ function constructionState(source) {
   const placedIds = new Set(placements.map((item) => item.sicId));
   return {
     title: String(source?.title||''), class: String(source?.class||''), affiliation: String(source?.affiliation||''),
-    groupCredits: Number.isFinite(Number(source?.groupCredits)) ? Number(source.groupCredits) : 999999,
+    allowCreditDebt: source?.allowCreditDebt===true || !source?.campaignLink,
+    constructionCost: Number(source?.constructionCost)||0,
+    groupCredits: Number.isFinite(Number(source?.groupCredits)) ? Number(source.groupCredits) : 100000,
     zoneColumns: window.SAShipMap.gridColumns(source||{}),
     zoneRows: window.SAShipMap.gridRows(source||{}),
     originX: Number(source?.originX)||0, originY: Number(source?.originY)||0,
@@ -368,7 +371,12 @@ function loadDraft() {
   try {
     const library = loadStarshipLibrary();
     const activeId = shipStorage.getItem(ACTIVE_STARSHIP_KEY) || "";
-    const saved = library.find((ship) => ship?.id === activeId) || JSON.parse(shipStorage.getItem(STORAGE_KEY) || "{}");
+    // The working copy contains the latest edits, including a ship not confirmed yet.
+    // A library selection always writes this key, so the older active entry is fallback only.
+    let workingDraft=null;
+    try{workingDraft=JSON.parse(shipStorage.getItem(STORAGE_KEY)||'null');}catch{}
+    const saved=workingDraft&&typeof workingDraft==='object'&&!Array.isArray(workingDraft)&&workingDraft.id
+      ? workingDraft : library.find(ship=>ship?.id===activeId)||{};
     const identity = {
       floorplanSnapshot:saved.floorplanSnapshot,
       title: saved.title || "", affiliation: saved.affiliation || "", class: saved.class || "",
@@ -391,10 +399,14 @@ function loadDraft() {
   } catch { return fresh; }
 }
 
-let draft = pageParameters.has('new') ? defaultDraft() : loadDraft();
-if(pageParameters.has('new')){const url=new URL(location.href);url.searchParams.delete('new');history.replaceState(null,'',url);}
+let draft = NEW_SHIP_REQUEST ? defaultDraft() : loadDraft();
+if(NEW_SHIP_REQUEST){
+  // Persist before removing the URL flag; a reload must recover this exact new ship.
+  try{shipStorage.setItem(STORAGE_KEY,JSON.stringify(draft));shipStorage.removeItem(ACTIVE_STARSHIP_KEY);const url=new URL(location.href);url.searchParams.delete('new');history.replaceState(null,'',url);}catch{}
+}
 GRID_SIZE=window.SAShipMap.gridColumns(draft);
 let mapView = {...loadMapView(),...window.SAShipMap.loadViewPreferences(loadMapView())};
+if(NEW_SHIP_REQUEST)Object.assign(mapView,{mode:'build',hull:false,zoom:1,panX:0,panY:0});
 window.SAShipMap.onViewPreferences(prefs=>{Object.assign(mapView,prefs);renderAll();});
 const VIEW_ONLY_MODE = new URLSearchParams(location.search).get("view") === "1";
 if (VIEW_ONLY_MODE) mapView.mode = "explore";
@@ -688,7 +700,7 @@ function inspectConstruction() {
     errors.push("Nutritional Supplement requires an installed Life Support SIC.");
     draft.placements.filter((placement) => draft.sicInventory.find((item) => item.id === placement.sicId)?.type === "nutritional-supplement").forEach((placement) => placementCells(placement).forEach((cell) => cells.add(cell)));
   }
-  if (pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
+  if (!draft.allowCreditDebt && pendingCost() > draft.groupCredits) errors.push("Group Credits are insufficient for these changes.");
   return { errors: [...new Set(errors)], cells };
 }
 
@@ -858,6 +870,7 @@ function renderGridCells() {
         const label = document.createElement("span");
         label.className = "sic-grid-label";
         label.textContent = definition.name;
+        label.style.setProperty("--sic-longest",Math.max(...definition.name.split(/\s+/).map(word=>word.length)));
         label.style.setProperty("--sic-width", String(occupied.width));
         label.style.setProperty("--sic-height", String(occupied.height));
         cell.append(label);
@@ -895,6 +908,7 @@ function renderMapViewControls() {
 }
 function applyGridTransform() {
   shipGrids.forEach((grid) => {
+    grid.style.setProperty("--cell-size",(grid.clientWidth/GRID_SIZE)+"px");
     grid.style.transform = `scale(${mapView.zoom}) translate(${mapView.panX}%, ${mapView.panY}%)`;
     grid.classList.toggle("is-zoomed", mapView.zoom > 1.001);
   });
@@ -914,7 +928,8 @@ function fittedInteriorView(cells, columns, rows, viewport, detailed=false) {
   const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
   const padding=detailed?1:3;
   // The grid's base tile is 5% of its viewport, including expanded 20–60-cell zones.
-  const tileLimit=viewport?.width&&viewport?.height?96*20/Math.max(viewport.width,viewport.height):6;
+  const tileLimit=viewport?.width&&viewport?.height?96*20/(viewport.squareTiles?Math.min(viewport.width,viewport.height):Math.max(viewport.width,viewport.height)):6;
+  if(viewport?.squareTiles){const tile=Math.min(viewport.width,viewport.height)/20;return {zoom:Math.max(.2,Math.min(6,tileLimit,.94*viewport.width/((right-left+padding)*tile),.88*viewport.height/((bottom-top+padding)*tile))),panX:50-((left+right+1)/2)/columns*100,panY:50-((top+bottom+1)/2)/rows*100};}
   return {zoom:Math.max(.2,Math.min(6,tileLimit,.94*20/(right-left+padding),.88*20/(bottom-top+padding))),
     panX:50-((left+right+1)/2)/columns*100,panY:50-((top+bottom+1)/2)/rows*100};
 }
@@ -933,7 +948,7 @@ function focusShipCharacter(){
 function fitShipToViewport() {
   const visible=[...new Set([...draft.gridCells,...window.SAShipMap.triangleCells(draft),...window.SAShipMap.buildLayout(draft).footprint.keys()])];
   const viewport=(enlargedShipInterior?.viewport||shipGrids.find(grid=>grid.getClientRects().length)?.parentElement)?.getBoundingClientRect();
-  Object.assign(mapView,fittedInteriorView(visible,GRID_SIZE,draft.zoneRows||20,viewport,Boolean(embeddedMove)||document.body.classList.contains('ship-details-view')));
+  Object.assign(mapView,fittedInteriorView(visible,GRID_SIZE,draft.zoneRows||20,enlargedShipInterior&&viewport?{width:viewport.width,height:viewport.height,squareTiles:true}:viewport,Boolean(embeddedMove)||document.body.classList.contains('ship-details-view')));
   saveMapView();applyGridTransform();
 }
 function renderMobilePlacement() {
@@ -1093,12 +1108,12 @@ function keepSicDisposition(item){
   if(sicDefinition(item).hullUpgrade){item.storage=false;const host=window.SAShipMap.addonHost(draft,item);if(host&&!placementForSic(item.id))draft.placements.push({sicId:item.id,cell:host.placement.cell});}
   saveDraft();showMessage(sicDefinition(item).hullUpgrade?'The upgrade will continue covering the Hull.':'The SIC will remain in Storage.');renderAll();
 }
-function markSicDisposition(item, disposition) {
+async function markSicDisposition(item, disposition) {
   const definition = sicDefinition(item); const saleValue = Math.ceil(definition.price / (item.printed?4:2));
   const message = disposition === "sell"
     ? `Sell this ${definition.name} for ${formatCredits(saleValue)} credits when changes are confirmed?`
     : `Destroy this ${definition.name} permanently when changes are confirmed?`;
-  if (!window.confirm(message)) return;
+  if (!await confirmShipDecision(disposition === "sell" ? "Sell SIC" : "Destroy SIC",message,disposition === "sell" ? "Mark for Sale" : "Mark for Destruction")) return;
   rememberForUndo(); item.pendingDisposition = disposition; item.storage = true;
   saveDraft(); showMessage(disposition === "sell" ? `${definition.name} marked for sale.` : `${definition.name} marked for destruction.`); renderAll();
 }
@@ -1139,8 +1154,8 @@ function renderLiveStats() {
   const confirmed = constructionState(document.body.classList.contains('ship-details-view')?draft.confirmed:draft);
   const hull = confirmed.gridCells.length, hullHp=window.SAShipMap.hullHp(confirmed);
   let capabilities=document.querySelector('[data-ship-capabilities]');
-  if(!capabilities){capabilities=document.createElement('section');capabilities.dataset.shipCapabilities='';capabilities.className='ship-capabilities';document.querySelector('[data-starship-panel="sheet"]')?.prepend(capabilities);}
-  if(capabilities)capabilities.innerHTML=window.SAShipMap.capabilityMarkup(confirmed);
+  if(!capabilities){capabilities=document.createElement('details');capabilities.dataset.shipCapabilities='';capabilities.className='ship-capabilities';const summary=document.createElement('summary');summary.textContent='Ship Capabilities';capabilities.append(summary,document.createElement('div'));document.querySelector('[data-starship-panel="sheet"]')?.prepend(capabilities);}
+  if(capabilities)capabilities.querySelector('div').innerHTML=window.SAShipMap.capabilityMarkup(confirmed);
   const installed = confirmed.placements.map((placement) => confirmed.sicInventory.find((item) => item.id === placement.sicId)).filter(Boolean);
   const linked = linkedCampaignState?.starships?.find(record => record.id === draft.id);
   const powerRecord = { ...linked, id: draft.id, ship: confirmed };
@@ -1221,31 +1236,34 @@ function renderAll() {
   renderShipStores();
 }
 
+let shipStockRequest = null;
 function renderShipStores(){
   let panel=document.querySelector('[data-ship-stores]');
   if(!panel){
     panel=document.createElement('section');panel.dataset.shipStores='';panel.className='ship-stores';
-    panel.innerHTML='<h3>FTL Fuel &amp; Minerals</h3><div data-stock-values></div><form data-fuel-buy><label>Warp fuel<select name="grade"></select></label><label>Cells<input name="quantity" type="number" min="1" max="10000" value="1"></label><button type="submit">Purchase Fuel</button></form><details data-stock-adjust><summary>Adjust Stock</summary><form><label>Resource<select name="resource"></select></label><label>Quantity<input name="quantity" type="number" min="0" step="1" value="0"></label><button type="submit">Save Quantity</button></form></details><output role="status"></output>';
-    document.querySelector('[data-starship-panel="sheet"]').append(panel);
+    panel.innerHTML='<h3>Ship Supplies</h3><div data-stock-values></div><form data-fuel-buy><label>Warp fuel<select name="grade"></select></label><label>Cells<input name="quantity" type="number" min="1" max="10000" value="1"></label><button type="submit">Purchase Fuel</button></form><details data-stock-adjust><summary>Adjust Stock</summary><form><label>Resource<select name="resource"></select></label><label>Quantity<input name="quantity" type="number" min="0" step="1" value="0"></label><button type="submit">Save Quantity</button></form></details><output role="status"></output>';
+    document.querySelector('.purchased-sic-shelf').before(panel);
     for(const [grade,fuel] of Object.entries(window.SAShipMap.fuelCatalog))panel.querySelector('[name="grade"]').add(new Option(`${grade}: ${(fuel.parsecs*3.26).toFixed(2)} LY / ${fuel.price.toLocaleString()} cr`,grade));
     panel.querySelector('[data-fuel-buy]').onsubmit=e=>{e.preventDefault();saveShipStock({purchaseGrade:e.target.grade.value,quantity:Number(e.target.quantity.value)});};
     panel.querySelector('[data-stock-adjust] form').onsubmit=e=>{e.preventDefault();const [kind,name]=e.target.resource.value.split(':');saveShipStock({[kind]:{[name]:Number(e.target.quantity.value)}});};
   }
   const fuel=window.SAShipMap.resourceCounts(draft.warpFuel,['F','D','C','B','A','S']),names=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron','Dark Phazon','Phazon','Ragnaron','Transpherion','Rupium','Crixium'];
   const minerals=window.SAShipMap.resourceCounts(draft.minerals,[...new Set([...names,...Object.keys(draft.minerals||{})])]);
-  const markup=`<dl>${Object.entries(fuel).map(([k,v])=>`<div><dt>Warp ${k}</dt><dd>${v}</dd></div>`).join('')}</dl><dl>${Object.entries(minerals).map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
-  const values=panel.querySelector('[data-stock-values]');if(values.innerHTML!==markup)values.innerHTML=markup;
+  const rows=entries=>entries.map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${v.toLocaleString()}</dd></div>`).join('');
+  const markup='<section class="stock-fuel"><h3>Warp Fuel</h3><dl>'+rows(Object.entries(fuel).map(([k,v])=>['Grade '+k,v]))+'</dl></section><section class="stock-minerals"><h3>Minerals</h3><dl>'+rows(Object.entries(minerals))+'</dl></section>';
+  const values=panel.querySelector('[data-stock-values]');if(values.dataset.stockMarkup!==markup){values.innerHTML=markup;values.dataset.stockMarkup=markup;}
   const select=panel.querySelector('[name="resource"]'),options=[...Object.keys(fuel).map(k=>[`warpFuel:${k}`,`Warp ${k}`]),...Object.keys(minerals).map(k=>[`minerals:${k}`,k])];
-  if(select.options.length!==options.length){select.replaceChildren();for(const [value,label] of options)select.add(new Option(label,value));}
+  const optionKey=JSON.stringify(options);if(select.dataset.options!==optionKey){const previous=select.value;select.replaceChildren();for(const [value,label] of options)select.add(new Option(label,value));if(options.some(([value])=>value===previous))select.value=previous;select.dataset.options=optionKey;}
   const readonly=pageParameters.get('details')==='1'||pageParameters.has('embeddedRecord');
-  let magazines=panel.querySelector('[data-magazines]');if(!magazines){magazines=document.createElement('div');magazines.dataset.magazines='';panel.querySelector('[data-stock-values]').after(magazines);}
-  const launchers=draft.sicInventory.filter(i=>window.SAShipMap.definition(i.type).missileLauncher);
-  const magazineMarkup='<h3>Ammunition Storage</h3><p>'+ (Object.entries(draft.missileStorage||{}).filter(([,n])=>n>0).map(([id,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[id]?.name||id)}`).join(', ')||'Empty')+'</p><h3>Loaded Magazines</h3>'+launchers.map(i=>`<p><strong>${escapeHtml(SIC_CATALOG[i.type].name)}</strong> ${window.SAMissileAmmo.used(draft,i.id)} / ${SIC_CATALOG[i.type].capacity}: ${Object.entries(draft.missileAmmo?.[i.id]||{}).filter(([,n])=>n>0).map(([type,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[type]?.name||type)}`).join(', ')||'Empty'}</p>`).join('')+(!readonly?'<button type="button" data-buy-missiles>Purchase Ammunition</button>':'');
+  let magazines=panel.querySelector('[data-magazines]');if(!magazines){magazines=document.createElement('div');magazines.dataset.magazines='';magazines.className='stock-missiles';panel.querySelector('[data-stock-values]').after(magazines);}
+  const launchers=draft.sicInventory.filter(i=>Number(window.SAShipMap.definition(i.type).capacity)>0&&window.SAShipMap.definition(i.type).missileLauncher);
+  const stored=Object.entries(draft.missileStorage||{}).filter(([,n])=>n>0);
+  const magazineMarkup='<h3>Ammunition Storage</h3><dl>'+ (stored.length?rows(stored.map(([id,n])=>[window.SAMissileAmmo.catalog[id]?.name||id,n])):'<div><dt>Empty</dt></div>')+'</dl><h3>Loaded Magazines</h3><div class="stock-magazine-list">'+launchers.map(i=>`<p><strong>${escapeHtml(SIC_CATALOG[i.type].name)} · ${window.SAMissileAmmo.used(draft,i.id)} / ${SIC_CATALOG[i.type].capacity}</strong><br>${Object.entries(draft.missileAmmo?.[i.id]||{}).filter(([,n])=>n>0).map(([type,n])=>`${n} ${escapeHtml(window.SAMissileAmmo.catalog[type]?.name||type)}`).join(', ')||'Empty'}</p>`).join('')+'</div>'+(!readonly?'<button type="button" data-buy-missiles>Purchase Ammunition</button>':'');
   if(magazines.innerHTML!==magazineMarkup){magazines.innerHTML=magazineMarkup;magazines.querySelector('button')?.addEventListener('click',()=>purchaseMissile('missile-1'));}
   magazines.hidden=false;
   panel.querySelector('[data-stock-adjust]').hidden=Boolean(linkedCampaignState&&linkedCampaignState.role!=='gm')||readonly;
   panel.querySelector('[data-fuel-buy]').hidden=readonly;
-  panel.querySelectorAll('button').forEach(b=>b.disabled=Boolean(linkedCampaignState?.combatActive));
+  panel.querySelectorAll('button').forEach(b=>b.disabled=Boolean(linkedCampaignState?.combatActive||shipStockRequest));
   // Replace the printed placeholder fuel quantities without changing the sheet artwork.
   for(const svg of document.querySelectorAll('.desktop-live-stats,.fuel-mobile svg')){
     let group=svg.querySelector('[data-fuel-overlay]');if(!group){group=document.createElementNS('http://www.w3.org/2000/svg','g');group.dataset.fuelOverlay='';svg.append(group);}
@@ -1259,42 +1277,57 @@ function renderShipStores(){
   const weapons=window.SAShipMap.installedItems(draft).filter(i=>{const d=window.SAShipMap.definition(i.type);return d.weapon||d.planetaryCleanser||d.blackHoleGun;});
   for(const svg of document.querySelectorAll('.desktop-live-stats,.weapons-mobile svg')){
     let group=svg.querySelector('[data-weapon-summary]');if(!group){group=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');group.dataset.weaponSummary='';group.setAttribute('x','8');group.setAttribute('y','651');group.setAttribute('width','305');group.setAttribute('height','130');svg.append(group);}
-    group.innerHTML=`<div xmlns="http://www.w3.org/1999/xhtml" class="sheet-weapon-summary"><strong>WEAPON SYSTEMS</strong>${weapons.length?weapons.map(i=>{const d=window.SAShipMap.definition(i.type),family=d.weaponFamily||'rapid-laser';let damage=d.planetaryCleanser?'20,000D12':d.blackHoleGun?'Black hole':d.phazonTorpedo?'3D10 ×2':d.missileLauncher?'Loaded ammunition':family==='ballistic-rail-cannon'?'6 dice':`${d.damageCount||4}D${d.damageDie||6}${d.damageBonus?' + '+d.damageBonus:''}`;let note=d.planetaryCleanser?'Charges for 120 active seconds.':d.blackHoleGun?'Consumes one Dark Phazon; intensity uses AU.':d.phazonTorpedo?'Consumes 1 Phazon; Lock-On required; range 24.':d.missileLauncher?'Fires loaded ammunition; reload at its station.':d.devastation?'Charge before firing; cooldown follows.':d.noShieldDamage?'Hull only; consumes Iron.':d.requiresLock?'Requires a target lock.':d.shieldPiercing?'Bypasses shields.':'Manual or locked fire.';return `<p><b>${escapeHtml(d.name||i.type)}</b> — ${damage}<br/>${note}${d.fireAu?' '+d.fireAu+' AU to fire.':''}</p>`;}).join(''):'<p>No installed weapons.</p>'}</div>`;
+    const weaponMarkup=`<div xmlns="http://www.w3.org/1999/xhtml" class="sheet-weapon-summary"><strong>WEAPON SYSTEMS</strong>${weapons.length?weapons.map(i=>{const d=window.SAShipMap.definition(i.type),family=d.weaponFamily||'rapid-laser';let damage=d.planetaryCleanser?'20,000D12':d.blackHoleGun?'Black hole':d.phazonTorpedo?'3D10 ×2':d.missileLauncher?'Loaded ammunition':family==='ballistic-rail-cannon'?'6D6':`${d.damageCount||4}D${d.damageDie||4}${d.damageBonus?' + '+d.damageBonus:''}`;let note=d.planetaryCleanser?'Charges for 120 active seconds.':d.blackHoleGun?'Consumes one Dark Phazon; intensity uses AU.':d.phazonTorpedo?'Consumes 1 Phazon; Lock-On required; range 24.':d.missileLauncher?'Fires loaded ammunition; reload at its station.':d.devastation?'Charge before firing; cooldown follows.':d.noShieldDamage?'Hull only; consumes Iron.':d.requiresLock?'Requires a target lock.':d.shieldPiercing?'Bypasses shields.':'Manual or locked fire.';return `<p><b>${escapeHtml(d.name||i.type)}</b> — ${damage}<br/>${note}${d.fireAu?' '+d.fireAu+' AU to fire.':''}</p>`;}).join(''):'<p>No installed weapons.</p>'}</div>`;
+    if(group.dataset.summaryMarkup!==weaponMarkup){const scroll=group.firstElementChild?.scrollTop||0;group.innerHTML=weaponMarkup;group.dataset.summaryMarkup=weaponMarkup;if(group.firstElementChild)group.firstElementChild.scrollTop=scroll;}
   }
 }
 function purchaseMissile(type){
   const launchers=draft.sicInventory.filter(i=>window.SAShipMap.definition(i.type).missileLauncher&&draft.placements.some(p=>p.sicId===i.id));
-  let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+  let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
   const view=host.createElement('dialog');view.className='missile-load-dialog';view.setAttribute('aria-label','Purchase Ammunition');
   view.style.cssText='width:520px;max-width:95vw;background:#08141c;color:white;padding:24px;border:2px solid #d4ae64';
   view.innerHTML=`<h2>Purchase Ammunition</h2><form><label hidden>Launcher<select name="launcher" aria-label="Missile launcher">${launchers.map((i,n)=>`<option value="${escapeHtml(i.id)}">${escapeHtml(SIC_CATALOG[i.type].name)} #${n+1}</option>`).join('')}</select></label><label>Ammunition<select name="ammunition" aria-label="Ammunition">${Object.values(window.SAMissileAmmo.catalog).map(a=>`<option value="${a.id}" ${a.id===type?'selected':''}>${a.name} / ${a.price} credits</option>`).join('')}</select></label><label>Quantity<input name="quantity" aria-label="Missile quantity" type="number" min="1" step="1" value="1" required></label><p data-space></p><button type="submit" >Purchase Ammunition</button><button type="button" data-close>Close</button><p role="status"></p></form>`;
+  const purchaseDraft=draft;let submitting=false;
   const form=view.querySelector('form');for(const label of form.querySelectorAll('label'))label.style.cssText='display:grid;gap:6px;margin:12px 0';
-  function update(){form.quantity.max=10000;view.querySelector('[data-space]').textContent=`Available launchers fill automatically; surplus stays in storage. Reload at the launcher during play. Group Credits ${draft.groupCredits.toLocaleString()}`;form.querySelector('[type=submit]').disabled=false;}
-  form.onchange=update;form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;await saveShipStock({purchaseMissile:form.ammunition.value,launcherId:form.launcher.value,quantity:Number(form.quantity.value)});view.querySelector('[role=status]').textContent=document.querySelector('[data-ship-stores] output').textContent;update();};
+  function update(){form.quantity.max=10000;view.querySelector('[data-space]').textContent=`Available launchers fill automatically; surplus stays in storage. Reload at the launcher during play. Group Credits ${draft.groupCredits.toLocaleString()}`;form.querySelector('[type=submit]').disabled=submitting||Boolean(shipStockRequest)||draft!==purchaseDraft||Boolean(linkedCampaignState?.combatActive);if(draft!==purchaseDraft)view.querySelector('[role=status]').textContent='The selected ship changed. Close this window and reopen Ammunition for the current ship.';}
+  form.onchange=update;form.onsubmit=async e=>{e.preventDefault();if(submitting||shipStockRequest||draft!==purchaseDraft)return;submitting=true;update();try{const result=await saveShipStock({purchaseMissile:form.ammunition.value,launcherId:form.launcher.value,quantity:Number(form.quantity.value)});view.querySelector('[role=status]').textContent=result.message;}finally{submitting=false;update();}};
   view.querySelector('[data-close]').onclick=()=>view.close();view.onclose=()=>view.remove();host.body.append(view);view.showModal();update();
 }
 async function saveShipStock(change){
   const output=document.querySelector('[data-ship-stores] output');
+  if(shipStockRequest)return {ok:false,message:'A stock update is already in progress. Please wait.'};
+  const target=draft,shipId=target.id,shipName=target.title||'the previous ship',request={id:uid('stock')};
+  shipStockRequest=request;
+  if(output)output.textContent='Updating ship stores...';
+  document.querySelectorAll('[data-ship-stores] button').forEach(button=>button.disabled=true);
   try{
-    if(!statesMatch(draft,draft.confirmed))throw Error('Confirm or discard construction changes before managing stores.');
-    const code=draft.campaignLink?.roomCode||linkedCampaignState?.code;
+    if(pageParameters.get('details')==='1'||pageParameters.has('embeddedRecord'))throw Error('Open Edit Ship to manage its stores.');
+    if(linkedCampaignState?.combatActive)throw Error('You cannot manage ship stores in combat.');
+    if(!statesMatch(target,target.confirmed))throw Error('Confirm or discard construction changes before managing stores.');
+    const code=target.campaignLink?.roomCode||linkedCampaignState?.code;
     if(code){
-      const credentials=activeCampaignCredentials(code),result=await campaignApi('/api/campaign/starship/resources',{code,...credentials,starshipId:draft.id,requestId:uid('stock'),...change});
+      const credentials=activeCampaignCredentials(code),result=await campaignApi('/api/campaign/starship/resources',{code,...credentials,starshipId:shipId,requestId:request.id,...change});
+      if(draft!==target||draft.id!==shipId||(draft.campaignLink?.roomCode||linkedCampaignState?.code)!==code){const message='Stores updated for '+shipName+'. Reopen that ship to see its latest stores.';if(output)output.textContent=message;return {ok:true,message,stale:true};}
       linkedCampaignState=result.campaign;
-      for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])draft[key]=clone(result.starship.ship[key]??(key==='groupCredits'?0:key==='resourceReceipts'?[]:{}));
+      for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])target[key]=clone(result.starship.ship[key]??(key==='groupCredits'?0:key==='resourceReceipts'?[]:{}));
     }else if(change.purchaseMissile){
-      window.SAMissileAmmo.purchase(draft,change.purchaseMissile,change.quantity,window.SAShipMap.definition);
+      window.SAMissileAmmo.purchase(target,change.purchaseMissile,change.quantity,window.SAShipMap.definition);
     }else if(change.purchaseGrade){
       const fuel=window.SAShipMap.fuelCatalog[change.purchaseGrade],count=change.quantity;
+      if(!fuel)throw Error('Choose a valid warp fuel grade.');
       if(!Number.isInteger(count)||count<1||count>10000)throw Error('Enter a whole quantity from 1 to 10000.');
-      if(draft.groupCredits<fuel.price*count)throw Error('Not enough Group Credits.');
-      draft.groupCredits-=fuel.price*count;draft.warpFuel||={};draft.warpFuel[change.purchaseGrade]=(draft.warpFuel[change.purchaseGrade]||0)+count;
+      if(!target.allowCreditDebt&&target.groupCredits<fuel.price*count)throw Error('Not enough Group Credits.');
+      target.groupCredits-=fuel.price*count;target.warpFuel||={};target.warpFuel[change.purchaseGrade]=(target.warpFuel[change.purchaseGrade]||0)+count;
     }else for(const kind of ['warpFuel','minerals'])if(change[kind]){
       if(Object.values(change[kind]).some(n=>!Number.isInteger(n)||n<0||n>1000000))throw Error('Enter a nonnegative whole quantity.');
-      draft[kind]={...draft[kind],...change[kind]};
+      target[kind]={...target[kind],...change[kind]};
     }
-    draft.confirmed=constructionState(draft);saveDraft();renderAll();output.textContent='Ship stores updated.';
-  }catch(error){output.textContent=error.message;}
+    // Resource purchases must not confirm layout edits made while the request was pending.
+    target.confirmed={...target.confirmed};
+    for(const key of ['warpFuel','minerals','missileAmmo','missileStorage','groupCredits','resourceReceipts'])if(target[key]!==undefined)target.confirmed[key]=clone(target[key]);
+    saveDraft();renderAll();const message='Ship stores updated.';if(output)output.textContent=message;return {ok:true,message};
+  }catch(error){if(output)output.textContent=error.message;return {ok:false,message:error.message};}
+  finally{if(shipStockRequest===request)shipStockRequest=null;renderShipStores();}
 }
 
 shipFields.forEach((field) => {
@@ -1334,7 +1367,7 @@ function buildConstructionZone(){shipGrids.forEach((grid) => {
   grid.style.setProperty('grid-template-rows',`repeat(${draft.zoneRows||20},1fr)`,'important');
   grid.style.setProperty('height',`${(draft.zoneRows||20)*5}%`,'important');
   grid.style.top=`${(20-(draft.zoneRows||20))*2.5}%`;
-});}
+});resizeEnlargedShipInterior();}
 buildConstructionZone();
 function resizeConstruction(columns,rows,dx,dy){
   if(linkedCampaignState?.combatActive){showMessage('Resize or center the construction zone outside combat.','error');return;}
@@ -1439,7 +1472,7 @@ function purchaseSic(type) {
   if(SIC_CATALOG[type]?.category==='missile-ammo'){purchaseMissile(type);return true;}
   const definition = SIC_CATALOG[type]; if (!definition) return false;
   if(definition.fuel){saveShipStock({purchaseGrade:definition.grade,quantity:1});document.querySelector('[data-starship-tab="sheet"]')?.click();document.querySelector('[data-ship-stores]')?.scrollIntoView({block:'center'});return;}
-  if (pendingCost() + definition.price > draft.groupCredits) return rejectSicPurchase(`Not enough Group Credits to purchase ${definition.name}.`);
+  if (!draft.allowCreditDebt && pendingCost() + definition.price > draft.groupCredits) return rejectSicPurchase(`Not enough Group Credits to purchase ${definition.name}.`);
   if(definition.hullLimit&&draft.gridCells.length>definition.hullLimit)return rejectSicPurchase(`${definition.name} cannot be purchased for a ship larger than ${definition.hullLimit} hull squares.`);
   rememberForUndo();
   const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1459,7 +1492,8 @@ function undoConstruction() {
   selectedSicId = null; mobilePreviewCell = null; validation = { errors: [], cells: new Set() };
   saveDraft(); showMessage("The last construction decision was undone."); renderAll();
 }
-function discardConstruction() {
+async function discardConstruction() {
+  if(!await confirmShipDecision('Discard Changes','Discard all unconfirmed purchases and layout changes? The last confirmed ship will be restored.','Discard Changes'))return;
   rememberForUndo(); restoreWorkingState(draft.confirmed);
   selectedSicId = null; mobilePreviewCell = null; validation = { errors: [], cells: new Set() };
   saveDraft(); showMessage("All unconfirmed construction changes were discarded."); renderAll();
@@ -1477,6 +1511,7 @@ async function confirmConstruction() {
   }
   const cost = pendingCost();
   draft.groupCredits -= cost;
+  const destroyedIds=draft.sicInventory.filter(item=>item.pendingDisposition==="destroy").map(item=>item.id);
   const removedIds = new Set(draft.sicInventory.filter((item) => item.pendingDisposition).map((item) => item.id));
   draft.placements = draft.placements.filter((placement) => !removedIds.has(placement.sicId));
   draft.sicInventory = draft.sicInventory.filter((item) => !item.pendingDisposition);
@@ -1485,12 +1520,13 @@ async function confirmConstruction() {
     item.pendingPurchase = false; item.pendingDisposition = "";
     item.storage = !placementForSic(item.id);
   });
+  draft.constructionCost=draft.gridCells.length*HULL_COST+window.SAShipMap.triangleCells(draft).length*300+draft.sicInventory.reduce((sum,item)=>sum+window.SAShipMap.sicPrice(item,draft),0);
   draft.confirmed = constructionState(draft);
   draft.confirmedOnce = true;
   undoState = null; selectedSicId = null; mobilePreviewCell = null;
   mapView.mode = "explore";
   confirmingConstruction=true;confirmButtons.forEach(b=>b.disabled=true);
-  try{draft.floorplanSnapshot=await window.SAFloorplanSnapshot.compile(draft);await syncLinkedStarship(true);}catch(error){draft=before;showMessage('Changes were not confirmed: '+error.message,'error');renderConstructionControls();return;}finally{confirmingConstruction=false;}
+  try{draft.floorplanSnapshot=await window.SAFloorplanSnapshot.compile(draft);await syncLinkedStarship(true,destroyedIds);}catch(error){draft=before;showMessage('Changes were not confirmed: '+error.message,'error');renderConstructionControls();return;}finally{confirmingConstruction=false;}
   saveDraft(); saveMapView();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
   renderSavedStarships(); renderCampaignLink(); renderAll();
@@ -1538,14 +1574,30 @@ function renderSavedStarships() {
   document.querySelector("#exportStarship").disabled = !draft.confirmedOnce;
   document.querySelector("#deleteStarship").disabled = !draft.confirmedOnce;
 }
-function startNewStarship() {
-  if (!window.confirm("Start a fresh starship? The current unconfirmed work will be replaced. Confirmed starships remain saved.")) return;
+let shipDecisionPending = false;
+function confirmShipDecision(title, message, actionLabel) {
+  if(shipDecisionPending)return Promise.resolve(false);
+  shipDecisionPending=true;
+  return new Promise(resolve=>{
+    const dialog=document.createElement('dialog');dialog.className='ship-print-options ship-decision-dialog';dialog.setAttribute('aria-label',title);
+    const heading=document.createElement('h2');heading.textContent=title;
+    const description=document.createElement('p');description.textContent=message;
+    const form=document.createElement('form');form.method='dialog';
+    const cancel=document.createElement('button');cancel.type='submit';cancel.value='cancel';cancel.textContent='Cancel';
+    const proceed=document.createElement('button');proceed.type='submit';proceed.value='confirm';proceed.textContent=actionLabel;
+    form.append(cancel,proceed);dialog.append(heading,description,form);
+    dialog.addEventListener('close',()=>{const accepted=dialog.returnValue==='confirm';dialog.remove();shipDecisionPending=false;resolve(accepted);},{once:true});
+    document.body.append(dialog);dialog.showModal();cancel.focus();
+  });
+}
+async function startNewStarship() {
+  if (!await confirmShipDecision('New Starship', 'Start a fresh starship? The current unconfirmed work will be replaced. Confirmed starships remain saved.', 'Start New Ship')) return;
   shipStorage.removeItem(ACTIVE_STARSHIP_KEY);
   resetNewShipMapView();
   draft = defaultDraft(); saveDraft(); applyDraftToUi();
 }
 function resetNewShipMapView() {
-  Object.assign(mapView, { mode: "build", zoom: 1, panX: 0, panY: 0 });
+  Object.assign(mapView, { mode: "build", hull: false, zoom: 1, panX: 0, panY: 0 });
   saveMapView();
 }
 function loadSavedStarship(id) {
@@ -1580,8 +1632,8 @@ async function importStarship(file) {
   } catch (error) { window.alert(error.message || "The starship file could not be imported."); }
   importStarshipFile.value = "";
 }
-function deleteStarship() {
-  if (!draft.confirmedOnce || !window.confirm(`Delete ${draft.title || "this starship"} from this device?`)) return;
+async function deleteStarship() {
+  if (!draft.confirmedOnce || !await confirmShipDecision('Delete Local Starship',`Delete ${draft.title || "this starship"} from this device? This removes its local saved copy. Export it first if you need a backup.`,'Delete Local Copy')) return;
   const library = loadStarshipLibrary().filter((ship) => ship.id !== draft.id); saveStarshipLibrary(library);
   shipStorage.removeItem(ACTIVE_STARSHIP_KEY); draft = defaultDraft(); saveDraft(); applyDraftToUi();
 }
@@ -1647,16 +1699,16 @@ async function linkStarship(event) {
   if (!draft.confirmedOnce || !statesMatch(draft, draft.confirmed)) { campaignMessage("Confirm Ship First", "error"); return; }
   const form = event.currentTarget; const code = form.querySelector("[data-starship-campaign-code]").value.trim().toUpperCase();
   try {
-    if(await window.SARoomV03?.importIntoRoom(code,"ship",draft))return;
-    const result = await campaignApi("/api/campaign/starship/link", { code, controlType: form.querySelector("[data-starship-control-type]").value, starship: draft });
+    if(!EMBEDDED_GM_MODE&&await window.SARoomV03?.importIntoRoom(code,"ship",draft))return;
+    const result = await campaignApi("/api/campaign/starship/link", { code, ...activeCampaignCredentials(code), controlType: form.querySelector("[data-starship-control-type]").value, starship: draft });
     draft.campaignLink = { roomCode: code, campaignName: result.campaignName, controlType: result.starship.controlType, accessKey: result.accessKey };
     draft.crewCharacterIds = []; saveDraft(); linkedCampaignState = null; await refreshLinkedCampaign(); campaignMessage("Starship linked successfully.");
   } catch (error) { campaignMessage(error.message, "error"); }
 }
-async function syncLinkedStarship(strict=false) {
+async function syncLinkedStarship(strict=false,destroyedIds=[]) {
   if (!draft.campaignLink?.roomCode || !draft.confirmedOnce) return;
   const link = draft.campaignLink; const credentials = activeCampaignCredentials(link.roomCode);
-  try { const result=await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, buildRevision:link.buildRevision||0, starship: draft }); link.buildRevision=result.starship.buildRevision||0; }
+  try { const result=await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, buildRevision:link.buildRevision||0, destroyedIds, starship: draft }); link.buildRevision=result.starship.buildRevision||0; }
   catch (error) { if(strict)throw error;campaignMessage(`Saved locally. Campaign sync needs attention: ${error.message}`, "error"); }
 }
 
@@ -1669,7 +1721,7 @@ importStarshipFile?.addEventListener("change", () => importStarship(importStarsh
 linkStarshipForms.forEach((form) => form.addEventListener("submit", linkStarship));
 document.querySelectorAll("[data-unlink-starship]").forEach((button) => button.addEventListener("click", async () => {
   if (!draft.confirmedOnce || !statesMatch(draft, draft.confirmed)) { campaignMessage("Confirm Ship First", "error"); return; }
-  if (!draft.campaignLink || !window.confirm("Unlink this starship? It will remain saved on this device and campaign crew assignments will be cleared.")) return;
+  if (!draft.campaignLink || !await confirmShipDecision("Unlink Starship", "Unlink this starship? It will remain saved on this device and campaign crew assignments will be cleared.", "Unlink Starship")) return;
   const credentials = activeCampaignCredentials(draft.campaignLink.roomCode);
   try { await campaignApi("/api/campaign/starship/unlink", { code: draft.campaignLink.roomCode, token: credentials.token, accessKey: draft.campaignLink.accessKey, starshipId: draft.id }); }
   catch (error) { campaignMessage(error.message, "error"); return; }
@@ -1689,7 +1741,7 @@ document.querySelectorAll("[data-save-starship-crew]").forEach((button) => butto
 
 const sicCards = [...document.querySelectorAll("[data-sic-card]")];
 let cardHost = document;
-try { while (cardHost.defaultView.frameElement) cardHost = cardHost.defaultView.parent.document; } catch {}
+try { while(cardHost.defaultView.frameElement&&!cardHost.defaultView.frameElement.hasAttribute('data-explore-perspective')) cardHost = cardHost.defaultView.parent.document; } catch {}
 if (cardHost !== document && !cardHost.querySelector("link[data-sic-cards-style]")) {
   const style = cardHost.createElement("link"); style.rel = "stylesheet"; style.dataset.sicCardsStyle = "";
   style.href = new URL("sic-cards.css?v=20260910-cockpit-1", location.href).href; cardHost.head.append(style);
@@ -1792,7 +1844,22 @@ function openSicCard(sicCard, trigger = sicCard) {
   const definition=SIC_CATALOG[cloneCard.dataset.sicPreview];
   if(definition&&(definition.shipControl||definition.shield||definition.sensor||definition.weapon||definition.lockOn||definition.utility||definition.hacking)){
     const preview=cardHost.createElement('button');preview.textContent='Preview Console';preview.style.cssText='background:#586570;color:#fff;border:1px solid #becbd0';
-    preview.onclick=()=>{const frame=cardHost.createElement('iframe');frame.title='Static console preview';frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';frame.src='index.html?catalogPreview='+encodeURIComponent(cloneCard.dataset.sicPreview);cardHost.body.append(frame);};tools.prepend(preview);
+    preview.onclick=async()=>{
+      if(preview.disabled)return;preview.disabled=true;preview.textContent='Loading Console…';
+      try{
+        // Preview dialogs are mounted in this document, outside their hidden
+        // combat iframe. Load the shared console skin here before opening it.
+        await Promise.all(['ship-navigation-ui.css','space-map.css','health-display.css','combat-workspace.css','combat-actions.css','console-common.css'].map(name=>{
+          const href=new URL(name,location.href).href;
+          if([...cardHost.styleSheets].some(sheet=>sheet.href?.split('?')[0]===href))return;
+          return new Promise((resolve,reject)=>{const link=cardHost.createElement('link');link.rel='stylesheet';link.href=href;link.onload=resolve;link.onerror=()=>{link.remove();reject(new Error('Console styles could not load. Click to retry.'));};cardHost.head.append(link);});
+        }));
+        if(!preview.isConnected||!sicCardDialog.open)return;
+        const frame=cardHost.createElement('iframe');frame.title='Static console preview';frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';frame.src='index.html?catalogPreview='+encodeURIComponent(cloneCard.dataset.sicPreview);cardHost.body.append(frame);
+        preview.title='';
+      }catch(error){preview.title=error.message;preview.textContent='Retry Console';}
+      finally{preview.disabled=false;if(preview.textContent!=='Retry Console')preview.textContent='Preview Console';}
+    };tools.prepend(preview);
   }
   sicCardDialog.classList.remove("is-zoomed");sicCardDialog.style.removeProperty("--inspection-width");
   let cardZoom=1;
@@ -1886,10 +1953,8 @@ async function initializeStarshipPage() {
       window.addEventListener('message',receive);const timer=setInterval(request,500);request();
     });
     draft={...defaultDraft(),...clone(value.record.ship),id:value.record.id,title:value.record.title,confirmed:constructionState(value.record.ship),confirmedOnce:true,campaignLink:null};linkedCampaignState=value.campaign;const index=linkedCampaignState.starships.findIndex(s=>s.id===value.record.id);if(index>=0)linkedCampaignState.starships[index]=value.record;
-  } else if (parameters.get("new") === "1") {
-    shipStorage.removeItem(ACTIVE_STARSHIP_KEY);
+  } else if (NEW_SHIP_REQUEST) {
     resetNewShipMapView();
-    draft = defaultDraft();
     if (campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
     saveDraft();
   } else if (requestedShipId && campaignCode) {
@@ -1928,17 +1993,19 @@ async function initializeStarshipPage() {
   }
 }
 initializeStarshipPage().catch(error=>{const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=error.message;document.querySelector('main').replaceChildren(message);}).finally(()=>{window.SAViewReady?.();if(pageParameters.has('embeddedRecord'))parent.postMessage({type:'sa-ship-map-ready'},location.origin);});
-const shipPrintButton=document.createElement('button');shipPrintButton.type='button';shipPrintButton.textContent='Print Starship';shipPrintButton.className='ship-print-button';shipPrintButton.onclick=()=>window.SAShipPrint.open(draft,draft.title);document.querySelector('main').prepend(shipPrintButton);
+const shipPrintButton=document.createElement('button');shipPrintButton.type='button';shipPrintButton.textContent='Print Starship';shipPrintButton.className='ship-print-button';shipPrintButton.onclick=()=>window.SAShipPrint.open(draft,draft.title);document.querySelector('.starship-tabs').append(shipPrintButton);
 function drawDetailsCrew(){
   if(!new URLSearchParams(location.search).has('embeddedRecord'))return;
   const record=linkedCampaignState?.starships.find(s=>s.id===draft.id);
+  const walkingDoors=new Set(Object.values(record?.characterWalks||{}).flatMap(job=>window.SAShipWalking.sample(job,Date.now()+(record.walkClockOffset||0)).openDoorKeys||[]));
+  for(const grid of shipGrids){for(const door of grid.querySelectorAll('[data-walk-door]'))if(!walkingDoors.has(door.dataset.doorKey)){door.classList.toggle('is-open',record?.ship?.doorStates?.[door.dataset.doorKey]==='open');delete door.dataset.walkDoor;}for(const key of walkingDoors)for(const door of grid.querySelectorAll(`[data-door-key="${CSS.escape(key)}"]`)){door.dataset.walkDoor='';door.classList.add('is-open');}}
   document.querySelectorAll('.ship-detail-crew[data-crew-id]').forEach(e=>{if(!record?.characterLocations?.[e.dataset.crewId])e.remove();});
   const aiStations=record?.aiStations||Object.values(record?.ship?.crewRoomState?.rooms||{}).filter(d=>d.enabled!==false&&d.automationMode&&d.automationMode!=='off'&&d.automationSeat).map(d=>({id:'ship-ai-'+record.id,name:d.name||'Ship AI',location:d.automationSeat}));
   document.querySelectorAll('.ship-detail-ai').forEach(e=>{if(!aiStations.some(a=>a.id===e.dataset.aiUnitId))e.remove();});
   for(const ai of aiStations)for(const grid of shipGrids){const cell=grid.querySelector(`[data-grid-index="${ai.location.square}"]`);if(!cell)continue;const marker=grid.querySelector(`[data-ai-unit-id="${CSS.escape(ai.id)}"]`)||document.createElement('i');marker.className='ship-detail-crew ship-detail-ai';marker.dataset.aiUnitId=ai.id;marker.dataset.shipAi='true';marker.title=ai.name+' (bridge station)';marker.style.left=`${(ai.location.mesh%3+.5)/3*100}%`;marker.style.top=`${(Math.floor(ai.location.mesh/3)+.5)/3*100}%`;if(marker.parentElement!==cell)cell.append(marker);}
   for(const [id,loc] of Object.entries(record?.characterLocations||{}))for(const grid of shipGrids){
     const cell=grid.querySelector(`[data-grid-index="${loc.square}"]`);if(!cell)continue;
-    const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.motion?.[id];
+    const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.characterWalks?.[id]?window.SAShipWalking.sample(record.characterWalks[id],Date.now()+(record.walkClockOffset||0)):record.motion?.[id];
     marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
     if(!marker.querySelector('.crew-figure'))marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);
     marker.title=(occupant?.name||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
@@ -2002,6 +2069,8 @@ function renderEmbeddedMovement(){
     controls.classList.toggle('is-selecting',Boolean(embeddedMove));
     for(const action of ['console','diagnostics'])controls.querySelector(`[data-action=${action}]`).disabled=Boolean(embeddedMove);
     const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),loc=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterLocations?.[own];
+    const walking=Boolean(linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterWalks?.[own]);
+    controls.querySelector('[data-action=begin]').textContent=walking?'Stop Walking':'Move';
     const seat=loc&&window.SAShipMap.buildLayout(draft).footprint.get(Number(loc.square));
     const onSeat=embeddedStationState?.seated??seat?.stations.some(s=>s.x===seat.column&&s.y===seat.row&&s.mesh===Number(loc.mesh));
     controls.querySelector('[data-action=console]').disabled=Boolean(embeddedMove)||!(embeddedStationState?.consoleEnabled??(onSeat&&seat?.item?.status!=='destroyed'));
@@ -2074,7 +2143,7 @@ function toggleTriangleHull(cell){
   const next={...draft,triangleCells:removing?triangles.filter(n=>n!==cell):[...triangles,cell]};
   const error=window.SAShipMap.triangleError(next)||window.SAShipMap.exteriorError(next);
   if(error){showMessage(error,'error');return;}
-  if(!removing&&pendingCost()+300>draft.groupCredits){showMessage('Not enough credits for a triangular hull square.','error');return;}
+  if(!removing&&!draft.allowCreditDebt&&pendingCost()+300>draft.groupCredits){showMessage('Not enough credits for a triangular hull square.','error');return;}
   rememberForUndo();draft.triangleCells=next.triangleCells;saveDraft();renderAll();
   showMessage(removing?'Triangle removed: 300 credits returned on confirmation.':'Triangular hull added: 300 credits, +1 Hull HP; no extra ship size.');
 }
@@ -2096,7 +2165,7 @@ function purchaseHullUpgrade(type){
   const definition=SIC_CATALOG[type],price=window.SAShipMap.hullSections(draft)*definition.hullSquarePrice;
   if(!draft.gridCells.length)return rejectSicPurchase('Build the Hull before purchasing a Hull upgrade.');
   if(draft.sicInventory.some(item=>item.type===type&&!item.pendingDisposition))return rejectSicPurchase(`Only one ${definition.name} per ship.`);
-  if(!Number.isSafeInteger(price)||pendingCost()+price>draft.groupCredits)return rejectSicPurchase(`Not enough Group Credits. ${definition.name} costs ${formatCredits(price)} for the whole Hull.`);
+  if(!Number.isSafeInteger(price)||!draft.allowCreditDebt&&pendingCost()+price>draft.groupCredits)return rejectSicPurchase(`Not enough Group Credits. ${definition.name} costs ${formatCredits(price)} for the whole Hull.`);
   rememberForUndo();const id=uid(type);draft.sicInventory.push({id,type,attachTo:'hull',purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:draft.gridCells[0]});
   clearPurchaseFeedback();saveDraft();renderAll();showSicPurchaseFeedback(`${definition.name} covers all ${window.SAShipMap.hullSections(draft)} Hull sections. Confirm Changes to finish.`,'success');return true;
 }
@@ -2110,7 +2179,7 @@ function purchaseAddon(type,storedItem=null){
   const host=()=>draft.sicInventory.find(i=>i.id===dialog.querySelector('select').value),cost=()=>storedItem?0:type==='vulnerability-fortification'?500*2**draft.sicInventory.filter(i=>i.type===type&&i.attachTo===host().id&&!i.pendingDisposition).length:def.price;
   const price=()=>dialog.querySelector('[data-addon-price]').textContent=cost().toLocaleString()+' credits';dialog.querySelector('select').onchange=()=>{clearPurchaseFeedback();dialog.querySelector('[role=alert]').textContent='';price();};price();
   dialog.querySelector('[data-addon-cancel]').onclick=()=>dialog.close();
-  dialog.querySelector('[data-addon-buy]').onclick=()=>{const parent=host(),price=cost(),alert=dialog.querySelector('[role=alert]');if(def.probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===parent.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed').length>=4)return rejectSicPurchase('This Probe Launcher already holds four probes. Store or remove one first.',alert);if(def.shieldRecovery&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has this recovery add-on.',alert);if(def.staticShield&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has Static Shields.',alert);if(type==='power-core-damper'&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Engine already has a Power Core Damper.',alert);if(!Number.isSafeInteger(price)||pendingCost()+price>draft.groupCredits)return rejectSicPurchase('Not enough Group Credits.',alert);rememberForUndo();const id=storedItem?.id||uid(type),placement=placementForSic(parent.id);if(storedItem){storedItem.attachTo=parent.id;storedItem.storage=false;storedItem.pendingDisposition='';draft.placements=draft.placements.filter(p=>p.sicId!==id);}else draft.sicInventory.push({id,type,attachTo:parent.id,purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:placement.cell});clearPurchaseFeedback();saveDraft();renderAll();showSicPurchaseFeedback(def.name+' attached to '+sicDefinition(parent).name+'. Confirm Changes to finish.','success');dialog.close();return true;};
+  dialog.querySelector('[data-addon-buy]').onclick=()=>{const parent=host(),price=cost(),alert=dialog.querySelector('[role=alert]');if(def.probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===parent.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed').length>=4)return rejectSicPurchase('This Probe Launcher already holds four probes. Store or remove one first.',alert);if(def.shieldRecovery&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has this recovery add-on.',alert);if(def.staticShield&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Shield already has Static Shields.',alert);if(type==='power-core-damper'&&draft.sicInventory.some(i=>i.type===type&&i.attachTo===parent.id&&!i.pendingDisposition))return rejectSicPurchase('This Engine already has a Power Core Damper.',alert);if(!Number.isSafeInteger(price)||!draft.allowCreditDebt&&pendingCost()+price>draft.groupCredits)return rejectSicPurchase('Not enough Group Credits.',alert);rememberForUndo();const id=storedItem?.id||uid(type),placement=placementForSic(parent.id);if(storedItem){storedItem.attachTo=parent.id;storedItem.storage=false;storedItem.pendingDisposition='';draft.placements=draft.placements.filter(p=>p.sicId!==id);}else draft.sicInventory.push({id,type,attachTo:parent.id,purchasePrice:price,pendingPurchase:true,storage:false});draft.placements.push({sicId:id,cell:placement.cell});clearPurchaseFeedback();saveDraft();renderAll();showSicPurchaseFeedback(def.name+' attached to '+sicDefinition(parent).name+'. Confirm Changes to finish.','success');dialog.close();return true;};
   dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();return true;
 }
 installTriangleControls();
@@ -2126,6 +2195,13 @@ function decorateOwnedCard(card,item){
 
 // Expand the live interior rather than copying a picture; routes, doors and confirmation stay connected.
 var enlargedShipInterior=null;
+function resizeEnlargedShipInterior(){
+  const view=enlargedShipInterior;if(!view)return;
+  const box=view.viewport.getBoundingClientRect(),tile=Math.min(box.width,box.height)/20,rows=draft.zoneRows||20;
+  if(!(tile>0))return;
+  for(const [key,value]of Object.entries({width:GRID_SIZE*tile,height:rows*tile,left:(box.width-GRID_SIZE*tile)/2,top:(box.height-rows*tile)/2}))view.grid.style.setProperty(key,value+'px','important');
+  view.grid.style.setProperty('--cell-size',tile+'px');
+}
 async function enlargeShipInterior(viewport,source){
   if(enlargedShipInterior)return;
   let owner=window;try{while(owner.parent!==owner&&owner.parent.document)owner=owner.parent;}catch{}
@@ -2140,10 +2216,10 @@ async function enlargeShipInterior(viewport,source){
     :host{display:block;height:100%;font:14px Arial;color:#eefaff}.enlarged-body{margin:0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#06151e;color:#eefaff}
     .interior-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px;border-bottom:1px solid #407787}.interior-header strong{font:700 16px Arial}.interior-header nav{display:flex;gap:8px;flex-wrap:wrap}
     .interior-header button{min-height:36px;padding:7px 12px;border:1px solid #76bbcb;border-radius:4px;background:#14313f;color:#f0fbff;font:700 13px Arial}
-    .interior-stage{display:grid;place-items:center;min-height:0;overflow:hidden;padding:6px}.interior-stage>[data-grid-viewport]{display:block!important;position:relative!important;inset:auto!important;width:var(--expanded-side)!important;height:var(--expanded-side)!important;aspect-ratio:1;border:1px solid #486b7c;overflow:hidden}
+    .interior-stage{display:grid;place-items:stretch;min-height:0;overflow:hidden;padding:6px}.interior-stage>[data-grid-viewport]{display:block!important;position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;height:100%!important;min-height:0!important;aspect-ratio:auto;border:1px solid #486b7c;overflow:hidden}
     .interior-stage .ship-grid{position:absolute}.interior-stage .grid-toolbar{display:none!important}.interior-stage .sic-grid-label{font:700 11px Arial;white-space:normal;text-align:center}
     .interior-actions:empty{display:none}.interior-actions>.embedded-move-controls{position:static!important;display:flex!important;flex-flow:row wrap!important;align-items:center;justify-content:center;width:100%!important;margin:0;padding:8px;box-sizing:border-box}
-    .interior-actions>.embedded-move-controls button{width:auto!important;min-height:38px}.interior-actions>.embedded-move-controls output{flex:1 0 100%;text-align:center}.interior-actions select{min-height:36px;max-width:280px;color:#ecfaff;background:#11323e}
+    .interior-actions>.embedded-move-controls button{width:auto!important;flex:0 1 auto!important;min-height:38px;grid-column:auto!important}.interior-actions>.embedded-move-controls output{flex:1 0 100%;text-align:center}.interior-actions select{min-height:36px;max-width:280px;color:#ecfaff;background:#11323e}
     .crew-token{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--token-color,#50dfff)!important;min-width:24px;min-height:24px}
   `;shadow.append(style);
   const body=doc.createElement('body');body.className='enlarged-body';body.innerHTML='<header class="interior-header"><strong></strong><nav><button type="button" data-large-zoom="out" aria-label="Zoom out">−</button><button type="button" data-large-zoom="in" aria-label="Zoom in">+</button><button type="button" data-large-zoom="fit">Fit Ship</button><button type="button" data-large-zoom="focus">Enlarge / Character</button><button type="button" data-large-close>Back</button></nav></header><main class="interior-stage"></main><footer class="interior-actions"></footer>';
@@ -2151,9 +2227,9 @@ async function enlargeShipInterior(viewport,source){
   const grid=viewport.querySelector('.ship-grid'),controlHost=grid.closest('.desktop-sheet')||grid.closest('.mobile-grid-panel'),controls=controlHost?.querySelector('.embedded-move-controls');
   const marker=document.createComment('interior viewport'),controlMarker=document.createComment('interior actions');
   viewport.before(marker);if(controls)controls.before(controlMarker);
-  enlargedShipInterior={shell,viewport,grid,controlHost,controls,source,marker,controlMarker,view:{zoom:mapView.zoom,panX:mapView.panX,panY:mapView.panY}};
+  enlargedShipInterior={shell,viewport,grid,controlHost,controls,source,marker,controlMarker,geometry:Object.fromEntries(['width','height','left','top'].map(k=>[k,grid.style.getPropertyValue(k)])),view:{zoom:mapView.zoom,panX:mapView.panX,panY:mapView.panY}};
   body.querySelector('.interior-stage').append(viewport);if(controls)body.querySelector('.interior-actions').append(controls);
-  const resize=()=>{const box=body.querySelector('.interior-stage').getBoundingClientRect();viewport.style.setProperty('--expanded-side',Math.max(100,Math.min(box.width-12,box.height-12))+'px');};
+  const resize=resizeEnlargedShipInterior;
   const observer=new ResizeObserver(resize);observer.observe(body.querySelector('.interior-stage'));enlargedShipInterior.observer=observer;
   shell.addEventListener('cancel',e=>{e.preventDefault();closeEnlargedShipInterior();});
   shell.addEventListener('keydown',e=>{if(embeddedKeyboardMode&&!e.target.closest('input,select,textarea')&&['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
@@ -2167,7 +2243,7 @@ async function enlargeShipInterior(viewport,source){
 function closeEnlargedShipInterior(){
   const value=enlargedShipInterior;if(!value)return;enlargedShipInterior=null;
   value.observer.disconnect();value.marker.replaceWith(value.viewport);if(value.controls)value.controlMarker.replaceWith(value.controls);
-  Object.assign(mapView,value.view);saveMapView();applyGridTransform();value.shell.close();value.shell.remove();value.source?.focus({preventScroll:true});
+  for(const [key,v]of Object.entries(value.geometry))value.grid.style.setProperty(key,v,'important');Object.assign(mapView,value.view);saveMapView();applyGridTransform();value.shell.close();value.shell.remove();value.source?.focus({preventScroll:true});
 }
 for(const viewport of document.querySelectorAll('[data-grid-viewport]')){
   const panel=viewport.closest('.mobile-grid-panel'),toolbar=viewport.querySelector('.grid-zoom-controls')||panel?.querySelector('.grid-zoom-controls');
@@ -2186,7 +2262,7 @@ if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{
 if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href='room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
 function openBlueprintPurchase(type){
- const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
+ const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
 }
 for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
 
@@ -2203,3 +2279,6 @@ document.addEventListener('change',event=>{
  const host=event.target.closest('[data-crew-campaign-tools],.gm-starship-card')||event.target.parentElement.parentElement.parentElement.parentElement;
  for(const button of host.querySelectorAll('[data-save-starship-crew]'))button.classList.add('assignments-dirty');
 });
+
+// Interpolate saved walking routes without rebuilding the ship or sending frame updates.
+setInterval(()=>{if(window.SAExploreSession?.active()===false||document.hidden||!window.frameElement?.getClientRects().length)return;const record=linkedCampaignState?.starships?.find(s=>s.id===draft.id);if(Object.keys(record?.characterWalks||{}).length)drawDetailsCrew();},33);

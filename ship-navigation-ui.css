@@ -131,6 +131,8 @@
 .shield-console-dialog .pilot-rings{max-height:100%;height:100%;margin:0}.shield-console-dialog .ring-stage{height:110px}
 .shield-emitter{position:relative;height:43%;min-height:140px;display:grid;place-items:center}.shield-emitter img{width:100%;height:100%;object-fit:contain;min-height:0;mix-blend-mode:screen;animation:shield-emitter-pulse 5s ease-in-out infinite}.shield-emitter [data-condition]{position:absolute;bottom:0;left:0;right:0;text-align:center}
 .shield-console-dialog[data-field=burst] .shield-emitter img{filter:grayscale(1);opacity:.4;animation:none}
+.shield-integrity-display{display:block;width:100%;height:100%;min-height:0;filter:drop-shadow(0 0 5px #51dba344)}
+.shield-console-dialog[data-field=burst] .shield-integrity-display{filter:grayscale(1);opacity:.6}
 .shield-console-dialog [data-field-state]{text-align:center;color:#9cffbf;font-weight:bold}.shield-console-dialog[data-field=burst] [data-field-state]{color:#ff929a}
 .shield-energy-trace{height:18px;opacity:.5;background:repeating-linear-gradient(90deg,#83e6b1 0 2px,transparent 2px 8px);clip-path:polygon(0 45%,5% 25%,10% 50%,15% 15%,20% 75%,25% 30%,30% 65%,35% 10%,40% 80%,45% 45%,50% 30%,55% 65%,60% 20%,65% 45%,70% 70%,75% 10%,80% 40%,85% 25%,90% 70%,95% 50%,100% 40%,100% 100%,0 100%);animation:shield-trace 3s ease-in-out infinite}
 .shield-factors{display:flex;justify-content:space-around;gap:12px;margin:12px 0;text-align:center}.shield-factors small{display:block;color:#abd1bf}.shield-factors .pilot-factor{margin:auto}

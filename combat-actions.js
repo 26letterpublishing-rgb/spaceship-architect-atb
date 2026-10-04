@@ -46,6 +46,62 @@
     }
   }
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
+  const stationCategories = [
+    ['movement', 'Ship Maneuvers', 'Move Ship, Ram and Skim'],
+    ['sensors', 'Sensors & Comms', 'Scan, analyze and communicate'],
+    ['weapons', 'Targeting & Weapons', 'Acquire targets and fire'],
+    ['defense', 'Ship Defense', 'Evade, break locks and manage shields'],
+    ['utilities', 'Ship Systems', 'Operate equipment and prepare actions'],
+  ];
+  const categoryByOperator = new Map();
+
+  function stationActionCategory(label) {
+    if (['Move Ship', 'Ram', 'Skim'].includes(label)) return 'movement';
+    if (['Scan Area', 'Scan Hex', 'Systems Analysis', 'Life Scan', 'Share Data', 'Hail Ship'].includes(label)) return 'sensors';
+    if (['Evasive Maneuvers', 'Break Lock-On', 'Restore Shield HP', 'Reinforce Field', 'Restabilize Shield'].includes(label)) return 'defense';
+    if (label.startsWith('Fire ') || ['Lock-On', 'Lock Component'].includes(label)) return 'weapons';
+    return 'utilities';
+  }
+
+  function stationMenuCategories(entries) {
+    return stationCategories.flatMap(([id, label, description]) => {
+      const count = entries.filter(entry => stationActionCategory(entry[0]) === id).length;
+      return count ? [{ id, label, description, count }] : [];
+    });
+  }
+
+  function chooseStationCategory(shortcuts, category, operatorKey) {
+    const tabs = [...shortcuts.querySelectorAll('[data-station-category]')];
+    const selected = tabs.find(button => button.dataset.stationCategory === category) || tabs[0];
+    const active = selected?.dataset.stationCategory || '';
+    shortcuts.dataset.category = active;
+    if (operatorKey && active) categoryByOperator.set(operatorKey, active);
+    for (const button of tabs) {
+      const isSelected = button === selected;
+      button.setAttribute('aria-pressed', String(isSelected));
+    }
+    for (const row of shortcuts.querySelectorAll('.station-action-choice')) {
+      row.hidden = row.dataset.actionCategory !== active || row.dataset.actionExcluded === 'true';
+    }
+    const heading = shortcuts.querySelector('[data-station-category-title]');
+    if (heading) heading.textContent = stationCategories.find(entry => entry[0] === active)?.[1] || 'Ship actions';
+  }
+
+  // Hold keeps its own square footprint, without stretching nearby item actions.
+  for (const group of document.querySelectorAll('.combat-action-grid')) {
+    const controls = document.createElement('div');
+    controls.className = 'combat-turn-controls';
+    const status = document.createElement('span');
+    status.dataset.turnControlStatus = '';
+    controls.append(status);
+    const holdButton = group.querySelector('[data-combat-action="holdConsole"]');
+    if (holdButton) controls.append(holdButton);
+    for (const selector of ['#playerDelay', '#playerEndTurn']) {
+      const button = group.querySelector(selector);
+      if (button) controls.append(button);
+    }
+    group.append(controls);
+  }
 
   let currentState = null;
   let currentUnit = null;
@@ -177,7 +233,7 @@
 
   const configurations = {
     defense: { title: "Defense", amount: "Defense Duration", min: 1, max: 15, value: 5, note: "Dodge is doubled. A Critical Success against a melee attack delays the attacker by twice the elapsed Defense time." },
-    move: { title: "Move", amount: "Units Moved", min: 1, max: () => {
+    move: { title: "Move Character", amount: "Units Moved", min: 1, max: () => {
       const vehicle = selectedVehicle();
       const scale=window.SAShipMap.gravityEnabled(currentState?.starships?.find(s=>s.id===currentUnit?.location?.starshipId))?1:.5;
       return Math.max(1,(jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1)*scale);
@@ -476,15 +532,20 @@
       const helm=consoles.find(a=>a.kind==='pilot');if(helm&&!consoles.some(a=>a.kind==='lock'))entries.push(['Break Lock-On','[data-command="break"]','Maneuvers',helm.id]);
       for(const a of consoles.filter(a=>a.kind==='utility'))entries.push([a.definition.utility==='life-support'?(window.SAShipMap.gravityEnabled(a.ship)?'Disable Gravity':'Enable Gravity'):a.definition.name,'[data-utility]','',a.id]);
       for(const a of consoles.filter(a=>a.kind==='hacking'))entries.push(['Hack SIC','[data-hack]','',a.id]);
-      const key=JSON.stringify(entries);
+      const visibleEntries=entries.filter(([,selector,,id])=>!(selector==='[data-order="restabilize"]'&&consoles.find(a=>a.id===id)?.remote));
+      const operatorKey=`${state?.roomCode||''}:${mine?.id||''}:${mine?.location?.starshipId||''}`;
+      const key=JSON.stringify([operatorKey,visibleEntries]);
+      shortcuts.hidden=!visibleEntries.length;
       if(shortcuts.dataset.key!==key){
         shortcuts.replaceChildren();
-        const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div');resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';secondary.className='station-secondary-actions';shortcuts.append(resources,primary,secondary);
-        const categories=[['movement','Movement'],['sensors','Sensors & Comms'],['weapons','Targeting & Weapons'],['defense','Defense'],['utilities','Utilities']];
-        const choose=category=>{shortcuts.dataset.category=category;primary.hidden=!!category;secondary.hidden=!category;for(const row of secondary.querySelectorAll('[data-action-category]'))row.hidden=row.dataset.actionCategory!==category;};
-        const back=document.createElement('button');back.type='button';back.textContent='Back to all actions';back.className='station-category-back';back.onclick=()=>choose('');secondary.append(back);
-        for(const [category,label]of categories){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.actionCategory=category;b.onclick=()=>choose(category);primary.append(b);}choose('');
-        for(const [index,[label,selector,tab,id]] of entries.entries()){
+        const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div'),heading=document.createElement('h3');
+        resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';primary.setAttribute('role','group');primary.setAttribute('aria-label','Ship action categories');secondary.className='station-secondary-actions';heading.dataset.stationCategoryTitle='';secondary.append(heading);shortcuts.append(resources,primary,secondary);
+        for(const {id:category,label,description,count} of stationMenuCategories(visibleEntries)){
+          const b=document.createElement('button');b.type='button';b.dataset.stationCategory=category;b.dataset.actionCategory=category;b.title=description;
+          const name=document.createElement('strong'),amount=document.createElement('small');name.textContent=label;amount.textContent=`${count} action${count===1?'':'s'}`;b.append(name,amount);
+          b.onclick=()=>chooseStationCategory(shortcuts,category,operatorKey);primary.append(b);
+        }
+        for(const [index,[label,selector,tab,id]] of visibleEntries.entries()){
           const button=document.createElement('button'),row=document.createElement('div');row.className='station-action-choice';button.type='button';button.textContent=label;button.dataset.stationOrder=index;
           button.onclick=async()=>{
             const access=window.SAStationAccess.access(window.SACombatBridge.state(),currentUnit,id);
@@ -493,21 +554,24 @@
             const b=window.SACombatBridge;if(!b.confirmGmPlayerAction(currentUnit,'changeGravity'))return;
             try{await b.utilityAction({id:currentUnit.id,sicId:id,kind:'gravity',enabled:!window.SAShipMap.gravityEnabled(access.ship),receipt:crypto.randomUUID()});}catch(error){window.alert(error.message);}
           };
-          const category=['Move Ship','Ram','Skim'].includes(label)?'movement':['Scan Area','Scan Hex','Systems Analysis','Life Scan','Share Data','Hail Ship'].includes(label)?'sensors':['Evasive Maneuvers','Break Lock-On','Restore Shield HP','Reinforce Field','Restabilize Shield'].includes(label)?'defense':label.startsWith('Fire ')||['Lock-On','Lock Component'].includes(label)?'weapons':'utilities';row.dataset.actionCategory=category;button.dataset.actionCategory=category;secondary.append(row);row.append(button);row.hidden=true;
+          const category=stationActionCategory(label);row.dataset.actionCategory=category;button.dataset.actionCategory=category;secondary.append(row);row.append(button);
           const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
-          if(helpKey){button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';button.style.cursor='help';}
+          if(helpKey)button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';
         }
+        chooseStationCategory(shortcuts,categoryByOperator.get(operatorKey),operatorKey);
         shortcuts.dataset.key=key;
       }
       const ownShip=consoles[0]?.ship,au=ownShip?.auState||{};
       shortcuts.querySelector('[data-station-resources]').textContent=ownShip?`DEFENSE ${ownShip.defenseScore??'?'}   |   AU ${Number(Number(au.available??au.current??0).toFixed(1))} / ${au.maximum||0}${au.reserved?` (${au.reserved} reserved)`:''}`:'';
       for(const button of shortcuts.querySelectorAll('[data-station-order]')){
-        const [label,selector,,id]=entries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
+        const [label,selector,,id]=visibleEntries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
         const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
         button.disabled=disabled||Boolean(reason);button.title=reason||(disabled?'Available during your active turn.':label==='Evasive Maneuvers'?'Roll evasion; Defense lasts 20 combat seconds.':`Choose target and confirm ${label}`);
-        let explanation=button.parentElement.querySelector('[data-disabled-reason]');if(!explanation){explanation=document.createElement('small');explanation.dataset.disabledReason='';button.after(explanation);}explanation.hidden=!button.disabled;explanation.textContent=button.disabled?button.title:'';
-        button.closest('.station-action-choice').hidden=button.dataset.actionCategory!==shortcuts.dataset.category||(selector==='[data-order="restabilize"]'&&access?.remote);
+        let explanation=button.parentElement.querySelector('[data-disabled-reason]');if(!explanation){explanation=document.createElement('small');explanation.dataset.disabledReason='';button.after(explanation);}explanation.hidden=!reason;explanation.textContent=reason;
+        button.closest('.station-action-choice').hidden=button.dataset.actionCategory!==shortcuts.dataset.category;
       }
+      const controlStatus=group.querySelector('[data-turn-control-status]');
+      if(controlStatus)controlStatus.textContent=mine?.consoleHold?'Holding at 99%. Resume when ready.':actionSubmitting?'Sending action…':disabled?'Waiting for your turn or current action to finish.':seated?'Choose a ship action above. Hold keeps you at 99%.':'Choose a character action. Hold keeps you at 99%.';
     }
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
@@ -521,7 +585,8 @@
       if(kind==='airlock'||kind==='breachRepair'){const info=window.SAVacuumUI.available(mine,state);button.hidden=kind==='airlock'?!info.airlock:!info.holes?.length;button.textContent=kind==='airlock'?(info.ship?.ship.airlockStates?.[info.airlock?.id]?.open?'Close Airlock':'Open Airlock'):'Repair Hull Breach';}
       if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
-      if(kind==='move'){button.textContent=seated?'Leave Console':'Move';button.classList.toggle('leave-console-arrow',Boolean(seated));}
+      if(kind==='move'){button.hidden=Boolean(mine?.shipAi);button.textContent=seated?'Leave Console':'Move Character';button.classList.toggle('leave-console-arrow',Boolean(seated));}
+      if(kind==='wait3')button.textContent='Wait 3 sec';
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
@@ -542,7 +607,7 @@
       button.querySelector('[data-action-reason]')?.remove();
       button.disabled = Boolean(unavailable);
       button.title = unavailable ? (reason||'No usable item is available for this action.') : button.textContent.trim();
-      if(unavailable&&!button.hidden){const note=document.createElement('small');note.dataset.actionReason='';note.textContent=button.title;button.append(note);}
+      if(unavailable&&!button.hidden&&kind!=='holdConsole'&&reason&&reason!=="Available only during your active turn."){const note=document.createElement('small');note.dataset.actionReason='';note.textContent=button.title;button.append(note);}
     });
   }
 

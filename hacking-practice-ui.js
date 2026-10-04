@@ -3,11 +3,11 @@
   const $=selector=>document.querySelector(selector),key='sa-hacking-practice-v1';
   const colors=['#7dd4d2','#f3bf78','#bda4ed','#b1d679','#f197ad','#89b9ed','#d7d188','#d6a8d4'];
   let saved={};try{saved=JSON.parse(sessionStorage.getItem(key)||'{}');}catch{}
-  let token=saved.token||'',board=null,draft=saved.draft||[],pending=saved.pending||null,selected=0,busy=false,expired=false;
+  let token=saved.token||'',board=null,draft=saved.draft||[],pending=saved.pending||null,selected=0,busy=false,expired=false,ending=false;
   const color=letter=>colors[(letter.charCodeAt(0)-65)%colors.length];
-  function persist(){try{sessionStorage.setItem(key,JSON.stringify({token,draft,pending}));}catch{}}
+  function persist(){if(ending)return;try{sessionStorage.setItem(key,JSON.stringify({token,draft,pending}));}catch{}}
   async function request(method,body){
-    const response=await fetch('/api/hacking/practice',{method,headers:{'Content-Type':'application/json','X-Practice-Token':token},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
+    const response=await fetch('/api/hacking/practice',{method,headers:{'Content-Type':'application/json','X-Practice-Token':token},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000),keepalive:method==='DELETE'});
     const payload=await response.json();
     if(!response.ok){if(response.status===404)expired=true;throw Error(payload.error||'Practice request failed.');}
     return payload;
@@ -66,9 +66,11 @@
   }
   $('#setup').onsubmit=event=>{event.preventDefault();create();};$('#guessForm').onsubmit=submit;
   $('#endPractice').onclick=async event=>{
-    event.preventDefault();if(busy)return;busy=true;render();
-    try{if(token)await request('DELETE');try{sessionStorage.removeItem(key);}catch{}window.close();setTimeout(()=>{if(!window.closed)location.assign('index.html');},150);}
-    catch(error){$('#error').textContent=error.message;busy=false;render();}
+    event.preventDefault();if(ending)return;ending=true;busy=true;render();
+    // Leaving practice must not depend on an online server or a completed guess request.
+    if(token)void request('DELETE').catch(()=>{});
+    try{sessionStorage.removeItem(key);}catch{}
+    window.close();setTimeout(()=>{if(!window.closed)location.assign('index.html');},150);
   };
   $('#clearGuess').onclick=()=>{draft=Array(board.length).fill(null);selected=0;persist();render();$('#slots').children[0]?.focus();};
   async function start(){

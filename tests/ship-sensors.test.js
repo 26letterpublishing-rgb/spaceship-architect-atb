@@ -213,3 +213,5 @@ test('area reports include scenery within pulse range, exclude collected and dis
  assert.match(report.text,/Objects within sensor range: Iron, Twin, Twin, Vesper \/ Destroyed\./);
  const restored=JSON.parse(JSON.stringify(room));assert.deepEqual(sensors.view(restored,'a').starships.find(s=>s.id==='a').sensorState.reports[0].objectRefs,report.objectRefs);
 });
+
+test('one-hex visual detection expires, but a successful scan retains legitimate sensor contact',()=>{const {room,a,b,unit}=fixture(3);b.sensorScenarioMasking=50;room.shipPositions[1].q=1;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.visualOnly,true);room.shipPositions[1].q=2;sensors.refresh(room);assert.notEqual(a.sensorState.contacts.b?.level,'detected');room.shipPositions[1].q=1;sensors.refresh(room);assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'visual-scan-test'}).ok,true);const roll=()=>6;roll.submittedScore=99;sensors.resolveInput(room,unit,roll);room.shipPositions[1].q=3;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'detected');assert.ok(!a.sensorState.contacts.b.visualOnly);});

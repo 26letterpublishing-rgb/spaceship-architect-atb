@@ -4,7 +4,7 @@
   function open(unit,sicId) {
     const bridge=window.SACombatBridge, initial=window.SAStationAccess.access(bridge.state(),unit,sicId);
     if(dialog || initial?.kind!=='weapon')return;
-    let host=document;try{while(host.defaultView.frameElement)host=host.defaultView.parent.document;}catch{}
+    let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
     if(!host.querySelector('[data-weapon-style]')){const link=host.createElement('link');link.rel='stylesheet';link.href=new URL('weapon-console-ui.css',location.href).href;link.dataset.weaponStyle='';host.head.append(link);}
     const view=host.createElement('dialog');dialog=view;view.className='weapon-console';view.dataset.operatorId=unit.id;view.setAttribute('aria-label','Weapons console');
     view.innerHTML=`<header><div><small>REMOTE FIRE CONTROL / ${esc(unit.characterName)}</small><h2>${esc(initial.ship.title)}</h2></div><div class="weapon-turn"><strong data-turn role="status"></strong><progress data-command max="1" value="0" aria-label="Command window"></progress></div><div data-selector><button type="button" data-sound aria-label="Toggle sound">${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header><section class="weapon-plot"><h3>Targeting Array <span>MANUAL FIRE</span></h3><div data-map></div><div data-target-status></div></section><section class="weapon-controls"><h3>${esc(initial.definition.name)}</h3><label>Target<select data-target aria-label="Laser target"></select></label><label>Conserve Auxiliary Power<select data-sacrifice aria-label="Sacrificed damage dice"><option value="0">Full burst / 5 AU</option><option value="1">Sacrifice 1D4 / 4 AU</option><option value="2">Sacrifice 2D4 / 3 AU</option><option value="3">Sacrifice 3D4 / 2 AU</option></select></label><output data-au></output><p data-formula></p><small data-warning>AU is committed on submission. Sacrificed dice can leave a weak hit with no damage.</small><button type="button" data-fire>Fire Rapid Laser</button><p data-error role="alert"></p><div class="weapon-seat"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section><section class="weapon-processor"><h3>Command Processor</h3><div data-factors></div><progress data-input max="100" value="0" aria-label="Laser input"></progress><output data-input-text></output></section><section class="weapon-feed"><h3>Fire Control Reports</h3><div data-reports></div></section>`;
@@ -15,6 +15,7 @@
     view.querySelector('.weapon-feed').prepend(firing);
     const get=s=>view.querySelector(s);const selection=()=>{const o=get('[data-target]').selectedOptions?.[0];return {targetId:o?.dataset.ship||o?.value||get('[data-target]').value||'',targetSicId:o?.dataset.component||null};};let boostsEdited=false,busy=false,lastMap='',lastTargets='',lastReports='',lastFactors='',beat=-1;
     const family=initial.definition.weaponFamily||'rapid-laser';
+    const enlarge=host.createElement('button');enlarge.type='button';enlarge.className='weapon-enlarge-map';enlarge.textContent='Enlarge Map';enlarge.onclick=()=>window.SASpaceMap.enlarge(get('[data-map] .space-map'),enlarge);get('.weapon-plot h3').append(enlarge);
     if(initial.definition.phazonTorpedo){view.classList.add('phazon-torpedo-console');view.style.backgroundImage='url(torpedo-console.webp)';}
     const devastation=initial.definition.devastation;
     if(devastation){const box=host.createElement('section');box.className='devastation-status';box.innerHTML='<strong data-dev-status role="status"></strong><progress data-dev-progress max="1" value="0" aria-label="Weapon charge or cooldown"></progress><p data-dev-upkeep></p><button data-dev-charge>Begin Charging</button><button data-dev-release>Release Charge</button><small data-dev-reason></small>';get('.weapon-controls').prepend(box);
@@ -31,7 +32,7 @@
     get('[data-fire]').textContent=family==='rapid-laser'?'Fire Rapid Laser':`Fire ${initial.definition.name}`;
     window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());
     function redraw(){
-      const state=bridge.state(),person=state.units.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);
+      const state=bridge.state(),person=state?.units?.find(u=>u.id===unit.id),access=window.SAStationAccess.access(state,person,sicId);
       if(!access || access.seat.key!==initial.seat.key){view.close();return;}
       const pending=person.delayedAction,ready=state.activeId===person.id&&!pending&&!person.delayTimer&&!person.timedAction&&!person.consoleHold;
 get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.awaitingRoll?'ROLL REQUIRED':pending?'FIRE CONTROL INPUT':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
@@ -119,9 +120,10 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
     const state=window.SACombatBridge?.state();if(!state)return;
     const reports=state.starships.flatMap(s=>(s.weaponState?.reports||[]).map(e=>({...e,shipId:s.id})));
     for(const e of reports){if(seen.has(e.id))continue;seen.add(e.id);if(!initialized||!e.shot||Date.now()-Date.parse(e.at)>3000)continue;
-      let doc=document;try{while(doc.defaultView.frameElement)doc=doc.defaultView.parent.document;}catch{}
+      let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
       const docs=[document,doc];
       for(const surface of new Set(docs))for(const svg of surface.querySelectorAll('[data-space-canvas]')){
+        if(svg.dataset.spaceEditable==='true')continue;
         const from=svg.querySelector(`[data-space-ship="${CSS.escape(e.shipId)}"]`),to=svg.querySelector(`[data-space-ship="${CSS.escape(e.targetId)}"]`);
         if(!to)continue;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
         if(from&&from!==to&&!reduced){const line=surface.createElementNS('http://www.w3.org/2000/svg','line');const p=new DOMPoint(0,0).matrixTransform(from.getCTM()).matrixTransform(svg.getCTM().inverse()),q=new DOMPoint(0,0).matrixTransform(to.getCTM()).matrixTransform(svg.getCTM().inverse());line.setAttribute('x1',p.x);line.setAttribute('y1',p.y);line.setAttribute('x2',q.x);line.setAttribute('y2',q.y);line.setAttribute('stroke','#ffedb0');line.setAttribute('stroke-width','.09');line.dataset.laserEffect='';svg.append(line);line.animate([{opacity:0},{opacity:1},{opacity:0}],{duration:300});setTimeout(()=>line.remove(),300);}
