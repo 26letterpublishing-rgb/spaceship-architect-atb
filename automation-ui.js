@@ -1,7 +1,7 @@
 (function(){
   let view=null,key='',audio,removeListener=null,pendingAck=null,loadingTimer=null;const seen=new Set();
   function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;}
-  function beep(bridge,doc){if(!bridge.soundEnabled()||doc.hidden)return;try{audio ||= new AudioContext();audio.resume();[520,880,660,1040].forEach((hz,i)=>{const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime+i*.12;o.type='sine';o.frequency.value=hz;g.gain.setValueAtTime(.04,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+.11);});}catch{}}
+  function beep(bridge,doc){if(!bridge.soundEnabled()||doc.hidden)return;try{audio ||= new AudioContext();audio.resume();[520,880,660,1040].forEach((hz,i)=>{const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime+i*.12;o.type='sine';o.frequency.value=hz;g.gain.setValueAtTime(.04,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);o.connect(g);g.connect(window.SAAudioMix.destination(audio,"effect"));o.start(t);o.stop(t+.11);});}catch{}}
   function close(){clearTimeout(loadingTimer);removeListener?.();removeListener=null;view?.remove();view=null;key='';pendingAck=null;}
   function tick(){
     const b=window.SACombatBridge,s=b?.state();if(!s)return;

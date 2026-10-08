@@ -40,7 +40,7 @@ export function buildPrintableCharacterSheet(data) {
       <ul>${(group.entries || []).map((entry) => `<li>${filled(entry)}</li>`).join("")}</ul>
     </section>`).join("") || '<p class="empty-copy">No listed advantages or disadvantages.</p>';
   const skills = skillColumns.map((column) => `<div class="skill-column">${column.map((skill) => `
-    <div class="skill-row ${skill.bold ? "bold-skill" : ""}"><span class="skill-group">${filled(String(skill.group || "").slice(0, 1))}</span><span>${filled(skill.name)}</span><strong>${filled(skill.value, "0.0")}</strong></div>`).join("")}</div>`).join("");
+    <div class="skill-row ${Number(skill.value)>=.1 ? "trained-skill" : ""} ${skill.bold ? "bold-skill" : ""}"><span class="skill-group">${filled(String(skill.group || "").slice(0, 1))}</span><span>${filled(skill.name)}</span><strong>${filled(skill.value, "0.0")}</strong></div>`).join("")}</div>`).join("");
   const crewRows = crew.slice(0, 7).map((member) => `<div class="crew-row"><span>${filled(member.name, "")}</span><span>${filled(member.title, "")}</span></div>`).join("");
   const exertionMax = Math.max(0, Number(data.resources?.exertionMax) || 0);
 
@@ -123,6 +123,7 @@ export function buildPrintableCharacterSheet(data) {
     .skill-column { min-width:0; display:grid; align-content:start; }
     .skill-row { min-height:16px; display:grid; grid-template-columns:12px minmax(0,1fr) 28px; align-items:center; border-bottom:1px dotted #888; font-size:5.65pt; }
     .skill-row > span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .skill-row.trained-skill { color:#14723c; }
     .skill-row strong { font-size:6.5pt; text-align:right; }
     .skill-row.bold-skill > span:nth-child(2), .skill-row.bold-skill strong { font-weight:950; }
     .skill-row.bold-skill > span:nth-child(2) { text-decoration:underline; text-decoration-thickness:.7px; text-underline-offset:1px; }

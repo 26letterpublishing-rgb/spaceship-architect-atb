@@ -2755,7 +2755,7 @@ function tone(frequency, start, duration, gainValue = 0.04, type = "square") {
   gain.gain.linearRampToValueAtTime(gainValue, audio.currentTime + start + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + start + duration);
   osc.connect(gain);
-  gain.connect(audio.destination);
+  gain.connect(window.SAAudioMix.destination(audio,"effect"));
   osc.onended = () => {
     activeGmAudioNodes.delete(node);
     try { osc.disconnect(); gain.disconnect(); } catch {}
@@ -2771,7 +2771,7 @@ function startEngineCharge() {
       const osc = audio.createOscillator(), gain = audio.createGain();
       const node = {osc, gain, frequency}; activeGmAudioNodes.add(node);
       osc.type = 'triangle'; osc.frequency.value = frequency; gain.gain.value = 0;
-      osc.connect(gain); gain.connect(audio.destination);
+      osc.connect(gain); gain.connect(window.SAAudioMix.destination(audio,"effect"));
       osc.onended = () => { activeGmAudioNodes.delete(node); osc.disconnect(); gain.disconnect(); };
       osc.start(); return node;
     });
@@ -2918,7 +2918,7 @@ function playDefeatTone() {
   const audible = mode === "gm" ? !gmSoundsMuted : alertsEnabled;
   if (!audible) return;
   try {
-    const ctx=new AudioContext(),gain=ctx.createGain();gain.gain.value=.12;gain.connect(ctx.destination);
+    const ctx=new AudioContext(),gain=ctx.createGain();gain.gain.value=.12;gain.connect(window.SAAudioMix.destination(ctx,"effect"));
     [330,262,196].forEach((hz,i)=>{const osc=ctx.createOscillator();osc.type='triangle';osc.frequency.value=hz;osc.connect(gain);osc.start(ctx.currentTime+i*.18);osc.stop(ctx.currentTime+(i+1)*.18);});setTimeout(()=>ctx.close(),800);
   } catch {
     // The defeat animation remains clear when a browser blocks audio.

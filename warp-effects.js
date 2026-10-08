@@ -7,7 +7,7 @@
     // Only the outer app owns ambient audio; embedded ship sheets share it.
     if(window!==window.top)return;
     const enabled=!!ship&&unlocked&&!document.hidden&&!muted();
-    if(enabled&&!audio){try{audio=new AudioContext();gain=audio.createGain();gain.gain.value=0;gain.connect(audio.destination);
+    if(enabled&&!audio){try{audio=new AudioContext();gain=audio.createGain();gain.gain.value=0;gain.connect(window.SAAudioMix.destination(audio,"ambient"));
       [43,65,130].forEach((hz,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=hz;g.gain.value=i===2?.12:.35;o.connect(g);g.connect(gain);o.start();oscillators.push(o);});}catch{}}
     if(audio){if(enabled)audio.resume();gain.gain.setTargetAtTime(enabled?.065:0,audio.currentTime,.3);}
   }

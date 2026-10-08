@@ -1980,3 +1980,76 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 
 .campaign-group-credits{color:#66eda0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-weight:700;margin:8px 0 14px}.campaign-group-credits strong{font-size:1.35rem;color:#66eda0}
 .starship-group-credits{justify-content:flex-end;margin:0 32px 8px 0}.campaign-pc-vitals{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0}.campaign-pc-vitals>span{font-size:.82rem}.campaign-held-weapons{color:#b9cddd;font-size:.78rem;display:block}.campaign-character-card{min-width:0}.campaign-character-card>div{min-width:0}
+
+/* Character readability and persistent creation guidance, October 7. */
+/* Repeat the original bright rainbow sweep without its metallic idle interval. */
+.phase-badge.draft { animation:draftSpectrumContinuous 1.5s linear infinite!important;color:#071018!important;text-shadow:none!important;font-weight:900; }
+@keyframes draftSpectrumContinuous {
+  from {background:linear-gradient(90deg,#ff355d,#ffad32,#ffef58,#42e88d,#35cfff,#8f6cff,#f347c5,#ff355d);background-size:300% 100%;background-position:0 0;box-shadow:0 0 18px rgba(255,90,210,.8)}
+  to {background:linear-gradient(90deg,#ff355d,#ffad32,#ffef58,#42e88d,#35cfff,#8f6cff,#f347c5,#ff355d);background-size:300% 100%;background-position:100% 0;box-shadow:0 0 18px rgba(255,90,210,.8)}
+}
+.workflow-target-pulse { animation: creationTargetSpectrum 3s linear infinite !important; outline:3px solid #ff728a; outline-offset:2px; }
+@keyframes creationTargetSpectrum { 0%,100%{outline-color:#ff728a;box-shadow:inset 0 0 12px #ff728a66}25%{outline-color:#ffe061;box-shadow:inset 0 0 12px #ffe06166}50%{outline-color:#59edb0;box-shadow:inset 0 0 12px #59edb066}75%{outline-color:#aa9aff;box-shadow:inset 0 0 12px #aa9aff66} }
+#characterSheet { overflow-anchor:none; }
+#characterSheet .skill-name { font-size:.94rem; line-height:1.2; }
+#characterSheet .skill-name > span:first-child { overflow-wrap:anywhere; }
+#characterSheet .skill-value strong { font-size:1.12rem; }
+#characterSheet .skill-value small, #characterSheet .skill-buy small { font-size:.7rem; }
+#characterSheet .skill-buy strong { font-size:1rem; }
+#characterSheet .panel-heading { font-size:1.05rem; }
+#characterSheet .panel-heading small, #characterSheet label, #characterSheet .field-label { font-size:.86rem; }
+#characterSheet input, #characterSheet select, #characterSheet textarea { font-size:1rem; }
+#characterSheet .modifier-summary { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px 20px; }
+#characterSheet .automatic-modifiers { grid-template-columns:1fr; }
+.modifier-summary > strong, .modifier-summary > small, .modifier-summary > p { grid-column:1/-1; }
+.modifier-summary .modifier-rule-group.advantage { grid-column:1; }
+.modifier-summary .modifier-rule-group.disadvantage { grid-column:2; }
+.modifier-summary .modifier-rule-group + .modifier-rule-group { margin-top:0;padding-top:0;border-top:0; }
+#characterSheet .modifier-summary strong, #characterSheet .modifier-rule-group h3 { font-size:1rem; }
+#characterSheet .modifier-rule-group li, #characterSheet .modifier-summary p { font-size:.96rem; line-height:1.45; }
+#characterSheet .modifier-summary small, #characterSheet .empty-list-note { font-size:.84rem; line-height:1.4; }
+.race-card-rules li, .race-card-lore div, .race-card-description, .class-card-detail p, .class-card-detail li { font-size:1rem; line-height:1.5; }
+.race-card-rules h3 { font-size:1.1rem; }
+.race-card-rules { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.skill-packages { padding:16px; border-bottom:1px solid #466474; }
+.skill-packages[hidden] { display:none; }
+.skill-packages p { font-size:.96rem; line-height:1.4; }
+.skill-methods, .package-choices { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px; }
+.skill-methods button { white-space:normal; }
+.skill-methods button[aria-pressed=true] { border-color:#5de9b7;background:#165c4c;color:#fff; }
+.package-choices label { display:grid;gap:6px; }
+.package-choices select { width:100%;min-width:0; }
+.package-choices details { margin-top:8px; }
+.package-preview { margin:12px 0; }
+.package-preview > div { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:12px 0; }
+.package-preview span { display:flex;justify-content:space-between;gap:10px; }
+.package-warning { color:#ffcc71; }
+.skill-packages summary { cursor:pointer;font-size:.95rem; }
+@media(max-width:600px){.skill-methods,.package-choices{grid-template-columns:1fr}#characterSheet .skill-name{font-size:.88rem}}
+@media(prefers-reduced-motion:reduce){.phase-badge.draft,.workflow-target-pulse{animation:none!important;outline:3px solid #ffe061}}
+
+#characterSheet .skill-row.locked { opacity:1; }
+#characterSheet .attribute-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); }
+#characterSheet .attribute-header strong { font-size:1rem; }
+#characterSheet .attribute-header small { font-size:.8rem; }
+#characterSheet .attribute-die .die-cost { font-size:12px; }
+#characterSheet .attribute-die .die-xp { font-size:7px; }
+#characterSheet .derived-card small, #characterSheet .resource-note, #characterSheet .experience-values small { font-size:.84rem; }
+
+#characterSheet .attribute-card-head { flex-wrap:wrap; }
+#characterSheet .attribute-card-head strong { font-size:1rem; }
+#characterSheet .attribute-card-head span { font-size:.8rem; }
+#characterSheet .derived-grid span, #characterSheet .hp-console > span,
+#characterSheet .creation-budgets span, #characterSheet .xp-readouts span { font-size:.85rem; }
+#characterSheet .derived-grid small, #characterSheet .creation-budgets small,
+#characterSheet .xp-primary > small { font-size:.8rem;line-height:1.35; }
+#characterSheet .reverence-actions button { font-size:.85rem;line-height:1.2; }
+#characterSheet .reverence-actions button small { font-size:.75rem; }
+#characterSheet .weapon-table th, #characterSheet .weapon-table td,
+#characterSheet .gear-row, #characterSheet .storage-row { font-size:.9rem; }
+
+.race-preview-card .race-subchoices{position:absolute;right:12px;top:10px;color:#fff;font:bold 20px/1.2 Arial,sans-serif;text-shadow:0 2px 4px #000;z-index:2}
+.skill-guidance{border-radius:999px!important;outline-offset:3px!important;scroll-margin-top:150px}
+select.skill-guidance{border-radius:8px!important}
+.skill-methods{scroll-margin-top:150px}
+.skill-row.trained-skill .skill-name,.skill-row.trained-skill .skill-value strong,.skill-row.trained-skill .manual-skill-rating,.package-preview .trained-skill{color:#66eda0!important}

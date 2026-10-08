@@ -12,7 +12,7 @@
         const t=ctx.currentTime+n*.18,osc=ctx.createOscillator(),gain=ctx.createGain();
         osc.type=n===7?'triangle':'sine';osc.frequency.setValueAtTime(n===7?660:100+n*25,t);osc.frequency.exponentialRampToValueAtTime(n===7?880:480-n*28,t+.09);
         gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.06,t+.014);gain.gain.exponentialRampToValueAtTime(.0001,t+.16);
-        osc.connect(gain);gain.connect(ctx.destination);osc.start(t);osc.stop(t+.18);osc.onended=()=>{osc.disconnect();gain.disconnect();};
+        osc.connect(gain);gain.connect(window.SAAudioMix.destination(ctx,"effect"));osc.start(t);osc.stop(t+.18);osc.onended=()=>{osc.disconnect();gain.disconnect();};
       }
     }catch{stopSound();}
   }
@@ -33,7 +33,7 @@
         const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;
         filter.type='lowpass';filter.frequency.setValueAtTime(1300,time);filter.frequency.exponentialRampToValueAtTime(180,time+.14);filter.Q.value=5;
         gain.gain.setValueAtTime(.13,time);gain.gain.exponentialRampToValueAtTime(.001,time+.15);
-        source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start(time);
+        source.connect(filter);filter.connect(gain);gain.connect(window.SAAudioMix.destination(ctx,"effect"));source.start(time);
         source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
       }
     }catch{stopSound();}

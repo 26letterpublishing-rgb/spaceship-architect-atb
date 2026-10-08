@@ -442,7 +442,7 @@ function playDramaJolt() {
     master.gain.setValueAtTime(0.0001, startsAt);
     master.gain.exponentialRampToValueAtTime(0.3, startsAt + 0.012);
     master.gain.exponentialRampToValueAtTime(0.0001, startsAt + 0.42);
-    master.connect(audio.destination);
+    master.connect(window.SAAudioMix.destination(audio,"effect"));
     [[155, "sawtooth", 0], [520, "square", 0.035], [920, "triangle", 0.085]].forEach(([frequency, type, offset]) => {
       const oscillator = audio.createOscillator();
       oscillator.type = type;

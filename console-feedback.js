@@ -4,7 +4,7 @@
   let typingAudio=null;
   function typing(){
     try{typingAudio ||= new AudioContext();typingAudio.resume();}catch{return null;}
-    const timer=setInterval(()=>{if(!bridge()?.soundEnabled()||host().hidden)return;const ctx=typingAudio,t=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.018),ctx.sampleRate),values=buffer.getChannelData(0);for(let i=0;i<values.length;i++)values[i]=(Math.random()*2-1)*Math.exp(-i/values.length*5);const source=ctx.createBufferSource(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=700+Math.random()*1800;filter.Q.value=.8;gain.gain.value=.045;source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start(t);source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};},90);
+    const timer=setInterval(()=>{if(!bridge()?.soundEnabled()||host().hidden)return;const ctx=typingAudio,t=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.018),ctx.sampleRate),values=buffer.getChannelData(0);for(let i=0;i<values.length;i++)values[i]=(Math.random()*2-1)*Math.exp(-i/values.length*5);const source=ctx.createBufferSource(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=700+Math.random()*1800;filter.Q.value=.8;gain.gain.value=.045;source.connect(filter);filter.connect(gain);gain.connect(window.SAAudioMix.destination(ctx,"effect"));source.start(t);source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};},90);
     return {stop:()=>clearInterval(timer)};
   }
   const bridge=()=>window.SACombatBridge;

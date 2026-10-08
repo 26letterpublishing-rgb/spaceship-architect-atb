@@ -1,4 +1,6 @@
 import './skill-catalog.js';
+import './skill-packages.js';
+import './identity-presets.js';
 import {
   ATTRIBUTE_POINTS,
   BASE_SKILL_POINTS,
@@ -635,6 +637,7 @@ const playerShipMapView = window.SAShipMap.loadViewPreferences();
 window.SAShipMap.onViewPreferences(prefs=>{Object.assign(playerShipMapView,prefs);renderPlayerStarships(true);});
 
 function ensureCharacterAudio() {
+  if (!playerSoundsEnabled) return null;
   const Context = window.AudioContext || window.webkitAudioContext;
   if (!Context) return null;
   if (!characterAudioContext) characterAudioContext = new Context();
@@ -651,7 +654,7 @@ function scheduleTone(audio, frequency, start, duration, gainValue, type = "sine
   gain.gain.setValueAtTime(0.0001, begins);
   gain.gain.exponentialRampToValueAtTime(gainValue, begins + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, begins + duration);
-  oscillator.connect(gain).connect(audio.destination);
+  oscillator.connect(gain).connect(window.SAAudioMix.destination(audio,"character"));
   oscillator.start(begins);
   oscillator.stop(begins + duration + 0.02);
 }
@@ -666,7 +669,7 @@ function scheduleSweep(audio, from, to, start, duration, gainValue, type = "sine
   gain.gain.setValueAtTime(0.0001, begins);
   gain.gain.exponentialRampToValueAtTime(gainValue, begins + Math.min(0.025, duration * 0.18));
   gain.gain.exponentialRampToValueAtTime(0.0001, begins + duration);
-  oscillator.connect(gain).connect(audio.destination);
+  oscillator.connect(gain).connect(window.SAAudioMix.destination(audio,"character"));
   oscillator.start(begins);
   oscillator.stop(begins + duration + 0.02);
 }
@@ -766,7 +769,7 @@ function playDramaCardUseSound() {
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.52);
   source.connect(filter);
   filter.connect(gain);
-  gain.connect(audio.destination);
+  gain.connect(window.SAAudioMix.destination(audio,"character"));
   source.start(audio.currentTime + 0.2);
 }
 
@@ -793,7 +796,7 @@ function playDiceRollSound() {
   filter.Q.value = 0.7;
   gain.gain.setValueAtTime(0.055, audio.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + duration);
-  source.connect(filter).connect(gain).connect(audio.destination);
+  source.connect(filter).connect(gain).connect(window.SAAudioMix.destination(audio,"character"));
   source.start();
   for (let bounce = 0; bounce < 8; bounce += 1) {
     const start = 0.045 + bounce * 0.073 + Math.random() * 0.018;
@@ -984,6 +987,8 @@ function blankCharacter(name = "") {
       freeAttributeUpgradeApplied: false,
       angilurosFreeWeaponsUsed: 0,
       manualInput: false,
+      skillMethod: "packages",
+      skillPackages: ["", ""],
     },
     fubs: {
       status: "unrolled",
@@ -1188,6 +1193,7 @@ function normalizeCharacter(raw) {
   normalized.creation.classGrantsApplied = Boolean(source.creation?.classGrantsApplied);
   normalized.creation.raceGrantsApplied = Boolean(source.creation?.raceGrantsApplied);
   normalized.creation.manualInput = Boolean(source.creation?.manualInput);
+  normalized.creation.skillMethod = source.creation?.skillMethod || (skillPointsSpent(normalized) > 0 ? "custom" : "packages");
   normalized.creation.xithxGenderNoticeShown = Boolean(source.creation?.xithxGenderNoticeShown);
   for (const key of Object.keys(base.gmAdjustments)) normalized.gmAdjustments[key] = Math.round(clamp(normalized.gmAdjustments[key], -999999, 999999) * 10) / 10;
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
@@ -1585,7 +1591,7 @@ const storedPlayerBannerMode = localStorage.getItem(PLAYER_BANNER_MODE_KEY);
 let playerBannerMode = ["hidden", "show", "exit"].includes(storedPlayerBannerMode) ? storedPlayerBannerMode : "show";
 let playerSoundsEnabled = localStorage.getItem(PLAYER_SOUND_KEY) !== "off";
 const storedSkillSort = localStorage.getItem(SKILL_SORT_KEY);
-let skillSortMode = SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
+let skillSortMode = character.phase === "draft" ? "alphabetical" : SKILL_SORT_MODES.has(storedSkillSort) ? storedSkillSort : "alphabetical";
 let joinStatusTimer = null;
 let playerAtbLoading = false;
 
@@ -1768,7 +1774,11 @@ async function loadPlayerAtb({ reload = false } = {}) {
   }
 }
 
+let settingsReturnTab = "sheet";
+const characterPanelScroll = new Map();
 function showCharacterPanel(tab = "sheet") {
+  characterPanelScroll.set(activeCharacterTab, window.scrollY);
+  if (tab === "settings" && activeCharacterTab !== "settings") settingsReturnTab = activeCharacterTab;
   const available = tab==='settings'||[...dom.tabs.querySelectorAll("[data-character-tab]")].find((button) => button.dataset.characterTab === tab && !button.hidden);
   const previousTab = activeCharacterTab;
   activeCharacterTab = available ? tab : "sheet";
@@ -1785,7 +1795,7 @@ function showCharacterPanel(tab = "sheet") {
   renderTabbedStatus();
   renderCombatTabAttention();
   updateLibraryVisibility();
-  void 0;
+  document.getElementById("pcSettingsButton")?.setAttribute("aria-pressed", String(activeCharacterTab === "settings"));
 }
 function renderCharacterNavigation() {
   const linked = Boolean(campaignCode && campaignCharacterId && (campaignState || character.campaignLink?.status === "linked"));
@@ -2911,7 +2921,7 @@ function mechanicalSpiddixSkill(name, characterObject = character) {
 }
 
 function creationSkillCostForLevel(level) {
-  return level * (level + 1) / 2;
+  return window.SASkillPackages.cost(level);
 }
 
 function skillPointsSpent(characterObject = character) {
@@ -3159,6 +3169,7 @@ function identityComplete() {
 let previousWorkflowRequirements = new Map();
 let workflowRequirementCharacterId = "";
 let workflowGhostDirection = 1;
+let quietPurchaseRender = false;
 
 function animateCompletedWorkflowRequirements(removed, previousRects) {
   for (const item of removed) {
@@ -3198,7 +3209,7 @@ function renderWorkflowRequirements(items) {
   dom.nextRequirement.setAttribute("aria-label", normalized.map((item) => item.label).join(". "));
   previousWorkflowRequirements = new Map(normalized.map((item) => [item.key, item]));
   workflowRequirementCharacterId = character.id;
-  if (removed.length) animateCompletedWorkflowRequirements(removed, previousRects);
+  if (removed.length && !quietPurchaseRender) animateCompletedWorkflowRequirements(removed, previousRects);
 }
 
 function firstIncompleteIdentityTarget() {
@@ -3223,7 +3234,7 @@ function scrollToWorkflowTarget(selector) {
     highlight.classList.remove("workflow-target-pulse");
     void highlight.offsetWidth;
     highlight.classList.add("workflow-target-pulse");
-    window.setTimeout(() => highlight.classList.remove("workflow-target-pulse"), 1500);
+    highlight.addEventListener("click", () => highlight.classList.remove("workflow-target-pulse"), {once:true});
   });
 }
 
@@ -3401,6 +3412,7 @@ function renderRaceGallery() {
     return `<button class="race-preview-card${selected ? " selected" : ""}" style="--race-focus:${escapeAttribute(profile.focus || "center top")};--race-scale:${Number(profile.previewScale) || 1.42};--race-y:${escapeAttribute(profile.previewY || "0%")}" type="button" data-race-card="${id}" aria-label="Inspect ${escapeAttribute(definition.name)}">
       <img src="${escapeAttribute(profile.image)}" alt="${escapeAttribute(definition.name)}" />
       <span class="race-preview-shade"></span>
+      ${definition.types?.length > 1 ? '<span class="race-subchoices" title="Multiple race types available">(+)</span>' : ''}
       <strong>${escapeHtml(definition.name)}</strong>
       <small>${escapeHtml(profile.preview)}</small>
       <b>${selected ? "Selected" : "View Race"}</b>
@@ -3582,7 +3594,7 @@ function applyClassSelection(value) {
 }
 
 function renderClassGallery() {
-  dom.classGalleryGrid.innerHTML = CLASS_DEFS.map((definition) => {
+  dom.classGalleryGrid.innerHTML = CLASS_DEFS.filter(definition => definition.id).map((definition) => {
     const profile = CLASS_CARD_PROFILES[definition.id] || CLASS_CARD_PROFILES[""];
     const selected = character.identity.classId === definition.id;
     return `<button class="class-preview-card${selected ? " selected" : ""}" style="--class-accent:${escapeAttribute(profile.color)}" type="button" data-class-card="${escapeAttribute(definition.id)}">
@@ -3815,7 +3827,7 @@ function renderWorkflow() {
       key: "skills",
       label: difference > 0 ? `Spend ${difference} Skill Points` : difference < 0 ? `Refund ${Math.abs(difference)} Skill Points` : `Resolve ${validation.invalidSkills.size} invalid skill ${validation.invalidSkills.size === 1 ? "entry" : "entries"}`,
       tone: difference < 0 || validation.invalidSkills.size ? "warning" : "",
-      target: ".skills-panel",
+      target: "#skillPackages .skill-methods",
     });
   }
   if (!identityComplete()) requirements.push({ key: "identity", label: "Complete Identity (optional)", target: !validation.homePlanetComplete ? "#homePlanetPicker" : firstIncompleteIdentityTarget() });
@@ -4037,7 +4049,7 @@ function renderSkillRow(name, skill, key) {
   const displayed = displayedSkillTenths(name, skill);
   const level = skillCreationLevel(skill);
   const advancement = character.phase === "finalized" && character.advancementOpen;
-  const draftBuying = character.phase === "draft" && validation.attributesComplete && !manualDraft;
+  const draftBuying = character.phase === "draft" && validation.attributesComplete && !manualDraft && creationSkillMethod() === "custom";
   const creationPointCost = level + 1;
   const awardedSkillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
   const usingAwardedSkillPoints = advancement && awardedSkillPoints >= creationPointCost;
@@ -4045,15 +4057,15 @@ function renderSkillRow(name, skill, key) {
   const mechanical = mechanicalSpiddixSkill(name);
   const advancementFunds = mechanical ? Number(character.resources.mechanicalExperience) || 0 : character.experience.available;
   const canIncrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE || (draftBuying && level < MAX_STARTING_SKILL && validation.skillSpent + nextCost <= validation.skillBudget) || (advancement && (usingAwardedSkillPoints || advancementFunds >= nextCost)));
-  const canDecrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE ? skill.tenths > 0 : character.phase === "draft" && level > 0 && !manualDraft);
-  const increaseReason=canIncrease?'':character.pendingRoll?'Finish the pending roll first.':character.phase==='draft'&&!validation.attributesComplete?'Spend the full Attribute allocation before buying skills.':character.phase==='draft'&&level>=MAX_STARTING_SKILL?`Creation maximum: ${MAX_STARTING_SKILL}. Race and class bonuses apply separately.`:draftBuying?'Not enough Skill Points for this increase.':advancement?'Not enough advancement points.':'Open Spend EXP to advance this skill.';
+  const canDecrease = !character.pendingRoll && (GM_ADJUSTMENT_MODE ? skill.tenths > 0 : character.phase === "draft" && level > 0 && !manualDraft && creationSkillMethod() === "custom");
+  const increaseReason=canIncrease?'':character.phase==='draft'&&!manualDraft&&creationSkillMethod()==='packages'?'Use Custom Skill Allocation to adjust individual skills.':character.pendingRoll?'Finish the pending roll first.':character.phase==='draft'&&!validation.attributesComplete?'Spend the full Attribute allocation before buying skills.':character.phase==='draft'&&level>=MAX_STARTING_SKILL?`Creation maximum: ${MAX_STARTING_SKILL}. Race and class bonuses apply separately.`:draftBuying?'Not enough Skill Points for this increase.':advancement?'Not enough advancement points.':'Open Spend EXP to advance this skill.';
   const invalid = character.phase === "draft" && validation.invalidSkills.has(key);
   const locked = !(draftBuying || advancement || manualDraft);
   const rollable = character.phase === "finalized" && !character.advancementOpen && !character.pendingRoll && (!campaignCode || campaignEditable);
   const indicators = skillRuleIndicators(name);
   const markerMarkup = `${indicators.positive.length ? `<b class="skill-rule-sign positive" aria-label="Race or Class bonus">+</b>` : ""}${indicators.negative.length ? `<b class="skill-rule-sign negative" aria-label="Race or Class penalty">-</b>` : ""}`;
   const indicatorDetails = [...indicators.positive, ...indicators.negative].join(" | ");
-  return `<div class="skill-row ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
+  return `<div class="skill-row ${displayed >= 1 ? "trained-skill" : ""} ${BOLD_SKILLS.has(name) ? "key-skill" : ""} ${invalid ? "invalid" : ""} ${locked ? "locked" : ""} ${rollable ? "rollable" : ""}" data-skill-key="${escapeAttribute(key)}" data-search-name="${escapeAttribute(name.toLowerCase())}" ${rollable ? `data-roll-skill="${escapeAttribute(key)}" role="button" tabindex="0" aria-label="Roll ${escapeAttribute(name)}"` : ""}>
     <button type="button" class="skill-name" data-skill-description="${escapeAttribute(key)}" title="${escapeAttribute(increaseReason||name)}"><span>${formatSkillName(name)}</span>${markerMarkup}${character.phase==='draft'&&level>=MAX_STARTING_SKILL?'<small class="skill-cap-note">Creation cap</small>':''}</button>
     <button class="skill-refund" type="button" data-skill-action="decrease" data-skill-key="${escapeAttribute(key)}" aria-label="Decrease ${escapeAttribute(name)}" ${canDecrease ? "" : "disabled"}>-</button>
     <span class="skill-value">${directSkillEntry
@@ -4110,7 +4122,62 @@ function sortedCustomSkills() {
   return skills.sort((a, b) => (a.name || "Custom Skill").localeCompare(b.name || "Custom Skill"));
 }
 
+function creationSkillMethod() {
+  return character.creation.skillMethod === "custom" ? "custom" : "packages";
+}
+
+function renderSkillPackages() {
+  const host = document.getElementById("skillPackages");
+  const visible = character.phase === "draft" && !manualInputMode() && !GM_ADJUSTMENT_MODE;
+  host.hidden = !visible;
+  if (!visible) return;
+  const {definitions, allocate} = window.SASkillPackages;
+  const ids = character.creation.skillPackages || ["", ""];
+  const method = creationSkillMethod();
+  const validation = draftValidation();
+  const editable = (!campaignCode || campaignEditable) && !character.pendingRoll;
+  const ready = ids.length === 2 && ids.every(id => definitions.some(p => p.id === id));
+  const preview = ready ? allocate(ids, validation.skillBudget, MAX_STARTING_SKILL) : null;
+  const stale = character.creation.packageBudget !== undefined && character.creation.packageBudget !== validation.skillBudget;
+  host.innerHTML = `<div class="skill-methods" role="group" aria-label="Skill allocation method">
+    <button type="button" data-skill-method="packages" aria-pressed="${method === "packages"}" ${editable ? "" : "disabled"}>Skill Packages — Recommended</button>
+    <button type="button" data-skill-method="custom" aria-pressed="${method === "custom"}" ${editable ? "" : "disabled"}>Custom Skill Allocation — Advanced</button>
+    </div>${method === "custom" ? '<p>Spend points on individual skills below. Package-generated ratings are kept when switching to Custom.</p>' : `
+    <h3>Choose Two Areas of Expertise</h3><p>Pick two packages, including the same one twice. These spend your starting points; they do not restrict future advancement.</p>
+    <div class="package-choices">${[0,1].map(slot => `<div><label>Package ${slot+1}<select data-package-slot="${slot}" ${editable ? "" : "disabled"}><option value="">Choose a package</option>${definitions.map(p => `<option value="${p.id}" ${ids[slot] === p.id ? "selected" : ""}>${p.name}</option>`).join("")}</select></label>${(() => {const p=definitions.find(p=>p.id===ids[slot]);return p?`<details><summary>Skills and priorities</summary>${p.tiers.map((names,i)=>names.length?`<p><strong>${["★★★ Core","★★ Related","★ Peripheral"][i]}</strong><br>${names.map(escapeHtml).join(", ")}</p>`:"").join("")}</details>`:"";})()}</div>`).join("")}</div>
+    <p><strong>${validation.skillBudget} starting Skill Points</strong> · Package 1: ${Math.ceil(validation.skillBudget/2)} · Package 2: ${Math.floor(validation.skillBudget/2)}</p>
+    ${stale ? '<p class="package-warning">Your point budget changed. Review and reapply packages, or adjust the existing skills in Custom.</p>' : ""}
+    ${preview ? `<details class="package-preview"><summary>Preview ${Object.keys(preview.levels).length} skills · ${preview.spent} points spent · ${preview.remaining} remaining</summary><div>${Object.entries(preview.levels).sort(([a],[b])=>a.localeCompare(b)).map(([name,level])=>`<span class="trained-skill">${escapeHtml(name)} <strong>${level}.0</strong></span>`).join("")}</div><p>Purchased levels before race/class bonuses and the normal finalization decimal rolls.</p></details>` : ""}
+    <button type="button" data-apply-packages ${editable && ready && validation.attributesComplete ? "" : "disabled"}>${skillPointsSpent() ? "Reapply" : "Apply"} Skill Packages</button>
+    <p role="status">${!validation.attributesComplete ? "Finish your Attribute allocation before applying packages." : preview?.remaining ? `${preview.remaining} unspent Skill Point${preview.remaining === 1 ? "" : "s"}. These packages have no affordable purchase within the level-${MAX_STARTING_SKILL} cap. Switch to Custom after applying to spend the remainder.` : "Preview freely; your skills change only when you apply."}</p>`}`;
+  host.querySelectorAll("[data-skill-method]").forEach(button => button.onclick = async () => {
+    const next = button.dataset.skillMethod;
+    if (next === method) { highlightSkillGuidance(next); return; }
+    if (next === "packages" && skillPointsSpent() && !await askConfirmation({title:"Switch to Skill Packages?",message:"Your current skills are kept while you preview. Applying packages will refund and replace your starting skill purchases. Future XP advancement is unchanged.",acceptLabel:"Preview Packages"})) return;
+    character.creation.skillMethod=next;queueSave();renderWithoutViewportJump();highlightSkillGuidance(next);
+  });
+  host.querySelectorAll("[data-package-slot]").forEach(select => select.onchange = () => {
+    character.creation.skillPackages=[...ids];character.creation.skillPackages[Number(select.dataset.packageSlot)]=select.value;
+    queueSave();renderWithoutViewportJump();
+  });
+  host.querySelector("[data-apply-packages]")?.addEventListener("click", async () => {
+    if (!editable || !ready || !draftValidation().attributesComplete) return;
+    const owner = character;
+    if (skillPointsSpent() && !await askConfirmation({title:"Replace Starting Skill Purchases?",message:"Refund all current starting skill purchases and apply these two packages? Your custom skill names are retained. No XP or finalized character skills are changed.",acceptLabel:"Apply Packages"})) return;
+    if (character!==owner || character.phase!=="draft" || !draftValidation().attributesComplete) return;
+    const result=allocate(character.creation.skillPackages,skillPointBudget(),MAX_STARTING_SKILL);
+    for(const name of ALL_SKILLS){character.skills[name].tenths=(result.levels[name]||0)*10;character.skills[name].creationDecimal=null;}
+    for(const skill of character.customSkills){skill.tenths=0;skill.creationDecimal=null;}
+    character.creation.skillPurchaseOrder=result.purchases.map(p=>({key:skillKeyForBase(p.name),cost:p.cost}));
+    character.creation.packageBudget=result.budget;
+    playPurchaseSound();queueSave();renderWithoutViewportJump();
+    const status=document.querySelector('#skillPackages [role="status"]');
+    if(status)status.textContent=`Packages applied: ${result.spent} points spent. ${result.remaining ? `${result.remaining} points remain; use Custom Skill Allocation to spend them.` : "All points spent. Review your skills below before finalizing."}`;
+  });
+}
+
 function renderSkills() {
+  renderSkillPackages();
   const validation = draftValidation();
   const manualDraft = manualInputMode() && character.phase === "draft";
   const sheetEditable = !campaignCode || campaignEditable;
@@ -6110,13 +6177,15 @@ function spendXp(cost, description) {
 }
 
 function renderWithoutViewportJump() {
-  const left = window.scrollX;
-  const top = window.scrollY;
+  const snapshots = [];
+  let host = window;
+  try { while (host) { snapshots.push({host,left:host.scrollX,top:host.scrollY});if(host===host.parent)break;host=host.parent; } } catch {}
+  const containers = [...document.querySelectorAll("*")].filter(el=>el.scrollTop||el.scrollLeft).map(el=>({el,top:el.scrollTop,left:el.scrollLeft}));
   document.activeElement?.blur?.();
-  renderAll();
-  const restore = () => window.scrollTo({ left, top, behavior: "auto" });
-  requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
-  setTimeout(restore, 80);
+  quietPurchaseRender=true;
+  try { renderAll(); } finally { quietPurchaseRender=false; }
+  const restore=()=>{for(const {el,top,left} of containers)if(el.isConnected)el.scrollTo({top,left,behavior:"instant"});for(const {host,left,top} of snapshots)host.scrollTo({left,top,behavior:"instant"});};
+  restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore);});
 }
 
 function lastRefundableAttributePurchase(attributeKey, row, column) {
@@ -6136,7 +6205,6 @@ async function applyAmbassadorFreeAttribute(paidCost, transaction) {
     return [{ value: `${attributeKey}:${row}`, label: `${label} row ${row + 1}: ${current < 0 ? "None" : DICE_NAMES[current]} to ${DICE_NAMES[column]}` }];
   }));
   if (!options.length) {
-    notice("Ambassador / Spy: no equal-or-lower Charisma or Luck die upgrade is currently available.", "success");
     return true;
   }
   const values = await requestRuleChoices({
@@ -6151,7 +6219,6 @@ async function applyAmbassadorFreeAttribute(paidCost, transaction) {
   character.attributes[attributeKey][row] = before + 1;
   transaction.changes.push({ attributeKey, row, before, after: before + 1, free: true });
   playPurchaseSound(attributeKey);
-  notice(`Ambassador / Spy granted a free ${DICE_NAMES[before + 1]} die.`, "success");
   return true;
 }
 
@@ -6171,7 +6238,6 @@ async function purchaseAttribute(attributeKey, row, column) {
     } else {
       return;
     }
-    notice(`${definition.label} row set to ${character.attributes[attributeKey][row] >= 0 ? DICE_NAMES[character.attributes[attributeKey][row]] : "empty"}.`, "success");
   } else if (character.phase === "draft") {
     if (column === current + 1) {
       if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
@@ -6185,12 +6251,10 @@ async function purchaseAttribute(attributeKey, row, column) {
       }
       character.attributes[attributeKey][row] = column;
       playPurchaseSound(attributeKey);
-      notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} Attribute Points.`, "success");
     } else if (column === current) {
       if (row < 2 && column === 0) return;
       const refund = attributeStepCost(attributeKey, row, column);
       character.attributes[attributeKey][row] = current - 1;
-      notice(`${refund} Attribute Points refunded.`, "success");
     } else {
       return;
     }
@@ -6209,7 +6273,6 @@ async function purchaseAttribute(attributeKey, row, column) {
       character.experience.spent = Math.max(0, character.experience.spent - transaction.cost);
     }
     advancementAttributePurchases.pop();
-    notice(`${transaction.cost} ${transaction.currency === "attributePoints" ? "Attribute Points" : "XP"} refunded.`, "success");
   } else if (character.phase === "finalized" && character.advancementOpen && column === current + 1) {
     if (character.identity.raceId === "tamalori" && attributeKey === "strength" && column === 4) {
       notice("TaMalori cannot purchase D12 Strength dice.", "error");
@@ -6229,7 +6292,6 @@ async function purchaseAttribute(attributeKey, row, column) {
     };
     advancementAttributePurchases.push(transaction);
     playPurchaseSound(attributeKey);
-    notice(`${definition.label} upgraded to ${DICE_NAMES[column]} for ${cost} ${usingAwardedPoints ? "Attribute Points" : mechanical ? "mechanical XP" : "XP"}.`, "success");
     if (["charisma", "luck"].includes(attributeKey)) {
       const freeDieApplied = await applyAmbassadorFreeAttribute(cost, transaction);
       if (!freeDieApplied) {
@@ -6293,14 +6355,14 @@ function changeDraftSkill(key, direction) {
     return;
   }
   const resolved = resolveSkill(character, key);
-  if (!resolved) return;
+  if (!resolved || creationSkillMethod() !== "custom") return;
   const currentLevel = skillCreationLevel(resolved.skill);
   if (direction > 0) {
     if (currentLevel >= MAX_STARTING_SKILL) {
       notice("Starting skills cannot exceed level 3.0.", "error");
       return;
     }
-    const cost = currentLevel + 1;
+    const cost = window.SASkillPackages.purchase(currentLevel, Infinity, MAX_STARTING_SKILL).cost;
     if (validation.skillSpent + cost > validation.skillBudget) {
       notice(`You need ${cost} Skill Points. Only ${validation.skillBudget - validation.skillSpent} remain.`, "error");
       return;
@@ -6309,12 +6371,10 @@ function changeDraftSkill(key, direction) {
     resolved.skill.creationDecimal = null;
     character.creation.skillPurchaseOrder.push({ key, cost });
     playPurchaseSound();
-    notice(`${resolved.name} increased to ${currentLevel + 1}.0 for ${cost} Skill Point${cost === 1 ? "" : "s"}.`, "success");
   } else if (currentLevel > 0) {
     resolved.skill.tenths = (currentLevel - 1) * 10;
     resolved.skill.creationDecimal = null;
     removeLastPurchaseEntry(key);
-    notice(`${currentLevel} Skill Point${currentLevel === 1 ? "" : "s"} refunded.`, "success");
   }
   queueSave();
   renderWithoutViewportJump();
@@ -6411,6 +6471,7 @@ async function beginNewCharacter() {
     library.push(next);
     activeId = next.id;
     character = next;
+    skillSortMode = "alphabetical";
     character.identity.playerName=localStorage.getItem("sa-first-name")||"";
     dom.skillSearch.value = "";
     saveLibrary("New character saved locally");
@@ -6422,9 +6483,9 @@ async function beginNewCharacter() {
 
 const WORKFLOW_TUTORIALS = {
   race: ["Choose Your Race", "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules."],
-  class: ["Choose Your Class", "Now pick your Class. It establishes your primary party role and what your character is naturally good at."],
+  class: ["Choose Your Class (Optional)", "A Class establishes your primary party role and special advantages. You can skip this step and continue without a class."],
   attributes: ["Build Your Attributes", "Spend all 195 Attribute Points on dice. More dice improve consistency; larger dice raise the maximum result you can roll."],
-  skills: ["Choose Your Skills", "After Attributes are complete, spend every Skill Point. Skill ratings are added to the top two dice of an associated Attribute roll."],
+  skills: ["Choose Your Skills", "Skill Packages automatically spend your starting Skill Points across two areas of expertise. Choose two packages, including the same one twice, preview the results, then Apply. Custom Skill Allocation is the advanced option: buy individual skill levels using the SP buttons. You can switch to Custom to adjust package results. Skills with a rating of 0.1 or higher appear green."],
   identity: ["Fill In Identity", "Complete the Identity section, including Home Planet. These details identify the player and give the finished character a place in the setting."],
   backstory: ["Write A Backstory", "Write a Character Background before using the optional FUBS prompt. A few useful sentences are enough to begin."],
   fubs: ["Roll On FUBS", "FUBS is an optional, one-time complication for the backstory you already wrote. Read the result and incorporate it into the character's history."],
@@ -6432,14 +6493,45 @@ const WORKFLOW_TUTORIALS = {
 };
 
 function showWorkflowTutorial(key, target = "") {
-  if (SHOWCASE_MODE || character.phase !== "draft") return;
+  if (character.phase !== "draft" || CAMPAIGN_READ_ONLY_VIEW) return;
   const copy = WORKFLOW_TUTORIALS[key];
   if (!copy) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell workflow-tutorial-modal";
   shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Character Creation</span><h2>${escapeHtml(copy[0])}</h2><p>${escapeHtml(copy[1])}</p><div class="dialog-actions"><button type="button" class="primary-action">Got It</button></div></section>`;
   document.body.append(shell);
-  shell.querySelector("button").addEventListener("click", () => { shell.remove(); if (target) scrollToWorkflowTarget(target); });
+  if (key === "identity") {
+    const fill = document.createElement("button");fill.type="button";fill.textContent="Auto Fill";
+    fill.disabled=!window.SAIdentityPresets.presets[character.identity.raceId];
+    if(fill.disabled){fill.title="Choose a Race first.";const hint=document.createElement('p');hint.textContent='Choose a Race first.';shell.querySelector('.dialog-actions').before(hint);}
+    fill.onclick=()=>{autoFillIdentity();shell.remove();scrollToWorkflowTarget('.identity-panel');};
+    shell.querySelector(".dialog-actions").prepend(fill);
+  }
+  shell.querySelector(".primary-action").addEventListener("click", () => { shell.remove(); if (key==='skills') {scrollToWorkflowTarget('#skillPackages .skill-methods');requestAnimationFrame(()=>highlightSkillGuidance('methods'));} else if (target) scrollToWorkflowTarget(target); });
+}
+
+function autoFillIdentity() {
+  if(character.phase!=='draft'||CAMPAIGN_READ_ONLY_VIEW)return;
+  const previous=character.creation.identityPresetIndex;
+  const choices=[0,1,2].filter(i=>i!==previous),index=choices[Math.floor(Math.random()*choices.length)];
+  const preset=window.SAIdentityPresets.get(character.identity.raceId,character.identity.raceType,index);
+  if(!preset)return;
+  Object.assign(character.identity,preset,{homePlanetKind:HOME_PLANETS.includes(preset.homePlanet)?'preset':'other'});
+  character.creation.identityPresetIndex=index;
+  const colors=['#ff678e','#ffaf4d','#ffe066','#66e6a0','#4ed9ed','#6e9cff','#bd8aff','#f786d5'];
+  const available=colors.filter(c=>c!==character.presentation.atbColor);
+  character.presentation.atbColor=available[Math.floor(Math.random()*available.length)];
+  queueSave();renderWithoutViewportJump();
+}
+
+function highlightSkillGuidance(mode) {
+  document.querySelectorAll('.skill-guidance').forEach(el=>el.classList.remove('skill-guidance','workflow-target-pulse'));
+  document.querySelector('#skillPackages .skill-methods')?.classList.remove('workflow-target-pulse');
+  const selector=mode==='methods'?'[data-skill-method]':mode==='packages'?'[data-package-slot]':'.skill-buy:not(:disabled)';
+  document.querySelectorAll(selector).forEach(el=>{
+    el.classList.add('skill-guidance','workflow-target-pulse');
+    el.addEventListener('click',()=>el.classList.remove('skill-guidance','workflow-target-pulse'),{once:true});
+  });
 }
 
 function activateNextDraftTask() {
@@ -6449,11 +6541,13 @@ function activateNextDraftTask() {
 }
 
 function showDraftIntroduction() {
-  if (SHOWCASE_MODE || PAGE_PARAMS.has("character") || character.phase !== "draft" || manualInputMode() || PAGE_PARAMS.get("embedded") === "1" || document.querySelector(".draft-introduction-modal")) return;
+  if (character.phase !== "draft" || manualInputMode() || CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW || document.querySelector(".draft-introduction-modal")) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
   shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Next Step</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
   document.body.append(shell);
+  character.creation.introductionSeen = true;
+  queueSave();
   dom.phaseBadge.classList.add("draft-guide-target");
   shell.querySelector("button").addEventListener("click", () => { shell.remove(); dom.phaseBadge.classList.remove("draft-guide-target"); dom.phaseBadge.focus({ preventScroll: true }); });
 }
@@ -6597,6 +6691,17 @@ async function beginFinalization() {
   processFinalization();
 }
 
+function playFinalizationFanfare() {
+  const audio=ensureCharacterAudio();if(!audio)return;
+  scheduleSweep(audio,100,620,0,.9,.035,'sine');
+  [261.63,329.63,392,523.25,659.25,783.99].forEach((note,i)=>{
+    scheduleTone(audio,note,.12+i*.16,.6,.022,'triangle');
+    scheduleTone(audio,note*2,.14+i*.16,.5,.008,'sine');
+  });
+  [261.63,329.63,392,523.25].forEach(note=>scheduleTone(audio,note,1.15,1.8,.018,'triangle'));
+  scheduleSweep(audio,1568,784,1.3,1.5,.012,'sine');
+}
+
 let identityRevealToken = 0;
 
 async function playFinalizedIdentityReveal() {
@@ -6614,6 +6719,7 @@ async function playFinalizedIdentityReveal() {
   dom.identityCallsign.style.setProperty("--identity-atb-color", color);
   dom.identityCallsign.innerHTML = [...name].map((letter, index) => `<span class="identity-name-letter" style="--letter-index:${index};--letter-direction:${index % 2 ? -1 : 1}">${letter === " " ? "&nbsp;" : escapeHtml(letter)}</span>`).join("");
   dom.identityCallsign.classList.add("finalized-name", "name-revealing");
+  playFinalizationFanfare();
   await new Promise((resolve) => setTimeout(resolve, 3600));
   if (token !== identityRevealToken) return;
   dom.identityCallsign.classList.add("name-reveal-complete");
@@ -6636,6 +6742,7 @@ function applyResourceGrant(effects) {
 }
 
 async function finishFinalization() {
+  if(character.phase!=="finalizing")return;
   document.getElementById("skipCreationDecimals")?.remove();
   finalizationPresentationActive = true;
   if (!character.creation.classGrantsApplied) {
@@ -6739,7 +6846,6 @@ function startSkillAdvancement(key) {
     playPurchaseSound();
     queueSave();
     renderWithoutViewportJump();
-    notice(`${resolved.name} increased to ${ratingText(resolved.skill.tenths)} for ${creationPointCost} Skill Point${creationPointCost === 1 ? "" : "s"}.`, "success");
     return;
   }
   const cost = advancementSkillCost(purchased);
@@ -6806,11 +6912,12 @@ function rollPending() {
     config: pending.config,
     anchor,
     onConfig: (config) => {
+      if(character.pendingRoll!==pending)return;
       character.pendingRoll.config = config;
       saveLibrary("Physical roll in progress");
     },
     onResolved: (result) => {pending.resolvedResult=result;showPendingRollToast(pending, result);},
-    onSettled: (result) => handleSettledRoll(result),
+    onSettled: (result) => {if(character.pendingRoll===pending)handleSettledRoll(result);},
   }).catch(() => {
     notice("The 3D dice tray could not start. Reload the page to resume this saved roll.", "error");
   });
@@ -6878,11 +6985,12 @@ function rerollAdvancement(cost) {
     config: null,
     anchor: skillRowFor(pending.skillKey),
     onConfig: (config) => {
+      if(character.pendingRoll!==pending)return;
       character.pendingRoll.config = config;
       saveLibrary("Physical reroll in progress");
     },
     onResolved: (result) => {pending.resolvedResult=result;showPendingRollToast(pending, result);},
-    onSettled: (result) => handleSettledRoll(result),
+    onSettled: (result) => {if(character.pendingRoll===pending)handleSettledRoll(result);},
   });
 }
 
@@ -6895,9 +7003,8 @@ function acceptAdvancementResult() {
   resolved.skill.tenths += result;
   character.pendingRoll = null;
   saveLibrary("Skill advancement applied");
-  renderAll();
+  renderWithoutViewportJump();
   playPurchaseSound();
-  notice(`${resolved.name} increased by +0.${result}.`, "success");
   diceRoller.celebrate(420);
 }
 
@@ -7394,7 +7501,7 @@ document.addEventListener("change", async (event) => {
   if (!mode) { renderWeapons(); return; }
   try {
     if (await acquireWeapon(entry, weapon, mode, previousWeaponId)) {
-      renderAll();
+      renderWithoutViewportJump();
       notice(`${weapon.name} ${mode === "purchase" ? "purchased" : mode === "angiluros-free" ? "chosen as a free ancestral weapon" : "received"}.`, "success");
     } else renderWeapons();
   } catch (error) {
@@ -7691,7 +7798,7 @@ async function confirmGearPicker(mode) {
     if (added) {
       const itemName = item.name;
       closeGearPicker();
-      renderAll();
+      renderWithoutViewportJump();
       notice(`${itemName} ${mode === "purchase" ? "purchased" : "received"}.`, "success");
     } else {
       dom.gearPickerModal.hidden = false;
@@ -7739,7 +7846,7 @@ dom.gearInventory?.addEventListener("click", async (event) => {
     try {
       if (await addGearItem({ ...entry, quantity: 1 }, addMode.dataset.gearAddMode)) {
         pendingGearAdds.delete(entry.id);
-        renderAll();
+        renderWithoutViewportJump();
       }
     } catch (error) { notice(error.message, "error"); }
     finally { addMode.disabled=false;renderGear(); }
@@ -9189,6 +9296,7 @@ async function initializeCharacterApp() {
     library.push(next);
     activeId = next.id;
     character = next;
+    skillSortMode = "alphabetical";
     character.identity.playerName=localStorage.getItem("sa-first-name")||"";
     dom.skillSearch.value = "";
     saveLibrary("New character saved locally");
@@ -9369,7 +9477,7 @@ if (!PAGE_PARAMS.get('campaign')) {
   if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 }
 initializeCharacterApp().then(() => {
-if (!SHOWCASE_MODE && !PAGE_PARAMS.has("character") && !CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !draftHasProgress(character) && sessionStorage.getItem(`sa-draft-guide-${character.id}`) !== "shown") {
+if (!CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !character.creation.introductionSeen) {
   sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
   showDraftIntroduction();
 }
@@ -9452,14 +9560,36 @@ function updateSheetDrawer(){
  for(const tab of document.querySelectorAll('[data-sheet-section-tab]')){const button=document.createElement('button');button.textContent=tab.textContent;button.dataset.drawerTab=tab.dataset.sheetSectionTab;button.onclick=()=>{if(sheetDrawerOpen&&sheetDrawerSection===button.dataset.drawerTab)sheetDrawerOpen=false;else{sheetDrawerSection=button.dataset.drawerTab;sheetDrawerOpen=true;}sheetDrawerKey='';updateSheetDrawer();};panel.querySelector('nav').append(button);}}
  sheetDrawer.hidden=activeCharacterTab==='sheet'||!campaignCharacterId;sheetDrawer.classList.toggle('is-open',sheetDrawerOpen);sheetDrawer.querySelector('section').hidden=!sheetDrawerOpen;if(!sheetDrawerOpen)return;
  const key=sheetDrawerRevision(sheetDrawerSection);if(key===sheetDrawerKey)return;sheetDrawerKey=key;const scrollTop=sheetDrawerBody.scrollTop,scrollLeft=sheetDrawerBody.scrollLeft;sheetDrawerBody.replaceChildren();
- for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];copySheetReferenceState(control,original);if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
+ for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];copySheetReferenceState(control,original);if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.matches('.skill-name')){const label=document.createElement('span');label.className=control.className;label.innerHTML=control.innerHTML;control.replaceWith(label);}else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
  sheetDrawerBody.scrollTop=scrollTop;sheetDrawerBody.scrollLeft=scrollLeft;
  sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>{const active=b.dataset.drawerTab===sheetDrawerSection;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
 }
 let statisticsSignature='';
 function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
 setInterval(()=>{updateSheetDrawer();renderCharacterStatistics();},750);
-function showDecimalSkip(){if(!character.creation?.decimalRollSeen||!character.creation.finalizationQueue.length)return;let skip=document.getElementById('skipCreationDecimals');if(skip)return;skip=document.createElement('button');skip.id='skipCreationDecimals';skip.textContent='Skip remaining animations';document.body.append(skip);skip.onclick=()=>{character.creation.skippingDecimals=true;const inFlight=character.pendingRoll;diceRoller.stop();character.pendingRoll=null;for(const key of character.creation.finalizationQueue){const resolved=resolveSkill(character,key);if(!resolved)continue;const result=inFlight?.skillKey===key&&Number.isFinite(inFlight.resolvedResult)?inFlight.resolvedResult:1+Math.floor(Math.random()*10),decimal=result===10?0:result;resolved.skill.tenths=character.identity.raceId==='pattanilia'&&skillCreationLevel(resolved.skill)===0&&result===10?10:skillCreationLevel(resolved.skill)*10+decimal;resolved.skill.creationDecimal=decimal;}character.creation.finalizationQueue=[];skip.remove();saveLibrary('Remaining skill decimals revealed');renderAll();finishFinalization();};}
+function finishRemainingDecimals() {
+  if(character.phase!=='finalizing'||character.creation.skippingDecimals)return;
+  character.creation.skippingDecimals=true;
+  const inFlight=character.pendingRoll;
+  character.pendingRoll=null;
+  diceRoller.stop();
+  const results=character.creation.finalizationQueue.map(key=>{
+    const resolved=resolveSkill(character,key);if(!resolved)return null;
+    const preserved=inFlight?.skillKey===key?inFlight.resolvedResult??inFlight.result:null;
+    const roll=Number.isInteger(preserved)&&preserved>=1&&preserved<=10?preserved:1+Math.floor(Math.random()*10);
+    const level=skillCreationLevel(resolved.skill),decimal=roll===10?0:roll;
+    return {skill:resolved.skill,tenths:character.identity.raceId==='pattanilia'&&level===0&&roll===10?10:level*10+decimal,decimal};
+  }).filter(Boolean);
+  // Resolve the entire batch before publishing one final sheet update.
+  for(const result of results){result.skill.tenths=result.tenths;result.skill.creationDecimal=result.decimal;}
+  character.creation.finalizationQueue=[];
+  document.getElementById('skipCreationDecimals')?.remove();
+  finishFinalization();
+}
+function showDecimalSkip(){
+  if(character.phase!=='finalizing'||!character.creation?.decimalRollSeen||!character.creation.finalizationQueue.length||document.getElementById('skipCreationDecimals'))return;
+  const button=document.createElement('button');button.id='skipCreationDecimals';button.textContent='Finish Now';button.onclick=finishRemainingDecimals;document.body.append(button);
+}
 
 let keyboardShipId='';
 function keyboardShipMove(key){
@@ -9492,5 +9622,5 @@ document.getElementById('importCampaignShip').onclick=async()=>{try{const data=a
 
 window.SAInteriorIntruderState=()=>({intruderShips:(campaignState?.starships||[]).filter(s=>s.intrudersDetected).map(s=>({id:s.id,title:s.title}))});
 
-document.getElementById('pcSettingsButton')?.addEventListener('click',()=>showCharacterPanel('settings'));
+document.getElementById('pcSettingsButton')?.addEventListener('click',()=>{const next=activeCharacterTab==='settings'?settingsReturnTab:'settings';showCharacterPanel(next);requestAnimationFrame(()=>window.scrollTo({top:characterPanelScroll.get(next)||0,behavior:'instant'}));});
 document.getElementById('pcHeaderSound')?.addEventListener('click',()=>dom.playerSoundToggle?.querySelector(`[data-player-sounds="${!playerSoundsEnabled}"]`)?.click());
