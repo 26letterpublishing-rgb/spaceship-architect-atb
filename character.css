@@ -2053,3 +2053,25 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 select.skill-guidance{border-radius:8px!important}
 .skill-methods{scroll-margin-top:150px}
 .skill-row.trained-skill .skill-name,.skill-row.trained-skill .skill-value strong,.skill-row.trained-skill .manual-skill-rating,.package-preview .trained-skill{color:#66eda0!important}
+
+/* A bounded, responsive worked example for the four-row Attribute system. */
+.attribute-purchase-tutorial .confirm-dialog{width:min(1100px,100%);max-width:1100px;max-height:94dvh;display:flex;flex-direction:column;overflow:hidden}
+.attribute-purchase-tutorial .dice-guide-content{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr);gap:20px;overflow:auto;min-height:0;margin-top:14px;padding:0 3px 5px}
+.attribute-purchase-tutorial .dialog-actions{flex-shrink:0;margin-top:12px}
+.dice-guide-example-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px}
+.dice-guide-example-title h3,.dice-guide-instructions h3{margin:0 0 7px;color:#72e4ff;font-size:18px}
+.dice-guide-example-title>span{color:#f8d76b;font-size:12px}
+.dice-guide-grid{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed;margin:8px 0}
+.dice-guide-grid caption{text-align:left;font-size:13px;color:#bbcedd;margin-bottom:6px}
+.dice-guide-grid th{font-size:14px;color:#e0ecf6;text-align:center}
+.dice-guide-grid th:first-child{width:98px;text-align:left}
+.dice-guide-grid td{border:1px solid #3c5269;border-radius:5px;text-align:center;background:#081421;padding:4px 2px;color:#9aaebe}
+.dice-guide-grid td.guide-current{border:2px solid #62edb1;background:#0c3c36;color:#b0ffda}
+.dice-guide-grid td.guide-paid{background:#152c40;color:#bcd6e9}
+.dice-guide-price{display:flex;align-items:center;justify-content:center;gap:3px;min-height:22px}.dice-guide-price strong{font-size:14px;line-height:1.1}.dice-guide-grid small{display:block;font-size:10px;line-height:1.1;font-weight:400;margin-top:1px}
+.dice-guide-die{display:block;height:19px}.dice-guide-die svg{height:19px;width:24px}.dice-guide-die .die-shape{fill:#203d50;stroke:currentColor;stroke-width:2}.dice-guide-die .die-detail,.dice-guide-die .die-inner{fill:none;stroke:currentColor;stroke-width:1}
+.dice-guide-caption{min-height:3.8em;font-size:14px!important;background:#102e3a;border-left:3px solid #60e9ad;padding:8px!important}
+.dice-guide-pool{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin:8px 0;color:#e0f3ff;font-size:14px}
+.dice-guide-pool strong{color:#79f5bd}.dice-guide-controls{display:flex;gap:8px;flex-wrap:wrap}.dice-guide-controls button{font:700 14px Arial;padding:9px;border:1px solid #67b8d1;border-radius:6px;color:#e7faff;background:#183f51}
+.dice-guide-instructions ol{padding-left:21px;margin:0}.dice-guide-instructions li{font-size:15px;line-height:1.4;color:#cbd9e5;margin-bottom:9px}.dice-guide-instructions strong{color:#fff}.dice-guide-instructions p{font-size:14px!important;margin-top:10px!important}
+@media(max-width:760px){.attribute-purchase-tutorial .dice-guide-content{grid-template-columns:minmax(0,1fr)}.attribute-purchase-tutorial .confirm-dialog{padding:14px}.dice-guide-grid th:first-child{width:68px}.dice-guide-grid small{font-size:10px}}

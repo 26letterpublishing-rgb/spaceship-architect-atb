@@ -1,5 +1,9 @@
 (function(){
-  const seen=new Set();let tray=null,noticeNode=null,noticeTimer=null;
+  const seen=new Set();let tray=null,noticeNode=null,noticeTimer=null,combatActive=false;
+  // The campaign shell owns the answer for its embedded consoles. A paused
+  // encounter remains combat; a console preview or preparation screen does not.
+  function isCombatActive(){const win=host().defaultView;return win===window?combatActive:Boolean(win.SAInterfaceNotices?.isCombatActive());}
+  function setCombatActive(active){const next=Boolean(active);if(next===combatActive)return;combatActive=next;host().defaultView.SAInterfaceNoticeHost?.refresh();}
   function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('link[data-result-feedback],link[href*="result-feedback.css"]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('result-feedback.css',location.href).href;link.dataset.resultFeedback='';doc.head.append(link);}return doc;}
   function noticeHost(){
     const doc=host(),win=doc.defaultView;
@@ -11,6 +15,7 @@
     const properties=['position','top','bottom','max-height','height'];
     function restore(dialog,saved){for(const name of properties){const old=saved[name];if(old.value)dialog.style.setProperty(name,old.value,old.priority);else dialog.style.removeProperty(name);}}
     function refresh(){
+      if(!isCombatActive())for(const node of rail.children){node.hidden=true;if(node.classList.contains('result-notifications'))node.replaceChildren();}
       const active=[...rail.children].some(n=>!n.hidden),dialogs=[...doc.querySelectorAll('dialog[open]')],parent=dialogs.at(-1)||doc.body;
       if(rail.parentElement!==parent){if(rail.matches(':popover-open'))rail.hidePopover();parent.append(rail);}
       if(active&&!rail.matches(':popover-open'))rail.showPopover();else if(!active&&rail.matches(':popover-open'))rail.hidePopover();
@@ -29,7 +34,7 @@
     new win.ResizeObserver(schedule).observe(rail);
     new win.MutationObserver(records=>{if(records.some(r=>r.target.tagName==='DIALOG'||[...r.addedNodes,...r.removedNodes].some(n=>n.tagName==='DIALOG')))schedule();}).observe(doc.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
     win.addEventListener('resize',schedule);
-    const api={mount(node,key=''){if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail){rail.append(node);schedule();}return node;},refresh,schedule,remove(node){node?.remove();refresh();}};
+    const api={mount(node,key=''){if(!isCombatActive())node.hidden=true;if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail){rail.append(node);schedule();}return node;},refresh,schedule,remove(node){node?.remove();refresh();}};
     win.SAInterfaceNoticeHost=api;return api;
   }
   function closeButton(node,onClose=()=>{},label='Dismiss notification'){
@@ -37,6 +42,7 @@
     b.addEventListener('pointerdown',e=>e.stopPropagation());b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();onClose();node.hidden=true;noticeHost().refresh();});return b;
   }
   function notice(message,type='',duration=4800){
+    if(!isCombatActive())return;
     const doc=host();
     if(!noticeNode){noticeNode=doc.createElement('aside');noticeNode.className='interface-notice';noticeNode.setAttribute('role','status');noticeNode.append(doc.createElement('span'),closeButton(noticeNode));}
     noticeNode.querySelector('span').textContent=message;noticeNode.dataset.outcome=type;noticeNode.hidden=false;noticeHost().mount(noticeNode);noticeHost().schedule();
@@ -45,6 +51,7 @@
   function stored(key){try{return sessionStorage.getItem(key);}catch{return false;}}
   function push(key,title,message,{topLayer=false}={}){
     const storageKey='sa-result:'+key;if(seen.has(key)||stored(storageKey))return;seen.add(key);
+    if(!isCombatActive()){try{sessionStorage.setItem(storageKey,'1');}catch{}return;}
     const doc=host();
     if(!tray?.isConnected)tray=doc.querySelector('.result-notifications');
     if(!tray){tray=doc.createElement('div');tray.className='result-notifications';tray.setAttribute('aria-label','Action results');}
@@ -56,7 +63,7 @@
     card.append(heading,text,ok);tray.append(card);noticeHost().mount(tray,'action-results');noticeHost().schedule();
   }
   function observe(){const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;for(const unit of state.units||[]){for(const result of unit.actionResults||[]){const owns=bridge.mode()==='gm'?result.controller==='gm'||unit.team==='npc':unit.id===bridge.myUnitId()&&result.controller!=='gm';if(owns&&result.stage!=='input')push(`${state.roomCode}:${unit.id}:${result.id}`,result.label,(Number.isFinite(result.total)?`Roll total ${Number(result.total.toFixed(2))}. `:'')+result.text);}}}
-  window.addEventListener('sa-combat-state',observe);
+  window.addEventListener('sa-combat-state',event=>{const state=event.detail?.state||window.SACombatBridge?.state();setCombatActive(state?.hasEngagedClock&&!state.practice&&!state.catalogPreview&&!state.encounterEndedAt);observe();});
   window.addEventListener('pagehide',()=>{if(tray?.ownerDocument===document)tray.remove();noticeNode?.remove();clearTimeout(noticeTimer);try{host().defaultView.SAInterfaceNoticeHost?.refresh();}catch{}});
-  window.SAInterfaceNotices={host:noticeHost,closeButton};window.SAResultFeedback={push,notice};
+  window.SAInterfaceNotices={host:noticeHost,closeButton,isCombatActive,setCombatActive};window.SAResultFeedback={push,notice};
 }());

@@ -1195,6 +1195,7 @@ function renderEncounterStatus() {
 function updateExitEncounterVisibility() {
   const liveFrameOpen = dom.atbLive && !dom.atbLive.hidden;
   const active = Boolean(campaign?.combatActive && !encounterState?.encounterEndedAt);
+  window.SAInterfaceNotices?.setCombatActive(active);
   const preparing = !document.querySelector('#atbTab')?.hidden && dom.atbSetup && !dom.atbSetup.hidden;
   dom.exitEncounter.textContent = active ? 'End Combat' : 'Prepare Combat';
   dom.exitEncounter.hidden = !campaign || (active ? liveFrameOpen : preparing);
@@ -1499,6 +1500,7 @@ function renderLibraryDelivery(){
 }
 
 function renderCampaign() {
+  window.SAInterfaceNotices?.setCombatActive(campaign?.combatActive);
   dom.saveCampaignBackup.disabled = SHOWCASE_MODE || Boolean(campaign?.showcase);
   dom.saveCampaignBackup.title = dom.saveCampaignBackup.disabled ? "Explore Features cannot be exported as a campaign." : "Export Campaign Save File";
   if(campaign&&window.SARoomV03?.moveRoom(campaign))return;
@@ -1545,6 +1547,7 @@ function renderCampaign() {
 }
 
 function receiveCampaign(next) {
+  window.SAInterfaceNotices?.setCombatActive(next.combatActive);
   const objects=next.spaceObjects||[];
   encounterObjects=window.SASpaceObjects.reconcile(encounterObjectBaseline,encounterObjects,objects);
   encounterObjectBaseline=structuredClone(objects);

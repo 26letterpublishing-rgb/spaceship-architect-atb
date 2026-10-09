@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-function environment(){
+function environment(combat=true){
  let doc;
  class Element{
   constructor(tag){this.tagName=tag.toUpperCase();this.ownerDocument=doc;this.children=[];this.parentElement=null;this.attributes={};this.dataset={};this.listeners={};this.hidden=false;this.className='';this.text='';const properties=new Map();this.style={setProperty:(k,v,p='')=>properties.set(k,{v,p}),getPropertyValue:k=>properties.get(k)?.v||'',getPropertyPriority:k=>properties.get(k)?.p||'',removeProperty:k=>properties.delete(k)};this.classList={toggle:(name,on)=>{const set=new Set(this.className.split(' ').filter(Boolean));if(on)set.add(name);else set.delete(name);this.className=[...set].join(' ');},contains:name=>this.className.split(' ').includes(name)};}
@@ -15,9 +15,9 @@ function environment(){
   showPopover(){this.popoverOpen=true;}hidePopover(){this.popoverOpen=false;}
   getBoundingClientRect(){return{height:this.classList.contains('interface-notice-rail')?(this.popoverOpen?this.children.filter(n=>!n.hidden).length*48:0):this.height||50};}animate(){}
  }
- const frames=[],timers=[],store=new Map(),win={innerHeight:800,addEventListener(){},dispatchEvent(){},requestAnimationFrame:fn=>frames.push(fn),ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}}};doc={defaultView:win,createElement:t=>new Element(t)};doc.documentElement=new Element('html');doc.head=new Element('head');doc.body=new Element('body');doc.documentElement.append(doc.head,doc.body);doc.querySelectorAll=s=>doc.documentElement.querySelectorAll(s);doc.querySelector=s=>doc.querySelectorAll(s)[0]||null;doc.getElementById=id=>doc.querySelectorAll('*').find(n=>n.id===id)||null;win.document=doc;
+ const frames=[],timers=[],store=new Map(),win={innerHeight:800,listeners:{},addEventListener(name,fn){(this.listeners[name]??=[]).push(fn);},dispatchEvent(event){for(const fn of this.listeners[event.type]||[])fn(event);},requestAnimationFrame:fn=>frames.push(fn),ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}}};doc={defaultView:win,createElement:t=>new Element(t)};doc.documentElement=new Element('html');doc.head=new Element('head');doc.body=new Element('body');doc.documentElement.append(doc.head,doc.body);doc.querySelectorAll=s=>doc.documentElement.querySelectorAll(s);doc.querySelector=s=>doc.querySelectorAll(s)[0]||null;doc.getElementById=id=>doc.querySelectorAll('*').find(n=>n.id===id)||null;win.document=doc;
  const context=vm.createContext({window:win,document:doc,location:{href:'http://localhost/index.html'},URL,CustomEvent:class{},setTimeout:fn=>(timers.push(fn),timers.length),clearTimeout(){},setInterval(){},clearInterval(){},sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},matchMedia:()=>({matches:true}),console});
- const run=name=>vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'..',name),'utf8'),context);run('result-feedback.js');
+ const run=name=>vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'..',name),'utf8'),context);run('result-feedback.js');win.SAInterfaceNotices.setCombatActive(combat);
  const flush=()=>{for(let limit=0;frames.length&&limit<20;limit++)frames.shift()();assert.equal(frames.length,0);};
  return{win,doc,run,flush,timers,store};
 }
@@ -49,4 +49,50 @@ test('lock and damage dismissals stay dismissed until the warning changes',()=>{
 });
 test('fresh combat activity uses the same clickable reserved notice rail',()=>{
  const e=environment();e.run('fleet-notices.js');e.win.SAFleetNotices.update({notices:{activity:[]}});e.flush();e.win.SAFleetNotices.update({notices:{activity:[{id:'new',at:new Date().toISOString(),text:'The GM ended the encounter.'}]}});e.flush();const activity=e.doc.querySelector('.combat-activity-banner');assert.equal(activity.hidden,false);assert.match(activity.textContent,/GM ended/);assert.ok(activity.querySelector('button').fire('click').stopped);assert.equal(activity.hidden,true);
+});
+
+
+test('outside combat suppresses all rail messages and results without deferring them',()=>{
+ const e=environment(false);
+ for(const kind of ['', 'success','error'])e.win.SAResultFeedback.notice('Setting changed',kind);
+ e.win.SAResultFeedback.push('outside','Diagnostics','Complete');e.flush();
+ assert.equal(e.doc.querySelector('.interface-notice-rail'),null);
+ assert.equal(e.store.get('sa-result:outside'),'1');
+ e.win.SAInterfaceNotices.setCombatActive(true);e.win.SAResultFeedback.push('outside','Diagnostics','Complete');e.flush();
+ assert.equal(e.doc.querySelector('.result-notifications'),null);
+ e.win.SAResultFeedback.notice('New combat alert');e.flush();assert.equal(e.doc.querySelector('.interface-notice-rail').popoverOpen,true);
+});
+
+test('ending combat clears alerts and restores space even with a console open',()=>{
+ const e=environment(),dialog=e.doc.createElement('dialog');dialog.className='shared-console-layout';dialog.open=true;dialog.height=800;dialog.style.setProperty('height','100dvh');e.doc.body.append(dialog);
+ e.win.SAResultFeedback.notice('Combat alert');e.win.SAResultFeedback.push('combat','Attack','Success');e.flush();
+ const rail=e.doc.querySelector('.interface-notice-rail');assert.equal(rail.popoverOpen,true);
+ e.win.SAInterfaceNotices.setCombatActive(false);assert.equal(rail.popoverOpen,false);assert.equal(e.doc.querySelector('.interface-notice-space').hidden,true);assert.equal(dialog.style.getPropertyValue('height'),'100dvh');
+ assert.equal(e.doc.querySelector('.result-notifications').children.length,0);
+ const foreign=e.doc.createElement('div');foreign.textContent='External fleet warning';e.win.SAInterfaceNotices.host().mount(foreign);e.flush();assert.equal(foreign.hidden,true);
+ e.win.SAInterfaceNotices.setCombatActive(true);assert.equal(rail.popoverOpen,false);
+});
+
+test('paused combat retains alerts while preparation, previews and ended encounters suppress them',()=>{
+ const e=environment(false),send=state=>e.win.dispatchEvent({type:'sa-combat-state',detail:{state}});
+ send({hasEngagedClock:true,running:false});assert.equal(e.win.SAInterfaceNotices.isCombatActive(),true);
+ for(const state of [{hasEngagedClock:false},{hasEngagedClock:true,practice:true},{hasEngagedClock:true,catalogPreview:true},{hasEngagedClock:true,encounterEndedAt:'ended'}]){send(state);assert.equal(e.win.SAInterfaceNotices.isCombatActive(),false);}
+});
+
+test('embedded consoles follow their campaign shell and Explore perspectives remain isolated',()=>{
+ const parent=environment(false),child=environment(true);child.win.frameElement=parent.doc.createElement('iframe');child.win.parent=parent.win;
+ assert.equal(child.win.SAInterfaceNotices.isCombatActive(),false);
+ child.win.SAResultFeedback.notice('Stale console alert');assert.equal(parent.doc.querySelector('.interface-notice-rail'),null);
+ parent.win.SAInterfaceNotices.setCombatActive(true);assert.equal(child.win.SAInterfaceNotices.isCombatActive(),true);
+ child.win.frameElement.setAttribute('data-explore-perspective','pc');child.win.SAInterfaceNotices.setCombatActive(false);
+ assert.equal(child.win.SAInterfaceNotices.isCombatActive(),false);assert.equal(parent.win.SAInterfaceNotices.isCombatActive(),true);
+});
+
+test('Banner Exits is the default while explicit PC preferences are retained',()=>{
+ const source=fs.readFileSync(require.resolve('../character.js'),'utf8');
+ const code=source.slice(source.indexOf('const storedPlayerBannerMode ='),source.indexOf('const storedSkillSort ='));
+ for(const value of [null,'invalid','show','hidden','exit']){
+  const context=vm.createContext({PLAYER_BANNER_MODE_KEY:'banner',PLAYER_SOUND_KEY:'sound',localStorage:{getItem:key=>key==='banner'?value:null}});
+  vm.runInContext(code,context);assert.equal(vm.runInContext('playerBannerMode',context),['show','hidden','exit'].includes(value)?value:'exit');
+ }
 });
