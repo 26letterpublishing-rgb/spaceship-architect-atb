@@ -1626,6 +1626,7 @@ function renderTabbedStatus() {
     ? maximum
     : Math.min(maximum, Math.max(-9999, Number(character.health.current) || 0));
   dom.tabStatusExperience.textContent = Math.max(0, Number(character.experience.available) || 0) + " / " + Math.max(0, Number(character.experience.totalGained) || 0);
+  updatePointReadout(dom.tabStatusExperience,Number(character.experience.available)||0,character.id);
   dom.tabStatusHp.textContent = current + " / " + maximum;
   renderCombatStatus();
   const hpRatio = maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0;
@@ -3847,7 +3848,24 @@ function renderWorkflow() {
   if (!validation.ready && (validation.attributeSpent > validation.attributeBudget || validation.skillSpent > validation.skillBudget || validation.invalidSkills.size)) dom.workflowBar.classList.add("invalid");
 }
 
+const pointReadoutValues=new WeakMap(),pointReadoutAnimations=new WeakMap();
+function updatePointReadout(node,value,scope) {
+  if(!node)return;
+  const previous=pointReadoutValues.get(node);
+  pointReadoutValues.set(node,{value,scope});
+  if(!Number.isFinite(value)){delete node.dataset.pointReadout;node.style.removeProperty('color');pointReadoutAnimations.get(node)?.cancel();return;}
+  node.dataset.pointReadout='';node.style.color='#000';
+  if(!previous||previous.scope!==scope){pointReadoutAnimations.get(node)?.cancel();return;}
+  if(Number.isFinite(previous.value)&&previous.value!==value){
+    pointReadoutAnimations.get(node)?.cancel();
+    pointReadoutAnimations.set(node,node.animate([{color:'#fff'},{color:'#000'}],{duration:500,easing:'linear'}));
+  }
+}
 function renderExperience() {
+  renderExperienceValues();
+  for(const node of [dom.attributeBudget,dom.skillBudget,dom.workflowAttributeRemaining,dom.workflowSkillRemaining,dom.workflowExperience,dom.xpAvailable,dom.xpTotal])updatePointReadout(node,Number.parseFloat(node.textContent),character.id);
+}
+function renderExperienceValues() {
   const validation = draftValidation();
   const awardedAttributePoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
   const awardedSkillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
@@ -6486,7 +6504,7 @@ async function beginNewCharacter() {
 const WORKFLOW_TUTORIALS = {
   race: ["Choose Your Race", "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules."],
   class: ["Choose Your Class (Optional)", "A Class establishes your primary party role and special advantages. You can skip this step and continue without a class."],
-  attributes: ["How to Purchase Attribute Dice", "Each Attribute has four rows. Each row holds ONE die; moving right upgrades that die, while starting another row adds a separate die to your pool."],
+  attributes: ["How to Purchase Attribute Dice", "One row = one die. Go right to upgrade it; start another row to add a die."],
   skills: ["Choose Your Skills", "Skill Packages automatically spend your starting Skill Points across two areas of expertise. Choose two packages, including the same one twice, preview the results, then Apply. Custom Skill Allocation is the advanced option: buy individual skill levels using the SP buttons. You can switch to Custom to adjust package results. Skills with a rating of 0.1 or higher appear green."],
   identity: ["Fill In Identity", "Complete the Identity section, including Home Planet. These details identify the player and give the finished character a place in the setting."],
   backstory: ["Write A Backstory", "Write a Character Background before using the optional FUBS prompt. A few useful sentences are enough to begin."],
@@ -6494,37 +6512,38 @@ const WORKFLOW_TUTORIALS = {
   compatibility: ["Resolve The Conflict", "This Race and Class combination conflicts with a listed rule. Change one selection before finalizing."],
 };
 
-function attributePurchaseGuideMarkup(step = 0) {
-  const rows = [[0,0,-1,-1],[1,0,-1,-1],[2,0,-1,-1],[2,0,0,-1]][step];
-  const spent = rows.reduce((sum,current,row)=>sum+ATTRIBUTE_COSTS[row].slice(0,current+1).reduce((a,b)=>a+b,0),0);
-  const captions = [
-    "Start: two free D4s. Rows 3 and 4 are empty.",
-    "Pay 15 to upgrade Row 1 to D6. You now roll D6 + D4: still two dice.",
-    "Pay another 30 to upgrade that D6 to D8. Total spent: 45. You now roll D8 + D4.",
-    "Pay 15 in Row 3 to add a D4. Total spent: 60. You now roll D8 + D4 + D4: three dice."
-  ];
-  return `<div class="dice-guide-example"><div class="dice-guide-example-title"><h3>Dexterity example</h3><span>Practice only — no points spent</span></div>
-    <table class="dice-guide-grid"><caption>Read each row from left to right. Prices are per purchase.</caption><thead><tr><th scope="col">One die per row</th>${DICE_NAMES.map(name=>`<th scope="col">${name}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((current,row)=>`<tr><th scope="row">Row ${row+1}<small>${row<2?'Starts with D4':'Optional extra die'}</small></th>${DICE_NAMES.map((name,col)=>`<td class="${col===current?'guide-current':col<current?'guide-paid':''}"><span class="dice-guide-price"><span class="dice-guide-die">${dieSvg(col,0,true)}</span><strong>${ATTRIBUTE_COSTS[row][col]===0?'Free':ATTRIBUTE_COSTS[row][col]}</strong></span><small>${col===current?'Current die':col<current?'Paid step':col===current+1?'Next purchase':'Later upgrade'}</small></td>`).join('')}</tr>`).join('')}</tbody></table>
-    <p class="dice-guide-caption" aria-live="polite">${captions[step]}</p>
-    <div class="dice-guide-pool"><span>Dice you would roll: <strong>${rows.filter(value=>value>=0).map(value=>DICE_NAMES[value]).join(' + ')}</strong></span><span>Example cost: <strong>${spent} points</strong></span></div>
-    <div class="dice-guide-controls"><button type="button" data-guide-reset ${step===0?'disabled':''}>Reset example</button><button type="button" data-guide-next ${step===3?'disabled':''}>${['Try: upgrade Row 1 to D6','Try: upgrade Row 1 to D8','Try: add a die in Row 3','Example complete'][step]}</button></div></div>`;
+function attributePracticeRemaining(rows) {
+  return 225-rows.reduce((sum,current,row)=>sum+ATTRIBUTE_COSTS[row].slice(0,current+1).reduce((a,b)=>a+b,0),0);
 }
-
+function changeAttributePractice(rows,row,column) {
+  if(!Number.isInteger(row)||row<0||row>3||!Number.isInteger(column)||column<0||column>=DICE_NAMES.length)return false;
+  const current=rows[row];
+  if(column===current&&!(row<2&&column===0)){rows[row]--;return true;}
+  if(column===current+1&&ATTRIBUTE_COSTS[row][column]<=attributePracticeRemaining(rows)){rows[row]++;return true;}
+  return false;
+}
+function attributePurchaseGuideMarkup(rows) {
+  const remaining=attributePracticeRemaining(rows);
+  return rows.map((current,row)=>`<div class="dice-practice-row"><span class="dice-practice-label">Die ${row+1}</span><div class="attribute-row" style="--progress:${(current+1)/5*100}%">
+    ${current>=0?'<span class="attribute-purchased-wave" aria-hidden="true"></span>':''}
+    ${DICE_NAMES.map((name,column)=>{
+      const purchased=column<=current,next=column===current+1,cost=ATTRIBUTE_COSTS[row][column],free=row<2&&column===0;
+      const enabled=(!free&&column===current)||(next&&cost<=remaining);
+      const label=free?`${name} is a free starting die`:column===current?`Refund ${cost} sample EXP from die ${row+1}`:`Purchase ${name} for ${cost} sample EXP on die ${row+1}`;
+      return `<button class="attribute-die ${purchased?'purchased':''} ${next?'next':''}" type="button" data-practice-row="${row}" data-practice-column="${column}" title="${label}" aria-label="${label}" ${enabled?'':'disabled'}>${dieSvg(column,cost,purchased)}</button>`;
+    }).join('')}</div></div>`).join('');
+}
 function addAttributePurchaseGuide(shell) {
   shell.classList.add('attribute-purchase-tutorial');
-  const content=document.createElement('div');content.className='dice-guide-content';
-  content.innerHTML=`<div data-dice-example></div><aside class="dice-guide-instructions"><h3>The four-row system</h3><ol>
-    <li><strong>Begin with two dice.</strong> Rows 1 and 2 each start with a free D4 in every Attribute. Rows 3 and 4 start empty.</li>
-    <li><strong>Buy left to right.</strong> Click the next die in a row: D4 → D6 → D8 → D10 → D12. You cannot skip a size.</li>
-    <li><strong>Upgrade or add.</strong> Going right replaces that row’s die with a larger one. Buying the first D4 in Row 3 or 4 adds another die. You can have up to four dice per Attribute.</li>
-    <li><strong>Pay each step.</strong> A D8 in Row 1 costs 15 for D6, then 30 for D8: 45 total. Extra rows have their own higher upgrade prices.</li>
-    <li><strong>Roll your pool; keep the best two.</strong> With D8 + D4 + D4, rolls of 7, 3 and 1 contribute 7 + 3 = 10, before the Skill bonus or other modifiers.</li>
-    </ol><p><strong>Changing your mind?</strong> During creation, click the rightmost purchased die in a row to refund its latest step. The first two free D4s cannot be refunded.</p>
-    <p><strong>Your budget: ${attributePointBudget()} Attribute Points</strong>, shared across all eight Attributes. Spend the full allowance to unlock Skills. Race-specific prices and restrictions appear on your actual sheet.</p></aside>`;
+  const content=document.createElement('div');content.className='dice-practice';content.style.setProperty('--attribute','#35c9ff');
+  content.innerHTML=`<div class="dice-practice-budget"><span>Sample EXP remaining</span><strong data-practice-budget aria-live="polite">225 / 225</strong></div>
+    <p class="dice-practice-help">Click the next die to buy. Click your last purchased die to refund.</p>
+    <div data-practice-grid></div><p class="dice-practice-pool">Your dice: <strong data-practice-pool>D4 + D4</strong></p>
+    <small>Practice only. Your character’s points stay unchanged.</small>`;
   shell.querySelector('.dialog-actions').before(content);
-  let step=0;const example=content.querySelector('[data-dice-example]');
-  const render=()=>{example.innerHTML=attributePurchaseGuideMarkup(step);example.querySelector('[data-guide-next]').onclick=()=>{if(step<3){step++;render();}};example.querySelector('[data-guide-reset]').onclick=()=>{step=0;render();};};
+  const rows=[0,0,-1,-1],budget=content.querySelector('[data-practice-budget]'),grid=content.querySelector('[data-practice-grid]');
+  const render=()=>{grid.innerHTML=attributePurchaseGuideMarkup(rows);const remaining=attributePracticeRemaining(rows);budget.textContent=`${remaining} / 225`;updatePointReadout(budget,remaining,'practice');content.querySelector('[data-practice-pool]').textContent=rows.filter(v=>v>=0).map(v=>DICE_NAMES[v]).join(' + ');};
+  grid.addEventListener('click',event=>{const button=event.target.closest('[data-practice-row]');if(!button||button.disabled)return;if(changeAttributePractice(rows,Number(button.dataset.practiceRow),Number(button.dataset.practiceColumn))){playPurchaseSound('dexterity');render();}});
   render();
 }
 
@@ -6581,12 +6600,13 @@ function showDraftIntroduction() {
   if (character.phase !== "draft" || manualInputMode() || CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW || document.querySelector(".draft-introduction-modal")) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
-  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><span class="draft-guide-copy">Next Step</span><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><button type="button" class="draft-guide-copy phase-badge draft">Next Step</button><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
   document.body.append(shell);
   character.creation.introductionSeen = true;
   queueSave();
   dom.phaseBadge.classList.add("draft-guide-target");
-  shell.querySelector("button").addEventListener("click", () => { shell.remove(); dom.phaseBadge.classList.remove("draft-guide-target"); dom.phaseBadge.focus({ preventScroll: true }); });
+  const confirm=()=>{shell.remove();dom.phaseBadge.classList.remove("draft-guide-target");dom.phaseBadge.focus({preventScroll:true});};
+  shell.querySelectorAll("button").forEach(button=>button.addEventListener("click",confirm));
 }
 
 function requestRuleChoices({ title, message, options, count = 1 }) {
