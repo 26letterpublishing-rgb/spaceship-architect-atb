@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const oxygen=require('../ship-oxygen'),utilities=require('../ship-utilities'),maps=require('../ship-map-core');
 function fixture(){
   const ship={id:'s',title:'Test ship',ship:{gridCells:[21,22,41,42],sicInventory:[{id:'life',type:'life-support'}],placements:[{sicId:'life',cell:21}]},crewCharacterIds:['a','b'],characterLocations:{a:{square:21},b:{square:22}}};
-  const character=id=>({id,character:{identity:{characterName:id,raceId:'human'},attributes:{health:[3,2,0,-1]},skills:{'Athletics/Endurance':{tenths:25}},health:{current:12}}});
+  const character=id=>({id,character:{identity:{characterName:id,raceId:'human'},attributes:{health:[3,2,0,-1]},skills:{'Athletics':{tenths:25}},health:{current:12}}});
   const campaign={starships:[ship],characters:[character('a'),character('b')]};
   oxygen.setEnabled(ship,false);const actors=oxygen.people(campaign);oxygen.sync([ship],actors);
   return {ship,campaign,actors,data:ship.ship.oxygenState};

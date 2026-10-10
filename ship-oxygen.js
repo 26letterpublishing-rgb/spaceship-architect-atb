@@ -16,7 +16,7 @@ function people(campaign,room=null){
     const shipId=unit?.location?.starshipId||assigned?.id;
     if(!shipId)continue;
     const dice=(character.attributes?.health||[]).filter(n=>n>=0).map(n=>[4,6,8,10,12][n]).filter(Boolean);
-    const skill=character.skills?.['Athletics/Endurance'];
+    const skill=character.skills?.['Athletics'];
     result.push({id:record.id,characterId:record.id,unitId:unit?.id,shipId,name:character.identity?.characterName||'Crew',
       location:unit?.location||assigned?.characterLocations?.[record.id],movement:unit?.timedAction,dice,skill:Math.max(0,typeof skill==='object'?(Number(skill?.tenths)||0)/10:Number(skill)||0),
       immune:require('./breathing').independent(character),

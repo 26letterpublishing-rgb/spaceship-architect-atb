@@ -17,3 +17,5 @@ dialog.shared-console-layout.transit-console>section.transit-scene{position:rela
 @media(prefers-reduced-motion:reduce){.transit-console[data-phase=traveling] .warp-window i{animation:none}}
 
 .transit-fault-roll{width:min(1000px,96vw);height:min(800px,94vh);padding:0;background:#061019;border:1px solid #68d6e6}.transit-fault-roll iframe{width:100%;height:90%;border:0}.transit-fault-roll p{color:#fff}
+
+.transit-console .warp-starfield{position:absolute;inset:0;width:100%;height:100%;opacity:1;pointer-events:none;contain:strict}

@@ -2141,7 +2141,7 @@ function npcCombatStatsMarkup(unit, { gm = false } = {}) {
     <label class="npc-held-weapon"><span>Held=</span><select data-action="npcWeapon" data-id="${escapeHtml(unit.id)}">${weaponOptions}</select></label>
   </div>`;
 }
-function automationControlsMarkup(unit,gm){return gm&&unit.team==='npc'?`${unit.automationNotice?`<small>${escapeHtml(unit.automationNotice)}</small> `:''}${unit.automationSuspended?'<small>Automation paused after Undo</small> ':''}<button type="button" data-action="automation" data-id="${escapeHtml(unit.id)}">${unit.shipAi?'Automation Off':unit.automationSuspended?'Resume Automation':unit.automationMode&&unit.automationMode!=='off'?'Automation Off':'Automate NPC'}</button>${unit.shipAi?`<button type="button" data-action="aiDefense" aria-pressed="${unit.automationMode==='defense'}" data-id="${escapeHtml(unit.id)}">Defense</button><button type="button" data-action="aiOffense" aria-pressed="${unit.automationMode==='offense'}" data-id="${escapeHtml(unit.id)}">Offense</button>`:''}`:'';}
+function automationControlsMarkup(unit,gm){return gm&&unit.team==='npc'?`${unit.automationNotice?`<small>${escapeHtml(unit.automationNotice)}</small> `:''}${unit.automationSuspended?'<small>Automation paused after Undo</small> ':''}<button type="button" data-action="automation" data-id="${escapeHtml(unit.id)}">${unit.shipAi?'Automation Off':unit.automationSuspended?'Resume Automation':unit.automationMode&&unit.automationMode!=='off'?'Automation Off':'Automate NPC'}</button>${unit.shipAi?`<button type="button" data-action="aiAutomatic" aria-pressed="${unit.automationMode==='automatic'}" data-id="${escapeHtml(unit.id)}">Automatic</button><button type="button" data-action="aiDefense" aria-pressed="${unit.automationMode==='defense'}" data-id="${escapeHtml(unit.id)}">Defense</button><button type="button" data-action="aiOffense" aria-pressed="${unit.automationMode==='offense'}" data-id="${escapeHtml(unit.id)}">Offense</button>`:''}`:'';}
 
 function unitCard(unit, { gm = false, player = false } = {}) {
   const delayed = hasAnyDelay(unit);
@@ -3065,9 +3065,9 @@ function gmNpcRollDefinition(attack, rollRole, rollingUnit) {
   const dice = rollRole==='defender'&&rollingUnit?.dodgeDice ? [...rollingUnit.dodgeDice] : Array.isArray(rollingUnit?.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
   if (rollRole === "attacker" && attack.attackType !== "melee" && Number(attack.aimDie) > 0) dice.push(Number(attack.aimDie));
   const skill = rollRole === "attacker"
-    ? Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Wrestle/Disarm" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0
+    ? Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Grappling" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0
     : Number(rollingUnit?.dodgeSkill) || 0;
-  const skillLabel = rollRole === "attacker" ? attack.plan?.attackSkill || "Projectile" : "Dodge/Block";
+  const skillLabel = rollRole === "attacker" ? attack.plan?.attackSkill || "Projectile" : "Dodge";
   return {
     dice, flat: 0, skill,
     title: `${rollingUnit?.characterName || "NPC"}: ${rollRole === "defender" ? "Defense" : "To-Hit"}`,
@@ -3131,9 +3131,9 @@ function renderAttackResolution(mine) {
         type: "sa-combat-roll-request",
         attackId: attack.id,
         rollRole: "defender",
-        skill: "Dodge/Block",
+        skill: "Dodge",
         bonusDice: [],
-        subtitle: "Roll Dexterity + Dodge/Block. Range and Defense modifiers are applied automatically.",
+        subtitle: "Roll Dexterity + Dodge. Range and Defense modifiers are applied automatically.",
       };
       if (attack.defenderCommand) {
         postCombatMessage({
@@ -3248,8 +3248,8 @@ function renderItemResolution(mine) {
     let request = null;
     if (resolution.phase === "roll" && !resolution.roll) request = {
       type: "sa-combat-roll-request", attackId: resolution.id, resolutionId: resolution.id, rollRole: "firstAid",
-      skill: "Anatomy/First Aid", attribute: "intellect", difficulty: resolution.difficulty,
-      subtitle: `Treating ${resolution.targetName}. Roll Intellect + Anatomy/First Aid against Difficulty ${resolution.difficulty}.`,
+      skill: "First Aid", attribute: "intellect", difficulty: resolution.difficulty,
+      subtitle: `Treating ${resolution.targetName}. Roll Intellect + First Aid against Difficulty ${resolution.difficulty}.`,
     };
     if (resolution.phase === "healing" && !resolution.healingRoll) request = {
       type: "sa-combat-healing-request", attackId: resolution.id, resolutionId: resolution.id, healing: true,
@@ -4379,7 +4379,7 @@ async function editNpcCombatStat(button) {
 
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
-  if(['automation','aiDefense','aiOffense'].includes(button.dataset.action)){const unit=state.units.find(u=>u.id===button.dataset.id);void action({action:'setAutomation',id:unit.id,mode:button.dataset.action==='aiDefense'?'defense':button.dataset.action==='aiOffense'?'offense':unit.shipAi?'off':unit.automationSuspended?'npc':unit.automationMode&&unit.automationMode!=='off'?'off':'npc'},'tap');return;}
+  if(['automation','aiAutomatic','aiDefense','aiOffense'].includes(button.dataset.action)){const unit=state.units.find(u=>u.id===button.dataset.id);void action({action:'setAutomation',id:unit.id,mode:button.dataset.action==='aiAutomatic'?'automatic':button.dataset.action==='aiDefense'?'defense':button.dataset.action==='aiOffense'?'offense':unit.shipAi?'off':unit.automationSuspended?'npc':unit.automationMode&&unit.automationMode!=='off'?'off':'npc'},'tap');return;}
   if (!["remove", "nudge", "delay", "damage", "npcHp", "npcStat", "impairQueuedEffect", "removeQueuedEffect"].includes(button.dataset.action)) return;
   if (button.disabled) return;
   event?.preventDefault();

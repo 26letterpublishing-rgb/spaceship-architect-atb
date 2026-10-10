@@ -86,12 +86,12 @@
     "number": 7,
     "name": "SONIC SPEED",
     "category": "Spotlight",
-    "text": "Play at any time, even during another character's action. Immediately Move up to three times your Move Speed without changing your ATB. Alternatively, play when you are attacked to automatically succeed on that Dodge/Block Check.",
+    "text": "Play at any time, even during another character's action. Immediately Move up to three times your Move Speed without changing your ATB. Alternatively, play when you are attacked to automatically succeed on that Dodge Check.",
     "handling": "Resolve immediately as an interrupt, then discard.",
     "tags": [
       "Move",
       "Interrupt",
-      "Dodge/Block"
+      "Dodge"
     ]
   },
   {
@@ -302,10 +302,10 @@
     "number": 24,
     "name": "THE ONE",
     "category": "Spotlight",
-    "text": "For the next five attacks that target you, triple the final Score of your Dodge/Block Check. Remove this effect after the fifth attack or when Combat ends.",
+    "text": "For the next five attacks that target you, triple the final Score of your Dodge Check. Remove this effect after the fifth attack or when Combat ends.",
     "handling": "Place in Active Effects with five uses, then discard.",
     "tags": [
-      "Dodge/Block",
+      "Dodge",
       "Persistent Combat Effect"
     ]
   },

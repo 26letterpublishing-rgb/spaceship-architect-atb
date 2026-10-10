@@ -4,7 +4,7 @@ const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,sou
 test('queued composed rolls and saved prompts retain click-time recipients, skill and difficulty',async()=>{
  let unblock;const queue=new Promise(resolve=>{unblock=resolve;});const sent=[],saved=[],status={},fields={name:{value:'Spot danger'},attribute:{value:'Perception'},skill:{value:'Awareness'},difficulty:{value:'10'},send:{},add:{}};let recipients=['a'];
  const body={querySelector(selector){return fields[selector.slice(6,-1)];},querySelectorAll(){return recipients.map(value=>({value}));}};
- const c=vm.createContext({queue,status,state:{code:'TEST',characters:[{id:'a',character:{identity:{characterName:'Alex'}}},{id:'b',character:{identity:{characterName:'Blair'}}}]},token:'gm',body,presets:()=>[],save:async(column,list)=>saved.push({column,list}),prompt:async(ids,item)=>sent.push({ids,item})});
+ const c=vm.createContext({window:{},queue,status,state:{code:'TEST',characters:[{id:'a',character:{identity:{characterName:'Alex'}}},{id:'b',character:{identity:{characterName:'Blair'}}}]},token:'gm',body,presets:()=>[],save:async(column,list)=>saved.push({column,list}),prompt:async(ids,item)=>sent.push({ids,item})});
  vm.runInContext(section(' const run=',' async function save('),c);
  vm.runInContext(section(' const current=',' for(const column of [...names'),c);
  const sending=fields.send.onclick(),adding=fields.add.onclick();
@@ -19,7 +19,7 @@ test('late difficulty timer and queued deletion cannot change a different preset
  c.items=structuredClone(before);await c.updatePresetDifficulty('everyone',0,shape,17);assert.equal(saved[0][0].difficulty,17);
 });
 test('queued roll acknowledges its recipients and canceled campaign context sends nothing',async()=>{
- let unblock;const queue=new Promise(resolve=>{unblock=resolve;});let requests=0;const c=vm.createContext({queue,state:{code:'OLD',characters:[]},token:'gm',status:{},request:async()=>{requests++;}});
+ let unblock;const queue=new Promise(resolve=>{unblock=resolve;});let requests=0;const c=vm.createContext({window:{},queue,state:{code:'OLD',characters:[]},token:'gm',status:{},request:async()=>{requests++;}});
  vm.runInContext(section(' const run=',' async function save('),c);
  const pending=vm.runInContext("run(request,'Roll request sent to Alex.')()",c);c.state.code='NEW';unblock();await pending;assert.equal(requests,0);assert.match(c.status.textContent,/Campaign changed/);
  await vm.runInContext("run(request,'Roll request sent to Alex.')()",c);assert.equal(c.status.textContent,'Roll request sent to Alex.');

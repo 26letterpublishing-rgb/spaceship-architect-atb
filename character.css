@@ -2066,7 +2066,34 @@ select.skill-guidance{border-radius:8px!important}
 .dice-practice .attribute-die .die-cost{font-size:12px}.dice-practice .attribute-die .die-xp{font-size:7px}
 .attribute-purchase-tutorial .dice-practice-pool{margin:10px 0 5px;font-size:16px}.dice-practice-pool strong{color:#79f5bd}
 .dice-practice>small{font-size:12px;color:#a6bdce}
-[data-point-readout]{background:#b4cbd6;border-radius:4px;padding:1px 5px;box-decoration-break:clone;-webkit-box-decoration-break:clone;font-variant-numeric:tabular-nums;text-shadow:none!important}
+[data-point-readout]{font-variant-numeric:tabular-nums}
 [data-point-readout].invalid{outline:2px solid #ff6577}
 .draft-guide-copy.phase-badge.draft{min-width:130px;min-height:40px;cursor:pointer}
 @media(max-width:450px){.attribute-purchase-tutorial .confirm-dialog{padding:12px}.dice-practice-row{gap:3px}.dice-practice-label{flex-basis:26px;font-size:11px}.dice-practice-budget{font-size:14px}}
+
+/* October playtest: visible creation progress, profile directions and dice guidance. */
+.race-profile-header-nav{gap:12px;flex-wrap:wrap}
+.race-profile-nav{width:auto;min-width:112px;height:auto;display:flex;flex-direction:column;align-items:center;gap:7px;clip-path:none!important;background:transparent!important;color:#c9a4ff!important;font-size:12px!important;white-space:nowrap}
+.race-profile-nav:hover,.race-profile-nav:focus-visible{background:transparent!important}
+.race-nav-arrow{display:block;width:36px;height:36px;background:#a36ee8;clip-path:polygon(0 0,100% 50%,0 100%)}
+.race-profile-nav.previous .race-nav-arrow{transform:rotate(180deg)}
+.race-profile-nav.sub-race{color:#ffb866!important}.race-profile-nav.sub-race .race-nav-arrow{background:#f29a3e}
+.race-card-art img{display:block;height:100dvh;object-fit:cover;object-position:center top;will-change:transform}
+@media(max-width:900px){.race-card-art img{height:52dvh}}
+.workflow-bar.draft-active{padding:14px;gap:14px}
+#phaseBadge.draft{width:86px;height:86px;min-width:86px;min-height:86px;aspect-ratio:1;border-radius:50%;padding:9px;white-space:normal;font-size:.9rem;flex-shrink:0}
+#phaseBadge.draft.step-in-progress{animation:none!important;background:#08090c!important;color:#fff!important;box-shadow:inset 0 0 0 2px #424958}
+.attributes-panel{scroll-margin-top:220px}
+.allocating-points{outline:3px solid #e6273b;outline-offset:3px}
+.package-custom-hint{color:#8bddff!important}
+[data-apply-packages].workflow-target-pulse{border-radius:999px}
+.attribute-die.next .die-shape{animation:availableDieSpectrum 3s linear infinite}
+@keyframes availableDieSpectrum{0%,100%{stroke:#ff6688}20%{stroke:#ffcf66}40%{stroke:#77ffab}60%{stroke:#66dfff}80%{stroke:#c98aff}}
+.dice-roller.large-percentile .dice-stage{width:min(760px,95vw);height:min(580px,82dvh)}
+.dice-roller.large-percentile .dice-copy{max-width:80vw}.dice-roller.large-percentile .dice-copy h2{font-size:18px}.dice-roller.large-percentile .dice-copy p{font-size:14px}
+@media(prefers-reduced-motion:reduce){.attribute-die.next .die-shape{animation:none}.race-card-art img{will-change:auto}}
+
+/* Keep the encounter itself near the top instead of stacking oversized headings. */
+#playerAtbPanel .player-atb-heading{min-height:36px;padding:0 4px 6px}
+#playerAtbPanel .character-tool-heading{display:flex;align-items:center;gap:12px}
+#playerAtbPanel .character-tool-heading h1{font-size:22px;margin:0}

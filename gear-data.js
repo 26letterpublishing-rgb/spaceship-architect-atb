@@ -24,7 +24,7 @@ export const GEAR = [
   gear("briefcase", "Briefcase", 30, "Portable carrying case with a digital security lock."),
   gear("camera-headset", "Camera Headset", 25, "Headband that mounts a Remote Camera, sold separately."),
   gear("canteen-water-purifier", "Canteen/Water Purifier", 10, "Small container that converts nearly any water source into drinkable liquid."),
-  gear("chameleon-cloak", "Chameleon Cloak", 320, "Changes pattern to match touched surfaces. Adds +4 to Stealth/Hide while immobile."),
+  gear("chameleon-cloak", "Chameleon Cloak", 320, "Changes pattern to match touched surfaces. Adds +4 to Stealth while immobile."),
   gear("childs-toy", "Child's Toy", 15, "A typical children's toy."),
   gear("cleaning-supplies", "Cleaning Supplies", 20, "All-purpose cleaning supplies."),
   gear("collapsible-pillow", "Collapsible Pillow", 60, "Deflatable pillow that fits in a pocket. Not a flotation device."),
@@ -106,7 +106,7 @@ export const GEAR = [
   gear("vr-game", "VR Game", 50, "A game for a VR headset; the purchaser chooses the genre."),
   gear("vr-headset", "VR Headset", 200, "Immersive virtual interface. Adds +2 to Computer Systems when adapted to a terminal."),
   gear("universal-translator", "Universal Translator", 600, "Chest-mounted translator that converts speech with a five-second delay."),
-  gear("weather-modifier", "Weather Modifier", 2500, "Projects an ionic pulse that modifies local weather; resolved with Intellect + Science/Physics."),
+  gear("weather-modifier", "Weather Modifier", 2500, "Projects an ionic pulse that modifies local weather; resolved with Intellect + Science."),
   gear("white-towel", "White Towel", 15, "Basic generic towel."),
 ];
 

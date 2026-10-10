@@ -5,7 +5,7 @@ test('every standard character skill has a description and First Aid retains its
   const {GENERAL_SKILLS,SPACECRAFT_SKILLS}=await load('character-data.js');
   const {SKILL_DESCRIPTIONS}=await load('skill-descriptions.js');
   for(const name of [...GENERAL_SKILLS,...SPACECRAFT_SKILLS])assert.ok(SKILL_DESCRIPTIONS[name]?.length>20,`Missing ${name}`);
-  assert.match(SKILL_DESCRIPTIONS['Anatomy/First Aid'],/Intellect/);
+  assert.match(SKILL_DESCRIPTIONS['First Aid'],/Intellect/);
   assert.match(SKILL_DESCRIPTIONS.Initiative,/ATB/);
 });
 test('race text no longer contains the identified PDF split-word artifacts',()=>{

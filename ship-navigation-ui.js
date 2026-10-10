@@ -233,6 +233,7 @@
   }
   function sync(unit){
     const bridge=window.SACombatBridge;
+    if(bridge.state()?.catalogPreview)return;
     if(!unit||bridge.mode()!=='player'||unit.id!==bridge.myUnitId()||window.SACombatMap?.isInlineMoveSelecting()||unit?.timedAction?.kind==='move')return;
     let owner=window;try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)return;owner=owner.parent;}}catch{return;}
     if(owner.document.querySelector('dialog[open]'))return;
@@ -268,10 +269,11 @@
   // Re-entering a tab need not produce a new combat state (especially while paused).
   let consoleButton=null;
   function restoreView(){
-    const b=window.SACombatBridge,state=b?.state();if(!state)return;
-    const unit=b.mode()==='gm'?(state.units?.find(u=>u.id===state.activeId&&u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)||state.units?.find(u=>u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)):state.units?.find(u=>u.id===b.myUnitId());
+    const b=window.SACombatBridge,state=b?.state();if(!state||state.catalogPreview)return;
     let doc=document,owner=window,visible=true;
     try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)visible=false;doc=owner.parent.document;owner=owner.parent;}}catch{visible=false;}
+    if(!visible||document.hidden){if(consoleButton)consoleButton.hidden=true;return;}
+    const unit=b.mode()==='gm'?(state.units?.find(u=>u.id===state.activeId&&u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)||state.units?.find(u=>u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)):state.units?.find(u=>u.id===b.myUnitId());
     if(!consoleButton){
       consoleButton=doc.createElement('button');consoleButton.type='button';consoleButton.textContent='Console View';consoleButton.dataset.consoleView='';
       const goldId='console-gold-'+crypto.randomUUID();
@@ -285,7 +287,7 @@
   window.addEventListener('sa-combat-state',restoreView);
   document.addEventListener('visibilitychange',restoreView);
   requestAnimationFrame(restoreView);
-  const restoreTimer=setInterval(restoreView,150);
+  const restoreTimer=setInterval(restoreView,500);
   window.addEventListener('pagehide',()=>{clearInterval(restoreTimer);consoleButton?.remove();},{once:true});
   window.SAShipNavigationUI={toggle,open,sync,observe,toggleHold,mountSelector,remember,openAction};
 }());

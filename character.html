@@ -35,6 +35,7 @@
 <script defer src="interior-pan.js"></script>
 <link rel="stylesheet" href="campaign-starmaps.css">
 <script src="campaign-starmaps-ui.js" defer></script>
+<link rel="stylesheet" href="ui-reputation-pass.css">
 </head>
   <body>
     <header class="creator-header">
@@ -237,7 +238,7 @@
               </div>
             </div>
             <div><span>Command Window</span><strong id="derivedCommand">20 sec</strong><small id="derivedCommandFormula">Perception boxes + Awareness</small></div>
-            <div class="derived-resource"><span>Move Speed</span><strong id="moveSpeedValue">2</strong><small id="moveSpeedFormula" class="resource-formula">2 + each Dexterity die at D10 or higher + Athletics/Endurance</small></div>
+            <div class="derived-resource"><span>Move Speed</span><strong id="moveSpeedValue">2</strong><small id="moveSpeedFormula" class="resource-formula">2 + each Dexterity die at D10 or higher + Athletics</small></div>
             <div><span>Maximum HP</span><strong id="maximumHp">28</strong><small id="maximumHpFormula">Health dice maximum +20</small></div>
             <div><span>Permanent HP Bonus</span><strong id="permanentHpBonus">0</strong><small id="permanentHpFormula">Reverence and other permanent effects</small></div>
             <div class="damage-reduction-stat"><span>Damage Reduction</span><strong id="damageReduction">0</strong><small id="damageReductionFormula">No natural Damage Reduction</small></div>
@@ -545,7 +546,7 @@
 
     <div id="campaignRollPrompt" class="campaign-roll-prompt" hidden>
       <div><span>GM ROLL REQUEST</span><strong id="campaignRollPromptTitle">Attribute + Skill</strong><small id="campaignRollPromptDifficulty"></small></div>
-      <button id="openCampaignRoll" class="primary-action" type="button">Open Roll</button>
+      <button id="openCampaignRoll" class="primary-action" type="button">Open Roll</button><button id="cancelCampaignRoll" type="button" style="font-size:11px;min-width:0;min-height:24px;padding:3px 6px">Cancel</button>
     </div>
 
     <div id="confirmModal" class="modal-shell" hidden>

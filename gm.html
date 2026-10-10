@@ -27,10 +27,11 @@
     <link rel="stylesheet" href="console-common.css" data-common-console-style>
   <link rel="stylesheet" href="room-v03.css"><script src="campaign-recovery.js" defer></script><script src="room-v03.js" defer></script>
   <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
-<link rel="stylesheet" href="quick-prompts.css"><script defer src="quick-prompts.js"></script>
+<link rel="stylesheet" href="quick-prompts.css"><script defer src="reputation-ui.js"></script><script defer src="quick-prompts.js"></script>
 <link rel="stylesheet" href="crew-logs.css">
 <link rel="stylesheet" href="campaign-starmaps.css">
 <script src="campaign-starmaps-ui.js" defer></script>
+<link rel="stylesheet" href="ui-reputation-pass.css">
 </head>
   <body>
     <main class="gm-shell">
@@ -89,9 +90,10 @@
           <button type="button" data-tab="atb">Combat</button>
         </nav>
 
-        <section class="gm-tab" data-tab-panel="campaign" hidden></section>
+        <section class="gm-tab" data-tab-panel="campaign" hidden><section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section></section>
         <section id="scriptTab" class="gm-tab active" data-tab-panel="script">
-            <section class="session-control"><div><span>CAMPAIGN CLOCK</span><strong id="sessionNumberLabel">Session 0</strong></div><button id="endSession" type="button">End Session 0</button></section>
+
+          <div class="story-column">
           <div class="tab-heading">
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
             <div class="script-heading-actions">
@@ -108,6 +110,7 @@
             </div>
           </div>
           <div id="campaignScript" class="script-live-editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" data-placeholder="Type story notes here. Insert clickable roll commands with the controls below."></div>
+          </div>
           <section id="scriptCommandBuilder" class="command-builder">
             <h3>Insert Roll Command</h3>
             <div class="builder-grid">
@@ -302,7 +305,10 @@
                 <div class="section-title staged-npc-heading"><h4>Added to Combat</h4><small>These copies may be removed before Combat begins.</small></div>
                 <div id="encounterNpcList" class="encounter-npc-list staged-npc-list"></div>
               </section>
+              <div class="encounter-preparation-actions">
+              <button id="saveCombatPreparation" type="button">Save Preparation &amp; Return to Campaign</button>
               <button id="beginEncounter" class="primary begin-encounter" type="button">Begin Combat</button>
+              </div>
             </div>
           </section>
           <section id="atbLive" class="atb-live" hidden>

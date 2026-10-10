@@ -106,3 +106,23 @@ test('galaxy activation uses the same stationed-engineer benefit as combat',()=>
  assert.equal(cmd(c,{kind:'quote',mapId:m.id,starId:star.id,shipId:'a'}).quote.activationSeconds,expected);
  cmd(c,{kind:'travel',mapId:m.id,starId:star.id,shipId:'a'});assert.equal(ship.ship.warpState.total,expected);
 });
+
+
+test('explicit warp fuel choices validate stock and compatibility and survive journey start',()=>{
+ const {c,m,star}=setup(),ship=c.starships[0],args={mapId:m.id,starId:star.id,shipId:ship.id};
+ const initial=cmd(c,{kind:'quote',...args}).quote;assert.ok(initial.driveName);assert.ok(initial.fuelOptions.length);
+ const choice=initial.fuelOptions.find(o=>o.available>0&&o.rangeLY*o.available>=initial.targetLY);assert.ok(choice);
+ const fuelCounts={[choice.grade]:Math.ceil(initial.targetLY/choice.rangeLY)};
+ const q=cmd(c,{kind:'quote',...args,fuelCounts}).quote;assert.deepEqual(Object.fromEntries(Object.entries(q.counts).filter(([,n])=>n)),fuelCounts);
+ for(const counts of [{},{[choice.grade]:99999},{[choice.grade]:-1},{[choice.grade]:1.5},{Bogus:1}])assert.throws(()=>cmd(c,{kind:'quote',...args,fuelCounts:counts}));
+ cmd(c,{kind:'travel',...args,fuelCounts});assert.equal(ship.ship.warpState.phase,'activating');
+});
+
+test('second installed drive is rejected even powered off, while storage is allowed',()=>{
+ const {c,m,star}=setup(),ship=c.starships[0],args={kind:'quote',mapId:m.id,starId:star.id,shipId:ship.id};
+ ship.ship.sicInventory.push({id:'extra',type:'ew-ftl-drive',powered:false});
+ assert.ok(cmd(c,args).quote.driveName);
+ ship.ship.placements.push({sicId:'extra',cell:200});assert.throws(()=>cmd(c,args),/one Warp Drive may be installed/);
+ assert.match(maps.exteriorError(ship.ship),/one installed Warp Drive/);
+ ship.ship.placements.pop();assert.ok(cmd(c,args).quote.driveName);
+});

@@ -36,8 +36,9 @@ function fuelInventory(ship) {
 // Source: A-60..66/B-41..46. An impaired cell supplies half its usual range;
 // cells are still debited individually, only when their segment actually starts.
 // Plan entries are run-length encoded to keep large inventories bounded.
-function plan(ship, distanceLY, { sicId } = {}) {
+function plan(ship, distanceLY, { sicId, fuelCounts } = {}) {
   if (!ship || !finite(distanceLY) || distanceLY <= 0) return fail('Enter a positive distance in light-years.');
+  if(maps.installedItems(ship).filter(i=>maps.definition(i.type).warp).length>1)return fail('Only one Warp Drive may be installed. Move the extra drive to Storage in the build menu.');
   const item = drive(ship, sicId);
   if (!item) return fail('An installed, powered-on warp drive is required.');
   const def = maps.definition(item.type), multiplier = impaired(item) ? 2 : 1;
@@ -47,7 +48,14 @@ function plan(ship, distanceLY, { sicId } = {}) {
   const ranges = Object.fromEntries(grades.map(g => [g, FUEL_PARSECS[g] * PARSEC_LY / multiplier]));
   const counts = Object.fromEntries(Object.keys(FUEL_PARSECS).map(g => [g,0])), entries = [];
   let remaining = distanceLY;
-  while (remaining > Math.min(EPS, distanceLY * 1e-12)) {
+  if(fuelCounts!==undefined){
+    if(!fuelCounts||typeof fuelCounts!=='object'||Array.isArray(fuelCounts))return fail('Choose your fuel quantities.');
+    for(const [g,n]of Object.entries(fuelCounts))if(!Object.hasOwn(FUEL_PARSECS,g)||!Number.isSafeInteger(n)||n<0||n>inventory[g]||n>0&&!grades.includes(g))return fail('Choose available, compatible fuel cells in whole quantities.');
+    // Consume selected smaller cells first. Unused cells stay in storage.
+    for(const g of grades){const count=fuelCounts[g]||0;if(count){entries.push({grade:g,count,rangeLY:ranges[g]});counts[g]=count;remaining-=count*ranges[g];}}
+    if(remaining>EPS)return fail('The selected fuel does not cover this journey.');
+  }
+  while (fuelCounts===undefined && remaining > Math.min(EPS, distanceLY * 1e-12)) {
     const available = grades.filter(g => inventory[g] > 0);
     const grade = available.filter(g => ranges[g] <= remaining + EPS).at(-1) || available[0];
     if (!grade) return { ...fail('Insufficient compatible fuel for this journey.'), targetLY:distanceLY, missingLY:remaining };
@@ -236,11 +244,12 @@ function advance(room, seconds) {
       if (!available.ok || moving(ship) || impaired(available.item) !== state.impaired || distances.hexDistance(position, state.origin) > EPS) {
         events.push(endJourney(ship, 'interrupted', available.error || 'Drive condition or ship position changed during activation.'));
       } else {
+        const travelSeconds=Math.max(0,seconds-state.remaining);
         stop(ship); state.remaining = Math.max(0, state.remaining - seconds);
         if (state.remaining <= EPS) {
           state.remaining = 0;
           if(state.instantWarp){state.traveledLY=state.targetLY;events.push({kind:'warpDeparted',shipId:ship.id,id:state.id,unitId:state.unitId});events.push(endJourney(ship,'arrived','EW-FTL destination reached instantly.'));}
-          else if (consumeCell(ship)) { state.phase = 'traveling'; events.push({ kind:'warpDeparted', shipId:ship.id, id:state.id, unitId:state.unitId }); }
+          else if (consumeCell(ship)) { state.phase = 'traveling'; events.push({ kind:'warpDeparted', shipId:ship.id, id:state.id, unitId:state.unitId }); if(travelSeconds>0)events.push(...passTime(ship,travelSeconds/60).events); }
           else events.push(endJourney(ship, 'interrupted', 'The first fuel cell is unavailable.'));
         }
       }

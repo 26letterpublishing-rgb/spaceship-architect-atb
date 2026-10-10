@@ -1,7 +1,7 @@
 const maps=require('./ship-map-core'),rooms=require('./ship-crew-rooms'),stations=require('./station-access'),power=require('./ship-power');
 const enabled=ship=>maps.installedItems(ship).find(item=>maps.definition(item.type).shipAi&&stations.online(item)&&rooms.roomData(ship,item.id).enabled!==false);
 function configure(room,ship,mode){
-  if(!['off','defense','offense'].includes(mode))throw Error('Choose Defense, Offense or Off.');
+  if(!['off','automatic','defense','offense'].includes(mode))throw Error('Choose Automatic, Defense, Offense or Off.');
   const item=maps.installedItems(ship).find(i=>maps.definition(i.type).shipAi&&(mode==='off'||stations.online(i)));if(!item)throw Error('Install and power an online Ship AI first.');
   if(mode!=='off'&&power.output(ship,room.units).en<power.demand(ship))throw Error('Restore sufficient ship power first.');
   const policy=require('./ship-automation'),unit=room.units.find(u=>u.id==='ship-ai-'+ship.id);
@@ -16,11 +16,11 @@ function sync(room,makeUnit){
     const item=enabled(ship),id='ship-ai-'+ship.id;let unit=room.units.find(u=>u.id===id);
     const available=item&&ship.currentHullHp!==0&&!ship.escapedAt&&power.output(ship,room.units).en>=power.demand(ship);
     if(!available){if(unit){unit.shipAi=true;unit.speed=0;unit.atb=0;unit.defeatedAt||=Date.now();unit.location={starshipId:ship.id,stationed:false};unit.automationMode='off';const installed=maps.installedItems(ship).find(i=>maps.definition(i.type).shipAi);if(installed)rooms.roomData(ship,installed.id).automationMode='off';}continue;}
-    const details=rooms.roomData(ship,item.id),bridge=maps.installedItems(ship).find(i=>maps.definition(i.type).bridge&&stations.online(i)),placement=bridge&&ship.ship.placements.find(p=>p.sicId===bridge.id);
+    const details=rooms.roomData(ship,item.id);details.automationMode??='automatic';const bridge=maps.installedItems(ship).find(i=>maps.definition(i.type).bridge&&stations.online(i)),placement=bridge&&ship.ship.placements.find(p=>p.sicId===bridge.id);
     const seats=bridge?maps.componentDefinition(bridge).stations.map(s=>({starshipId:ship.id,sicId:bridge.id,square:placement.cell+s.y*maps.gridColumns(ship.ship)+s.x,mesh:s.mesh,stationed:true})):[];
     const free=loc=>require('./ship-automation').free(room,unit,loc);
     const seat=details.automationMode==='off'?null:seats.find(s=>(unit?.location?.square??details.automationSeat?.square)===s.square&&(unit?.location?.mesh??details.automationSeat?.mesh)===s.mesh&&free(s))||seats.find(free);
-    if(!seat&&details.automationMode&&details.automationMode!=='off')details.automationMode='off';
+    // Keep the chosen policy armed while waiting for a free Bridge seat.
     details.automationSeat=details.automationMode&&details.automationMode!=='off'?seat:null;
     details.station=seat?'Bridge station occupied':details.automationMode==='off'?'Automation off / bridge station released':'Standby: no free bridge station';
     if(!unit&&seat){unit=makeUnit({team:'npc',characterName:details.name||'Ship AI',playerName:'GM',speed:10.5,commandWindow:94,color:'#91e7cb',initialAtb:0,location:seat,shipAi:true,maximumHp:20,currentHp:20,physicalSkill:2.5,mentalSkill:2.5,physicalAttribute:8,mentalAttribute:8,raceType:'mechanical',allyNpc:ship.controlType==='pc'},room.threshold||100);unit.id=id;room.units.push(unit);}

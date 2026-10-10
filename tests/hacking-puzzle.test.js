@@ -40,7 +40,8 @@ test('all CPU Security cards retain source metadata, N/A security and impairment
     assert.equal(d.energyCost,costs[tier-1]);assert.equal(d.price,prices[tier-1]);assert.equal(d.threshold,9+tier*3);
     assert.equal(puzzle.firewallStats({type}),tier);assert.equal(puzzle.firewallStats({type,impairmentPoints:2}),Math.max(0,tier-2));
     assert.equal(puzzle.firewallStats({type,disabled:true}),0);assert.equal(puzzle.firewallStats({type,status:'destroyed'}),0);
-    assert.match(d.cardArt,new RegExp(`tier-${tier}$`));
+    assert.equal(d.cardArt,'card-cpu-security-equipment-v2.webp');
+    assert.match(d.image,new RegExp(`tier-${tier}(?:\\?|$)`));
   }
 });
 test('all Hacking Modules retain source qualification, reduction, size, power, price and impairment',()=>{

@@ -74,7 +74,7 @@
     const p=maps.propulsion(ship),sides=order.kind==='break'?Array(p.evadeCount).fill(p.evadeDie):[...(points(item||{})?def.impairedLockDice:def.lockDice)];
     const retryBonus=order.kind==='break'?0:state(ship).failures[(order.kind==='sic'?'sic:':'')+order.targetId]||0;
     const difficulty=order.kind==='break'?breakDifficulty(target,ship.id):sensors.defense(room,target);
-    return {sides,bonus:skill(unit,order.kind)+retryBonus-(order.kind==='sic'?maps.scramblePenalty(target,order.targetSicId):0),retryBonus:0,skill:order.kind==='break'?'Pilot/Helm':order.kind==='sic'?'Sensor Systems':'Weapon Systems',difficulty,difficultyLabel:`Meet or exceed ${difficulty}${retryBonus?`; retry +${retryBonus} included`:''}${order.kind==='sic'&&maps.scramblePenalty(target,order.targetSicId)?'; Scramble Box -1 included':''}`,attributeKey:'intellect'};
+    return {sides,bonus:skill(unit,order.kind)+retryBonus-(order.kind==='sic'?maps.scramblePenalty(target,order.targetSicId):0),retryBonus:0,skill:order.kind==='break'?'Piloting':order.kind==='sic'?'Sensor Systems':'Weapon Systems',difficulty,difficultyLabel:`Meet or exceed ${difficulty}${retryBonus?`; retry +${retryBonus} included`:''}${order.kind==='sic'&&maps.scramblePenalty(target,order.targetSicId)?'; Scramble Box -1 included':''}`,attributeKey:'intellect'};
   }
   function queue(room,unit,body){
     const seat=stations.station(room,unit),access=stations.access(room,unit,body.sicId)||(!body.sicId&&stations.consoles(room,unit).find(a=>a.kind==='lock')),ship=access?.controlled?access.ship:seat?.ship;

@@ -21,6 +21,17 @@ test('warp stores, campaign travel, registered cancellation and manual blast sur
   await post('campaign/starship/resources',purchase);await post('campaign/starship/resources',purchase);let current=(await campaign()).starships.find(s=>s.id===record.id);assert.equal(current.ship.warpFuel.D,5);assert.equal(current.ship.groupCredits,9800);
   await post('campaign/starship/resources',{...purchase,purchaseGrade:undefined,minerals:{Iron:99},requestId:'stock-forbidden'},409);
   await post('campaign/starship/save',{code,token,starship:{...ship,id:record.id}},409);
+  // A GM time jump must finish both drive activation and the remaining short trip.
+  // The PC reads the same result after changing perspective; retries spend no extra fuel.
+  const beforeShortTrip=await saved();
+  await transit({kind:'warpStart',sicId:'warp-test',distanceLY:.001});
+  const hourJump={code,token,amount:1,unit:'hours',requestId:'activation-and-travel-hour'};
+  await post('campaign/time/pass',hourJump);await post('campaign/time/pass',hourJump);
+  const gmArrival=(await campaign()).starships.find(s=>s.id===record.id);
+  const pcArrival=(await get(`campaign/state?code=${code}&token=${pc.token}`)).starships.find(s=>s.id===record.id);
+  assert.equal(gmArrival.ship.warpState.phase,'arrived');assert.equal(pcArrival.ship.warpState.phase,'arrived');
+  assert.equal(gmArrival.ship.warpFuel.D,4);assert.equal(pcArrival.ship.warpState.traveledLY,.001);
+  await post('campaign/restore',{code,token,backup:beforeShortTrip});
   const plan=await transit({kind:'warpPlan',sicId:'warp-test',distanceLY:6.52});assert.equal(plan.result.counts.D,2);
   await transit({kind:'warpStart',sicId:'warp-test',distanceLY:6.52});assert.equal((await campaign()).starships.find(s=>s.id===record.id).ship.warpFuel.D,5);
   await transit({kind:'warpCancel',sicId:'warp-test'});

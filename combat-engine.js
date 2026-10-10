@@ -789,7 +789,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       targetId: aidTarget.id, useKit, itemId: useKit ? kit.id : "", treatmentRating,
     }, `${unit.characterName} began First Aid on ${aidTarget.characterName} (${duration.toFixed(1)} sec).`, helpers, { resetAtb: true });
     setCombatBrief(unit, kind, `Treating ${aidTarget.characterName}`, [
-      `${unit.team === "npc" ? "Mental Attribute + Mental Skill" : "Intellect boxes + Anatomy/First Aid"} = ${treatmentRating.toFixed(1)} Speed`,
+      `${unit.team === "npc" ? "Mental Attribute + Mental Skill" : "Intellect boxes + First Aid"} = ${treatmentRating.toFixed(1)} Speed`,
       useKit ? "First Aid Kit committed" : "No kit",
     ]);
     return { ok: true, itemConsumed: useKit ? kit.id : "" };
@@ -927,13 +927,13 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   unit.movementChargeUnits = 0;
   if (kind === "wrestle" && !requestedTarget) return { ok: false, error: "Choose a valid target." };
   const labels = {
-    wrestle: `attempted to Wrestle/Disarm ${target}; resolve dice manually`,
-    firstAid: "used First Aid (Intellect + Anatomy/First Aid + 2D8; healing cannot exceed Maximum HP)",
+    wrestle: `attempted to Grappling ${target}; resolve dice manually`,
+    firstAid: "used First Aid (Intellect + First Aid + 2D8; healing cannot exceed Maximum HP)",
     actionResolved: "resolved an action",
   };
   const briefDetails = {
     wrestle: ["Resolve the contest manually", "Target must be nearby"],
-    firstAid: ["Requires a First Aid Kit", "Roll Intellect + Anatomy/First Aid, then add 2D8 healing", "Healing cannot exceed Maximum HP"],
+    firstAid: ["Requires a First Aid Kit", "Roll Intellect + First Aid, then add 2D8 healing", "Healing cannot exceed Maximum HP"],
     actionResolved: ["Freeform table action"],
   };
   setCombatBrief(unit, kind, labels[kind] || "Action resolved", briefDetails[kind] || []);

@@ -281,3 +281,11 @@ test('lost capture cannot issue another remote warp command, and an off-drive en
   g.room.hackingGrants = [];
   assert.equal(transit.command(g.room,g.p,{kind:'warpCancel',shipId:'b',sicId:'warp-b',requestId:'remote-cancel'}).ok,false);
 });
+
+test('one large time advance completes activation and spends only remaining time on travel',()=>{
+ const f=fixture(6);assert.equal(start(f,{distanceLY:LY}).ok,true);
+ const activation=f.a.ship.warpState.remaining,travel=f.a.ship.warpState.secondsPerParsec;
+ transit.advance(f.room,activation+travel/2);
+ assert.equal(f.a.ship.warpState.phase,'traveling');close(f.a.ship.warpState.traveledLY,LY/2);
+ transit.advance(f.room,travel/2);assert.equal(f.a.ship.warpState.phase,'arrived');
+});

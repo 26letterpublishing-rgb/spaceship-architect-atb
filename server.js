@@ -1021,7 +1021,7 @@ function visibleEncounter(data, viewer) {
   data={...data,hackingDice,starships:data.starships.map(s=>({...s,ship:{...s.ship,fieldState:s.ship.fieldState?{...s.ship.fieldState,hackAlertRolls:undefined}:undefined}}))};
   data = { ...data, accessRole: viewer?.gm ? 'gm' : viewer?.characterId ? 'character' : 'spectator' };
   const notices=require('./fleet-status').project(data,{role:viewer?.gm?'gm':'character',characterId:viewer?.characterId});
-  data={...data,fleetNotices:{lockedShips:notices.lockedShips,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
+  data={...data,fleetNotices:{critical:notices.critical,lockedShips:notices.lockedShips,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
   data.crewRoomRolls=(data.crewRoomRolls||[]).filter(r=>viewer?.gm||(viewer?.characterId&&r.characterId===viewer.characterId&&r.controller!=='gm'));
   data.starships=data.starships.map(s=>viewer?.gm||viewer?.spectator&&s.controlType==='pc'||s.crewCharacterIds?.includes(viewer?.characterId)||data.units.some(u=>u.characterId===viewer?.characterId&&u.location?.starshipId===s.id)?s:{...s,ship:{...s.ship,atmosphereState:undefined,cloakState:undefined,crewRoomState:undefined,fabricationState:undefined,fieldState:undefined,droneState:undefined,probeState:undefined}});
   data.missileRolls=(data.missileRolls||[]).filter(m=>viewer?.gm||(viewer?.characterId&&m.characterId===viewer.characterId&&m.controller!=='gm'));
@@ -1673,7 +1673,7 @@ function shipRollSpec(room,unit,pending){
   if(!ship)return {sides,bonus,skill,difficulty:null,difficultyLabel:'System unavailable'};
   if(pending.sensorOrder){sides=shipSensors.installed(ship)?.dice||[];bonus=shipSensors.skill(unit);difficulty=shipSensors.difficulty(room,ship.id,order.kind,order.targetId,order.hex);}
   else if(pending.maintenanceOrder){const item=ship?.ship.sicInventory.find(i=>i.id===order.sicId),d=shipMapCore.definition(item?.type),sensor=d.sensor||d.darkveil||d.lockOn;skill=sensor?'Sensor Systems':d.weapon?'Weapon Systems':d.bridge?'Computer Systems':'Engineering';bonus=Number(sensor?unit.sensorSkill:d.weapon?unit.weaponSystemsSkill:d.bridge?unit.computerSkill:unit.engineeringSkill)||Number(unit.mentalSkill)||0;sides=unit.team==='npc'&&!unit.shipAi?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];difficulty={value:Math.max(10,Number(item?.repairDifficulty)||10),label:'Repair difficulty '+Math.max(10,Number(item?.repairDifficulty)||10)};}
-  else{const propulsion=shipMapCore.propulsion(ship);skill='Pilot/Helm';sides=Array(propulsion?.evadeCount||0).fill(propulsion?.evadeDie||4);bonus=Number(unit.pilotSkill??unit.mentalSkill)||0;}
+  else{const propulsion=shipMapCore.propulsion(ship);skill='Piloting';sides=Array(propulsion?.evadeCount||0).fill(propulsion?.evadeDie||4);bonus=Number(unit.pilotSkill??unit.mentalSkill)||0;}
   if(!pending.maintenanceOrder){const matching=(ship?.commandSystems?.preparations||[]).filter(p=>p.action===order.kind&&p.remaining>0),teams=matching.filter(p=>p.kind==='team'&&p.unitId!==unit.id&&room.units.some(u=>u.id===p.unitId&&!u.defeatedAt));sides=[...sides,...teams.flatMap(()=>sides)];bonus=Math.max(bonus,...teams.map(p=>p.skill))+matching.filter(p=>p.kind==='calculation').length*2+(teams.length?teams.length+1:0);}
   const retryBonus=pending.sensorOrder?.kind==='analysis'?ship.sensorState?.failures?.[order.targetId]||0:0;
   const checks=pending.sensorOrder?shipSensors.scanChecks(room,order):[];if(checks.length){difficulty={value:Math.max(...checks.map(c=>c.difficulty)),label:'Difficulty '+checks.map(c=>c.difficulty).join(' / ')};}
@@ -2496,7 +2496,11 @@ async function handleRoomAction(body, res, automated = false) {
       }
       const report=ship?.sensorState?.reports?.[0];
       const resolved=report&&report!==previous?report:null;
-      if(exertionRecord&&!queued?.extractionRoll&&!spec.damage&&Number.isFinite(body.score??resolved?.total)){require('./character-statistics').roll(exertionRecord.character,spec.skill||spec.attributeKey||'Ship Systems',body.score??resolved.total,body.rollId);await campaignApi.save(exertionCampaign);}
+      if(exertionRecord&&!queued?.extractionRoll&&!spec.damage&&Number.isFinite(body.score??resolved?.total)){
+        require('./character-statistics').roll(exertionRecord.character,spec.skill||spec.attributeKey||'Ship Systems',body.score??resolved.total,body.rollId);
+        require('./ship-reputation').recordRoll(exertionCampaign,exertionRecord.id,{attribute:spec.attributeKey,skill:spec.skill,score:body.score??resolved.total,receipt:body.rollId,source:'Combat console'});
+        await campaignApi.save(exertionCampaign);
+      }
       if(exertion){if(exertionRecord){exertionRecord.character.resources.exertionCurrent=available-exertion;exertionRecord.updatedAt=new Date().toISOString();await campaignApi.save(exertionCampaign);}else playerUnit.exertionCurrent=available-exertion;}
       playerUnit.lastShipRoll={id:body.rollId,label:queued?.label||pending.label,text:resolved?.text||'Action completed.',values:resolved?.values||[],total:resolved?.total};
       const entering=Boolean(pending?.rollBeforeDelay&&playerUnit.delayedAction===pending);
@@ -2512,6 +2516,7 @@ async function handleRoomAction(body, res, automated = false) {
     let result;recordShipReports(room,()=>{result=shipCommands.queue(room,playerUnit,body);});
     if (!result.ok) { sendJson(res,409,{error:result.error}); return; }
     if(result.free&&!result.duplicate)recordShipReports(room,()=>shipCommands.advance(room,0,previousPositions));
+    if(body.kind==='accept'&&!result.duplicate){const campaign=await campaignApi.campaign(room.roomCode);if(campaign){require('./ship-reputation').hail(campaign,room,body.callId,result.ship.id);await campaignApi.save(campaign);}}
     if (!result.duplicate && !result.free) {
       const source = room.activeSource;
       room.activeId = null; room.pausedForTurn = false; clearActiveCommand(room);
@@ -2822,7 +2827,7 @@ async function handleRoomAction(body, res, automated = false) {
     if (!Number.isFinite(difficulty) || difficulty < 1 || difficulty > 999) { sendJson(res, 400, { error: "Enter a valid First Aid Difficulty." }); return; }
     resolution.difficulty = difficulty;
     resolution.phase = "roll";
-    pushLog(room, `First Aid Difficulty set to ${difficulty}; ${resolution.healerName} must roll Intellect + Anatomy/First Aid.`);
+    pushLog(room, `First Aid Difficulty set to ${difficulty}; ${resolution.healerName} must roll Intellect + First Aid.`);
   }
 
   if (action === "submitFirstAidRoll") {

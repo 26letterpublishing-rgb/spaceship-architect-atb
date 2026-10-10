@@ -119,7 +119,7 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
     if(maps.roomOxygen(ship,unit.location?.square)<=10||!maps.gravityEnabled(ship)||!maps.installedItems(ship).some(i=>i.type==='life-support'&&maps.operational(i))||ship.ship.oxygenEnabled===false)throw Error('VR requires operational Life Support, oxygen and artificial gravity.');
     if(impaired)throw Error('The VR room is glitchy. Repair it before awarding training; the GM may narrate a simulation.');
     if(body.kind==='simulate'){
-      const record=campaign?.characters.find(c=>c.id===unit.characterId),skill=String(body.skill||details.trainingSkill||'Pilot/Helm');
+      const record=campaign?.characters.find(c=>c.id===unit.characterId),skill=String(body.skill||details.trainingSkill||'Piloting');
       if(!skillCatalog.names.includes(skill)&&!Object.hasOwn(record?.character.skills||{},skill))throw Error('Choose a character skill.');
       details.simulation=vrSimulations.title(skill,body.text).slice(0,120);details.trainingSkill=skill;details.safety=body.enabled!==false;
       details.report={text:vrSimulations.narrative(unit.characterName,skill,details.simulation)+' Practice simulation; no training award.',at:Date.now()};
@@ -136,7 +136,7 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
       if(!Number.isInteger(gain)||gain<1||gain>4)throw Error('Enter your manually rolled D4 result.');
       skills[skill]={...(typeof old==='object'?old:{}),tenths:tenths+gain};
       record.character.computed||={};record.character.computed.skills||={};record.character.computed.skills[skill]=(tenths+gain)/10;
-      if(skill==='Athletics/Endurance'&&Number.isFinite(record.character.computed.moveSpeed))record.character.computed.moveSpeed+=gain/10;
+      if(skill==='Athletics'&&Number.isFinite(record.character.computed.moveSpeed))record.character.computed.moveSpeed+=gain/10;
       record.character.vrTrainingDay=day;record.updatedAt=new Date().toISOString();record.character.updatedAt=record.updatedAt;
       details.simulation=vrSimulations.title(skill,body.text||(details.trainingSkill===skill&&details.simulation)).slice(0,120);
       if(body.enabled!==undefined)details.safety=body.enabled!==false;

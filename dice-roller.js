@@ -416,7 +416,7 @@ export class PhysicalDiceRoller {
     });
   }
 
-  rollPercentile({ title, subtitle, config, onConfig, onResolved, onSettled, anchor }) {
+  rollPercentile({ title, subtitle, config, onConfig, onResolved, onSettled, anchor, presentation = null }) {
     const percentileResult = (results) => {
       const tens = results[0] === 10 ? 0 : results[0];
       const ones = results[1] === 10 ? 0 : results[1];
@@ -433,6 +433,7 @@ export class PhysicalDiceRoller {
       onConfig,
       onResolved: (results) => onResolved?.(percentileResult(results)),
       onSettled: (results) => onSettled?.(percentileResult(results)),
+      large: presentation === "large",
       anchor,
     });
   }
@@ -461,7 +462,7 @@ export class PhysicalDiceRoller {
     });
   }
 
-  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor, fusion = false, pool = false, avalanche = false }) {
+  async rollDice({ dice, title, subtitle, config, onConfig, onResolved, onSettled, anchor, fusion = false, pool = false, avalanche = false, large = false }) {
     this.stop();
     try {
       this.onRollStart?.({ dice });
@@ -471,6 +472,7 @@ export class PhysicalDiceRoller {
     this.shell.hidden = false;
     this.shell.classList.remove("celebrating", "choices-ready");
     this.shell.classList.toggle("pool-roll", pool);
+    this.shell.classList.toggle("large-percentile",large);
     this.shell.classList.toggle("dice-avalanche", avalanche);
     this.title.textContent = title;
     this.subtitle.textContent = subtitle;

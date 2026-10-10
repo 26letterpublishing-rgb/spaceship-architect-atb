@@ -27,8 +27,8 @@
       phases.set(ship.id,warp?.phase);
     }
     const active=ships.filter(s=>['activating','traveling'].includes(s.ship.warpState?.phase)||['approvals','countdown','blastPending'].includes(s.ship.destructState?.phase));
-    panel.hidden=!active.length;if(panel.hidden){window.SAWarpEffects?.update(null);if(panel.matches(':popover-open'))panel.hidePopover();return;}
-    window.SAWarpEffects?.update(ships.find(s=>s.ship.warpState?.phase==='traveling'));
+    panel.hidden=!active.length;if(panel.hidden){if(panel.matches(':popover-open'))panel.hidePopover();return;}
+
     const markup='<button type="button" data-collapse-warp aria-label="Hide or show warp status">'+(collapsed?'&lt;':'&gt;')+'</button>'+active.map(s=>{const w=s.ship.warpState,d=s.ship.destructState,destruct=['approvals','countdown','blastPending'].includes(d?.phase),choices=actors(s);
       return `<article data-transit-ship="${esc(s.id)}"><strong>${esc(s.title)}</strong><output data-transit-phase></output>${model.role==='gm'?`<select aria-label="Acting crewmember">${choices.map((a,i)=>`<option value="${i}">${esc(a.name)}</option>`).join('')}</select>`:''}${destruct?'<button type="button" data-kind="destructCancel">Cancel Self-Destruct</button>':w?.phase==='activating'?'<button type="button" data-kind="warpCancel">Cancel Warp Activation</button>':'<button type="button" data-kind="warpExit">Exit Warp</button>'}${d?.phase==='blastPending'&&(model.role==='gm'||d.approvals?.at(-1)?.crewId===`character:${model.ownCharacterId}`)?`<button type="button" data-kind="blastRoll">Roll ${d.diceCount}D12 Damage</button>`:''}<span role="status" data-transit-error></span></article>`;}).join('');
     if(panel.dataset.markup!==markup){panel.innerHTML=markup;panel.dataset.markup=markup;}

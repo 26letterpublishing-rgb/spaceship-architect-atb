@@ -374,6 +374,8 @@ async function api(path, body = null, method = "POST") {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {const error=new Error(payload.error || "The server rejected that request.");error.status=response.status;throw error;}
+  const deliveries={'/api/campaign/award':'Reward sent','/api/campaign/item/give':'Item sent','/api/campaign/item/recharge':'Recharge sent','/api/campaign/note/send':'Private note sent','/api/campaign/roll/request':'Roll request sent','/api/campaign/starship/resources':'Ship resources updated','/api/campaign/starship/library-entry':'Library entry sent','/api/campaign/reverence-gift':'Reverence sent','/api/campaign/join/respond':'Character approval response sent','/api/campaign/exertion/rest-decision':'Rest decision sent','/api/campaign/item/deny':'Item decision sent','/api/campaign/item/cover-deficit':'Item funding updated','/api/campaign/class-action':'Class action applied','/api/campaign/angiluros/craft':'Crafting result sent'};
+  if(method==='POST'&&deliveries[path]&&!payload.alreadyRecorded){const names=(body?.targetIds||body?.characterIds||[body?.characterId]).filter(Boolean).map(id=>characterName(campaign?.characters?.find(c=>c.id===id))).join(', ');window.SAResultFeedback?.notice(deliveries[path]+(names?' to '+names:'')+'.','success',6000,{allowOutsideCombat:true});}
   return payload;
 }
 
@@ -406,7 +408,7 @@ function saveEncounterMapDraft() {
   encounterPositionDraft = window.SASpaceObjects.mergeDraftPositions(encounterPositionDraft, encounterPositions, (campaign.starships || []).map(ship => ship.id));
   encounterMapDraftSaved = true;
   try {
-    sessionStorage.setItem(`sa-encounter-map-draft-${code}`, JSON.stringify({ version: 1, objects: encounterObjects, baseline: encounterObjectBaseline, positions: encounterPositionDraft }));
+    sessionStorage.setItem(`sa-encounter-map-draft-${code}`, JSON.stringify({ version: 1, objects: encounterObjects, baseline: encounterObjectBaseline, positions: encounterPositionDraft, mode:encounterMode, characters:[...selectedEncounterCharacters], ships:[...selectedEncounterStarships], npcs:stagedNpcs, locations:[...encounterLocations] }));
   } catch { /* Keep the current draft usable if browser storage is full. */ }
 }
 
@@ -423,6 +425,11 @@ function restoreEncounterMapDraft() {
     const draft = JSON.parse(sessionStorage.getItem(`sa-encounter-map-draft-${code}`) || 'null');
     if (draft?.version !== 1) return;
     const restored = window.SASpaceObjects.restoreDraft(draft, objects, (campaign.starships || []).map(ship => ship.id));
+    if(draft.mode)encounterMode=draft.mode;
+    if(Array.isArray(draft.characters))selectedEncounterCharacters=new Set(draft.characters.filter(id=>campaign.characters.some(c=>c.id===id)));
+    if(Array.isArray(draft.ships))selectedEncounterStarships=new Set(draft.ships.filter(id=>campaign.starships.some(s=>s.id===id)));
+    if(Array.isArray(draft.npcs))stagedNpcs=draft.npcs;
+    if(Array.isArray(draft.locations))for(const [id,shipId] of draft.locations)if(campaign.characters.some(c=>c.id===id)&&campaign.starships.some(s=>s.id===shipId))encounterLocations.set(id,shipId);
     encounterObjects = restored.objects;
     encounterPositionDraft = restored.positions;
     encounterMapDraftSaved = true;
@@ -586,14 +593,14 @@ function encounterRuleFields(record) {
     strengthDice: (record?.character?.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     projectileSkill: Number(skillRating(record, "Projectile")) || 0,
     engineeringSkill: Number(skillRating(record, "Engineering")) || 0,
-    pilotSkill: Number(skillRating(record, "Pilot/Helm")) || 0,
+    pilotSkill: Number(skillRating(record, "Piloting")) || 0,
     sensorSkill: Number(skillRating(record, "Sensor Systems")) || 0,
     weaponSystemsSkill: Number(skillRating(record, "Weapon Systems")) || 0,
     mathematicsSkill: Number(skillRating(record, "Mathematics")) || 0,
     computerSkill: Number(skillRating(record, "Computer Systems")) || 0,
     hackingSkill: Number(skillRating(record, 'Hacking')) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
-    dodgeSkill: Number(skillRating(record, "Dodge/Block")) || 0,
+    dodgeSkill: Number(skillRating(record, "Dodge")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
     maximumHp: Math.max(0, Number(record?.character?.computed?.maximumHp) || 0),
     currentHp: Math.max(0, Number(record?.character?.health?.current ?? record?.character?.computed?.maximumHp) || 0),
@@ -811,7 +818,7 @@ function renderRollResults() {
     }).sort((a, b) => (b.result?.score ?? -Infinity) - (a.result?.score ?? -Infinity));
     return `<article class="roll-request-card">
       <div class="roll-request-head"><div><strong>${escapeHtml(request.attribute)} + ${escapeHtml(request.skill)}</strong><small>${request.difficulty === null ? "No Difficulty" : `Difficulty ${request.difficulty}${request.hideDifficulty ? " (Hidden)" : ""}`}</small></div><button type="button" data-close-roll="${request.id}">Close</button></div>
-      ${rows.map(({ name, result }) => `<div class="result-row"><span>${escapeHtml(name)}</span>${result ? `<strong>${result.score}</strong><small>${escapeHtml(result.outcome || result.mode)}</small>` : '<span class="waiting">Waiting</span><small>Pending</small>'}</div>`).join("")}
+      ${rows.map(({ name, result }) => `<div class="result-row"><span>${escapeHtml(name)}</span>${result ? `<strong>${result.cancelled?'—':result.score}</strong><small>${escapeHtml(result.outcome || result.mode)}</small>` : '<span class="waiting">Waiting</span><small>Pending</small>'}</div>${window.SAReputationUI?.comparison(result?.reputation)||''}`).join("")}
     </article>`;
   }).join("") : "<p>No active roll requests.</p>";
 }
@@ -1583,7 +1590,6 @@ function openWorkspace(nextCampaign, nextToken) {
   campaign = nextCampaign;
   code = campaign.code;
   token = nextToken;
-  restoreEncounterMapDraft();
   (SHOWCASE_MODE ? sessionStorage : localStorage).setItem(tokenKey(code), token);
   if (!SHOWCASE_MODE) localStorage.setItem("sa-current-campaign-code", code);
   dom.gateway.hidden = true;
@@ -1601,6 +1607,7 @@ function openWorkspace(nextCampaign, nextToken) {
   encounterLocations.clear();
   npcSequence = 0;
   stagedNpcs = [];
+  restoreEncounterMapDraft();
   encounterNpcDraft = randomBuiltinNpc();
   premadeNpcDraft = (campaign.npcTemplates || []).length ? stagedNpc(campaign.npcTemplates[0]) : stagedNpc(NPC_BLANK);
   renderCampaign();
@@ -1643,8 +1650,8 @@ async function saveScript() {
 
 async function sendRollRequest({ targetIds, attribute, skill, difficulty = null, hideDifficulty = false, source = "GM Prompt", connectedOnly = false, completionActionId = "" }) {
   const payload = await api("/api/campaign/roll/request", { code, token, targetIds, attribute, skill, difficulty, hideDifficulty, source, connectedOnly, completionActionId });
-  window.SAResultFeedback?.notice(`Request sent to ${payload.request.targetIds.length} character(s).`, "success");
-  showMessage(dom.message, `Roll request sent to ${payload.request.targetIds.length} character${payload.request.targetIds.length === 1 ? "" : "s"}.`, "success");
+
+
 }
 
 function conditionalFormPayload() {
@@ -2049,7 +2056,9 @@ dom.closeSheetViewer.addEventListener("click", () => {
 dom.endSession.addEventListener("click", async () => {
   dom.endSession.disabled = true;
   try {
-    const payload = await api("/api/campaign/session/end", { code, token });
+    const expectedSession=campaign.sessionNumber;
+    const reputation=await window.SAReputationUI.endSession(campaign);if(reputation===null)return;
+    const payload = await api("/api/campaign/session/end", { code, token, receipt:crypto.randomUUID(), expectedSession, reputation });
     receiveCampaign(payload.campaign);
     showMessage(dom.message, `Session ${payload.sessionEnded} ended. Player abilities and counters were reset.`, "success");
     const exportNow = await confirmGm({
@@ -2837,15 +2846,13 @@ document.getElementById('giveMineralsForm').addEventListener('submit',async e=>{
 
 window.addEventListener("message",event=>{if(event.origin!==location.origin||event.source!==dom.starshipEditorFrame?.contentWindow||event.data?.type!=="sa-ship-editor-exit")return;void closeCampaignStarshipEditor();showMessage(dom.message,event.data.message||"Ship editor closed.","success");});
 
-let promptResultBaseline=null;
 function notifyPromptResults(next){
  const entries=(next.rollRequests||[]).flatMap(request=>Object.entries(request.results||{}).map(([id,result])=>({key:request.id+':'+id,request,id,result})));
- if(promptResultBaseline){for(const entry of entries){
-  if(promptResultBaseline.has(entry.key))continue;
+ for(const entry of entries){
+  if(entry.result.cancelled)continue;
   const person=next.characters.find(c=>c.id===entry.id);
-  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.request.difficulty==null?'':' vs Difficulty '+entry.request.difficulty}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true});
- }}
- promptResultBaseline=new Set(entries.map(e=>e.key));
+  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true,reputation:entry.result.reputation,allowOutsideCombat:true,details:`${entry.request.attribute} + ${entry.request.skill||'—'}\nResult: ${entry.result.score}\nDifficulty: ${entry.request.difficulty??'None'}\nOutcome: ${entry.result.outcome||'—'}\nDice: ${(entry.result.diceResults||[]).join(', ')||'Manual entry'}`});
+ }
 }
 
 document.addEventListener('change',event=>{
@@ -2868,3 +2875,8 @@ const settingsRecovery=document.createElement('button');settingsRecovery.type='b
 
 // Loading a saved system is an explicit replacement of the preparation map, not a draft merge.
 window.addEventListener("sa-open-system",event=>{if(!event.detail||event.detail.code!==code)return;receiveCampaign(event.detail);encounterObjects=structuredClone(event.detail.spaceObjects||[]);encounterObjectBaseline=structuredClone(encounterObjects);encounterPositions=[];encounterPositionDraft=[];encounterDistances=[];saveEncounterMapDraft();renderEncounterBuilder();});
+
+// Reuse the preparation draft, preserving all choices when returning to Campaign.
+document.getElementById('saveCombatPreparation').onclick=()=>{saveEncounterMapDraft();selectGmTab('campaign');};
+const promptTools=document.querySelector('#promptTab .tool-grid'),rollForm=document.querySelector('#rollPromptForm');
+if(promptTools&&rollForm)promptTools.prepend(rollForm);

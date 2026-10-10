@@ -50,10 +50,10 @@ test('VR reaches 6.0, then hides capped skills and refuses further bonuses witho
 });
 
 test('fixed VR training ignores supplied dice and updates Endurance movement by only 0.1',()=>{
-  const f=fixture();f.seat('vr');f.character.character.skills['Athletics/Endurance']=4.1;
+  const f=fixture();f.seat('vr');f.character.character.skills['Athletics']=4.1;
   const before=f.character.character.computed.moveSpeed;
-  command(f,'vr','train',{skill:'Athletics/Endurance',score:999});
-  assert.equal(f.character.character.skills['Athletics/Endurance'].tenths,42);
+  command(f,'vr','train',{skill:'Athletics',score:999});
+  assert.equal(f.character.character.skills['Athletics'].tenths,42);
   assert.equal(f.character.character.computed.moveSpeed,before+.1);
 });
 

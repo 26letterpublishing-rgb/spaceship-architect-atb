@@ -28,7 +28,7 @@
     function close(){dismissed.add(request.id);view.close();}
     const receive=async event=>{
       if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
-      if(event.data?.type==='sa-ship-skill-ready')frame.contentWindow.postMessage({type:'sa-ship-skill-open',rollId:request.id,attributeKey:'health',attributeLabel:'Health',immediateResult:true,sides:request.dice,bonus:request.skill,skill:'Athletics/Endurance',difficulty:request.difficulty,difficultyLabel:`Difficulty ${request.difficulty}`,name:person.name,title:'Lack of Oxygen: Health + Endurance'},location.origin);
+      if(event.data?.type==='sa-ship-skill-ready')frame.contentWindow.postMessage({type:'sa-ship-skill-open',rollId:request.id,attributeKey:'health',attributeLabel:'Health',immediateResult:true,sides:request.dice,bonus:request.skill,skill:'Athletics',difficulty:request.difficulty,difficultyLabel:`Difficulty ${request.difficulty}`,name:person.name,title:'Lack of Oxygen: Health + Endurance'},location.origin);
       if(event.data?.type==='sa-ship-skill-opened'&&event.data.rollId===request.id){clearTimeout(timer);status.hidden=true;}
       if(event.data?.type==='sa-ship-skill-cancel')close();
       if(event.data?.type==='sa-ship-skill-result'&&event.data.rollId===request.id&&!busy){

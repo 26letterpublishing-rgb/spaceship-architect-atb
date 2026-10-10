@@ -18,11 +18,11 @@ test('practice dice enforce sequential purchases, 225 EXP, protected free dice a
  assert.deepEqual(rows,[0,0,-1,-1]);assert.equal(c.attributePracticeRemaining(rows),225);
 });
 
-test('point values flash white to black for 500ms on changes, never on unchanged renders or switching characters',()=>{
+test('point values flash white to their normal text color for 500ms on changes, never on unchanged renders or switching characters',()=>{
  const calls=[],node={dataset:{},style:{removeProperty(){}},animate:(frames,options)=>{const call={frames,options,cancelled:false};calls.push(call);return{cancel(){call.cancelled=true;}};}};
- const c=load('const pointReadoutValues=','function renderExperience()',{});
+ const c=load('const pointReadoutValues=','function renderExperience()',{getComputedStyle:()=>({color:'rgb(0, 200, 230)'})});
  c.updatePointReadout(node,225,'pc');assert.equal(calls.length,0);
- c.updatePointReadout(node,210,'pc');assert.equal(calls.length,1);assert.equal(calls[0].frames[0].color,'#fff');assert.equal(calls[0].frames[1].color,'#000');assert.equal(calls[0].options.duration,500);
+ c.updatePointReadout(node,210,'pc');assert.equal(calls.length,1);assert.equal(calls[0].frames[0].color,'#fff');assert.equal(calls[0].frames[1].color,'rgb(0, 200, 230)');assert.equal(calls[0].options.duration,500);
  c.updatePointReadout(node,210,'pc');assert.equal(calls.length,1);
  c.updatePointReadout(node,225,'pc');assert.equal(calls.length,2);assert.equal(calls[0].cancelled,true);
  c.updatePointReadout(node,100,'other');assert.equal(calls.length,2);assert.equal(calls[1].cancelled,true);

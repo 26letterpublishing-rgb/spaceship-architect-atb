@@ -120,7 +120,7 @@ for(const [type,rules,impairment] of [
   ['bar','5x5 social room serving drinks. Optional robotic bartender. Drinks and intoxication are roleplayed; no automatic skill bonuses.','Robotic bartender gives an incorrect order 50% of the time. Use the standard D6: 1–3 incorrect, 4–6 correct.'],
   ['hibernation-chamber','Long-trip hibernation for one occupant. Requires operational Life Support. Wake manually anytime; emergency monitoring wakes the occupant for an encounter, damage, loss of power or unsafe oxygen.','Sleeping occupant loses 25% of current HP, rounded up, and awakens.'],
   ['brig','Prisoner detainment cell with a GM-managed custody register. Reinforced doors require three hits of at least 40 damage; weaker hits do nothing. System Repairs and Diagnostics restores them. Increase its footprint free in construction; supporting hull still costs normally.','General destruction. GM records the consequences and decides their effects.'],
-  ['science-lab','Detailed analysis of objects, beings and anomalies. +4 to Research, Science/Physics and Astronomy checks while using the laboratory. Displays shared ship mineral storage. Bonus applies to every character inside this room. The GM supplies discoveries.','Information is unreliable; research bonus unavailable.'],
+  ['science-lab','Detailed analysis of objects, beings and anomalies. +4 to Research, Science and Astronomy checks while using the laboratory. Displays shared ship mineral storage. Bonus applies to every character inside this room. The GM supplies discoveries.','Information is unreliable; research bonus unavailable.'],
   ['3d-printer','Science Lab upgrade with no floorplan. All ship blueprints are shared. Six jobs per printer, including the active job. Minerals are consumed when each job starts. Uses each SIC’s printed crafting time. Completed SICs enter ship storage. Printed resale value: 25% of original price.','Pauses with the host lab; destruction loses the unfinished item.'],
   ['mineral-processor','Science Lab upgrade with no floorplan. Converts minerals using the recipes on page 132. One unit per cycle. Six queued cycles per processor. Minerals are consumed when a cycle starts. GM Pass Time advances progress.','Pauses with the host lab; destruction loses the unfinished mineral.'],
   ['blueprint','Choose Buy blueprint on a craftable SIC. Unlocks that SIC for every 3D Printer on this starship. Does not consume floor space or minerals; each print consumes its recipe minerals.','N/A'],
@@ -208,6 +208,11 @@ for(const type of ['life-support','nutritional-supplement']) {
   if(rules){const station=document.createElement('strong');station.textContent='Stations 1';rules.append(station);}
 }
 for (const card of document.querySelectorAll('[data-sic-card^="ionic-pulse-thruster-"]')) card.querySelector(".sic-poker-art").src = `${card.dataset.sicCard}-card.png`;
+// Apply catalog art before any shop, owned-card or inspector template is cloned.
+for(const card of document.querySelectorAll('[data-sic-card]')) {
+  const data=SIC_CATALOG[card.dataset.sicCard],art=card.querySelector('.sic-poker-art');
+  if(data?.cardArt&&art){art.src=data.cardArt;art.alt=`${data.name} equipment`;}
+}
 function cardAccent(type) {
   if (type === "life-support") return "#42e0d0";
   if (type === "nutritional-supplement") return "#e9ef4d";
@@ -1223,7 +1228,7 @@ function renderConstructionControls() {
 }
 function renderAll() {
   syncAddonPositions();
-  window.SAWarpEffects?.update(draft);
+
   if(splitPlacement&&(selectedSicId!==splitPlacement.id||!selectedSic()||selectedSic().storage||selectedSic().pendingDisposition))splitPlacement=null;
   buildConstructionZone();installTriangleControls();
   document.querySelectorAll('[data-thruster-direction]').forEach(e=>e.value=draft.thrusterDirection===null||draft.thrusterDirection===undefined?'':String(draft.thrusterDirection));
@@ -1644,7 +1649,7 @@ function activeCampaignCredentials(code) {
   return pageParameters.get("embedded")==="pc"?{token:characterToken,characterId:operator?.id||""}:{ token: gmToken || characterToken || localStorage.getItem("sa-room-player-"+code) || "", characterId: gmToken ? "" : operator?.id || "" };
 }
 async function campaignApi(path, body = null, method = "POST") {
-  if(pageParameters.get('details')==='1'&&method!=='GET'&&path!=='/api/campaign/starship/details')throw new Error('Open Edit Ship to make changes.');
+  if(pageParameters.get('details')==='1'&&method!=='GET'&&path!=='/api/campaign/starship/details'&&path!=='/api/campaign/reputation')throw new Error('Open Edit Ship to make changes.');
   const response = await fetch(path, { method, headers: body === null ? undefined : { "Content-Type": "application/json" }, body: body === null ? undefined : JSON.stringify(body) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "The campaign server rejected that request.");
@@ -1901,11 +1906,18 @@ const reputationNames = [["Benevolent", "Ruthless"], ["Virtuous", "Treacherous"]
 function renderReputationSelections() {
   document.querySelectorAll(".reputation-position").forEach((position) => {
     const selected = draft.reputationSelections[Number(position.dataset.row)] === Number(position.dataset.index);
+    position.setAttribute("aria-disabled",String(!canEditReputation()));position.setAttribute("tabindex",canEditReputation()?"0":"-1");
     position.classList.toggle("selected", selected); position.setAttribute("aria-pressed", String(selected));
     position.querySelectorAll("circle, text").forEach((element) => element.classList.toggle("selected", selected));
   });
 }
-function chooseReputation(rowIndex, index) { draft.reputationSelections[rowIndex] = index; renderReputationSelections(); saveDraft(); }
+let reputationSaveQueue=Promise.resolve();
+function canEditReputation(){return linkedCampaignState?.role==='gm';}
+function persistReputation(){
+ if(!canEditReputation())return;const values=[...draft.reputationSelections],popularity=draft.popularity||0,shipId=draft.id,code=linkedCampaignState.code,credentials=activeCampaignCredentials(code),receipt=crypto.randomUUID();
+ reputationSaveQueue=reputationSaveQueue.catch(()=>{}).then(async()=>{try{await campaignApi('/api/campaign/reputation',{code,...credentials,shipId,kind:'edit',values,popularity,receipt});}catch(error){showMessage(error.message,'error');throw error;}});void reputationSaveQueue.catch(()=>{});
+}
+function chooseReputation(rowIndex, index) { if(!canEditReputation())return;draft.reputationSelections[rowIndex] = index; renderReputationSelections(); saveDraft();persistReputation(); }
 document.querySelectorAll(".reputation-chart").forEach((chart) => {
   chart.querySelectorAll(".reputation-row > g").forEach((track, rowIndex) => {
     const isDesktopTrack = chart.classList.contains("desktop-reputation-chart");
@@ -1929,9 +1941,9 @@ document.querySelectorAll(".reputation-chart").forEach((chart) => {
 });
 const popularityInputs = [...document.querySelectorAll("[data-reputation-popularity]")];
 function syncPopularity(value, source) {
-  if (value === "") return;
+  if (value === ""||!canEditReputation()) return;
   draft.popularity = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-  popularityInputs.forEach((input) => { if (input !== source) input.value = String(draft.popularity); }); saveDraft();
+  popularityInputs.forEach((input) => { if (input !== source) input.value = String(draft.popularity); }); saveDraft();persistReputation();
 }
 popularityInputs.forEach((input) => {
   input.value = String(draft.popularity);
@@ -1975,7 +1987,7 @@ async function initializeStarshipPage() {
       }
     } catch (error) { campaignMessage(error.message, "error"); }
   }
-  applyDraftToUi();
+  applyDraftToUi();renderReputationSelections();popularityInputs.forEach(input=>input.disabled=!canEditReputation());
   if (!draft.campaignLink && campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
   if (draft.campaignLink) await refreshLinkedCampaign();
   if(parameters.get('embedded')==='pc'){
@@ -1985,7 +1997,7 @@ async function initializeStarshipPage() {
   if(parameters.get('details')==='1'){
     document.querySelector('[data-starship-tab="details"]')?.click();
     document.querySelectorAll('[data-starship-tab]').forEach(b=>b.hidden=true);
-    document.querySelectorAll('input,textarea,select').forEach(e=>{if(!e.matches('[data-map-toggle],[data-map-display]'))e.disabled=true;});
+    document.querySelectorAll('input,textarea,select').forEach(e=>{if(!e.matches('[data-map-toggle],[data-map-display]')&&!(canEditReputation()&&e.matches('[data-reputation-popularity]')))e.disabled=true;});
     document.body.classList.add('ship-details-only');
     const readOnlyStyle=document.createElement('style');readOnlyStyle.textContent='.ship-details-only .starship-tabs,.ship-details-only .starship-library{display:none!important}';document.head.append(readOnlyStyle);
     const notify=()=>parent.postMessage({type:'sa-character-sheet-height',height:Math.ceil(document.querySelector('main').getBoundingClientRect().bottom+scrollY)+48},location.origin);
@@ -2105,7 +2117,7 @@ window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-move-preview'||!pageParameters.has('embeddedRecord'))return;
   const beginningMove=!embeddedMove&&event.data.move;
   embeddedMove=event.data.move;let changed=false;
-  if(beginningMove&&!embeddedKeyboardMode)requestAnimationFrame(fitShipToViewport);
+  if(beginningMove&&!embeddedKeyboardMode)requestAnimationFrame(focusShipCharacter);
   for(const key of ['labels','walls','stations','highResolution','combatMesh','hull'])if(typeof event.data.view?.[key]==='boolean'&&mapView[key]!==event.data.view[key]){mapView[key]=event.data.view[key];changed=true;}
   if(changed)renderAll();else renderEmbeddedMovement();
 });

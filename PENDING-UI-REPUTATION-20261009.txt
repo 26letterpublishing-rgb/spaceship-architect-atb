@@ -1,0 +1,101 @@
+Included in the authorized October 10 #commit release. See RELEASE-AUDIT-20261010.txt. Original implementation/discussion record follows.
+
+IMPLEMENTED LOCALLY under #local, October 9, 2026. See ../outputs/UI_Reputation_Report_2026-10-09.txt. Original discussion preserved below.
+Source: C:\Users\zombi\.codex\attachments\c66ae6c8-13fe-4160-961c-753e0632e360\Pasted text.txt
+
+Moving forward I want you to remember the following:
+If a function already exists, such as a system to give reverence to a player, and something happens where a unique way to give that player reverence doesn't work, and I ask you to fix it, I don't want you to create a whole new system from scratch.  Always look and see if there is a currently functional way to do something.  When you are fixing something that's not working, don't create a whole new way for it to function.  We have some top-bar notifications that have an "x" button to dismiss them.  We have pop-up prompts that force interaction before they can be dismissed.  We have reminder boxes that pop up in the bottom right.  Don't create new ways to deliver messages or new ways to give experience or rewards.  The fewer systems the players need to learn the better.  Always try to use similar code or interactions rather than create new ones.  (This is why we always have the dice animation play for all dice rolls)
+
+Never remove something unless I specifically ask you to remove it.  You are allowed to alter things, but never get rid of a button or option unless I tell you to.
+
+Always be mindful of how much "empty" space is being displayed at any given time.  Display boxes that take up an entire row should have as much text displayed horizontally as possible, because if you stack the text on top of other text, that means the entire bar is now taller, and that tall bar extends all the way to the left and right sides of the screen, wasting a ton of space.  Whenever possible, keep everything condensed, in multiple columns, and have as little whitespace as possible.  You may need to take screenshots of the display yourself, and look at them to be able to see how much whitespace is being unused.  This has been a constant battle working with this code.  When in doubt, use four columns.
+
+
+In the GMs Prompt/Give tab, move the Request dice roll to the top of the list.  Make this the only thing on this tab that goes all the way from the left to the right for space usage.  Make the Send Roll Request button Green.
+
+
+Join Room page:
+
+When you join a room, let's just remove the Watch Combat option.  I can't think of a reason it would be used.
+
+Make the Create Starship and Import Starship buttons the same height as the row above them.
+Move the Import Character File to the left of Choose Saved Character.
+Make the Create Starship button green like the Create Character button.
+Make both Import buttons lightish-black with white text.
+Move the Leave Campaign button to the top right and make it smaller.
+
+I clicked Create Character, then loaded a character.  After I did that there was no way to link that character to the room I was in.  I even went to settings and clicked leave campaign, but that didn't do anything either.
+There should be a button at the top that says "link to [Current Campaign room name]" or something.
+After you click create character there's no way to return to the menu or go back to the campaign menu (finalizing characters works, but some characters on that screen can be pre-finalized)
+
+The font size and look of the top of the script tab where it says "STORY CONSOLE"
+That font size and look could be used for the tabs themselves.  The font size may need to be reduced slightly (maybe the same look as INSERT ROLL COMMAND), but there should be enough space to use that exact font look.  Tabs that are no active should have a gray color to the text, and tabs that are active should be white.
+
+Make the Quick Prompt option in the bottom left have the top right corner rounded, and make the button, it's stroke (and background of the menu, and it's stroke) a hot-pink color.  Make the background a darker color though so the stroke and the background aren't the exact same color.
+
+I made a new campaign and used the quick prompt to give a character reverence, but nothing happened.  These characters should be getting a message in their inbox that has that button you can click to gain 1 reverence (just like the prompt/give thing)  Don't create a new system for this, just make this work correctly.
+
+Script Tab:
+Make the Script Tab a grey color instead of light blue.
+The conditional prompt/reward area has way too much wasted space.
+That entire section could be halved in width and it would look a little better.  Do that and have the Story Console use the left half of the screen while the Conditional Prompt/Reward uses the right half. Insert Roll Command can remain at the bottom.
+Those notifications that a roll was sent to a player (way at the bottom) can be displayed the same way we do the top-bar notifications.  Currently it's too difficult to see them as you have to scroll way down.  Just have them display exactly as the top-bar notifications are displayed.
+Make the background of the Story Console a very dark grey color (with a subtle gradient to black) instead of the same blue background color.
+
+
+
+Campaign Tab:
+There's stacked information for characters.  It shows the Name of the player, the Character, then their Hearts/HP/Drama Cards/Reverence and below that it says Holding: [weapon].
+All of that text can be in a single row, it doesn't need to be stacked.  The Edit Sheet button can be smaller and to the right of that information.  This way all the data for the characters doesn't have a massive area of unused space.
+
+I clicked Prepare Combat Here for the starmap but there was no way to "save" the combat prep once it was finished to return back to the Campaign Tab.
+
+
+Combat Prep:
+Make the ring around black holes (that show their radius) easier to see by tinting all affected hexes 10% purple.
+
+Reputation:
+While two ships are connected via hailing request answered, the Persuade Check within the Quick Prompt should turn green or purple.  make it so that this button cannot be removed in Quick Prompt.
+If the button is purple, it functions exactly the same way it does currently.
+If the GM presses that button while it's green, it will ask the GM to choose NPC Affinity and Bias using the Reputation Modifiers.
+The GM will choose between:
+Benevolent, Indifferent, and Ruthless.
+Virtuous, Indifferent, and Treacherous.
+Civil, Indifferent, and Savage.
+Powerful, Indifferent, and Weak.
+Cunning, Indifferent, and Exploitable.
+After these are chosen, the NPC will have a bias that aids or hinders the Persuade Checks.
+For example, if the PCs had +2 Ruthless, and +1 Savage, but the NPC has an Affinity towards Benevolent and Civil characters, then the PCs would get a -3 to their Persuade Check.  If the NPC had a Bias towards Benevolent and Civil characters (and an affinity towards Ruthless and Savage) then the PCs would get a +3.  Indifferent simply means the modifiers are not applied.
+When the GM chooses one of the three options, the words "Affinity" and "Bias" will appear on the appropriate sides of the decision.
+For example (GM clicks on Cunning)
+>Affinity< CUNNING INDIFFERENT EXPLOITABLE >Bias<
+Clicking indifferent would remove the text and the modifiers.  Clicking Exploitable would swap the words Affinity and Bias and reverse the modifiers.
+Currently, PCs can adjust the Reputation for each Starship.  Remove that option.  Only the GM can do this.
+The condition as to weather or not the button is green or purple depends on the Popularity of the starship.  Each time a Hail is answered, choose a random number in the background between 01 and 100.  If this number is equal to or less than the PCs Popularity %, then the Persuade Check button will turn green.
+If this number is higher, the button will turn purple.  Display the random number chosen, as well as the PCs Popularity % in big green text to the right of the "add to Quick Prompts" button justified to the right side of the box.
+
+Move the End Session button to the Campaign Tab.
+
+Each time the GM clicks the End Session button, the GM will choose a impact die (D4, D6, D8, D10, D12, or D20) This die represents how impactful the session was.
+The dice animation will play and the result of the single die roll will be added to the PCs Popularity percentage.  The GM will then choose a Reputation dot (with an interface identical to the one seen at the bottom of starships) and the PCs starship will now have that new modifier applied.  For example, after the GM sees the popularity die roll, the GM will get a new prompt and say, choose Weak.  This will move the reputation blue highlight from 0 to +1.
+
+The GM can also manually adjust these values at any time by viewing starships and simply clicking on the blue highlights.
+
+After this happens, all the PCs crewed on that starship will get an inbox notification that their popularity has increased and their reputation has been modified.
+USER CLARIFICATIONS — October 9, 2026 (discussion only; still awaiting #local/#commit)
+1. End Session: GM may select/deselect which ships receive bonuses.
+2. Popularity is capped at 100%.
+3. NPC Affinity/Bias is remembered only for the current gaming session; it does not persist with the ship into later sessions.
+4. User requested a core-rulebook comparison before proceeding. Core SA20210516PDF_ADV4.pdf PDF pages 58,83,84 checked. Printed rules: starting Popularity normally0; GM recognition D100 <= Popularity on encounter; reputation shifts at session end/notoriety each add1%; successful recognition also adds1%; GM may adjust recognition chance for local knowledge; opposing sliders apply to social/Charisma checks according to NPC preferences and may ignore unrelated axes. The proposed impact die, hail-specific trigger, Persuade-specific automation, session-only NPC preferences and explicit100 cap are digital adaptations. Do not silently add the book's extra1% awards to the user's proposed impact-die system without resolving intent.
+
+USER REPUTATION REVISION — October 9, 2026 (discussion only; awaiting #local/#commit)
+- Add the successful Recognition bonus: +1 Popularity percentage point, not an additional Impact die; retain the approved100% cap.
+- Add a reroll control to Quick Prompt that recalculates the1–100 recognition percentile.
+- Latest instruction supersedes restricting result comparison to green Persuade/active Reputation: ALL Charisma checks by registered crew should show the GM the raw result, result with Reputation applied, and recognition percentile alongside the relevant ship's Popularity percentage. The GM decides whether to use Reputation; do not expose the optional modifier/application to the PC result screen.
+- For characters crewed to multiple ships, use the highest-Popularity ship. Break a Popularity tie using the highest single Reputation modifier (trait magnitude, not signed slider direction). Any further tie remains unspecified.
+- Preserve session-only NPC Affinity/Bias from previous clarification. Recognition information and Reputation totals must reuse existing roll-result and Quick Prompt systems, not a parallel reward/roll workflow.
+- Clarification pending: whether repeat successful recognition rerolls award +1% each, or only the first successful recognition of a given ship encounter. Do not silently decide the reward policy.
+
+USER RECOGNITION CLARIFICATION — October 9, 2026 (discussion only; awaiting #local/#commit)
+- Display the recognition percentile result green when roll <= ship Popularity%; otherwise display it red. Equality is a success.
+- Successful recognition rerolls must NOT grant additional +1% Popularity awards. Repeated reroll actions cannot accumulate recognition rewards. This resolves the prior question about additional awards.

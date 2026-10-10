@@ -24,9 +24,9 @@ test('all package pairs preserve every point, obey the cap, and produce a legal 
 });
 test('core allocation is balanced and overlap buys further levels',()=>{
   const once=allocate(['combatant','mechanic'],12,3);
-  assert.deepEqual(['Projectile','Melee','Dodge/Block'].map(n=>once.levels[n]),[1,1,1]);
+  assert.deepEqual(['Projectile','Melee','Dodge'].map(n=>once.levels[n]),[1,1,1]);
   const twice=allocate(['combatant','combatant'],24,3);
-  for(const n of ['Projectile','Melee','Dodge/Block'])assert.ok(twice.levels[n]>=2);
+  for(const n of ['Projectile','Melee','Dodge'])assert.ok(twice.levels[n]>=2);
   const overlap=allocate(['mechanic','starship-specialist'],24,3);
   assert.ok(overlap.purchases.some(p=>p.name==='Engineering'&&p.slot===0));
   assert.ok(overlap.purchases.some(p=>p.name==='Engineering'&&p.slot===1));
@@ -34,9 +34,9 @@ test('core allocation is balanced and overlap buys further levels',()=>{
 test('saturated duplicate packages spend remaining points on important skills',()=>{
   const r=allocate(['starship-specialist','starship-specialist'],115,3);
   assert.equal(r.spent,115);assert.equal(r.remaining,0);
-  assert.equal(r.levels['Dodge/Block'],3);assert.equal(r.levels.Awareness,3);
+  assert.equal(r.levels['Dodge'],3);assert.equal(r.levels.Awareness,3);
   const odd=allocate(['computer-nerd','starship-specialist'],38,3);
-  assert.equal(odd.levels['Dodge/Block'],1);assert.equal(odd.remaining,0);
+  assert.equal(odd.levels['Dodge'],1);assert.equal(odd.remaining,0);
   const impossible=allocate(['starship-specialist','starship-specialist'],10000,3);
   assert.ok(impossible.remaining>0);assert.equal(impossible.spent+impossible.remaining,10000);
   assert.equal(purchase(2,2,3),null);assert.equal(purchase(3,99,3),null);

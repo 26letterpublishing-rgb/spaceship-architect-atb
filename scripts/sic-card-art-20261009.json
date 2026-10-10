@@ -1,0 +1,168 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-10-09",
+  "assets": [
+    {
+      "id": "missile-launcher",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c10709c4-8bc9-462a-a41e-9a97c1203450.png",
+      "prompt": "Missile launcher: armored six-tube pod, silver missile and amber fins; three-quarter equipment view.",
+      "file": "card-missile-launcher-equipment-v2.webp"
+    },
+    {
+      "id": "rail-cannon",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: starship ballistic rail cannon with two long parallel electromagnetic acceleration rails, copper coils, a visible solid metal projectile at the breech, heavy silver armored pivot mount. Orange capacitor lights.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9662620e-d176-49b5-a154-a517be0485c5.png",
+      "file": "card-rail-cannon-equipment-v2.webp"
+    },
+    {
+      "id": "rapid-laser",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: starship rapid laser turret with a cluster of four slender precision laser barrels surrounding a vivid red focusing crystal, compact fast swivel gimbal, red heat fins and cables.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7933d64a-eb03-425f-b7be-887846fa0c5e.png",
+      "file": "card-rapid-laser-equipment-v2.webp"
+    },
+    {
+      "id": "ion-pulse-cannon",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: starship ion pulse cannon with a broad circular muzzle, layered concentric accelerator rings, vivid emerald ion glow, chunky graphite housing and green electrical arcs contained inside the barrel.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ccee7173-d288-4422-9bd3-d21fb5ff0df3.png",
+      "file": "card-ion-pulse-cannon-equipment-v2.webp"
+    },
+    {
+      "id": "warp-drive",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft faster-than-light warp drive: thick upright nested toroidal rings encircling a brilliant blue-white suspended energy core, paired copper coolant cylinders and substantial titanium cradle. Clearly machinery, not a portal scene.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-35e2f521-f5a4-4a6f-bb46-49a4944a88e6.png",
+      "file": "card-warp-drive-equipment-v2.webp"
+    },
+    {
+      "id": "darkveil",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft stealth masking generator: sleek black faceted crystalline emitter on a compact titanium plinth, layered offset dark mirror vanes bending subtle violet light around the central core. Violet and purple details, visually distinct from a weapon.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-74af112e-7d59-4e14-864e-0ebfd3067d1d.png",
+      "file": "card-darkveil-equipment-v2.webp"
+    },
+    {
+      "id": "antenna",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft long-range sensor antenna array: silver parabolic dish on articulated gimbal with four slender signal fins, gold feedhorn, braided cables and a compact receiver box; luminous cyan tips.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-1fa6e23d-80a1-4154-8d62-739aca8789b2.png",
+      "file": "card-antenna-equipment-v2.webp"
+    },
+    {
+      "id": "beam-laser",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a heavy starship beam laser projector with one long barrel, a brilliant red optical focusing lens, silver heat sinks and gold power cables on a sturdy rotating mount.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9e911a7e-a74e-49d8-9128-a159752e771d.png",
+      "file": "card-beam-laser-equipment-v2.webp"
+    },
+    {
+      "id": "ripple-cannon",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a starship ripple cannon, broad dish-shaped emitter with nested golden rings generating faint concentric amber wave ripples, squat heavy swivel mounting.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-bb8e1c60-9b36-4b80-82f1-b7db09cd8b03.png",
+      "file": "card-ripple-cannon-equipment-v2.webp"
+    },
+    {
+      "id": "cpu-security",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a starship cybersecurity mainframe unit, compact upright armored computer tower with orderly blue circuit cartridges, luminous cyan shield-shaped status window, secure copper network connectors.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-27c7379f-8e99-43f2-a2bf-cd1da13d4cf9.png",
+      "file": "card-cpu-security-equipment-v2.webp"
+    },
+    {
+      "id": "hacking-module",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a starship electronic intrusion computer, angular black hardware case with exposed colorful patch cables, three offset bright violet processing cores, articulated slim aerials and small data screens.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-fa8352da-0f80-456c-9b31-2ba6d8f78529.png",
+      "file": "card-hacking-module-equipment-v2.webp"
+    },
+    {
+      "id": "ew-ftl-drive",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: an emergency instant-warp drive, small spherical containment cage holding a magenta micro-singularity, three curved silver braces, emergency red latches and gold capacitors.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7cb4c789-f2d2-4ec7-88c4-76ec31fa8cc6.png",
+      "file": "card-ew-ftl-drive-equipment-v2.webp"
+    },
+    {
+      "id": "cloaking-device",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a starship cloaking generator, paired curved glass metamaterial panels circling a violet luminous prismatic core, portions of the panels optically disappearing, chunky silver power base.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-140eb803-6504-4715-907c-181d5b2d6d91.png",
+      "file": "card-cloaking-device-equipment-v2.webp"
+    },
+    {
+      "id": "probe-launcher",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft probe deployment machine, a mechanical open launch cradle holding a small white spherical robotic survey probe, golden solar fins folded against it, twin hydraulic launch rails and a cylindrical storage magazine.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e5ffcd9c-7b68-461d-8f1e-b5fa31b19116.png",
+      "file": "card-probe-launcher-equipment-v2.webp"
+    },
+    {
+      "id": "backup-generator",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: an emergency auxiliary generator with three upright turquoise power cylinders, thick black power cables, industrial titanium case and small yellow safety chevrons, a compact freestanding machine.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-076c3c5e-18b7-4080-808d-864a011bf296.png",
+      "file": "card-backup-generator-equipment-v2.webp"
+    },
+    {
+      "id": "manipulation-arm",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a folded industrial spacecraft robotic salvage arm with three powerful hydraulic joints, orange safety panels and a large open three-finger gripper. Freestanding mounting base.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-57ad45b8-6c90-41f3-844d-a76767e0c5a0.png",
+      "file": "card-manipulation-arm-equipment-v2.webp"
+    },
+    {
+      "id": "tractor-beam",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft tractor-beam projector, elongated silver machine ending in a broad cyan magnetic lens, paired copper electromagnetic coils and a heavy swivel bracket.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-4773804e-4801-42a9-8810-4a595d52d07e.png",
+      "file": "card-tractor-beam-equipment-v2.webp"
+    },
+    {
+      "id": "escape-pods",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a closed three-person emergency escape capsule, compact rounded conical white and orange armored shell, small blue porthole, three landing feet and rear thruster nozzles. No cutaway.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c622e7bf-3469-4910-a6c5-8f7dbf5602a0.png",
+      "file": "card-escape-pods-equipment-v2.webp"
+    },
+    {
+      "id": "ripple-reflector",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft ripple reflector, four overlapping silver petal-shaped reflector panels opening around an iridescent teal central mirrored dish, precise articulated mechanical hinges and dark mounting base.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e865f334-4729-4cc1-91a3-f241ac846baa.png",
+      "file": "card-ripple-reflector-equipment-v2.webp"
+    },
+    {
+      "id": "bar",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: an automated spacecraft beverage station as one compact freestanding appliance, chrome counter unit with several colorful drink reservoirs, articulated dispensing arm holding a small glass, amber accent lights. No room or room interior.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-5f5cae03-b1ff-4d4c-93e5-cc6695ea7b94.png",
+      "file": "card-bar-equipment-v2.webp"
+    },
+    {
+      "id": "brig",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft prisoner restraint and security module, heavy freestanding steel barred sliding hatch assembly with reinforced locking bolts, amber security light and compact control pedestal. No room beyond it.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-f01c8db4-cd61-41d7-94b8-353e52fa15fb.png",
+      "file": "card-brig-equipment-v2.webp"
+    },
+    {
+      "id": "repair-drone",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a compact spacecraft repair robot with six articulated climbing legs, white and yellow armor, a blue optical eye, one precision welding arm and one tool gripper, fully visible isolated robot.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-b33478ca-ba9f-4c2c-ade8-8d34cd6d0550.png",
+      "file": "card-repair-drone-equipment-v2.webp"
+    },
+    {
+      "id": "scramble-box",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft electronic signal scrambling machine, three horizontal electric-blue glowing cylinders nested inside a chunky ventilated metal case, crossed oscillating aerials and tangled copper waveguides.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-86856874-c530-46e7-a324-522148da8f36.png",
+      "file": "card-scramble-box-equipment-v2.webp"
+    },
+    {
+      "id": "ship-ai",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a starship artificial intelligence computer core, bright teal crystalline brain suspended between three nested metal rings above a compact titanium processor pedestal with copper neural circuits.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-cf53fb00-da73-4d67-bc5c-a5ba128b2102.png",
+      "file": "card-ship-ai-equipment-v2.webp"
+    },
+    {
+      "id": "holographic-projector",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a compact silver holographic projection appliance, three articulated emitters surrounding a floating cyan wireframe model of a small starship, dark circular base with blue optics.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-146ff46c-c140-41ed-8da6-ca45159b4b35.png",
+      "file": "card-holographic-projector-equipment-v2.webp"
+    },
+    {
+      "id": "decent-hover",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a spacecraft hover landing unit, four thick lift-fan modules arranged together with one tilted to show its ducted turbine blades, silver housing and cyan antigravity emitter rings.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-fd4522dc-b723-4917-a1e3-93a01d7f277e.png",
+      "file": "card-decent-hover-equipment-v2.webp"
+    },
+    {
+      "id": "transporter",
+      "prompt": "Use case: stylized-concept. One square equipment illustration for a Spaceship Architect purchase card. Three-quarter perspective product view, whole machine centered filling 85% of frame, detailed realistic painted science-fiction game art, worn titanium and dark graphite, bright readable highlights on deep navy-black studio backdrop. No room, no floorplan, no overhead view, no people, no text or labels, no borders or watermark. Subject: a freestanding spacecraft teleportation apparatus with four circular transport pads grouped beneath four slender arching emitter pylons, luminous blue matter streams between pads and emitters. Isolated equipment assembly, no walls or room.",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-025c7a6a-8798-4074-aafa-038f428b2bf8.png",
+      "file": "card-transporter-equipment-v2.webp"
+    }
+  ]
+}

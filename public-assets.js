@@ -2,7 +2,7 @@ const path = require("path");
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
-  "skill-packages.js", "audio-mix.js", "identity-presets.js",
+  "reputation-ui.js", "skill-packages.js", "audio-mix.js", "identity-presets.js",
   "explore-session.js", "drama-notices.js", "ship-walking.js",
   "landing-approval-ui.js", "campaign-starmaps-ui.js",
   "illusion-droid-console.js","relay-console.js","sensor-snapshot-view.js","breach-drone-view.js","breach-drone-console.js","vacuum-ui.js","extraction-console.js",

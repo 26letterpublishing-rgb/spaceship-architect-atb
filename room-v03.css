@@ -36,3 +36,7 @@ dialog button{background-color:#173b49;color:#f0fbff;border:1px solid #71a6b8}di
 .v03-creation-context p{margin:0;flex:1 1 350px}.v03-creation-context a{color:#a2e5ff;text-decoration:underline}
 
 .v03-actions a[href="showcase.html"]{background:linear-gradient(180deg,#a45b29,#633718);border-color:#d6975d;color:#fff3df;font-weight:700}
+
+.v03-lobby{position:relative}.v03-lobby #roomLeaveControl{float:right}.v03-lobby #roomLeaveControl button{font-size:12px;min-height:32px;padding:6px 12px}.v03-lobby #roomActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v03-lobby #roomActions button{height:auto;min-height:52px;margin:0}.v03-lobby #roomActions [data-action=create-starship],.v03-lobby #roomActions [data-action=create-character]{background:#185a38;color:#fff;border-color:#65d495}.v03-lobby #roomActions [data-action^=import-]{background:#303238;color:white;border-color:#73777e}@media(max-width:650px){.v03-lobby #roomActions{grid-template-columns:1fr 1fr}}
+
+.v03-lobby #roomActions{grid-auto-rows:1fr}.v03-lobby #roomActions>button{width:100%;max-width:none;min-height:64px}

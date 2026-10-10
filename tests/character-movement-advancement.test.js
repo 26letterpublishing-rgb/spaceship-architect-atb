@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require.resolve('../character.js'),'utf8');
 test('Move Speed includes full fractional Athletics rating alongside DEX and GM adjustments',()=>{
- const context=vm.createContext({character:{attributes:{dexterity:[3,2,1]},skills:{'Athletics/Endurance':{tenths:25}},gmAdjustments:{moveSpeed:1}},raceEffects:()=>({}),displayedSkillTenths:(_name,skill)=>skill?.tenths||0});
+ const context=vm.createContext({character:{attributes:{dexterity:[3,2,1]},skills:{'Athletics':{tenths:25}},gmAdjustments:{moveSpeed:1}},raceEffects:()=>({}),displayedSkillTenths:(_name,skill)=>skill?.tenths||0});
  vm.runInContext(source.slice(source.indexOf('function calculatedMoveSpeedDetails('),source.indexOf('function damageReductionDetails(')),context);
- assert.equal(context.calculatedMoveSpeed(),6.5);context.character.skills['Athletics/Endurance'].tenths=50;assert.equal(context.calculatedMoveSpeed(),9);
+ assert.equal(context.calculatedMoveSpeed(),6.5);context.character.skills['Athletics'].tenths=50;assert.equal(context.calculatedMoveSpeed(),9);
 });
 test('maximum D6/D8 advancement keeps once without opening reroll choices',()=>{
  for(const sides of [6,8]){

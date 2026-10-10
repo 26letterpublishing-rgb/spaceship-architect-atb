@@ -316,7 +316,7 @@ export const WEAPONS = Object.freeze([
     "element": "Light",
     "range": "5 Max",
     "sizeClass": "C",
-    "special": "Mirrors and shiny surfaces will reflect full damage but reduces To-Hit bonus to 0, and instead of Projectile add Science/Physics for To-Hit roll.",
+    "special": "Mirrors and shiny surfaces will reflect full damage but reduces To-Hit bonus to 0, and instead of Projectile add Science for To-Hit roll.",
     "cost": "650",
     "throwable": false,
     "placeable": false,
@@ -531,7 +531,7 @@ export const WEAPONS = Object.freeze([
     "page": 21,
     "name": "Thunder Rifle",
     "category": "ranged",
-    "toHit": "Dexterity + Science/Physics",
+    "toHit": "Dexterity + Science",
     "damage": "(*1D4)D12",
     "chargeBonus": "Increase (*die type) by one.",
     "maxCharge": "4",
@@ -656,7 +656,7 @@ export const WEAPONS = Object.freeze([
     "page": 26,
     "name": "Power Clamp",
     "category": "melee",
-    "toHit": "Dexterity + Wrestle/Disarm -5",
+    "toHit": "Dexterity + Grappling -5",
     "damage": "7D4",
     "chargeBonus": "+2D4 Damage",
     "maxCharge": "2",
@@ -666,7 +666,7 @@ export const WEAPONS = Object.freeze([
     "element": "Physical",
     "range": "1 Max",
     "sizeClass": "A",
-    "special": "Robotic clamp for use to manipulate large objects. Adds +9 to Lift/Push/Pull when used.",
+    "special": "Robotic clamp for use to manipulate large objects. Adds +9 to Brute Force when used.",
     "cost": "2200",
     "throwable": false,
     "placeable": false,
@@ -1155,55 +1155,55 @@ export const WEAPONS = Object.freeze([
     "id": "angiluros-wooden-shield", "page": 95, "name": "Wooden Shield", "category": "melee",
     "toHit": "Strength + Melee", "damage": "1D4 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "Nearby", "sizeClass": "B", "special": "Angiluros ancestral weapon. May also be used as a shield.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival/Tracking 0.5+"
+    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival 0.5+"
   },
   {
     "id": "angiluros-stone-knife", "page": 95, "name": "Stone Knife", "category": "melee",
     "toHit": "Dexterity + Melee", "damage": "1D6 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "Nearby", "sizeClass": "A", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": true, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [6], "craftRequirements": "Survival/Tracking 0.5+, Weapon Mechanics 1.0+"
+    "angilurosOnly": true, "craftDice": [6], "craftRequirements": "Survival 0.5+, Weapon Mechanics 1.0+"
   },
   {
     "id": "angiluros-slingshot", "page": 95, "name": "Slingshot", "category": "ranged",
     "toHit": "Dexterity + Projectile", "damage": "1D8", "chargeBonus": "None", "maxCharge": "N/A", "chargeMode": "none", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "8", "sizeClass": "A", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [8], "craftRequirements": "Survival/Tracking 1.0+, Weapon Mechanics 1.5+"
+    "angilurosOnly": true, "craftDice": [8], "craftRequirements": "Survival 1.0+, Weapon Mechanics 1.5+"
   },
   {
     "id": "angiluros-wooden-staff", "page": 95, "name": "Wooden Staff", "category": "melee",
     "toHit": "Dexterity + Melee", "damage": "1D8 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "Nearby", "sizeClass": "B", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival/Tracking 1.0+, Weapon Mechanics 2.0+"
+    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival 1.0+, Weapon Mechanics 2.0+"
   },
   {
     "id": "angiluros-blowgun", "page": 95, "name": "Blowgun", "category": "ranged",
     "toHit": "Dexterity + Projectile", "damage": "1D4", "chargeBonus": "None", "maxCharge": "N/A", "chargeMode": "none", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "10", "sizeClass": "A", "special": "Angiluros ancestral weapon. Darts may carry substances approved by the GM.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [6], "craftRequirements": "Survival/Tracking 1.5+, Weapon Mechanics 2.5+"
+    "angilurosOnly": true, "craftDice": [6], "craftRequirements": "Survival 1.5+, Weapon Mechanics 2.5+"
   },
   {
     "id": "angiluros-whip", "page": 95, "name": "Whip", "category": "melee",
     "toHit": "Dexterity + Melee", "damage": "1D8 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "2", "sizeClass": "B", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival/Tracking 2.0+, Weapon Mechanics 3.0+"
+    "angilurosOnly": true, "craftDice": [4], "craftRequirements": "Survival 2.0+, Weapon Mechanics 3.0+"
   },
   {
     "id": "angiluros-wooden-bow", "page": 95, "name": "Wooden Bow", "category": "ranged",
     "toHit": "Dexterity + Projectile", "damage": "2D8", "chargeBonus": "+2 Damage", "maxCharge": "1", "chargeMode": "timed", "chargeSegments": 1, "chargeTime": 12,
     "element": "Physical", "range": "20", "sizeClass": "B", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [6, 6], "craftRequirements": "Survival/Tracking 2.5+, Weapon Mechanics 3.5+"
+    "angilurosOnly": true, "craftDice": [6, 6], "craftRequirements": "Survival 2.5+, Weapon Mechanics 3.5+"
   },
   {
     "id": "angiluros-stone-hammer", "page": 95, "name": "Stone Hammer", "category": "melee",
     "toHit": "Strength + Melee", "damage": "2D10 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "Nearby", "sizeClass": "C", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [10, 10], "craftRequirements": "Survival/Tracking 2.5+, Weapon Mechanics 4.0+"
+    "angilurosOnly": true, "craftDice": [10, 10], "craftRequirements": "Survival 2.5+, Weapon Mechanics 4.0+"
   },
   {
     "id": "angiluros-stone-axe", "page": 95, "name": "Stone Axe", "category": "melee",
     "toHit": "Strength + Melee", "damage": "2D12 + Strength Dice", "chargeBonus": "+1 Damage per unit moved", "maxCharge": "Move Speed", "chargeMode": "movement", "chargeSegments": 0, "chargeTime": 0,
     "element": "Physical", "range": "Nearby", "sizeClass": "C", "special": "Angiluros ancestral weapon.", "cost": "0", "throwable": false, "placeable": false, "ammo": false, "requiredCharge": false, "aimRequired": false, "countdownSeconds": 0, "recoverySeconds": 0,
-    "angilurosOnly": true, "craftDice": [12, 12], "craftRequirements": "Survival/Tracking 3.0+, Weapon Mechanics 4.5+"
+    "angilurosOnly": true, "craftDice": [12, 12], "craftRequirements": "Survival 3.0+, Weapon Mechanics 4.5+"
   }
 ]);
 

@@ -1,0 +1,158 @@
+SPACESHIP ARCHITECT — OCTOBER 10, 2026 AUDIT AND RELEASE REPORT
+Authorized by #commit. Includes the previously completed October 8–9 local changes.
+
+WHAT WAS FIXED IN THIS PASS
+
+1. Repeated console-preview failure
+The common navigation restore loop treated a frozen SIC catalog preview as a live console. It could repeatedly reopen/restore the preview, causing dark layers, displacement and wasted work. Catalog previews now bypass both navigation restoration and live navigation synchronization. Hidden Explore perspectives also stop doing restore work. The fallback check runs every 500 ms instead of 150 ms; normal combat state events still update immediately.
+The actual Ripple Reflector card -> Preview Console -> Back to SIC Card route was exercised in the GM ship viewer and left open to verify stability. The preview remained a single frozen dialog and returned to the original SIC card.
+
+2. Routine notifications and important combat alerts
+Routine action results use the existing bottom-right notification system. They no longer reserve a strip at the top, resize the page, or move console dialogs around. Important alerts use a separate presentation within that same shared system: a colored overlay at the top with scrolling text, a small dismiss X and a fade after the text crosses the screen. It consumes no layout space.
+Critical cases include new detection/hostile lock events, detected incoming missiles, shield collapse, power failure, breaches/open airlocks, intruders and crew exposed to vacuum. Alerts respect the viewer's ship information; incoming missile warnings require a detected missile aimed at that ship. Repeated state packets do not replay the same warning. Ending combat clears combat-only notifications. Reduced-motion users get a stationary timed banner.
+Hidden Explore perspectives queue important feedback and restore the notification layer when selected. A previously hidden GM result notification was reproduced during testing and fixed.
+
+3. GM acknowledgments and roll results
+Quick Prompt sends and the GM's reward, recharge, private-note, roll-request, resource, library, approval and related character-result paths now use compact corner acknowledgments.
+A submitted PC roll gives the GM a compact character/roll/result card, with Dismiss and View Results. The details window preserves dice, difficulty and GM-only Reputation comparisons. Opening the same detail window repeatedly is prevented until it closes.
+Persuade uses the normal reddish style without a recognition result, purple for an unsuccessful recognition check, and green when recognition succeeds.
+A tiny Cancel beside Open Roll removes only that PC's pending request. The server verifies ownership, records cancellation, rejects cancellation of already submitted rolls and makes repeat cancellation safe.
+
+4. Ship AI
+New Ship AIs default to Automatic. This mode can scan when there is no detected hostile and prioritizes breaking hostile locks, then uses the existing legal targeting/weapon policy. A turn with no legal action waits and keeps the AI armed instead of disabling it. A temporarily occupied Bridge also leaves the selected mode armed.
+Defense, Offense and Off remain available. Existing explicit Off preferences remain Off. This is combat-policy automation, not permission to autonomously warp away, self-destruct, spend forbidden AU, or operate every strategic system. The existing no-AU constraint and normal turn/dice/delay rules remain.
+
+5. Galaxy map and warp
+PC and GM Campaign pages now organize information on the left and the galaxy map on the right. The left column and star details scroll independently on desktop. Small screens stack the sections. Player ships are drawn at half their former size while preserving usable hit targets and labels.
+The PC Campaign and Combat headers are more compact; the Combat subheading no longer takes an oversized stacked row.
+Review Journey identifies the installed Warp Drive, activation time and travel time. Ordinary drives require explicit fuel-grade quantities, with available stock and range per cell shown. Enter Warp stays disabled until the selected fuel supports a valid quote; the server revalidates the actual departure. The EW drive retains its fixed two Grade S cells, all-AU cost and instantaneous jump after activation.
+The reported zero travel time was possible with EW instantaneous travel, not a general calculation that regular drives should use. The test flagship now has Warp Drive 5 installed and EW stored as a spare. A 19.56-light-year preview using one Grade B cell showed 48 seconds activation and 6 hours travel.
+Only one Warp Drive may be installed, including EW and powered-off drives. Extra drives may remain in storage. Existing user saves are not silently stripped of components; invalid multi-drive layouts must be corrected before validation/travel. This is the user's digital rule, not a claim that the core rulebook explicitly imposed it.
+Review Journey/Enter Warp gold buttons have no black text shadow.
+
+6. Interior movement and console layout
+Clicking Move on a PC starship now uses the existing Enlarge/Character focus function, centering and zooming on the character rather than fitting the entire ship.
+Shared console headers and maintenance controls are more compact. Fleet panels are bounded so their contents scroll instead of displacing the console.
+Hibernation Chamber referenced a nonexistent image name. It now uses the existing generated hibernation console art; an asset-reference regression check was added.
+Life Support's instrument layer extended into its separate gravity readout. Its radials, wave display, capacity meters and labels now fit their panel. The gravity/oxygen switches no longer produce a horizontal scrollbar or clipped switches. Animation and controls remain in place.
+
+7. Loading and responsiveness
+Cold static text compression now runs through asynchronous gzip instead of gzipSync on the combat server's event loop. The bounded 32 MiB cache, gzip responses, ETags/304s and private-resource restrictions remain.
+A local stress sample compressed the 561,678-byte character.js asset twelve times. Synchronous: 105 ms total, 95 ms longest timer gap. Asynchronous: 117 ms total, 14 ms longest timer gap. This is evidence of less main-thread blocking, not a claim that the total compression job or every page load is faster.
+The existing optimized radial, console-only warp effect from the October 9 pass is included. Hidden perspective/navigation checks avoid unnecessary repeated console work. Larger architectural rendering changes were not made without evidence they were needed.
+
+TAB-BY-TAB / WORKFLOW COVERAGE
+
+Main menu / Explore entry
+- Opened Explore against a disposable local server and verified the compact perspective bar.
+- Used GM, Nova and Orion perspectives, and reloaded the local browser.
+- Tested only isolated rooms D3H5 and EZ8G, not personal campaigns.
+- A test server restart invalidated the disposable Explore room; a page reload created a new disposable room. This is not evidence of a normal campaign reset.
+
+GM Script
+- Opened the GM shell and inspected the Script editor/chapter/roll-command controls in the DOM.
+- Existing script/request behavior is included in automated regression coverage.
+- Did not edit a personal script or manually execute every script command.
+
+GM Campaign
+- Inspected the information/map split and controls.
+- Added a named Audit Star through Add Star -> hex selection -> dialog -> Save.
+- Verified it persisted during refresh and perspective switches within the disposable room.
+- Opened Review Journey, selected fuel, checked the drive/time/range/cost display and enabled departure state, then cancelled the journey.
+- Travel, partial progression, fuel validation and one-drive rules also have automated tests. This pass did not manually fly every drive/fuel combination.
+
+GM Characters
+- Inspected roster cards, connection state, character access and the Drama discard area.
+- Confirmed compact parallel cards and visible View Sheet controls.
+- Character creation, packages, finalized sheets, inventory and campaign joins are covered by the existing suite and the prior October 9 hands-on report. This pass did not repeat a completely new character from scratch.
+
+GM Starships
+- Opened the flagship details/owned SIC gallery.
+- Opened Ripple Reflector's actual SIC card and its frozen console preview, waited for stability, and returned to the same card.
+- Checked the installed regular drive and stored EW spare in the sample ship.
+- Creation/build validity, upgrades, resource storage and shared ship-state operations remain in automated tests.
+
+GM Prompt / Give and Quick Prompt
+- Inspected the compact three-column layout at 1280 x 720, full-width request row, recipient controls, resources/recharge/time and request action.
+- Sent an Awareness Quick Prompt to Nova; used the standard dice workflow and submitted a critical-success total of 21.
+- Switched back to GM, verified the corner result, opened View Results, closed it and dismissed it.
+- Sent another request from Prompt / Give and cancelled it on Nova's side.
+- Server tests cover per-recipient privacy, cancellation retries and completed-roll protection.
+- Did not manually send every reward, Library entry, class result or approval type; their shared notification path was reviewed.
+
+GM Inbox / Settings
+- Opened the empty Inbox, checked its compact empty state.
+- Opened Settings and returned to another tab; inspected command-window, banker, privacy, backup and campaign controls.
+- Did not delete a campaign, kick a real player or change real campaign settings.
+
+GM Prepare Combat / Combat
+- Selected Jack-of-Everything and Bruiser in a fresh disposable room.
+- Verified assigned PC and NPC crew, ship control selectors, duplication controls and deployment map access.
+- Confirmed positions and launched a paused encounter; engaged ATB.
+- Switched between GM and PC combat perspectives without losing the encounter.
+- Verified Ship AI's Automatic mode is selected in the live GM interface.
+- Tested Orion's Hold confirmation and observed HOLDING 99% in the GM view.
+- End Combat opened its confirmation; confirming returned to campaign controls.
+- No new browser console errors were reported in the final checked log.
+- This was a short transition/turn-state playtest, not an entire battle fought through every weapon and console action. Weapon, sensor, movement, damage, pause, rescue and automation rules are additionally covered by the automated suite.
+
+PC Character Sheet / Settings
+- Checked the HUD and shared character information during tab changes.
+- Settings opens from the top-right control and toggles back to the previous tab.
+- Existing character creation, skill-name migration, packages, identity, Finish Now, export guidance and audio changes are included from the prior authorized local pass.
+
+PC Campaign
+- Verified Group Credits, private notes, PC HP/Drama/Reverence/weapons and visible fleet cards on the left.
+- Inspected the smaller ship markers and fixed desktop map region on the right.
+- Scrollable details preserve access to the directory and travel controls.
+
+PC Starships
+- Opened the flagship interior.
+- Clicked Move and visually verified character-centered enlarged zoom, Confirm Move and Cancel.
+- Cancel returned from movement mode. No new movement destination was committed in this particular check.
+
+PC Combat / pending rolls
+- Verified IN COMBAT while ATB was engaged.
+- Opened the ordinary character action menu, with compact support buttons and independent Hold control.
+- Exercised Hold confirmation and role switching.
+- Cancelled a queued GM roll without rolling it, and verified the prompt disappeared.
+
+CONSOLE PREVIEW AUDIT
+
+51 valid console-type previews were opened through the shared catalog-preview route. For each, checked that one frozen dialog opened, a Back to SIC Card control existed, and visible buttons stayed within viewport width. Missing-image checks found and resolved the Hibernation asset. Additional screenshot inspection found and resolved Life Support overlap. Representative common-frame screenshots were inspected at 1280 x 720.
+
+Types checked:
+Nut Supplement; Sensor Lure / Illusion; Security Droid; Remote Controller;
+Remote Receiver; Lock-On Triangulator; Hull Breach Repair Drone;
+Relay Pulse Sub-Triangulator; Black Hole Gun; Planetary Cleanser;
+Probe Launcher; Transporter; Surveillance Camera; Repair Drone 1;
+Gym; Science Lab; VR Training Room; Medbay; Library; Meeting Room;
+Ship AI; Bar; Hibernation Chamber; Brig; Warp Drive 1; EW-FTL Drive;
+Cloaking Device; Self Destruct; Manipulation Arm; Tractor Beam;
+Docking Bay; Escape Pods; Ripple Reflector; Ionic Force Displacers;
+Transport Scrambler; Gravity Absolution Field; Mining Lasers; Vulture Drone;
+Bridge 1; Shield 1; Sensors 1; Lock-On System 1; Hacking Module 1;
+Missile Launcher 1; Beam Laser 1; Rapid Laser 1; Ion Pulse Cannon 1;
+Phazon Torpedo Launcher; Ballistic Rail Cannon; Ballistic Rail Repeater;
+Life Support.
+
+An invalid rail-cannon-1 identifier and Antenna 1 (no dedicated console) were also inspected but are excluded from the 51 valid-console count. Tier variants share console implementations; not every grade was opened separately.
+Static previews deliberately disable their controls. Opening these previews verifies lifecycle, assets and layout, not that every live button was manually operated. Automated tests exercise the live domain handlers, authorization, power, resources and turn timing. It would be misleading to call this a complete manual test of every possible console/crew/target combination.
+
+VALIDATION
+- Full automated suite: 1,002 passed, 0 failed (206.6 seconds).
+- Final focused checks after the follow-up fixes: 112 passed, 0 failed (10.8 seconds), including the new crew-room asset-reference test.
+- Syntax checks: 83 changed/new JavaScript files passed.
+- Git whitespace validation passed with CRLF-aware settings.
+- Local HTTP checks cover gzip delivery, cache/304, restricted server files and combat-stream behavior.
+- No hosted Render tests were performed.
+
+INCLUDED PREVIOUS LOCAL WORK
+The commit also includes the already-authorized October 8–9 identity/readout, character-creation guidance, skill packages/names, Finish Now, radial warp, 27 generated equipment art families (86 cards), Reputation and End Session work. Details are in Local_Update_Report_2026-10-09.txt and UI_Reputation_Report_2026-10-09.txt beside this report. Existing functionality, saved campaigns and the frozen Gold Standard were preserved. Unrelated historical QA folders/scripts were left out of the commit.
+
+KNOWN LIMITS / NEXT PLAYTEST
+- The full automated suite and broad console audit do not guarantee a bug-free app.
+- Final live combat coverage here is a short local encounter, not a complete all-weapons battle.
+- Existing personal ships with multiple installed warp drives are not automatically rewritten; move extras into Storage before travel.
+- Refresh the local app after this release. Reset Explore only if you want fresh sample layouts; ordinary saved campaigns are separate.
+- No destructive campaign operations or hosted deployment were used for testing.

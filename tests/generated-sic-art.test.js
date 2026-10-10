@@ -10,8 +10,16 @@ test('recent SIC catalog uses distinct generated WebP assets with a bounded down
     if(entry.id==='meeting-room-console')continue;
     const definition=ammo.catalog[entry.id]||maps.catalog[entry.id];assert.ok(definition,entry.id);
     const selected=definition.cardArt||definition.image;
-    assert.ok(selected.includes(name)||selected===`card-${entry.id}-equipment.webp`,entry.id+' uses its generated equipment image');
+    const replacements=require('../scripts/sic-card-art-20261009.json').assets;
+    assert.ok(selected.includes(name)||selected===`card-${entry.id}-equipment.webp`||replacements.some(asset=>asset.file===selected),entry.id+' uses its generated equipment image');
     if(selected===`card-${entry.id}-equipment.webp`)assert.ok(fs.existsSync(path.join(__dirname,'..',selected)));
   }
   assert.ok(bytes<3*1024*1024,'All 27 assets together stay under 3 MiB');
+});
+
+test('crew room console illustration references resolve to shipped assets',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','crew-room-console.js'),'utf8');
+  const assets=[...source.matchAll(/'([a-z][a-z0-9-]*\.webp)'/g)].map(match=>match[1]);
+  assert.ok(assets.length>=7);
+  for(const asset of assets)assert.ok(fs.existsSync(path.join(__dirname,'..',asset)),asset+' must be shipped');
 });

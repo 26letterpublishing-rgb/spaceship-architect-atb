@@ -237,22 +237,22 @@ const SHEET_SECTIONS = new Set(["identity", "attributes", "skills", "substats", 
 const SKILL_SORT_MODES = new Set(["alphabetical", "attribute", "level", "importance", "basic"]);
 const SKILL_ASSOCIATED_ATTRIBUTE = globalThis.SASkillCatalog.attributes;
 const PHYSICAL_SKILLS = new Set([
-  "Athletics/Endurance",
-  "Break Free/Escape",
-  "Catch/Throw",
+  "Athletics",
+  "Escape",
+  "Coordination",
   "Climb",
-  "Dodge/Block",
-  "Drive/Small Vehicle",
-  "Identify Taste/Smell",
+  "Dodge",
+  "Driving",
+  "Taste & Smell",
   "Jump",
-  "Lift/Push/Pull",
+  "Brute Force",
   "Lock-picking",
   "Melee",
   "Pickpocket",
   "Projectile",
-  "Stealth/Hide",
+  "Stealth",
   "Swim",
-  "Wrestle/Disarm",
+  "Grappling",
 ]);
 const FORMAT_NAME = "spaceship-architect-2e-character";
 const FORMAT_VERSION = 7;
@@ -1095,7 +1095,8 @@ function rebuildPurchaseOrder(characterObject) {
 
 function normalizeCharacter(raw) {
   const base = blankCharacter();
-  const source = raw && typeof raw === "object" ? raw : {};
+  const source = window.SASkillCatalog.migrate(raw && typeof raw === "object" ? raw : {});
+  if(source.creation)delete source.creation.batchAnimating;
   const sourceVersion = Math.max(1, Math.round(Number(source.version) || 1));
   const preV4 = sourceVersion < 4;
   const identity = { ...base.identity, ...(source.identity || {}) };
@@ -2915,8 +2916,8 @@ function skillCreationLevel(skill) {
 }
 
 const SPIDDIX_MECHANICAL_SKILLS = new Set([
-  "Athletics/Endurance", "Break Free/Escape", "Catch/Throw", "Climb", "Dodge/Block", "Jump",
-  "Lift/Push/Pull", "Lock-picking", "Melee", "Pickpocket", "Projectile", "Stealth/Hide", "Swim", "Wrestle/Disarm",
+  "Athletics", "Escape", "Coordination", "Climb", "Dodge", "Jump",
+  "Brute Force", "Lock-picking", "Melee", "Pickpocket", "Projectile", "Stealth", "Swim", "Grappling",
 ]);
 
 function mechanicalSpiddixSkill(name, characterObject = character) {
@@ -3010,9 +3011,9 @@ function calculatedMoveSpeedDetails(characterObject = character) {
   const racialBonus = Number(race.moveSpeedModifier) || 0;
   const gmBonus = Number(characterObject.gmAdjustments?.moveSpeed) || 0;
   const minimum = Number.isFinite(Number(race.moveSpeedMinimum)) ? Number(race.moveSpeedMinimum) : 0;
-  const athletics = Math.max(0, displayedSkillTenths('Athletics/Endurance', characterObject.skills?.['Athletics/Endurance'], characterObject) / 10);
+  const athletics = Math.max(0, displayedSkillTenths('Athletics', characterObject.skills?.['Athletics'], characterObject) / 10);
   const value = Math.round(Math.max(0, minimum, 2 + dexterityBonus + racialBonus + gmBonus + athletics) * 10) / 10;
-  const parts = ["Base 2", `+${dexterityBonus} DEX D10+`, `+${athletics} Athletics/Endurance`];
+  const parts = ["Base 2", `+${dexterityBonus} DEX D10+`, `+${athletics} Athletics`];
   if (racialBonus) parts.push(`${racialBonus > 0 ? "+" : ""}${racialBonus} ${selectedRace(characterObject)?.name || "Race"}`);
   if (minimum) parts.push(`minimum ${minimum}`);
   if (gmBonus) parts.push(`${gmBonus > 0 ? "+" : ""}${gmBonus} GM adjustment`);
@@ -3233,7 +3234,7 @@ function scrollToWorkflowTarget(selector) {
     const highlight = currentTarget.matches("input, select, textarea, button")
       ? currentTarget.closest("label, .panel-heading") || currentTarget
       : currentTarget;
-    currentTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+    currentTarget.scrollIntoView({ behavior: "smooth", block: selector === ".attributes-panel" ? "start" : "center" });
     highlight.classList.remove("workflow-target-pulse");
     void highlight.offsetWidth;
     highlight.classList.add("workflow-target-pulse");
@@ -3458,17 +3459,31 @@ function renderRaceCardRules() {
     if (raceProfileNavigationMode === "browse" && adjacentRace?.types?.length) return direction > 0 ? adjacentRace.types[0].name : adjacentRace.types.at(-1).name;
     return adjacentRace?.name || "Race";
   };
-  const previousLabel = adjacentLabel(-1); const nextLabel = adjacentLabel(1);
-  dom.previousRaceCard.textContent = "";
-  dom.previousRaceCard.setAttribute("aria-label", `View previous profile: ${previousLabel}`);
-  dom.previousRaceCard.title = `Previous: ${previousLabel}`;
-  dom.nextRaceCard.textContent = "";
-  dom.nextRaceCard.setAttribute("aria-label", `View next profile: ${nextLabel}`);
-  dom.nextRaceCard.title = `Next: ${nextLabel}`;
+  for (const [button,direction] of [[dom.previousRaceCard,-1],[dom.nextRaceCard,1]]) {
+    const withinSubtype=subtypeCount>1&&(raceProfileNavigationMode==='direct'||activeRaceSubtypeIndex+direction>=0&&activeRaceSubtypeIndex+direction<subtypeCount);
+    const label=`${direction>0?'Next':'Previous'} ${withinSubtype?'Sub Race':'Race'}`;
+    button.innerHTML=`<span class="race-nav-arrow" aria-hidden="true"></span><span>${label}</span>`;
+    button.classList.toggle('sub-race',withinSubtype);
+    button.setAttribute('aria-label',`${label}: ${adjacentLabel(direction)}`);
+    button.title=`${label}: ${adjacentLabel(direction)}`;
+  }
 }
+
+let raceParallaxFrame=0;
+function updateRaceParallax() {
+  if(raceParallaxFrame)return;
+  raceParallaxFrame=requestAnimationFrame(()=>{
+    raceParallaxFrame=0;
+    const art=dom.raceCardDetailImage;
+    const offset=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Math.min(dom.raceGalleryModal.scrollTop*.65,Math.max(0,art.parentElement.clientHeight-art.clientHeight));
+    art.style.transform=`translateY(${offset}px)`;
+  });
+}
+dom.raceGalleryModal.addEventListener('scroll',updateRaceParallax,{passive:true});
 
 function scrollRaceDetailToTop() {
   dom.raceGalleryModal.scrollTop = 0;
+  dom.raceCardDetailImage.style.transform="";
   dom.raceCardDetail.scrollTop = 0;
   const copy = dom.raceCardDetail.querySelector(".race-card-copy");
   if (copy) copy.scrollTop = 0;
@@ -3838,6 +3853,9 @@ function renderWorkflow() {
   else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ key: "fubs", label: "Roll on FUBS Chart", target: "#fubsButton" });
   dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
+  if(character.creation.activeGuideStep&&!requirements.some(task=>task.key===character.creation.activeGuideStep))character.creation.activeGuideStep='';
+  dom.phaseBadge.classList.toggle('step-in-progress',Boolean(character.creation.activeGuideStep));
+  for(const [key,node] of [['attributes',dom.workflowAttributeRemaining],['skills',dom.workflowSkillRemaining]])node.closest('div')?.classList.toggle('allocating-points',character.creation.activeGuideStep===key&&requirements.some(task=>task.key===key));
   dom.workflowDetail.textContent = validation.ready && requirements.length === 0
     ? "All creation tasks are complete. This character is ready to finalize."
     : validation.ready
@@ -3854,11 +3872,12 @@ function updatePointReadout(node,value,scope) {
   const previous=pointReadoutValues.get(node);
   pointReadoutValues.set(node,{value,scope});
   if(!Number.isFinite(value)){delete node.dataset.pointReadout;node.style.removeProperty('color');pointReadoutAnimations.get(node)?.cancel();return;}
-  node.dataset.pointReadout='';node.style.color='#000';
+  node.dataset.pointReadout='';node.style.removeProperty('color');
   if(!previous||previous.scope!==scope){pointReadoutAnimations.get(node)?.cancel();return;}
   if(Number.isFinite(previous.value)&&previous.value!==value){
     pointReadoutAnimations.get(node)?.cancel();
-    pointReadoutAnimations.set(node,node.animate([{color:'#fff'},{color:'#000'}],{duration:500,easing:'linear'}));
+    const restingColor=getComputedStyle(node).color;
+    pointReadoutAnimations.set(node,node.animate([{color:'#fff'},{color:restingColor}],{duration:500,easing:'linear'}));
   }
 }
 function renderExperience() {
@@ -4043,19 +4062,19 @@ function skillRuleIndicators(name) {
   if (raceId === "antropic" && raceType === "fluffy" && name === "Jump") add("positive", "FLUFFY +5");
   if (raceId === "kabuto" && name === "Resist Distress") add("positive", "CRITICAL SUCCESS");
   if (raceId === "skeder" && name === "Jump") add("positive", "SKED'ER +3");
-  if (raceId === "xithx" && name === "Stealth/Hide") add("negative", "REMOVE HIGHEST DIE");
+  if (raceId === "xithx" && name === "Stealth") add("negative", "REMOVE HIGHEST DIE");
 
   if (classId === "mastermind" && name === "Initiative") add("positive", "SPEED x1.5");
   if (classId === "decker" && name === "Computer Systems") add("positive", "3 FREE REROLLS/SESSION");
   if (classId === "demolition-specialist" && name === "Demolitions") add("positive", "FIRE INTENSITY");
   if (classId === "gunner" && name === "Weapon Systems") add("positive", "EXTRA DEX/INT DIE");
   if (classId === "marine-soldier" && name === "Projectile") add("positive", "TRIPLE FUSION");
-  if (classId === "navigator-sensor-tech" && ["Pilot/Helm", "Navigate", "Awareness", "Sensor Systems"].includes(name)) add("positive", "COMBINED CLASS SKILL");
-  if (classId === "ninja" && name === "Stealth/Hide") add("positive", "EXERTION +5 EACH");
-  if (classId === "peacekeeper" && name === "Negotiation/Persuade") add("positive", "+1D12");
+  if (classId === "navigator-sensor-tech" && ["Piloting", "Navigate", "Awareness", "Sensor Systems"].includes(name)) add("positive", "COMBINED CLASS SKILL");
+  if (classId === "ninja" && name === "Stealth") add("positive", "EXERTION +5 EACH");
+  if (classId === "peacekeeper" && name === "Persuasion") add("positive", "+1D12");
   if (classId === "pirate" && ["Projectile", "Melee"].includes(name)) add("positive", "+3.0 VS UNARMED");
-  if (classId === "playboy-minx" && ["Negotiation/Persuade", "Acting/Lie"].includes(name)) add("positive", "COMBINED CLASS SKILL");
-  if (classId === "science-officer" && ["Research", "Science/Physics", "Mathematics"].includes(name)) add("positive", "SESSION GROWTH");
+  if (classId === "playboy-minx" && ["Persuasion", "Deception"].includes(name)) add("positive", "COMBINED CLASS SKILL");
+  if (classId === "science-officer" && ["Research", "Science", "Mathematics"].includes(name)) add("positive", "SESSION GROWTH");
 
   return { positive, negative };
 }
@@ -4168,15 +4187,23 @@ function renderSkillPackages() {
     <p><strong>${validation.skillBudget} starting Skill Points</strong> · Package 1: ${Math.ceil(validation.skillBudget/2)} · Package 2: ${Math.floor(validation.skillBudget/2)}</p>
     ${stale ? '<p class="package-warning">Your point budget changed. Review and reapply packages, or adjust the existing skills in Custom.</p>' : ""}
     ${preview ? `<details class="package-preview"><summary>Preview ${Object.keys(preview.levels).length} skills · ${preview.spent} points spent · ${preview.remaining} remaining</summary><div>${Object.entries(preview.levels).sort(([a],[b])=>a.localeCompare(b)).map(([name,level])=>`<span class="trained-skill">${escapeHtml(name)} <strong>${level}.0</strong></span>`).join("")}</div><p>Purchased levels before race/class bonuses and the normal finalization decimal rolls.</p></details>` : ""}
-    <button type="button" data-apply-packages ${editable && ready && validation.attributesComplete ? "" : "disabled"}>${skillPointsSpent() ? "Reapply" : "Apply"} Skill Packages</button>
+    <button type="button" data-apply-packages ${editable && ready && validation.attributesComplete ? "" : "disabled"}>Confirm Skill Packages</button>
     <p role="status">${!validation.attributesComplete ? "Finish your Attribute allocation before applying packages." : preview?.remaining ? `${preview.remaining} unspent Skill Point${preview.remaining === 1 ? "" : "s"}. These packages have no affordable purchase within the level-${MAX_STARTING_SKILL} cap. Switch to Custom after applying to spend the remainder.` : "Preview freely; your skills change only when you apply."}</p>`}`;
+  if(character.creation.packageBudget!==undefined){
+    const hint=document.createElement('p');hint.className='package-custom-hint';hint.textContent=method==='custom'?'Reduce skills to gain Skill Points to reallocate.':'You can customize your skills further by using Custom Skill Allocation - Advanced.';host.querySelector('.skill-methods').after(hint);
+  }
+  if(method==='packages'&&character.creation.packageGuidance){
+    const targets=ready?'[data-apply-packages]':'[data-package-slot]';
+    host.querySelectorAll(targets).forEach(el=>{if(ready||!el.value)el.classList.add('workflow-target-pulse','skill-guidance');});
+  }
   host.querySelectorAll("[data-skill-method]").forEach(button => button.onclick = async () => {
     const next = button.dataset.skillMethod;
     if (next === method) { highlightSkillGuidance(next); return; }
     if (next === "packages" && skillPointsSpent() && !await askConfirmation({title:"Switch to Skill Packages?",message:"Your current skills are kept while you preview. Applying packages will refund and replace your starting skill purchases. Future XP advancement is unchanged.",acceptLabel:"Preview Packages"})) return;
-    character.creation.skillMethod=next;queueSave();renderWithoutViewportJump();highlightSkillGuidance(next);
+    character.creation.skillMethod=next;character.creation.activeGuideStep="skills";character.creation.packageGuidance=next==="packages";queueSave();renderWithoutViewportJump();highlightSkillGuidance(next);
   });
   host.querySelectorAll("[data-package-slot]").forEach(select => select.onchange = () => {
+    character.creation.packageGuidance=true;character.creation.activeGuideStep="skills";
     character.creation.skillPackages=[...ids];character.creation.skillPackages[Number(select.dataset.packageSlot)]=select.value;
     queueSave();renderWithoutViewportJump();
   });
@@ -4189,7 +4216,7 @@ function renderSkillPackages() {
     for(const name of ALL_SKILLS){character.skills[name].tenths=(result.levels[name]||0)*10;character.skills[name].creationDecimal=null;}
     for(const skill of character.customSkills){skill.tenths=0;skill.creationDecimal=null;}
     character.creation.skillPurchaseOrder=result.purchases.map(p=>({key:skillKeyForBase(p.name),cost:p.cost}));
-    character.creation.packageBudget=result.budget;
+    character.creation.packageBudget=result.budget;character.creation.packageGuidance=false;
     playPurchaseSound();queueSave();renderWithoutViewportJump();
     const status=document.querySelector('#skillPackages [role="status"]');
     if(status)status.textContent=`Packages applied: ${result.spent} points spent. ${result.remaining ? `${result.remaining} points remain; use Custom Skill Allocation to spend them.` : "All points spent. Review your skills below before finalizing."}`;
@@ -4333,14 +4360,14 @@ function combinedSkillBonusTenths(name, skill) {
   let total = displayedSkillTenths(name, skill);
   const classId = character.identity.classId;
   if (classId === "navigator-sensor-tech") {
-    if (name === "Pilot/Helm") total += displayedSkillTenths("Navigate", character.skills.Navigate);
-    if (name === "Navigate") total += displayedSkillTenths("Pilot/Helm", character.skills["Pilot/Helm"]);
+    if (name === "Piloting") total += displayedSkillTenths("Navigate", character.skills.Navigate);
+    if (name === "Navigate") total += displayedSkillTenths("Piloting", character.skills["Piloting"]);
     if (name === "Awareness") total += displayedSkillTenths("Sensor Systems", character.skills["Sensor Systems"]);
     if (name === "Sensor Systems") total += displayedSkillTenths("Awareness", character.skills.Awareness);
   }
   if (classId === "playboy-minx") {
-    if (name === "Negotiation/Persuade") total += displayedSkillTenths("Acting/Lie", character.skills["Acting/Lie"]);
-    if (name === "Acting/Lie") total += displayedSkillTenths("Negotiation/Persuade", character.skills["Negotiation/Persuade"]);
+    if (name === "Persuasion") total += displayedSkillTenths("Deception", character.skills["Deception"]);
+    if (name === "Deception") total += displayedSkillTenths("Persuasion", character.skills["Persuasion"]);
   }
   return total;
 }
@@ -4360,7 +4387,7 @@ function rollDicePool(attributeKey, skillName) {
     sides.push(borrowedDie);
   }
   if (classId === "science-officer" && attributeKey === "perception") sides.push(...attributeDiceSides("intellect"));
-  if (classId === "peacekeeper" && skillName === "Negotiation/Persuade") sides.push(12);
+  if (classId === "peacekeeper" && skillName === "Persuasion") sides.push(12);
   if (classId === "smuggler" && attributeKey === "charisma") sides.push(...attributeDiceSides("intellect").sort((a, b) => b - a).slice(0, 2));
   if (classId === "smuggler" && attributeKey === "intellect") sides.push(...attributeDiceSides("charisma").sort((a, b) => b - a).slice(0, 2));
   if (raceId === "flavilin" && attributeKey === "perception") sides.push(12);
@@ -4492,7 +4519,7 @@ function skillCheckPoolLabel() {
 const SKILL_EQUIPMENT = [
   { catalogId: "advanced-climbing-gear", skill: "Climb", bonus: 4, label: "Adv. Climbing Gear", detail: "+4 while used" },
   { catalogId: "electronics-toolkit", skill: "Engineering", bonus: 2, label: "Electronics Toolkit", detail: "+2; spends 1 use", consumableUse: true },
-  { catalogId: "chameleon-cloak", skill: "Stealth/Hide", bonus: 4, label: "Chameleon Cloak", detail: "+4 while immobile" },
+  { catalogId: "chameleon-cloak", skill: "Stealth", bonus: 4, label: "Chameleon Cloak", detail: "+4 while immobile" },
   { catalogId: "vr-headset", skill: "Computer Systems", bonus: 2, label: "VR Headset", detail: "+2 at an adapted terminal" },
 ];
 
@@ -4539,9 +4566,9 @@ function rollRuleExplanations() {
   if (profile.classId === "ambassador-spy" && ["charisma", "luck"].includes(profile.attributeKey)) add(className, `adds the highest ${profile.attributeKey === "charisma" ? "Luck" : "Charisma"} die.`);
   if (profile.classId === "gunner" && profile.skillName === "Weapon Systems") add(className, `adds the highest ${profile.attributeKey === "dexterity" ? "Intellect" : "Dexterity"} die to this Weapon Systems pool.`);
   if (profile.classId === "science-officer" && profile.attributeKey === "perception") add(className, "adds every Intellect die to Perception rolls.");
-  if (profile.classId === "peacekeeper" && profile.skillName === "Negotiation/Persuade") add(className, "adds 1D12 to Negotiation/Persuade.");
+  if (profile.classId === "peacekeeper" && profile.skillName === "Persuasion") add(className, "adds 1D12 to Persuasion.");
   if (profile.classId === "smuggler" && ["charisma", "intellect"].includes(profile.attributeKey)) add(className, `adds the two highest ${profile.attributeKey === "charisma" ? "Intellect" : "Charisma"} dice.`);
-  if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide" && skillCheck.committedExertion) add(className, `each Exertion adds 1D12 and +5; ${skillCheck.committedExertion} spent.`);
+  if (profile.classId === "ninja" && profile.skillName === "Stealth" && skillCheck.committedExertion) add(className, `each Exertion adds 1D12 and +5; ${skillCheck.committedExertion} spent.`);
   if (profile.classId === "marine-soldier" && profile.skillName === "Projectile") add(className, "three matching Projectile dice may fuse together.");
   if (profile.classId === "other" && character.creation.classAttributeChoice === profile.attributeKey) add(className, "unused Attribute dice add their results as decimals.");
 
@@ -4556,7 +4583,7 @@ function rollRuleExplanations() {
   if (profile.raceId === "draco-prime") add(raceName, "only one pair of dice may fuse.");
   if (profile.raceId === "horus" && profile.attributeKey === "perception") add(raceName, "Perception fusions may chain.");
   if (profile.raceId === "everliving-brethren" && profile.attributeKey === "perception") add(raceName, "removes the highest Perception die result before resolving.");
-  if (profile.raceId === "xithx" && profile.skillName === "Stealth/Hide") add(raceName, "removes the highest die result from Stealth/Hide.");
+  if (profile.raceId === "xithx" && profile.skillName === "Stealth") add(raceName, "removes the highest die result from Stealth.");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") add("Fluffy Antropic", "applies -2 to Strength rolls.");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") add("Fluffy Antropic", "applies +5 to Jump.");
   if (profile.raceId === "skeder" && profile.skillName === "Jump") add(raceName, "applies +3 to Jump.");
@@ -4574,13 +4601,13 @@ function renderSkillExertion() {
   const resolved = skillCheckResolvedSkill();
   const physical = ["strength", "dexterity", "health", "willpower"].includes(skillCheck.attributeKey)
     || (character.identity.raceId === "spiddix" && skillCheck.attributeKey === "intellect")
-    || (character.identity.classId === "ninja" && resolved?.name === "Stealth/Hide");
+    || (character.identity.classId === "ninja" && resolved?.name === "Stealth");
   dom.skillExertionBlock.hidden = !physical;
   if (!physical) {
     skillCheck.stagedExertion = 0;
     return;
   }
-  const ninjaStealth = character.identity.classId === "ninja" && resolved?.name === "Stealth/Hide";
+  const ninjaStealth = character.identity.classId === "ninja" && resolved?.name === "Stealth";
   dom.skillExertionReadout.textContent = skillCheck.stagedExertion
     ? `Stage ${skillCheck.stagedExertion}: +${skillCheck.stagedExertion}D12 and +${skillCheck.stagedExertion * (ninjaStealth ? 5 : 1)}`
     : skillCheck.committedExertion
@@ -4855,7 +4882,7 @@ async function confirmSkillResult() {
     if(!check.statisticsRecorded&&!check.damage&&!PAGE_PARAMS.has('shipRoll')){
       const name=resolveSkill(character,check.skillKey)?.name||check.skillName||ATTRIBUTE_DEFS.find(a=>a.key===check.attributeKey)?.label||check.attributeKey;
       const receipt=check.statisticsReceipt||=crypto.randomUUID();
-      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,score:check.pendingSubmission.score,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
+      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,attribute:check.attributeKey,requestId:check.campaignRequestId||null,outcome:check.pendingSubmission.outcome,score:check.pendingSubmission.score,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
       else window.SACharacterStatistics.roll(character,name,check.pendingSubmission.score,receipt);
       check.statisticsRecorded=true;queueSave();
     }
@@ -4984,8 +5011,8 @@ function openCombatSkillRequest(request) {
   const firstAid = request.rollRole === "firstAid";
   dom.skillCheckKicker.textContent = firstAid ? "First Aid Resolution" : request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
   dom.skillCheckTitle.textContent = firstAid
-    ? "Intellect + Anatomy/First Aid"
-    : request.rollRole === "attacker" ? "Dexterity + " + (request.skill || "Projectile") : "Dexterity + Dodge/Block";
+    ? "Intellect + First Aid"
+    : request.rollRole === "attacker" ? "Dexterity + " + (request.skill || "Projectile") : "Dexterity + Dodge";
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.cancelSkillCheck.hidden=Boolean((PAGE_PARAMS.has('shipRoll')||skillCheck.combatRequest)&&!skillCheck.cancelable);dom.skillCheckClose.hidden=dom.cancelSkillCheck.hidden;
   dom.skillCheckSubtitle.textContent = request.subtitle || "Submit the completed Score. The app applies weapon and Range modifiers afterward.";
@@ -5211,7 +5238,7 @@ async function resolvePhysicalSkillRoll(results) {
     const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
     adjustedResults.splice(highestIndex, 1);
   }
-  if (profile.raceId === "xithx" && profile.skillName === "Stealth/Hide" && adjustedResults.length) {
+  if (profile.raceId === "xithx" && profile.skillName === "Stealth" && adjustedResults.length) {
     const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
     adjustedResults.splice(highestIndex, 1);
   }
@@ -5249,7 +5276,7 @@ async function resolvePhysicalSkillRoll(results) {
     ? (["charisma", "willpower"].includes(profile.attributeKey) ? 2 : ["dexterity", "intellect"].includes(profile.attributeKey) ? -3 : 0)
     : 0;
   flatBonus += intoxicationBonus;
-  if (profile.classId === "ninja" && profile.skillName === "Stealth/Hide") flatBonus += skillCheck.committedExertion * 4;
+  if (profile.classId === "ninja" && profile.skillName === "Stealth") flatBonus += skillCheck.committedExertion * 4;
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy") {
     if (profile.attributeKey === "strength") flatBonus -= 2;
     if (profile.skillName === "Jump") flatBonus += 5;
@@ -5268,7 +5295,7 @@ async function resolvePhysicalSkillRoll(results) {
   const outcome = adjustedSkillOutcome(score, difficulty);
   const equationParts = [`Top two: ${top.length ? top.join(" + ") : "0"}`];
   if (!skillCheck.attributeOnly) equationParts.push(`Skill +${skillBonus}`);
-  if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth/Hide" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
+  if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") equationParts.push("Fluffy Strength -2");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") equationParts.push("Fluffy Jump +5");
   if (profile.raceId === "skeder" && profile.skillName === "Jump") equationParts.push("Sked'er Jump +3");
@@ -5326,7 +5353,7 @@ function autoSuccessMinimum() {
   if(!skillCheck||skillCheck.damage||skillCheck.sharedDamage||String(dom.skillDifficulty.value).trim()===''||!Number.isFinite(Number(dom.skillDifficulty.value))||Number(dom.skillDifficulty.value)>0)return null;
   const profile=rollRuleProfile(),resolved=skillCheckResolvedSkill(),exertion=(skillCheck.committedExertion||0)+(skillCheck.stagedExertion||0);
   let count=skillCheck.activeSides.length+(skillCheck.stagedExertion||0);
-  if(profile.raceId==='everliving-brethren'&&profile.attributeKey==='perception'||profile.raceId==='xithx'&&profile.skillName==='Stealth/Hide')count=Math.max(0,count-1);
+  if(profile.raceId==='everliving-brethren'&&profile.attributeKey==='perception'||profile.raceId==='xithx'&&profile.skillName==='Stealth')count=Math.max(0,count-1);
   const fused=fusionResults(Array(count).fill(1),profile),values=[...(skillCheck.preservedFusions||[]).map(f=>f.value),...fused.fusions.map(f=>f.value),...fused.leftovers].sort((a,b)=>b-a);
   const epoc=profile.raceId==='epoc'&&['strength','health','dexterity','perception'].includes(profile.attributeKey),other=profile.classId==='other'&&character.creation.classAttributeChoice===profile.attributeKey;
   const contribution=pool=>{const f=fusionResults(pool,profile),v=[...(skillCheck.preservedFusions||[]).map(x=>x.value),...f.fusions.map(x=>x.value),...f.leftovers].sort((a,b)=>b-a);return v.slice(0,2).reduce((a,b)=>a+b,0)+(other?v.slice(2).reduce((a,b)=>a+b,0)/10:0)-(epoc?pool.filter(x=>x===1).length:0);};
@@ -5334,7 +5361,7 @@ function autoSuccessMinimum() {
   if(count<=10){const visit=(left,first)=>{if(!left){minimum=Math.min(minimum,contribution(pool));return;}for(let face=first;face<=limit;face++){pool.push(face);visit(left-1,face);pool.pop();}};visit(count,1);}else minimum=Math.min(2,count)-(epoc?count:0);
   let score=minimum+(Number.isFinite(skillCheck.overrideBonus)?skillCheck.overrideBonus:skillCheck.attributeOnly?0:combinedSkillBonusTenths(resolved.name,resolved.skill)/10)+exertion+selectedSkillEquipment().reduce((n,r)=>n+r.bonus,0);
   if(character.statuses?.intoxicated)score+=['charisma','willpower'].includes(profile.attributeKey)?2:['dexterity','intellect'].includes(profile.attributeKey)?-3:0;
-  if(profile.classId==='ninja'&&profile.skillName==='Stealth/Hide')score+=exertion*4;
+  if(profile.classId==='ninja'&&profile.skillName==='Stealth')score+=exertion*4;
   if(profile.raceId==='antropic'&&character.identity.raceType==='fluffy'){if(profile.attributeKey==='strength')score-=2;if(profile.skillName==='Jump')score+=5;}
   if(profile.raceId==='skeder'&&profile.skillName==='Jump')score+=3;
   if(profile.raceId==='android'&&profile.skillName==='Initiative')score+=5;
@@ -5372,7 +5399,7 @@ function rollSkillCheck() {
   document.body.classList.add("skill-roll-active");
   diceRoller.rollPool({
     sides: skillCheck.currentRollSides,
-    title: skillCheck.attributeOnly ? resolved.name : `${resolved.name} + ${skillCheckAttribute().label}`,
+    title: skillCheck.rollTitle || (skillCheck.attributeOnly ? resolved.name : `${resolved.name} + ${skillCheckAttribute().label}`),
     subtitle: skillCheck.attributeOnly
       ? `${skillCheckPoolLabel()} | Use the top two`
       : `${skillCheckPoolLabel()} | Top two + ${Number.isFinite(skillCheck.overrideBonus)?skillCheck.overrideBonus:ratingText(combinedSkillBonusTenths(resolved.name, resolved.skill))}`,
@@ -6243,6 +6270,7 @@ async function applyAmbassadorFreeAttribute(paidCost, transaction) {
 }
 
 async function purchaseAttribute(attributeKey, row, column) {
+  if(character.phase==="draft")(character.creation||={}).activeGuideStep="attributes";
   if (!canPurchaseAttributes() || character.pendingRoll) return;
   const current = character.attributes[attributeKey][row];
   const definition = ATTRIBUTE_DEFS.find((entry) => entry.key === attributeKey);
@@ -6368,6 +6396,7 @@ function removeLastPurchaseEntry(key) {
 }
 
 function changeDraftSkill(key, direction) {
+  character.creation.activeGuideStep="skills";
   if (character.phase !== "draft" || character.pendingRoll) return;
   const validation = draftValidation();
   if (!validation.attributesComplete) {
@@ -6505,7 +6534,7 @@ const WORKFLOW_TUTORIALS = {
   race: ["Choose Your Race", "First pick your Race. It determines important advantages, disadvantages, and some character-creation rules."],
   class: ["Choose Your Class (Optional)", "A Class establishes your primary party role and special advantages. You can skip this step and continue without a class."],
   attributes: ["How to Purchase Attribute Dice", "One row = one die. Go right to upgrade it; start another row to add a die."],
-  skills: ["Choose Your Skills", "Skill Packages automatically spend your starting Skill Points across two areas of expertise. Choose two packages, including the same one twice, preview the results, then Apply. Custom Skill Allocation is the advanced option: buy individual skill levels using the SP buttons. You can switch to Custom to adjust package results. Skills with a rating of 0.1 or higher appear green."],
+  skills: ["Choose Your Skills", "Skill Packages automatically spend your starting Skill Points across two areas of expertise. Choose two packages, including the same one twice, preview the results, then Confirm Skill Packages. Custom Skill Allocation is the advanced option: buy individual skill levels using the SP buttons. You can switch to Custom to adjust package results. Skills with a rating of 0.1 or higher appear green."],
   identity: ["Fill In Identity", "Complete the Identity section, including Home Planet. These details identify the player and give the finished character a place in the setting."],
   backstory: ["Write A Backstory", "Write a Character Background before using the optional FUBS prompt. A few useful sentences are enough to begin."],
   fubs: ["Roll On FUBS", "FUBS is an optional, one-time complication for the backstory you already wrote. Read the result and incorporate it into the character's history."],
@@ -6537,12 +6566,12 @@ function addAttributePurchaseGuide(shell) {
   shell.classList.add('attribute-purchase-tutorial');
   const content=document.createElement('div');content.className='dice-practice';content.style.setProperty('--attribute','#35c9ff');
   content.innerHTML=`<div class="dice-practice-budget"><span>Sample EXP remaining</span><strong data-practice-budget aria-live="polite">225 / 225</strong></div>
-    <p class="dice-practice-help">Click the next die to buy. Click your last purchased die to refund.</p>
+    <p class="dice-practice-help">Click a rainbow dotted die to buy it.</p>
     <div data-practice-grid></div><p class="dice-practice-pool">Your dice: <strong data-practice-pool>D4 + D4</strong></p>
     <small>Practice only. Your character’s points stay unchanged.</small>`;
   shell.querySelector('.dialog-actions').before(content);
   const rows=[0,0,-1,-1],budget=content.querySelector('[data-practice-budget]'),grid=content.querySelector('[data-practice-grid]');
-  const render=()=>{grid.innerHTML=attributePurchaseGuideMarkup(rows);const remaining=attributePracticeRemaining(rows);budget.textContent=`${remaining} / 225`;updatePointReadout(budget,remaining,'practice');content.querySelector('[data-practice-pool]').textContent=rows.filter(v=>v>=0).map(v=>DICE_NAMES[v]).join(' + ');};
+  const render=()=>{grid.innerHTML=attributePurchaseGuideMarkup(rows);const remaining=attributePracticeRemaining(rows);budget.textContent=`${remaining} / 225`;updatePointReadout(budget,remaining,'practice');content.querySelector('.dice-practice-help').textContent=remaining<225?'Click your last purchased die to refund it and get your points back.':'Click a rainbow dotted die to buy it.';content.querySelector('[data-practice-pool]').textContent=rows.filter(v=>v>=0).map(v=>DICE_NAMES[v]).join(' + ');};
   grid.addEventListener('click',event=>{const button=event.target.closest('[data-practice-row]');if(!button||button.disabled)return;if(changeAttributePractice(rows,Number(button.dataset.practiceRow),Number(button.dataset.practiceColumn))){playPurchaseSound('dexterity');render();}});
   render();
 }
@@ -6551,6 +6580,7 @@ function showWorkflowTutorial(key, target = "") {
   if (character.phase !== "draft" || CAMPAIGN_READ_ONLY_VIEW) return;
   const copy = WORKFLOW_TUTORIALS[key];
   if (!copy) return;
+  character.creation.activeGuideStep=key;queueSave();renderWorkflow();
   const shell = document.createElement("div");
   shell.className = "modal-shell workflow-tutorial-modal";
   shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Character Creation</span><h2>${escapeHtml(copy[0])}</h2><p>${escapeHtml(copy[1])}</p><div class="dialog-actions"><button type="button" class="primary-action">Got It</button></div></section>`;
@@ -6560,7 +6590,7 @@ function showWorkflowTutorial(key, target = "") {
     const fill = document.createElement("button");fill.type="button";fill.textContent="Auto Fill";
     fill.disabled=!window.SAIdentityPresets.presets[character.identity.raceId];
     if(fill.disabled){fill.title="Choose a Race first.";const hint=document.createElement('p');hint.textContent='Choose a Race first.';shell.querySelector('.dialog-actions').before(hint);}
-    fill.onclick=()=>{autoFillIdentity();shell.remove();scrollToWorkflowTarget('.identity-panel');};
+    fill.onclick=()=>{autoFillIdentity();shell.remove();scrollToWorkflowTarget('[data-field="identity.playerName"]');};
     shell.querySelector(".dialog-actions").prepend(fill);
   }
   shell.querySelector(".primary-action").addEventListener("click", () => { shell.remove(); if (key==='skills') {scrollToWorkflowTarget('#skillPackages .skill-methods');requestAnimationFrame(()=>highlightSkillGuidance('methods'));} else if (target) scrollToWorkflowTarget(target); });
@@ -6577,14 +6607,15 @@ function autoFillIdentity() {
   const colors=['#ff678e','#ffaf4d','#ffe066','#66e6a0','#4ed9ed','#6e9cff','#bd8aff','#f786d5'];
   const available=colors.filter(c=>c!==character.presentation.atbColor);
   character.presentation.atbColor=available[Math.floor(Math.random()*available.length)];
-  queueSave();renderWithoutViewportJump();
+  queueSave();renderAll();
 }
 
 function highlightSkillGuidance(mode) {
   document.querySelectorAll('.skill-guidance').forEach(el=>el.classList.remove('skill-guidance','workflow-target-pulse'));
   document.querySelector('#skillPackages .skill-methods')?.classList.remove('workflow-target-pulse');
-  const selector=mode==='methods'?'[data-skill-method]':mode==='packages'?'[data-package-slot]':'.skill-buy:not(:disabled)';
+  const selector=mode==='methods'?'[data-skill-method]':mode==='packages'?(character.creation.skillPackages?.every(Boolean)?'[data-apply-packages]':'[data-package-slot]'):'.skill-buy:not(:disabled)';
   document.querySelectorAll(selector).forEach(el=>{
+    if(mode==='packages'&&el.matches('select')&&el.value)return;
     el.classList.add('skill-guidance','workflow-target-pulse');
     el.addEventListener('click',()=>el.classList.remove('skill-guidance','workflow-target-pulse'),{once:true});
   });
@@ -6833,6 +6864,11 @@ async function finishFinalization() {
   if(PAGE_PARAMS.get('roomCreate'))await finishRoomCreation();
   renderCharacterLayout();
   renderCharacterNavigation();
+  showPostFinalizationGuide();
+}
+
+function showPostFinalizationGuide(){
+  const shell=document.createElement("div");shell.className="modal-shell";shell.innerHTML=`<section class="confirm-dialog" role="dialog" aria-modal="true"><h2>Your character is ready</h2><p>Export your character to keep a local backup.</p><p>To play, enter your GM’s campaign using their room code, then load your character. After linking to a campaign, you can spend your starting credits on weapons and gear.</p><div class="dialog-actions"><button type="button">Show Export</button></div></section>`;document.body.append(shell);shell.querySelector("button").onclick=()=>{shell.remove();scrollToWorkflowTarget("#exportCharacter");};
 }
 
 function campaignSkillKey(skillName) {
@@ -6862,32 +6898,86 @@ function openRequestedCampaignRoll() {
 }
 
 function processFinalization() {
+
   if(character.phase==='finalized'||character.creation?.skippingDecimals)return;
+
+  if(character.creation?.decimalBatch){if(!character.creation.batchAnimating)void rollFinalizationBatch();return;}
   showDecimalSkip();
+
   if (character.phase !== "finalizing" || diceRoller.isActive()) return;
+
   if (character.pendingRoll) {
+
     rollPending();
+
     return;
+
   }
+
   while (character.creation.finalizationQueue.length) {
+
     const key = character.creation.finalizationQueue[0];
+
     if (resolveSkill(character, key)) {
+
       const resolved = resolveSkill(character, key);
+
       character.pendingRoll = {
+
         kind: "creation-d10",
+
         skillKey: key,
+
         result: null,
+
         config: null,
+
         pattaniliaUnpurchased: character.identity.raceId === "pattanilia" && skillCreationLevel(resolved?.skill) === 0,
+
       };
+
       saveLibrary("Finalization roll prepared");
+
       renderWorkflow();
+
       rollPending();
+
       return;
+
     }
+
     character.creation.finalizationQueue.shift();
+
   }
+
   finishFinalization();
+
+}
+
+
+
+async function rollFinalizationBatch() {
+  const owner=character;
+  const queue=character.creation.finalizationQueue.filter(key=>resolveSkill(character,key));
+  if(!queue.length){void finishFinalization();return;}
+  const stored=character.creation.decimalBatch;
+  const values=queue.map(key=>{
+    const prior=stored?.find(row=>row.key===key)?.value;
+    const pending=character.pendingRoll?.skillKey===key?character.pendingRoll.resolvedResult??character.pendingRoll.result:null;
+    return {key,value:Number.isInteger(prior)&&prior>=1&&prior<=10?prior:Number.isInteger(pending)&&pending>=1&&pending<=10?pending:1+Math.floor(Math.random()*10)};
+  });
+  character.creation.decimalBatch=values;character.creation.batchAnimating=true;character.pendingRoll=null;
+  saveLibrary('Skill decimal dice prepared');renderWorkflow();
+  const finish=()=>{
+    if(character!==owner||character.phase!=='finalizing'||!character.creation.batchAnimating)return;
+    diceRoller.stop();
+    for(const {key,value} of values){const resolved=resolveSkill(character,key);if(!resolved)continue;const level=skillCreationLevel(resolved.skill),decimal=value===10?0:value;resolved.skill.tenths=character.identity.raceId==='pattanilia'&&level===0&&value===10?10:level*10+decimal;resolved.skill.creationDecimal=decimal;}
+    character.creation.finalizationQueue=[];delete character.creation.decimalBatch;delete character.creation.batchAnimating;
+    void finishFinalization();
+  };
+  try {
+    await diceRoller.rollPool({sides:values.map(()=>10),values:values.map(row=>row.value),title:'Finalizing Skills',subtitle:`${values.length} D10 — one decimal roll per skill`,fusion:false,presentation:'avalanche',onResolved:()=>{},onSettled:()=>{finish();}});
+  } catch(error){delete character.creation.batchAnimating;saveLibrary();notice('The dice could not start. Reload to resume the saved results.','error');}
 }
 
 function startSkillAdvancement(key) {
@@ -7116,7 +7206,7 @@ function rollFubsPercentile() {
     diceRoller.rollPercentile({
       title: "FUBS Percentile",
       subtitle: "Red die: tens | Blue die: ones",
-      anchor: dom.fubsButton,
+      presentation: "large",
       onResolved: (result) => showRollResultToast(`FUBS Result: ${result.total}`),
       onSettled: (result) => {
         diceRoller.celebrate(360).then(() => resolve(result.total));
@@ -8555,6 +8645,7 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
 });
 
 dom.settingsLeaveCampaign?.addEventListener("click", async () => {
+  if(!campaignCode&&PAGE_PARAMS.get('roomCreate')){const room=PAGE_PARAMS.get('roomCreate');if(!await askConfirmation({title:'Leave Campaign?',message:'Leave this room? Your local character remains saved.',acceptLabel:'Leave Campaign',cancelLabel:'Stay'}))return;try{await window.SARoomV03.api('leave',{code:room,token:localStorage.getItem('sa-room-player-'+room)});localStorage.removeItem('sa-room-player-'+room);location.href='index.html';}catch(error){notice(error.message,'error');}return;}
   if(campaignState?.interfaceVersion === '0.3') {
     if(!await askConfirmation({title:'Abandon Character?',message:'The character stays in this campaign and becomes available for another player to link.',acceptLabel:'Abandon Character',cancelLabel:'Stay'}))return;
     try { const response=await fetch('/api/campaign/v03/abandon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:localStorage.getItem('sa-room-player-'+campaignCode)||localStorage.getItem(campaignTokenKey(campaignCode,campaignCharacterId))})});const data=await response.json();if(!response.ok)throw Error(data.error);location.href='room.html?campaign='+campaignCode; } catch(error){notice(error.message,'error');}
@@ -9331,7 +9422,7 @@ window.addEventListener("beforeunload", () => {
 });
 
 async function finishRoomCreation(){
-  const code=PAGE_PARAMS.get('roomCreate');if(!code||character.phase!=='finalized')return;
+  const code=PAGE_PARAMS.get('roomCreate');if(!code)return;if(character.phase!=='finalized'){await askConfirmation({title:'Finish the character first',message:'Finalize this character before linking it to the campaign. You can return to the room at any time; your draft is saved.',acceptLabel:'Okay',cancelLabel:'Back'});return;}
   try{const password=await window.SARoomV03.input('Character Ready','Choose your character password');if(password===null){notice('Character saved. Use Finish Joining Room to set a password and enter.');return;}
   const token=localStorage.getItem(window.SARoomV03.roomKey(code));const result=await window.SARoomV03.api('character/create',{code,token,password,character});window.SARoomV03.openCharacter(result.campaign,token);
   }catch(error){notice(error.message,'error');}
@@ -9501,6 +9592,7 @@ if(PAGE_PARAMS.has('shipRoll')){
     character.resources.exertionCurrent=Math.max(0,Number(request.exertionAvailable??1));character.resources.exertionMax=character.resources.exertionCurrent;
     dom.cancelSkillCheck.hidden=true;dom.skillCheckClose.hidden=true;
     skillCheck.immediateResult=Boolean(request.immediateResult);
+    skillCheck.rollTitle=typeof request.rollTitle==='string'?request.rollTitle.slice(0,120):null;
     renderSkillSetup();dom.skillCheckTitle.textContent=request.title;dom.selectedAttributeName.textContent=request.attributeLabel||request.skill||'System';dom.skillCheckSubtitle.textContent=(request.retryBonus?`Retry bonus +${request.retryBonus} included. `:'')+(request.difficultyLabel||'Unknown difficulty');dom.skillDifficulty.placeholder=request.difficultyLabel?.replace('Difficulty unknown','Unknown difficulty')||'Unknown difficulty';dom.skillDifficulty.closest('label').firstChild.textContent=Number.isFinite(request.difficulty)?'Difficulty':'Unknown difficulty';dom.changeSkillAttribute.hidden=true;dom.skillDifficulty.disabled=true;
     parent.postMessage({type:'sa-ship-skill-opened',rollId:request.rollId},location.origin);
     if(request.sharedDamage){
@@ -9594,10 +9686,12 @@ window.addEventListener('sa-drone-update',event=>{
 
 // Room-level identity is separate from the selected character.
 const roomReturn=document.createElement('button');roomReturn.textContent='Room Lobby / Abandon Character';
-roomReturn.onclick=()=>{if(campaignCode)location.href='room.html?campaign='+campaignCode;};
+roomReturn.onclick=()=>{const room=campaignCode||PAGE_PARAMS.get('roomCreate');location.href=room?'room.html?campaign='+encodeURIComponent(room):'index.html';};
 document.getElementById('playerSettingsPanel')?.append(roomReturn);
 if(PAGE_PARAMS.get('roomCreate')){const finish=document.createElement('button');finish.textContent='Finish Joining Room';finish.onclick=finishRoomCreation;document.getElementById('playerSettingsPanel')?.append(finish);}
-if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');help.className='v03-panel v03-creation-context';const text=document.createElement('p');const creatingFor=PAGE_PARAMS.get('roomCreate');text.textContent=creatingFor?`Creating a character for room ${creatingFor}. Finish the sheet and choose a password to start playing. Weapons and gear become available after finalization.`:'Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.append(text);if(creatingFor){const back=document.createElement('a');back.href='room.html?campaign='+encodeURIComponent(creatingFor);back.textContent='Return to Room';back.title='Your character draft is saved on this device.';help.append(back);}document.getElementById('characterWorkspace')?.prepend(help);}
+if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');help.className='v03-panel v03-creation-context';const text=document.createElement('p');const creatingFor=PAGE_PARAMS.get('roomCreate');text.textContent=creatingFor?`Creating a character for room ${creatingFor}. Finish the sheet and choose a password to start playing. Weapons and gear become available after finalization.`:'Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.append(text);if(creatingFor){const back=document.createElement('a');back.href='room.html?campaign='+encodeURIComponent(creatingFor);back.textContent='Return to Room';back.title='Your character draft is saved on this device.';help.append(back);}const menu=document.createElement('a');menu.href='index.html';menu.textContent='Main Menu';help.append(menu);
+ if(creatingFor){const link=document.createElement('button');link.type='button';link.className='room-character-link';link.textContent='Link to room '+creatingFor;link.onclick=finishRoomCreation;help.append(link);fetch('/api/campaign/state?code='+encodeURIComponent(creatingFor)+'&token='+encodeURIComponent(localStorage.getItem('sa-room-player-'+creatingFor)||'')).then(r=>r.json()).then(state=>{if(state.name)link.textContent='Link to '+state.name;}).catch(()=>{});}
+ document.getElementById('characterWorkspace')?.prepend(help);}
 
 // v0.3: the drawer mirrors existing sheet sections and forwards only roll controls.
 let sheetDrawer=null,sheetDrawerBody=null,sheetDrawerSection='attributes',sheetDrawerOpen=false,sheetDrawerKey='';
@@ -9625,26 +9719,14 @@ let statisticsSignature='';
 function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
 setInterval(()=>{updateSheetDrawer();renderCharacterStatistics();},750);
 function finishRemainingDecimals() {
-  if(character.phase!=='finalizing'||character.creation.skippingDecimals)return;
-  character.creation.skippingDecimals=true;
-  const inFlight=character.pendingRoll;
-  character.pendingRoll=null;
+  if(character.phase!=='finalizing'||character.creation.batchAnimating)return;
   diceRoller.stop();
-  const results=character.creation.finalizationQueue.map(key=>{
-    const resolved=resolveSkill(character,key);if(!resolved)return null;
-    const preserved=inFlight?.skillKey===key?inFlight.resolvedResult??inFlight.result:null;
-    const roll=Number.isInteger(preserved)&&preserved>=1&&preserved<=10?preserved:1+Math.floor(Math.random()*10);
-    const level=skillCreationLevel(resolved.skill),decimal=roll===10?0:roll;
-    return {skill:resolved.skill,tenths:character.identity.raceId==='pattanilia'&&level===0&&roll===10?10:level*10+decimal,decimal};
-  }).filter(Boolean);
-  // Resolve the entire batch before publishing one final sheet update.
-  for(const result of results){result.skill.tenths=result.tenths;result.skill.creationDecimal=result.decimal;}
-  character.creation.finalizationQueue=[];
   document.getElementById('skipCreationDecimals')?.remove();
-  finishFinalization();
+  void rollFinalizationBatch();
 }
+
 function showDecimalSkip(){
-  if(character.phase!=='finalizing'||!character.creation?.decimalRollSeen||!character.creation.finalizationQueue.length||document.getElementById('skipCreationDecimals'))return;
+  if(character.phase!=='finalizing'||character.creation.batchAnimating||!character.creation?.decimalRollSeen||!character.creation.finalizationQueue.length||document.getElementById('skipCreationDecimals'))return;
   const button=document.createElement('button');button.id='skipCreationDecimals';button.textContent='Finish Now';button.onclick=finishRemainingDecimals;document.body.append(button);
 }
 
@@ -9681,3 +9763,9 @@ window.SAInteriorIntruderState=()=>({intruderShips:(campaignState?.starships||[]
 
 document.getElementById('pcSettingsButton')?.addEventListener('click',()=>{const next=activeCharacterTab==='settings'?settingsReturnTab:'settings';showCharacterPanel(next);requestAnimationFrame(()=>window.scrollTo({top:characterPanelScroll.get(next)||0,behavior:'instant'}));});
 document.getElementById('pcHeaderSound')?.addEventListener('click',()=>dom.playerSoundToggle?.querySelector(`[data-player-sounds="${!playerSoundsEnabled}"]`)?.click());
+
+document.getElementById('cancelCampaignRoll')?.addEventListener('click',async event=>{
+ const request=currentOpenRollRequest();if(!request)return;const button=event.currentTarget;button.disabled=true;
+ try{const result=await campaignRequest('/api/campaign/roll/cancel',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,requestId:request.id})});receiveCampaignState(result.campaign);}
+ catch(error){window.SAResultFeedback?.notice(error.message,'error',8000,{allowOutsideCombat:true});}finally{button.disabled=false;}
+});

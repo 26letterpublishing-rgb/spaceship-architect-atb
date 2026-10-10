@@ -22,8 +22,8 @@ function rechargeItems(character) {
 
 function dailyHealing(character) {
   const boxes = (character.attributes?.health || []).reduce((sum, value) => sum + (Number.isInteger(value) && value >= 0 && value <= 4 ? value + 1 : 0), 0);
-  const skill = character.skills?.["Athletics/Endurance"];
-  const athletics = character.computed?.skills?.["Athletics/Endurance"] ?? (typeof skill === "object" ? finite(skill?.tenths) / 10 : finite(skill));
+  const skill = character.skills?.["Athletics"];
+  const athletics = character.computed?.skills?.["Athletics"] ?? (typeof skill === "object" ? finite(skill?.tenths) / 10 : finite(skill));
   return boxes + Math.max(0, finite(athletics));
 }
 

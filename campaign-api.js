@@ -8,6 +8,7 @@ const OXYGEN = require('./ship-oxygen');
 const TRANSIT = require('./ship-transit');
 const CREW_ROOMS=require('./ship-crew-rooms');
 const SHIP_POWER=require('./ship-power');
+const REPUTATION = require('./ship-reputation');
 const TRANSIT_FIELDS = require('./ship-state').fields;
 
 function transitRoom(campaign) {
@@ -482,7 +483,7 @@ function applyConditionalDelivery(campaign, record, action) {
     id: uid("note"), characterId: record.id, characterName: safeCharacterName(record),
     direction: "to-character", kind: "award", awardId: award.id,
     rewardResource: resource, rewardAmount: amount, rewardStatus: "pending",
-    message: `Successful ${action.attribute} + ${action.skill} check: ${amount.toLocaleString()} ${rewardLabel(resource)} is ready to receive.`,
+    message: action.message || `Successful ${action.attribute} + ${action.skill} check: ${amount.toLocaleString()} ${rewardLabel(resource)} is ready to receive.`,
     createdAt: now, readAt: null,
   });
   return { kind: "award", resource, amount, awardId: award.id, pending: true };
@@ -584,7 +585,7 @@ function defaultCampaign({ code, name, gmCode }) {
 }
 
 function normalizeCampaign(raw) {
-  const campaign = raw && typeof raw === "object" ? raw : {};
+  const campaign = require("./skill-catalog").migrate(raw && typeof raw === "object" ? raw : {});
   campaign.version = 3;
   campaign.npcRoster = [...new Map([...(campaign.npcRoster || []), ...(campaign.encounter?.units || []).filter(unit => unit.team === "npc")].map(unit => [unit.id, unit])).values()].slice(-200);
   campaign.code = String(campaign.code || "").trim().toUpperCase();
@@ -753,6 +754,8 @@ function campaignBackup(campaign) {
       roomOpen: campaign.roomOpen,
       imports: campaign.imports,
       quickPrompts: campaign.quickPrompts,
+      reputationSession: campaign.reputationSession,
+      endSessionReceipts: campaign.endSessionReceipts,
       crewLogs: campaign.crewLogs||[],
       libraryEntries: campaign.libraryEntries||[],
       version: campaign.version,
@@ -1047,6 +1050,7 @@ class CampaignApi {
       players: gm ? clone(campaign.players || []) : undefined,
       imports: (campaign.imports || []).filter(r=>gm || r.playerId===this.session(token,campaign.code)?.playerId).map(r=>({...clone(r),data:gm?r.data:undefined})),
       quickPrompts: gm ? clone(campaign.quickPrompts || {}) : undefined,
+      reputation: gm ? clone(REPUTATION.state(campaign)) : undefined,
       code: campaign.code,
       roomCode: campaign.code,
       name: campaign.name,
@@ -1128,7 +1132,7 @@ class CampaignApi {
           return visible;
         }),
       carryOptions:ownId?(()=>{const room=transitRoom(campaign),unit=room.units.find(u=>u.characterId===ownId);return unit&&unit.currentHp>0?{shipId:unit.location?.starshipId,carryingId:unit.carryingId,patients:require('./crew-carry').candidates(room,unit).map(p=>({id:p.id,name:p.characterName}))}:null;})():null,
-      rollRequests: clone(requests.slice(-50)),
+      rollRequests: clone(requests.slice(-50)).map(request=>{if(!gm)for(const result of Object.values(request.results||{}))delete result.reputation;return request;}),
     };
   }
 
@@ -1326,7 +1330,7 @@ class CampaignApi {
     let body = {};
     if (req.method !== "GET") {
       try {
-        body = await readBody(req);
+        body = require("./skill-catalog").migrate(await readBody(req));
       } catch {
         sendJson(res, 400, { error: "Bad JSON" });
         return true;
@@ -1352,9 +1356,9 @@ class CampaignApi {
       } while (this.showcases.has(showcaseCode) || await this.store.get(showcaseCode));
 
       const pcDefinitions = [
-        { id: "showcase-nova", playerName: "Player One", characterName: "Nova Vale", color: "#35c9ff", speed: 6.2, commandWindow: 44, moveSpeed: 4, hp: 36, damageReduction: 1, weaponId: "standard-sidearm", attributes: { strength: [0, 0, -1, -1], health: [1, 0, -1, -1], perception: [1, 1, -1, -1], dexterity: [2, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [1, 0, -1, -1], intellect: [1, 1, -1, -1], willpower: [1, 0, -1, -1] }, skills: { Initiative: 2.2, Awareness: 2, Projectile: 2.4, "Dodge/Block": 1.8, Melee: 0.8, "Weapon Mechanics": 1.2 } },
+        { id: "showcase-nova", playerName: "Player One", characterName: "Nova Vale", color: "#35c9ff", speed: 6.2, commandWindow: 44, moveSpeed: 4, hp: 36, damageReduction: 1, weaponId: "standard-sidearm", attributes: { strength: [0, 0, -1, -1], health: [1, 0, -1, -1], perception: [1, 1, -1, -1], dexterity: [2, 1, -1, -1], luck: [0, 0, -1, -1], charisma: [1, 0, -1, -1], intellect: [1, 1, -1, -1], willpower: [1, 0, -1, -1] }, skills: { Initiative: 2.2, Awareness: 2, Projectile: 2.4, "Dodge": 1.8, Melee: 0.8, "Weapon Mechanics": 1.2 } },
       ];
-      Object.assign(pcDefinitions[0].skills,{'Computer Systems':5,Engineering:5,Hacking:4,'Pilot/Helm':6,'Sensor Systems':5.5,'Weapon Systems':6,Mathematics:4,Awareness:4,Initiative:4,'Dodge/Block':3.5});
+      Object.assign(pcDefinitions[0].skills,{'Computer Systems':5,Engineering:5,Hacking:4,'Piloting':6,'Sensor Systems':5.5,'Weapon Systems':6,Mathematics:4,Awareness:4,Initiative:4,'Dodge':3.5});
       Object.assign(pcDefinitions[0].attributes,{dexterity:[3,2,1,-1],intellect:[4,3,1,-1],perception:[3,2,1,-1]});
       Object.assign(pcDefinitions[0],{speed:15,commandWindow:120,moveSpeed:3,hp:30,damageReduction:0});
       pcDefinitions.push({...structuredClone(pcDefinitions[0]),id:'showcase-orion',playerName:'Player Two',characterName:'Orion Reed',color:'#f5b85b'});
@@ -1381,9 +1385,9 @@ class CampaignApi {
         controlledBy: "player", team: "pc", allyNpc: false, actorType: "character", color: entry.color, tieSeed: index / 10,
         characterId: entry.id, playerConnected: false, moveSpeed: entry.moveSpeed, dexterityBoxes: entry.attributes.dexterity.reduce((n,v)=>n+Math.max(0,v+1),0), highestPerceptionDie: Math.max(...entry.attributes.perception.filter(v=>v>=0).map(v=>[4,6,8,10,12][v])),
         weaponMechanics: entry.skills["Weapon Mechanics"] || 0, dexterityDice: entry.attributes.dexterity.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),strengthDice:entry.attributes.strength.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),intellectDice:entry.attributes.intellect.filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),
-        projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge/Block"] || 0,
+        projectileSkill: entry.skills.Projectile || 0, meleeSkill: entry.skills.Melee || 0, dodgeSkill: entry.skills["Dodge"] || 0,
         engineeringSkill: entry.skills.Engineering || 0,
-        pilotSkill: entry.skills['Pilot/Helm'] || 0,
+        pilotSkill: entry.skills['Piloting'] || 0,
         sensorSkill: entry.skills['Sensor Systems'] || 0,
         weaponSystemsSkill: entry.skills['Weapon Systems'] || 0,
         mathematicsSkill: entry.skills.Mathematics || 0,
@@ -1599,6 +1603,30 @@ class CampaignApi {
       return true;
     }
 
+    if(path==='/api/campaign/reputation'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM access required.'});return true;}
+      try{
+        const rep=REPUTATION.state(campaign),receipt=String(body.receipt||'');
+        if(!receipt)throw Error('A request receipt is required.');
+        if(!rep.receipts.includes(receipt)){
+          if(body.kind==='attitude'){
+            const npcId=String(body.npcId||'general');
+            if(npcId!=='general'&&!campaign.starships.some(s=>s.id===npcId)&&!this.liveEncounter(code)?.starships.some(s=>s.id===npcId))throw Error('Choose an NPC ship.');
+            REPUTATION.setAttitude(campaign,npcId,body.values);
+          }else if(body.kind==='reroll'){
+            const previous=rep.contacts[body.key||rep.activeKey],ship=campaign.starships.find(s=>s.id===previous?.shipId);
+            if(!ship)throw Error('No recognition check is available yet.');
+            REPUTATION.recognize(campaign,ship,previous.npcId,previous.key,{reroll:true});
+          }else if(body.kind==='edit'){
+            const ship=campaign.starships.find(s=>s.id===body.shipId);if(!ship)throw Error('Ship not found.');
+            if(!Array.isArray(body.values)||body.values.length!==5||body.values.some(n=>!Number.isInteger(n)||n<0||n>10)||!Number.isInteger(body.popularity)||body.popularity<0||body.popularity>100)throw Error('Choose valid Reputation and Popularity values.');
+            ship.ship.reputationSelections=body.values.slice();ship.ship.popularity=body.popularity;
+          }else throw Error('Choose a Reputation action.');
+          rep.receipts.push(receipt);rep.receipts=rep.receipts.slice(-500);
+        }
+        await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,400,{error:error.message});}return true;
+    }
     if(path==='/api/campaign/quick-prompts'&&req.method==='POST'){
       if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM access required.'});return true;}
       const column=String(body.column||'everyone');
@@ -1607,11 +1635,11 @@ class CampaignApi {
         campaign.quickPromptReceipts||=[];const receipt=String(body.receipt||'');
         if(!receipt){sendJson(res,400,{error:'A request receipt is required.'});return true;}
         if(!campaign.quickPromptReceipts.includes(receipt)){
-          for(const record of campaign.characters.filter(c=>column==='everyone'||c.id===column))applyCharacterReward(record,{resource:'reverence',amount:1},campaign);
+          for(const record of campaign.characters.filter(c=>column==='everyone'||c.id===column))applyConditionalDelivery(campaign,record,{kind:'award',resource:'reverence',amount:1,message:'The GM sent 1 Reverence. Claim this reward when you are ready.'});
           campaign.quickPromptReceipts.push(receipt);campaign.quickPromptReceipts=campaign.quickPromptReceipts.slice(-300);
         }
       }else{
-        if(!Array.isArray(body.presets)||body.presets.length>10||body.presets.some(p=>!p.name||!p.attribute||!p.skill||!Number.isInteger(p.difficulty))){sendJson(res,400,{error:'Choose up to ten prompts with whole-number difficulties.'});return true;}
+        if(!Array.isArray(body.presets)||body.presets.length>(body.presets.some(p=>p.attribute==='Charisma'&&p.skill==='Persuasion')?11:10)||body.presets.some(p=>!p.name||!p.attribute||!p.skill||!Number.isInteger(p.difficulty))){sendJson(res,400,{error:'Choose up to ten prompts with whole-number difficulties.'});return true;}
         campaign.quickPrompts||={};campaign.quickPrompts[column]=body.presets.map(p=>({name:String(p.name).slice(0,80),attribute:String(p.attribute).slice(0,40),skill:String(p.skill).slice(0,80),difficulty:p.difficulty}));
       }
       await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});return true;
@@ -1620,6 +1648,7 @@ class CampaignApi {
       const record=campaign.characters.find(c=>c.id===body.characterId);
       if(!record||!this.characterSession(token,code,record.id)){sendJson(res,403,{error:'Character access required.'});return true;}
       require('./character-statistics').roll(record.character,body.skill,body.score,body.receipt);
+      REPUTATION.recordRoll(campaign,record.id,body);
       await this.save(campaign);sendJson(res,200,{statistics:record.character.statistics});return true;
     }
     if (path === "/api/campaign/starship/save" && req.method === "POST") {
@@ -1650,6 +1679,9 @@ class CampaignApi {
       const remap=square=>SHIP_MAP.remapSquare(square,record.ship,proposed)+legacyShift;
       const locations=Object.fromEntries(Object.entries(record.characterLocations||{}).map(([id,location])=>[id,{...location,square:remap(location.square)}]));
       const updated = normalizeStarshipRecord({ ...record,characterLocations:locations, ship: body.starship, title: body.starship?.title, accessKey: record.accessKey });
+      // Fame is GM-owned, independent of construction saves and stale editor copies.
+      updated.ship.popularity=record.ship.popularity||0;
+      updated.ship.reputationSelections=clone(record.ship.reputationSelections||[5,5,5,5,5]);
       const powerError = SHIP_POWER.constructionError(updated);
       if (powerError) { sendJson(res, 400, { error: powerError }); return true; }
       const airlockError=SHIP_MAP.ensureAirlocks(updated.ship);
@@ -2602,7 +2634,8 @@ class CampaignApi {
           }
           require('./campaign-starmaps').advance(next,elapsed);
           const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
-          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);if(!ship.ship.warpState?.campaignClock)TRANSIT.passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          TRANSIT.advance(transitRoom(next),elapsed*60);
           require('./ship-black-hole-gun').cooldowns(transitRoom(next),elapsed*60);const chargedRoom=transitRoom(next);chargedRoom.starships=chargedRoom.starships.filter(s=>require('./ship-devastation').needsPower(s));SHIP_POWER.advance(chargedRoom,elapsed*60);
           CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
           OXYGEN.advance(next.starships,actors,elapsed*60);
@@ -2943,6 +2976,10 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization is required." });
         return true;
       }
+      const receipt=String(body.receipt||'');
+      if(receipt&&campaign.endSessionReceipts?.[receipt]!=null){sendJson(res,200,{sessionEnded:campaign.endSessionReceipts[receipt],campaign:this.state(campaign,token)});return true;}
+      if(body.expectedSession!=null&&body.expectedSession!==campaign.sessionNumber){sendJson(res,409,{error:'This session already ended. Refresh before ending another session.'});return true;}
+      try{REPUTATION.applyEnd(campaign,body.reputation);}catch(error){sendJson(res,400,{error:error.message});return true;}
       const endedSession = campaign.sessionNumber;
       const sessionZeroCreditAdjustment = endedSession === 0;
       const interestAdjustedCredits = (value) => {
@@ -2986,7 +3023,7 @@ class CampaignApi {
             characterName: safeCharacterName(record),
             direction: "to-character",
             kind: "science-choice",
-            choices: ["Research", "Science/Physics", "Mathematics"],
+            choices: ["Research", "Science", "Mathematics"],
             message: `Session ${endedSession}: choose one Science Officer Skill to increase by +0.1.`,
             createdAt: new Date().toISOString(),
             readAt: null,
@@ -2995,6 +3032,8 @@ class CampaignApi {
         record.updatedAt = new Date().toISOString();
       }
       campaign.sessionNumber += 1;
+      campaign.reputationSession=null;
+      if(receipt){campaign.endSessionReceipts||={};campaign.endSessionReceipts[receipt]=endedSession;}
       await this.save(campaign);
       sendJson(res, 200, { sessionEnded: endedSession, campaign: this.state(campaign, token) });
       return true;
@@ -3683,6 +3722,15 @@ class CampaignApi {
       return true;
     }
 
+    if (path === "/api/campaign/roll/cancel" && req.method === "POST") {
+      const request=campaign.rollRequests.find(r=>r.id===body.requestId),characterId=String(body.characterId||'');
+      if(!request?.targetIds.includes(characterId)||!this.characterSession(token,code,characterId)){sendJson(res,403,{error:'This request belongs to another character.'});return true;}
+      if(request.results?.[characterId]&&!request.results[characterId].cancelled){sendJson(res,409,{error:'This roll has already been submitted.'});return true;}
+      request.results[characterId]||={cancelled:true,outcome:'Cancelled',respondedAt:new Date().toISOString()};
+      campaign.privateNotes=campaign.privateNotes.filter(n=>!(n.rollRequestId===request.id&&n.characterId===characterId));
+      await this.save(campaign);sendJson(res,200,{cancelled:true,campaign:this.state(campaign,token)});return true;
+    }
+
     if (path === "/api/campaign/roll/respond" && req.method === "POST") {
       const request = campaign.rollRequests.find((entry) => entry.id === body.requestId);
       const characterId = String(body.characterId || "");
@@ -3709,6 +3757,7 @@ class CampaignApi {
         outcome: String(body.outcome || "").slice(0, 40),
         respondedAt: new Date().toISOString(),
       };
+      if(String(request.attribute).toLowerCase()==='charisma')request.results[characterId].reputation=REPUTATION.snapshot(campaign,characterId,submittedScore,request.id+':'+characterId);
       campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.rollRequestId === request.id && note.characterId === characterId));
       const completionAction = campaign.conditionalActions.find((entry) => entry.id === request.completionActionId);
       const succeeded = request.difficulty !== null && submittedScore >= Number(request.difficulty);

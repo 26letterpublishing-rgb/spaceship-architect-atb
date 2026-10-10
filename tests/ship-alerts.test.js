@@ -32,3 +32,11 @@ test('detection and latest activity notices remain private to crew with GM visib
  const at=new Date().toISOString(),home={id:'home',crewCharacterIds:['pc'],ship:{},sensorState:{reports:[{detected:true,nature:'Starship',shipClass:'III',targetId:'enemy',at},{detected:true,nature:'Missile',targetId:'missile',at}]}},other={id:'other',ship:{},sensorState:{reports:[{detected:true,nature:'Starship',shipClass:'Secret',targetId:'hidden',at}]}},room={starships:[home,other],units:[],log:[{id:'own',starshipId:'home',timestamp:at,text:'Own action'},{id:'secret',starshipId:'other',timestamp:at,text:'Secret action'}]};
  const notices=require('../fleet-status').project(room,{role:'character',characterId:'pc'});assert.deepEqual(notices.activity.map(e=>e.text),['Own action']);assert.deepEqual(notices.detections.map(e=>e.text),['Class III Starship Detected!']);assert.ok(!JSON.stringify(notices).includes('Secret'));assert.equal(require('../fleet-status').project(room,{role:'gm'}).detections.length,2);
 });
+
+
+test('incoming missile alerts exclude outgoing and unrelated missiles and remain private',()=>{
+ const own={id:'own',title:'Home',crewCharacterIds:['pc'],ship:{},sensorState:{contacts:{incoming:{level:'detected'},outgoing:{level:'detected'},other:{level:'detected'}}}},enemy={id:'enemy',title:'Enemy',ship:{missileState:{flights:[{id:'incoming',targetId:'own',phase:'flying'},{id:'outgoing',targetId:'enemy',phase:'flying'},{id:'other',targetId:'third',phase:'flying'}]}}};
+ const room={starships:[own,enemy],units:[]},status=require('../fleet-status');
+ assert.deepEqual(status.project(room,{role:'character',characterId:'pc'}).critical.filter(a=>a.key.includes(':missile:')).map(a=>a.key),['own:missile:incoming']);assert.deepEqual(status.project(room,{role:'character',characterId:'outsider'}).critical,[]);
+ enemy.ship.missileState.flights[0].phase='exploded';assert.equal(status.project(room,{role:'character',characterId:'pc'}).critical.length,0);
+});

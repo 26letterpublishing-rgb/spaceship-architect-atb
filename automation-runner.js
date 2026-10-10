@@ -13,7 +13,7 @@ async function exploreAttack(room,seconds,{act,publish}){
     const damage=role==='damage',formula=damage?require('./combat-rules').parseDiceFormula(a.plan.damageFormula):null;
     const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(role==='defender'&&unit.dodgeDice?unit.dodgeDice:unit.dexterityDice||[])];
     if(role==='attacker'&&a.attackType!=='melee'&&a.aimDie>0)sides.push(a.aimDie);
-    const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:['Melee','Wrestle/Disarm'].includes(a.plan.attackSkill)?unit.meleeSkill:unit.projectileSkill)||0;
+    const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:['Melee','Grappling'].includes(a.plan.attackSkill)?unit.meleeSkill:unit.projectileSkill)||0;
     const values=sides.map(s=>crypto.randomInt(1,s+1)),score=(damage?values.reduce((n,v)=>n+v,0):sensors.fusedTotal(values))+bonus;
     unit.automationPresentation={id:key,label:unit.characterName+' '+role,sides,values,score,displayScore:score,damage,phase:'rolling',remaining:1.2,personalAttack:true};publish();return true;
   }
@@ -68,8 +68,7 @@ async function step(room,seconds,{act,publish,off}){
     const result=await act({...candidate,id:unit.id,requestId:crypto.randomUUID()});
     if(result.ok){unit.automationRepairTarget=candidate.repairTarget||null;unit.automationAction={id:crypto.randomUUID(),label:unit.delayedAction?.label||unit.timedAction?.label||candidate.kind,at:Date.now()};if(unit.delayedAction)unit.delayedAction.automated=true;unit.automationNotice='';publish();return;}
   }
-  if(unit.shipAi&&unit.automationMode==='offense'&&require('./ship-map-core').installedItems(room.starships.find(s=>s.id===unit.location?.starshipId)).some(i=>require('./ship-map-core').definition(i.type).weapon)){unit.automationNotice='Waiting for a detected enemy or an available zero-AU weapon.';await act({action:'completeTurn',id:unit.id});publish();return;}
-  if(unit.shipAi){off(unit,unit.automationMode==='defense'?'Defense automation stopped: no available defensive action.':'Offense automation stopped: no available target or usable zero-AU weapon.');publish();}
-  else {unit.automationNotice='No available action; waiting for the next turn.';await act({action:'completeTurn',id:unit.id});publish();}
+  unit.automationNotice=unit.shipAi?'Waiting for a detected enemy or an available zero-AU action.':'No available action; waiting for the next turn.';
+  await act({action:'completeTurn',id:unit.id});publish();
 }
 module.exports={step};

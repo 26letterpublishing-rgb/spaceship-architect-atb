@@ -30,10 +30,12 @@ test('split weapon footprints rotate on all four walls and never make barrels wa
     ship.gridCells.push(origin+d.exteriorCells[0].y*20+d.exteriorCells[0].x);assert.equal(maps.mixedPlacement(ship,item,origin),false);
   }
 });
-test('every new SIC level has its own atlas view rather than a shared family graphic',()=>{
+test('SIC levels preserve their individual map atlas views and use equipment art on cards',()=>{
   for(const [family,max] of [['darkveil',10],['beam-laser',8],['ripple-cannon',8],['ion-pulse-cannon',5]]){
-    const art=Array.from({length:max},(_,i)=>maps.definition(`${family}-${i+1}`).cardArt);assert.equal(new Set(art).size,max);
-    for(const url of art){const [file,fragment]=url.split('#');assert.ok(fragment);assert.ok(fs.readFileSync(path.join(__dirname,'..',file),'utf8').includes(`id="${fragment}"`));}
+    const definitions=Array.from({length:max},(_,i)=>maps.definition(`${family}-${i+1}`));
+    for(const d of definitions)assert.equal(d.cardArt,`card-${family}-equipment-v2.webp`);
+    const art=definitions.map(d=>d.sprite||d.image);assert.equal(new Set(art).size,max);
+    for(const url of art){const [file,fragment]=url.split('#');assert.ok(fragment);assert.ok(fs.readFileSync(path.join(__dirname,'..',file.split('?')[0]),'utf8').includes(`id="${fragment}"`));}
   }
 });
 test('Darkveil impairment subtracts five per point; offline and duplicate installations handled',()=>{

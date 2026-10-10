@@ -121,7 +121,7 @@
     const specialText = String(weapon?.special || "");
     const choiceRequired = /choose one/i.test(specialText);
     const manualToHit = attackType === "melee"
-      ? !/^Dexterity\s*\+\s*(?:Melee|Wrestle\/Disarm)(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim())
+      ? !/^Dexterity\s*\+\s*(?:Melee|Grappling|Wrestle\/Disarm)(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim())
       : !/^Dexterity\s*\+\s*Projectile(?:\s*[+-]\s*\d+(?:\.\d+)?)?$/i.test(String(weapon?.toHit || "").trim());
     const criticalDamageDisabled = /critical hits do not deal double damage/i.test(specialText);
 
@@ -143,7 +143,7 @@
       manualToHit,
       criticalDamageDisabled,
       attackType,
-      attackSkill: attackType === "melee" && /Wrestle\/Disarm/i.test(String(weapon?.toHit || "")) ? "Wrestle/Disarm" : attackType === "melee" ? "Melee" : "Projectile",
+      attackSkill: attackType === "melee" && /(?:Grappling|Wrestle\/Disarm)/i.test(String(weapon?.toHit || "")) ? "Grappling" : attackType === "melee" ? "Melee" : "Projectile",
     };
   }
 

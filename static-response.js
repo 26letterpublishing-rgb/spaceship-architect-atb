@@ -14,12 +14,18 @@ function serve(req,res,file,type){
     if(asset?.mtime===stat.mtimeMs){send();return;}
     fs.readFile(file,(error,data)=>{
       if(error){res.writeHead(404);res.end('Not found');return;}
-      const resident=cache.get(file);
-      if(resident){cacheBytes-=resident.bytes;cache.delete(file);}
-      const gzip=/text\/|javascript|json|svg/.test(type)?zlib.gzipSync(data):data;
-      asset={data,gzip,mtime:stat.mtimeMs,etag:'W/"'+crypto.createHash('sha256').update(data).digest('hex')+'"',bytes:data.length+(gzip===data?0:gzip.length)};
-      while(cache.size&&cacheBytes+asset.bytes>32*1024*1024){const key=cache.keys().next().value;cacheBytes-=cache.get(key).bytes;cache.delete(key);}
-      if(asset.bytes<=32*1024*1024){cache.set(file,asset);cacheBytes+=asset.bytes;}send();
+      const ready=gzip=>{
+        const resident=cache.get(file);
+        if(resident){cacheBytes-=resident.bytes;cache.delete(file);}
+        asset={data,gzip,mtime:stat.mtimeMs,etag:'W/"'+crypto.createHash('sha256').update(data).digest('hex')+'"',bytes:data.length+(gzip===data?0:gzip.length)};
+        while(cache.size&&cacheBytes+asset.bytes>32*1024*1024){const key=cache.keys().next().value;cacheBytes-=cache.get(key).bytes;cache.delete(key);}
+        if(asset.bytes<=32*1024*1024){cache.set(file,asset);cacheBytes+=asset.bytes;}send();
+      };
+      // Cold loads must not block the same event loop that advances combat time.
+      if(/text\/|javascript|json|svg/.test(type))zlib.gzip(data,(error,gzip)=>{
+        if(error){res.writeHead(500);res.end('Asset compression failed. Please retry.');return;}
+        ready(gzip);
+      });else ready(data);
     });
   });
 }

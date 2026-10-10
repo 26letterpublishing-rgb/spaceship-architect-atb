@@ -49,3 +49,16 @@ test('Ship AI holds at its reserved bridge without automation acting, then resum
  assert.equal(actions,0);assert.deepEqual(f.unit.location,loc);assert.equal(f.unit.automationMode,'offense');
  assert.equal(hold.resolve(f.room,f.unit,'resumeConsole',h).ok,true);assert.equal(f.unit.consoleHold,null);
 });
+
+
+test('new Ship AI defaults to Automatic and idle turns keep automation armed',async()=>{
+ const f=fixture();delete rooms.roomData(f.ship,'ai').automationMode;ai.sync(f.room,b=>({...b,atb:100}));const u=f.room.units.find(u=>u.shipAi);assert.equal(u.automationMode,'automatic');
+ ai.configure(f.room,f.ship,'off');ai.sync(f.room,b=>b);assert.equal(u.automationMode,'off','explicit Off survives sync');
+ const x=combat();x.unit.automationMode='automatic';x.room.starships=[x.a];x.a.ship.sicInventory=x.a.ship.sicInventory.filter(i=>!maps.definition(i.type).sensor);
+ let stopped=false,waited=false;await runner.step(x.room,.1,{act:async b=>{waited=b.action==='completeTurn';return {ok:true};},publish(){},off(){stopped=true;}});assert.equal(stopped,false);assert.equal(waited,true);assert.equal(x.unit.automationMode,'automatic');
+});
+
+test('Automatic AI scans when no hostile is detected and breaks hostile locks first',()=>{
+ const f=combat();f.unit.automationMode='automatic';f.a.sensorState.contacts={};assert.ok(policy.candidates(f.room,f.unit).some(c=>c.action==='sensorCommand'&&c.kind==='area'));
+ require('../ship-locks').state(f.b).targets.push({targetId:f.a.id});assert.equal(policy.candidates(f.room,f.unit)[0].kind,'break');
+});

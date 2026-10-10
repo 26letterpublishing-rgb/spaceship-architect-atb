@@ -25,16 +25,16 @@ function candidates(room,unit,random=Math.random){
   const out=[],seat=stations.station(room,unit),access=stations.consoles(room,unit).filter(a=>!a.blocked&&!a.controlled);
   const targets=room.starships.filter(s=>s.id!==ship.id&&s.currentHullHp>0&&!s.escapedAt&&s.controlType!==ship.controlType&&sensors.knowledge(ship).contacts[s.id]?.level==='detected').sort((a,b)=>distances.hexDistance(require('./ship-targets').point(room,ship.id),require('./ship-targets').point(room,a.id))-distances.hexDistance(require('./ship-targets').point(room,ship.id),require('./ship-targets').point(room,b.id)));
   const lock=(target)=>access.filter(a=>a.definition.lockOn&&(!unit.shipAi||!a.definition.extraTargetAu||!locks.state(ship).targets.some(l=>l.systemId===a.id))).map(a=>({action:'lockCommand',kind:'lock',sicId:a.id,targetId:target.id}));
-  if(unit.shipAi&&unit.automationMode==='defense'){
+  if(unit.shipAi&&['automatic','defense'].includes(unit.automationMode)){
     for(const enemy of room.starships.filter(s=>locks.state(s).targets.some(l=>l.targetId===ship.id)))out.push({action:'lockCommand',kind:'break',sicId:access.find(a=>a.definition.lockOn)?.id,targetId:enemy.id});
-    out.push({action:'shipCommand',kind:'evade',sicId:unit.location.sicId});return out;
+    if(unit.automationMode==='defense'){out.push({action:'shipCommand',kind:'evade',sicId:unit.location.sicId});return out;}
   }
   if(!unit.shipAi&&unit.automationRepairTarget){const item=require('./ship-maintenance').local(ship,unit.location);if(item?.id===unit.automationRepairTarget&&(item.impaired||item.impairmentPoints>0))return [{action:'shipMaintenance',kind:'repair',sicId:item.id}];unit.automationRepairTarget=null;}
   if(!unit.shipAi&&!seat){
     const available=seats(ship).filter(s=>free(room,unit,s)).map(s=>({s,rank:s.bridge?0:random()})).sort((a,b)=>Number(b.s.bridge)-Number(a.s.bridge)||a.rank-b.rank);
     return available.map(({s})=>move(room,unit,ship,s)).filter(Boolean);
   }
-  if(!unit.shipAi&&!targets.length)for(const a of access.filter(a=>a.definition.sensor))out.push({action:'sensorCommand',kind:'area',sicId:a.id});
+  if((!unit.shipAi||unit.automationMode==='automatic')&&!targets.length)for(const a of access.filter(a=>a.definition.sensor))out.push({action:'sensorCommand',kind:'area',sicId:a.id});
   for(const target of targets){
     if(!unit.shipAi&&!sensors.analysis(ship,target.id))for(const a of access.filter(a=>a.definition.sensor))out.push({action:'sensorCommand',kind:'analysis',sicId:a.id,targetId:target.id});
     if(!locks.locked(room,ship,target.id)&&(!unit.shipAi||target.currentShieldHp>0))out.push(...lock(target));

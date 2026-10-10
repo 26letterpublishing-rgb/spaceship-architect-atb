@@ -1,23 +1,14 @@
-/* The rail reserves its measured height in normal document flow. Native modals
-   are resized below it, so announcements never cover controls. */
-.interface-notice-space{height:0;flex:none;width:100%;pointer-events:none}
-.interface-notice-space[hidden]{display:none!important}
-.interface-notice-rail[popover]{position:fixed;inset:0 0 auto;margin:0;box-sizing:border-box;width:100%;max-width:none;max-height:min(28dvh,240px);overflow:auto;overscroll-behavior:contain;padding:0;border:0;border-radius:0;background:#07131d;color:#effaff;z-index:2147483647;font:14px/1.45 Arial,sans-serif;pointer-events:auto;box-shadow:0 3px 12px #0008}
-.interface-notice-rail[popover]:popover-open{display:grid;gap:2px}
-.interface-notice-rail[popover]:not(:popover-open),.interface-notice-rail [hidden]{display:none!important}
-.interface-notice-rail>*{min-width:0;max-width:none}
-.interface-notice-rail .notice-dismiss{position:relative;flex:0 0 36px;align-self:center;justify-self:end;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;margin:0;padding:0!important;float:none;border:1px solid currentColor;border-radius:5px;color:inherit;background:#0002;box-shadow:none;text-shadow:none;font:24px/1 Arial,sans-serif;cursor:pointer;pointer-events:auto;clip-path:none;transform:none}
-.interface-notice-rail .notice-dismiss::before,.interface-notice-rail .notice-dismiss::after{display:none}
-.interface-notice-rail button:hover{filter:brightness(1.15);background-color:#ffffff18}
-.interface-notice-rail button:focus-visible{outline:3px solid currentColor;outline-offset:-4px}
-.result-notifications{display:grid;gap:2px;min-width:0}
-.result-notifications:empty{display:none}
-.result-notifications article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:9px 16px;border:1px solid #8eacb7;border-left:4px solid #f4d164;background:#08171f;color:#eafaff}
-.result-notifications p{grid-column:1;margin:0;overflow-wrap:anywhere}.result-notifications strong{font-size:16px}.result-notifications .notice-dismiss{grid-column:2;grid-row:1/3}
-.result-notifications article[data-outcome=failed]{border-left-color:#ff566b}.result-notifications article[data-outcome=failed] strong{color:#ff7183}.result-notifications article[data-outcome=success]{border-left-color:#60e79d}.result-notifications article[data-outcome=success] strong{color:#7debb1}
+/* Shared corner feedback follows the PC roll-request presentation. It never reserves page space. */
+.interface-notice-rail[popover]{position:fixed;inset:auto 14px 14px auto;margin:0;width:min(430px,calc(100vw - 28px));max-height:45dvh;overflow:auto;padding:0;border:0;background:transparent;color:#effaff;font:14px/1.4 Arial,sans-serif;pointer-events:auto}
+.interface-notice-rail:popover-open{display:grid;gap:8px}.interface-notice-rail [hidden],.interface-notice-rail:not(:popover-open){display:none!important}
+.result-notifications{display:grid;gap:8px}.result-notifications:empty{display:none}
+.result-notifications article,.interface-notice{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;border:1px solid #f6d267;background:linear-gradient(135deg,#2a2108,#0a1420);box-shadow:0 0 18px #f6d26725;overflow-wrap:anywhere}
+.result-notifications strong,.result-notifications p{flex:1 1 100%;margin:0}.result-notifications strong{font-size:15px;color:#ffe79b}.interface-notice>span{flex:1;min-width:0}
+.interface-notice-rail button{min-width:0!important;min-height:28px!important;width:auto!important;height:auto!important;padding:5px 10px!important;margin:0;border:1px solid #a9bac4;border-radius:4px;background:#193b4b;color:#fff;clip-path:none;text-shadow:none;font:13px Arial,sans-serif;cursor:pointer}
+.interface-notice-rail .notice-dismiss{margin-left:auto}.interface-notice[data-outcome=error]{border-color:#ff667a}
+.notification-result-detail{box-sizing:border-box;max-width:min(720px,94vw);max-height:88dvh;overflow:auto;background:#102330;color:#effaff;border:1px solid #f6d267;padding:24px;font:16px/1.5 Arial,sans-serif}.notification-result-detail::backdrop{background:#000a}.notification-result-detail button{background:#194657;color:white;border:1px solid #76c7d8;padding:10px 18px;text-shadow:none}.notification-result-detail p{white-space:pre-wrap}
+.critical-flight-banner[popover]{position:fixed;inset:0 0 auto;margin:0;width:100%;max-width:none;box-sizing:border-box;padding:8px 12px;display:flex;align-items:center;gap:10px;overflow:hidden;background:linear-gradient(90deg,#600f20,#a9192e,#600f20);border:1px solid #ff6b7e;color:#fff;box-shadow:0 3px 16px #0008;pointer-events:auto}
+.critical-flight-banner[data-type=warning]{background:linear-gradient(90deg,#604012,#946316,#604012);border-color:#ffda72}.critical-flight-banner[data-type=detection]{background:linear-gradient(90deg,#18385c,#215a82,#18385c);border-color:#72dfff}
+.critical-flight-track{overflow:hidden;flex:1;min-width:0}.critical-flight-track span{display:inline-block;white-space:nowrap;font:700 clamp(16px,2vw,24px)/1.5 'Courier New',monospace;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 8px currentColor;will-change:transform}
+.critical-flight-banner button{flex:none!important;width:28px!important;min-width:28px!important;height:28px!important;min-height:28px!important;padding:0!important;border:1px solid #ffffff88;border-radius:4px;background:#0003;color:white;font:22px Arial!important;cursor:pointer;text-shadow:none;clip-path:none}
 .maintenance-history{padding:12px;border-top:1px solid #44707a}.maintenance-history p{font-size:14px;color:#b6efd1;line-height:1.4}
-.interface-notice{display:flex;flex-wrap:wrap;box-sizing:border-box;gap:10px;align-items:center;margin:0;padding:9px 16px;background:#07171f;color:#effaff;border:1px solid #8ab8c6;border-left:4px solid #f4d164;font:14px/1.45 Arial,sans-serif;overflow-wrap:anywhere}
-.interface-notice>span{flex:1 1 220px;min-width:0}.interface-notice[data-outcome=error]{border-left-color:#ff566b}.interface-notice[data-outcome=success]{border-left-color:#60e79d}
-.interface-notice .notice-action{flex:0 1 auto;min-height:36px;padding:7px 12px;border:1px solid #90dfba;background:#174f3b;color:#fff;font:600 14px/1.3 Arial,sans-serif;border-radius:4px;text-transform:none;text-shadow:none;cursor:pointer}
-body.has-interface-notices .combat-map-dialog,body.has-interface-notices .galaxy-expanded{top:var(--interface-notice-height)!important;max-height:calc(100dvh - var(--interface-notice-height))!important}
-@media(max-width:550px){.interface-notice-rail[popover]{max-height:32dvh}.interface-notice,.result-notifications article{padding:7px 10px;font-size:13px}.interface-notice .notice-dismiss{margin-left:auto}.result-notifications strong{font-size:14px}}

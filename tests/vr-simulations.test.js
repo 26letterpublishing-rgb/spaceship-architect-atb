@@ -28,7 +28,7 @@ test('simulation status names the character and activity, persists, and spends n
  assert.equal(rooms.roomData(JSON.parse(JSON.stringify(f.ship)),'vr').report.text,report);
  command(f,{kind:'train',skill:'Melee',score:2});assert.equal(rooms.roomData(f.ship,'vr').simulation,'Tactical Range: Close-Quarters Sparring');
  assert.match(rooms.roomData(f.ship,'vr').report.text,/balanced footwork/);
- command(f,{kind:'simulate',skill:'Pilot/Helm',text:'Custom Docking Exercise',enabled:false});
+ command(f,{kind:'simulate',skill:'Piloting',text:'Custom Docking Exercise',enabled:false});
  assert.match(rooms.roomData(f.ship,'vr').report.text,/Custom Docking Exercise/);assert.equal(rooms.roomData(f.ship,'vr').safety,false);
  assert.equal(f.character.character.vrTrainingDay,0);
 });

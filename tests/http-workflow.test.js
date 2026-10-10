@@ -49,7 +49,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   const playerTokens = [];
   for (const id of ["http-aster", "http-bram"]) {
     const character = { id, phase: "finalized", access: { pcCode: `${id}-code` }, identity: { characterName: id, playerName: `${id} player` },
-      attributes: { health: [1, 0, -1, -1] }, computed: { maximumHp: 30, skills: { "Athletics/Endurance": 1.2 } }, health: { current: 10 },
+      attributes: { health: [1, 0, -1, -1] }, computed: { maximumHp: 30, skills: { "Athletics": 1.2 } }, health: { current: 10 },
       items: [{ catalogId: "jet-pack", name: "Jet-Pack", charges: 0, chargesMax: 5 }] };
     const pending = await post("join/request", { code, character }, 201);
     await post("join/respond", { code, token, requestId: pending.requestId, decision: "approve" });

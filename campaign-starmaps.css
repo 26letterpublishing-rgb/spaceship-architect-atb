@@ -29,3 +29,39 @@
 @media(max-width:700px){.galaxy-workspace{grid-template-columns:1fr}.galaxy-heading{align-items:flex-start;flex-wrap:wrap}.galaxy-chart{grid-template-rows:auto auto 48vh auto}.galaxy-details{display:grid;grid-template-columns:1fr}.galaxy-tools>select{max-width:100%;width:100%}.galaxy-scale{width:100%}.galaxy-is-expanded .galaxy-workspace{display:flex;flex-direction:column;overflow:auto}.galaxy-is-expanded .galaxy-chart{height:55vh;min-height:330px;flex:none}.galaxy-is-expanded .galaxy-details{overflow:visible;flex:none}.galaxy-form-columns{grid-template-columns:1fr}.galaxy-dialog{padding:16px}.galaxy-trip-summary{grid-template-columns:1fr 1fr}}
 
 .galaxy-countdown{color:#b2f5ff;background:#071b28;border:1px solid #427f94;border-radius:5px;padding:9px 15px;margin:4px auto;text-align:center;max-width:95%;font-weight:700;font-variant-numeric:tabular-nums;grid-column:1/-1}.galaxy-countdown[hidden]{display:none}
+
+/* Both campaign roles share a stable map column and independently scrollable information. */
+.campaign-columns{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);gap:16px;height:calc(100dvh - 205px);min-height:480px;align-items:stretch;min-width:0}
+.campaign-information{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:6px}.campaign-information>section,.campaign-information [data-campaign-overview]>section{margin:0 0 14px;padding:14px;background:#0b1b27;border:1px solid #385869}.campaign-information h3{color:#9ceaff}.campaign-information p{overflow-wrap:anywhere}.campaign-information .private-notes-list{max-height:none}.campaign-information .campaign-roster-card{flex-wrap:wrap}
+.campaign-columns>.campaign-galaxy:not(.galaxy-is-expanded){margin:0;min-height:0;height:100%;padding:12px;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden}
+.campaign-columns .galaxy-heading{margin-bottom:6px}.campaign-columns .galaxy-heading p{display:none}.campaign-columns .galaxy-tools{margin-bottom:6px}.campaign-columns .galaxy-workspace{min-height:0;grid-template-columns:minmax(0,1fr) minmax(180px,230px);align-items:stretch}.campaign-columns .galaxy-chart{min-height:0;grid-template-rows:auto auto minmax(0,1fr) auto}.campaign-columns .galaxy-details{overflow:auto;min-height:0}.campaign-columns .galaxy-scale{font-size:11px}.campaign-columns .galaxy-map-legend{gap:7px}
+.campaign-galaxy button,.galaxy-dialog button,.galaxy-system-dialog button{ text-shadow:none!important;filter:none!important }
+.galaxy-fuel-choice{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:1000px){.campaign-columns{grid-template-columns:minmax(230px,1fr) minmax(0,2fr)}.campaign-columns .galaxy-workspace{grid-template-columns:1fr}.campaign-columns .galaxy-details{max-height:180px}.campaign-columns .galaxy-chart{min-height:280px}.campaign-columns .galaxy-workspace{overflow:auto}}
+@media(max-width:760px){.campaign-columns{display:flex;flex-direction:column;height:auto;min-height:0}.campaign-information{max-height:none;overflow:visible}.campaign-columns>.campaign-galaxy:not(.galaxy-is-expanded){height:75dvh;min-height:500px}.galaxy-fuel-choice{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Compact the fixed map header instead of shrinking the map to make room. */
+.campaign-columns .galaxy-heading>div>span{display:none}
+.campaign-columns .galaxy-heading h2{font-size:21px;margin:0}
+.campaign-columns .galaxy-tools>select{min-width:150px;max-width:210px;flex:1}
+.campaign-columns .galaxy-map-legend>span:last-child{display:none}
+.campaign-columns .galaxy-mode-help{min-height:30px;padding:5px 9px}
+.campaign-columns .galaxy-camera-tools{padding:5px}
+.campaign-columns [data-galaxy-status]:empty{display:none}
+.campaign-information [data-campaign-overview]>section{padding:10px}
+.campaign-information h3{margin:3px 0 9px}
+
+.galaxy-dialog form{display:block;gap:0}.galaxy-dialog form>header{margin:0 0 10px;padding:0}.galaxy-dialog .galaxy-form-fields{gap:10px}.galaxy-dialog p{margin:4px 0 9px}
+
+.campaign-columns-player{height:calc(100dvh - 290px);min-height:320px}
+.campaign-columns-player .campaign-private-notes{padding:10px}.campaign-columns-player .campaign-private-notes h2{font-size:20px;margin:4px 0}.campaign-columns-player .campaign-group-credits{margin:8px 0}
+.campaign-columns-player .campaign-roster-cards,.campaign-columns-player .campaign-starship-cards{grid-template-columns:1fr}
+@media(max-width:760px){.campaign-columns-player{height:auto;min-height:0}}
+
+@media(min-width:761px){
+body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header{min-height:60px;padding:6px 12px;margin-top:8px;grid-template-columns:minmax(220px,310px) 1fr auto;gap:12px}
+body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .brand-link img{max-height:44px}
+body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .character-room-code{min-height:44px;padding:3px 8px}
+body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .creator-title h1{font-size:20px}
+.campaign-columns-player{height:calc(100dvh - 260px)}
+}

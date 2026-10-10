@@ -1,18 +1,18 @@
 // Creation-only auto-spender. Skill names are the existing persistent skill IDs.
 (function(root){
   const definitions = [
-    ['Survivalist',['Survival/Tracking','Resist Distress','Awareness'],['Anatomy/First Aid','Athletics/Endurance','Identify Taste/Smell','Tame Animal'],['Caretaking/Nurture','Cooking','Climb','Swim','Self-Control']],
-    ['Computer Nerd',['Computer Systems','Hacking','Technology'],['Research','Mathematics'],['Common Knowledge','Writing','Science/Physics']],
-    ['Social Butterfly',['Negotiation/Persuade','Intuition/Empathy','Acting/Lie'],['Psychology','Fashion/Etiquette','Showmanship'],['Art/Music','Intimidate/Taunt','Caretaking/Nurture','Common Knowledge','Cooking']],
-    ['Navigator',['Navigate','Pilot/Helm','Awareness'],['Astronomy','Drive/Small Vehicle','Mathematics'],['Survival/Tracking','Science/Physics','Initiative']],
-    ['Athlete',['Athletics/Endurance','Climb','Lift/Push/Pull'],['Jump','Swim','Catch/Throw','Break Free/Escape'],['Dodge/Block','Wrestle/Disarm','Resist Distress','Self-Control']],
-    ['Street Smart',['Stealth/Hide','Awareness','Common Knowledge'],['Lock-picking','Pickpocket','Acting/Lie','Intuition/Empathy'],['Disguise/Mimic','Gambling','Negotiation/Persuade','Intimidate/Taunt']],
-    ['Combatant',['Projectile','Melee','Dodge/Block'],['Initiative','Wrestle/Disarm','Resist Distress'],['Demolitions','Weapon Mechanics','Awareness','Catch/Throw','Self-Control']],
-    ['Leader',['Leadership','Negotiation/Persuade','Law/Politics'],['Intimidate/Taunt','Fashion/Etiquette','Common Knowledge'],['History/Lore','Psychology','Writing','Self-Control']],
-    ['Mechanic',['Engineering','Vehicle Mechanics','Weapon Mechanics'],['Technology','Architecture','Drive/Small Vehicle'],['Mathematics','Science/Physics','Computer Systems']],
-    ['Scientist',['Science/Physics','Research','Mathematics'],['Anatomy/First Aid','Technology','Identify Taste/Smell'],['Astronomy','Computer Systems','Writing']],
-    ['Scholar',['History/Lore','Research','Forgotten Languages'],['Religion','Writing','Architecture'],['Law/Politics','Art/Music','Common Knowledge']],
-    ['Starship Specialist',['Computer Systems','Engineering','Hacking','Pilot/Helm','Sensor Systems','Weapon Systems'],[],[]],
+    ['Survivalist',['Survival','Resist Distress','Awareness'],['First Aid','Athletics','Taste & Smell','Tame Animal'],['Caretaking','Cooking','Climb','Swim','Self-Control']],
+    ['Computer Nerd',['Computer Systems','Hacking','Technology'],['Research','Mathematics'],['Common Knowledge','Writing','Science']],
+    ['Social Butterfly',['Persuasion','Insight','Deception'],['Psychology','Etiquette','Showmanship'],['Arts','Intimidation','Caretaking','Common Knowledge','Cooking']],
+    ['Navigator',['Navigate','Piloting','Awareness'],['Astronomy','Driving','Mathematics'],['Survival','Science','Initiative']],
+    ['Athlete',['Athletics','Climb','Brute Force'],['Jump','Swim','Coordination','Escape'],['Dodge','Grappling','Resist Distress','Self-Control']],
+    ['Street Smart',['Stealth','Awareness','Common Knowledge'],['Lock-picking','Pickpocket','Deception','Insight'],['Impersonation','Gambling','Persuasion','Intimidation']],
+    ['Combatant',['Projectile','Melee','Dodge'],['Initiative','Grappling','Resist Distress'],['Demolitions','Weapon Mechanics','Awareness','Coordination','Self-Control']],
+    ['Leader',['Leadership','Persuasion','Politics'],['Intimidation','Etiquette','Common Knowledge'],['Lore','Psychology','Writing','Self-Control']],
+    ['Mechanic',['Engineering','Vehicle Mechanics','Weapon Mechanics'],['Technology','Architecture','Driving'],['Mathematics','Science','Computer Systems']],
+    ['Scientist',['Science','Research','Mathematics'],['First Aid','Technology','Taste & Smell'],['Astronomy','Computer Systems','Writing']],
+    ['Scholar',['Lore','Research','Forgotten Languages'],['Religion','Writing','Architecture'],['Politics','Arts','Common Knowledge']],
+    ['Starship Specialist',['Computer Systems','Engineering','Hacking','Piloting','Sensor Systems','Weapon Systems'],[],[]],
   ].map(([name,core,related,peripheral])=>({id:name.toLowerCase().replaceAll(' ','-'),name,tiers:[core,related,peripheral]}));
   const cost = level => level * (level + 1) / 2;
   function purchase(level, points, maximum){
@@ -48,7 +48,7 @@
     // Pool leftovers before trying the selected packages again, then important skills.
     let remaining=allocations.reduce((sum,p)=>sum+p.remaining,0);
     const selected=[...new Set(ids.flatMap(id=>definitions.find(p=>p.id===id).tiers.flat()))];
-    const fallback=[...new Set(['Dodge/Block','Awareness','Initiative','Anatomy/First Aid','Athletics/Endurance','Self-Control','Resist Distress',...definitions.flatMap(p=>p.tiers.flat())])];
+    const fallback=[...new Set(['Dodge','Awareness','Initiative','First Aid','Athletics','Self-Control','Resist Distress',...definitions.flatMap(p=>p.tiers.flat())])];
     while(remaining){
       const name=[...selected,...fallback].find(n=>purchase(levels[n]||0,remaining,maximum));
       if(!name)break;

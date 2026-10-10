@@ -432,6 +432,12 @@
   catalog['vulture-drone']={name:'Vulture Drone',label:'SALVAGE',utility:'vulture-drone',crewRoom:true,localOnly:true,skill:'Engineering',price:12000,energyCost:2,security:3,threshold:25,masking:10,crafting:'Endernium, 2 days',cardNumber:'A-121',width:1,height:2,edge:true,fixedStations:true,stations:[{x:0,y:1,mesh:7}],output:0,color:'#d6a669',destroyedOnImpairment:true,image:image('vulture-drone-floor.webp'),cardArt:'vulture-drone-card.webp'};
   for(const type of ['vr-training-room','medbay','gym','library','meeting-room','docking-bay','science-lab','surv-camera','gravity-absolution-field'])catalog[type].cardArt='card-'+type+'-equipment.webp';
   catalog['science-lab'].image=image('science-lab-floorplan-v2.webp');catalog['science-lab'].cardArt='card-science-lab-equipment.webp';
+  // Card equipment illustrations are independent from floorplans and exterior sprites.
+  for(const [type,data] of Object.entries(catalog)) {
+    const family=["missile-launcher","rapid-laser","ion-pulse-cannon","warp-drive","darkveil","antenna","beam-laser","ripple-cannon","cpu-security","hacking-module","repair-drone"].find(prefix=>type.startsWith(prefix+'-'));
+    const single={"ballistic-rail-cannon":"rail-cannon","ew-ftl-drive":"ew-ftl-drive","cloaking-device":"cloaking-device","probe-launcher":"probe-launcher","backup-generator":"backup-generator","manipulation-arm":"manipulation-arm","tractor-beam":"tractor-beam","escape-pods":"escape-pods","ripple-reflector":"ripple-reflector","bar":"bar","brig":"brig","scramble-box":"scramble-box","ship-ai":"ship-ai","holographic-projector":"holographic-projector","decent-hover":"decent-hover","transporter":"transporter"}[type];
+    if(family||single)data.cardArt=`card-${family||single}-equipment-v2.webp`;
+  }
   function installedItems(record) {
     const ship=record.ship||record,ids=new Set((ship.placements||[]).map(p=>p.sicId));
     return (ship.sicInventory||[]).filter(i=>ids.has(i.id));
@@ -556,6 +562,7 @@
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).bridge).length > 1) return "A ship may have only one Bridge or Cockpit.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).sensor).length > 1) return "A ship may have only one installed Sensor system.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).darkveil).length > 1) return "A ship may have only one installed Darkveil.";
+    if (inventory.filter(item => installed.has(item.id) && definition(item.type).warp).length > 1) return "A ship may have only one installed Warp Drive, including EW-FTL. Move the extra drive to Storage.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).shipAi).length > 1) return "A ship may have only one Ship AI per bridge.";
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).thruster).length > 4) return "A ship may have at most four installed thrusters.";
     const engines=(ship.placements||[]).map(p=>({p,item:inventory.find(i=>i.id===p.sicId)})).filter(e=>e.item&&definition(e.item.type).engine);
@@ -1214,7 +1221,7 @@
     const s=ship.ship||ship;if(!(s.gridCells||[]).includes(location.square)||(ship.id&&location.starshipId&&ship.id!==location.starshipId))return {bonus:0,label:''};const items=installedItems(s).filter(i=>operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired');
     if(['Navigate','Navigation'].includes(skill)&&items.some(i=>i.type==='holographic-projector'&&addonHost(s,i)))return {bonus:2,label:'Holographic Projector'};
     const room=buildLayout(s).footprint.get(location.square),lab=items.find(i=>i.id===room?.sicId&&i.type==='science-lab');
-    if(lab&&['Research','Science/Physics','Astronomy'].includes(skill))return {bonus:4,label:'Science Lab'};
+    if(lab&&['Research','Science','Astronomy'].includes(skill))return {bonus:4,label:'Science Lab'};
     return {bonus:0,label:''};
   }
 

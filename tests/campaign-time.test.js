@@ -4,7 +4,7 @@ const { durationMinutes, dailyHealing, passCharacterTime } = require("../campaig
 const { CampaignApi } = require("../campaign-api");
 
 const character = () => ({ identity: { characterName: "Time Tester" }, attributes: { health: [1, 0, -1, -1] },
-  skills: { "Athletics/Endurance": { tenths: 12 } }, computed: { maximumHp: 30 }, health: { current: 0 },
+  skills: { "Athletics": { tenths: 12 } }, computed: { maximumHp: 30 }, health: { current: 0 },
   items: [{ catalogId: "jet-pack", name: "Jet-Pack", charges: 0, chargesMax: 5 }, { catalogId: "mobile-zero-point-energy", chargeState: "Empty" }] });
 
 test("time units, health boxes, fractional skills, and partial days are preserved", () => {
@@ -21,7 +21,7 @@ test("time units, health boxes, fractional skills, and partial days are preserve
   assert.equal(saved.health.recoveryMinutes, 0);
   passCharacterTime(saved, durationMinutes(2, "weeks"));
   assert.equal(saved.health.current, 30);
-  saved.computed.skills = { "Athletics/Endurance": 2.7 };
+  saved.computed.skills = { "Athletics": 2.7 };
   assert.equal(dailyHealing(saved), 5.7);
 });
 

@@ -8,7 +8,7 @@ async function main(){
   const start=await post('campaign/showcase/start',{}),template=await fetch(`${base}/api/campaign/backup?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const created=await post('campaign/create',{name:'Oxygen Browser',gmCode:'oxygen-test'}),code=created.campaign.code,token=created.token;
   template.campaign.code=code;template.campaign.name='Oxygen Browser';
-  const nova=template.campaign.characters[0];nova.character.attributes.health=[3,1,-1,-1];nova.character.skills['Athletics/Endurance']={tenths:25};
+  const nova=template.campaign.characters[0];nova.character.attributes.health=[3,1,-1,-1];nova.character.skills['Athletics']={tenths:25};
   await post('campaign/restore',{code,token,backup:template});
   const player={id:nova.id,...await post('campaign/character/unlock',{code,characterId:nova.id,pcCode:nova.pcCode})};
   const campaign=()=>fetch(`${base}/api/campaign/state?code=${code}&token=${token}`).then(r=>r.json()),backup=()=>fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json()),restore=backup=>post('campaign/restore',{code,token,backup});

@@ -64,12 +64,12 @@ test('Science Lab uses ship storage and grants room-wide research bonuses',()=>{
  const f=fixture(),s=f.ship.ship;s.sicInventory.find(i=>i.id==='vr').type='science-lab';f.seat('vr');s.minerals.Iron=6000;
  const info=rooms.inspect(f.room,f.campaign,f.unit,'vr',false);assert.equal(info.shipMinerals.Iron,6000);assert.equal(maps.definition('science-lab').width,2);assert.equal(maps.definition('science-lab').height,3);assert.equal(maps.definition('science-lab').energyCost,1);
  assert.equal(maps.equipmentBonus(f.ship,{...f.unit.location,stationed:false},'Research').bonus,4);assert.equal(maps.equipmentBonus(f.ship,{square:22},'Research').bonus,0);
- s.sicInventory.find(i=>i.id==='vr').impaired=true;assert.equal(maps.equipmentBonus(f.ship,f.unit.location,'Science/Physics').bonus,0);
+ s.sicInventory.find(i=>i.id==='vr').impaired=true;assert.equal(maps.equipmentBonus(f.ship,f.unit.location,'Science').bonus,0);
 });
 test('Holographic Projector adds Navigate bonus aboard the ship without changing unrelated skills',()=>{
  const f=fixture(),s=f.ship.ship;s.sicInventory.push({id:'holo',type:'holographic-projector',attachTo:'bridge'});s.placements.push({sicId:'holo',cell:22});
  assert.equal(maps.equipmentBonus(f.ship,f.unit.location,'Navigate').bonus,2);
- assert.equal(maps.equipmentBonus(f.ship,f.unit.location,'Pilot/Helm').bonus,0);
+ assert.equal(maps.equipmentBonus(f.ship,f.unit.location,'Piloting').bonus,0);
  assert.equal(maps.equipmentBonus(f.ship,null,'Navigate').bonus,0);
 });
 

@@ -96,8 +96,8 @@ test('fresh player builds an obscure-SIC ship, obtains paid GM approval, joins c
   const character = await post('campaign/v03/character/create', { code, token: pc, password: 'test passenger', character: {
     phase: 'finalized', identity: { characterName: 'Alex Starling', raceId: 'human' },
     attributes: { health: [1, 1], dexterity: [1, 1], intellect: [1, 1], perception: [1, 1] },
-    skills: { Engineering: { tenths: 20 }, 'Weapon Systems': { tenths: 30 }, 'Sensor Systems': { tenths: 30 }, Piloting: { tenths: 30 }, 'Athletics/Endurance': { tenths: 20 } },
-    computed: { maximumHp: 30, moveSpeed: 4, skills: { Engineering: 2, 'Weapon Systems': 3, 'Sensor Systems': 3, Piloting: 3, 'Athletics/Endurance': 2 } },
+    skills: { Engineering: { tenths: 20 }, 'Weapon Systems': { tenths: 30 }, 'Sensor Systems': { tenths: 30 }, Piloting: { tenths: 30 }, 'Athletics': { tenths: 20 } },
+    computed: { maximumHp: 30, moveSpeed: 4, skills: { Engineering: 2, 'Weapon Systems': 3, 'Sensor Systems': 3, Piloting: 3, 'Athletics': 2 } },
     resources: { creditsBase: 1000 }, health: { current: 30 },
   } });
   const cid = character.campaign.ownCharacterId;

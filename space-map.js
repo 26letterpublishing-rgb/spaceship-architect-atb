@@ -43,7 +43,10 @@
   const shipMarkerRadius = ship => Math.max(.55,[0,.55,1.05,1.6,2.2,3.2][window.SAShipMap.scaleRank(ship)]*.58);
   function blackHoleMarkup(o,c,unseen){
     const radius=Math.max(0,o.intensity-1)*Math.sqrt(3),animate=!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    return `<g data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" ${unseen?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(o.name)}</title><g pointer-events="none" opacity=".35">${[.45,.7,1].map((n,i)=>`<circle r="${radius*n}" fill="none" stroke="#713caa" stroke-width=".08">${animate?`<animate attributeName="opacity" values=".15;.65;.15" dur="${3+i}s" repeatCount="indefinite"/>`:""}</circle>`).join('')}</g><image href="map-black-hole.webp" x="-1.5" y="-1.5" width="3" height="3"/><text y="1.8" text-anchor="middle" font-size=".5" fill="#c4a2ea">${escape(o.name)}</text></g>`;
+    const reach=Math.max(0,Math.ceil(Number(o.intensity)||0)-1);let tint='';
+    // One compound path shades each affected hex exactly once, without thousands of DOM nodes.
+    for(let q=-reach;q<=reach;q++)for(let r=Math.max(-reach,-q-reach);r<=Math.min(reach,-q+reach);r++){const p=xy({q,r});tint+=`M${p.x} ${p.y-1}l.866025404 .5v1l-.866025404 .5l-.866025404 -.5v-1Z`;}
+    return `<g data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" ${unseen?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(o.name)}</title><path data-gravity-hexes d="${tint}" fill="#a455ff" fill-opacity=".1" pointer-events="none"/><g pointer-events="none" opacity=".35">${[.45,.7,1].map((n,i)=>`<circle r="${radius*n}" fill="none" stroke="#713caa" stroke-width=".08">${animate?`<animate attributeName="opacity" values=".15;.65;.15" dur="${3+i}s" repeatCount="indefinite"/>`:""}</circle>`).join('')}</g><image href="map-black-hole.webp" x="-1.5" y="-1.5" width="3" height="3"/><text y="1.8" text-anchor="middle" font-size=".5" fill="#c4a2ea">${escape(o.name)}</text></g>`;
   }
   function vesselMarkup(ship){
     if(ship.uncertainty||ship.contactLevel==='last-known'||ship.gmContactMarker)return '<circle data-vessel-body data-appearance="unknown" r=".35" fill="currentColor" stroke="#fff" stroke-width=".04"/>';

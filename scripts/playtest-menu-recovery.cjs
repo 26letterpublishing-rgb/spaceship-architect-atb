@@ -128,8 +128,8 @@ async function setup() {
   person.access = { pcCode: 'isolated-menu-pc' };
   // A fast synthetic clinician keeps the normal First Aid timer test short.
   person.attributes.intellect = [4, 4, 4, 4];
-  person.skills['Anatomy/First Aid'] = { tenths: 60 };
-  if (person.computed) person.computed.skills = { ...person.computed.skills, 'Anatomy/First Aid': 6 };
+  person.skills['First Aid'] = { tenths: 60 };
+  if (person.computed) person.computed.skills = { ...person.computed.skills, 'First Aid': 6 };
   const joined = await post('/api/campaign/join/request', { code: room.code, character: person });
   await post('/api/campaign/join/respond', { code: room.code, token: room.gmToken, requestId: joined.requestId, decision: 'approve' });
   player = await post('/api/campaign/join/status', { code: room.code, characterId: person.id, pcCode: person.access.pcCode });
@@ -274,7 +274,7 @@ async function cvc() {
   await act({ action: 'gmBeginNpcAttack', attackerId: npc.id, defenderId: nova.id, weaponName: 'Menu recovery attack', distance: 1, damageFormula: '2D6' });
   const attack = (await state()).attackResolution;
   await act({ action: 'submitAttackRoll', id: npc.id, attackId: attack.id, rollRole: 'attacker', score: 0 });
-  await cancellation('CvC defense', /Dodge\/Block/);
+  await cancellation('CvC defense', /Dodge/);
   await retrySubmission('submitAttackRoll', 30, { pending: s => s.attackResolution?.id === attack.id && !s.attackResolution.defenseRoll });
   await until(s => !s.attackResolution, 'Successful defense resolves the missed attack');
 
@@ -323,10 +323,10 @@ async function firstAid() {
   await sleep(300);
   assert.equal(await pc.locator('#skillCheckTitle').innerText(), existingTitle, 'Incoming First Aid must preserve the existing attribute check');
   await pc.locator('#cancelSkillCheck').click();
-  await pc.locator('#skillCheckTitle').filter({ hasText: 'Anatomy/First Aid' }).waitFor();
+  await pc.locator('#skillCheckTitle').filter({ hasText: 'First Aid' }).waitFor();
   assert.equal(await pc.locator('#playerAtbFrame').isVisible(), false);
   pass('First Aid queues behind another parent dialog while Combat is hidden', { duration });
-  await cancellation('First Aid skill', /Anatomy\/First Aid/);
+  await cancellation('First Aid skill', /First Aid/);
   await retrySubmission('submitFirstAidRoll', 30, { pending: s => s.itemResolution?.id === aid.id && !s.itemResolution.roll });
   await retrySubmission('submitFirstAidHealing', 3, { damage: true, pending: s => s.itemResolution?.id === aid.id && !s.itemResolution.healingRoll });
   await until(s => !s.itemResolution, 'First Aid healing completes');

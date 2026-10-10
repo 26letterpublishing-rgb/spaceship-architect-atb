@@ -103,3 +103,12 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
 .shared-power [data-common-fleet]{max-height:min(32vh,260px);overflow:auto;scrollbar-gutter:stable}
 
 .remote-link-active::after{content:"";position:absolute;inset:0;z-index:20;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,#a8e9ff30 3px 4px);opacity:0;animation:remote-signal-static 13s steps(1) infinite}@keyframes remote-signal-static{0%,91%,96%,100%{opacity:0;transform:none}92%,94%{opacity:.24;transform:translateX(1px)}93%,95%{opacity:.1;transform:translateX(-1px)}}@media(prefers-reduced-motion:reduce){.remote-link-active::after{animation:none}}
+
+/* Keep shared controls compact at ordinary laptop heights. */
+.shared-console-layout>header{align-items:center!important}
+.shared-console-layout>header h2{margin:4px 0;font-size:22px}
+.shared-console-layout>header button{align-self:center;height:auto;min-height:36px;max-height:44px}
+.shared-console-layout .shared-power>*{flex-shrink:0}
+.shared-console-layout .shared-power .console-service-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;padding:6px!important;gap:5px}
+.console-service-panel button{min-width:0;min-height:34px;padding:7px 3px}
+.shared-console-layout .shared-power [data-common-fleet]{max-height:24vh}
