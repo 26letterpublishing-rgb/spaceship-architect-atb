@@ -4,9 +4,9 @@ function api(combatState=null){
  const context={window:{SAShipDistances:require('../ship-distances'),SAShipMap:require('../ship-map-core'),SACombatBridge:{state:()=>combatState}},document,CSS:{escape:value=>value},requestAnimationFrame:fn=>fn(),location:{href:'http://localhost/'}};
  vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../space-map'),'utf8'),context);return {maps:context.window.SASpaceMap,document};
 }
-function svg(width,height,markers=[]){
+function svg(width,height,markers=[],orbits=[]){
  const box={x:-10,y:-5,width:20,height:10};
- return {dataset:{},getAttribute:()=>Object.values(box).join(" "),clientWidth:width,clientHeight:height,viewBox:{baseVal:box},querySelectorAll:()=>markers,getBoundingClientRect:()=>({width:0,height:0}),setAttribute(name,value){if(name==='viewBox')Object.assign(box,Object.fromEntries(['x','y','width','height'].map((key,i)=>[key,Number(value.split(' ')[i])])));}};
+ return {dataset:{},getAttribute:()=>Object.values(box).join(" "),clientWidth:width,clientHeight:height,viewBox:{baseVal:box},querySelectorAll:selector=>selector==='[data-system-orbit]'?orbits:markers,getBoundingClientRect:()=>({width:0,height:0}),setAttribute(name,value){if(name==='viewBox')Object.assign(box,Object.fromEntries(['x','y','width','height'].map((key,i)=>[key,Number(value.split(' ')[i])])));}};
 }
 const marker=(x,y,planet=false)=>({transform:{baseVal:{consolidate:()=>({matrix:{e:x,f:y}})}},hasAttribute:name=>name==='data-planet'&&planet});
 test('shared fit contains contact markers and full planets using the actual wide or tall viewport',()=>{
@@ -47,7 +47,7 @@ test('every ship scale gets a shield around its artwork and an independent trans
  const {maps}=api();let previous=0;
  for(const count of [26,50,100,200,201]){
   const ship={id:'ship',title:'Test Ship',currentShieldHp:20,ship:{gridCells:Array.from({length:count},(_,i)=>i)}},html=maps.markup([ship],[{id:'ship',q:0,r:0}],true);
-  const ring=Number(html.match(/data-shield-ring r="([^"]+)"/)[1]),art=Number(html.match(/href="sic-art-starship-rank-\d.webp"[^>]*width="([^"]+)"/)[1]);
+  const ring=Number(html.match(/data-shield-ring r="([^"]+)"/)[1]),art=Number(html.match(/href="ship-token-\d-v1.webp"[^>]*width="([^"]+)"/)[1]);
   assert.ok(ring>=art/2);assert.ok(ring>=previous);previous=ring;
   assert.match(html,/<circle data-ship-hit r="[^"]+" fill="transparent" stroke="none" pointer-events="all"\/>/);
   ship.currentShieldHp=0;const unshielded=maps.markup([ship],[{id:'ship',q:0,r:0}],true);assert.doesNotMatch(unshielded,/data-shield-ring/);assert.match(unshielded,/data-ship-hit/);
@@ -83,4 +83,9 @@ test('live combat updates cannot move or restyle a preparation or solar-system d
  const editor={dataset:{spaceEditable:'true'},querySelectorAll(){throw Error('Live refresh touched an editable draft');},getAttribute(){throw Error('Live refresh touched an editable draft');}};
  document.querySelectorAll=selector=>selector==='[data-space-canvas]'?[editor]:[];
  assert.doesNotThrow(()=>maps.refresh([{id:'existing-ship',ship:{gridCells:[0]}}],[{id:'existing-ship',q:40,r:-20}]));
+});
+
+test('Fit Map includes full orbit extents even when all planets are on one side',()=>{
+ const {maps}=api(),map=svg(900,500,[marker(0,0),marker(8,-1,true)],[{getBBox:()=>({x:-14,y:-8.4,width:28,height:16.8})}]);
+ maps.fitRendered(map);const b=map.viewBox.baseVal;assert.ok(b.x<=-14&&b.x+b.width>=14);assert.ok(b.y<=-8.4&&b.y+b.height>=8.4);
 });

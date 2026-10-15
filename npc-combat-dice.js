@@ -44,7 +44,9 @@ function roll({ sides, title, subtitle, fusion, flat = 0, skill = 0 }) {
         const kept = fusion ? fusedTopTwo(results) : results;
         const score = kept.reduce((sum, value) => sum + value, 0) + Number(skill || 0) + Number(flat || 0);
         roller.stop();
-        resolve({ score, results, kept });
+        const groups=new Map();results.forEach(n=>groups.set(n,(groups.get(n)||0)+1));
+        const fusions=fusion?[...groups.values()].reduce((sum,n)=>sum+Math.floor(n/2),0):0;
+        resolve({ score, results, kept, fusions });
       },
     }).catch(error => { roller.stop(); reject(error); });
   }).finally(() => document.body.classList.remove("npc-dice-active"));

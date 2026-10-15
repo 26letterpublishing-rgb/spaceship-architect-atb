@@ -7,19 +7,20 @@ async function exploreAttack(room,seconds,{act,publish}){
   const attacker=room.units.find(u=>u.id===a.attackerId),defender=room.units.find(u=>u.id===a.defenderId);
   const role=a.phase==='checks'&&!a.attackerRoll&&attacker?.team==='npc'&&policy.active(attacker)?'attacker':a.phase==='checks'&&!a.defenseRoll&&defender?.team==='npc'&&policy.active(defender)?'defender':a.phase==='damage'&&!a.damageRoll&&attacker?.team==='npc'&&policy.active(attacker)?'damage':null;
   if(!role)return false;
+  if(role==='damage'&&a.plan.damageFormulaSupported===false)return false;
   const unit=role==='defender'?defender:attacker,key=a.id+':'+role;
   let show=unit.automationPresentation;
   if(show?.id!==key){
     const damage=role==='damage',formula=damage?require('./combat-rules').parseDiceFormula(a.plan.damageFormula):null;
-    const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(role==='defender'&&unit.dodgeDice?unit.dodgeDice:unit.dexterityDice||[])];
-    if(role==='attacker'&&a.attackType!=='melee'&&a.aimDie>0)sides.push(a.aimDie);
-    const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:['Melee','Grappling'].includes(a.plan.attackSkill)?unit.meleeSkill:unit.projectileSkill)||0;
+    const sides=damage?[...formula.dice].flatMap(([s,n])=>Array(n).fill(s)):[...(role==='defender'&&unit.dodgeDice?unit.dodgeDice:a.plan.attackAttribute==='strength'?unit.strengthDice||[]:unit.dexterityDice||[])];
+    if(role==='attacker'&&a.attackType!=='melee')sides.push(...(a.aimDice||(a.aimDie?[a.aimDie]:[])));
+    const bonus=damage?Number(formula.flat||0):Number(role==='defender'?unit.dodgeSkill:a.plan.attackSkill==='Melee'?unit.meleeSkill:a.plan.attackSkill==='Grappling'?unit.grapplingSkill:a.plan.attackSkill==='Science'?unit.scienceSkill:unit.projectileSkill)||0;
     const values=sides.map(s=>crypto.randomInt(1,s+1)),score=(damage?values.reduce((n,v)=>n+v,0):sensors.fusedTotal(values))+bonus;
     unit.automationPresentation={id:key,label:unit.characterName+' '+role,sides,values,score,displayScore:score,damage,phase:'rolling',remaining:1.2,personalAttack:true};publish();return true;
   }
   if(!show.animationComplete)return true;
   show.remaining-=Math.min(.5,Math.max(0,seconds));if(show.remaining>0)return true;
-  const result=await act(role==='damage'?{action:'submitAttackDamage',id:unit.id,attackId:a.id,rolledDamage:show.score,diceResults:show.values}:{action:'submitAttackRoll',id:unit.id,attackId:a.id,rollRole:role,score:show.score,diceResults:show.values});
+  const result=await act(role==='damage'?{action:'submitAttackDamage',id:unit.id,attackId:a.id,rolledDamage:show.score,diceResults:show.values}:{action:'submitAttackRoll',id:unit.id,attackId:a.id,rollRole:role,score:show.score,diceResults:show.values,fusions:[...new Set(show.values)].reduce((sum,v)=>sum+Math.floor(show.values.filter(n=>n===v).length/2),0)});
   if(result.ok){show.phase='complete';show.completedAt=Date.now();publish();}return true;
 }
 async function exploreFirstAid(room,seconds,{act,publish}){

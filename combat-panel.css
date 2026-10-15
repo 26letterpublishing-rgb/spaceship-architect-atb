@@ -1,0 +1,48 @@
+/* Shared compact action panel: PC, GM/NPC and surface combat use the same controls. */
+body .combat-panel-layout.combat-panel-layout{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:7px!important;width:100%!important;min-width:0;align-items:center!important;}
+body .combat-panel-layout.combat-panel-layout[hidden]{display:none!important}
+body .combat-panel-layout.combat-panel-layout button{--action-tone:#375d75;--combat-font-max:19;box-sizing:border-box;min-width:0!important;min-height:44px;height:48px;width:100%;padding:5px 7px!important;margin:0!important;border:1px solid color-mix(in srgb,var(--action-tone),white 35%)!important;border-radius:5px!important;background:linear-gradient(180deg,color-mix(in srgb,var(--action-tone),white 20%),var(--action-tone) 45%,color-mix(in srgb,var(--action-tone),black 20%))!important;color:#fff!important;box-shadow:inset 0 2px 1px #ffffff35!important;font:700 var(--combat-font,18px)/1.08 Arial,sans-serif!important;text-transform:none!important;white-space:normal!important;word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important;text-shadow:0 1px 1px #0006;align-self:center;}
+body .combat-panel-layout.combat-panel-layout button::before,body .combat-panel-layout.combat-panel-layout button::after{content:none!important}
+body .combat-panel-layout.combat-panel-layout button[hidden]{display:none!important}
+.combat-whole-word{display:inline-block;white-space:nowrap!important;word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important;}
+body .combat-panel-layout.combat-panel-layout button .combat-whole-word{font:inherit!important;color:inherit!important;text-transform:inherit!important;text-shadow:inherit!important;letter-spacing:inherit!important;padding:0!important;margin:0!important;min-height:0!important;line-height:inherit!important}
+body .combat-panel-layout.combat-panel-layout button:hover:not(:disabled){filter:brightness(1.18)}
+body .combat-panel-layout.combat-panel-layout button:focus-visible{outline:2px solid #ffe175!important;outline-offset:2px}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=move]{order:0;grid-column:1/-1;width:82px!important;height:82px!important;min-height:82px;border-radius:50%!important;justify-self:center;--action-tone:#438925;--combat-font-max:22}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=fire]{order:1;grid-column:1;--action-tone:#bb303e;--combat-font-max:22}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=aim]{order:2;grid-column:2;--action-tone:#995320}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=charge]{order:3;grid-column:3;--action-tone:#995320}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=calledShot]{order:4;grid-column:4;--action-tone:#995320}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=melee]{order:5;grid-column:1;--action-tone:#bb303e;--combat-font-max:22}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=wrestle]{order:6;grid-column:2;--action-tone:#927300}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=throwItem]{order:7;grid-column:3;--action-tone:#927300}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=vehicle]{order:8;grid-column:4;--combat-font-max:16}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=defense]{order:9;grid-column:1;--action-tone:#067a99;--combat-font-max:22}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=drawWeapon]{order:10;grid-column:2;border-radius:50%!important;--action-tone:#907400}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=firstAid]{order:11;grid-column:3;width:72px!important;min-width:72px!important;height:72px!important;min-height:72px!important;justify-self:center;padding:0!important;--action-tone:#9b3296;--combat-font-max:16;clip-path:polygon(29% 0,71% 0,71% 23%,100% 23%,100% 77%,71% 77%,71% 100%,29% 100%,29% 77%,0 77%,0 23%,29% 23%)}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=carry]{order:12;grid-column:4;--combat-font-max:16}
+body .combat-panel-layout.combat-panel-layout>.combat-turn-controls{order:40;grid-column:1/-1;display:flex;gap:9px;justify-content:flex-end;align-items:center;flex-wrap:wrap;border:0;padding-top:3px;}
+body .combat-panel-layout .combat-turn-controls>[data-turn-control-status]{order:-1;flex-basis:100%;font:12px/1.3 Arial,sans-serif;margin-bottom:3px}
+#turnDialog>.dialog-actions:empty{display:none}
+body .combat-panel-layout.combat-panel-layout [data-combat-action=wait3]{--action-tone:#a94f52;--combat-font-max:13;flex:0 0 48px;width:48px!important;height:48px!important;min-height:48px!important;border-radius:50%!important;padding:0!important}
+body .combat-panel-layout.combat-panel-layout [data-combat-action=holdConsole]{--action-tone:#ae2f40;--combat-font-max:19;width:72px!important;height:72px!important;min-width:72px!important;min-height:72px!important;flex:0 0 72px!important;padding:0!important}
+body .combat-panel-layout.combat-panel-layout .combat-delay{--action-tone:#995320;--combat-font-max:15;width:auto;min-height:32px;height:32px;flex:0 0 58px}
+body .combat-panel-layout.combat-panel-layout .combat-pass{--action-tone:#536779;--combat-font-max:18;width:86px;flex:0 0 86px;clip-path:polygon(0 0,70% 0,100% 50%,70% 100%,0 100%);padding-right:20px!important}
+body .combat-panel-layout.combat-panel-layout>[data-station-shortcuts]{order:20;grid-column:1/-1;width:100%;}
+body .combat-panel-layout .station-order-resources{margin:8px 0;color:#f0d474;font-size:14px}
+body .combat-panel-layout [data-station-shortcuts] details{border-bottom:1px solid #345060;padding:9px 0}
+body .combat-panel-layout [data-station-shortcuts] summary{text-align:center;background:linear-gradient(90deg,#12222d,var(--category-tone),#12222d);border-bottom:2px solid color-mix(in srgb,var(--category-tone),white 35%);color:#f0f8ff;font:700 18px/1.2 Arial,sans-serif;padding:9px 4px;margin-bottom:7px;cursor:pointer}
+body .combat-panel-layout .station-category-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:center}
+body .combat-panel-layout .station-action-choice{min-width:0;align-self:center}
+body .combat-panel-layout.combat-panel-layout [data-station-order]{height:62px;min-height:62px;--combat-font-max:20;clip-path:polygon(14px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 8px),calc(100% - 14px) 100%,5px 100%,0 calc(100% - 5px),0 8px);border-radius:0!important;padding:4px 8px!important}
+body .combat-panel-layout.combat-panel-layout [data-station-order].combat-large{--combat-font-max:23}
+body .combat-panel-layout.combat-panel-layout [data-station-order].combat-small{--combat-font-max:15;min-height:40px;height:40px;width:90%;margin-inline:auto!important;display:block;}
+body .combat-panel-layout.combat-panel-layout [data-station-order].combat-pale{color:#142130!important;text-shadow:none}
+body .combat-panel-layout [data-category=other] .station-category-buttons{grid-template-columns:repeat(4,minmax(0,1fr))}
+body .combat-panel-layout.combat-panel-layout [data-category=other] [data-station-order]{height:42px;min-height:42px;width:100%;--combat-font-max:15;padding:3px 6px!important}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=maintenance],body .combat-panel-layout.combat-panel-layout>[data-combat-action=airlock],body .combat-panel-layout.combat-panel-layout>[data-combat-action=breachRepair]{order:30;--combat-font-max:16}
+body .combat-panel-layout.combat-panel-layout>button.combat-context-active{--action-tone:#207443}
+body .combat-panel-layout.combat-panel-layout>[data-combat-action=move].leave-console-arrow{order:29;grid-column:auto;width:100%!important;height:48px!important;min-height:48px!important;border-radius:5px!important;clip-path:none!important;--combat-font-max:17}
+body.surface-combat-mode.surface-combat-mode.surface-combat-mode #myTurnBanner>.combat-panel-layout.combat-panel-layout{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media(max-width:430px){body .combat-panel-layout .station-category-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}body .combat-panel-layout [data-category=other] .station-category-buttons{grid-template-columns:repeat(3,minmax(0,1fr))}}
+body .combat-panel-layout.combat-panel-layout [data-station-shortcuts] .station-action-choice > button[data-station-order]{font:700 var(--combat-font,20px)/1.08 Arial,sans-serif!important}

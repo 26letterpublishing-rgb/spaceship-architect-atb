@@ -35,8 +35,8 @@ function deployUnits(units, ships) {
   });
 }
 
-function preparationFingerprint({ mode, starships, units, shipDistances = [], shipPositions, spaceObjects }) {
-  return createHash("sha256").update(JSON.stringify({ mode, starships, units, shipDistances, ...(shipPositions ? {shipPositions} : {}),...(spaceObjects?{spaceObjects}:{}) })).digest("hex");
+function preparationFingerprint({ mode, starships, units, shipDistances = [], shipPositions, spaceObjects, arena, fog }) {
+  return createHash("sha256").update(JSON.stringify({ mode, starships, units, shipDistances, ...(shipPositions ? {shipPositions} : {}),...(spaceObjects?{spaceObjects}:{}),...(arena?{arena}:{}),...(fog?{fog}:{}) })).digest("hex");
 }
 
 function validatePreparation(body, campaign, normalizeShips) {
@@ -70,7 +70,7 @@ function validatePreparation(body, campaign, normalizeShips) {
   const shipPositions = body.shipPositions ? distances.validatePositions(normalized,body.shipPositions) : distances.positions(normalized);
   const pairs = body.shipPositions ? distances.fromPositions(normalized,shipPositions) : distances.update(normalized, [], shipDistances);
   if (!body.shipPositions && shipDistances.length !== pairs.length) throw new Error("Set a distance for every pair of ships.");
-  return { spaceObjects:require('./space-objects').normalize(body.spaceObjects||[]),starships: normalized, shipPositions, shipDistances: pairs, units: deployUnits(units, normalized),
+  return { spaceObjects:require('./space-objects').normalize(body.spaceObjects||[]),starships: normalized, shipPositions, shipDistances: pairs, arena:mode==='surface'?require('./combat-arena').normalize(body.arena):null,fog:{enabled:!!body.fog?.enabled,explored:{},forced:body.fog?.forced||{},memory:{}},units:mode==='surface'?require('./combat-arena').deploy(require('./combat-arena').normalize(body.arena),structuredClone(units)):deployUnits(units, normalized),
     fingerprint: preparationFingerprint(body) };
 }
 

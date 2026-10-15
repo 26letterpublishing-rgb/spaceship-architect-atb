@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script src="browser-storage.js"></script>
     <script src="audio-mix.js"></script>
 <script src="drama-notices.js"></script>
     <script src="explore-session.js"></script>
-  <link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
+  <script src="token-art.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
   <link rel="stylesheet" href="oxygen-ui.css">
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
@@ -30,9 +31,11 @@
 <link rel="stylesheet" href="quick-prompts.css"><script defer src="reputation-ui.js"></script><script defer src="quick-prompts.js"></script>
 <link rel="stylesheet" href="crew-logs.css">
 <link rel="stylesheet" href="campaign-starmaps.css">
+<script src="campaign-navigation-ui.js" defer></script>
 <script src="campaign-starmaps-ui.js" defer></script>
 <link rel="stylesheet" href="ui-reputation-pass.css">
-</head>
+<link rel="stylesheet" href="shop.css"><link rel="stylesheet" href="sic-cards.css"><script src="sic-categories.js"></script>
+<script src="story-files.js"></script></head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
@@ -42,7 +45,7 @@
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
         <div class="gm-header-actions">
-          <button id="saveCampaignBackup" class="campaign-export-button" type="button">Export Campaign Save File</button>
+          <button id="saveCampaignBackup" class="campaign-export-button" type="button">Save Campaign</button>
           <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
           <button id="gmSettingsToggle" class="gm-settings-toggle" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
@@ -98,7 +101,7 @@
             <div><span>CAMPAIGN SCRIPT</span><h2>Story Console</h2></div>
             <div class="script-heading-actions">
               <label>Recipient<select id="scriptRecipient"><option value="all">All PCs</option></select></label>
-              <strong id="scriptSaveState" role="status">Saved</strong><button id="saveScriptNow" type="button">Save Notes</button>
+              <strong id="scriptSaveState" role="status">Saved</strong><button id="saveStoryFile" type="button">Save</button><button id="loadStoryFile" type="button">Load</button><button id="saveScriptNow" type="button">Quick Save</button>
             </div>
           </div>
           <div class="script-chapter-console">
@@ -159,13 +162,10 @@
         <section id="charactersTab" class="gm-tab" data-tab-panel="characters" hidden>
           <div class="tab-heading">
             <div><span>CAMPAIGN ROSTER</span><h2>Characters</h2></div>
-            <div class="character-tab-tools"><strong id="characterCount">0 Characters</strong><button id="gmDramaDeckStatus" class="gm-drama-deck-status" type="button" hidden><span>DRAMA DECK</span><strong>72 DRAW / 0 DISCARD</strong></button></div>
+            <div class="character-tab-tools"><button id="saveCharacterRoster" type="button">Save</button><button id="loadCharacterRoster" type="button">Load</button><strong id="characterCount">0 Characters</strong><button id="gmDramaDeckStatus" class="gm-drama-deck-status" type="button" hidden><span>DRAMA DECK</span><strong>72 DRAW / 0 DISCARD</strong></button></div>
           </div>
           <div id="gmCharacterList" class="gm-character-list"></div>
-          <section id="gmDramaDiscardPanel" class="gm-drama-discard-panel">
-            <div class="section-title"><div><h3>Drama Card Discard Pile</h3><small>Played cards remain visible until the shared deck reshuffles.</small></div><div class="discard-actions"><strong id="gmDramaDiscardCount">0 Cards</strong><button id="reshuffleDramaCards" type="button">Reshuffle</button></div></div>
-            <div id="gmDramaDiscardList" class="gm-drama-discard-list"></div>
-          </section>
+
           <section class="premade-npc-console">
             <div class="section-title">
               <div><h3>Premade NPCs</h3><small>Create campaign-specific enemies for manual selection during Combat.</small></div>
@@ -214,6 +214,10 @@
             <div id="promptTargets" class="target-grid"></div>
           </section>
           <div class="tool-grid">
+          <section id="gmDramaDiscardPanel" class="gm-drama-discard-panel tool-card">
+            <div class="section-title"><div><h3>Drama Card Discard Pile</h3><small>Played cards remain visible until the shared deck reshuffles.</small></div><div class="discard-actions"><strong id="gmDramaDiscardCount">0 Cards</strong><button id="reshuffleDramaCards" type="button">Reshuffle</button></div></div>
+            <div id="gmDramaDiscardList" class="gm-drama-discard-list"></div>
+          </section>
             <form id="awardForm" class="tool-card">
               <h3>Give Resources</h3>
               <label>Resource<select id="awardResource"><option value="experience">Experience</option><option value="credits">Personal Credits</option><option value="reverence">Reverence</option><option value="dramaCards">Drama Card</option><option value="attributePoints">Attribute Points</option><option value="skillPoints">Skill Points</option><option value="shipCredits">Group Credits</option></select></label>
@@ -275,10 +279,11 @@
         </section>
 
         <section id="atbTab" class="gm-tab atb-tab" data-tab-panel="atb" hidden>
+          <div class="arena-file-actions" style="padding:8px 0"><button type="button" id="restoreLastCombat">Restore Last Combat State</button><small id="combatSaveStatus" role="status">Combat is saved automatically.</small></div>
           <section id="atbSetup" class="atb-setup">
             <div class="tab-heading">
               <div><span>CAMPAIGN ENCOUNTER</span><h2>Prepare Combat</h2></div>
-              <strong id="encounterStatus">No Active Encounter</strong>
+              <div class="arena-file-actions"><button type="button" id="saveArenaFile">Save Arena</button><button type="button" id="loadArenaFile">Load Arena</button><input type="file" id="arenaFileInput" accept=".sa2arena,application/json" hidden><strong id="encounterStatus">No Active Encounter</strong></div>
             </div>
             <div id="existingEncounterActions" class="existing-encounter-actions" hidden>
               <p id="existingEncounterSummary">A saved encounter is ready.</p>
@@ -290,6 +295,8 @@
                 <button type="button" class="active" data-encounter-mode="surface" aria-pressed="true"><strong>Surface Combat</strong><span>Characters fight without starships.</span></button>
                 <button type="button" data-encounter-mode="starship" aria-pressed="false"><strong>Starship Combat</strong><span>Everyone fights aboard a selected ship.</span></button>
               </div>
+              <label class="arena-help"><input type="checkbox" id="prepareFog"> Fog of War (shared PC vision, 15 movement units, explored areas remembered)</label>
+              <section id="surfaceArenaEditor" class="arena-editor"></section>
               <section class="encounter-roster">
                 <div class="section-title"><h3 id="encounterRosterTitle">Campaign Characters</h3><small id="encounterRosterHint">Selected characters enter before their phones connect.</small></div>
                 <div id="encounterCharacterList" class="encounter-character-list"></div>
@@ -416,6 +423,7 @@
     </div>
   <script src="drama-card-data.js?v=console-feedback-2"></script>
   <script src="ship-map-core.js?v=console-feedback-2"></script>
+  <script src="combat-arena.js"></script><script src="arena-files.js"></script><link rel="stylesheet" href="combat-arena.css"><link rel="stylesheet" href="ship-map-presentation.css"><script src="combat-arena-ui.js"></script>
     <script src="ship-floorplan-snapshot.js"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="ship-distances.js?v=console-feedback-2"></script>
@@ -434,5 +442,6 @@
   <script type="module" src="gm.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
 <script src="crew-logs-ui.js"></script>
+<script src="app-help.js"></script>
 </body>
 </html>

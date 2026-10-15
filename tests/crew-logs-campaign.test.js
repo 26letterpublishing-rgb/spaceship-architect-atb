@@ -25,9 +25,9 @@ test('Crew Log save, connected submission, approval, claim, portable backup and 
  f.restart();const loaded=await f.api().campaign(code);assert.equal(loaded.crewLogs[0].awardId,reward.awardId);assert.equal(loaded.libraryEntries[0].title,'Chart 7');
 });
 test('Explore compact state keeps unselected layouts out and explicit details restores selected data only',async()=>{
- const f=fixture(),demo=await f.call('showcase/start',{}),code=demo.code,token=demo.gmToken;let compact;
+ const f=fixture(),demo=await f.call('showcase/start',{}),code=demo.code,token=demo.gmToken;let compact;const campaign=await f.api().campaign(code);campaign.starships.push(...require('../showcase-variants')());
  await f.api().handle({method:'GET'},{},new URL(`http://test/api/campaign/state?code=${code}&token=${token}&compact=1`),async()=>{},(_,status,data)=>{assert.equal(status,200);compact=data.campaign||data;});
- const lazy=compact.starships.filter(s=>s.lazyLayout);assert.ok(lazy.length>=20);assert.ok(lazy.every(s=>s.ship.gridCells.length===0&&s.hullCount>0));
+ const lazy=compact.starships.filter(s=>s.lazyLayout);assert.ok(lazy.length===22);assert.ok(lazy.every(s=>s.ship.gridCells.length===0&&s.hullCount>0));
  const selected=await f.call('starship/details',{code,token,ids:[lazy[0].id]});assert.ok(selected.starships[0].ship.gridCells.length>0);
  const after=f.api().state(await f.api().campaign(code),token);assert.equal(after.starships.find(s=>s.id===lazy[0].id).lazyLayout,undefined);assert.equal(after.starships.find(s=>s.id===lazy[1].id).lazyLayout,true);
 });

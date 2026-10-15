@@ -69,7 +69,7 @@ test('renaming a star updates its central Sun without erasing authored planets',
 });
 test('Explore seeds a usable galaxy once and does not leak its secret star to players',()=>{
   const c=campaign();assert.equal(galaxy.seedShowcase(c),false);c.showcase=true;
-  assert.equal(galaxy.seedShowcase(c),true);assert.equal(c.starmaps.maps[0].stars.length,5);assert.equal(galaxy.view(c,false).maps[0].stars.length,4);
+  assert.equal(galaxy.seedShowcase(c),true);assert.equal(c.starmaps.maps[0].stars.length,6);assert.equal(galaxy.view(c,false).maps[0].stars.length,5);
   const map=c.starmaps.maps[0],home=map.stars.find(s=>s.name==='Haven');assert.deepEqual(c.starmaps.positions.a,{mapId:map.id,q:home.q,r:home.r});
   assert.ok(home.system.some(o=>o.kind==='planet'));assert.ok(home.system.some(o=>o.kind==='asteroid'));
   home.lore='Authored by GM';assert.equal(galaxy.seedShowcase(c),false);assert.equal(home.lore,'Authored by GM');
@@ -114,7 +114,7 @@ test('explicit warp fuel choices validate stock and compatibility and survive jo
  const choice=initial.fuelOptions.find(o=>o.available>0&&o.rangeLY*o.available>=initial.targetLY);assert.ok(choice);
  const fuelCounts={[choice.grade]:Math.ceil(initial.targetLY/choice.rangeLY)};
  const q=cmd(c,{kind:'quote',...args,fuelCounts}).quote;assert.deepEqual(Object.fromEntries(Object.entries(q.counts).filter(([,n])=>n)),fuelCounts);
- for(const counts of [{},{[choice.grade]:99999},{[choice.grade]:-1},{[choice.grade]:1.5},{Bogus:1}])assert.throws(()=>cmd(c,{kind:'quote',...args,fuelCounts:counts}));
+ for(const counts of [{[choice.grade]:99999},{[choice.grade]:-1},{[choice.grade]:1.5},{Bogus:1}])assert.throws(()=>cmd(c,{kind:'quote',...args,fuelCounts:counts}));
  cmd(c,{kind:'travel',...args,fuelCounts});assert.equal(ship.ship.warpState.phase,'activating');
 });
 
@@ -125,4 +125,24 @@ test('second installed drive is rejected even powered off, while storage is allo
  ship.ship.placements.push({sicId:'extra',cell:200});assert.throws(()=>cmd(c,args),/one Warp Drive may be installed/);
  assert.match(maps.exteriorError(ship.ship),/one installed Warp Drive/);
  ship.ship.placements.pop();assert.ok(cmd(c,args).quote.driveName);
+});
+
+
+test('partial warp requires acknowledgment, consumes selected fuel and stops short of the star',()=>{
+ const {c,m,star}=setup(),ship=c.starships[0],args={mapId:m.id,starId:star.id,shipId:ship.id};
+ star.q=1000;star.r=0;ship.ship.warpFuel={S:1};
+ const q=cmd(c,{kind:'quote',...args}).quote;
+ assert.equal(q.partial,true);assert.ok(q.coveredLY>0&&q.coveredLY<q.targetLY);
+ assert.throws(()=>cmd(c,{kind:'travel',...args}),/partial journey warning/);
+ cmd(c,{kind:'travel',...args,acceptPartial:true});
+ galaxy.advance(c,1e9);
+ assert.equal(ship.ship.warpState.phase,'interrupted');
+ assert.ok(c.starmaps.positions[ship.id].q>0&&c.starmaps.positions[ship.id].q<star.q);
+ assert.ok(Math.abs(ship.ship.warpState.traveledLY-q.coveredLY)<1e-6);
+ assert.equal(Object.keys(c.starmaps.journeys).length,0);
+});
+test('zero fuel still permits a travel quote but cannot start warp',()=>{
+ const {c,m,star}=setup(),args={mapId:m.id,starId:star.id,shipId:'a',fuelCounts:{}};
+ assert.equal(cmd(c,{kind:'quote',...args}).quote.coveredLY,0);
+ assert.throws(()=>cmd(c,{kind:'travel',...args,acceptPartial:true}),/at least one/);
 });

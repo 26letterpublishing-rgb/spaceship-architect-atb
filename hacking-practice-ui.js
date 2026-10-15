@@ -5,6 +5,13 @@
   let saved={};try{saved=JSON.parse(sessionStorage.getItem(key)||'{}');}catch{}
   let token=saved.token||'',board=null,draft=saved.draft||[],pending=saved.pending||null,selected=0,busy=false,expired=false,ending=false;
   const color=letter=>colors[(letter.charCodeAt(0)-65)%colors.length];
+  function showModuleArt(tier){
+    const module=window.SAShipMap.definition(`hacking-module-${tier}`);
+    $('#moduleArt').src=module.image.replace(/(#[^?]+)\?.*$/, '$1');
+    $('#moduleArt').alt=`${module.name} equipment`;
+  }
+  function showFirewallArt(){const tier=Number($('#firewall').value);$('#firewallArt').src='cpu-firewall-tiers.svg#tier-'+tier;$('#firewallArt').alt=tier?'CPU Firewall '+tier:'No CPU Firewall';}
+
   function persist(){if(ending)return;try{sessionStorage.setItem(key,JSON.stringify({token,draft,pending}));}catch{}}
   async function request(method,body){
     const response=await fetch('/api/hacking/practice',{method,headers:{'Content-Type':'application/json','X-Practice-Token':token},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000),keepalive:method==='DELETE'});
@@ -54,16 +61,18 @@
     try{
       const result=await request('POST',{operation:'create',security:Number($('#security').value),firewall:Number($('#firewall').value),tier:Number($('#module').value)});
       token=result.token;board=result.board;draft=Array(board.length).fill(null);pending=null;selected=0;expired=false;
-      $('#moduleArt').src=`hacking-module-tiers.svg#tier-${board.tier}`;$('#moduleArt').alt=`Hacking Module ${board.tier}`;persist();showFeedback();
+      showModuleArt(board.tier);showFirewallArt();persist();showFeedback();
     }catch(error){$('#error').textContent=error.message;}finally{busy=false;render();}
   }
   async function submit(event){
     event.preventDefault();if(busy||!board||expired)return;
     if(!pending)pending={requestId:crypto.randomUUID(),guess:[...draft]};persist();busy=true;$('#error').textContent='';render();
-    try{board=await request('POST',pending);pending=null;draft=Array(board.length).fill(null);selected=0;persist();showFeedback();}
+    try{board=await request('POST',pending);pending=null;draft=Array(board.length).fill(null);selected=0;if(board.solved)window.SAAudioMix.success();persist();showFeedback();}
     catch(error){$('#error').textContent=expired?error.message:`${error.message} Your guess is retained.`;}
     finally{busy=false;render();}
   }
+  $('#firewall').onchange=showFirewallArt;showFirewallArt();
+  $('#module').onchange=()=>showModuleArt(Number($('#module').value));
   $('#setup').onsubmit=event=>{event.preventDefault();create();};$('#guessForm').onsubmit=submit;
   $('#endPractice').onclick=async event=>{
     event.preventDefault();if(ending)return;ending=true;busy=true;render();
@@ -76,7 +85,7 @@
   async function start(){
     if(!token){await create();return;}
     busy=true;render();
-    try{board=await request('GET');if(pending&&board.history.some(row=>row.id===pending.requestId)){pending=null;draft=[];}draft=Array.from({length:board.length},(_,i)=>board.candidates.includes(draft[i])?draft[i]:null);$('#security').value=board.security;$('#firewall').value=board.firewall;$('#module').value=board.tier;$('#moduleArt').src=`hacking-module-tiers.svg#tier-${board.tier}`;$('#moduleArt').alt=`Hacking Module ${board.tier}`;persist();showFeedback();}
+    try{board=await request('GET');if(pending&&board.history.some(row=>row.id===pending.requestId)){pending=null;draft=[];}draft=Array.from({length:board.length},(_,i)=>board.candidates.includes(draft[i])?draft[i]:null);$('#security').value=board.security;$('#firewall').value=board.firewall;$('#module').value=board.tier;showModuleArt(board.tier);showFirewallArt();persist();showFeedback();}
     catch(error){$('#error').textContent=error.message;$('#connection').textContent='CONNECTION UNAVAILABLE';}
     finally{busy=false;render();}
   }

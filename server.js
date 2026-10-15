@@ -1,3 +1,4 @@
+const personalWeapons = require('./personal-weapon-effects');
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -166,7 +167,7 @@ function normalizeEncounterStarships(value) {
       crewCharacterIds: (Array.isArray(record?.crewCharacterIds) ? record.crewCharacterIds : []).slice(0, 80).map((idValue) => String(idValue).slice(0, 120)),
       crewNpcUnitIds: (Array.isArray(record?.crewNpcUnitIds) ? record.crewNpcUnitIds : record?.ship?.crewNpcUnitIds || []).slice(0,100).map(String),
       escapedAt:record.escapedAt||null,
-      ship: { triangleCells:shipMapCore.triangleCells(ship), ...Object.fromEntries(['descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','breachDroneState','encounterState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','cloakState','gravityFieldState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorDamage','transporterState','intruderState'].map(key=>[key,clone(ship[key]??null)])),gridCells, placements, sicInventory, doorStates, oxygenEnabled:ship.oxygenEnabled!==false,oxygenState:clone(ship.oxygenState||null),gravityEnabled:ship.gravityEnabled!==false, zoneColumns:shipMapCore.gridColumns(ship),zoneRows:shipMapCore.gridRows(ship),thrusterDirection:[0,90,180,270].includes(ship.thrusterDirection)?ship.thrusterDirection:null, affiliation:String(ship.affiliation || '').slice(0,100),
+      ship: { triangleCells:shipMapCore.triangleCells(ship), ...Object.fromEntries(['descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','breachDroneState','encounterState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','cloakState','gravityFieldState','mapColor','mapIcon','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorDamage','transporterState','intruderState'].map(key=>[key,clone(ship[key]??null)])),gridCells, placements, sicInventory, doorStates, oxygenEnabled:ship.oxygenEnabled!==false,oxygenState:clone(ship.oxygenState||null),gravityEnabled:ship.gravityEnabled!==false, zoneColumns:shipMapCore.gridColumns(ship),zoneRows:shipMapCore.gridRows(ship),thrusterDirection:[0,90,180,270].includes(ship.thrusterDirection)?ship.thrusterDirection:null, affiliation:String(ship.affiliation || '').slice(0,100),
         class:String(ship.class || '').slice(0,100),
         defenseScore:Number.isFinite(ship.defenseScore) ? ship.defenseScore : undefined },
       auState: record?.auState ? { current: record.auState.current, progress: record.auState.progress } : null,
@@ -242,6 +243,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.sensorMode = Boolean(snapshot.sensorMode);
+  room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
     room.hackingPrivate = clone(snapshot.hackingPrivate || {secrets:{},sessions:[],receipts:[]});
     room.threshold = Math.max(1, Number(snapshot.threshold) || 100);
     room.starships = normalizeEncounterStarships(snapshot.starships);
@@ -285,7 +287,7 @@ async function ensureCampaignRoom(code) {
 }
 
 function scheduleRoomPersist(room, delay = 250) {
-  if (!campaignApi || !room?.roomCode || roomPreparations.has(room.roomCode)) return;
+  if (!campaignApi || !room?.roomCode || room.recoveryError || roomPreparations.has(room.roomCode)) return;
   clearTimeout(roomPersistTimers.get(room.roomCode));
   roomPersistTimers.set(room.roomCode, setTimeout(async () => {
     if (getRoom(room.roomCode) !== room) return;
@@ -302,6 +304,7 @@ function scheduleRoomPersist(room, delay = 250) {
 }
 
 function publicState(room) {
+  require('./combat-arena').updateFog(room);
   for(const message of require('./ship-breaches').reconcile(room,campaignApi?.campaignCache.get(room.roomCode)))pushLog(room,message);
   require('./crew-carry').sync(room);
   require('./ship-field-utilities').advance(room,0);
@@ -406,6 +409,7 @@ function publicState(room) {
     undoAvailable: Boolean(room.undoSnapshot),
     showcase: Boolean(room.showcase || campaignApi?.isShowcase(room.roomCode)),
     sensorMode: Boolean(room.sensorMode),
+    arena:clone(room.arena||null),fog:clone(room.fog||{enabled:false}),visibility:clone(room.visibility||{}),
   };
 }
 
@@ -517,24 +521,26 @@ async function applyDamageToUnit(room, target, rawDamage, source, options = {}) 
     pushLog(room, `${shieldOwner.characterName}'s Power Shields intercepted ${source} against ${target.characterName}; ${absorbed} Shield HP lost, overflow discarded${collapsed ? "; SHIELDS COLLAPSED" : `; ${shield.hp}/30 remains`}.`);
     return target.damageEvent;
   }
+  const protection = personalWeapons.damage(target,incoming,options);
   let result = null;
-  if (target.characterId && campaignApi && !options.finalDamage) {
-    result = await campaignApi.damageCharacter(room.roomCode, target.characterId, incoming, source, { currentHp: target.currentHp, maximumHp: target.maximumHp, damageReduction: target.damageReduction });
+  if (target.characterId && campaignApi) {
+    result = await campaignApi.damageCharacter(room.roomCode, target.characterId, protection.applied, source, { currentHp: target.currentHp, maximumHp: target.maximumHp, damageReduction: 0, finalDamage:true });
   }
   if (!result) {
-    const reduction = options.finalDamage ? 0 : Math.max(0, Number(target.damageReduction) || 0);
-    const applied = Math.max(0, incoming - reduction);
+    const reduction = options.finalDamage || options.ignoreDamageReduction ? 0 : Math.max(0, Number(target.damageReduction) || 0);
+    const applied = protection.applied;
     const beforeHp = target.currentHp === null || target.currentHp === undefined ? null : Number(target.currentHp);
     const currentHp = beforeHp === null ? null : Math.max(0, beforeHp - applied);
     result = { id: id(), rawDamage: incoming, reduction, applied, beforeHp, currentHp, maximumHp: target.maximumHp ?? null, source, createdAt: Date.now() };
   }
   if (result.currentHp !== null && result.currentHp !== undefined) target.currentHp = result.currentHp;
   if (result.maximumHp !== null && result.maximumHp !== undefined) target.maximumHp = result.maximumHp;
-  target.damageReduction = result.reduction;
+  result.rawDamage=incoming;result.reduction=protection.reduction;result.suitAbsorbed=protection.suitAbsorbed;
   target.damageEvent = { ...result, id: result.id || id(), source: String(source || "Combat damage"), createdAt: result.createdAt || Date.now() };
   pushLog(room, `${target.characterName} took ${result.applied} HP damage from ${source}${result.reduction ? ` (${result.rawDamage} incoming, ${result.reduction} Damage Reduction)` : ""}${result.currentHp === null ? "; GM records HP manually" : `; HP ${result.currentHp}/${result.maximumHp}`}.`);
   if(campaignApi)await campaignApi.personalDamageStatistics(room.roomCode,target.characterId,room.units.find(u=>u.id===options.attackerId)?.characterId,result.applied,target.damageEvent.id);
   syncNpcDefeat(room, target);
+  if(protection.suitAbsorbed)await syncUnitItemsToCampaign(room,target);
   return target.damageEvent;
 }
 
@@ -685,6 +691,20 @@ function syncNpcDefeat(room, unit) {
     campaignApi?.broadcast(liveRoom.roomCode).catch(() => {});
   }, remaining));
 }
+async function applyWeaponHitEffects(room,target,state,applied) {
+  const attacker=room.units.find(u=>u.id===state.attackerId);if(!attacker)return;
+  personalWeapons.afterHit(room,attacker,target,state,applied);
+  if(state.weaponId==='force-bazooka')for(const secondary of personalWeapons.lineBehind(room,attacker,target,10))await applyDamageToUnit(room,secondary,state.damageSummary.beforeReduction/2,'Force Bazooka backblast',{element:state.plan.element,attackerId:attacker.id,attackType:'ranged'});
+}
+
+function beginPersonalEffect(room, unit, effect) {
+  const plan={allowed:true,attackModifier:0,defenseMultiplier:1,defenseRangeModifier:0,attackAttribute:effect.attribute||'dexterity',attackSkill:effect.skill||'Projectile',weaponId:'personal-effect',damageFormula:effect.formula,damageFormulaSupported:true,element:effect.element,ignoreDamageReduction:Boolean(effect.ignoreDamageReduction),criticalDamageDisabled:true};
+  beginAttackResolution(room,{attackerId:unit.id,defenderId:unit.id,weaponId:'personal-effect',weaponName:effect.name,attackType:'effect',plan,personalEffect:effect});
+  room.attackResolution.phase=effect.check?'checks':'damage';room.attackResolution.attackResult={hit:true,critical:false};
+  if(effect.check)room.attackResolution.defenseRoll={score:effect.difficulty};
+  pushLog(room,unit.characterName+': roll '+(effect.check?effect.attribute+' + '+effect.skill+' vs '+effect.difficulty:effect.formula)+' for '+effect.name+'.');
+}
+
 function beginAttackResolution(room, details) {
   const attacker = room.units.find((entry) => entry.id === details.attackerId);
   const defender = room.units.find((entry) => entry.id === details.defenderId)||require('./ship-doors').find(room,details.defenderId);
@@ -714,6 +734,8 @@ function beginAttackResolution(room, details) {
     defenderCommandExpired: false,
     createdAt: Date.now(),
   };
+  if(defender.personalDrone)room.attackResolution.defenseRoll={score:14,mode:'fixed'};
+  if(details.personalEffect?.check){room.attackResolution.defenseRoll={score:details.personalEffect.difficulty};return room.attackResolution;}
   if(details.doorTarget){room.attackResolution.phase='damage';room.attackResolution.attackResult={hit:true,critical:false};room.attackResolution.defenseRoll={score:0};pushLog(room,attacker.characterName+' attacks '+defender.characterName+'. Roll '+details.plan.damageFormula+' damage. A hit of 10 or more causes one breach point.');return room.attackResolution;}
   pushLog(room, attacker.characterName + " targeted " + defender.characterName + " with " + details.weaponName + " at " + details.distance + " unit" + (details.distance === 1 ? "" : "s") + "; attack and Defense rolls requested.");
   return room.attackResolution;
@@ -726,6 +748,13 @@ function finishAttackResolution(room, logText) {
   room.attackResolution = null;
   room.activeSource = attack.source || room.activeSource;
   clearAttackCommand(room);
+  if(attack.additionalAttack&&attacker){const next=room.units.find(u=>u.id===attack.additionalAttack.defenderId);if(next&&!next.defeatedAt){pushLog(room,logText);beginAttackResolution(room,attack.additionalAttack);return;}}
+  if (attack.personalEffect && !attack.consumeEffectTurn) {
+    if(attack.personalEffect.skullAttach&&attacker){(attacker.weaponTimers||=[]).push({kind:'skull',name:'Skull Bore escape',check:true,attribute:'strength',skill:'Escape',...attack.personalEffect.skullAttach,remaining:6,interval:6,duration:1e9});}
+    if(attack.personalEffect.growFire&&attacker?.burning)attacker.burning.intensity=Math.min(attacker.burning.maximum,attacker.burning.intensity+1);
+    pushLog(room,logText);room.activeId=null;room.pausedForTurn=false;
+    moveToNextTurnOrClock(room,attack.source);return;
+  }
   if (attacker) {
     completeStagedAttack(room, attacker, attack, logText, {
       id,
@@ -746,6 +775,27 @@ function resolveAttackChecks(room) {
   if (!state || state.phase !== "checks" || !state.attackerRoll || !state.defenseRoll) return null;
   const defender = room.units.find((entry) => entry.id === state.defenderId);
   const attacker = room.units.find((entry) => entry.id === state.attackerId);
+  if(state.personalEffect?.check){
+    if(state.personalEffect.kind==='skull'){
+      const timer=attacker.weaponTimers?.find(e=>e.kind==='skull'&&e.droneId===state.personalEffect.droneId);const escaped=state.attackerRoll.score>=state.personalEffect.difficulty;
+      if(escaped){const drone=room.units.find(u=>u.id===state.personalEffect.droneId);if(drone){drone.currentHp=0;drone.defeatedAt=Date.now();}attacker.weaponTimers=attacker.weaponTimers.filter(e=>e!==timer);state.consumeEffectTurn=true;finishAttackResolution(room,attacker.characterName+' removed the Skull Bore.');}
+      else{const dice=Math.max(2,(timer?.dice||state.personalEffect.dice||2)*2);if(timer)timer.dice=dice;state.plan={...state.plan,damageFormula:dice+'D8',damageFormulaSupported:true,element:'Physical'};state.phase='damage';state.id=id();state.damageRoll=null;state.consumeEffectTurn=true;}
+      return {hit:false};
+    }
+    if(state.personalEffect.throwEffect){
+      const score=Number(state.attackerRoll.score)-(Number(attacker.coordinationSkill)||0),die=score>=17?2:score>=13?4:score>=9?6:score>=6?8:score>=4?10:12;
+      state.followup={kind:'scatter',plan:state.plan,maximum:die};state.plan={...state.plan,damageFormula:'1D'+die,damageFormulaSupported:true};state.phase='damage';state.damageRoll=null;state.id=id();pushLog(room,'Roll 1D'+die+' for throwing scatter distance.');return null;
+    }
+
+    if(state.personalEffect.removeSticky){const effect=room.units.flatMap(u=>u.thrownEffects||[]).find(e=>e.id===state.personalEffect.removeSticky);const success=state.attackerRoll.score>=13;if(effect&&success)effect.armedHeld=true;finishAttackResolution(room,attacker.characterName+(success?' detached the Sticky Grenade; use another action to throw it.':' failed to detach the Sticky Grenade.'));return {hit:false};}
+    if(state.personalEffect.escapeNet){const success=state.attackerRoll.score>=state.personalEffect.difficulty;if(success)attacker.net=null;finishAttackResolution(room,attacker.characterName+(success?' escaped the net.':' remains trapped in the net.'));return {hit:false};}
+    const cycles=Math.max(0,Math.floor((state.personalEffect.difficulty-Number(state.attackerRoll.score))/2));
+    attacker.frozenSeconds=(attacker.frozenSeconds||0)+cycles*100/Math.max(1,attacker.speed||1);
+    finishAttackResolution(room,attacker.characterName+' resisted '+state.weaponName+': '+cycles+' recovery cycles.');return {hit:false};
+  }
+  if(['greentip-v-x-101','thunder-rifle'].includes(state.weaponId)&&state.accuracyAdjustment===undefined){
+    state.followup={kind:'accuracy',plan:state.plan};state.plan={...state.plan,damageFormula:'1D10',damageFormulaSupported:true};state.phase='damage';state.damageRoll=null;state.id=id();pushLog(room,'Roll 1D10 for '+state.weaponName+' To-Hit adjustment.');return null;
+  }
   const defenseTimed = defender?.timedAction?.kind === "defense";
   const timedDefenseBonus = defenseTimed ? Math.max(0, Number(defender.dodgeSkill) || 0) : 0;
   const racialDefenseBonus = Number(defender?.defenseScoreModifier) || 0;
@@ -757,6 +807,7 @@ function resolveAttackChecks(room) {
     : 0;
   const defenseBonus = timedDefenseBonus + racialDefenseBonus + attackerDefenseModifier;
   const targetDefense = Number(state.defenseRoll.score) + defenseBonus;
+  if(state.weaponId==='rubber-bouncy-bombs'&&!state.wallBonusApplied){state.plan.attackModifier+=3*personalWeapons.wallsNear(room,defender);state.wallBonusApplied=true;}
   state.defenseBonus = defenseBonus;
   state.timedDefenseBonus = timedDefenseBonus;
   state.racialDefenseBonus = racialDefenseBonus;
@@ -790,6 +841,27 @@ function resolveAttackChecks(room) {
     finishAttackResolution(room, logText);
     return { hit: false };
   }
+  if(state.weaponId==='netlauncher'){defender.net={difficulty:10};finishAttackResolution(room,state.weaponName+' trapped '+defender.characterName+' in a net.');return {hit:true};}
+  if(state.weaponId==='disabler'||state.weaponId==='spouter'&&!personalWeapons.electronic(defender)){
+    personalWeapons.afterHit(room,attacker,defender,state,0);finishAttackResolution(room,state.weaponName+' hit '+defender.characterName+'; effect applied without HP damage.');return {hit:true};
+  }
+  if(state.weaponId==='thunder-rifle'&&state.damageCount===undefined){
+    state.followup={kind:'damageCount',plan:state.plan};state.plan={...state.plan,damageFormula:'1D'+[4,6,8,10,12][Math.min(4,state.chargeCount||0)],damageFormulaSupported:true};state.phase='damage';state.damageRoll=null;state.id=id();pushLog(room,'Roll the Thunder Rifle damage-count die.');return {hit:true};
+  }
+  if(state.weaponId==='skull-bore'){
+    const travel=Math.max(.1,3*state.distance/(1+(state.chargeCount||0)));
+    const drone=require('./personal-bore-drones').launch(room,attacker,'skull-bore',defender,state.chargeCount||0);
+    (attacker.thrownEffects||=[]).push({id:id(),droneId:drone.id,weaponId:'skull-bore',label:'Skull Bore approach',targetId:defender.id,remaining:travel,total:travel,charges:state.chargeCount||0});finishAttackResolution(room,'Skull Bore launched toward '+defender.characterName+'; impact in '+travel.toFixed(1)+' seconds.');return {hit:true};
+  }
+  if(['sticky-grenade','mini-nuke','proximity-mine'].includes(state.weaponId)){
+    const remaining=state.weaponId==='mini-nuke'?12:state.weaponId==='proximity-mine'?0:6;
+    (attacker.thrownEffects||=[]).push({id:id(),weaponId:state.weaponId,label:state.weaponName,origin:clone(defender.location),attachedId:state.weaponId==='sticky-grenade'?defender.id:null,remaining,total:remaining,resolving:false,armedMine:state.weaponId==='proximity-mine',launcherId:attacker.id});
+    finishAttackResolution(room,state.weaponName+' deployed at '+defender.characterName+'.');return {hit:true};
+  }
+  if(state.weaponId==='rubber-bouncy-bombs'){
+    const walls=personalWeapons.wallsNear(room,defender);state.plan={...state.plan,damageFormula:walls+'D8',damageFormulaSupported:true};state.personalEffect={...personalWeapons.explosive('grenade',clone(defender.location)),name:'Rubber Bouncy Bombs',area:true,rubber:true};state.consumeEffectTurn=true;
+  }
+  state.plan = combatRules.damagePlan(state.plan, state.attackResult, state.attackerRoll.fusions);
   state.phase = "damage";
   pushLog(room, state.attackerName + " hit " + state.defenderName + " with " + state.weaponName + (state.attackResult.critical ? state.calledShot ? " - CRITICAL EFFECT." : " - CRITICAL HIT." : ".") + " Roll " + state.plan.damageFormula + " Damage.");
   return { hit: true };
@@ -951,6 +1023,7 @@ function snapshotRoom(room) {
     log: clone(room.log),
     preparations: clone(room.preparations || []),
     sensorMode: Boolean(room.sensorMode),
+    arena:clone(room.arena||null),fog:clone(room.fog||{enabled:false}),visibility:clone(room.visibility||{}),
   };
 }
 
@@ -982,6 +1055,7 @@ function restoreUndoSnapshot(room) {
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.sensorMode = Boolean(snapshot.sensorMode);
+  room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
   room.threshold = snapshot.threshold;
   room.starships = clone(snapshot.starships || []);
   room.shipDistances = clone(snapshot.shipDistances || []);
@@ -1040,6 +1114,7 @@ function visibleEncounter(data, viewer) {
   visible=require('./ship-intruders').project(visible,intruderSource,viewer);
   visible=require('./ship-illusions').project(visible,intruderSource,viewer);
   visible.starships=visible.starships.map(s=>({...s,ship:{...s.ship,intruderState:undefined}}));
+  visible=require('./combat-arena').project(visible,viewer);
   return {...visible,units:visible.units.map(unit=>({...unit,actionResults:unit.characterId===viewer?.characterId
     ?(unit.actionResults||[]).filter(result=>result.controller!=='gm'):[]}))};
 }
@@ -1497,6 +1572,7 @@ function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
 
 function moveToNextTurnOrClock(room, previousSource = null) {
   if(transitPending(room)){room.lastTick=Date.now();return;}
+  for(const unit of room.units){if(unit.personalEffects?.length){beginPersonalEffect(room,unit,unit.personalEffects.shift());return;}}
   for (const unit of room.units) {
     if (unit.defeatedAt) continue;
     for (const thrown of (unit.thrownEffects || []).filter(effect => effect.resolving)) {
@@ -1583,8 +1659,18 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   // Freeze the shot against positions at the charge boundary, after this tick's movement.
   for(const report of shipCleanser.advance(room,seconds*multiplier)){pushLog(room,report);scheduleRoomPersist(room,0);}
   const completedEvents = [];
+  for(const zone of (room.areaEffects||[]).filter(e=>e.kind==='fallout')){
+    zone.remaining-=seconds*multiplier;zone.elapsed+=seconds*multiplier;
+    if(zone.remaining<=1e-7){const dice=4-Math.floor(zone.elapsed/30),owner=room.units.find(u=>u.id===zone.ownerId)||room.units[0];zone.remaining=6;
+      if(dice>0&&owner)personalWeapons.queue(owner,{name:'Mini Nuke fallout',formula:dice+'D10',element:'Radiation',origin:zone.origin,radius:30,multiplier:1,falloff:100,area:true});
+    }
+  }
+  room.areaEffects=(room.areaEffects||[]).filter(e=>e.kind!=='fallout'||e.elapsed<120);
+  require('./personal-bore-drones').cleanup(room);
+  for(const unit of room.units){personalWeapons.advance(unit,seconds*multiplier);if(unit.personalEffects?.length)completedEvents.push({type:'personal',unit});}
   tickAreaEffects(room, seconds, multiplier);
   for (const unit of room.units) {
+    if(unit.defeatedAt||!unit.speed)completedEvents.push(...require('./combat-engine').advanceThrown(room,unit,seconds*multiplier));
     if (unit.id === skipId || unit.defeatedAt || !unit.speed || crewRooms.inTreatment(room,unit.characterId||unit.id)) continue;
     const wasTimed = hasTimedAction(unit);
     for (const event of tickCombatTimers(unit, seconds, multiplier, room)) {
@@ -1683,6 +1769,7 @@ function recordActionResult(unit, value) {
   unit.actionResults=[...(unit.actionResults||[]).filter(r=>r.id!==value.id),{...value,at:new Date().toISOString()}].slice(-40);
 }
 function resolveCompletedEvent(room,event,source){
+  if(event.type==='personal'){if(event.unit.personalEffects?.length){beginPersonalEffect(room,event.unit,event.unit.personalEffects.shift());return true;}return false;}
   const pending=event?.type==='delayed'?event.unit?.delayedAction:null,effect=event?.effect;
   const ship=room.starships.find(s=>s.id===(pending?.sensorOrder?.shipId||pending?.commandOrder?.shipId||pending?.weaponOrder?.shipId||event?.unit?.location?.starshipId));
   const reports=()=>[...(ship?.sensorState?.reports||[]),...(ship?.weaponState?.reports||[]),...(ship?.lockState?.reports||[])];
@@ -1760,6 +1847,17 @@ function resolveCompletedEventInner(room, event, source) {
     if (event.effect.specialType === "smoke") {
       activateSmokeEffect(room, event.unit, event.effect);
       return false;
+    }
+    if(event.effect.weaponId==='skull-bore'){
+      event.unit.thrownEffects=event.unit.thrownEffects.filter(e=>e.id!==event.effect.id);const target=room.units.find(u=>u.id===event.effect.targetId);
+      if(target&&!target.defeatedAt){beginPersonalEffect(room,target,{name:'Skull Bore',formula:'2D8',element:'Physical',skullAttach:{difficulty:13+(event.effect.charges||0),dice:2,droneId:event.effect.droneId}});return true;}return false;
+    }
+    if(event.effect.weaponId==='hull-bore'){const drone=room.units.find(u=>u.id===event.effect.droneId);if(drone){drone.currentHp=0;drone.defeatedAt=Date.now();}require('./combat-arena').boreWall(room,event.effect.wallTarget);event.unit.thrownEffects=event.unit.thrownEffects.filter(e=>e.id!==event.effect.id);pushLog(room,'Hull Bore completed its 18-second drilling cycle; the opening is usable.');return false;}
+    const blast=personalWeapons.explosive(event.effect.weaponId,event.effect.origin);
+    if(blast&&blast.origin){
+      event.unit.thrownEffects=event.unit.thrownEffects.filter(e=>e.id!==event.effect.id);
+      if(blast.flash){for(const {unit} of personalWeapons.blastTargets(room,blast.origin,18,1,100))personalWeapons.queue(unit,{name:blast.name,check:true,attribute:'willpower',skill:'Resist Distress',difficulty:Math.max(0,18-require('./combat-arena').distance(room,{location:blast.origin},unit))});return false;}
+      beginPersonalEffect(room,event.unit,{...blast,area:true});return true;
     }
     clearActiveCommand(room);
     room.pausedForTurn = true;
@@ -1847,6 +1945,8 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
       return [...effectTimes, ...timerTimes, speed > 0 ? Math.max(0, (room.threshold - unit.atb) / speed) : Infinity];
     })
     .filter((time) => Number.isFinite(time));
+  for(const zone of (room.areaEffects||[]).filter(e=>e.kind==='fallout'))times.push(zone.remaining/(interruptedId?.2:1));
+  for(const unit of room.units.filter(u=>u.defeatedAt||!u.speed))for(const effect of unit.thrownEffects||[])if(!effect.resolving&&!(effect.armedMine&&effect.remaining<=0))times.push(effect.remaining/(interruptedId?.2:1));
   const oxygenTime=shipOxygen.nextEvent(room.starships)/(interruptedId?.2:1);
   if(Number.isFinite(oxygenTime))times.push(oxygenTime);
   const transitTime=transitBoundary(room)/(interruptedId?.2:1);if(Number.isFinite(transitTime))times.push(transitTime);
@@ -1883,6 +1983,8 @@ function scheduleAutomation(room, seconds=.1){
 }
 setInterval(() => {
   for (const room of rooms.values()) {
+    if (room.recoveryError) continue;
+    try {
     const inputNow = Date.now(), inputElapsed = (inputNow - (room.lastInputTick || inputNow)) / 1000;
     room.lastInputTick = inputNow;
     if (roomPreparations.has(room.roomCode)) { room.lastTick = Date.now(); continue; }
@@ -1947,6 +2049,12 @@ setInterval(() => {
     if (now - room.lastPersistRequestAt >= 2000) {
       room.lastPersistRequestAt = now;
       scheduleRoomPersist(room, 0);
+    }
+    } catch(error) {
+      console.error(`Combat clock paused in ${room.roomCode}:`,error.stack||error);
+      room.running=false;room.hardPaused=true;room.recoveryError=String(error.message||error);
+      clearTimeout(roomPersistTimers.get(room.roomCode));roomPersistTimers.delete(room.roomCode);
+      try{pushLog(room,'Combat paused after an error. The GM can restore the last combat state.');broadcast(room,true);}catch{}
     }
   }
 }, 100);
@@ -2062,7 +2170,9 @@ async function prepareEncounter(room, body) {
   candidate.planetaryEvent=null;
   candidate.cleanserScars=clone(campaign?.starmaps?.maps?.find(m=>m.id===campaign.activeSystem?.mapId)?.stars?.find(s=>s.id===campaign.activeSystem?.starId)?.systemScars||[]);
   candidate.spaceObjects = prepared.spaceObjects;
+  candidate.arena=prepared.arena;candidate.fog=prepared.fog;
   candidate.units = prepared.units.map(unit => preparedUnit(unit, candidate.threshold));
+  require('./combat-arena').updateFog(candidate);
   candidate.units.forEach((unit,index)=>{
     if(unit.team!=='npc')return;
     const input=prepared.units[index],previous=room.units.find(u=>u.team==='npc'&&u.id===(input.npcRosterId||input.preparationUnitId));
@@ -2162,7 +2272,7 @@ async function handleRoomAction(body, res, automated = false) {
       sendJson(res, 403, { error: "Unlock this campaign character before joining the encounter." });
       return;
     }
-  } else if (["cleanserDamage","crewRoomCommand","crewRoomResolve","missileDamage", "transitCommand", "hackingCommand", "counterHackSwap", "utilityCommand", "acknowledgeVictory", "lockCommand", "weaponCommand", "rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateCombatDoor", "operateAirlock", "repairHullBreach"].includes(action) && playerUnit) {
+  } else if (["cleanserDamage","crewRoomCommand","crewRoomResolve","missileDamage", "transitCommand", "hackingCommand", "counterHackSwap", "utilityCommand", "acknowledgeVictory", "lockCommand", "weaponCommand", "rollShipAction", "shipMaintenance", "shipCommand", "sensorCommand", "shieldCommand", "completeTurn", "requestDelay", "logPlayerAction", "setColor", "characterSpeedBoost", "cancelPersonalRecovery", "playerCombatAction", "syncCharacterLoadout", "submitAttackRoll", "submitAttackDamage", "submitFirstAidRoll", "submitFirstAidHealing", "stopTravel", "operateSurfaceDoor", "operateCombatDoor", "operateAirlock", "repairHullBreach"].includes(action) && playerUnit) {
     if (!playerAuthorized && !gmAuthorized) {
       sendJson(res, 403, { error: "Character or GM authorization is required." });
       return;
@@ -2205,7 +2315,7 @@ async function handleRoomAction(body, res, automated = false) {
     return;
   }
   if (playerUnit && (playerUnit.defeatedAt || playerUnit.oxygenUnconscious || (playerUnit.currentHp != null && Number(playerUnit.currentHp) <= 0)) &&
-      ['hackingCommand','utilityCommand','weaponCommand','sensorCommand','lockCommand','shipCommand','shieldCommand','shipMaintenance','playerCombatAction','gmBeginNpcAttack','requestDelay','startDelay','instantDelay','completeTurn','characterSpeedBoost','operateCombatDoor','operateAirlock','repairHullBreach'].includes(action)) {
+      ['hackingCommand','utilityCommand','weaponCommand','sensorCommand','lockCommand','shipCommand','shieldCommand','shipMaintenance','playerCombatAction','gmBeginNpcAttack','requestDelay','startDelay','instantDelay','completeTurn','characterSpeedBoost','operateCombatDoor','operateSurfaceDoor','operateAirlock','repairHullBreach'].includes(action)) {
     sendJson(res, 409, {error:'This character is unconscious and cannot act.'}); return;
   }
   if(shipOxygen.pending(room.starships)&&['weaponCommand','sensorCommand','lockCommand','shipCommand','shieldCommand','shipMaintenance','playerCombatAction','gmBeginNpcAttack','requestDelay','startDelay','instantDelay','completeTurn','characterSpeedBoost'].includes(action)){
@@ -2224,7 +2334,7 @@ async function handleRoomAction(body, res, automated = false) {
     if(ship?.escapedAt||ship?.ship.warpState?.phase==='traveling'){sendJson(res,409,{error:'This ship has left combat in warp.'});return;}
     if(ship?.ship.warpState?.phase==='activating'&&action==='shipCommand'&&['move','evade','ram','skim'].includes(body.kind)){sendJson(res,409,{error:'Cancel warp activation before moving the ship.'});return;}
   }
-  if(playerUnit&&playerUnit.shipAi&&!initiativeControl&&['playerCombatAction','setCombatLocation','operateCombatDoor','stopTravel'].includes(action)){sendJson(res,409,{error:'Ship AI cannot leave its bridge station.'});return;}
+  if(playerUnit&&playerUnit.shipAi&&!initiativeControl&&['playerCombatAction','setCombatLocation','operateCombatDoor','operateSurfaceDoor','stopTravel'].includes(action)){sendJson(res,409,{error:'Ship AI cannot leave its bridge station.'});return;}
   if(playerUnit&&crewRooms.inTreatment(room,playerUnit.characterId||playerUnit.id)&&['playerCombatAction','setCombatLocation','weaponCommand','shipCommand','sensorCommand','lockCommand','hackingCommand','utilityCommand','crewRoomCommand'].includes(action)&&!(action==='crewRoomCommand'&&body.kind==='wake')){sendJson(res,409,{error:'Use Wake Now in the Hibernation Chamber before acting or moving.'});return;}
   if(!['cleanserDamage','reset','undoLastAction','undoLastTiming','syncCharacterLoadout','syncEncounterStarships'].includes(action)){
     // Commit the checkpoint only for successful requests; failed validation and retries keep the previous undo.
@@ -2344,7 +2454,7 @@ async function handleRoomAction(body, res, automated = false) {
     const previous = new Map((room.starships || []).map(ship => [ship.id, Object.fromEntries(['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','weaponState','lockState','destroyedAt','escapedAt','victoryAt','sensorScenarioMasking','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'].map(key => [key,ship[key]]))]));
     room.starships = normalizeEncounterStarships(body.starships);
     room.starships.forEach(ship => { if (previous.has(ship.id)) Object.assign(ship, previous.get(ship.id)); });
-    for(const ship of room.starships)if(previousEnvironment.has(ship.id))for(const key of ['descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','breachDroneState','encounterState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','cloakState','gravityFieldState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorDamage','transporterState','intruderState'])ship.ship[key]=clone(previousEnvironment.get(ship.id)[key]??null);
+    for(const ship of room.starships)if(previousEnvironment.has(ship.id))for(const key of ['descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','breachDroneState','encounterState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','cloakState','gravityFieldState','mapColor','mapIcon','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorDamage','transporterState','intruderState'])ship.ship[key]=clone(previousEnvironment.get(ship.id)[key]??null);
     for(const ship of room.starships)if(gravity.has(ship.id)){ship.ship.gravityEnabled=gravity.get(ship.id);const previousShip=previousEnvironment.get(ship.id);ship.ship.oxygenEnabled=previousShip?.oxygenEnabled!==false;ship.ship.oxygenState=clone(previousShip?.oxygenState||null);}
     for(const ship of room.starships)for(const item of ship.ship.sicInventory||[]){
       const old=conditions.get(ship.id)?.get(item.id);
@@ -2361,6 +2471,10 @@ async function handleRoomAction(body, res, automated = false) {
     const unit = room.units.find((entry) => entry.id === String(body.id || ""));
     if (!unit) { sendJson(res, 404, { error: "Combatant not found." }); return; }
     const destination = body.location || {};
+    if(room.arena){
+      if(destination.arenaId!=='surface'||!room.arena.floors.includes(destination.square)){sendJson(res,400,{error:'Choose a white floor square in this surface arena.'});return;}
+      if(room.units.some(u=>u.id!==unit.id&&require('./combat-arena').position(u)?.square===destination.square)){sendJson(res,409,{error:'That surface square is occupied.'});return;}
+    }
     const occupied = room.units.filter((entry) => entry.id !== unit.id && entry.location?.starshipId === destination.starshipId && Number(entry.location?.square) === Number(destination.square) && Number(entry.location?.mesh) === Number(destination.mesh)).length;
     const destinationShip=room.starships.find(s=>s.id===destination.starshipId);
     const cell=destinationShip&&shipMapCore.buildLayout(destinationShip.ship).footprint.get(Number(destination.square));
@@ -2601,6 +2715,7 @@ async function handleRoomAction(body, res, automated = false) {
 
   if (action === "stopTravel") {
     if (!playerUnit || playerUnit.timedAction?.kind !== "move") { sendJson(res, 409, { error: "That character is not traveling." }); return; }
+    if(playerUnit.location?.arenaId==='surface')playerUnit.location=require('./combat-arena').position(playerUnit);
     playerUnit.timedAction = null;
     playerUnit.travelRoute = [];
     playerUnit.atb = room.threshold;
@@ -2610,6 +2725,20 @@ async function handleRoomAction(body, res, automated = false) {
 
   if(action==='operateAirlock'||action==='repairHullBreach'){
     try{const breaches=require('./ship-breaches');if(action==='operateAirlock')pushLog(room,breaches.operate(room,playerUnit,body));else{breaches.queueRepair(room,playerUnit,body,await campaignApi.campaign(room.roomCode));const source=room.activeSource;room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);moveToNextTurnOrClock(room,source);}}catch(e){sendJson(res,409,{error:e.message});return;}
+  }
+  if(action==='setCombatFog'||action==='forceCombatVisibility'){
+    if(!gmAuthorized){sendJson(res,403,{error:'GM access required.'});return;}
+    room.fog||={enabled:false,explored:{},forced:{},memory:{}};
+    if(action==='setCombatFog')room.fog.enabled=!!body.enabled;
+    else {const arena=require('./combat-arena'),loc=body.mapId==='surface'?{arenaId:'surface'}:{starshipId:String(body.mapId)},g=arena.grid(room,loc),cell=Number(body.square);if(!g||!Number.isInteger(cell)||cell<0||cell>=g.width*g.height){sendJson(res,400,{error:'Choose a valid map square.'});return;}room.fog.forced||={};const list=new Set(room.fog.forced[g.id]||[]);if(list.has(cell))list.delete(cell);else list.add(cell);room.fog.forced[g.id]=[...list];}
+    require('./combat-arena').updateFog(room);
+  }
+  if(action==='operateSurfaceDoor'){
+    const key=String(body.doorKey||''),door=room.arena?.doors?.[key],p=require('./combat-arena').position(playerUnit),cells=key.split(':').map(Number),w=room.arena?.width;
+    const near=p?.arenaId==='surface'&&cells.some(n=>Math.abs(n%w-p.square%w)+Math.abs(Math.floor(n/w)-Math.floor(p.square/w))<=1);
+    if(!door||!gmAuthorized&&(!playerAuthorized||!near||playerUnit.defeatedAt)){sendJson(res,403,{error:'Move next to this door to operate it.'});return;}
+    if(door.hits>=3){sendJson(res,409,{error:'This door is broken open.'});return;}
+    door.open=!door.open;if(door.automatic)door.override=door.open;require('./combat-arena').updateFog(room);
   }
   if (action === "operateCombatDoor") {
     const starship = (room.starships || []).find((entry) => entry.id === String(body.starshipId || ""));
@@ -2652,7 +2781,7 @@ async function handleRoomAction(body, res, automated = false) {
       existingCampaignUnit.team = "pc";
       existingCampaignUnit.allyNpc = false;
       existingCampaignUnit.playerConnected = true;
-      syncUnitCombat(existingCampaignUnit, body);
+      syncUnitCombat(existingCampaignUnit, room.arena?{...body,location:existingCampaignUnit.location}:body);
       pushLog(room, `${characterName} rejoined the encounter.`);
       sendJson(res, 200, publicState(room));
       broadcast(room);
@@ -2689,6 +2818,7 @@ async function handleRoomAction(body, res, automated = false) {
     };
     syncUnitCombat(unit, body);
     ensureNpcHp(unit);
+    if(room.arena){const used=new Set(room.units.map(u=>require('./combat-arena').position(u)?.square)),square=room.arena.floors.includes(body.location?.square)&&!used.has(body.location.square)?body.location.square:room.arena.floors.find(n=>!used.has(n));if(square===undefined){sendJson(res,409,{error:'The arena has no free starting square.'});return;}unit.location=require('./combat-arena').surfaceGrid(room.arena).location(square);}
     room.units.push(unit);
     const setupText = needsSetup(unit) ? "awaiting GM setup" : `Speed ${speed}`;
     pushLog(room, `${characterName} joined (${setupText}).`);
@@ -2712,7 +2842,7 @@ async function handleRoomAction(body, res, automated = false) {
       unit.characterName = nextName;
       unit.playerName = nextPlayer;
       unit.color = nextColor;
-      syncUnitCombat(unit, update);
+      syncUnitCombat(unit, room.arena?{...update,location:unit.location}:update);
     }
     if (changed) pushLog(room, `${changed} campaign character${changed === 1 ? "" : "s"} synchronized from updated sheets.`);
   }
@@ -2738,10 +2868,25 @@ async function handleRoomAction(body, res, automated = false) {
     }
   }
 
+  if(action==='configurePersonalWeapon'){
+    const gun=playerUnit?.weapons?.find(w=>w.inventoryId===body.inventoryId);
+    if(!gmAuthorized||!gun){sendJson(res,403,{error:'Only the GM may configure an owned weapon.'});return;}
+    if(gun.weaponId==='mk-u-id-assassin'){
+      const kind=String(body.program?.kind||''),value=String(body.program?.value||'').trim().slice(0,100);
+      if(!['target','race','sex'].includes(kind)||!value){sendJson(res,400,{error:'Choose a valid Target ID.'});return;}
+      gun.targetProgram={kind,value};
+    }else if(gun.weaponId==='silent-scope-sniper-rifle'){
+      const count=Number(body.ammoRemaining);if(!Number.isInteger(count)||count<0||count>8){sendJson(res,400,{error:'Enter 0 to 8 loaded rounds.'});return;}gun.ammoRemaining=count;
+    }else{sendJson(res,409,{error:'This weapon does not require GM setup.'});return;}
+    if(playerUnit.characterId)await campaignApi.syncCombatWeapons(room.roomCode,playerUnit.characterId,playerUnit.weapons);
+    pushLog(room,'GM updated '+playerUnit.characterName+"'s "+gun.name+' setup.');
+  }
   if (action === "syncCharacterLoadout") {
     const unit = playerUnit;
     if (unit) {
-      syncUnitCombat(unit, body);
+      const unchangedHeld=body.heldWeaponId===unit.lastSheetHeldWeaponId,held=unit.heldWeaponId;
+      unit.lastSheetHeldWeaponId=body.heldWeaponId;
+      syncUnitCombat(unit, {...body,...(room.arena?{location:unit.location}:{}),...(unchangedHeld?{heldWeaponId:held}:{})});
       pushLog(room, `${unit.characterName}'s combat loadout synchronized.`);
     }
   }
@@ -2813,10 +2958,14 @@ async function handleRoomAction(body, res, automated = false) {
       return;
     }
     if(trigger&&playerUnit.delayedAction?.shipOrder)playerUnit.delayedAction.shipOrder.trigger=trigger;
+    if(result.beginAttack?.ammoInventoryId){const inventoryId=result.beginAttack.ammoInventoryId;playerUnit.weapons=playerUnit.weapons.filter(w=>w.inventoryId!==inventoryId);playerUnit.launcherAmmo[result.beginAttack.inventoryId]=playerUnit.launcherAmmo[result.beginAttack.inventoryId].filter(id=>id!==inventoryId);result.weaponConsumed=inventoryId;}
     if (result.beginAttack && !beginAttackResolution(room, result.beginAttack)) {
       sendJson(res, 409, { error: "The attacker or defender is no longer in this encounter." });
       return;
     }
+    if(result.beginAttack){const gun=playerUnit.weapons.find(w=>w.inventoryId===result.beginAttack.inventoryId);if(require('./personal-ammunition').profile(gun)){gun.ammoRemaining=require('./personal-ammunition').remaining(gun)-1;result.weaponUpdate=true;}}
+    if(result.weaponUpdate&&playerUnit?.characterId)await campaignApi.syncCombatWeapons(room.roomCode,playerUnit.characterId,playerUnit.weapons);
+    if(result.weaponConsumed&&playerUnit?.characterId)await campaignApi.consumeCombatWeapon(room.roomCode,playerUnit.characterId,result.weaponConsumed);
     if (playerUnit?.characterId && (result.itemConsumed || result.itemUpdate || result.statusUpdate || body.jetPack)) await syncUnitItemsToCampaign(room, playerUnit);
   }
 
@@ -2872,8 +3021,12 @@ async function handleRoomAction(body, res, automated = false) {
       sendJson(res, 409, { error: "Choose the active NPC and a valid target." });
       return;
     }
-    const distance = Number(body.distance);
-    const attackModifier = Number(body.attackModifier || 0);
+    if(!require('./combat-arena').canTarget(room,attacker,defender)){sendJson(res,409,{error:'A wall or closed door blocks line of sight to that target.'});return;}
+    const distance = require('./combat-arena').distance(room,attacker,defender)??Number(body.distance);
+    const rangeWeapon=require('./combat-engine').heldWeapon(attacker),rangePlan=rangeWeapon?require('./combat-rules').attackPlan(rangeWeapon,{distance,attackType:rangeWeapon.category==='melee'?'melee':'ranged',strengthDice:attacker.strengthDice,charges:require('./combat-engine').completedCharges(attacker),aimDice:attacker.aim?.dice||[]}):null;
+    if(rangePlan&&!rangePlan.allowed){sendJson(res,409,{error:rangePlan.rangeExplanation||'This target is outside weapon range.'});return;}
+    if(rangeWeapon&&(!require('./personal-ammunition').canTarget(rangeWeapon,defender)||require('./personal-ammunition').remaining(rangeWeapon)===0)){sendJson(res,409,{error:'Weapon safety blocks this target or its magazine is empty. Use Weapon Setup or Reload.'});return;}
+    const attackModifier = Number(body.attackModifier || 0)+(rangePlan?.attackRangeModifier||0);
     if (!Number.isFinite(distance) || distance < 0 || !Number.isFinite(attackModifier)) {
       sendJson(res, 400, { error: "Enter a valid distance and To-Hit modifier." });
       return;
@@ -2883,28 +3036,32 @@ async function handleRoomAction(body, res, automated = false) {
     beginAttackResolution(room, {
       attackerId: attacker.id,
       defenderId: defender.id,
-      weaponId: "gm-npc-attack",
-      inventoryId: "gm-npc-attack",
+      weaponId: rangeWeapon?.weaponId || "gm-npc-attack",
+      inventoryId: rangeWeapon?.inventoryId || "gm-npc-attack",
+      attackType:rangeWeapon?.category==='melee'?'melee':'ranged',
       weaponName,
       distance,
       calledShot: Boolean(body.calledShot),
       calledShotDetail: "",
-      chargeCount: 0,
+      chargeCount: require("./combat-engine").completedCharges(attacker),
       chargeText: "",
-      aimDie: null,
-      recoverySeconds: 0,
+      aimDie: attacker.aim?.aimDie,
+      aimDice: attacker.aim?.dice||[],
+      recoverySeconds:rangeWeapon?.recoverySeconds||0,
       plan: {
+        ...rangePlan,
         allowed: true,
         distance,
         effectiveRange: null,
         attackModifier,
-        defenseRangeModifier: 0,
+        defenseRangeModifier: rangePlan?.defenseRangeModifier||0,
         damageFormula,
         damageFormulaSupported: true,
-        rangeExplanation: "GM-entered NPC attack",
-        criticalDamageDisabled: false,
+        rangeExplanation: rangePlan?.rangeExplanation||"GM-entered NPC attack",
+        criticalDamageDisabled: rangePlan?.criticalDamageDisabled || false,
       },
     });
+    if(require("./personal-ammunition").profile(rangeWeapon))rangeWeapon.ammoRemaining=require("./personal-ammunition").remaining(rangeWeapon)-1;
   }
 
   if (action === "submitAttackRoll") {
@@ -2929,6 +3086,7 @@ async function handleRoomAction(body, res, automated = false) {
       if (gmAuthorized && rollRole === 'attacker') state.rollController = 'gm';
       state[field] = {
         score,
+        fusions: Math.max(0, Math.min(30, Number(body.fusions) || 0)),
         mode: String(body.mode || "manual").slice(0, 20),
         diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 30) : [],
         submittedBy: gmAuthorized ? "gm" : "player",
@@ -2966,22 +3124,56 @@ async function handleRoomAction(body, res, automated = false) {
       diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number).filter(Number.isFinite).slice(0, 60) : [],
       submittedAt: Date.now(),
     };
+    if(state.followup){
+      const followup=state.followup;state.followup=null;state.plan=followup.plan;state.damageRoll=null;
+      if(['scatter','direction'].includes(followup.kind)){
+        const maximum=followup.kind==='scatter'?followup.maximum:8;
+        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>maximum){state.followup=followup;state.plan={...state.plan,damageFormula:'1D'+maximum,damageFormulaSupported:true};sendJson(res,400,{error:'Enter a die result from 1 to '+maximum+'.'});return;}
+        const thrower=room.units.find(u=>u.id===state.attackerId),effect=state.personalEffect.throwEffect;
+        if(followup.kind==='scatter')state.scatterDistance=Math.max(0,rolledDamage-Math.floor(thrower.coordinationSkill||0));
+        if(followup.kind==='scatter'&&state.scatterDistance>0){state.followup={kind:'direction',plan:state.plan};state.plan={...state.plan,damageFormula:'1D8',damageFormulaSupported:true};state.phase='damage';state.id=id();pushLog(room,'Roll 1D8 for scatter direction: north, clockwise.');}
+        else{
+          if(state.scatterDistance>0){const A=require('./combat-arena'),g=A.grid(room,effect.origin),n=g.index(effect.origin),[dx,dy]=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]][rolledDamage-1];let previous=effect.origin;
+            for(let step=1;step<=state.scatterDistance;step++){const x=n%g.width+dx*step,y=Math.floor(n/g.width)+dy*step,to=y*g.width+x,candidate=g.location(to);if(x<0||y<0||x>=g.width||y>=g.height||!g.floor.has(to)||!A.canTarget(room,{location:previous},{location:candidate}))break;previous=candidate;}effect.origin=previous;
+          }
+          (thrower.thrownEffects||=[]).push(effect);finishAttackResolution(room,state.weaponName+' placed; scatter '+state.scatterDistance+' units, countdown '+effect.remaining+' seconds.');
+        }
+      }else if(followup.kind==='accuracy'){
+        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>10){state.followup=followup;state.plan={...state.plan,damageFormula:'1D10',damageFormulaSupported:true};sendJson(res,400,{error:'Enter the result of the D10 (1–10).'});return;}
+        state.accuracyAdjustment=rolledDamage-(state.weaponId==='thunder-rifle'?5:4);state.attackerRoll.score+=state.accuracyAdjustment;state.phase='checks';state.id=id();resolveAttackChecks(room);
+      }else{
+        const maximum=[4,6,8,10,12][Math.min(4,state.chargeCount||0)];
+        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>maximum){state.followup=followup;state.plan={...state.plan,damageFormula:'1D'+maximum,damageFormulaSupported:true};sendJson(res,400,{error:'Enter the damage-count die result (1–'+maximum+').'});return;}
+        state.damageCount=rolledDamage;state.plan={...state.plan,damageFormula:rolledDamage+'D12'+(state.aimDice||[]).map(d=>' + 1D'+d).join(''),damageFormulaSupported:true};state.phase='damage';state.id=id();
+      }
+    }else     if(state.personalEffect?.area){
+      const blast=state.personalEffect;
+      for(const {unit,multiplier} of personalWeapons.blastTargets(room,blast.origin,blast.rubber?2:blast.radius,blast.rubber?5:blast.multiplier,blast.rubber?100:blast.falloff))await applyDamageToUnit(room,unit,rolledDamage*multiplier,blast.name,{attackType:'effect',element:blast.element,attackerId:state.attackerId});
+      if(blast.fallout){room.areaEffects ||= [];room.areaEffects.push({id:id(),kind:'fallout',origin:blast.origin,remaining:6,elapsed:0,ownerId:state.attackerId});}
+      finishAttackResolution(room,blast.name+' resolved; solid cover blocked its effects.');
+    } else {
     state.damageSummary = combatRules.resolveDamage({
-      rolledDamage,
-      damageReduction: target.damageReduction,
+      rolledDamage: combatRules.correctedDamage(state.plan, rolledDamage, state.damageRoll.diceResults)*(state.plan.damageScale??1),
+      damageReduction: state.plan.ignoreDamageReduction ? 0 : target.damageReduction,
       critical: state.attackResult.critical,
       calledShot: state.calledShot || state.plan.criticalDamageDisabled,
     });
     if(state.doorTarget){const hits=require('./ship-doors').hit(room,state.doorTarget,rolledDamage);finishAttackResolution(room,'hit '+target.characterName+' for '+rolledDamage+' damage: '+hits+'/3 breach points'+(hits>=3?'; door broken open':''));}
     else if (target.team === "npc") {
+      const preview=clone(target);
+      const protection=personalWeapons.damage(preview,state.damageSummary.beforeReduction,{element:state.plan.element,ignoreDamageReduction:state.plan.ignoreDamageReduction,critical:state.attackResult.critical,bypassSuit:state.personalEffect?.bypassSuit});
+      state.damageSummary={...state.damageSummary,...protection};state.protectionPreview={suitHp:preview.suitHp,items:preview.items};
       state.phase = "gmDamage";
       pushLog(room, "GM confirmation requested for " + target.characterName + ": " + state.damageSummary.applied + " final Damage after DR " + state.damageSummary.reduction + ".");
     } else {
-      const damageEvent = await applyDamageToUnit(room, target, state.damageSummary.beforeReduction, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType });
+      const damageEvent = await applyDamageToUnit(room, target, state.damageSummary.beforeReduction, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType, ignoreDamageReduction: state.plan.ignoreDamageReduction, element:state.plan.element, critical:state.attackResult.critical, bypassSuit:state.personalEffect?.bypassSuit });
       const applied = Number(damageEvent?.applied) || 0;
+      if(!state.personalEffect)await applyWeaponHitEffects(room,target,state,applied);
       const logText = attackResolutionLog(state, applied);
       finishAttackResolution(room, logText);
     }
+  }
+
   }
 
   if (action === "confirmNpcDamage") {
@@ -3000,8 +3192,10 @@ async function handleRoomAction(body, res, automated = false) {
       sendJson(res, 409, { error: "The NPC defender is no longer in this encounter." });
       return;
     }
-    const damageEvent = await applyDamageToUnit(room, target, finalDamage, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType, finalDamage: true });
+    if(state.protectionPreview){target.suitHp=state.protectionPreview.suitHp;target.items=state.protectionPreview.items;await syncUnitItemsToCampaign(room,target);}
+    const damageEvent = await applyDamageToUnit(room, target, finalDamage, state.attackerName + "'s " + state.weaponName, { attackerId: state.attackerId, attackType: state.attackType, finalDamage: true, element:state.plan.element, bypassSuit:true });
     const appliedDamage = Number(damageEvent?.applied) || 0;
+    if(!state.personalEffect)await applyWeaponHitEffects(room,target,state,appliedDamage);
     const logText = attackResolutionLog(state, appliedDamage);
     finishAttackResolution(room, logText);
   }
@@ -3302,6 +3496,15 @@ async function handleRoomAction(body, res, automated = false) {
     pushLog(room, "Encounter cleared.");
   }
 
+  if(action==='cancelPersonalRecovery'){
+    const unit=playerUnit||room.units.find(u=>u.id===String(body.id));
+    if(!unit||!(unit.frozenSeconds>0)){sendJson(res,409,{error:'No recovery cycle is waiting.'});return;}
+    const campaign=await campaignApi.campaign(room.roomCode),record=campaign?.characters.find(c=>c.id===unit.characterId);
+    const available=Number(record?.character?.resources?.exertionCurrent??unit.exertionCurrent??0);
+    if(available<1){sendJson(res,409,{error:'At least 1 Exertion is required.'});return;}
+    if(record){record.character.resources.exertionCurrent=available-1;await campaignApi.save(campaign);}else unit.exertionCurrent=available-1;
+    unit.frozenSeconds=Math.max(0,unit.frozenSeconds-100/Math.max(1,unit.speed||1));pushLog(room,unit.characterName+' spent 1 Exertion to cancel one recovery cycle.');
+  }
   if (action === "characterSpeedBoost") {
     const unit = playerUnit;
     if (!unit || unit.encounterSpeedBonus) {
@@ -3610,6 +3813,7 @@ async function startServer() {
       pushLog(room,'Rescue encounter started in empty space. Ship and crew positions preserved.');await campaignApi.saveEncounter(campaign.code,snapshotRoom(room));broadcast(room);return room;
     },
     liveEncounter: code => rooms.get(code),
+    snapshotEncounter: code => rooms.has(code)?snapshotRoom(rooms.get(code)):null,
     characterMoved: (code,shipId,characterId,location) => {
       const room=rooms.get(code),unit=room?.units.find(u=>u.characterId===characterId),ship=room?.starships.find(s=>s.id===shipId);
       if(!unit||!ship)return;

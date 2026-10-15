@@ -6,8 +6,10 @@
   function decorate(root=document){
     for(const e of root.querySelectorAll(selector)){
       if(e.dataset.shipAi==='true'){if(!e.querySelector('.ai-station-icon')){e.replaceChildren();const image=document.createElement('img');image.className='ai-station-icon';image.src='ship-ai-station.png';image.alt='Ship AI bridge station';image.style.cssText='width:100%;height:100%;object-fit:cover;transform:scale(2.4)';e.style.overflow='hidden';e.append(image);}continue;}
+      const art=window.SATokenArt, key=art?.atlas(e.dataset.tokenRace)?e.dataset.tokenRace+':'+art.variant(e.dataset.tokenVariant):'';
+      if(e.dataset.renderedToken!==key){e.querySelector('.crew-figure')?.remove();e.dataset.renderedToken=key;}
       const isFallen=e.dataset.fallen==='true';if(e.querySelector('.crew-figure')&&e.classList.contains('crew-is-fallen')!==isFallen)e.querySelector('.crew-figure').remove();if(e.classList.contains('crew-is-fallen')!==isFallen)e.classList.toggle('crew-is-fallen',isFallen);
-      if(!e.querySelector('.crew-figure')){e.dataset.crewInitial=e.textContent.trim();e.innerHTML=isFallen?fallen:figure;if(!e.classList.contains('crew-token'))e.classList.add('crew-token');if(e.title)e.setAttribute('aria-label',e.title);}
+      if(!e.querySelector('.crew-figure')){e.dataset.crewInitial=e.textContent.trim();e.innerHTML=key?art.figure(e.dataset.tokenRace,e.dataset.tokenVariant):isFallen?fallen:figure;if(!e.classList.contains('crew-token'))e.classList.add('crew-token');if(e.title)e.setAttribute('aria-label',e.title);}
       if(!e.classList.contains('crew-token'))e.classList.add('crew-token');
       const moving=!isFallen&&e.dataset.walking!=='false'&&e.matches('.combat-moving-token,.player-ship-moving-token,[data-walking=true]');
       if(e.classList.contains('crew-walking')!==moving)e.classList.toggle('crew-walking',moving);
@@ -35,7 +37,7 @@
     const relevant=records.some(r=>r.type==='attributes'?r.target.matches?.(selector):[...r.addedNodes,...r.removedNodes].some(n=>{if(n.nodeType!==1)return false;const oxygen=n.matches('.sa-room-oxygen')||n.querySelector('.sa-room-oxygen');if(oxygen)oxygenDirty=true;return oxygen||n.matches(selector)||n.querySelector(selector); }));
     if(relevant&&!queued){queued=true;requestAnimationFrame(()=>{queued=false;decorate();if(oxygenDirty){oxygenDirty=false;placeOxygen();}});}
   });
-  function start(){decorate();placeOxygen();observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','data-walking','data-fallen']});}
+  function start(){decorate();placeOxygen();observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','data-walking','data-fallen','data-token-race','data-token-variant']});}
   if(document.body)start();else document.addEventListener('DOMContentLoaded',start,{once:true});
   window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});
   window.addEventListener('resize',placeOxygen);

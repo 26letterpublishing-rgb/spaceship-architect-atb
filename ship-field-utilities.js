@@ -22,6 +22,13 @@ function hurtPod(room,ship,item,points,campaign){
   for(const person of people)if(person.loc?.starshipId===ship.id&&maps.buildLayout(ship.ship).footprint.get(Number(person.loc.square))?.sicId===item.id){person.hp-=20*points;details.paid[person.id]=Number(item.impairmentPoints)||1;count++;}
   if(count)report(ship,'Escape pod impairment: '+count+' occupant(s) took '+20*points+' fixed HP damage.');return count;
 }
+function releaseDocked(room,ship,docked,sicId){
+ const origin=point(room,ship.id),candidates=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]].map(([q,r])=>({q:Math.round(origin.q)+q,r:Math.round(origin.r)+r}));
+ const next=candidates.find(p=>!(room.shipPositions||[]).some(other=>other.id!==docked.id&&other.id!==ship.id&&!room.starships.find(s=>s.id===other.id)?.ship.fieldState?.dockedIn&&Math.abs(other.q-p.q)+Math.abs(other.r-p.r)<1e-6)&&!(room.spaceObjects||[]).some(o=>['sun','black-hole','planet'].includes(o.kind)&&o.q===p.q&&o.r===p.r));
+ if(!next)throw Error('No adjacent hex is free for undocking.');
+ const reason='docked:'+ship.id+':'+sicId;state(docked).dockedIn=null;docked.escapedAt=null;place(room,docked,next);for(const person of room.units||[])resumeUnit(person,reason);
+ return next;
+}
 function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance=false}={}){
   try{
     for(const vessel of room.starships||[])vessel.characterLocations ||= structuredClone(campaign?.starships.find(s=>s.id===vessel.id)?.characterLocations||{});
@@ -99,7 +106,7 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
         const occupants=bayOccupants(room,ship,access.id),docked=occupants.find(s=>s.id===body.targetId)||(occupants.length===1?occupants[0]:null);
         if(!docked)throw Error('Choose a docked ship to release.');
         if(!details.shield&&body.decompressed!==true)throw Error('Confirm the bay is sealed and decompressed.');
-        const reason='docked:'+ship.id+':'+access.id;state(docked).dockedIn=null;docked.escapedAt=null;place(room,docked,point(room,ship.id));for(const person of room.units||[])resumeUnit(person,reason);text=docked.title+' undocked.';
+        releaseDocked(room,ship,docked,access.id);text=docked.title+' undocked.';
       }else if(['request-dock','dock','force-dock'].includes(body.kind)){
         if(ship.ship.warpState?.phase==='activating'||target?.ship.warpState?.phase==='activating')throw Error('Cancel warp activation on both ships before docking.');
         if(!detectable||!present(target)||target.id===ship.id||range>1e-6)throw Error('Move both ships into the same hex before docking.');
@@ -132,7 +139,7 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
     }else if(type==='ripple-reflector'){
       if(body.kind!=='reflector'||typeof body.enabled!=='boolean')throw Error('Choose reflector on or off.');details.enabled=body.enabled;text='Ripple reflection '+(body.enabled?'enabled':'disabled')+(impaired(access.item)?'. Impaired: incoming damage also reaches this ship.':'.');
     }
-    for(const vessel of room.starships)for(const item of maps.installedItems(vessel).filter(i=>i.type==='docking-bay'))system(vessel,item.id).dockedShips=bayOccupants(room,vessel,item.id).map(s=>({id:s.id,rank:maps.scaleRank(s),mapColor:maps.shipColor(s)}));
+    for(const vessel of room.starships)for(const item of maps.installedItems(vessel).filter(i=>i.type==='docking-bay'))system(vessel,item.id).dockedShips=bayOccupants(room,vessel,item.id).map(s=>({id:s.id,rank:maps.scaleRank(s),mapIcon:s.ship?.mapIcon,mapColor:maps.shipColor(s)}));
     report(ship,text);data.receipts=[...(data.receipts||[]),{id:receipt,fingerprint,text}].slice(-100);return {ok:true,ship,text};
   }catch(error){return {ok:false,error:error.message};}
 }
@@ -156,7 +163,7 @@ function advance(room,seconds=0){
     }
     if(ship.ship.fieldState&&(ship.ship.fieldState.position||dock||ship.ship.fieldState.pods?.length||Object.values(ship.ship.fieldState.systems||{}).some(d=>d.tether))){const p=point(room,ship.id);ship.ship.fieldState.position={q:p.q,r:p.r};}
   }
-  for(const vessel of room.starships||[])for(const item of maps.installedItems(vessel).filter(i=>i.type==='docking-bay')){const details=system(vessel,item.id),ships=bayOccupants(room,vessel,item.id).map(s=>({id:s.id,rank:maps.scaleRank(s),mapColor:maps.shipColor(s)}));if(JSON.stringify(details.dockedShips||[])!==JSON.stringify(ships)){details.dockedShips=ships;changed=true;}}
+  for(const vessel of room.starships||[])for(const item of maps.installedItems(vessel).filter(i=>i.type==='docking-bay')){const details=system(vessel,item.id),ships=bayOccupants(room,vessel,item.id).map(s=>({id:s.id,rank:maps.scaleRank(s),mapIcon:s.ship?.mapIcon,mapColor:maps.shipColor(s)}));if(JSON.stringify(details.dockedShips||[])!==JSON.stringify(ships)){details.dockedShips=ships;changed=true;}}
   return changed;
 }
 function inspect(room,unit,sicId,gm=false){
@@ -166,4 +173,4 @@ function inspect(room,unit,sicId,gm=false){
     passengers:(room.units||[]).filter(u=>u.location?.starshipId===ship.id&&maps.buildLayout(ship.ship).footprint.get(Number(u.location.square))?.sicId===sicId).map(u=>({id:u.characterId||u.id,name:u.characterName})),
     capacity:bayCapacity(room,ship,sicId),docked:bayOccupants(room,ship,sicId).map(s=>s.title).join(', ')||null};
 }
-module.exports={command,advance,inspect,state,system,scale,hurtPod,bayCapacity};
+module.exports={releaseDocked,command,advance,inspect,state,system,scale,hurtPod,bayCapacity};

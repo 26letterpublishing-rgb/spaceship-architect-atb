@@ -2,12 +2,15 @@ const path = require("path");
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
+  "browser-storage.js", "app-help.js", "personal-ammunition.js",
+  "combat-arena.js", "combat-arena-ui.js", "arena-files.js", "combat-panel-ui.js", "crew-carry.js",
+  "token-art.js", "point-spend.js", "story-files.js", "weapon-catalog.js", "weapon-groups.js", "catalog-search.js",
   "reputation-ui.js", "skill-packages.js", "audio-mix.js", "identity-presets.js",
   "explore-session.js", "drama-notices.js", "ship-walking.js",
-  "landing-approval-ui.js", "campaign-starmaps-ui.js",
+  "landing-approval-ui.js", "campaign-starmaps-ui.js", "shop-ui.js", "shop-weapons.js", "sic-market-ui.js", "card-fit.js", "card-inspector.js", "shop-gm-ui.js", "campaign-navigation-ui.js",
   "illusion-droid-console.js","relay-console.js","sensor-snapshot-view.js","breach-drone-view.js","breach-drone-console.js","vacuum-ui.js","extraction-console.js",
   "crew-logs-ui.js","interior-pan.js","black-hole-gun-console.js","black-hole-gun-console.css",
-  'ship-fabrication.js','science-console.js','ship-devastation.js','ship-doors.js','transporter-console.js','intruder-alert.js','crew-deployment.js','quick-prompts.js', 'character-statistics.js', 'ship-floorplan-snapshot.js', 'campaign-recovery.js', 'room-v03.js', 'sic-categories.js',
+  'ship-fabrication.js','science-console.js','ship-devastation.js','ship-doors.js','transporter-console.js','intruder-alert.js','crew-deployment.js','quick-prompts.js', 'character-statistics.js', 'ship-floorplan-snapshot.js', 'campaign-recovery.js', 'room-v03.js', 'sic-categories.js', 'sic-card-factory.js',
   'cleanser-ui.js','cleanser-timeline.js','cleanser-impact.js',
   'warp-effects.js','automation-ui.js','fleet-notices.js','drone-console.js','ship-probes.js','probe-console.js','drone-map.js','surveillance-console.js','skill-catalog.js',
   'space-objects.js','space-object-editor.js',

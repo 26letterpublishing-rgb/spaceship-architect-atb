@@ -1,0 +1,28 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
+test('campaign shops enforce prices, ownership, receipts and portable campaign persistence',{timeout:30000},async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sa-shops-http-')),child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dir},stdio:['ignore','pipe','pipe']});
+ t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
+ const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('startup timeout')),10000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});});
+ const post=async(p,b,status=200)=>{const r=await fetch(base+'/api/campaign/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+ const demo=await post('showcase/start',{}),gm={code:demo.code,token:demo.gmToken},pc={code:demo.code,token:demo.players[0].token,characterId:demo.players[0].id};
+ const shop={id:'explore-supply',name:'Test Store',active:true,modifier:25,maxSicLevel:2};
+ await post('shops',{...pc,operation:'save',shop},409);
+ await post('shops',{...gm,operation:'save',shop});
+ const weapon={...pc,mode:'purchase',inventoryType:'weapon',requestId:'weapon-retry',expectedPrice:200,item:{id:'bought-sidearm',weaponId:'ballistic-sidearm',name:'Ballistic Sidearm',unitCost:1}};
+ await post('item/transaction',{...weapon,expectedPrice:160},409);
+ let result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,300);
+ result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,300);
+ const buy={...pc,operation:'purchase',starshipId:'showcase-pc-ship',requestId:'sic-retry',itemId:'sic:sensors-1'};
+ await post('shops',{...buy,itemId:'sic:sensors-3'},409);
+ await post('shops',{...buy,expectedPrice:1},409);
+ result=await post('shops',buy);const credits=result.campaign.shipCredits,inventory=result.campaign.starships.find(s=>s.id===buy.starshipId).ship.sicInventory,item=inventory.at(-1);assert.equal(item.type,'sensors-1');assert.equal(item.shopPurchased,true);
+ result=await post('shops',buy);assert.equal(result.campaign.shipCredits,credits);assert.equal(result.campaign.starships.find(s=>s.id===buy.starshipId).ship.sicInventory.length,inventory.length);
+ await post('shops',{...buy,requestId:'enemy',starshipId:'showcase-npc-ship'},409);
+ const saved=structuredClone(result.campaign.starships.find(s=>s.id===buy.starshipId).ship);saved.sicInventory.find(i=>i.id===item.id).purchasePrice=999999;
+ result=await post('starship/save',{...pc,starship:saved});assert.equal(result.starship.ship.sicInventory.find(i=>i.id===item.id).purchasePrice,item.purchasePrice);
+ const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(backup.campaign.shops.list[0].modifier,25);
+ await post('shops',{...gm,operation:'activate',shopId:shop.id,active:false});
+ await post('item/transaction',{...weapon,requestId:'closed'},409);
+ await post('restore',{...gm,backup});
+ const state=await fetch(`${base}/api/campaign/state?code=${demo.code}&token=${demo.players[1].token}`).then(r=>r.json());assert.equal(state.shops.offers.find(i=>i.id==='weapon:ballistic-sidearm').price,200);assert.ok(!JSON.stringify(state.shops).includes('"modifier"'));
+});

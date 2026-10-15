@@ -1,9 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
+<script src="browser-storage.js"></script>
     <script src="audio-mix.js"></script>
     <script src="explore-session.js"></script>
-    <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
+    <script src="token-art.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="audio-mix.js"></script><script src="warp-effects.js"></script>
   <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="view-ready.css">
     <script src="view-ready.js"></script>
@@ -24,6 +25,11 @@
       <div class="starship-brand"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></div>
       <div class="starship-heading"><span>Under Construction</span><h1>Starship Creator</h1></div>
       <a class="back-link" href="index.html">Back to Main Menu</a>
+      <form class="compact-starship-link header-campaign-link" data-link-starship-form>
+              <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
+              <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
+              <button type="submit" data-link-starship>Link</button>
+            </form><p class="starship-campaign-message header-campaign-message" data-starship-campaign-message role="status"></p>
     </header>
 
     <main class="starship-shell">
@@ -43,15 +49,14 @@
         <div class="starship-library-actions">
           <button id="newStarship" type="button">New</button>
           <button id="duplicateStarship" type="button">Duplicate</button>
-          <button id="exportStarship" type="button">Export</button>
-          <label class="import-starship-button">Import<input id="importStarshipFile" type="file" accept=".sa2ship,.json,application/json" /></label>
+          <button id="exportStarship" type="button">Save Starship</button>
+          <label class="import-starship-button">Load Starship<input id="importStarshipFile" type="file" accept=".sa2ship,.json,application/json" /></label>
           <button id="deleteStarship" class="danger" type="button">Delete</button>
         </div>
         <strong id="starshipSaveState">Recoverable Draft</strong>
       </section>
 
       <section class="ship-identity-strip" aria-label="Starship identity">
-        <label class="ship-glow-field"><span>Map Glow Color</span><input type="color" data-ship-field="mapColor" aria-label="Ship map glow color" /></label>
         <label><span>Ship Title</span><input type="text" data-ship-field="title" autocomplete="off" /></label>
         <label><span>Affiliation</span><input type="text" data-ship-field="affiliation" autocomplete="off" /></label>
         <label><span>Class</span><input type="text" data-ship-field="class" autocomplete="off" /></label>
@@ -82,6 +87,7 @@
           <path class="hsm-charge-glow" d="M319.92 28.289V46.542L355.503 48.877V25.954Z" />
           <text data-live-stat="hsm" x="374" y="37.5">--</text>
         </svg>
+        <section class="live-crew-sheet" aria-label="Assigned crewmembers"><h3>Crewmembers</h3><div data-assigned-crew>Link this ship to see assigned crew.</div></section>
         <svg class="desktop-reputation-chart reputation-chart" viewBox="0 0 620 240" role="img" aria-label="Five reputation tracks, with one selected position on each track">
           <rect width="620" height="240" fill="#050b12" />
           <path d="M10 28L74 10H546L610 28V174H10Z" fill="#c8cbd0" stroke="#ffffff" stroke-width="3" />
@@ -138,11 +144,7 @@
             <header><strong>Crew</strong><small>Select any character linked to this campaign to assign them to this starship.</small></header>
             <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
             <button type="button" data-save-starship-crew hidden>Save Crew</button>
-            <form class="compact-starship-link" data-link-starship-form>
-              <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
-              <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
-              <button type="submit" data-link-starship>Link</button>
-            </form>
+            <fieldset class="token-picker ship-icon-picker"><legend>Choose Ship Icon</legend><div class="token-options ship-icon-options" data-ship-icon-options></div><label class="ship-glow-field">Map Glow Color<input type="color" data-ship-field="mapColor" aria-label="Ship map glow color" /></label></fieldset>
             <div class="compact-starship-status" data-starship-campaign-status hidden>
               <span><strong data-linked-campaign-name>Campaign</strong><small data-linked-campaign-code>----</small></span>
               <span data-linked-control-type>PC Controlled</span>
@@ -259,11 +261,7 @@
             <header><strong>Crew</strong><small>Select any character linked to this campaign to assign them to this starship.</small></header>
             <div class="compact-crew-list" data-starship-crew-list><span class="empty-inventory">Link this ship to assign crew.</span></div>
             <button type="button" data-save-starship-crew hidden>Save Crew</button>
-            <form class="compact-starship-link" data-link-starship-form>
-              <label>Campaign Room Code<input data-starship-campaign-code maxlength="4" autocomplete="off" required /></label>
-              <label>Control<select data-starship-control-type><option value="pc">PC Controlled</option><option value="gm">GM Controlled</option></select></label>
-              <button type="submit" data-link-starship>Link</button>
-            </form>
+            <fieldset class="token-picker ship-icon-picker"><legend>Choose Ship Icon</legend><div class="token-options ship-icon-options" data-ship-icon-options></div><label class="ship-glow-field">Map Glow Color<input type="color" data-ship-field="mapColor" aria-label="Ship map glow color" /></label></fieldset>
             <div class="compact-starship-status" data-starship-campaign-status hidden>
               <span><strong data-linked-campaign-name>Campaign</strong><small data-linked-campaign-code>----</small></span>
               <span data-linked-control-type>PC Controlled</span>
@@ -410,6 +408,8 @@
     <script src="crew-overview.js?v=console-feedback-2"></script>
     <script src="drone-map.js"></script>
   <script src="sic-categories.js"></script>
+<script src="card-fit.js"></script><script src="sic-market-ui.js"></script><script src="card-inspector.js"></script>
+<script src="sic-card-factory.js"></script>
   <script src="starship.js?v=console-feedback-2"></script>
   </body>
 </html>

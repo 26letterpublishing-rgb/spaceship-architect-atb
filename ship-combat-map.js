@@ -79,7 +79,7 @@
         if (!mapView.stations && !occupant) return "";
         const name = occupant?.characterName || "";
         const label = occupant ? `${name} stationed at ${sic.label}` : `${sic.label} station`;
-        return `<i data-fallen="${Boolean(occupant&&Number(occupant.currentHp)<=0)}" data-ship-ai="${Boolean(occupant?.shipAi)}" class="combat-station-marker ${occupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${occupant ? `--token-color:${esc(occupant.color || "#39e58f")}` : ""}" title="${esc(label)}" aria-label="${esc(label)}">${occupant ? `<span>${esc(name.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
+        return `<i ${window.SATokenArt.attributes(occupant||{})} data-fallen="${Boolean(occupant&&Number(occupant.currentHp)<=0)}" data-ship-ai="${Boolean(occupant?.shipAi)}" class="combat-station-marker ${occupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${occupant ? `--token-color:${esc(occupant.color || "#39e58f")}` : ""}" title="${esc(label)}" aria-label="${esc(label)}">${occupant ? `<span>${esc(name.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
       }).join("");
   }
 
@@ -283,24 +283,7 @@
     if(unit?.carriedBy){const carrier=(combatState?.units||[]).find(u=>u.id===unit.carriedBy&&!u.carriedBy);if(carrier){const moving=movementPresentation(carrier);if(moving)return {...moving,x:moving.x+.15,walking:false};}}
     const columns=window.SAShipMap.gridColumns(ships().find(s=>s.id===unit?.location?.starshipId));
     const coords=point=>pointCoordinates(point,columns);
-    const action = unit?.timedAction; const route = action?.kind === "move" && Array.isArray(action.routeSegment) ? action.routeSegment : [];
-    if (!route.length || !action.startLocation) return null;
-    const moveTotal = Math.max(.001, Number(action.total) - (Number(action.doorDelay) || 0)); const moveStep = moveTotal / route.length;
-    let elapsed = Math.max(0, Number(action.total) - Number(action.remaining)); let current = action.startLocation; const openDoorKeys = new Set();
-    let heading=0;
-    for (const point of route) {
-      const from=coords(current),to=coords(point);heading=Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI+90;
-      if (point.doorKey) {
-        if (elapsed <= .6) { openDoorKeys.add(point.doorKey); return { ...coords(current), openDoorKeys,heading,walking:false }; }
-        elapsed -= .6; openDoorKeys.add(point.doorKey);
-      }
-      if (elapsed <= moveStep) {
-        const start = coords(current); const end = coords(point); const ratio = Math.max(0, Math.min(1, elapsed / moveStep));
-        return { x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio, openDoorKeys,heading,walking:window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId)) };
-      }
-      elapsed -= moveStep; current = point; openDoorKeys.clear();
-    }
-    return { ...coords(route.at(-1)), openDoorKeys,heading,walking:false };
+    return window.SACombatArena.movement(unit,coords,window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId)));
   }
 
   function renderGrid() {
@@ -328,7 +311,7 @@
         const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
         const left = ((mesh % 3) + .5) / 3 * 100;
         const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i data-fallen="${Number(unit.currentHp)<=0}" data-security-droid="${Boolean(unit.securityDroid)}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+        return `<i ${window.SATokenArt.attributes(unit)} data-fallen="${Number(unit.currentHp)<=0}" data-security-droid="${Boolean(unit.securityDroid)}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
       }).join("");
       const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
         const occupiedStation = stationAt(ship, square, index) && stationDestinationOccupied(ship, square, index);
@@ -340,10 +323,11 @@
     }).join("");
     const movingMarkup = units.map((unit) => {
       const moving = movementPresentation(unit); if (!moving) return "";
-      return `<i data-security-droid="${Boolean(unit.securityDroid)}" class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${moving.walking}" style="left:${moving.x / columns * 100}%;top:${moving.y / rows * 100}%;--crew-heading:${moving.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+      return `<i ${window.SATokenArt.attributes(unit)} data-security-droid="${Boolean(unit.securityDroid)}" data-moving-unit="${esc(unit.id)}" class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${moving.walking}" style="left:${moving.x / columns * 100}%;top:${moving.y / rows * 100}%;--crew-heading:${moving.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
     }).join("");
     grid.innerHTML = cellMarkup + movingMarkup;
     window.SAFloorplanSnapshot?.mount(grid,ship,{fullGrid:true});
+    window.SAArenaUI?.shipFog(grid,ship);
     if (preview?.path?.length) {
       const start = locationFor(selectedUnit(), ship);
       const points = [start, ...preview.path].filter(Boolean).map((point) => {
@@ -446,7 +430,7 @@
         const style = sic ? `--sic-basic-color:${sic.color || "#197a6f"};${mapView.highResolution && sic.image ? window.SAShipMap.floorplanStyle(sic.type, sic.column, sic.row,sic) : ""}` : "";
         const tokens = units.filter((unit) => Number(unit.location.square) === square && !stationAt(record, square, unit.location.mesh) && !movementPresentation(unit)).map((unit) => {
           const mesh = Math.max(0, Math.min(8, Number(unit.location.mesh) || 0));
-          return `<i data-fallen="${Number(unit.currentHp)<=0}" data-security-droid="${Boolean(unit.securityDroid)}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+          return `<i ${window.SATokenArt.attributes(unit)} data-fallen="${Number(unit.currentHp)<=0}" data-security-droid="${Boolean(unit.securityDroid)}" data-ship-ai="${Boolean(unit.shipAi)}" class="combat-token ${unit.location.stationed ? "stationed" : ""} ${unit.id === myUnitId ? "is-self" : ""}" style="left:${((mesh % 3) + .5) / 3 * 100}%;top:${(Math.floor(mesh / 3) + .5) / 3 * 100}%;--token-offset-x:${tokenShift(units, unit)}px;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
         }).join("");
         const mesh = hull.has(square) ? `<div class="combat-mesh">${Array.from({ length: 9 }, (_, index) => {
           const occupiedStation = stationAt(record, square, index) && stationDestinationOccupied(record, square, index);
@@ -462,7 +446,7 @@
       if (!point) return "";
       const left = ((point.x - minCol) / colCount) * 100;
       const top = ((point.y - minRow) / rowCount) * 100;
-      return `<i data-security-droid="${Boolean(unit.securityDroid)}" class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${point.walking}" style="left:${left}%;top:${top}%;--crew-heading:${point.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
+      return `<i ${window.SATokenArt.attributes(unit)} data-security-droid="${Boolean(unit.securityDroid)}" data-moving-unit="${esc(unit.id)}" class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${point.walking}" style="left:${left}%;top:${top}%;--crew-heading:${point.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"><span>${esc((unit.characterName || "?").slice(0, 1).toUpperCase())}</span></i>`;
     }).join("");
     let line = "";
     if (activePreview?.path?.length) {
@@ -493,7 +477,7 @@
     const ship=record.ship||{};
     // AU/ATB/gravity clocks must not rebuild thousands of unchanged map cells.
     const atmosphere=Object.entries(ship.atmosphereState?.cells||{}).map(([cell,o2])=>[cell,Math.ceil(o2-1e-7)]);
-    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.shipAi,u.location,u.timedAction,u.travelRoute,u.defeatedAt]);
+    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
     return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
   }
   const inlineZoom = new Map();
@@ -606,7 +590,7 @@
     source.disabled=true;source.setAttribute('aria-busy','true');
     try {
       // A hosted stylesheet can arrive much later than its dialog markup.
-      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"],link[rel="stylesheet"][href*="ship-floorplan-snapshot.css"]')].map(link=>{
+      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"],link[rel="stylesheet"][href*="ship-floorplan-snapshot.css"],link[rel="stylesheet"][href*="combat-arena.css"],link[rel="stylesheet"][href*="token-art.css"]')].map(link=>{
         const existing=[...doc.querySelectorAll('link[rel="stylesheet"]')].find(candidate=>candidate.href===link.href);
         if(existing?.sheet)return Promise.resolve();
         return new Promise((resolve,reject)=>{
@@ -659,15 +643,14 @@
       const target = interaction === "move" && selectedShipId === record?.id;
       lane?.classList.toggle("inline-move-target", target);
       if (!record) return;
-      if (target && !force && host.querySelector("[data-inline-confirm-move]")) {
-        refreshInlinePreview(host);
-        return;
-      }
+
       watchFit(host);
       const stateKey=interiorStateKey(record);
       if(!force && inlineStateCache.get(host)===stateKey){
         const stats=statsMarkup(record),node=host.querySelector('.combat-map-stats');
         if(node&&inlineStatsCache.get(host)!==stats){node.innerHTML=stats;inlineStatsCache.set(host,stats);}
+        window.SAWarpEffects?.updateMap(record,host.querySelector('.inline-combat-map-grid'));
+        updateMovingTokens(host,record);
         window.SADroneMap?.update(host.querySelectorAll('.inline-combat-map-grid'),record.ship,window.SAShipTargets.drones(combatState).filter(d=>d.targetId===record.id));
         return;
       }
@@ -678,9 +661,11 @@
         if(scroll){const nextViewport=host.querySelector(".inline-map-viewport");if(nextViewport){nextViewport.scrollLeft=scroll.left;nextViewport.scrollTop=scroll.top;}}
         inlineMarkupCache.set(host, markup);
       }
+      window.SAWarpEffects?.updateMap(record,host.querySelector('.inline-combat-map-grid'));
       inlineStateCache.set(host,stateKey);
       inlineStatsCache.set(host,statsMarkup(record));
       window.SAFloorplanSnapshot?.mount(host.querySelector('.inline-combat-map-grid'),record);
+      window.SAArenaUI?.shipFog(host,record);
       window.SADroneMap?.update(host.querySelectorAll('.inline-combat-map-grid'),record.ship,window.SAShipTargets.drones(combatState).filter(d=>d.targetId===record.id));
     });
   }
@@ -729,26 +714,19 @@
     }
   }
 
-  function refreshLiveInterior(host) {
-    const record=ships().find(s=>s.id===host?.dataset.inlineShipMap);
-    if(!record||record.id!==selectedShipId)return;
-    const template=host.ownerDocument.createElement('template');template.innerHTML=inlineMapMarkup(record);
-    const next=template.content;
-    for(const cell of host.querySelectorAll('.combat-map-square[data-inline-square]')) {
-      const replacement=next.querySelector(`[data-inline-square="${cell.dataset.inlineSquare}"]`);
-      if(!replacement)continue;
-      cell.querySelectorAll('.combat-token,.combat-station-marker').forEach(n=>n.remove());
-      replacement.querySelectorAll('.combat-token,.combat-station-marker').forEach(n=>cell.append(n));
+  function updateMovingTokens(host,record) {
+    const grid=host.querySelector('.inline-combat-map-grid');if(!grid)return;
+    const columns=window.SAShipMap.gridColumns(record),cells=record.ship.gridCells||[];
+    const minCol=Math.min(...cells.map(n=>n%columns)),minRow=Math.min(...cells.map(n=>Math.floor(n/columns)));
+    // The grid includes exterior SICs, so use its actual origin when available.
+    const first=grid.querySelector('[data-inline-square]'),origin=Number(first?.dataset.inlineSquare);
+    const x=Number.isFinite(origin)?origin%columns:minCol,y=Number.isFinite(origin)?Math.floor(origin/columns):minRow;
+    const w=Number(grid.style.getPropertyValue('--inline-cols')),h=Number(grid.style.getPropertyValue('--inline-rows'));
+    for(const token of grid.querySelectorAll('[data-moving-unit]')){
+      const unit=combatState.units.find(u=>u.id===token.dataset.movingUnit),point=movementPresentation(unit);if(!point)continue;
+      token.style.left=(point.x-x)/w*100+'%';token.style.top=(point.y-y)/h*100+'%';
+      token.style.setProperty('--crew-heading',point.heading+'deg');token.dataset.walking=String(point.walking);
     }
-    for(const button of host.querySelectorAll('[data-map-square]')){
-      const occupied=Boolean(stationAt(record,button.dataset.mapSquare,button.dataset.mapMesh)&&stationDestinationOccupied(record,button.dataset.mapSquare,button.dataset.mapMesh));
-      button.classList.toggle('station-occupied',occupied);
-      button.setAttribute('aria-label',occupied?'Station occupied':'Map location');
-    }
-    const grid=host.querySelector('.inline-combat-map-grid');
-    grid?.querySelectorAll(':scope>.combat-moving-token').forEach(n=>n.remove());
-    next.querySelectorAll('.inline-combat-map-grid>.combat-moving-token').forEach(n=>grid?.append(n));
-    refreshInlinePreview(host);
   }
 
   function renderRoster() {
@@ -985,8 +963,7 @@
         return;
       }
       if (stillSelectable || moveSubmitting) {
-        document.querySelectorAll('[data-inline-ship-map]').forEach(refreshLiveInterior);
-        if(expandedMap)refreshLiveInterior(expandedMap.host);
+        renderInlineMaps();
         return;
       }
     }
@@ -1044,5 +1021,6 @@
     isInlineMoveSelecting: () => interaction === "move",
     render,
     renderInlineMaps,
+    refreshArenaFog(){if(expandedMap){const record=ships().find(s=>s.id===expandedMap.host.dataset.inlineShipMap);if(record)window.SAArenaUI?.shipFog(expandedMap.host,record);}},
   };
 })();

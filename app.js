@@ -116,18 +116,13 @@ const npcDefaults = [
 ];
 
 function safeLocalStorageSet(key, value) {
-  const target = embeddedCombat && COMBAT_SESSION_KEYS.has(key) ? combatSessionStore : localStorage;
+  const target = embeddedCombat && COMBAT_SESSION_KEYS.has(key) ? combatSessionStore : window.SABrowserStorage.local;
   try {
     target.setItem(key, value);
     return true;
   } catch {
-    try {
-      if (target === localStorage && key !== "sa-atb-character-icons") localStorage.removeItem("sa-atb-character-icons");
-      target.setItem(key, value);
-      return true;
-    } catch {
-      return false;
-    }
+    // A full store must never be repaired by deleting the player's icon library.
+    return false;
   }
 }
 
@@ -473,8 +468,8 @@ let npcWeaponCatalog = [];
 
 function savedCharacterAtbColor() {
   try {
-    const library = JSON.parse(localStorage.getItem("sa2e-character-library-v1") || "[]");
-    const activeId = localStorage.getItem("sa2e-active-character-v1") || "";
+    const library = JSON.parse(window.SABrowserStorage.local.getItem("sa2e-character-library-v1") || "[]");
+    const activeId = window.SABrowserStorage.local.getItem("sa2e-active-character-v1") || "";
     const activeCharacter = Array.isArray(library)
       ? library.find((entry) => entry?.id === activeId) || library[0]
       : null;
@@ -485,8 +480,10 @@ function savedCharacterAtbColor() {
   }
 }
 
-const characterSheetAtbColor = savedCharacterAtbColor();
-if (characterSheetAtbColor) playerColor.value = characterSheetAtbColor;
+window.SABrowserStorage.ready.then(()=>{
+  const characterSheetAtbColor = savedCharacterAtbColor();
+  if (characterSheetAtbColor) playerColor.value = characterSheetAtbColor;
+});
 const playerActionSheet = document.querySelector("#playerActionSheet");
 const playerActionChoices = document.querySelector("#playerActionChoices");
 const dismissActionSheet = document.querySelector("#dismissActionSheet");
@@ -1672,7 +1669,7 @@ function updateShipHeaders() {
 
 function iconStore() {
   try {
-    return JSON.parse(localStorage.getItem("sa-atb-character-icons") || "{}");
+    return JSON.parse(window.SABrowserStorage.local.getItem("sa-atb-character-icons") || "{}");
   } catch {
     return {};
   }
@@ -2031,9 +2028,12 @@ function openGmNpcAttackDialog() {
   });
   if (!targets.length) { alert("Add a target to the encounter first."); return; }
   gmNpcAttackActor.textContent = attacker.characterName;
-  gmNpcAttackTarget.innerHTML = targets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`).join("");
+  const visibleTargets=targets.filter(t=>window.SACombatArena?.canTarget(state,attacker,t)!==false);
+  if(!visibleTargets.length){alert('No targets are in line of sight. Move past the wall or open the door first.');return;}
+  gmNpcAttackTarget.innerHTML = visibleTargets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`).join("");
   gmNpcAttackName.value = "NPC attack";
-  gmNpcAttackDistance.value = "1";
+  const updateDistance=()=>{const defender=state.units.find(u=>u.id===gmNpcAttackTarget.value),distance=window.SACombatRules?.mappedDistance(state,attacker,defender);gmNpcAttackDistance.readOnly=distance!==null&&distance!==undefined;gmNpcAttackDistance.value=distance==null?'1':String(Math.round(distance*100)/100);};
+  gmNpcAttackTarget.onchange=updateDistance;updateDistance();
   gmNpcAttackDamage.value = "2D6";
   gmNpcAttackModifier.value = "0";
   gmNpcCalledShot.checked = false;
@@ -2122,7 +2122,7 @@ function npcHealthMarkup(unit, { gm = false } = {}) {
   const exact = gm && unit.team === "npc"
     ? '<button class="npc-hp-exact" type="button" data-action="npcHp" data-id="' + escapeHtml(unit.id) + '" title="Edit Current and Maximum HP">' + Math.max(0, Number(unit.currentHp) || 0) + '/' + Math.max(1, Number(unit.maximumHp) || 1) + ' HP</button>'
     : gm || unit.id === myUnitId ? `<small>${Math.max(0, Number(unit.currentHp) || 0)}/${Math.max(1, Number(unit.maximumHp) || 1)} HP</small>` : "";
-  return '<span class="npc-health" aria-label="Combatant health">' + hearts + exact + '</span>';
+  return '<span class="npc-health" aria-label="Combatant health">' + hearts + exact + window.SAHealthDisplay.personalProtection(unit,gm||unit.id===myUnitId) + '</span>';
 }
 
 function npcCombatStatsMarkup(unit, { gm = false } = {}) {
@@ -2635,9 +2635,10 @@ function notifyTurnIfNeeded() {
       turnDialogKicker.textContent = state.activeAction.kind === "queuedEffect" ? "Queued Effect" : state.activeAction.kind === "queued" ? "Queued Setup" : "Delayed Resolution";
       activeName.textContent = `${state.activeAction.kind === "queuedEffect" ? "Resolve Queued Effect" : state.activeAction.kind === "queued" ? "Resolve Queued Setup" : "Resolve Action"}: ${state.activeAction.label}`;
       activeOwner.textContent = `${state.activeAction.characterName} - ${state.activeAction.playerName}`;
-      completeTurn.textContent = "Action Resolved";
+      completeTurn.textContent = "Pass";
       gmDelay.classList.add("hidden");
       gmNpcTurnActions.hidden = true;
+      window.SACombatPanel?.placeGmTurnControls(turnDialog,gmNpcTurnActions);
       gmNpcHeldWeaponReadout.hidden = true;
       if (!turnPanelOpen()) showTurnPanel();
     } else if (turnPanelOpen()) {
@@ -2661,7 +2662,7 @@ function notifyTurnIfNeeded() {
     activeName.textContent = active.characterName;
     turnDialog.style.setProperty("--active-turn-color", active.color || "#40dcff");
     activeOwner.textContent = active.playerName;
-    completeTurn.textContent = "Action Resolved";
+    completeTurn.textContent = "Pass";
     gmDelay.classList.remove("hidden");
     gmDelay.disabled = false;
     gmDelay.classList.toggle("delay-button", true);
@@ -2670,6 +2671,7 @@ function notifyTurnIfNeeded() {
     gmDelay.innerHTML = `<span class="delay-label-main">Delay</span><span class="delay-label-blocked">Delay</span>`;
     const controllableTurn = !state.attackResolution;
     gmNpcTurnActions.hidden = !controllableTurn;
+    window.SACombatPanel?.placeGmTurnControls(turnDialog,gmNpcTurnActions);
     gmNpcHeldWeaponReadout.hidden = !controllableTurn;
     activeOwner.textContent = active.team === "pc"
       ? `${command ? `${command.expired ? "Command Window expired" : `${formatSeconds(command.remaining)} Command Window`} - ` : ""}${active.playerConnected ? "Player connected" : "PLAYER DISCONNECTED"} - GM may act`
@@ -3050,22 +3052,22 @@ function clearPostedCombatPrompt(attackId = "") {
 
 function gmNpcRollDefinition(attack, rollRole, rollingUnit) {
   if (rollRole === "damage") {
-    const parsed = window.SACombatRules?.parseDiceFormula(attack.plan?.damageFormula || "");
+    const parsed = attack.plan?.damageFormulaSupported === false ? null : window.SACombatRules?.parseDiceFormula(attack.plan?.damageFormula || "");
     const dice = parsed ? [...parsed.dice.entries()].flatMap(([sides, count]) => Array.from({ length: Math.max(0, Number(count) || 0) }, () => Number(sides))) : [];
     const flat = Number(parsed?.flat) || 0;
     return {
       dice, flat, skill: 0,
-      title: `${attack.attackerName}: ${attack.weaponName} Damage`,
+      title: `${attack.attackerName}: ${attack.weaponName} ${({accuracy:"To-Hit adjustment",damageCount:"damage-count die",scatter:"scatter distance",direction:"scatter direction"})[attack.followup?.kind]||"Damage"}`,
       label: `${attack.attackerName} Damage Total`,
       pool: dice.length
         ? `Damage Pool: ${dice.map((sides) => `D${sides}`).join(" + ")}${flat ? ` ${flat >= 0 ? "+" : "-"} ${Math.abs(flat)}` : ""} | add every die; no fusion`
         : `Damage Formula: ${attack.plan?.damageFormula || "Resolve manually"}`,
     };
   }
-  const dice = rollRole==='defender'&&rollingUnit?.dodgeDice ? [...rollingUnit.dodgeDice] : Array.isArray(rollingUnit?.dexterityDice) ? [...rollingUnit.dexterityDice] : [];
-  if (rollRole === "attacker" && attack.attackType !== "melee" && Number(attack.aimDie) > 0) dice.push(Number(attack.aimDie));
+  const dice = rollRole==='defender'&&rollingUnit?.dodgeDice ? [...rollingUnit.dodgeDice] : Array.isArray(rollingUnit?.[(attack.plan?.attackAttribute || "dexterity")+"Dice"]) ? [...rollingUnit[(attack.plan?.attackAttribute || "dexterity")+"Dice"]] : [];
+  if (rollRole === "attacker" && attack.attackType !== "melee") dice.push(...(attack.aimDice || (attack.aimDie ? [attack.aimDie] : [])));
   const skill = rollRole === "attacker"
-    ? Number(attack.plan?.attackSkill === "Melee" || attack.plan?.attackSkill === "Grappling" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0
+    ? Number(attack.plan?.attackSkill === "Coordination" ? rollingUnit?.coordinationSkill ?? rollingUnit?.physicalSkill : attack.plan?.attackSkill === "Resist Distress" ? rollingUnit?.resistDistressSkill ?? rollingUnit?.mentalSkill : attack.plan?.attackSkill === "Escape" ? rollingUnit?.breakFreeSkill ?? rollingUnit?.physicalSkill : attack.plan?.attackSkill === "Grappling" ? rollingUnit?.grapplingSkill : attack.plan?.attackSkill === "Science" ? rollingUnit?.scienceSkill : attack.plan?.attackSkill === "Melee" ? rollingUnit?.meleeSkill : rollingUnit?.projectileSkill) || 0
     : Number(rollingUnit?.dodgeSkill) || 0;
   const skillLabel = rollRole === "attacker" ? attack.plan?.attackSkill || "Projectile" : "Dodge";
   return {
@@ -3123,8 +3125,9 @@ function renderAttackResolution(mine) {
         attackId: attack.id,
         rollRole: "attacker",
         skill: attackSkill,
-        bonusDice: attack.attackType === "melee" ? [] : attack.aimDie ? [attack.aimDie] : [],
-        subtitle: `Roll Dexterity + ${attackSkill}. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.`,
+        attribute: attack.plan?.attackAttribute || "dexterity",
+        bonusDice: attack.attackType === "melee" ? [] : (attack.aimDice || (attack.aimDie ? [attack.aimDie] : [])),
+        subtitle: `Roll ${attack.plan?.attackAttribute || "dexterity"} + ${attackSkill}. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.`,
       };
     } else if (attack.phase === "checks" && mine.id === attack.defenderId && !attack.defenseRoll) {
       request = {
@@ -3149,7 +3152,10 @@ function renderAttackResolution(mine) {
         attackId: attack.id,
         weaponName: attack.weaponName,
         targetName: attack.defenderName,
+        rollPurpose:({accuracy:"To-Hit adjustment",damageCount:"damage-count die",scatter:"scatter distance",direction:"scatter direction"})[attack.followup?.kind]||"",
         damageFormula: attack.plan.damageFormula,
+        damageFormulaSupported: attack.plan.damageFormulaSupported,
+        specialRules: attack.plan.specialRules,
         critical: Boolean(attack.attackResult?.critical),
         calledShot: Boolean(attack.calledShot),
         criticalDamageDisabled: Boolean(attack.plan.criticalDamageDisabled),
@@ -3173,7 +3179,7 @@ function renderAttackResolution(mine) {
 
   attackResolutionPanel.classList.remove("hidden");
   attackResolutionTitle.textContent = attack.attackerName + " vs " + attack.defenderName;
-  attackResolutionMeta.textContent = attack.weaponName + " at " + attack.distance + " unit" + (attack.distance === 1 ? "" : "s") + " | " + attack.plan.rangeExplanation;
+  attackResolutionMeta.textContent = attack.weaponName + " at " + attack.distance + " unit" + (attack.distance === 1 ? "" : "s") + " | " + attack.plan.rangeExplanation + " | Card rules: " + (attack.plan.specialRules || "None");
   attackRollStatus.textContent = attack.attackerRoll ? "Score " + attack.attackerRoll.score : "Waiting";
   const defenseAdjustment = Number(attack.defenseBonus) || 0;
   defenseRollStatus.textContent = attack.defenseRoll
@@ -3372,7 +3378,7 @@ function render() {
   gmMuteSound.classList.toggle("muted", soundsMuted);
   gmMuteSound.title = soundsMuted ? "Unmute sounds" : "Mute sounds";
   gmMuteSound.setAttribute("aria-label", gmMuteSound.title);
-  visualModeToggle.classList.toggle("hidden", mode !== "gm" && mode !== "player");
+  visualModeToggle.classList.toggle("hidden", !!state.arena || (mode !== "gm" && mode !== "player"));
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   undoLastTiming.disabled = !state.undoAvailable;
@@ -3397,7 +3403,7 @@ function render() {
   }
   const playerPreviewMode = mode === "player" && embeddedPlayer && Boolean(playerPreviewRecord) && (!mine || Boolean(state.encounterEndedAt));
   const waitingThree = mine?.timedAction?.kind === "wait";
-  const movingThroughShip = mine?.timedAction?.kind === "move" && Boolean(mine.location?.starshipId);
+  const movingThroughShip = mine?.timedAction?.kind === "move" && Boolean(mine.location?.starshipId || mine.location?.arenaId==='surface');
   const showMineOverlay = mode === "player" && !playerPreviewMode && !playerDeathSequence && Boolean(mine) && !waitingThree && !movingThroughShip && !state.attackResolution && (active?.id === myUnitId || (hasAnyDelay(mine) && !state.activeAction));
   playerPanel.classList.toggle("idle-player-panel", mode === "player" && !showMineOverlay);
   document.body.classList.toggle("own-turn-active", showMineOverlay);
@@ -3435,7 +3441,7 @@ function render() {
     stopPlayerPreviewAnimation();
     if (starshipCombat) {
       renderShipCombatColumns();
-    } else if (visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
+    } else if (!state.arena && visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
       window.SALiveDOM.render(unitList, tacticalRingMarkup(state.units));
     } else {
       renderUnitList(sorted);
@@ -3504,7 +3510,7 @@ function renderPlayerCommand(mine) {
   playerDelay.disabled = hasPendingDelayRequest;
   playerDelay.title = "Request Delay";
   playerEndTurn.disabled = hasPendingDelayRequest || playerEndTurnPending;
-  playerEndTurn.textContent = playerEndTurnPending ? "Resolving..." : "Action Resolved";
+  playerEndTurn.textContent = playerEndTurnPending ? "Resolving..." : "Pass";
 
   if (timed && !isMyTurn) {
     const percent = Math.max(0, Math.min(100, (Number(timed.remaining) / Math.max(0.1, Number(timed.total))) * 100));
@@ -4108,10 +4114,10 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
     playNpcDiceRollSound();
     if (rollRole === "damage") {
       const result = await window.SANpcDice.rollDamage({ sides: definition.dice, flat: definition.flat, title: definition.title });
-      await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: result.score, mode: "gm-automatic", diceResults: result.results }, "resolve");
+      await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: result.score, mode: "gm-automatic", diceResults: result.results, fusions: result.fusions || 0 }, "resolve");
     } else {
       const result = await window.SANpcDice.rollCheck({ sides: definition.dice, skill: definition.skill, title: definition.title });
-      await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score: result.score, mode: "gm-automatic", diceResults: result.results }, "resolve");
+      await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score: result.score, mode: "gm-automatic", diceResults: result.results, fusions: result.fusions || 0 }, "resolve");
       if (rollRole === "defender") gmForcedDefenseEntry = false;
     }
   } finally {
@@ -4578,6 +4584,7 @@ window.addEventListener("message", (event) => {
     const id = message.rollRole === "attacker" ? attack.attackerId : attack.defenderId;
     void submitPostedCombatResult(message, {
       action: "submitAttackRoll",
+      fusions: message.fusions || 0,
       id,
       attackId: attack.id,
       rollRole: message.rollRole,
@@ -4679,7 +4686,9 @@ async function initializeEmbeddedPlayer() {
 
 // Saved encounters can arrive before the scripts below app.js finish loading.
 // Wait for all console/map dependencies before accepting their first live state.
-function startSavedEncounter() {
+async function startSavedEncounter() {
+await window.SABrowserStorage.ready;
+if(embeddedGm&&requestedCampaignCode)gmCampaignToken=window.SABrowserStorage.local.getItem(`sa-gm-token-${requestedCampaignCode}`)||gmCampaignToken;
 if(startupParams.has('catalogPreview')){
  currentRoomCode='';mode='player';alertsEnabled=false;gmSoundsMuted=true;
  const maps=window.SAShipMap,type=startupParams.get('catalogPreview'),def=maps.definition(type),previewNeedsBridge=Boolean(def.bridgeAddon||!def.stations?.length);

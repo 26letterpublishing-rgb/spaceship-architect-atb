@@ -1,5 +1,5 @@
 (function(){
-  let panel=null,modal=null,environment={ships:[]},submit=null,gm=false;
+  let panel=null,modal=null,environment={ships:[]},submit=null,gm=false,panelDismissed=false,lastWarningKey='';
   const dismissed=new Set(),reported=new Set();
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const time=s=>`${Math.floor(Math.ceil(s)/60)}:${String(Math.ceil(s)%60).padStart(2,'0')}`;
@@ -7,7 +7,7 @@
     if(!panel)return;
     const host=[...document.querySelectorAll('dialog[open]')].filter(d=>d!==modal).at(-1)||document.body;
     if(panel.parentElement!==host)host.append(panel);
-    const visible=environment.ships.length&&!modal;
+    const visible=environment.ships.length&&!modal&&!panelDismissed;
     panel.hidden=!visible;
     if(visible&&!panel.matches(':popover-open'))panel.showPopover();
     else if(!visible&&panel.matches(':popover-open'))panel.hidePopover();
@@ -47,10 +47,11 @@
     if(!panel){
       if(!document.querySelector('link[href="oxygen-ui.css"]')){const style=document.createElement('link');style.rel='stylesheet';style.href='oxygen-ui.css';document.head.append(style);}
       panel=document.createElement('section');panel.className='oxygen-panel';panel.setAttribute('aria-label','Oxygen status');panel.setAttribute('popover','manual');document.body.append(panel);
-      panel.onclick=event=>{const button=event.target.closest('[data-oxygen-roll]');if(button){const crew=environment.ships.flatMap(s=>s.crew).find(c=>c.request?.id===button.dataset.oxygenRoll);if(crew)openRoll(crew);}};
+      panel.onclick=event=>{if(event.target.closest('[data-dismiss-oxygen]')){panelDismissed=true;placePanel();return;}const button=event.target.closest('[data-oxygen-roll]');if(button){const crew=environment.ships.flatMap(s=>s.crew).find(c=>c.request?.id===button.dataset.oxygenRoll);if(crew)openRoll(crew);}};
     }
     panel.hidden=!environment.ships.length;
-    panel.innerHTML=environment.ships.map(ship=>`<article><strong>${esc(ship.title)}: Room Oxygen</strong><span class="oxygen-grace">Resistance rolls start at 10%${ship.paused?' / Paused':''}</span>${ship.crew.map(person=>`<div class="oxygen-person"><span>${esc(person.name)}</span><b>${Math.ceil(person.oxygen??0)}% O₂ — ${person.phase==='unconscious'?'Unconscious':person.request?'Resistance roll required':person.phase==='air'?'Air declining / replenishing':person.phase==='suffocating'?'Losing HP until oxygen returns':`Resisting / Difficulty ${person.difficulty}`}</b>${person.request?`<button type="button" data-oxygen-roll="${esc(person.request.id)}">Roll Health + Endurance (${person.request.difficulty})</button>`:''}${person.result?`<small class="${person.result.success?'passed':'failed'}">${esc(person.result.text)}</small>`:''}</div>`).join('')}</article>`).join('');
+    const warningKey=environment.ships.flatMap(s=>s.crew.map(c=>c.request?.id||c.id+':'+c.phase)).join('|');if(warningKey!==lastWarningKey){panelDismissed=false;lastWarningKey=warningKey;}
+    panel.innerHTML='<button type="button" class="oxygen-close" data-dismiss-oxygen aria-label="Dismiss oxygen status">×</button>'+environment.ships.map(ship=>`<article><strong>${esc(ship.title)}: Room Oxygen</strong><span class="oxygen-grace">Resistance rolls start at 10%${ship.paused?' / Paused':''}</span>${ship.crew.map(person=>`<div class="oxygen-person"><span>${esc(person.name)}</span><b>${Math.ceil(person.oxygen??0)}% O₂ — ${person.phase==='unconscious'?'Unconscious':person.request?'Resistance roll required':person.phase==='air'?(person.replenishing?'Air replenishing':'Air declining'):person.phase==='suffocating'?'Losing HP until oxygen returns':`Resisting / Difficulty ${person.difficulty}`}</b>${person.request?`<button type="button" data-oxygen-roll="${esc(person.request.id)}">Roll Health + Endurance (${person.request.difficulty})</button>`:''}${person.result?`<small class="${person.result.success?'passed':'failed'}">${esc(person.result.text)}</small>`:''}</div>`).join('')}</article>`).join('');
     for(const person of environment.ships.flatMap(s=>s.crew))if(person.result&&!reported.has(person.result.id)){
       reported.add(person.result.id);window.SAResultFeedback?.push(person.result.id,'Oxygen Resistance',person.result.text);
     }

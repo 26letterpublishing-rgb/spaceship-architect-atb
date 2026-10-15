@@ -15,12 +15,12 @@ test('Hull Plating adds rounded-down ten percent per Scale Rank without raising 
  }
  const ship={...hull(3),gridCells:[21,22,41],triangleCells:[42]};add(ship,'hull-plating');assert.equal(maps.hullSections(ship),4);assert.equal(maps.hullHp(ship),4);assert.equal(maps.scaleRank(ship),1);
 });
-test('Hull upgrades share squares without floorplans and reject duplicates, forged hosts and storage',()=>{
+test('Hull upgrades share squares without floorplans and reject duplicates and forged hosts while permitting shared storage',()=>{
  const ship=hull();for(const type of ['hull-plating','heat-resistance','laser-resistance'])add(ship,type);
  assert.equal(maps.exteriorError(ship),'');assert.equal(maps.buildLayout(ship).footprint.size,0);
  const duplicate=structuredClone(ship);add(duplicate,'hull-plating','second');assert.match(maps.exteriorError(duplicate),/Only one Hull Plating/);
  const bad=structuredClone(ship);bad.sicInventory[0].attachTo='other';assert.match(maps.exteriorError(bad),/attached/);
- const stored=structuredClone(ship);stored.placements=stored.placements.slice(1);stored.sicInventory[0].storage=true;assert.match(maps.exteriorError(stored),/Storage/);
+ const stored=structuredClone(ship);stored.placements=stored.placements.slice(1);stored.sicInventory[0].storage=true;assert.equal(maps.exteriorError(stored),'');
 });
 test('prices follow all Hull sections and resizing never double-charges a newly purchased upgrade',()=>{
  const before=hull(10);for(const type of ['hull-plating','heat-resistance','laser-resistance']){const item=add(before,type);item.purchasePrice=maps.sicPrice(item,before);}

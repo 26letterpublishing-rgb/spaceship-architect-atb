@@ -9,5 +9,5 @@ test('expanded Explore crew, compact sensor ranges and authorized ship removal p
  const selected=s.starships[1],pc=demo.players[0];
  await post('action',{roomCode:demo.code,characterId:pc.id,characterToken:pc.token,action:'removeStarship',starshipId:selected.id},403);
  await post('action',{roomCode:demo.code,gmToken:demo.gmToken,action:'removeStarship',starshipId:selected.id});s=await state();assert.ok(!s.starships.some(v=>v.id===selected.id));assert.ok(!s.units.some(u=>u.location?.starshipId===selected.id));assert.ok(!s.shipPositions.some(v=>v.id===selected.id));
- const campaign=await fetch(`${base}/api/campaign/state?code=${demo.code}&token=${demo.gmToken}&compact=1`).then(r=>r.json());assert.ok(campaign.starships.some(v=>v.id===selected.id));const scout=campaign.starships.find(v=>v.title==='Scout');assert.ok(scout.sensorSummary.range>0);
+ const campaign=await fetch(`${base}/api/campaign/state?code=${demo.code}&token=${demo.gmToken}&compact=1`).then(r=>r.json());assert.ok(campaign.starships.some(v=>v.id===selected.id));const scout=campaign.starships.find(v=>v.title==='Protos');assert.ok(require('../ship-map-core').sensorStats(scout).range>0);
 });

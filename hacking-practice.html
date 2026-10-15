@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hacking Practice | Spaceship Architect</title>
   <link rel="stylesheet" href="hacking-practice.css">
+  <script src="audio-mix.js"></script><script src="ship-map-core.js" defer></script>
   <script src="hacking-practice-ui.js" defer></script>
 </head>
 <body>
@@ -14,10 +15,10 @@
       <aside class="hacking-hardware">
         <form id="setup">
           <h2>Hardware</h2>
-          <img id="moduleArt" src="hacking-module-tiers.svg#tier-1" alt="Hacking Module 1">
+          <img id="moduleArt" src="card-hacking-module-equipment-v2.webp" alt="Hacking Module 1">
           <label>Hacking Module<select id="module" name="tier"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
           <label>Target SIC Security<select id="security" name="security"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
-          <label>CPU Firewall<select id="firewall" name="firewall"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+          <img id="firewallArt" alt="CPU Firewall"><label>CPU Firewall<select id="firewall" name="firewall"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
           <button type="submit" id="newPuzzle">New Puzzle</button>
         </form>
       </aside>

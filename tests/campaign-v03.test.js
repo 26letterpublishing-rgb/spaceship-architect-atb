@@ -6,7 +6,7 @@ return{call,restart:()=>{api=new CampaignApi({store,storageMode:'test'});},api:(
 
 test('Explore galaxy edits use authenticated temporary rooms without opening other v0.3 actions',async()=>{
  const f=fixture(),room=await f.call('showcase/start'),code=room.code,token=room.gmToken,c=await f.api().campaign(code),mapId=c.starmaps.maps[0].id;
- assert.equal(c.shipCredits,9999999);
+ assert.equal(c.shipCredits,999999);
  const edit=await f.call('v03/starmap',{code,token,kind:'star',receipt:'add-star',mapId,name:'Mouse Test',q:2,r:3,lore:'Saved through the real Explore route'});
  const star=edit.campaign.starmaps.maps[0].stars.find(s=>s.name==='Mouse Test');assert.ok(star);assert.equal(star.q,2);
  await f.call('v03/starmap',{code,token,kind:'star',receipt:'move-star',mapId,starId:star.id,name:'Mouse Test',q:4,r:1});assert.equal((await f.api().campaign(code)).starmaps.maps[0].stars.find(s=>s.id===star.id).q,4);
@@ -14,7 +14,7 @@ test('Explore galaxy edits use authenticated temporary rooms without opening oth
  await f.call('v03/starmap',{code,token:room.players[0].token,kind:'create',receipt:'forbidden',name:'PC cannot edit'},400);
  await f.call('v03/import',{code,token,kind:'ship',data:{}},404);
  assert.equal(f.records.size,0,'Explore edits must remain disposable');
- const roadTrip=c.starships.find(s=>s.title==='Road Trip');
+ const roadTrip=require('../showcase-variants')().find(s=>s.title==='Road Trip');c.starships.push(roadTrip);
  roadTrip.ship.warpState={phase:'activating',remaining:60,targetLY:3.26,traveledLY:0,plan:['large private plan']};
  f.api().session(token,code).compactShowcase=true;
  const brief=f.api().state(c,token).starships.find(s=>s.id===roadTrip.id);
@@ -70,3 +70,14 @@ test('construction sales refund half while destruction does not and Session0 per
 test('freshly deployed live NPC can be assigned and survives the saved roster',async()=>{const f=fixture(),r=await f.call('v03/create',{name:'NPC assignment'},201),code=r.campaign.code,token=r.token,c=await f.api().campaign(code),ship=require('./helpers/crew-room-fixture.cjs')().ship;ship.controlType='gm';ship.crewCharacterIds=[];c.starships=[ship];await f.api().save(c);const live={units:[{id:'new-npc',team:'npc',characterName:'New Crew'}],starships:[structuredClone(ship)]};f.api().liveEncounter=()=>live;const result=await f.call('starship/crew',{code,token,starshipId:ship.id,crewCharacterIds:[],crewNpcUnitIds:['new-npc']});assert.deepEqual(result.starship.crewNpcUnitIds,['new-npc']);assert.deepEqual(live.starships[0].crewNpcUnitIds,['new-npc']);f.restart();assert.equal((await f.api().campaign(code)).npcRoster[0].id,'new-npc');});
 
 test('Session0 applies the twenty percent adjustment to both positive and negative Group Credits',async()=>{for(const credits of [20000,-20000]){const f=fixture(),r=await f.call('v03/create',{name:'Credit adjustment'},201),code=r.campaign.code,c=await f.api().campaign(code);c.shipCredits=credits;await f.api().save(c);await f.call('session/end',{code,token:r.token});assert.equal((await f.api().campaign(code)).shipCredits,credits*1.2);await f.call('session/end',{code,token:r.token});assert.equal((await f.api().campaign(code)).shipCredits,credits*1.2);}});
+
+
+test('complete campaign backup restores library, scripts, shops, preparation, clocks and future game fields',async()=>{
+ const f=fixture(),r=await f.call('v03/create',{name:'Complete archive'},201),code=r.campaign.code,token=r.token,c=await f.api().campaign(code);
+ Object.assign(c,{libraryEntries:[{id:'library-test',title:'Lost Station',text:'Coordinates'}],script:'Chapter archive',scriptChapters:[{id:'chapter-test',name:'Chapter archive',script:'Chapter archive'}],spaceObjects:[{id:'planet-test',name:'Atlas'}],elapsedMinutes:2880,timeReceipts:['receipt-test'],preparationDraft:{updatedAt:123,arena:{width:9,height:9},objects:[{id:'prep-test'}]},futureGameField:{value:42}});
+ await f.api().save(c);let backup;await f.api().handle({method:'GET'},{},new URL(`http://test/api/campaign/backup?code=${code}&token=${token}`),async()=>{},(_,status,data)=>{assert.equal(status,200);backup=data;});
+ assert.equal(backup.campaign.runtimeSessions,undefined);assert.equal(backup.campaign.sessions,undefined);assert.equal(backup.campaign.gmCode,undefined);
+ await f.call('v03/close',{code,token});f.restart();const loaded=await f.call('v03/load',{backup}),restored=await f.api().campaign(loaded.campaign.code);
+ for(const key of ['libraryEntries','script','scriptChapters','spaceObjects','elapsedMinutes','timeReceipts','preparationDraft','futureGameField'])assert.deepEqual(restored[key],c[key],key);
+ assert.deepEqual(restored.shops,backup.campaign.shops);
+});

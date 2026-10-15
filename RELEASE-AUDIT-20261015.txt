@@ -1,0 +1,118 @@
+Spaceship Architect update and verification — October 15, 2026
+
+STORAGE BLOCKER
+The campaign-creation failure was a localStorage quota exception while saving the
+new GM token. Full campaign snapshots competed with small login/settings records.
+Character initialization and draft saves also assumed localStorage always worked.
+
+browser-storage.js now archives campaign cache/backup values in IndexedDB, deleting
+an old localStorage entry only after its database transaction commits. Other saves
+fall back to the same durable database if localStorage is full. No unrelated data
+is evicted. Room/GM/character initialization waits for existing archived saves;
+room creation, loading and character navigation wait for durable credential writes.
+Character save status reports completion only after the write finishes. Failed
+writes retain the pending work, show an error and guard against leaving the page.
+Optional session hints/tab memory cannot interrupt character creation or GM tabs.
+A genuinely full/disabled IndexedDB still requires export; the app must not claim
+that a failed local save succeeded.
+
+Browser tests on a disposable local origin:
+- Filled localStorage to its quota, retaining an existing character and 1.5 MB
+  campaign backup. Main menu and new campaign opened successfully.
+- Verified the archived backup and original character were preserved.
+- Filled BOTH localStorage and sessionStorage, without adding removable caches.
+  Created Quota Survivor, changed its name, saw Saved locally, reloaded and
+  verified its draft/name and the original character remained.
+- Created another campaign with both stores full, reloaded the GM page,
+  switched to Characters, and returned to Main Menu without resetting the room.
+- Unit regressions cover migration, overflow with both stores full, reload,
+  replacement of stale values, deletion, rapid writes and failed transactions.
+
+ACCUMULATED AUTHORIZED UPDATE
+This release also includes the earlier locally completed, uncommitted passes
+recorded in AGENTS.md and CURRENT-HANDOFF.md: surface maps/LOS/fog and recovery;
+character/ship token art and movement; shop departments, searchable card stacks,
+owned inventory, printer-gated blueprints, portable story/roster/shop files;
+Point Spend animations; creation/identity adjustments; campaign navigation,
+ship console and exit fixes. Existing local work was preserved.
+
+Current pass adds/refines:
+- Manual Help for GM/PC, contextual pages, dark orange centered panels and blur;
+  charcoal Galaxy Map, visible Shops heading, colored Prompt/Give sections,
+  larger Private Notes and PC recipient colors; shaped animated combat selectors.
+- Partial warp travel with covered/total distance, suggested default fuel,
+  insufficient-range acknowledgement, and actual partial journey distance/time.
+- Campaign backup/load preserves scripts/chapters, shops, fleet, characters,
+  crew library data, map objects, preparation draft and other campaign fields.
+  Authentication/runtime credentials are deliberately excluded from portable files.
+- Persistent crew removal, prep object editing, current-reputation glow,
+  removal of duplicate ship supplies, and mineral table alignment.
+- Thirteen regenerated weapon images, including launchers/ammunition,
+  MK-U ID Assassin, Amplify Gauntlets, both blades and Flash Bomb.
+
+WEAPON RULES IMPLEMENTED
+- Repeated Aim: up to four Perception dice. Preserve the app's 2D4 plus all
+  Strength unarmed damage and range adjustment to Reaction Defense.
+- Fire: each eight active combat seconds; pauses freeze it; queued damage,
+  intensity growth, extinguishing and Stop/Drop/Roll. Other printed six-second
+  weapon effects remain six seconds. Wet lasts to encounter end.
+- Kevlar: 20 Physical reduction. Space Suit: depleting protection and HP overflow.
+- Grenade placement/scatter and fuses; held/cooked explosives, Sticky detachment,
+  proximity triggers, cover blocking blast/Flash effects, Mini Nuke 30-unit blast
+  and fallout, and automatic nearby-wall counting for Rubber Bouncy Bombs.
+- Hull Bore: moving destructible drone and 18-second drilling to an actual opening;
+  Skull Bore: moving/attached drone and six-second escalating Escape checks.
+- Force Bazooka: half-damage line up to 10 units, stopped by walls.
+  Amplify knockback: collision stops motion and adds 2D10.
+- Charged weapon choices, Gravity rating, Solar light, reflected Phazor option,
+  LX burst, Murasama sheathing, Bizi two-target split, Thunder/Greentip auxiliary
+  dice, Homing/Skull charge locks, electricity and cold/status interactions.
+- Ammunition counts, purchased reload supplies, MK-U GM programming and server
+  validation; preserve ammunition/programming through campaign saves.
+- Thrown melee attack/range, half damage before armor, direction-dependent
+  movement bonus and retrieval before the weapon can be used again.
+
+VALIDATION AND LIMITS
+Full automated suite: 1,103 passed, 0 failed. Syntax: 115 changed/new JavaScript
+files passed. Focused storage/navigation suite: 10 passed. Whitespace checked
+with CRLF-aware Git settings.
+Earlier isolated browser checks in this same pass covered GM/PC Help,
+Prompt/Give, campaign/galaxy layout, seven card-open/return cycles (including
+Escape), fleet exit, exploration cancellation, PC bridge station/console exit,
+AU boost checkboxes, and a successful acknowledged partial warp to Farpoint.
+API tests cover full campaign round trips and representative weapon dice/effects.
+This is not a claim that every weapon and every console has been mouse-tested.
+
+Remaining explicit decision: Silent Scope does not specify how many rounds one
+Iron/Magnesium unit provides. The GM can configure loaded rounds manually;
+automatic mineral-to-round conversion awaits the user's number.
+Remaining limitations for a subsequent rules/playtest pass: size-based Net Gun
+Escape adjustment is not automated; Rubber Bouncy Bomb multi-target wall/accuracy
+interpretation needs playtest review; removal of an explosive-owning NPC before
+its timer resolves needs a dedicated regression. These are not declared complete.
+The original core-rulebook audit remains a historical baseline; this report
+supersedes its statements that the above features are entirely unimplemented.
+
+Intentionally excluded/unchanged: Arm Cannon (weapon PDF page 50 onward), warp
+combat/bubble merging/FTL mines, Reverse Targeting ID, Separation Module, custom
+SIC building, multiple floors, angled/offset squares and Wired Downgrade.
+Connector Cable remains undecided. SA2E differences are reference notes, not
+permission to replace the approved app rules with the draft's rules.
+
+BACKUP AND LOCAL DATA
+Pre-update liked-build backup preserved at:
+../backups/sa-atb-multiplayer-liked-build-20261011-225652
+Gold Standard was not refreshed. Before refreshing the normal local server,
+the current campaign data was separately copied to:
+../outputs/campaigns-before-storage-repair-20261015.json
+Personal campaign data is excluded from Git. Its current SHA256 remained:
+E59A8FC603F63D7F5CA3352E9B6AB64572D33CAD27AC878D44DEB2242E83E213
+Normal localhost:8790 is running the updated code. No hosted playtest was run.
+
+NEXT STEPS BEYOND BUG FIXES AND UI
+1. Run the original book's example scenario with a GM and two to four players;
+   record which decisions still require external rules lookup or GM interpretation.
+2. Publish an app-specific rules/override ledger and player/GM quick references.
+3. Rehearse campaign export, restore on another device and version migration.
+4. Define a release candidate checklist covering multi-client load, long campaigns,
+   rollback and recovery; verify content/art credits before wider distribution.

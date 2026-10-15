@@ -1,3 +1,4 @@
+import {matchingCatalog} from './catalog-search.js';
 import './skill-catalog.js';
 import './skill-packages.js';
 import './identity-presets.js';
@@ -23,13 +24,15 @@ import { FUBS_CHAIN_RESULTS, fubsEntry } from "./fubs-data.js?v=20260807-tabs-2"
 import { PhysicalDiceRoller } from "./dice-roller.js?v=20260907-hybrid-time-1";
 import { SKILL_DESCRIPTIONS } from "./skill-descriptions.js?v=shield-generators-1";
 import { openPrintableCharacterSheet } from "./character-print.js?v=20260807-tabs-2";
+import { renderShop } from "./shop-ui.js";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 import { RACE_LORE } from "./race-lore-data.js?v=20260830-race-lore-1";
 import "./character-storage.js?v=20260907-demo-isolation-1";
 
+await window.SABrowserStorage.ready;
 // All character persistence in Explore Features stays out of the personal library.
-const localStorage = window.SACharacterStorage.selectStorage(window.localStorage, window.sessionStorage, location.search);
+const localStorage = window.SACharacterStorage.selectStorage(window.SABrowserStorage.local, window.sessionStorage, location.search);
 
 const {
   DRAMA_CARD_COST = 4,
@@ -1198,6 +1201,7 @@ function normalizeCharacter(raw) {
   normalized.creation.xithxGenderNoticeShown = Boolean(source.creation?.xithxGenderNoticeShown);
   for (const key of Object.keys(base.gmAdjustments)) normalized.gmAdjustments[key] = Math.round(clamp(normalized.gmAdjustments[key], -999999, 999999) * 10) / 10;
   if (!/^#[0-9a-f]{6}$/i.test(normalized.presentation.atbColor)) normalized.presentation.atbColor = base.presentation.atbColor;
+  normalized.presentation.iconVariant = window.SATokenArt.variant(normalized.presentation.iconVariant);
   normalized.access.pcCode = String(normalized.access.pcCode || source.pcCode || "").slice(0, 120);
   normalized.campaignLink.roomCode = String(normalized.campaignLink.roomCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
   normalized.campaignLink.campaignName = String(normalized.campaignLink.campaignName || "").slice(0, 80);
@@ -1230,6 +1234,8 @@ function normalizeCharacter(raw) {
       id: String(entry?.id || uid()),
       weaponId,
       held,
+      ...(entry.ammoRemaining!==undefined?{ammoRemaining:entry.ammoRemaining}:{}),
+      ...(entry.targetProgram?{targetProgram:entry.targetProgram}:{}),
       ...(entry?.craftRequestId ? {craftRequestId:String(entry.craftRequestId),acquisitionMode:"crafted"} : {}),
     };
   });
@@ -1237,6 +1243,8 @@ function normalizeCharacter(raw) {
     id: String(entry?.id || uid()),
     weaponId: weaponById(entry?.weaponId) ? String(entry.weaponId) : "",
     held: false,
+    ...(entry?.ammoRemaining!==undefined?{ammoRemaining:entry.ammoRemaining}:{}),
+    ...(entry?.targetProgram?{targetProgram:entry.targetProgram}:{}),
     ...(entry?.craftRequestId ? {craftRequestId:String(entry.craftRequestId),acquisitionMode:"crafted"} : {}),
   })).filter((entry) => entry.weaponId);
   const normalizeItem = (entry) => {
@@ -1249,6 +1257,8 @@ function normalizeCharacter(raw) {
       description: String(entry?.description || catalog?.description || "").slice(0, 4000),
       quantity: Math.max(1, Math.min(9999, Math.round(Number(entry?.quantity) || 1))),
       unitCost: Math.round(clamp(entry?.unitCost ?? catalog?.cost ?? 0, 0, 999999999)),
+      ...(entry?.ammoRounds !== undefined ? {ammoRounds:Math.max(0,Math.min(999900,Math.floor(Number(entry.ammoRounds)||0)))} : {}),
+      ...(entry?.catalogId === "space-suit" ? {protectionHp:Math.max(0,Math.min(20,Number(entry?.protectionHp??20)))} : {}),
       chargesMax,
       charges: chargesMax === null ? null : Math.max(0, Math.min(chargesMax, Number(entry?.charges ?? chargesMax))),
       chargeState: String(entry?.chargeState || catalog?.chargeStateMax || "").slice(0, 40),
@@ -1427,7 +1437,9 @@ function saveLibrary(message = "Saved locally") {
     }
     if (campaignCode && campaignCharacterId) cacheCampaignCharacter();
   }
-  dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : message;
+  const saveRevision = character.updatedAt;
+  window.SABrowserStorage.flush().then(()=>{if(character.updatedAt===saveRevision&&!campaignCode)dom.saveStatus.textContent=message;}).catch(error=>{dom.saveStatus.textContent="Local save failed — export your character";notice(error.message,"error");});
+  dom.saveStatus.textContent = campaignCode ? (campaignEditable ? "Saving to campaign..." : "Campaign view") : "Saving locally...";
   dom.saveStatus.classList.remove("saving");
   renderSyncIndicator(campaignCode ? (campaignEditable ? "saving" : "synced") : "local");
   if (campaignCode && campaignCharacterId && campaignEditable && !suppressCampaignSave) {
@@ -1627,7 +1639,7 @@ function renderTabbedStatus() {
     ? maximum
     : Math.min(maximum, Math.max(-9999, Number(character.health.current) || 0));
   dom.tabStatusExperience.textContent = Math.max(0, Number(character.experience.available) || 0) + " / " + Math.max(0, Number(character.experience.totalGained) || 0);
-  updatePointReadout(dom.tabStatusExperience,Number(character.experience.available)||0,character.id);
+  window.SAPointSpend.update(dom.tabStatusExperience,Number(character.experience.available)||0,{scope:character.id,key:'hud-experience',suffix:' / '+Math.max(0,Number(character.experience.totalGained)||0),positiveGreen:true});
   dom.tabStatusHp.textContent = current + " / " + maximum;
   renderCombatStatus();
   const hpRatio = maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0;
@@ -1638,6 +1650,7 @@ function renderTabbedStatus() {
   dom.tabStatusReverence.textContent = Math.max(0, Number(character.resources.reverence) || 0) + " / 10";
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
+  updatePointReadout(dom.tabStatusCredits,Number(character.resources.creditsBase)||0,character.id);
   if (dom.hudWeaponOverload) dom.hudWeaponOverload.hidden = !weaponSlotAllocation().overloaded;
 
   const visible = resourceHudVisible && character.phase === "finalized" && !CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW;
@@ -1793,11 +1806,21 @@ function showCharacterPanel(tab = "sheet") {
   if (activeCharacterTab === "sheet") renderCharacterLayout();
   if (activeCharacterTab === "roster") renderCampaignRoster();
   if (activeCharacterTab === "starships") renderPlayerStarships();
+  if (activeCharacterTab === "shop") renderPlayerShop();
   if (activeCharacterTab === "atb") void loadPlayerAtb();
   renderTabbedStatus();
   renderCombatTabAttention();
   updateLibraryVisibility();
   document.getElementById("pcSettingsButton")?.setAttribute("aria-pressed", String(activeCharacterTab === "settings"));
+}
+function renderPlayerShop(){
+ const canBuy=character.phase==='finalized'&&campaignEditable&&!campaignState?.combatActive;
+ renderShop(document.getElementById('playerShopPanel'),{credits:character.resources.creditsBase,canBuy,reason:campaignState?.combatActive?'Shopping is available outside combat.':!canBuy?'Finalize and link an editable character to shop.':'',gear:GEAR,weapons:WEAPONS.filter(w=>window.SAShopWeapons.includes(w.id)),shops:campaignState?.shops,ships:campaignState?.starships,characterId:campaignCharacterId,groupCredits:campaignState?.shipCredits,
+  flash:(node,value,previous)=>{if(previous!==undefined)updatePointReadout(node,Number(previous),character.id);updatePointReadout(node,value,character.id);},
+  buySic:async(itemId,starshipId,price,blueprint=false)=>{const result=await campaignRequest('/api/campaign/shops',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,operation:blueprint?'blueprint':'purchase',itemId,starshipId,expectedPrice:price,requestId:uid()})});receiveCampaignState(result.campaign);return true;},
+  transfer:async(inventoryId,starshipId)=>{const result=await campaignRequest('/api/campaign/shops',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,operation:'transfer',inventoryId,starshipId,requestId:uid()})});receiveCampaignState(result.campaign);return true;},
+  buyWeapon:async weapon=>{const entry=character.weapons.find(w=>!w.weaponId)||{id:uid(),weaponId:'',held:false};return acquireWeapon(entry,weapon,'purchase','');},
+  buyGear:gear=>addGearItem(gearDraftFromCatalog(gear),'purchase'),refresh:renderPlayerShop});
 }
 function renderCharacterNavigation() {
   const linked = Boolean(campaignCode && campaignCharacterId && (campaignState || character.campaignLink?.status === "linked"));
@@ -1808,7 +1831,7 @@ function renderCharacterNavigation() {
   for (const button of dom.tabs.querySelectorAll("[data-character-tab]")) {
     const tab = button.dataset.characterTab;
     if (tab === "sheet" || tab === "settings") button.hidden = false;
-    if (tab === "roster" || tab === "atb") button.hidden = !linked || gmView;
+    if (tab === "roster" || tab === "atb" || tab === "shop") button.hidden = !linked || gmView;
     if (tab === "starships") button.hidden = !linked && !gmView;
   }
   dom.joinCampaignPanel.hidden = gmView || (!mayJoin && !pending);
@@ -2146,7 +2169,7 @@ function renderPlayerStarships(force = false) {
   const gmViewing = campaignState?.role === "gm";
   const fullShipDetails=!gmViewing&&!CAMPAIGN_READ_ONLY_VIEW;
   const requestedShipId = gmViewing ? String(PAGE_PARAMS.get("ship") || "") : "";
-  const deployed=campaignState?.combatActive?new Set(campaignState.deployedShipIds||playerEncounterView?.deployedShipIds||playerEncounterView?.starships?.map(s=>s.id)||[]):null;
+  const deployed=campaignState?.combatActive&&(campaignState.deployedShipIds||playerEncounterView?.starships||[]).length?new Set(campaignState.deployedShipIds||playerEncounterView?.deployedShipIds||playerEncounterView?.starships?.map(s=>s.id)||[]):null;
   const ships = (campaignState?.starships || []).filter((record) => (
     (!deployed||deployed.has(record.id)) &&
     (gmViewing || record.crewCharacterIds?.includes(ownId))
@@ -2186,7 +2209,7 @@ function renderPlayerStarships(force = false) {
         const sameLocation = occupants.filter((occupant) => Number(visualLocations.get(occupant.id)?.mesh ?? 4) === mesh).sort((left, right) => String(left.id).localeCompare(String(right.id)));
         const offset = sameLocation.length > 1 ? sameLocation.findIndex((occupant) => occupant.id === entry.id) === 0 ? -5 : 5 : 0;
         const left = ((mesh % 3) + .5) / 3 * 100 + offset; const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
+        return `<i ${window.SATokenArt.attributes(entry)} class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
       }).join("");
       const occupied = layout.footprint.get(square);
       const sicLabel = occupied?.label || "";
@@ -2195,7 +2218,7 @@ function renderPlayerStarships(force = false) {
         if (!playerShipMapView.stations && !stationOccupant) return "";
         const occupantName = stationOccupant ? campaignCharacterName(stationOccupant) : "";
         const occupantColor = stationOccupant?.character?.presentation?.atbColor || "#39e58f";
-        return `<i class="player-ship-station ${stationOccupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${stationOccupant ? `--token-color:${escapeAttribute(occupantColor)}` : ""}" ${stationOccupant ? `title="${escapeAttribute(occupantName)} is stationed here" aria-label="${escapeAttribute(occupantName)} is stationed here"` : ""}>${stationOccupant ? `<span>${escapeHtml(occupantName.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
+        return `<i ${window.SATokenArt.attributes(stationOccupant||{})} class="player-ship-station ${stationOccupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${stationOccupant ? `--token-color:${escapeAttribute(occupantColor)}` : ""}" ${stationOccupant ? `title="${escapeAttribute(occupantName)} is stationed here" aria-label="${escapeAttribute(occupantName)} is stationed here"` : ""}>${stationOccupant ? `<span>${escapeHtml(occupantName.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
       }).join("") : "";
       const style = occupied ? `--sic-basic-color:${occupied.color || "#197a6f"};${playerShipMapView.highResolution && occupied.image ? window.SAShipMap.floorplanStyle(occupied.type, occupied.column, occupied.row,occupied) : ""}` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
@@ -2313,7 +2336,7 @@ function refreshPrivateNotes() {
 }
 
 function renderCampaignBank() {
-  for(const box of document.querySelectorAll('[data-group-credits]')){box.hidden=!campaignState;box.querySelector('strong').textContent=Math.round(Number(campaignState?.shipCredits)||0).toLocaleString();}
+  for(const box of document.querySelectorAll('[data-group-credits]')){box.hidden=!campaignState;box.querySelector('strong').textContent=Math.round(Number(campaignState?.shipCredits)||0).toLocaleString();updatePointReadout(box.querySelector('strong'),Number(campaignState?.shipCredits||0),campaignCode);}
   dom.campaignBankCard.hidden = !campaignState || !campaignCharacterId;
   if (!campaignState || !campaignCharacterId) return;
   const record = campaignState.characters.find((entry) => entry.id === campaignCharacterId);
@@ -3234,7 +3257,8 @@ function scrollToWorkflowTarget(selector) {
     const highlight = currentTarget.matches("input, select, textarea, button")
       ? currentTarget.closest("label, .panel-heading") || currentTarget
       : currentTarget;
-    currentTarget.scrollIntoView({ behavior: "smooth", block: selector === ".attributes-panel" ? "start" : "center" });
+    if(selector.includes('skill-methods'))currentTarget.style.scrollMarginTop=(document.querySelector('.workflow-bar')?.getBoundingClientRect().bottom+10||100)+'px';
+    currentTarget.scrollIntoView({ behavior: "smooth", block: selector === ".attributes-panel" || selector.includes("skill-methods") ? "start" : "center" });
     highlight.classList.remove("workflow-target-pulse");
     void highlight.offsetWidth;
     highlight.classList.add("workflow-target-pulse");
@@ -3853,6 +3877,7 @@ function renderWorkflow() {
   else if (character.fubs.status === "unrolled" && !fubsRollInProgress) requirements.push({ key: "fubs", label: "Roll on FUBS Chart", target: "#fubsButton" });
   dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
+  dom.phaseBadge.classList.toggle('creation-complete',requirements.length===0);dom.phaseBadge.setAttribute('aria-disabled',String(requirements.length===0));
   if(character.creation.activeGuideStep&&!requirements.some(task=>task.key===character.creation.activeGuideStep))character.creation.activeGuideStep='';
   dom.phaseBadge.classList.toggle('step-in-progress',Boolean(character.creation.activeGuideStep));
   for(const [key,node] of [['attributes',dom.workflowAttributeRemaining],['skills',dom.workflowSkillRemaining]])node.closest('div')?.classList.toggle('allocating-points',character.creation.activeGuideStep===key&&requirements.some(task=>task.key===key));
@@ -3869,6 +3894,7 @@ function renderWorkflow() {
 const pointReadoutValues=new WeakMap(),pointReadoutAnimations=new WeakMap();
 function updatePointReadout(node,value,scope) {
   if(!node)return;
+  if([dom.workflowExperience,dom.xpAvailable].includes(node)){window.SAPointSpend.update(node,value,{scope,key:node.id,suffix:node===dom.workflowExperience?' / '+(Number(character.experience.totalGained)||0):'',positiveGreen:true});return;}
   const previous=pointReadoutValues.get(node);
   pointReadoutValues.set(node,{value,scope});
   if(!Number.isFinite(value)){delete node.dataset.pointReadout;node.style.removeProperty('color');pointReadoutAnimations.get(node)?.cancel();return;}
@@ -4297,6 +4323,7 @@ function renderResources() {
   const finalizedRaceCredits = finalizedModifiersActive() ? Number(rawRaceEffects().creditsOnFinalize) || 0 : 0;
   const finalizedClassCredits = finalizedModifiersActive() ? Number(rawClassEffects().creditsOnFinalize) || 0 : 0;
   dom.creditsValue.textContent = Number(character.resources.creditsBase || 0).toLocaleString();
+  updatePointReadout(dom.creditsValue,Number(character.resources.creditsBase||0),character.id);
   const creditParts = ["Awarded and saved credits"];
   if (finalizedRaceCredits) creditParts.push(`includes +${finalizedRaceCredits.toLocaleString()} ${selectedRace()?.name} finalization grant`);
   if (finalizedClassCredits) creditParts.push(`includes +${finalizedClassCredits.toLocaleString()} ${classDefinition.name} finalization grant`);
@@ -4971,6 +4998,7 @@ async function submitCombatRollResult({ score, manual, diceResults }) {
     score,
     mode: manual ? "manual" : "automatic",
     diceResults,
+    fusions: check.newFusions?.length || 0,
   }); } catch (error) { check.combatSubmitted = false; throw error; }
 }
 
@@ -5012,7 +5040,7 @@ function openCombatSkillRequest(request) {
   dom.skillCheckKicker.textContent = firstAid ? "First Aid Resolution" : request.rollRole === "attacker" ? "Combat To-Hit" : "Combat Defense";
   dom.skillCheckTitle.textContent = firstAid
     ? "Intellect + First Aid"
-    : request.rollRole === "attacker" ? "Dexterity + " + (request.skill || "Projectile") : "Dexterity + Dodge";
+    : request.rollRole === "attacker" ? (request.attribute === "strength" ? "Strength" : "Dexterity") + " + " + (request.skill || "Projectile") : "Dexterity + Dodge";
   dom.skillDifficulty.value = skillCheck.difficulty;
   dom.cancelSkillCheck.hidden=Boolean((PAGE_PARAMS.has('shipRoll')||skillCheck.combatRequest)&&!skillCheck.cancelable);dom.skillCheckClose.hidden=dom.cancelSkillCheck.hidden;
   dom.skillCheckSubtitle.textContent = request.subtitle || "Submit the completed Score. The app applies weapon and Range modifiers afterward.";
@@ -5023,10 +5051,11 @@ function openCombatDamageRequest(request) {
   activeCombatDamageRequest = request;
   combatDamageSubmitted = false;
   const parsed = damageFormulaPool(request.damageFormula);
+  if(request.damageFormulaSupported === false) parsed.supported=false;
   request.parsedDamage = parsed;
   const healing = Boolean(request.healing);
-  dom.combatDamageTitle.textContent = healing ? "Roll First Aid Healing" : "Roll " + request.weaponName + " Damage";
-  dom.combatDamageSubtitle.textContent = healing
+  dom.combatDamageTitle.textContent = request.rollPurpose ? "Roll "+request.rollPurpose : healing ? "Roll First Aid Healing" : "Roll " + request.weaponName + " Damage";
+  dom.combatDamageSubtitle.textContent = request.rollPurpose ? "Roll the indicated die and confirm. The result is applied automatically." : healing
     ? `Add every healing die.${request.addScore ? ` The First Aid Score (${request.addScore}) is added automatically.` : ""}`
     : "Add every Damage die. Damage dice do not fuse.";
   dom.combatDamageWeapon.textContent = healing ? "First Aid" : request.weaponName;
@@ -5039,7 +5068,7 @@ function openCombatDamageRequest(request) {
   dom.exitCombatDamageResult.hidden = true;
   dom.combatDamageResult.hidden = true;
   dom.combatDamageResult.textContent = "";
-  dom.combatDamageError.textContent = parsed.supported ? "" : "This card uses an unusual formula. Enter the completed Damage total manually.";
+  dom.combatDamageError.textContent = parsed.supported ? "" : "Resolve the full printed rule with the GM, then enter its Damage total: " + (request.specialRules || "See weapon card.");
   dom.rollCombatDamage.disabled = !parsed.supported;
   dom.combatDamageCritical.hidden = healing || !request.critical;
   dom.combatDamageCritical.textContent = request.calledShot
@@ -5595,15 +5624,11 @@ async function handleGmDirectEdit(element) {
 }
 
 function weaponOptions(selectedId, entry) {
-  const angiluros = character.identity.raceId === "angiluros";
-  const selected = weaponById(selectedId);
-  const available = WEAPONS.filter((weapon) => angiluros ? weapon.angilurosOnly : !weapon.angilurosOnly);
-  if (selected && !available.some((weapon) => weapon.id === selected.id)) available.push(selected);
-  return [
-    `<option value="">Choose a weapon</option>`,
-    ...character.storedWeapons.filter(w=>w.acquisitionMode === "crafted").map(w=>`<option value="stored:${escapeAttribute(w.id)}">${escapeHtml(weaponById(w.weaponId)?.name || w.weaponId)} - Crafted (storage)</option>`),
-    ...available.map((weapon) => `<option value="${escapeAttribute(weapon.id)}" ${weapon.id === selectedId ? "selected" : ""}>${escapeHtml(weapon.name)}${entry?.acquisitionMode === "crafted" && weapon.id === selectedId ? " - Crafted" : weapon.angilurosOnly ? " - Ancestral" : ` - ${weaponCreditCost(weapon).toLocaleString()} Credits`}</option>`),
-  ].join("");
+  const selected=weaponById(selectedId);
+  return ['<option value="">Choose owned weapon</option>',
+    selected?`<option selected value="${escapeAttribute(selected.id)}">${escapeHtml(selected.name)}</option>`:'',
+    selectedId!=='unarmed'?'<option value="unarmed">Unarmed</option>':'',
+    ...character.storedWeapons.map(w=>`<option value="stored:${escapeAttribute(w.id)}">${escapeHtml(weaponById(w.weaponId)?.name||w.weaponId)} — Storage</option>`)].join('');
 }
 
 const WEAPON_SLOT_COUNTS = Object.freeze({ A: 1, B: 2, C: 4, D: 8 });
@@ -5773,6 +5798,7 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
     notice(`${weapon.name} requires ${craftHours} fictional hour${craftHours === 1 ? "" : "s"}. Crafting started. Advance campaign time, then the GM can approve delivery to storage.`, "success");
     return false;
   }
+  if(mode==='purchase'&&typeof campaignState!=='undefined'&&campaignState?.shops){const offer=campaignState.shops.offers?.find(q=>q.id==='weapon:'+weapon.id);if(!offer){notice('This weapon is not available at an active shop.','error');return false;}weapon={...weapon,cost:offer.price};}
   const cost = mode === "purchase" ? weaponCreditCost(weapon) : 0;
   if (cost > Number(character.resources.creditsBase || 0)) {
     const accepted = await askConfirmation({
@@ -5785,7 +5811,7 @@ async function acquireWeapon(entry, weapon, mode, previousWeaponId) {
   if (campaignCode && campaignCharacterId && campaignEditable) {
     const payload = await campaignRequest("/api/campaign/item/transaction", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, inventoryType: "weapon", item: { id: entry.id, weaponId: weapon.id, previousWeaponId, name: weapon.name, unitCost: weaponCreditCost(weapon) } }),
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, mode, requestId:uid(), expectedPrice:weaponCreditCost(weapon), inventoryType: "weapon", item: { id: entry.id, weaponId: weapon.id, previousWeaponId, name: weapon.name, unitCost: weaponCreditCost(weapon) } }),
     });
     const remote = payload.campaign?.characters?.find((record) => record.id === campaignCharacterId)?.character;
     if (remote) {
@@ -5813,16 +5839,7 @@ function itemChargeLabel(entry) {
   return "";
 }
 
-function matchingGearCatalog(query) {
-  const text = String(query || "").trim().toLowerCase();
-  if (!text) return [...GEAR].sort((a, b) => a.name.localeCompare(b.name));
-  return GEAR.map((entry) => {
-    const name = entry.name.toLowerCase();
-    const words = name.split(/\s+/);
-    const rank = name === text ? 0 : name.startsWith(text) ? 1 : words.some((word) => word.startsWith(text)) ? 2 : name.includes(text) ? 3 : 99;
-    return { entry, rank };
-  }).filter((result) => result.rank < 99).sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name)).map((result) => result.entry);
-}
+function matchingGearCatalog(query) { return matchingCatalog(GEAR,query); }
 
 function blankGearDraft() {
   return { id: uid(), catalogId: "", name: "", description: "", quantity: 1, unitCost: 0, charges: null, chargesMax: null, chargeState: "", special: "" };
@@ -5887,15 +5904,7 @@ function applyGearPickerChoice(catalogId) {
   renderGearPickerFields();
 }
 
-function openGearPicker() {
-  gearDraft = blankGearDraft();
-  dom.gearCatalogSearch.value = "";
-  dom.gearPickerError.textContent = "";
-  populateGearCatalogPicker();
-  renderGearPickerFields();
-  dom.gearPickerModal.hidden = false;
-  setTimeout(() => dom.gearCatalogSearch.focus({ preventScroll: true }), 60);
-}
+function openGearPicker() { notice('Purchase items in the Shop tab.','success'); }
 
 function closeGearPicker() {
   dom.gearPickerModal.hidden = true;
@@ -5907,7 +5916,7 @@ function renderGear() {
   const gearPanel=document.querySelector(".gear-panel");
   gearPanel?.classList.toggle("locked", !editable);
   if(gearPanel)gearPanel.querySelector('.panel-heading')?.setAttribute('data-lock-reason',character.phase==='finalizing'?'Finish character creation to manage items':'Viewing only — open your own Character Sheet to manage items');
-  dom.addGearRow.disabled = !editable;
+  dom.addGearRow.hidden = true;dom.addGearRow.disabled = true;
   dom.storeGearButton.disabled = !editable || !character.items.length;
   const manualReceive = GM_ADJUSTMENT_MODE || (manualInputMode() && character.phase === "draft");
   const canReceive = mayReceiveGearForFree();
@@ -5917,11 +5926,9 @@ function renderGear() {
     return `<div class="gear-row" data-gear-row="${escapeAttribute(entry.id)}">
       <input class="gear-name" data-gear-field="name" autocomplete="off" value="${escapeAttribute(entry.name)}" aria-label="Item name" ${editable ? "" : "disabled"} />
       <textarea class="gear-description" data-gear-field="description" aria-label="Item description" ${editable ? "" : "disabled"}>${escapeHtml(entry.description)}</textarea>
-      <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong><button type="button" data-gear-plus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>+1</button></div>
+      <div class="gear-quantity"><button type="button" data-gear-minus="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>-1</button><strong>${entry.quantity}</strong></div>
       <label class="gear-cost"><input data-gear-field="unitCost" type="number" min="0" step="1" value="${entry.unitCost * entry.quantity}" aria-label="Total item cost" ${editable ? "" : "disabled"} />${charge ? `<small class="gear-charge">${escapeHtml(charge)}</small>` : ""}</label>
-      <div class="gear-actions">${pending
-        ? `${manualReceive ? "" : `<button class="purchase" type="button" data-gear-add-mode="purchase" data-gear-id="${escapeAttribute(entry.id)}">Purchase +1</button>`}${canReceive ? `<button class="receive" type="button" data-gear-add-mode="receive" data-gear-id="${escapeAttribute(entry.id)}">Receive +1</button>` : ""}<button type="button" data-gear-cancel-add="${escapeAttribute(entry.id)}">Cancel</button>`
-        : `<button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button>`}</div>
+      <div class="gear-actions"><button class="store" type="button" data-store-gear="${escapeAttribute(entry.id)}" ${editable ? "" : "disabled"}>Store 1</button></div>
     </div>`;
   });
   dom.gearInventory.innerHTML = rows.join("");
@@ -5989,6 +5996,7 @@ async function addGearItem(item, mode) {
     notice("Link this character to a campaign before receiving items for free.", "error");
     return false;
   }
+  if(mode==='purchase'&&typeof campaignState!=='undefined'&&campaignState?.shops){const offer=campaignState.shops.offers?.find(q=>q.id==='item:'+item.catalogId);if(!offer){notice('This item is not available at an active shop.','error');return false;}item={...item,unitCost:offer.price};}
   const cost = mode === "purchase" ? Math.max(0, Number(item.unitCost) || 0) : 0;
   if (!item.name.trim()) { notice("Enter an item name first.", "error"); return false; }
   if (mode === "purchase" && cost > 0 && cost > Number(character.resources.creditsBase || 0)) {
@@ -6003,7 +6011,7 @@ async function addGearItem(item, mode) {
   if (campaignCode && campaignCharacterId && campaignEditable) {
     const payload = await campaignRequest("/api/campaign/item/transaction", {
       method: "POST",
-      body: JSON.stringify({ code: owner.code, token: owner.token, characterId: owner.characterId, mode, item: gearPayload(item) }),
+      body: JSON.stringify({ code: owner.code, token: owner.token, characterId: owner.characterId, mode, requestId:uid(), expectedPrice:item.unitCost, item: gearPayload(item) }),
     });
     if(!ownsView())throw Error('Item transaction completed for '+owner.name+'. Reopen that character to see the updated inventory.');
     const remote = payload.campaign?.characters?.find((record) => record.id === owner.characterId)?.character;
@@ -6187,9 +6195,24 @@ function useFreeRuleReroll() {
     },
   });
 }
+function renderCharacterIconPicker() {
+  const picker=document.querySelector('#characterIconPicker');if(!picker)return;
+  const art=window.SATokenArt,info=art.character(character),options=art.options(info.race);
+  picker.style.setProperty('--token-color',character.presentation.atbColor);
+  const disabled=Boolean(campaignCode&&!campaignEditable);
+  picker.querySelector('.token-options').innerHTML=options.map(o=>`<button type="button" data-character-icon="${o.value}" aria-pressed="${info.variant===o.value}" ${disabled?'disabled':''}>${art.figure(info.race,o.value)}<span>${o.label}</span></button>`).join('');
+  for(const button of picker.querySelectorAll('[data-character-icon]')){button.onpointerenter=()=>button.classList.add('crew-walking');button.onpointerleave=()=>button.classList.remove('crew-walking');button.onblur=()=>button.classList.remove('crew-walking');}
+  picker.querySelector('[data-token-hint]').hidden=options.length>0;
+  picker.querySelector('[data-token-hint]').textContent=character.identity.raceId?'No preset icons for this custom race.':'Choose a race to see its icons.';
+}
+document.querySelector('#characterIconPicker')?.addEventListener('click',event=>{
+ const button=event.target.closest('[data-character-icon]');if(!button||button.disabled)return;
+ character.presentation.iconVariant=window.SATokenArt.variant(button.dataset.characterIcon);queueSave();renderCharacterIconPicker();
+});
 function renderAll() {
   renderCharacterPicker();
   renderFields();
+  renderCharacterIconPicker();
   renderClass();
   renderWorkflow();
   renderExperience();
@@ -6563,7 +6586,7 @@ function attributePurchaseGuideMarkup(rows) {
     }).join('')}</div></div>`).join('');
 }
 function addAttributePurchaseGuide(shell) {
-  shell.classList.add('attribute-purchase-tutorial');
+  shell.classList.add('attribute-purchase-tutorial');const tryIt=document.createElement('strong');tryIt.className='try-it-out';tryIt.textContent='TRY IT OUT!';shell.querySelector('.confirm-dialog').prepend(tryIt);
   const content=document.createElement('div');content.className='dice-practice';content.style.setProperty('--attribute','#35c9ff');
   content.innerHTML=`<div class="dice-practice-budget"><span>Sample EXP remaining</span><strong data-practice-budget aria-live="polite">225 / 225</strong></div>
     <p class="dice-practice-help">Click a rainbow dotted die to buy it.</p>
@@ -6868,7 +6891,7 @@ async function finishFinalization() {
 }
 
 function showPostFinalizationGuide(){
-  const shell=document.createElement("div");shell.className="modal-shell";shell.innerHTML=`<section class="confirm-dialog" role="dialog" aria-modal="true"><h2>Your character is ready</h2><p>Export your character to keep a local backup.</p><p>To play, enter your GM’s campaign using their room code, then load your character. After linking to a campaign, you can spend your starting credits on weapons and gear.</p><div class="dialog-actions"><button type="button">Show Export</button></div></section>`;document.body.append(shell);shell.querySelector("button").onclick=()=>{shell.remove();scrollToWorkflowTarget("#exportCharacter");};
+  const shell=document.createElement("div");shell.className="modal-shell";shell.innerHTML=`<section class="confirm-dialog" role="dialog" aria-modal="true"><h2>Your character is ready</h2><p>Save your character to keep a local backup.</p><p>To play, enter your GM’s campaign using their room code, then load your character. After linking to a campaign, you can spend your starting credits on weapons and gear.</p><div class="dialog-actions"><button type="button">Show Save Character</button></div></section>`;document.body.append(shell);shell.querySelector("button").onclick=()=>{shell.remove();scrollToWorkflowTarget("#exportCharacter");};
 }
 
 function campaignSkillKey(skillName) {
@@ -6968,15 +6991,16 @@ async function rollFinalizationBatch() {
   });
   character.creation.decimalBatch=values;character.creation.batchAnimating=true;character.pendingRoll=null;
   saveLibrary('Skill decimal dice prepared');renderWorkflow();
+  for(const {key} of values)document.querySelector(`.skill-row[data-skill-key="${CSS.escape(key)}"]`)?.classList.add('skill-finalization-rolling');
   const finish=()=>{
     if(character!==owner||character.phase!=='finalizing'||!character.creation.batchAnimating)return;
-    diceRoller.stop();
+    diceRoller.stop();document.querySelectorAll('.skill-finalization-rolling').forEach(n=>n.classList.remove('skill-finalization-rolling'));
     for(const {key,value} of values){const resolved=resolveSkill(character,key);if(!resolved)continue;const level=skillCreationLevel(resolved.skill),decimal=value===10?0:value;resolved.skill.tenths=character.identity.raceId==='pattanilia'&&level===0&&value===10?10:level*10+decimal;resolved.skill.creationDecimal=decimal;}
     character.creation.finalizationQueue=[];delete character.creation.decimalBatch;delete character.creation.batchAnimating;
     void finishFinalization();
   };
   try {
-    await diceRoller.rollPool({sides:values.map(()=>10),values:values.map(row=>row.value),title:'Finalizing Skills',subtitle:`${values.length} D10 — one decimal roll per skill`,fusion:false,presentation:'avalanche',onResolved:()=>{},onSettled:()=>{finish();}});
+    await diceRoller.rollPool({sides:values.map(()=>10),values:values.map(row=>row.value),title:'Finalizing Skills',subtitle:`${values.length} D10 — one decimal roll per skill`,fusion:false,presentation:'normal',onResolved:()=>{},onSettled:()=>{finish();}});
   } catch(error){delete character.creation.batchAnimating;saveLibrary();notice('The dice could not start. Reload to resume the saved results.','error');}
 }
 
@@ -7630,31 +7654,12 @@ document.addEventListener("change", async (event) => {
     Object.assign(entry,stored,{held:false});
     queueSave(); await saveCampaignCharacter({force:true}); renderAll(); return;
   }
-  const previousWeaponId = entry.weaponId || "";
-  const weapon = weaponById(select.value);
-  if (!weapon) {
-    entry.weaponId = "";
-    entry.held = false;
-    delete entry.craftRequestId;
-    delete entry.acquisitionMode;
-    queueSave();
-    renderWeapons();
-    renderDerived();
-    notice("Weapon row cleared.", "success");
-    return;
-  }
-  if (weapon.id === previousWeaponId) return;
-  const mode = await requestWeaponMode(weapon, entry);
-  if (!mode) { renderWeapons(); return; }
-  try {
-    if (await acquireWeapon(entry, weapon, mode, previousWeaponId)) {
-      renderWithoutViewportJump();
-      notice(`${weapon.name} ${mode === "purchase" ? "purchased" : mode === "angiluros-free" ? "chosen as a free ancestral weapon" : "received"}.`, "success");
-    } else renderWeapons();
-  } catch (error) {
-    renderWeapons();
-    notice(error.message, "error");
-  }
+  if(select.value===entry.weaponId)return;
+  if(select.value&&select.value!=='unarmed'){renderWeapons();return;}
+  if(entry.weaponId&&entry.weaponId!=='unarmed')character.storedWeapons.push({...entry,held:false});
+  entry.weaponId=select.value;entry.held=false;delete entry.acquisitionMode;delete entry.craftRequestId;
+  queueSave();await saveCampaignCharacter({force:true});renderAll();
+
 });
 
 dom.racePicker.addEventListener("change", () => applyRaceSelection(dom.racePicker.value));
@@ -7870,7 +7875,7 @@ dom.nextRequirement.addEventListener("click", (event) => {
   if (!task) return;
   showWorkflowTutorial(task.dataset.workflowKey, task.dataset.workflowTarget || "");
 });
-dom.phaseBadge.addEventListener("click", activateNextDraftTask);
+dom.phaseBadge.addEventListener("click", () => {if(dom.phaseBadge.getAttribute("aria-disabled")!=="true")activateNextDraftTask();});
 dom.phaseBadge.setAttribute("role", "button");
 dom.phaseBadge.setAttribute("tabindex", "0");
 dom.phaseBadge.addEventListener("keydown", (event) => {
@@ -8086,6 +8091,7 @@ dom.maxHpBonus.addEventListener("click", () => {
 
 dom.characterAtbColor.addEventListener("input", () => {
   character.presentation.atbColor = dom.characterAtbColor.value;
+  renderCharacterIconPicker();
   dom.identityPanel.style.setProperty("--identity-atb-color", character.presentation.atbColor);
   dom.identityCallsign.style.setProperty("--identity-atb-color", character.presentation.atbColor);
   dom.speedPreview.style.setProperty("--atb-preview-color", character.presentation.atbColor);
@@ -8611,7 +8617,7 @@ dom.settingsLoadCharacter?.addEventListener("change", async () => {
   if (!file) return;
   const accepted = await askConfirmation({
     title: "Replace the current character?",
-    message: "This character will leave the campaign. Export Character Data first if you need a portable backup.",
+    message: "This character will leave the campaign. Save Character first if you need a portable backup.",
     acceptLabel: "Load Replacement",
     cancelLabel: "Cancel",
     danger: true,
@@ -8634,7 +8640,7 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
   if(campaignState?.interfaceVersion === "0.3") return;
   const accepted = await askConfirmation({
     title: "Replace this character with a new one?",
-    message: "This character will leave the campaign. Export Character Data first if you need a portable backup.",
+    message: "This character will leave the campaign. Save Character first if you need a portable backup.",
     acceptLabel: "Make New Character",
     cancelLabel: "Cancel",
     danger: true,
@@ -8656,7 +8662,7 @@ dom.settingsLeaveCampaign?.addEventListener("click", async () => {
     title: pending ? "Cancel this campaign request?" : "Leave this campaign?",
     message: pending
       ? "The GM approval request will be cancelled and this character may request entry into a different campaign."
-      : "This character will be removed from the campaign roster and may join a different campaign. Export Character Data first if you need a portable backup.",
+      : "This character will be removed from the campaign roster and may join a different campaign. Save Character first if you need a portable backup.",
     acceptLabel: pending ? "Cancel Request" : "Leave Campaign",
     cancelLabel: pending ? "Keep Waiting" : "Stay",
     danger: true,
@@ -9627,7 +9633,7 @@ if (!PAGE_PARAMS.get('campaign')) {
 }
 initializeCharacterApp().then(() => {
 if (!CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !character.creation.introductionSeen) {
-  sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown");
+  try { sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown"); } catch { /* Optional per-tab hint must not interrupt creation. */ }
   showDraftIntroduction();
 }
 
@@ -9696,7 +9702,7 @@ if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');he
 // v0.3: the drawer mirrors existing sheet sections and forwards only roll controls.
 let sheetDrawer=null,sheetDrawerBody=null,sheetDrawerSection='attributes',sheetDrawerOpen=false,sheetDrawerKey='';
 function sheetDrawerRevision(section){
- const fields={identity:['identity','advantagesNotes','notes','crew','statuses'],attributes:['attributes','identity','experience','creation','resources'],skills:['skills','customSkills','attributes','identity','statuses','resources'],substats:['attributes','skills','customSkills','identity','health','resources','gmAdjustments','statuses'],resources:['resources','experience','creation','attributes','identity','health','session'],supplies:['items','storedItems','weapons','storedWeapons','attributes','skills','customSkills','identity','resources']};
+ const fields={identity:['identity','presentation','advantagesNotes','notes','crew','statuses'],attributes:['attributes','identity','experience','creation','resources'],skills:['skills','customSkills','attributes','identity','statuses','resources'],substats:['attributes','skills','customSkills','identity','health','resources','gmAdjustments','statuses'],resources:['resources','experience','creation','attributes','identity','health','session'],supplies:['items','storedItems','weapons','storedWeapons','attributes','skills','customSkills','identity','resources']};
  return JSON.stringify([section,character.id,character.phase,character.advancementOpen,Boolean(character.pendingRoll),campaignEditable,...(fields[section]||[]).map(field=>character[field]),section==='resources'?[campaignState?.shipCredits,campaignState?.dramaHand]:null]);
 }
 function copySheetReferenceState(control,original){

@@ -1,6 +1,10 @@
 const gear = (id, name, cost, description, extra = {}) => ({ id, name, cost, description, ...extra });
 
 export const GEAR = [
+  gear('ballistic-ammo', 'Ballistic Ammo Box (100 rounds)', 100, '100 rounds for the Ballistic Sidearm. Use Reload in combat to fill its ten-round magazine.'),
+  gear('shotgun-ammo', 'Shotgun Ammo Box (50 rounds)', 100, '50 rounds for the Rusty Sawed-Off. Reload after each shot.'),
+  gear('homing-spike-clip', 'Homing Spike Clip (5 rounds)', 30, 'Five rounds for the Homing Spike Pistol.'),
+  gear('launcher-net', 'Netlauncher Replacement Net', 20, 'One replacement net. Reload after each shot.'),
   gear("360-camera", "360 Degree Camera", 200, "Mountable camera that records in every direction at once."),
   gear("one-man-vehicle", "4 Wheeled 1-Man Vehicle", 1800, "Motorized one-person vehicle. Move Speed 5; each consecutive Move adds +5, to a maximum of 20.", { special: "vehicle", seats: 1, moveSpeed: 5, acceleration: 5, maximumMoveSpeed: 20 }),
   gear("ai-calculator", "A.I. Calculator", 25, "User-friendly calculator for complex formulas with typed, drawn, and verbal input."),

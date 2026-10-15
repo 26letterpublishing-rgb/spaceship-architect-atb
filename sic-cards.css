@@ -154,3 +154,18 @@
 .sic-card-dialog.sic-inspection:has(.sic-context-actions):has(.sic-inspector-tools:not(:empty)){width:min(var(--inspection-width,920px),calc(100vw - 24px))}
 .sic-card-dialog.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){justify-content:flex-start;flex-wrap:wrap}
 .sic-card-dialog.sic-inspection.is-zoomed .sic-context-actions{flex-basis:100%}
+
+/* One purchasing skin in both the builder and Shop. */
+.sic-market-item{position:relative;min-width:0}
+.sic-market-item>.sic-purchase-button{position:absolute;z-index:4;right:9px;top:13px;width:98px!important;min-height:42px;padding:0 10px;border:1px solid #9bffc0;border-radius:999px;color:#03140b;background:linear-gradient(#63f79c,#1d9e53 55%,#0d6533);font:900 12px Arial,sans-serif;cursor:pointer;text-shadow:none}
+.sic-display-card :is(h3,dt,dd,p,footer,small){word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important}
+.shared-card-inspector [data-sic-card-dialog-body]{display:flex;align-items:start;gap:14px}
+.shared-card-inspector .sic-display-card{flex:none;width:350px!important}
+.shared-card-inspector .sic-inspector-tools{position:sticky;top:0;flex:0 0 140px;display:flex;flex-direction:column;gap:8px}
+.shared-card-inspector .sic-inspector-tools button{min-height:34px;white-space:normal;word-break:normal;padding:7px 8px;font:700 14px Arial,sans-serif}
+.shared-card-inspector.sic-inspection{width:var(--inspection-width,540px);max-width:calc(100vw - 20px)}
+.shared-card-inspector.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){flex-wrap:nowrap;overflow:auto;max-width:100%;box-sizing:border-box}.shared-card-inspector .sic-inspector-tools{flex-basis:140px}.shared-card-inspector [data-close-sic-card]{position:sticky;top:0;z-index:5}
+
+.sic-display-card .sic-poker-heading h3{white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important}.sic-display-card .sic-poker-heading>div{max-height:100%;box-sizing:border-box}
+/* Original weapon PDF drawings use a dark panel to contrast their pale linework. */
+.sic-display-card.weapon-source-art .sic-poker-art{background:#09141d}

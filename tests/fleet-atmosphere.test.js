@@ -20,7 +20,7 @@ test('captured bay can force dock the attacker and renders its rank and glow',()
  assert.equal(command('bay-open','hacked-bay-open').ok,true);
  const result=command('force-dock','hacked-bay-force');assert.equal(result.ok,true,result.error);
  assert.equal(f.target.ship.fieldState.dockedIn.shipId,f.ship.id);assert.equal(f.ship.ship.fieldState.systems.bay.dockedShips[0].rank,1);
- assert.match(maps.surfaceMarkup(maps.buildLayout(f.ship.ship),89),/sic-art-starship-rank-1/);
+ assert.match(maps.surfaceMarkup(maps.buildLayout(f.ship.ship),89),/ship-token-1-v1/);
 });
 
 test('loss of cloak power cancels activation until paid for again',()=>{

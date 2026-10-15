@@ -24,6 +24,15 @@
     const value = `${Number(Math.max(0, Number(current) || 0).toFixed(1))}/${Number(Math.max(0, Number(maximum) || 0).toFixed(1))}`;
     return `<span class="sa-health-track" title="${label}${exact ? ` ${value}` : ""}" aria-label="${label}${exact ? ` ${value}` : " condition"}">${segments(current, maximum).map(fill => `<i class="sa-health-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}${exact ? `<small>${value}</small>` : ""}</span>`;
   }
+  function protectionItem(unit){
+    const allowed=i=>i.quantity>0&&['space-suit','kevlar-vest'].includes(i.catalogId)&&!(unit.raceId==='yuhorn-symitron'&&['ice','lava','rock','wood'].includes(unit.raceType)&&i.catalogId==='space-suit');
+    const items=(unit.items||[]).filter(allowed);if(unit.statuses?.armorItemId==='none')return null;
+    return items.find(i=>i.id===unit.statuses?.armorItemId)||items.find(i=>i.catalogId==='space-suit')||items[0]||null;
+  }
+  function personalProtection(unit,exact=false) {
+    const armor=protectionItem(unit),suit=armor?.catalogId==='space-suit'?armor:null,kevlar=armor?.catalogId==='kevlar-vest';
+    return (suit?'<span title="Space Suit; excess damage carries to HP">'+track('shield',unit.suitHp?.[suit.id]??suit.protectionHp??20,20,exact)+'</span>':'')+(kevlar?'<span title="Kevlar: reduces Physical damage by 20; does not deplete" aria-label="Kevlar, 20 Physical damage reduction"><i class="sa-health-icon shield full" aria-hidden="true"></i><small>DR 20</small></span>':'');
+  }
   function shieldLayers(record) {
     if (!record || record.contactOnly) return [];
     // Enemy contacts carry only six-step condition readings after Systems Analysis.
@@ -57,5 +66,5 @@
     if(!refs.length||!text.endsWith(suffix))return escape(text);
     return escape(text.slice(0,-suffix.length))+' Objects within sensor range: '+refs.map(o=>`<span tabindex="0" data-log-space-object="${escape(o.id)}" title="Highlight on starmap" style="color:#ffe28c;text-decoration:underline dotted;cursor:crosshair">${escape(o.label)}</span>`).join(', ')+'.';
   }
-  return Object.freeze({ presentation, hull, segments, track, shieldLayers, shieldTracks, shields, logText, logMarkup });
+  return Object.freeze({ protectionItem, personalProtection, presentation, hull, segments, track, shieldLayers, shieldTracks, shields, logText, logMarkup });
 }));

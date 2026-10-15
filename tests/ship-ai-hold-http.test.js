@@ -5,6 +5,10 @@ test('Ship AI Hold and Resume pass HTTP authorization while leaving its Bridge r
  const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);child.stdout.on('data',chunk=>{const url=String(chunk).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});});
  const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await r.json();assert.equal(r.status,status,JSON.stringify(data));return data;};
  const demo=await post('campaign/showcase/start',{}),act=(body,status)=>post('action',{roomCode:demo.code,gmToken:demo.gmToken,...body},status);
+ const backup=await fetch(base+'/api/campaign/backup?code='+demo.code+'&token='+demo.gmToken).then(r=>r.json());
+ const old=backup.campaign.starships.find(s=>s.controlType==='pc'),ship=require('../showcase-everything')(old.id,old.crewCharacterIds);
+ ship.characterLocations=old.characterLocations;backup.campaign.starships=backup.campaign.starships.map(s=>s.id===ship.id?ship:s);backup.campaign.encounter.starships=backup.campaign.encounter.starships.map(s=>s.id===ship.id?structuredClone(ship):s);
+ await post('campaign/restore',{code:demo.code,token:demo.gmToken,backup});
  let s=await act({action:'setHardPaused',paused:true}),ai=s.units.find(u=>u.shipAi);assert.ok(ai);
  s=await act({action:'setAutomation',id:ai.id,mode:'offense'});ai=s.units.find(u=>u.id===ai.id);const location=structuredClone(ai.location);assert.equal(location.stationed,true);
  await act({action:'nudge',id:ai.id,amount:100});

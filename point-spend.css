@@ -1,0 +1,6 @@
+.point-spend-readout{position:relative;display:inline-block;white-space:nowrap;font-variant-numeric:tabular-nums}
+.point-spend-delta{position:absolute;right:100%;top:0;margin-right:.35em;white-space:nowrap;font-weight:800;pointer-events:none;text-shadow:0 1px 3px #000}
+
+.point-spend-readout>.point-spend-current,.point-spend-readout>.point-spend-delta{font-size:inherit!important;font-family:inherit!important;line-height:inherit!important;letter-spacing:inherit!important;text-transform:none!important}
+
+.point-spend-readout>.point-spend-delta{position:static;display:inline-block;margin-right:.35em;vertical-align:baseline}

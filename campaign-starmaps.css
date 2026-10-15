@@ -59,9 +59,35 @@
 @media(max-width:760px){.campaign-columns-player{height:auto;min-height:0}}
 
 @media(min-width:761px){
-body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header{min-height:60px;padding:6px 12px;margin-top:8px;grid-template-columns:minmax(220px,310px) 1fr auto;gap:12px}
-body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .brand-link img{max-height:44px}
-body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .character-room-code{min-height:44px;padding:3px 8px}
-body:has(:is([data-character-tab="roster"],[data-character-tab="atb"]).active) .creator-header .creator-title h1{font-size:20px}
+body:has(.character-tabs) .creator-header{min-height:60px;padding:6px 12px;margin-top:8px;grid-template-columns:minmax(220px,310px) 1fr auto;gap:12px}
+body:has(.character-tabs) .creator-header .brand-link img{max-height:44px}
+body:has(.character-tabs) .creator-header .character-room-code{min-height:44px;padding:3px 8px}
+body:has(.character-tabs) .creator-header .creator-title h1{font-size:20px}
 .campaign-columns-player{height:calc(100dvh - 260px)}
 }
+
+/* Local navigation shares the responsive galaxy viewport. */
+[data-local-map]{height:100%;min-height:380px;min-width:0;position:relative}
+[data-local-map] .space-map{height:100%;display:flex;flex-direction:column}
+[data-local-map] [data-space-canvas]{flex:1;width:100%;min-height:0;height:100%;max-height:none}
+[data-local-map] .space-map-position-details{display:none}
+.planet-closeup{overflow:hidden;background:#020b15}
+.planet-closeup-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.planet-orbit-ship{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+[data-local-actions]{display:flex;flex-direction:column;gap:10px}
+[data-local-actions] button{white-space:normal;min-height:38px}
+[data-local-countdown]{pointer-events:none}
+
+.galaxy-chart:has(>[data-local-map]){display:flex;flex-direction:column}.galaxy-chart>[data-local-map]{flex:1;min-height:0;height:auto}.galaxy-chart>[data-local-map]>.space-map{height:100%;min-height:0}.planet-closeup-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.galaxy-fuel-range{border-top:1px solid #687078;padding-top:1rem}
+.galaxy-fuel-range progress{display:block;width:100%;height:24px;margin-top:.6rem;accent-color:#56dab9}
+.galaxy-partial-warning{display:block;padding:1rem;background:#422810;border:1px solid #e9a243;color:#ffe0a1}
+
+.campaign-galaxy,.galaxy-map-panel{background:#101112!important;border-color:#494c50!important}
+.campaign-galaxy section,.campaign-galaxy select,.campaign-galaxy .space-map-toolbar,.campaign-galaxy .galaxy-travel,.campaign-galaxy .galaxy-star-info{background:#1a1c1f!important;border-color:#51555a!important}
+.campaign-galaxy button{background:#303338;border-color:#696f77}
+
+.campaign-galaxy .galaxy-camera-tools,.campaign-galaxy .galaxy-mode-help,.campaign-galaxy .galaxy-star-directory,.campaign-galaxy .galaxy-legend{background:#202225!important;border-color:#505358!important}
+.campaign-columns,.campaign-columns-player{height:clamp(360px,calc(100dvh - 340px),640px)!important;min-height:0!important}
+.campaign-columns .campaign-galaxy,.campaign-columns-player .campaign-galaxy{min-height:0!important}
+@media(max-width:760px){.campaign-columns,.campaign-columns-player{height:auto!important}}

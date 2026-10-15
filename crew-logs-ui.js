@@ -36,7 +36,7 @@
   status=document.createElement('p');status.setAttribute('role','status');
   const save=saveEntry;
   const file=document.createElement('input');file.type='file';file.accept='.json';file.hidden=true;file.onchange=async()=>{try{const data=JSON.parse(await file.files[0].text());if(data.format!=='Spaceship Architect Crew Log'||!Number.isInteger(data.session)||data.session<0||data.session>state.sessionNumber||typeof data.text!=='string')throw Error('Choose a Crew Log file for an existing session.');const existing=state.crewLogs?.find(l=>l.characterId===own()&&l.session===data.session);if(existing&&existing.text!==data.text&&!confirm('Replace the current entry with the imported entry?\n\nCURRENT: '+existing.text.slice(0,300)+'\n\nIMPORTED: '+data.text.slice(0,300)+'\n\nOK keeps imported; Cancel keeps current.'))return;select.value=data.session;load();name.value=data.name||'Crew Log';text.value=data.text;dirty=true;stash();await save('save');}catch(e){status.textContent=e.message;}finally{file.value='';}};
-  panel.append(name,select,text,button('Save Entry',()=>save('save')),button('Send to GM',()=>save('submit')),button('Export Journal Entry',download),button('Load Entries',()=>file.click()),file,status);host.append(toggle,panel);document.body.append(host);
+  panel.append(name,select,text,button('Save Entry',()=>save('save')),button('Send to GM',()=>save('submit')),button('Save Journal Entry',download),button('Load Journal Entries',()=>file.click()),file,status);host.append(toggle,panel);document.body.append(host);
   new MutationObserver(()=>{host.hidden=!own()||!!document.querySelector('#characterCampaignGate')?.hidden;}).observe(document.querySelector('#characterCampaignGate'),{attributes:true,attributeFilter:['hidden']});
  }
  function gm(){

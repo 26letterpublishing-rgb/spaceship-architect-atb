@@ -1,0 +1,93 @@
+[
+  {
+    "id": "bore-launcher",
+    "page": 30,
+    "asset": "weapon-bore-launcher-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "mine-launcher",
+    "page": 33,
+    "asset": "weapon-mine-launcher-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "proximity-mine",
+    "page": 34,
+    "asset": "weapon-proximity-mine-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "sticky-grenade",
+    "page": 35,
+    "asset": "weapon-sticky-grenade-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "mk-u-id-assassin",
+    "page": 41,
+    "asset": "weapon-mk-u-id-assassin-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "amplify-gauntlets",
+    "page": 42,
+    "asset": "weapon-amplify-gauntlets-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "electricity-blade",
+    "page": 43,
+    "asset": "weapon-electricity-blade-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "murasama-blade",
+    "page": 45,
+    "asset": "weapon-murasama-blade-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "flash-bomb",
+    "page": 48,
+    "asset": "weapon-flash-bomb-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "skull-bore",
+    "page": 31,
+    "asset": "weapon-skull-bore-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "hull-bore",
+    "page": 32,
+    "asset": "weapon-hull-bore-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "rubber-bouncy-bombs",
+    "page": 36,
+    "asset": "weapon-rubber-bouncy-bombs-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  },
+  {
+    "id": "mini-nuke",
+    "page": 37,
+    "asset": "weapon-mini-nuke-v1.webp",
+    "source": "Weapon_Cards_(Spaceship_Architect).pdf",
+    "method": "Embedded weapon illustration extracted without altering the original PDF"
+  }
+]

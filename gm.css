@@ -274,3 +274,34 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 
 .gm-drama-card{width:min(470px,88vw);max-height:78vh;aspect-ratio:5/7}.gm-drama-card>div{align-content:center;gap:20px;padding:20px;min-height:0;overflow:auto}.gm-drama-card h2,.gm-drama-card h3{font-size:clamp(24px,2.5vw,36px);line-height:1.1}.gm-drama-card p{font-size:clamp(17px,1.5vw,23px);line-height:1.4}.gm-drama-card>footer{font-size:13px}.gm-drama-card-mini-face>div{align-content:center;gap:16px;padding:22px 26px}.gm-drama-card-mini-face h4{font-size:2.8rem}.gm-drama-card-mini-face p{font-size:1.9rem;line-height:1.25}
 #promptTab .roll-tool-card{grid-column:span 2}#promptTab .roll-tool-card .roll-grid{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:650px){#promptTab .roll-tool-card{grid-column:auto}#promptTab .roll-tool-card .roll-grid{grid-template-columns:1fr}}
+
+#promptTab .gm-drama-discard-panel{grid-column:auto;min-width:0;margin:0}#promptTab .gm-drama-discard-panel .section-title{flex-wrap:wrap}#promptTab .gm-drama-discard-list{max-height:350px;overflow:auto}
+.encounter-mode-selector button{--mode:#b67b27;min-height:100px;padding:18px 32px!important;border:2px solid var(--mode)!important;border-radius:0!important;background:linear-gradient(120deg,#48301b,#161a21)!important;clip-path:polygon(20px 0,calc(100% - 20px) 0,100% 20px,100% calc(100% - 20px),calc(100% - 20px) 100%,20px 100%,0 calc(100% - 20px),0 20px)}
+.encounter-mode-selector button[data-encounter-mode=starship]{--mode:#ac78ed;background:linear-gradient(120deg,#302250,#13263b)!important;clip-path:polygon(0 0,calc(100% - 28px) 0,100% 50%,calc(100% - 28px) 100%,0 100%,16px 50%)}
+.encounter-mode-selector strong{font-size:clamp(24px,2vw,36px)!important}.encounter-mode-selector span{font-size:16px!important;color:#e1dbd1}.encounter-mode-selector button.active{box-shadow:inset 0 0 0 4px var(--mode),inset 0 0 45px color-mix(in srgb,var(--mode) 40%,transparent)!important}.encounter-mode-selector button.active strong::before{content:'✓ ';color:#fff}
+
+/* A complete clipped silhouette provides the border, including diagonal edges. */
+@property --combat-outline-angle { syntax:"<angle>"; initial-value:0deg; inherits:false; }
+.encounter-mode-selector button{position:relative;isolation:isolate;text-align:center!important;justify-items:center;border:0!important;background:var(--mode)!important}
+.encounter-mode-selector button::before{content:"";position:absolute;inset:0;z-index:-2;background:var(--mode)}
+.encounter-mode-selector button::after{content:"";position:absolute;inset:3px;z-index:-1;clip-path:inherit;background:linear-gradient(120deg,#48301b,#161a21)}
+.encounter-mode-selector button[data-encounter-mode=starship]::after{background:linear-gradient(120deg,#302250,#13263b)}
+.encounter-mode-selector button.active{box-shadow:none!important}
+.encounter-mode-selector button.active::before{background:conic-gradient(from var(--combat-outline-angle),var(--mode) 0 72%,#fff 80%,#ffe4ae 84%,var(--mode) 92%);animation:combatOutlineOrbit 3s linear infinite}
+.encounter-mode-selector button.active strong::before{content:none}
+@keyframes combatOutlineOrbit{to{--combat-outline-angle:360deg}}
+@media(prefers-reduced-motion:reduce){.encounter-mode-selector button.active::before{animation:none;background:#fff0bf}}
+.tool-grid{align-items:start;grid-auto-flow:row dense}
+.tool-grid #privateNoteForm{order:-5;grid-column:span 2;background:#33200f;border-color:#ac7131}
+.tool-grid #privateNoteForm textarea{min-height:170px}
+.tool-grid #rollPromptForm{order:-4;background:#102b32;border-color:#419eac}
+.tool-grid #awardForm{background:#152d22;border-color:#479d6a}
+.tool-grid #giveMineralsForm{background:#301d30;border-color:#a562ab}
+.tool-grid .recharge-tool-card{background:#122b38;border-color:#4689a6}
+.tool-grid .time-tool-card{background:#302917;border-color:#b19650}
+.tool-grid .tool-card:has([placeholder="Library data"]){background:#27203a;border-color:#9374bc}
+.tool-grid #gmDramaDiscardPanel{order:5}
+.target-option{border-color:var(--character-color,#355166)!important;background:color-mix(in srgb,var(--character-color,#355166) 18%,#08121b)!important;box-shadow:inset 4px 0 var(--character-color,#355166)}
+@media(max-width:700px){.tool-grid #privateNoteForm{grid-column:1/-1}}
+
+.pc-color-box,.encounter-character-option[style*="--character-color"]{background:color-mix(in srgb,var(--character-color) 18%,#08121b);border-color:var(--character-color);box-shadow:inset 4px 0 var(--character-color)}

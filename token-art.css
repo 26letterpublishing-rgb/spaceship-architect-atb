@@ -1,0 +1,21 @@
+/* Four source frames per race; the second stride is mirrored by its SVG transform. */
+.crew-sprite {position:relative;display:block;width:100%;height:100%;aspect-ratio:1;filter:drop-shadow(1px 0 0 var(--token-color,#39e58f)) drop-shadow(-1px 0 0 var(--token-color,#39e58f)) drop-shadow(0 1px 0 var(--token-color,#39e58f)) drop-shadow(0 -1px 0 var(--token-color,#39e58f))!important}
+.crew-sprite-frame {opacity:1}
+.crew-sprite-step {opacity:0}
+.crew-walking .crew-sprite-standing {animation:spriteStand .84s steps(1,end) infinite}
+.crew-walking .crew-sprite-step:not(.crew-sprite-mirror) {animation:spriteLeft .84s steps(1,end) infinite}
+.crew-walking .crew-sprite-mirror {animation:spriteRight .84s steps(1,end) infinite}
+@keyframes spriteStand {0%,50%{opacity:1}25%,75%{opacity:0}}
+@keyframes spriteLeft {0%,50%,100%{opacity:0}25%{opacity:1}}
+@keyframes spriteRight {0%,100%{opacity:0}75%{opacity:1}}
+.crew-token.crew-is-fallen .crew-sprite {transform:rotate(90deg)!important;opacity:.65}
+.token-picker {min-width:0;border:1px solid #537282;border-radius:8px;padding:8px;margin:0;--token-color:#39e58f}
+.token-picker legend {font-weight:800;font-size:.85rem;padding:0 5px}
+.token-options {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.token-options button {display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:5px;gap:3px;white-space:normal;border:2px solid #405866;border-radius:7px;background:#0a1823;color:#dcf3ff;text-shadow:none;cursor:pointer}
+.token-options button[aria-pressed=true] {border-color:var(--token-color);background:#163442;box-shadow:inset 0 0 0 1px var(--token-color)}
+.token-options .crew-figure {width:58px;height:58px;min-height:0;transform:none}
+.token-options img {width:100%;height:56px;object-fit:contain;filter:drop-shadow(1px 0 var(--token-color)) drop-shadow(-1px 0 var(--token-color)) drop-shadow(0 1px var(--token-color)) drop-shadow(0 -1px var(--token-color))}
+.ship-icon-options {grid-template-columns:repeat(4,minmax(0,1fr))}
+.token-picker p {margin:4px;font-size:.85rem}
+@media(prefers-reduced-motion:reduce){.crew-walking .crew-sprite-frame{animation:none!important}.crew-walking .crew-sprite-standing{opacity:1}.crew-walking .crew-sprite-step{opacity:0}}

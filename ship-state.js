@@ -1,6 +1,6 @@
 // One persistence contract for campaign ships, encounter ships and preparation.
 const clone=value=>value===undefined?undefined:structuredClone(value);
-const fields=['descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','relaySignals','breachDroneState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','oxygenState','oxygenEnabled','gravityEnabled','cloakState','gravityFieldState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorStates','doorDamage','transporterState','intruderState'];
+const fields=['boredWalls','descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','relaySignals','breachDroneState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','oxygenState','oxygenEnabled','gravityEnabled','cloakState','gravityFieldState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorStates','doorDamage','transporterState','intruderState'];
 const runtime=['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','weaponState','lockState','destroyedAt','escapedAt','victoryAt','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'];
 const condition=['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable','printed','printedFor','salvaged','salvageSource'];
 function apply(target,source,{restoreRuntime=true}={}){
@@ -17,7 +17,7 @@ function persist(record,live){
  return record;
 }
 function locations(ships,units){
- for(const unit of units||[]){if(!unit.characterId)continue;for(const ship of ships)if(ship.characterLocations)delete ship.characterLocations[unit.characterId];
+ for(const unit of units||[]){if(!unit.characterId||unit.location?.arenaId)continue;for(const ship of ships)if(ship.characterLocations)delete ship.characterLocations[unit.characterId];
   const ship=ships.find(s=>s.id===unit.location?.starshipId)||ships.find(s=>s.id===unit.vacuum?.sourceShipId)||ships.find(s=>s.crewCharacterIds?.includes(unit.characterId));
   if(ship){ship.characterLocations||={};ship.characterLocations[unit.characterId]=clone(unit.location||{environment:'exterior',starshipId:'',square:null,mesh:4,stationed:false});}
  }

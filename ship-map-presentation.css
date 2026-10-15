@@ -83,7 +83,7 @@
 .sa-map-wall.vertical.end {top:70%}
 
 /* Explicit dimensions prevent inherited full-cell buttons stretching doors. */
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door {
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door {
   position:absolute;
   inset:auto;
   z-index:15;
@@ -106,14 +106,14 @@
   touch-action:manipulation;
   cursor:pointer;
 }
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.horizontal {left:30%;width:40%;height:7%}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.vertical {top:30%;width:7%;height:40%}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.top {top:-3.5%}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.bottom {bottom:-3.5%}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.left {left:-3.5%}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door.right {right:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.horizontal {left:30%;width:40%;height:7%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.vertical {top:30%;width:7%;height:40%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.top {top:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.bottom {bottom:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.left {left:-3.5%}
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door.right {right:-3.5%}
 .sa-map-door::before,.sa-map-door::after {content:none!important}
-:is(.ship-grid-cell,.player-ship-cell,.combat-map-square) > .sa-map-door:is(:hover,:active,:focus) {
+:is(.ship-grid-cell,.player-ship-cell,.combat-map-square,.arena-boundary) > .sa-map-door:is(:hover,:active,:focus) {
   background:transparent;
   border:0;
   border-radius:0;
@@ -216,3 +216,7 @@
 /* Keep complete words within even a narrow room while zooming any interior. */
 :is(.player-ship-label,.combat-map-label){font-size:min(12px,calc((var(--cell-size,var(--ship-cell,54px)) * var(--sic-width,1) - 6px) / var(--sic-longest,10) * 1.5),calc((var(--cell-size,var(--ship-cell,54px)) * var(--sic-height,1) - 6px) / var(--sic-words,1) / 1.15))!important}
 @media(max-width:680px){.expanded-interior-dialog>header{flex-wrap:wrap;padding:8px;gap:6px}.expanded-interior-dialog>header>div{flex-wrap:wrap;gap:5px}.expanded-interior-dialog>header button{padding:6px 9px}}
+
+/* Soft, curved ignition lip follows the nozzle opening in every facing. */
+.sa-thruster-flame{clip-path:polygon(0 8%,8% 3%,25% 0,50% 0,75% 0,92% 3%,100% 8%,84% 45%,60% 100%,45% 77%,24% 97%,12% 42%);border-radius:50% 50% 0 0 / 14% 14% 0 0;mask-image:linear-gradient(to bottom,transparent 0%,#000 12%,#000 76%,transparent 100%);margin-top:-2%;}
+.map-in-warp{position:relative;isolation:isolate;background-image:none!important;overflow:hidden}.warp-map-background{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#02060b}.warp-map-background::before{content:'';position:absolute;inset:-650px;background:url('star-background.jpg') repeat;opacity:.7;animation:warp-map-drift 35s linear infinite}.warp-map-background i{position:absolute;left:var(--star-x);top:var(--star-y);width:2px;height:44px;transform:rotate(var(--warp-angle));background:linear-gradient(transparent,#d5f6ff);animation:warp-map-star var(--speed) var(--delay) linear infinite}@keyframes warp-map-drift{to{transform:translate(var(--warp-x),var(--warp-y))}}@keyframes warp-map-star{from{translate:0 0;opacity:0}20%{opacity:.7}to{translate:var(--warp-x) var(--warp-y);opacity:0}}@media(prefers-reduced-motion:reduce){.warp-map-background::before,.warp-map-background i{animation:none}}

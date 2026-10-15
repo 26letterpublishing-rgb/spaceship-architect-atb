@@ -1,9 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
+<script src="browser-storage.js"></script>
     <script src="audio-mix.js"></script>
     <script src="explore-session.js"></script>
-    <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
+    <script src="token-art.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
   <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
@@ -355,6 +356,7 @@
         <button type="button" data-combat-action="wrestle">Grappling</button>
         <button type="button" data-combat-action="fire">Fire Gun</button>
         <button type="button" data-combat-action="calledShot">Called Shot</button>
+        <button type="button" data-combat-action="throwItem">Throw</button>
         <span class="combat-action-group-label tactical">Movement / Tactical</span>
         <button type="button" data-combat-action="wait3">Wait 3</button>
         <button type="button" data-combat-action="defense">Defense</button>
@@ -623,7 +625,8 @@
     </div>
 
 
-  <script src="combat-rules.js?v=console-feedback-2"></script>
+  <script src="personal-ammunition.js"></script>
+<script src="combat-rules.js?v=console-feedback-2"></script>
     <script src="ship-distances.js?v=console-feedback-2"></script>
     <script src="space-objects.js"></script>
     <script src="space-map.js?v=console-feedback-2"></script>
@@ -632,6 +635,7 @@
     <script src="health-display.js?v=console-feedback-2"></script>
     <script src="app.js?v=console-feedback-2"></script>
   <script src="ship-map-core.js?v=console-feedback-2"></script>
+  <script src="combat-arena.js"></script><script src="arena-files.js"></script><link rel="stylesheet" href="combat-arena.css">
     <script src="ship-floorplan-snapshot.js"></script>
   <script src="ship-power.js?v=console-feedback-2"></script>
   <script src="delay-rules.js?v=console-feedback-2"></script>
@@ -683,6 +687,9 @@
   <script src="breach-drone-view.js"></script>
   <script src="ship-combat-map.js?v=console-feedback-2"></script>
   <script src="vacuum-ui.js"></script>
+  <script src="combat-arena-ui.js"></script>
+  <script src="crew-carry.js"></script><script src="combat-panel-ui.js"></script>
+  <link rel="stylesheet" href="combat-panel.css">
   <script src="combat-actions.js?v=console-feedback-2"></script>
   <script type="module" src="npc-combat-dice.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>

@@ -21,7 +21,7 @@
     select.onchange=async event=>{
       const view=select.closest('dialog');if(view.dataset.switching)return;view.dataset.switching='true';
       const direction=event?.slideDirection||(select.selectedIndex<choices.findIndex(a=>a.item.id===currentId)?-1:1);slidePending=direction;
-      try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished;}catch{slidePending=0;}
+      try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await Promise.race([view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished,new Promise(resolve=>setTimeout(resolve,650))]);}catch{slidePending=0;}
       if(!view.isConnected||!view.open){slidePending=0;return;}
       selectedConsoles.set(seatKey(unit),select.value);
       try{sessionStorage.setItem('sa-console:'+seatKey(unit),select.value);}catch{}
@@ -93,6 +93,7 @@
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';form.querySelector('[data-leave]').after(hold);
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
+    const boostPanel=form.querySelector('.pilot-power fieldset'),vectorPanel=form.querySelector('.pilot-vector-array'),boostMarker=host.createTextNode('');boostPanel.before(boostMarker);vectorPanel.replaceWith(boostPanel);boostMarker.replaceWith(vectorPanel);
     const orbitDot=form.querySelector('.vector-orbit circle');
     // Animate in the ellipse's own coordinates, rather than rotating around its center.
     orbitDot.classList.add('vector-dot');orbitDot.setAttribute('cx','0');orbitDot.setAttribute('cy','0');form.querySelector('.vector-orbit').after(orbitDot);

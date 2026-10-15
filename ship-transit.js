@@ -36,7 +36,7 @@ function fuelInventory(ship) {
 // Source: A-60..66/B-41..46. An impaired cell supplies half its usual range;
 // cells are still debited individually, only when their segment actually starts.
 // Plan entries are run-length encoded to keep large inventories bounded.
-function plan(ship, distanceLY, { sicId, fuelCounts } = {}) {
+function plan(ship, distanceLY, { sicId, fuelCounts, allowPartial = false } = {}) {
   if (!ship || !finite(distanceLY) || distanceLY <= 0) return fail('Enter a positive distance in light-years.');
   if(maps.installedItems(ship).filter(i=>maps.definition(i.type).warp).length>1)return fail('Only one Warp Drive may be installed. Move the extra drive to Storage in the build menu.');
   const item = drive(ship, sicId);
@@ -53,20 +53,25 @@ function plan(ship, distanceLY, { sicId, fuelCounts } = {}) {
     for(const [g,n]of Object.entries(fuelCounts))if(!Object.hasOwn(FUEL_PARSECS,g)||!Number.isSafeInteger(n)||n<0||n>inventory[g]||n>0&&!grades.includes(g))return fail('Choose available, compatible fuel cells in whole quantities.');
     // Consume selected smaller cells first. Unused cells stay in storage.
     for(const g of grades){const count=fuelCounts[g]||0;if(count){entries.push({grade:g,count,rangeLY:ranges[g]});counts[g]=count;remaining-=count*ranges[g];}}
-    if(remaining>EPS)return fail('The selected fuel does not cover this journey.');
+    if(remaining>EPS&&!allowPartial)return fail('The selected fuel does not cover this journey.');
   }
   while (fuelCounts===undefined && remaining > Math.min(EPS, distanceLY * 1e-12)) {
     const available = grades.filter(g => inventory[g] > 0);
     const grade = available.filter(g => ranges[g] <= remaining + EPS).at(-1) || available[0];
-    if (!grade) return { ...fail('Insufficient compatible fuel for this journey.'), targetLY:distanceLY, missingLY:remaining };
+    if (!grade) {
+      if (allowPartial) break;
+      return { ...fail('Insufficient compatible fuel for this journey.'), targetLY:distanceLY, missingLY:remaining };
+    }
     const count = Math.min(inventory[grade], Math.max(1, Math.floor((remaining + EPS) / ranges[grade])));
     entries.push({ grade, count, rangeLY:ranges[grade] });
     inventory[grade] -= count; counts[grade] += count; remaining -= count * ranges[grade];
   }
-  const travelSeconds = distanceLY / PARSEC_LY * def.warpSecondsPerParsec;
+  const coveredLY = Math.min(distanceLY, Math.max(0, distanceLY - remaining));
+  const travelSeconds = coveredLY / PARSEC_LY * def.warpSecondsPerParsec;
   if (!Number.isFinite(travelSeconds)) return fail('The journey duration is too large.');
   return { ok:true, sicId:item.id, tier:def.tier, impaired:impaired(item), fuelMultiplier:multiplier,
     secondsPerParsec:def.warpSecondsPerParsec, targetLY:distanceLY, travelSeconds,
+    coveredLY, missingLY:Math.max(0, remaining), partial:remaining > EPS,
     plan:entries, counts, fuelCells:Object.values(counts).reduce((a,b) => a+b,0) };
 }
 function hardware(room, ship, sicId) {

@@ -162,9 +162,9 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   for(const ship of demoState.starships){
     const maps=require('../ship-map-core'),nav=require('../ship-navigation');
     assert.equal(maps.exteriorError(ship.ship),'');
-    assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,4);
-    assert.ok(ship.ship.sicInventory.some(item=>maps.definition(item.type).lockOn));
-    assert.ok(ship.ship.sicInventory.some(item=>item.type===`rapid-laser-${ship.controlType==='pc'?5:4}`));
+    assert.equal(ship.ship.sicInventory.filter(item=>maps.definition(item.type).thruster).length,ship.controlType==='pc'?2:3);
+    if(ship.controlType==='pc')assert.ok(ship.ship.sicInventory.some(item=>maps.definition(item.type).lockOn));
+    assert.ok(ship.ship.sicInventory.some(item=>item.type===(ship.controlType==='pc'?'beam-laser-6':'ripple-cannon-2')));
     const cockpit=ship.ship.sicInventory.find(item=>maps.definition(item.type).shipControl);
     const cell=ship.ship.placements.find(p=>p.sicId===cockpit.id).cell;
     const pilot={location:{starshipId:ship.id,square:cell,mesh:0,sicId:cockpit.id,stationed:true}};

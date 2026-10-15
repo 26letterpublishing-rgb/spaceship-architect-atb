@@ -29,8 +29,9 @@ test('new market artwork and hover previews resolve to served WebPs without need
 test('the actual builder registers Hull and Static cards and retains them when confirming or reopening a saved ship',()=>{
  const vm=require('node:vm'),source=fs.readFileSync(path.join(root,'starship.js'),'utf8'),cards=[];
  const context={window:{SAShipMap:maps,SAMissileAmmo:require('../missile-ammunition'),SADelayRules:require('../delay-rules')},SIC_CATALOG:{},document:{createElement:()=>({}),querySelector:()=>({append:card=>cards.push(card)})},clone:value=>JSON.parse(JSON.stringify(value))};
- const loop=source.indexOf('for(const [type,rules,impairment] of [');
- vm.runInNewContext(source.slice(loop,source.indexOf("for(const tier of [1,2,3,4,5,'mine']){",loop)),context);
+ const cardsSource=fs.readFileSync(path.join(root,'sic-card-factory.js'),'utf8');
+ const loop=cardsSource.indexOf('for(const [type,rules,impairment] of [');
+ vm.runInNewContext(cardsSource.slice(loop,cardsSource.indexOf("for(const tier of [1,2,3,4,5,'mine']){",loop)),context);
  const start=source.indexOf('function constructionState(');vm.runInNewContext(source.slice(start,source.indexOf('function defaultDraft(',start)),context);
  const ship={gridCells:[21,22,23,24],sicInventory:[],placements:[]};
  for(const type of ['hull-plating','heat-resistance','laser-resistance','static-shield']){

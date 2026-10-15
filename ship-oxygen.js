@@ -12,7 +12,7 @@ function people(campaign,room=null){
   for(const record of campaign?.characters||[]){
     const character=record.character,unit=room?.units.find(u=>u.characterId===record.id);
     const assigned=(campaign.starships||[]).find(s=>s.crewCharacterIds?.includes(record.id)&&s.characterLocations?.[record.id]);
-    if(unit?.vacuum||unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
+    if(unit?.location?.arenaId||unit?.location?.environment==='surface'||assigned?.characterLocations?.[record.id]?.environment==='surface'||unit?.vacuum||unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
     const shipId=unit?.location?.starshipId||assigned?.id;
     if(!shipId)continue;
     const dice=(character.attributes?.health||[]).filter(n=>n>=0).map(n=>[4,6,8,10,12][n]).filter(Boolean);
@@ -26,7 +26,7 @@ function people(campaign,room=null){
   }
   for(const unit of room?.units||campaign?.npcRoster||[]){
     if(unit.characterId)continue;
-    if(unit.vacuum||unit.location?.escapePodId)continue;
+    if(unit.location?.arenaId||unit.location?.environment==='surface'||unit.vacuum||unit.location?.escapePodId)continue;
     const shipId=unit.location?.starshipId||(campaign.starships||[]).find(s=>s.crewNpcUnitIds?.includes(unit.id))?.id;
     if(!shipId)continue;
     result.push({id:unit.id,unitId:unit.id,characterId:null,shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:require('./breathing').independent(unit),
@@ -59,9 +59,9 @@ function sync(ships,actors){
     for(const id of Object.keys(data.crew))if(!ids.has(id))delete data.crew[id];
     for(const person of aboard){
       const oxygen=air.at(ship,person.location),replenishing=Number.isInteger(person.location?.square)?recovering.has(person.location.square):Object.keys(ship.ship.atmosphereState.cells).every(k=>recovering.has(Number(k)));
-      if(oxygen>10+1e-7){delete data.crew[person.id];if(oxygen>=100-1e-7&&replenishing)continue;data.crew[person.id]={id:person.id,characterId:person.characterId,name:person.name,oxygen,remaining:0,difficulty:6,phase:'air',request:null};continue;}
+      if(oxygen>10+1e-7){delete data.crew[person.id];if(oxygen>=100-1e-7&&replenishing)continue;data.crew[person.id]={id:person.id,characterId:person.characterId,name:person.name,oxygen,remaining:0,difficulty:6,phase:'air',replenishing,request:null};continue;}
       const crew=data.crew[person.id]||={id:person.id,characterId:person.characterId,name:person.name,remaining:0,difficulty:6,phase:'breath',request:null};
-      crew.oxygen=oxygen;if(replenishing){crew.request=null;crew.phase='air';continue;}if(crew.phase==='air'||crew.phase==='unconscious'&&person.hp>0){crew.phase='breath';crew.remaining=0;}
+      crew.oxygen=oxygen;crew.replenishing=replenishing;if(replenishing){crew.request=null;crew.phase='air';continue;}if(crew.phase==='air'||crew.phase==='unconscious'&&person.hp>0){crew.phase='breath';crew.remaining=0;}
       // Migrate old breath reserves: the room threshold is now the first roll boundary.
       if(crew.phase==='breath')crew.remaining=0;
       if(person.hp<=0){crew.phase='unconscious';crew.request=null;}

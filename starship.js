@@ -16,203 +16,7 @@ if (backLink && pageParameters.get("campaign") && pageParameters.get("ship")) {
   backLink.href = "#";
   backLink.addEventListener("click", (event) => { event.preventDefault(); history.back(); });
 }
-const SIC_CATALOG = {
-  "en-engine-1": { name: "Power Engine 1", shortLabel: "EN 1", category: "engine", width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, ...window.SAShipMap.definition("en-engine-1"), floorplan: window.SAShipMap.definition("en-engine-1").image },
-  "en-engine-2": { name: "Power Engine 2", shortLabel: "EN 2", category: "engine", width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, ...window.SAShipMap.definition("en-engine-2"), floorplan: window.SAShipMap.definition("en-engine-2").image },
-  "en-engine-3": { name: "Power Engine 3", shortLabel: "EN 3", category: "engine", width: 3, height: 3, enOutput: 29, energyCost: 0, clearance: 3, ...window.SAShipMap.definition("en-engine-3"), floorplan: window.SAShipMap.definition("en-engine-3").image },
-  "en-engine-4": { name: "Power Engine 4", shortLabel: "EN 4", category: "engine", width: 4, height: 4, enOutput: 50, energyCost: 0, clearance: 4, ...window.SAShipMap.definition("en-engine-4"), floorplan: window.SAShipMap.definition("en-engine-4").image },
-  "en-engine-5": { name: "Power Engine 5", shortLabel: "EN 5", category: "engine", width: 5, height: 5, enOutput: 77, energyCost: 0, clearance: 5, ...window.SAShipMap.definition("en-engine-5"), floorplan: window.SAShipMap.definition("en-engine-5").image },
-  "en-engine-6": { name: "Power Engine 6", shortLabel: "EN 6", category: "engine", width: 6, height: 6, enOutput: 110, energyCost: 0, clearance: 6, ...window.SAShipMap.definition("en-engine-6"), floorplan: window.SAShipMap.definition("en-engine-6").image },
-  "life-support": { name: "Life Support", shortLabel: "LIFE", category: "utility", price: 1500, width: 2, height: 2, enOutput: 0, energyCost: 2, clearance: 0, ...window.SAShipMap.definition("life-support"), floorplan: window.SAShipMap.definition("life-support").image },
-  "nutritional-supplement": { name: "Nut. Supplement", shortLabel: "NUT.", category: "utility", price: 850, width: 1, height: 1, enOutput: 0, energyCost: 3, clearance: 0, ...window.SAShipMap.definition("nutritional-supplement"), floorplan: window.SAShipMap.definition("nutritional-supplement").image },
-};
-
-for (const family of ["au", "en-au", "au-en"]) for (let tier = 1; tier <= 6; tier += 1) {
-  const type = `${family}-engine-${tier}`;
-  const data = window.SAShipMap.definition(type);
-  SIC_CATALOG[type] = { ...data, shortLabel: data.label, category: "engine", enOutput: data.output, energyCost: 0, clearance: tier, floorplan: data.image };
-  const card = document.createElement("section");
-  card.className = "sic-market-item";
-  card.innerHTML = `<article class="sic-poker-card au-engine-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details">
-    <header class="sic-poker-heading"><span>Engine <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header>
-    <img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name} reactor" loading="lazy" />
-    <dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>0</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${tier}&times;${tier}</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl>
-    <section class="sic-poker-rules"><p>${family === "au" ? "Core system that exclusively outputs AU." : `Hybrid engine focused on ${data.stationBonus === "en" ? "EN power" : "AU output"}.`}</p><p>Minimum distance away from another Engine is ${tier} square${tier > 1 ? "s" : ""}.</p><strong>Outputs ${data.output ? `${data.output} EN + ` : ""}${data.auOutput} AU</strong><p>Stations ${data.stations.length}<br />Passive Station Bonus: Each Character grants additional ${data.stationBonus.toUpperCase()} for each level of Engineering they have.</p></section>
-    <footer><span><small>If Impaired</small>No longer provides AU. Becomes unstable.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer>
-    </article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('[data-sic-card="life-support"]')?.closest(".sic-market-item")?.before(card);
-}
-
-for (const family of ["exhaust", "ionic-pulse"]) for (let tier = 1; tier <= 5; tier++) {
-  const type = `${family}-thruster-${tier}`, data = window.SAShipMap.definition(type);
-  SIC_CATALOG[type] = { ...data, category: "thruster", shortLabel: data.label, enOutput: 0, floorplan: data.image };
-  const card = document.createElement("section"); card.className = "sic-market-item";
-  const rules = `<p>Exterior propulsion. Maximum four installed thrusters.</p><strong>Impulse: ${tier} + HSM/2</strong><p>Round HSM/2 toward zero.<br>${data.ionic ? "No Exhaust penalty." : `Exhaust: ${data.exhaust}.`} Adds one Evade die.<br>${data.auCost} AU: +${data.auBoost} Move Speed, once per thruster.</p>`;
-  card.innerHTML = `<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Thruster <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString("en-US")}</strong></div></header><img class="sic-poker-art" src="${type}-graphic.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height} EXT</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>No AU option. Reduce Evade dice by one.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector(".sic-card-gallery").append(card);
-}
-
-for (let tier=1;tier<=9;tier++) {
-  const type=`sensors-${tier}`,data=window.SAShipMap.definition(type);
-  SIC_CATALOG[type]={...data,category:'sensor',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const card=document.createElement('section');card.className='sic-market-item';
-card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Sensor <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Sensor Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>${data.diceCount}D${data.die} / Range ${data.range} Units</strong><p>One installed Sensor system per ship. Operate at its local station or remotely from a cockpit or bridge.</p><p>Scan Area, Scan Hex, Systems Analysis and Life Scan. Life Scan counts non-Android characters aboard other ships in a selected hex, excluding your own ship.</p></section><footer><span><small>If Impaired</small>${data.diceCount}D${data.impairedDie} / Range ${data.impairedRange}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-
-for(const family of ['cpu-security','hacking-module'])for(let tier=1;tier<=(family==='cpu-security'?8:5);tier++){
-  const type=`${family}-${tier}`,data=window.SAShipMap.definition(type),cpu=family==='cpu-security';
-  SIC_CATALOG[type]={...data,category:'computer',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const rules=cpu?`<strong>${tier} false character${tier===1?'':'s'}</strong><p>Firewall protection adds false choices to incoming password attempts. It does not lengthen SIC passwords.</p>`:`<strong>${tier===1?'Password intrusion':`Firewall / Security reduction: ${tier-1}`}</strong><p>${tier===1?'No printed minimum Hacking skill.':`Requires Hacking ${data.hackingMinimum.toFixed(1)} or higher.`} Reduces Firewall first, then Security.</p><p>One guess per earned ATB action. No additional input delay. Operated from a cockpit or bridge; no local station.</p>`;
-  const impaired=cpu?'Reduce effectiveness by 1 per impairment.':tier===1?'Does not function while impaired.':'Reduce effectiveness by 1 per impairment. Current hack unaffected.';
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${cpu?'Security':'Hacking'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}</dd></div><div><dt>Skill</dt><dd>Computer Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}<p>${cpu?'Strongest operational firewall applies.':'Detect and analyze a ship before opening an intrusion. Minimum one password letter.'}</p></section><footer><span><small>If Impaired</small>${impaired}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const type of ['warp-drive-zero',...Array.from({length:5},(_,i)=>`warp-drive-${i+1}`),'warp-drive-x','ew-ftl-drive','ballistic-rail-cannon','ballistic-rail-repeater','self-destruct']){
-  const data=window.SAShipMap.definition(type);
-  SIC_CATALOG[type]={...data,category:data.warp?'warp':data.weapon?'weapon':'utility',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const rules=data.instantWarp?'<strong>Instant jump / 2 Grade S fuel cells</strong><p>Activation takes 120 active seconds and spends all current AU. No thrusters required.</p><p>While impaired, roll D8 on activation: a result at or below impairment points destroys the ship.</p>':data.warp?`<strong>${data.warpSecondsPerParsec<3600?`${data.warpSecondsPerParsec/60} minutes`:`${data.warpSecondsPerParsec/3600} hours`} / parsec</strong><p>Activation: ${data.warpRounds*12} seconds. Requires ${data.warpThrusters} operational thrusters.</p><p>Fuel grades: ${data.warpFuelGrades.join(', ')}. Fuel is consumed one cell at a time. Travel advances in real time and when the GM advances campaign time.</p><p>Stations ${data.stations.length}. Each occupied station with Engineering 3+ reduces activation by 12 seconds.</p>`:data.burstShots?'<strong>Four shots per turn / 1D10 each</strong><p>Roll Manual Fire separately for every shot, including locked targets. Add 1 to target Defense per Unit away. No shield damage.</p><p>Uses 1 Iron per shot. Up to four shots, limited by available Iron. One Fast input and one ATB action for the burst; damage is rolled separately for each hit. No EN or AU cost.</p>':data.weapon?'<strong>6D6 damage / 1 Iron per shot</strong><p>Always Manual Fire, including locked targets. Cannot damage active shields. No AU cost.</p>':'<strong>Two registered crewmembers must approve.</strong><p>Bridge add-on. Any registered crewmember can cancel. Generated EN must exceed 15.</p><p>Blast: one D12 per four maximum Hull HP, within 2 units. Damage is rolled manually.</p>';
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.warp?'Warp':data.weapon?'Weapon':'Security'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Size</dt><dd>${data.bridgeAddon?'Bridge add-on':data.mixed?`1x${data.exteriorRows} EXT + 1x1 EDG`:`${data.width}x${data.height}`}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${data.instantWarp?'D8 at or below impairment points: ship explodes.':data.warp?'Double activation time and fuel consumption.':data.burstShots?'Deals 1D6 damage instead.':data.weapon?'Lose 2D6 per impairment.':'No impairment effect.'}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-const reducedCardMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-for(const [type,rules,impairment] of [
-  ['hull-breach-repair-drone','Automatically visits the oldest hull breach first. Move Speed 7: seven movement squares per three active seconds, through actual doors. After arrival roll D6 every 12 active seconds; 5+ seals the breach. Failed attempts increase to D8, D10, then D12. Interior bots cannot be attacked. Deployed bots keep working without bay power and never close airlocks.','Active drone completes its queue; if its bay is damaged or missing, it then vanishes.'],
-  ['relay-pulse-sub-triangulator','Automatically reveals the exact location of a ship firing directly upon you, even outside sensor range. Incoming missiles do not trigger it. Out-of-range contacts become Last Known Location markers.','50% chance to fail while impaired.'],
-  ['pulse-relay-echo-reverberator','Attach to any weapon SIC. When firing at an enemy that has not detected you, the false Unknown Object signal appears 3–12 hexes from your actual position. The same signal is reused until you move. Detach and reattach in the build menu outside combat.','N/A'],
-  ['analysis-screening','Attach to an SIC. Each Systems Analysis rolls D6: 1–4 conceals this component. Previously discovered information remains last-known, unconfirmed. Does not hide lifeforms from Life Scan.','No impairment effect.'],
-  ['mining-laser','Work an asteroid within one hex for four hours per attempt. Roll D10 strictly below the GM’s mining number, then use the Random Mineral Chart. Minerals go to ship storage. Each attempt consumes one asteroid use, successful or not; exhausted asteroids disappear. GM Pass Time advances work. Leaving range or losing power pauses progress.','Does not function while impaired.'],
-  ['vulture-drone','Salvage one wreck within sensor range in 240 active seconds. Recover one randomly selected installed SIC with zero impairment points into ship storage. Each wreck can be salvaged once; successful salvage removes its debris. Power or control interruption pauses work. Losing the drone or wreck cancels it. Masking 10.','One impairment destroys the drone.'],
-  ...[1,2].map(tier=>{const d=window.SAShipMap.definition('devastation-laser-'+tier);return ['devastation-laser-'+tier,`Charge for ${d.chargeSeconds} active seconds, including outside combat. Costs ${d.chargeAu} AU immediately and every 12 seconds while charging or holding the one stored charge. Deals 10D${d.damageDie} laser damage. After firing, cool down for ${d.cooldownSeconds} active seconds before charging again. Cannot fire uncharged. Loss of AU, EN, or weapon integrity releases the charge. Standard accuracy/Lock-On and damage dice.`, 'Does not function while impaired; becomes unstable. Repair before charging again.'];}),
-  ['gravity-absolution-field','Active field prevents black-hole pull, movement penalties and center damage. Requires operational shields; their protection is suspended while active. Costs 3 AU immediately and every 12 seconds. Shuts down when AU is insufficient.','Does not function while impaired.'],
-  ['land-wheels','Four exterior wheel mounts. Surface driving: maximum Move = 10 × EN; MPH = 20 + 10 × EN (1–6 EN). Start at Move 1; +1 per move action. Reference capability only; base installation reserves 1 EN.','Each impairment reduces maximum Move by 25% of undamaged maximum.'],
-  ['sensor-lure','Choose a small or huge ship, small or huge asteroid, planet or Galactic Monster. Ships and monsters wander within two hexes of the projection anchor; other illusions stay still. Immune to physical effects. Cannot be locked onto. Each observing ship discovers the illusion after its fifth scan, or by entering its hex.','Transparent, twitchy and visibly identified as an illusion.'],
-  ['security-droid','50 HP; automated hovering guard. Attacks intruders with 3D10+2, dealing 3D8 damage; Range 5. Own ATB, Move 7, free Dodge 3D8+1. Bridge console: enable, Warning mode and registered-crew exemptions. Warning mode fires after a detected intruder takes another combat action. No exemptions for guests. Power loss pauses it. System Repairs and Diagnostics repairs or replaces it.','N/A'],
-  ['remote-controller','Station here or take the detachable Size C remote. Full Bridge access to linked Receivers within 10 hexes. One command per 12 active seconds; 4 AU per additional receiver attempting the same relative move or system command. Receiving ships pay their own costs. Local crew may cancel remote actions.','N/A'],
-  ['remote-receiver','Bridge upgrade. Station at its Bridge carrying a remote to Link Remote. Local crew retain control and may cancel remote orders. A hacker carrying a remote may control a hacked Receiver.','N/A'],
-  ['lock-on-triangulator','Place adjacent to Lock-On. Automatically share maintained locks with selected ships after 12 active seconds. Recipients need an equal or higher Lock-On grade. Link distance is twice the greater sensor range of the two ships. Source pays normal lock upkeep.','Does not function.'],
-  ['phazon-torpedo-launcher','Requires Lock-On; whole ships only. 1 Phazon and 8 AU per shot. Travels at speed 8, maximum 24 units. Cannot be shot down. Deals 3D10 ×2 to Hull or shields.','Deals 3D8 instead.'],
-  ['cloaking-device','Cloak: +50 Masking stationary, +25 in motion, or +10 with active shields. Automatically costs 12 AU every 12 seconds; switches off if unaffordable. Weapons require deactivation.','Does not function while impaired.'],
-  ['surv-camera','One surveillance station connects cameras throughout the entire starship. Automatically alerts crew when enemies board and closes all doors. An operator at this station sees interior crew positions; an enemy at the station or with a successful connected hack sees them too.','Destroyed by one impairment.'],
-  ['tractor-beam','Forces separation from one target within 2 units. Target hull must be half your hull or less. Cannot grip through active shields. Release when finished.','Does not function while impaired.'],
-  ['manipulation-arm','Automatically rescues a floating character when this ship enters their hex, placing them beside an airlock. Requires an operational arm. Remote robotic manipulation on the same hex is also available; the GM adjudicates other cargo operations.','Functions every other SvS round: 24 active seconds between operations.'],
-  ['docking-bay','Up to four docked ships with combined Hull at most half the carrier Hull. Sealed decompression chamber. Enlarge its footprint free in construction; hull still costs normally. Optional energy-shield doorway costs 2,500 and removes decompression. GM confirms consent.','Ships cannot enter or exit.'],
-  ...Array.from({length:5},(_,n)=>{
-    const type=`repair-drone-${n+1}`,d=window.SAShipMap.definition(type),timing=window.SADelayRules.repairDroneSettings(d.tier),seconds=(100/window.SADelayRules.calculate(timing).rate).toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
-    return [type,`Automatically deploys after Hull damage. Repairs 1D${d.repairDie} Hull every ${seconds} active seconds (Slow + Quality ${timing.factors.Quality}). Automatic repair dice never block play. Use one ATB action to repair a detected ship on the same hex. Returns home when ships separate or repairs finish. Masking / Defense ${d.masking}; ties hit.`,'Destroyed by one impairment.'];
-  }),
-  ['shield-breacher','Attached to a Probe. At a shield barrier, wait one ship round, then breach during the following round to reach the hull. Breaching itself does not alert sensors.','N/A'],
-  ['hacking-bug','Attached to a Probe. Attach to a detected ship and activate for 1 AU per ship round. Enables the normal Hacking Module interface, including through Static Shields or Wired Downgrade.','See Probe'],
-  ['warp-bubble-inhibitor','Attached to a Probe. Takes 12 active seconds to activate after launch. Stops all ships within 2 Units from engaging warp, including allies. Probe must remain stationary.','See Probe'],
-  ['planetary-cleanser','Consumes 1 Dark Phazon when charging begins. Diverts all AU for 120 active seconds; Masking becomes 0. Targets GM-placed planets. Shared 20-second firing spectacle displays simulated 20,000D12 damage and leaves a persistent debris field. Two-hour game-time cooldown. Illegal in most sectors.','Does not function; becomes unstable.'],
-  ['probe-launcher','Holds four probes. Launch at most once every 12 active seconds. Operate locally or from the Bridge. Probes have no separate floorplan.','Destroys one docked probe per impairment.'],
-  ...Array.from({length:5},(_,n)=>{const d=window.SAShipMap.definition(`probe-${n+1}`);return [`probe-${n+1}`,`${d.probeDice.length}D${d.probeDice[0]} Sensors. Range equals the ship’s current Sensor Range. Relays only while within the owner’s sensor range; no probe-to-probe relays. Move ${d.moveSpeed}; Masking / Defense ${d.masking}. Requires a Probe Launcher.`, 'Destroyed by one impairment.'];}),
-  ['backup-generator','Provides 3 EN, including while impaired. Minimum one clear square from another Engine; larger Engines retain their own clearance. No operator station needed.','No effect on EN output.'],
-  ...Array.from({length:4},(_,n)=>{const type=`antenna-${n+1}`,d=window.SAShipMap.definition(type);return [type,`Adds 1D${d.bonusDie} to Sensor rolls and +${d.rangeBonus} Sensor Range. Extra dice use normal Sensor roll fusion, not a flat bonus. Requires an installed, online Sensor system. Each installed, online antenna contributes.`,`Bonus die becomes 1D${d.impairedDie}; range bonus remains.`];}),
-  ['transporter','Transports up to five living crew from this room to a selected square on another ship within 8 Units. Requires Lock-On, Systems Analysis and shields down on both ships. Planet surfaces are valid destinations. Includes 50 reusable transponders, automatically issued to selected passengers. 12 active seconds; arrival is revalidated. No AU cost.','Each impairment adds a 10% chance of death per passenger; roll one standard D10 per passenger.'],
-  ['escape-pods','Jettisons up to three occupants. Supports most atmospheric entries and parachute landings, with auto-linguistic distress beacon and basic rescue AI. Single launch until recovered.','Each occupant takes 20 fixed damage per impairment.'],
-  ['ripple-reflector','Ripple hits do zero damage and reflect to the attacker. Apply Ripple range reduction at twice the distance. Passive while powered on; reflected shots do not reflect again.','Still reflects, but this ship receives the same damage.'],
-  ['vr-training-room','Virtual simulations for training and entertainment. Requires Life Support and gravity. Once per campaign day, each character may train one skill. At 4.0 or below, manually roll D4 and add that many tenths. Above 4.0 and below 6.0, gain +0.1 without rolling. VR gives no bonuses at 6.0 or higher. Safety protocols optional.','Glitchy simulations; GM discretion. Training awards unavailable until repaired.'],
-  ['medbay','Patients inside recover 1 HP every 3 seconds. At 0 HP, prepare for 60 seconds first. After 5 minutes at 0 HP the patient is dead and cannot be healed; this deadline continues during preparation.','Treatment is unavailable while impaired.'],
-  ['gym','3x3 exercise room. Physical training and recreation for crew; no automatic skill or attribute awards.','General destruction; GM decides details.'],
-  ['bar','5x5 social room serving drinks. Optional robotic bartender. Drinks and intoxication are roleplayed; no automatic skill bonuses.','Robotic bartender gives an incorrect order 50% of the time. Use the standard D6: 1–3 incorrect, 4–6 correct.'],
-  ['hibernation-chamber','Long-trip hibernation for one occupant. Requires operational Life Support. Wake manually anytime; emergency monitoring wakes the occupant for an encounter, damage, loss of power or unsafe oxygen.','Sleeping occupant loses 25% of current HP, rounded up, and awakens.'],
-  ['brig','Prisoner detainment cell with a GM-managed custody register. Reinforced doors require three hits of at least 40 damage; weaker hits do nothing. System Repairs and Diagnostics restores them. Increase its footprint free in construction; supporting hull still costs normally.','General destruction. GM records the consequences and decides their effects.'],
-  ['science-lab','Detailed analysis of objects, beings and anomalies. +4 to Research, Science and Astronomy checks while using the laboratory. Displays shared ship mineral storage. Bonus applies to every character inside this room. The GM supplies discoveries.','Information is unreliable; research bonus unavailable.'],
-  ['3d-printer','Science Lab upgrade with no floorplan. All ship blueprints are shared. Six jobs per printer, including the active job. Minerals are consumed when each job starts. Uses each SIC’s printed crafting time. Completed SICs enter ship storage. Printed resale value: 25% of original price.','Pauses with the host lab; destruction loses the unfinished item.'],
-  ['mineral-processor','Science Lab upgrade with no floorplan. Converts minerals using the recipes on page 132. One unit per cycle. Six queued cycles per processor. Minerals are consumed when a cycle starts. GM Pass Time advances progress.','Pauses with the host lab; destruction loses the unfinished mineral.'],
-  ['blueprint','Choose Buy blueprint on a craftable SIC. Unlocks that SIC for every 3D Printer on this starship. Does not consume floor space or minerals; each print consumes its recipe minerals.','N/A'],
-  ['holographic-projector','Bridge (+). Internal holographic projection; +2 to Navigate rolls aboard this ship. Enables holographic interaction with Ship AI.','No impairment effect.'],
-  ['hull-plating','One per ship. Adds 10% Hull HP per Scale Rank, rounded down, without changing Scale Rank. Costs 450 credits per Hull section, including triangular sections. Future Hull additions cost an extra 450 each. Covers the whole Hull with no floor space.','N/A'],
-  ['heat-resistance','One per ship. Reduces Heat damage reaching the Hull by 75%. Costs 75 credits per Hull section, including triangular sections. Future Hull additions cost an extra 75 each. Covers the whole Hull with no floor space.','N/A'],
-  ['laser-resistance','One per ship. Halves Laser damage reaching the Hull, rounded down. Costs 300 credits per Hull section, including triangular sections. Future Hull additions cost an extra 300 each. Covers the whole Hull with no floor space.','N/A'],
-  ['burst-shield-reactivator','Shield (+). Automatically reactivates its collapsed shield after 120 powered seconds, returning with one third of maximum Shield HP (rounded up). Pays 2 AU per 12 seconds of recovery; pauses when unfunded. With Emergency Shield Recharger: 48 seconds. One per Shield. Local manual restabilization remains available and takes priority.','N/A'],
-  ['emergency-shield-recharger','Shield (+). Automatically reactivates its collapsed shield in 48 active seconds (4 SvS rounds), returning with 1 Shield HP. Diverts all AU during recovery; Burst Shield Reactivator may draw from this supply and raises returning HP to one third. Turn off the host Shield to suspend recovery and release AU. One per Shield.','N/A'],
-  ['static-shield','Attach inside a Shield system with no extra floor space. While that Shield has HP and is active, adds +4 Masking and blocks audio/video communications and enemy hacking. Hacking Bugs bypass this protection. One per Shield; the Masking bonus does not stack.','N/A'],
-  ['vulnerability-fortification','Attach to a SIC: +1 Damage Threshold per purchase. First costs 500 credits; each additional purchase on that same SIC doubles in price. No floorplan.','No impairment effect.'],
-  ['power-core-damper','Engine (+). Reduces this Engine’s required clearance by one square. One effective Damper per Engine. No floorplan.','No impairment effect.'],
-  ['scramble-box','Enemies suffer -1 to component Lock-On rolls against adjacent SICs. Cannot be adjacent to another Scramble Box.','Does not function.'],
-  ['ionic-force-displacers','Activate for 7 AU, then pay 7 AU automatically every 12 active seconds. While active, nullifies Ion Pulse Cannon and Ion Disruptor hits. Turns off if power, integrity or AU upkeep is lost.','Does not function while impaired.'],
-  ['transport-scrambler','Blocks incoming and outgoing transport within 8 interior squares, including friendly transport. Switch off its field to permit transport.','Each impairment gives a 10% chance of passing the field. Roll one D10 per overlapping impaired field; every field must allow passage.'],
-  ['hack-alert','Attach inside a SIC. Each password guess against that SIC rolls one D4 with the standard dice display. A 4 alerts the defending bridge. No separate floorplan.','Not applicable.'],
-  ['ion-disruptor','Spend 20 AU to fire 5D10 directly at Hull, ignoring shields and all damage reduction. A targeted SIC takes one extra impairment in addition to threshold damage. Cooldown: 24 active seconds. Ionic Force Displacers nullify the hit.','Does not function while impaired.'],
-  ['black-hole-gun','Spend 1 Dark Phazon and n(n+1)/2 AU for intensity n: 1, 3, 6, 10 AU. Choose a hex within 5 units. The purple orb travels 1 hex per 12 active seconds. On arrival it creates a black hole; after each 15 active seconds of pull its intensity falls by 1, disappearing at zero. No friendly immunity. Cooldown 360 seconds.','Cannot fire; repair and restart.'],
-  ['library','Local galactic database and shared crew research archive. The GM confirms updates near information nodes. Database cannot be memorized by Ship AI.','Database inaccessible.'],
-  ['meeting-room','Private crew briefing room with a shared agenda and completed-item checklist. No combat bonuses.','General destruction; GM discretion.'],
-  ['ship-ai','Bridge add-on, limit one. 4D6 per attribute, every skill +2.5. Optional Defense or Offense automation; never spends AU. Bridge (+): no floorplan; may overlap other (+) add-ons. Requires a free bridge station for ship actions and cannot leave the bridge. Detects bridge hacking automatically.','N/A.'],
-]){
-  const data=window.SAShipMap.definition(type);SIC_CATALOG[type]={...data,category:data.engine?'engine':data.antenna?'sensor':data.shipAi?'bridge':'utility',shortLabel:data.label,enOutput:data.output||0,clearance:data.clearance||0,floorplan:data.image};
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.shieldRecovery?'Shield':data.probe||data.probeLauncher||data.probeAttachment?'Probe':data.engine?'Engine':data.antenna?'Sensors':data.shipAi?'Bridge':data.weapon||data.addon==='weapon'?'Weapon':'Utility'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.image}" alt="${data.name}${data.cardArt||data.addon?' equipment':' floorplan'}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.securityDroid?'Utility':data.addon?(data.addon==='any'?'SIC':data.addon==='weapon'?'Weapon':data.addon==='science'?'Science Lab':data.addon==='engine'?'Engine':data.addon==='hull'?'Hull':data.addon==='shield'?'Shield':['probe','probe-module'].includes(data.addon)?'Probe':'Bridge')+' (+)':data.bridgeAddon?'Bridge (+)':data.blackHoleGun?'2x5 EXT + 1x2 EDG':(data.devastation||data.ionDisruptor)?'2x4 EXT + 1x2 EDG':data.planetaryCleanser?'3x6 EXT + 3x3 EDG':type==='mining-laser'?'1x3 EXT + 1x1 EDG':data.mixed?'1x3 EXT + 1x2 EDG':data.width+'x'+data.height+(data.edge?' EDG':data.exterior?' EXT':'')}</dd></div><div><dt>Skill</dt><dd>${data.skill||(data.shipAi?'Computer Systems':'Engineering')}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><p>${rules}</p><strong>${data.shipAi?'Occupies a bridge station':'Stations '+data.stations.length}</strong></section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold??'N/A'}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const tier of [1,2,3,4,5,'mine']){
-  const type=tier==='mine'?'mine-launcher':`missile-launcher-${tier}`,data=window.SAShipMap.definition(type);
-  SIC_CATALOG[type]={...data,category:'weapon',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${data.mineLauncher?'Mine':'Missile'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.cardArt}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>1</dd></div><div><dt>Security</dt><dd>${data.security}</dd></div><div><dt>Size</dt><dd>${data.mineLauncher?'1x2 EDG':data.width+'x'+data.exteriorRows+' EXT + 1x2 EDG'}</dd></div><div><dt>Skill</dt><dd>Weapon Systems</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>Magazine: ${data.capacity} rounds</strong><p>${data.mineLauncher?data.description:'Launch at a locked target. One launch per 12 active combat seconds. Stations 1.'}</p><p>${data.mineLauncher?'Mines purchased separately. Stations 1.':'Missiles purchased separately. Loaded rounds cannot be targeted individually. A launched missile pursues independently of Lock-On.'}</p></section><footer><span><small>If Impaired</small>Destroyed by one impairment.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const [type,data] of Object.entries(window.SAMissileAmmo.catalog)){
-  SIC_CATALOG[type]={...data,category:'missile-ammo'};
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Ammunition <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="${data.name}" loading="lazy"><section class="sic-poker-rules">${data.description?`<p>EN N/A · Security ${data.security??'N/A'} · Mine L. (+)<br>Weapon Systems · ${data.crafting}</p><p>${data.description}</p><p>Masking ${data.masking??'N/A'} / Damage Threshold ${data.threshold??'N/A'}</p>`:data.flares?'<strong>Three flares per use</strong><p>Choose a missile for each flare and flip a coin. A winning flip sends it away from pursuit.</p>':`<strong>${data.count>1?'Four projectiles, each ':''}${data.dice}D8 x5 hull damage</strong><p>No damage multiplier against shields. No component targeting.</p><p>Masking / Defense ${data.masking}. Speed ${data.acceleration}, +${data.acceleration} per 12 seconds; caps at ${data.acceleration*5}.</p><p>One damage destroys a missile.</p>`}<p>${data.seeker?'Stored upgrade for one mine.':data.mine?'One use. Loaded into a Mine Launcher (+); no separate floorplan.':'One use. Loaded into a Missile Launcher, not placed on the floorplan.'}</p></section></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const [grade,data] of Object.entries(window.SAShipMap.fuelCatalog)){
-  const type=`warp-fuel-${grade.toLowerCase()}`;SIC_CATALOG[type]={...data,name:`Warp Fuel ${grade}`,category:'fuel'};
-  const card=document.createElement('section');card.className='sic-market-item';card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="Grade ${grade} Fuel Cell details"><header class="sic-poker-heading"><span>Fuel <small>${data.cardNumber}</small></span><div><h3>Grade ${grade} Fuel Cell</h3><strong>Price: ${data.price.toLocaleString()}${data.hullUpgrade?" / Hull section":""}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="Grade ${grade} Fuel Cell" loading="lazy"><section class="sic-poker-rules"><strong>${Number((data.parsecs*3.26).toFixed(4))} light-years per cell</strong><p>${Number(data.parsecs.toFixed(4))} parsecs. Check drive compatibility.</p><p>Consumed when used. Unused cells remain in ship stores; early exit discards the active cell's remaining range.</p></section><footer><span><small>Crafting</small>${data.crafting}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;document.querySelector('.sic-card-gallery').append(card);
-}
-for(const family of ['darkveil','beam-laser','ripple-cannon','ion-pulse-cannon'])for(let tier=1;tier<=(family==='darkveil'?10:family==='ion-pulse-cannon'?5:8);tier++){
-  const type=`${family}-${tier}`,data=window.SAShipMap.definition(type),dark=family==='darkveil',beam=family==='beam-laser',ripple=family==='ripple-cannon';
-  SIC_CATALOG[type]={...data,category:dark?'sensor':'weapon',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const damage=`${data.damageCount}D${data.damageDie}${data.damageBonus?` + ${data.damageBonus}`:''}`;
-  const rules=dark?`<strong>Masking +${data.darkveil}</strong><p>One installed Darkveil per ship. Adds to Hull Size Modifier and Exhaust.</p>`:beam?`<strong>${damage} damage / Target lock required</strong><p>3 AU+: add one D${data.damageDie}. One local station; also controlled from the bridge.</p>`:ripple?`<strong>${damage} damage / 3 AU+: add one D8</strong><p>Every ${data.rangeStep} Units: +1 accuracy, but lose one D8 damage. One local station; also controlled from the bridge.</p>`:`<strong>${data.fireAu} AU: ${damage} damage</strong><p>Bypasses shields and all damage reduction. Requires cockpit or bridge control; no local station.</p>`;
-  const impaired=dark?'Masking reduced by 5 for each impairment.':beam?'Only AU-funded damage dice remain.':ripple?'AU damage boosts unavailable.':'Roll one fewer damage die.';
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${dark?'Masking':'Weapon'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.cardArt||data.sprite||data.image}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${dark?'1x1':`1x${data.exteriorRows} EXT + 1x2 EDG`}</dd></div><div><dt>Skill</dt><dd>${dark?'Sensor Systems':'Weapon Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}${dark?'':'<p>Repeat activation within 12 seconds costs additional AU equal to EN.</p>'}</section><footer><span><small>If Impaired</small>${impaired}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for (const family of ['lock-on','rapid-laser']) for(let tier=1;tier<=(family==='lock-on'?10:5);tier++) {
-  const type=`${family}-${tier}`,data=window.SAShipMap.definition(type),isLock=Boolean(data.lockOn);
-  SIC_CATALOG[type]={...data,category:isLock?'lock':'weapon',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const dice=a=>`${a.length}D${a[0]}`,die=`D${data.damageDie}`;
-  const rules=isLock?`<strong>Lock-On Dice: ${dice(data.lockDice)}</strong><p>Locked targets are hit automatically. Damage still requires a roll.</p><p>Break Lock-On difficulty: ${data.breakDifficulty}.<br>${data.unlimitedTargets?'Unlimited targets; no additional-target AU cost.':`${data.extraTargetAu} AU / 12 seconds: maintain one additional target.`}</p><p>Control from a cockpit or bridge. No local stations.</p>`:`<strong>5 AU: Fire / 1${die} damage</strong><p>Rapid-fire short-burst laser. Requires Bridge/Cockpit.</p><p>Manual Fire: +1${die} per 2 over Defense, up to +3${die}.</p><p>Reduce damage by 1${die} to reduce AU cost by 1. Locked-On: automatic hit, roll 4${die} damage.</p>`;
-  const impaired=isLock?`Loses current locks each time impairment is taken. Lock-On dice: ${dice(data.impairedLockDice)}.`:`Maximum damage 1${die}.`;
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${isLock?'Lock-On':'Laser'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}${data.exterior?' EXT':''}</dd></div><div><dt>Skill</dt><dd>${isLock?'Sensor Systems':'Weapon Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${impaired}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const type of ['cockpit-1','cockpit-2',...Array.from({length:8},(_,i)=>`bridge-${i+1}`),...Array.from({length:10},(_,i)=>`shield-${i+1}`)]) {
-  const data = window.SAShipMap.definition(type);
-  SIC_CATALOG[type] = {...data,category:"bridge",shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const card = document.createElement("section"); card.className="sic-market-item";
-  const isShield=Boolean(data.shield);
-  const rules=isShield?`<strong>${data.shieldHp} Shield HP / Reduction ${data.shieldReduction}</strong><p>Regenerates ${data.shieldRegeneration} HP per 12 combat seconds. Engineering crew accelerates recovery. Each additional installed shield costs +5 EN.</p><p>5 AU+: Restore 1 HP.<br>3 AU+: +1 reduction for 12 seconds.</p><p>Burst: ${data.restabilizeSeconds} powered seconds and ${data.restabilizeAu} AU to restore full HP. Local crew ATB freezes.</p>`:`<p>Interior outer-edge installation. One cockpit or bridge per ship.</p><strong>Stations ${data.stations.length}</strong><p>Pilot the ship or access installed consoles remotely. Physical-only actions require their own station.</p><p>${type.startsWith('cockpit')?'Audio communication; local air and temperature control.':'Audio/video communication and translator.'}</p><p>Reboot: ${data.rebootSeconds||96} seconds.</p>`;
-  const impairment=isShield?'Damage received is doubled. No AU abilities.':type==='cockpit-1'?'Occupant takes damage, reduced by 20.':`Random station destroyed; occupant damage reduced by ${data.threshold}.`;
-card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>${isShield?'Shield':'Bridge'} <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${type}-card.png" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}${isShield?'+':''}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${data.width}x${data.height}${data.edge?' EDG':''}</dd></div><div><dt>Skill</dt><dd>${isShield?'Engineering':'Computer Systems'}</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules">${rules}</section><footer><span><small>If Impaired</small>${impairment}</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  SIC_CATALOG[type].category=isShield?'shield':'bridge';
-  document.querySelector(".sic-card-gallery").prepend(card);
-}
-for(const kind of ['aerofoil','hover']) {
-  const type=`decent-${kind}`,data=window.SAShipMap.definition(type),hover=kind==='hover';
-  SIC_CATALOG[type]={...data,category:'landing',shortLabel:data.label,enOutput:0,clearance:0,floorplan:data.image};
-  const card=document.createElement('section');card.className='sic-market-item';
-  card.innerHTML=`<article class="sic-poker-card" data-sic-card="${type}" tabindex="0" aria-label="${data.name} details"><header class="sic-poker-heading"><span>Landing <small>${data.cardNumber}</small></span><div><h3>${data.name}</h3><strong>Price: ${data.price.toLocaleString('en-US')}</strong></div></header><img class="sic-poker-art" src="${data.image}" alt="${data.name}" loading="lazy"><dl class="sic-poker-stats"><div><dt>Energy Cost</dt><dd>${data.energyCost}</dd></div><div><dt>Security Level</dt><dd>${data.security??'N/A'}</dd></div><div><dt>Size</dt><dd>${hover?'1x1 EXT (four mounts)':'Hull wings'}</dd></div><div><dt>Skill</dt><dd>Engineering</dd></div><div><dt>Crafting</dt><dd>${data.crafting}</dd></div></dl><section class="sic-poker-rules"><strong>${hover?'Vertical planetary landing':'Runway landing'}</strong><p>${hover?'Four independent hover generators, each attached outside the hull. One purchase covers all four.':'Requires a hull symmetrical horizontally or vertically. Internal equipment need not match. Landing requires Move 5 or more and a long, flat runway. Wings and landing gear follow the hull.'}</p><p>Atmosphere: maximum Move x ${hover?10:40} MPH. No space-speed cap. Maximum ${data.hullLimit} hull squares.</p></section><footer><span><small>If Impaired</small>Atmospheric entry causes 8D10 Heat hull damage.</span><span><small>Damage Threshold</small>${data.threshold}</span></footer></article><button class="sic-purchase-button" data-purchase-sic="${type}" type="button">Purchase</button>`;
-  document.querySelector('.sic-card-gallery').append(card);
-}
-for(const type of ['life-support','nutritional-supplement']) {
-  const rules=document.querySelector(`[data-sic-card="${type}"] .sic-poker-rules`);
-  if(rules){const station=document.createElement('strong');station.textContent='Stations 1';rules.append(station);}
-}
-for (const card of document.querySelectorAll('[data-sic-card^="ionic-pulse-thruster-"]')) card.querySelector(".sic-poker-art").src = `${card.dataset.sicCard}-card.png`;
-// Apply catalog art before any shop, owned-card or inspector template is cloned.
-for(const card of document.querySelectorAll('[data-sic-card]')) {
-  const data=SIC_CATALOG[card.dataset.sicCard],art=card.querySelector('.sic-poker-art');
-  if(data?.cardArt&&art){art.src=data.cardArt;art.alt=`${data.name} equipment`;}
-}
+const SIC_CATALOG = window.SASicCards.populate(document);
 function cardAccent(type) {
   if (type === "life-support") return "#42e0d0";
   if (type === "nutritional-supplement") return "#e9ef4d";
@@ -231,50 +35,9 @@ const market = document.querySelector(".sic-card-gallery");
 const purchaseFeedback = document.createElement("p"); purchaseFeedback.dataset.purchaseFeedback = "";
 purchaseFeedback.className = "sic-purchase-feedback"; purchaseFeedback.setAttribute("role", "alert"); market.before(purchaseFeedback);
 for (const overlay of document.querySelectorAll('.desktop-live-stats [data-propulsion-overlay]')) { const copy=overlay.cloneNode(true);copy.classList.add('mobile-live-stats');document.querySelector('.mobility-mobile svg')?.append(copy); }
-const families = new Map();
-for (const item of [...market.querySelectorAll(".sic-market-item")]) {
-  const type = item.querySelector("[data-sic-card]").dataset.sicCard;
-  item.querySelector("[data-sic-card]").classList.add("sic-display-card");
-  item.style.setProperty("--card-accent", cardAccent(type));
-  const family = SIC_CATALOG[type]?.warp?'Warp Drive':SIC_CATALOG[type]?.cloaking||SIC_CATALOG[type]?.darkveil?'Darkveil':/fuel-cell|warp-fuel/.test(type)?'Fuel Cells':SIC_CATALOG[type]?.bridge?'Cockpits & Bridges':SIC_CATALOG[type]?.name?.replace(/ (?:\d+|Zero|X)$/, "") || item.querySelector("h3").textContent;
-  if (!families.has(family)) families.set(family, []);
-  families.get(family).push(item);
-}
-for (const [family, items] of families) {
-  if (items.length === 1) { market.append(items[0]); continue; }
-  const stack = document.createElement("details"); stack.className = "sic-family-stack";
-  const summary = document.createElement("summary");
-  summary.setAttribute("aria-label", `${family}: expand ${items.length} card${items.length === 1 ? "" : "s"}`);
-  const ordered = [...items].sort((a, b) => Number(b.querySelector("h3").textContent.match(/\d+$/)?.[0] || 99) - Number(a.querySelector("h3").textContent.match(/\d+$/)?.[0] || 99));
-  const preview = document.createElement("div"); preview.className = "sic-stack-preview sic-market-item"; preview.setAttribute("aria-hidden", "true"); preview.inert = true;
-  for (const [index, item] of ordered.entries()) {
-    const card = previewSicCard(item.querySelector("[data-sic-card]"));
-    card.style.setProperty("--stack-angle", `${index === ordered.length - 1 ? 0 : (index % 2 ? -1 : 1) * (ordered.length - index) * .35}deg`);
-    card.style.setProperty("--stack-offset", `${(ordered.length - index - 1) * -3}px`);
-    card.classList.add(index === ordered.length - 1 ? "sic-stack-bottom" : "sic-stack-header");
-    preview.append(card);
-  }
-  summary.innerHTML = `<strong>${family}</strong>`; summary.append(preview);
-  const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
-  stack.append(summary, cards); market.append(stack);
-  summary.addEventListener("click", event => { event.preventDefault(); openSicFamily(family, items, summary); });
-}
-
-const marketEntries=[...market.children].filter(node=>node.matches('.sic-market-item,.sic-family-stack'));
-const marketHosts=sicCategoryHosts(marketEntries,market,node=>node.querySelector('[data-sic-card]')?.dataset.sicCard,'market');
-marketEntries.forEach(node=>marketHosts.get(node).append(node));
-
-function sicCategoryHosts(items,container,typeFor,variant){
-  const hosts=new Map(),entries=items.map(value=>({type:typeFor(value),value}));
-  for(const group of window.SASicCategories.group(entries,entry=>SIC_CATALOG[entry.type]||window.SAShipMap.definition(entry.type))){
-    const section=document.createElement('fieldset');section.className=`sic-category sic-category-${variant}`;section.dataset.sicCategory=group.id;section.style.setProperty('--category-color',group.color);section.style.setProperty('--category-count',Math.min(4,group.items.length));
-    const legend=document.createElement('legend'),toggle=document.createElement('button');toggle.type='button';legend.append(toggle);
-    const body=document.createElement('div');body.className='sic-category-body';section.append(legend,body);container.append(section);
-    const key='sa-sic-category-'+variant+'-'+group.id;const setClosed=closed=>{body.hidden=closed;toggle.textContent=group.label+' '+(closed?'+':'−');toggle.setAttribute('aria-expanded',String(!closed));};setClosed(variant==='market'?sessionStorage.getItem(key)!=='open':sessionStorage.getItem(key)==='closed');toggle.onclick=()=>{setClosed(!body.hidden);sessionStorage.setItem(key,body.hidden?'closed':'open');};
-    group.items.forEach(entry=>hosts.set(entry.value,body));
-  }
-  return hosts;
-}
+const sharedSicMarket=window.SASicMarket.create({market,catalog:SIC_CATALOG,credits:()=>draft.groupCredits-pendingCost(),purchase:purchaseSic,error:()=>purchaseFeedback.textContent,inspect:(source,trigger)=>openSicCard(source,trigger),blueprint:type=>openBlueprintPurchase(type),canBlueprint:()=>canBuyBlueprint()});
+sharedSicMarket.build();
+function sicCategoryHosts(items,container,typeFor,variant){return window.SASicMarket.categoryHosts(items,container,typeFor,variant,SIC_CATALOG);}
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function uid(prefix = "ship") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
@@ -324,7 +87,7 @@ function constructionState(source) {
     cleanserState: JSON.parse(JSON.stringify(source?.cleanserState||null)),
     gravityFieldState: JSON.parse(JSON.stringify(source?.gravityFieldState||null)),
     cloakState: JSON.parse(JSON.stringify(source?.cloakState||null)),
-    mapColor: source?.mapColor, mapHeading: source?.mapHeading,
+    mapColor: source?.mapColor, mapHeading: source?.mapHeading, mapIcon: window.SAShipMap.shipIconId(source||{}),
     fieldState: JSON.parse(JSON.stringify(source?.fieldState||null)),
     droneState: JSON.parse(JSON.stringify(source?.droneState||null)),
     probeState: JSON.parse(JSON.stringify(source?.probeState||null)),
@@ -337,13 +100,13 @@ function constructionState(source) {
       : [],
     sicInventory: Array.isArray(source?.sicInventory)
       ? source.sicInventory.filter((item) => item?.id && SIC_CATALOG[item.type]).map((item) => ({
-          attachTo: item.attachTo||undefined, purchasePrice: item.purchasePrice||undefined,
+          attachTo: item.attachTo||undefined, purchasePrice: item.purchasePrice??undefined, shopPurchased:Boolean(item.shopPurchased),pricePerHullSquare:item.pricePerHullSquare,
           id: String(item.id), type: item.type, pendingPurchase: Boolean(item.pendingPurchase),
           rotation: [0,90,180,270].includes(Number(item.rotation))?Number(item.rotation):0,
           weaponFacing: [0,90,180,270].includes(item.weaponFacing)?item.weaponFacing:undefined,
           exteriorRotation: [0,90,180,270].includes(Number(item.exteriorRotation))?Number(item.exteriorRotation):0,
           placedAt: Number(item.placedAt)||0,
-          ...Object.fromEntries(['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable','blueprintType','printed','printedFor','salvaged','salvageSource'].filter(key=>item[key]!==undefined).map(key=>[key,clone(item[key])])),
+          ...Object.fromEntries(['status','disabled','impaired','impairmentPoints','repairDifficulty','bootRemaining','unstable','blueprintType','printed','printedFor','salvaged','salvageSource','fortificationBasePrice'].filter(key=>item[key]!==undefined).map(key=>[key,clone(item[key])])),
           bayWidth: item.type==='docking-bay'?Math.max(2,Math.min(60,Math.floor(Number(item.bayWidth)||2))):undefined,
           bayHeight: item.type==='docking-bay'?Math.max(2,Math.min(60,Math.floor(Number(item.bayHeight)||2))):undefined,
           brigWidth: item.type==='brig'?Math.max(1,Math.min(60,Math.floor(Number(item.brigWidth)||1))):undefined,
@@ -488,7 +251,7 @@ function pendingCost() {
   const removals = [...confirmedCells].filter((cell) => !workingCells.has(cell)).length;
   const purchases = draft.sicInventory.filter((item) => item.pendingPurchase).reduce((total, item) => total + window.SAShipMap.sicPrice(item,draft), 0);
   const sales = draft.sicInventory.filter((item) => !item.pendingPurchase && item.pendingDisposition === "sell").reduce((total, item) => total + Math.ceil(window.SAShipMap.sicPrice(item) / (item.printed?4:2)), 0);
-  return ((additions - removals) * HULL_COST) + (window.SAShipMap.triangleCells(draft).length-window.SAShipMap.triangleCells(draft.confirmed).length)*300 + purchases - sales + window.SAShipMap.hullUpgradeResizeCost(draft,draft.confirmed);
+  return ((additions - removals) * HULL_COST) + (window.SAShipMap.triangleCells(draft).length-window.SAShipMap.triangleCells(draft.confirmed).length)*300 + purchases - sales + window.SAShipMap.hullUpgradeResizeCost(draft,draft.confirmed) + Object.entries(window.SAShipMap.fortificationInstallPrices(draft,draft.confirmed)).reduce((sum,[id,price])=>sum+Math.max(0,price-(Number(draft.confirmed.sicInventory.find(i=>i.id===id)?.purchasePrice)||0)),0);
 }
 function selectedSic() {
   return draft.sicInventory.find((item) => item.id === selectedSicId && !item.storage && !item.pendingDisposition) || null;
@@ -510,9 +273,9 @@ function doorKey(firstCell, secondCell) {
 
 function currentDoorOperator() {
   const parameters = new URLSearchParams(location.search);
-  const requestedCharacterId = parameters.get("character") || localStorage.getItem("sa2e-active-character-v1") || "";
+  const requestedCharacterId = parameters.get("character") || window.SABrowserStorage.local.getItem("sa2e-active-character-v1") || "";
   try {
-    const library = JSON.parse(localStorage.getItem("sa2e-character-library-v1") || "[]");
+    const library = JSON.parse(window.SABrowserStorage.local.getItem("sa2e-character-library-v1") || "[]");
     const character = Array.isArray(library) ? library.find((entry) => entry?.id === requestedCharacterId) : null;
     return character ? {
       id: character.id,
@@ -712,7 +475,7 @@ function inspectConstruction() {
 function syncShipField(key, value, source) {
   draft[key] = value;
   shipFields.forEach((field) => { if (field !== source && field.dataset.shipField === key) field.value = value; });
-  saveDraft(); renderConstructionControls();
+  saveDraft(); renderConstructionControls(); renderShipIconPicker();
 }
 function clearPlacementPreview() {
   shipGrids.forEach((grid) => grid.querySelectorAll(".placement-preview").forEach((cell) => cell.classList.remove("placement-preview", "is-valid", "is-invalid")));
@@ -836,6 +599,7 @@ function renderGridCells() {
   const placementMap = layout.footprint;
   const placementActive = Boolean(selectedSic())&&!document.body.classList.contains('ship-details-view');
   shipGrids.forEach((grid) => {
+    window.SAWarpEffects?.updateMap(linkedCampaignState?.starships?.find(s=>s.id===draft.id) || draft,grid);
     grid.classList.toggle("show-sic-labels", mapView.labels);
     grid.classList.toggle("hull-view", mapView.hull);
     grid.classList.toggle("high-resolution", mapView.highResolution && !placementActive);
@@ -1102,6 +866,7 @@ function moveSicToStorage(item) {
   saveDraft(); showMessage(`${sicDefinition(item).name} moved into Storage.`); renderAll();
 }
 function moveSicToQueue(item) {
+  if(sicDefinition(item).hullUpgrade){rememberForUndo();item.storage=false;item.attachTo='hull';draft.placements=draft.placements.filter(p=>p.sicId!==item.id);draft.placements.push({sicId:item.id,cell:draft.gridCells[0]});saveDraft();renderAll();return;}
   if(item.type==='blueprint'){showMessage('Blueprints are already available to every printer on this ship.');return;}
   if(sicDefinition(item).probe&&draft.sicInventory.filter(i=>sicDefinition(i).probe&&i.attachTo===item.attachTo&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed'&&draft.placements.some(p=>p.sicId===i.id)).length>=4){showMessage('This Probe Launcher already holds four probes. Store or remove one first.','error');return;}
   if(sicDefinition(item).addon){purchaseAddon(item.type,item);return;}
@@ -1124,6 +889,9 @@ async function markSicDisposition(item, disposition) {
 }
 
 function renderInventory() {
+  const linked=Boolean(linkedCampaignState),panel=document.querySelector('[data-starship-panel="sics"]');
+  if(panel){panel.classList.toggle('owned-only',linked);if(linked&&!panel.querySelector('.campaign-owned-sics')){const section=document.createElement('section');section.className='campaign-owned-sics';section.innerHTML='<h2>Owned SICs</h2><p>Purchase SICs in the campaign Shop. Install, detach, or store them in Construction.</p><button data-owned-blueprints>Purchase Blueprint</button><div class="purchased-sic-grid" data-purchased-sic-gallery></div>';panel.prepend(section);section.querySelector('[data-owned-blueprints]').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='ship-print-options';dialog.setAttribute('aria-label','Choose Blueprint');dialog.innerHTML='<h2>Choose Blueprint</h2><label>SIC recipe <select>'+Object.entries(SIC_CATALOG).filter(([type])=>window.SAFabrication.recipe(type)).map(([type,data])=>'<option value="'+type+'">'+escapeHtml(data.name)+'</option>').join('')+'</select></label><button data-choose>View Blueprint</button><button data-cancel>Cancel</button>';dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.querySelector('[data-choose]').onclick=()=>{const type=dialog.querySelector('select').value;dialog.close();openBlueprintPurchase(type);};dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();};}}
+
   document.querySelectorAll("[data-sic-list]").forEach((container) => renderInventoryList(container, container.dataset.sicList));
   const purchased = draft.sicInventory;
   document.querySelectorAll("[data-purchased-sic-gallery]").forEach((gallery) => {
@@ -1226,7 +994,17 @@ function renderConstructionControls() {
   undoButtons.forEach((button) => { button.disabled = !undoState; });
   discardButtons.forEach((button) => { button.disabled = !changed; });
 }
+function renderShipIconPicker(){
+ const art=window.SATokenArt,selected=art.shipId(draft),color=window.SAShipMap.shipColor(draft);
+ document.querySelectorAll('[data-ship-icon-options]').forEach(list=>{
+  list.closest('.token-picker').style.setProperty('--token-color',color);
+  const markup=art.ships.map((name,i)=>`<button type="button" data-ship-icon="${i+1}" aria-pressed="${selected===i+1}" ${VIEW_ONLY_MODE||document.body.classList.contains('ship-details-view')?'disabled':''}><img src="${art.shipImage({mapIcon:i+1})}" alt="" loading="lazy"><span>${name}</span></button>`).join('');
+  if(list.innerHTML!==markup)list.innerHTML=markup;
+ });
+}
+document.addEventListener('click',event=>{const button=event.target.closest('[data-ship-icon]');if(!button||button.disabled)return;draft.mapIcon=Number(button.dataset.shipIcon);saveDraft();renderShipIconPicker();renderConstructionControls();});
 function renderAll() {
+  renderShipIconPicker();
   syncAddonPositions();
 
   if(splitPlacement&&(selectedSicId!==splitPlacement.id||!selectedSic()||selectedSic().storage||selectedSic().pendingDisposition))splitPlacement=null;
@@ -1246,7 +1024,7 @@ function renderShipStores(){
   let panel=document.querySelector('[data-ship-stores]');
   if(!panel){
     panel=document.createElement('section');panel.dataset.shipStores='';panel.className='ship-stores';
-    panel.innerHTML='<h3>Ship Supplies</h3><div data-stock-values></div><form data-fuel-buy><label>Warp fuel<select name="grade"></select></label><label>Cells<input name="quantity" type="number" min="1" max="10000" value="1"></label><button type="submit">Purchase Fuel</button></form><details data-stock-adjust><summary>Adjust Stock</summary><form><label>Resource<select name="resource"></select></label><label>Quantity<input name="quantity" type="number" min="0" step="1" value="0"></label><button type="submit">Save Quantity</button></form></details><output role="status"></output>';
+    panel.innerHTML='<h3>Manage Ship Supplies</h3><div data-stock-values></div><form data-fuel-buy><label>Warp fuel<select name="grade"></select></label><label>Cells<input name="quantity" type="number" min="1" max="10000" value="1"></label><button type="submit">Purchase Fuel</button></form><details data-stock-adjust><summary>Adjust Stock</summary><form><label>Resource<select name="resource"></select></label><label>Quantity<input name="quantity" type="number" min="0" step="1" value="0"></label><button type="submit">Save Quantity</button></form></details><output role="status"></output>';
     document.querySelector('.purchased-sic-shelf').before(panel);
     for(const [grade,fuel] of Object.entries(window.SAShipMap.fuelCatalog))panel.querySelector('[name="grade"]').add(new Option(`${grade}: ${(fuel.parsecs*3.26).toFixed(2)} LY / ${fuel.price.toLocaleString()} cr`,grade));
     panel.querySelector('[data-fuel-buy]').onsubmit=e=>{e.preventDefault();saveShipStock({purchaseGrade:e.target.grade.value,quantity:Number(e.target.quantity.value)});};
@@ -1255,7 +1033,7 @@ function renderShipStores(){
   const fuel=window.SAShipMap.resourceCounts(draft.warpFuel,['F','D','C','B','A','S']),names=['Aethion','Infinium','Carmot','Dark Phaeon','Endernium','Necronium','Phaeon','Drakkonite','Mirium','Argol','Paradon','Crystilium','Ragnoron','Transphaerion','Xpidinium','Umbernium','Umbrexium','Dianium','Zennium','Ruplium','Crinium','Zeltexa','Magnesium','Iron','Dark Phazon','Phazon','Ragnaron','Transpherion','Rupium','Crixium'];
   const minerals=window.SAShipMap.resourceCounts(draft.minerals,[...new Set([...names,...Object.keys(draft.minerals||{})])]);
   const rows=entries=>entries.map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${v.toLocaleString()}</dd></div>`).join('');
-  const markup='<section class="stock-fuel"><h3>Warp Fuel</h3><dl>'+rows(Object.entries(fuel).map(([k,v])=>['Grade '+k,v]))+'</dl></section><section class="stock-minerals"><h3>Minerals</h3><dl>'+rows(Object.entries(minerals))+'</dl></section>';
+  const markup=''; // Stock remains on the ship sheet; retain purchase and adjustment controls below.
   const values=panel.querySelector('[data-stock-values]');if(values.dataset.stockMarkup!==markup){values.innerHTML=markup;values.dataset.stockMarkup=markup;}
   const select=panel.querySelector('[name="resource"]'),options=[...Object.keys(fuel).map(k=>[`warpFuel:${k}`,`Warp ${k}`]),...Object.keys(minerals).map(k=>[`minerals:${k}`,k])];
   const optionKey=JSON.stringify(options);if(select.dataset.options!==optionKey){const previous=select.value;select.replaceChildren();for(const [value,label] of options)select.add(new Option(label,value));if(options.some(([value])=>value===previous))select.value=previous;select.dataset.options=optionKey;}
@@ -1277,7 +1055,7 @@ function renderShipStores(){
   for(const svg of document.querySelectorAll('.desktop-live-stats,.minerals-mobile svg')){
     let group=svg.querySelector('[data-mineral-overlay]');if(!group){group=document.createElementNS('http://www.w3.org/2000/svg','g');group.dataset.mineralOverlay='';svg.append(group);}
     const rowHeight=252/names.length;
-    group.innerHTML='<rect x="8" y="378" width="138" height="273" fill="#101010" stroke="#ccc"/><rect x="8" y="378" width="138" height="14" fill="#ccc"/><text x="12" y="388" fill="#000" font-size="8" text-anchor="start">MINERAL</text><text x="124" y="388" fill="#000" font-size="7" text-anchor="middle">QTY</text>'+names.map((name,i)=>`<path d="M8 ${393+(i+1)*rowHeight}h138" stroke="#777" stroke-width=".4"/><text x="12" y="${393+(i+.5)*rowHeight}" fill="white" font-size="6.2" text-anchor="start">${escapeHtml(name.toUpperCase())}</text><text x="124" y="${393+(i+.5)*rowHeight}" fill="white" font-size="6.5" text-anchor="middle">${minerals[name]}</text>`).join('');
+    group.innerHTML='<rect x="8" y="378" width="138" height="273" fill="#101010" stroke="#ccc"/><rect x="8" y="378" width="138" height="14" fill="#ccc"/><text x="12" y="388" fill="#000" font-size="8" text-anchor="start">MINERAL</text><text x="124" y="388" fill="#000" font-size="7" text-anchor="middle">QTY</text>'+names.map((name,i)=>`<path d="M8 ${393+(i+1)*rowHeight}h138" stroke="#777" stroke-width=".4"/><text x="12" y="${393+(i+.5)*rowHeight}" dominant-baseline="central" fill="white" font-size="6.2" text-anchor="start">${escapeHtml(name.toUpperCase())}</text><text x="124" y="${393+(i+.5)*rowHeight}" dominant-baseline="central" fill="white" font-size="6.5" text-anchor="middle">${minerals[name]}</text>`).join('');
   }
   const weapons=window.SAShipMap.installedItems(draft).filter(i=>{const d=window.SAShipMap.definition(i.type);return d.weapon||d.planetaryCleanser||d.blackHoleGun;});
   for(const svg of document.querySelectorAll('.desktop-live-stats,.weapons-mobile svg')){
@@ -1471,6 +1249,7 @@ function rejectSicPurchase(message,localFeedback){
   showSicPurchaseFeedback(message,'error',localFeedback);return false;
 }
 function purchaseSic(type) {
+  if(typeof linkedCampaignState!=='undefined'&&linkedCampaignState&&!SIC_CATALOG[type]?.fuel&&SIC_CATALOG[type]?.category!=='missile-ammo'){showMessage('Purchase SICs in the campaign Shop tab. Unused SICs can be claimed from shared storage there.');return false;}
   if(type==='blueprint')return rejectSicPurchase('Choose Buy blueprint on the SIC you want to craft.');
   clearPurchaseFeedback();
   if(SIC_CATALOG[type]?.addon)return purchaseAddon(type);
@@ -1535,6 +1314,7 @@ async function confirmConstruction() {
   saveDraft(); saveMapView();
   showMessage(`Construction confirmed. ${cost < 0 ? `${formatCredits(Math.abs(cost))} credits refunded.` : `${formatCredits(cost)} credits spent.`}`, "success");
   renderSavedStarships(); renderCampaignLink(); renderAll();
+  if(!draft.campaignLink&&!VIEW_ONLY_MODE){for(const target of [document.querySelector('#exportStarship'),document.querySelector('[data-starship-campaign-code]')]){target?.classList.add('ship-workflow-highlight');target?.addEventListener('click',()=>target.classList.remove('ship-workflow-highlight'),{once:true});}}
 }
 undoButtons.forEach((button) => button.addEventListener("click", undoConstruction));
 discardButtons.forEach((button) => button.addEventListener("click", discardConstruction));
@@ -1559,6 +1339,7 @@ const linkStarshipForms = [...document.querySelectorAll("[data-link-starship-for
 let linkedCampaignState = null;
 
 function applyDraftToUi() {
+  document.querySelectorAll(".ship-workflow-highlight").forEach(element => element.classList.remove("ship-workflow-highlight"));
   shipFields.forEach((field) => { field.value = draft[field.dataset.shipField] || (field.type==='color'?window.SAShipMap.shipColor(draft):""); });
   popularityInputs.forEach((input) => { input.value = String(draft.popularity || 0); });
   selectedSicId = null; mobilePreviewCell = null; undoState = null;
@@ -1677,11 +1458,16 @@ function campaignMessage(message, tone = "") {
   document.querySelectorAll("[data-starship-campaign-message]").forEach((output) => { output.textContent = message; output.dataset.tone = tone; });
 }
 function renderCampaignLink() {
+  for(const grid of document.querySelectorAll(".ship-grid"))window.SAWarpEffects?.updateMap(linkedCampaignState?.starships?.find(s=>s.id===draft.id)||draft,grid);
+  document.querySelectorAll(".sic-buy-blueprint,[data-owned-blueprints]").forEach(b=>b.hidden=!canBuyBlueprint());
   const linked = draft.campaignLink;
+  if (linked) document.querySelectorAll(".ship-workflow-highlight").forEach(element => element.classList.remove("ship-workflow-highlight"));
   const records = linkedCampaignState?.characters || [];
   const credentials = linked ? activeCampaignCredentials(linked.roomCode) : null;
   document.body.classList.toggle("has-linked-crew-access", Boolean(linked && credentials?.token));
-  const selected = new Set(draft.crewCharacterIds || []);
+  const currentRecord=linkedCampaignState?.starships?.find(ship=>ship.id===draft.id);
+  const selected = new Set(currentRecord?.crewCharacterIds || draft.crewCharacterIds || []);
+  document.querySelectorAll('[data-assigned-crew]').forEach(n=>{const names=records.filter(r=>selected.has(r.id)).map(r=>r.character?.identity?.characterName||'Unnamed Character').concat((linkedCampaignState?.npcRoster||[]).filter(u=>currentRecord?.crewNpcUnitIds?.includes(u.id)).map(u=>u.characterName));n.innerHTML=names.length?names.map(name=>'<div>'+escapeHtml(name)+'</div>').join(''):'<small>No assigned crew.</small>';});
   const npcSelected = new Set(linkedCampaignState?.starships?.find(ship => ship.id === draft.id)?.crewNpcUnitIds || []);
   linkStarshipForms.forEach((form) => { form.hidden = Boolean(linked); });
   document.querySelectorAll("[data-starship-campaign-status]").forEach((status) => { status.hidden = !linked; });
@@ -1777,65 +1563,16 @@ function attachFloorplanPreview(card,type,container) {
   art.addEventListener('pointerleave',hide);art.addEventListener('pointerdown',hide);
 }
 market.querySelectorAll('[data-sic-card]').forEach(card=>attachFloorplanPreview(card,card.dataset.sicCard,document.body));
-function openSicFamily(family, items, trigger) {
-  if (activeFamilyDialog) return;
-  const dialog = cardHost.createElement("dialog");
-  dialog.className = "sic-family-picker"; dialog.setAttribute("aria-label", family);
-  dialog.innerHTML = `<header><button type="button" data-family-back>Back</button><h2>${escapeHtml(family)}</h2><strong>${formatCredits(draft.groupCredits - pendingCost())} Credits</strong></header><p role="alert" data-family-feedback></p><div class="sic-picker-grid"></div>`;
-  const grid = dialog.querySelector(".sic-picker-grid"), slots = [];
-  const order=item=>{const type=item.querySelector('[data-sic-card]').dataset.sicCard,d=SIC_CATALOG[type];if(d.bridge)return (type.startsWith('cockpit')?0:2)+(d.tier||Number(type.match(/\d+$/)?.[0])||0);if(d.warp)return type==='warp-drive-x'?100:type==='ew-ftl-drive'?99:d.tier||0;return Number(type.match(/\d+$/)?.[0]||99);};
-  const ascending=[...items].sort((a,b)=>order(a)-order(b));
-  for (const [index, item] of ascending.entries()) {
-    const source = item.querySelector("[data-sic-card]"), type = source.dataset.sicCard;
-    const slot = cardHost.createElement("div"); slot.className = "sic-picker-slot";
-    const face = cardHost.createElement("section"); face.className = "sic-market-item sic-picker-face";
-    face.style.setProperty("--card-accent", cardAccent(type));
-    const preview = previewSicCard(source); preview.tabIndex = 0; preview.setAttribute("role", "button"); preview.setAttribute("aria-label", `${SIC_CATALOG[type].name} details`);
-    attachFloorplanPreview(preview,type,dialog);
-    preview.addEventListener("click", () => openSicCard(source, preview));
-    preview.addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openSicCard(source, preview); } });
-    const buy = cardHost.createElement("button"); buy.type = "button"; buy.className = "sic-purchase-button"; buy.textContent = "Purchase"; buy.dataset.purchaseType = type;
-    buy.addEventListener("click", () => {
-      if (buy.disabled) return;
-      buy.disabled = true;
-      if (purchaseSic(type)) close(false);
-      else { buy.disabled = false; dialog.querySelector("[data-family-feedback]").textContent = purchaseFeedback.textContent; }
-    });
-    face.append(preview, buy); slot.append(face); grid.append(slot); slots.push(slot);
-    if (!reducedCardMotion()) slot.animate([{ opacity: 0, transform: `translateY(45px) rotate(${(index - 2) * 5}deg) scale(.7)` }, { opacity: 1, transform: "none" }], { duration: 320, delay: index * 35, fill: "backwards" });
-  }
-  function fit() {
-    const { width, height } = grid.getBoundingClientRect();
-    let best = { scale: 0, columns: 1 };
-    for (let columns = 1; columns <= slots.length; columns++) {
-      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 350), (height - (rows - 1) * 14) / (rows * 490));
-      if (scale > best.scale) best = { scale, columns };
-    }
-    const scale = Math.max(.15, best.scale);
-    grid.style.gridTemplateColumns = `repeat(${best.columns},${350 * scale}px)`;
-    slots.forEach(slot => { slot.style.width = `${350 * scale}px`; slot.style.height = `${490 * scale}px`; slot.style.setProperty("--picker-scale", scale); });
-  }
-  let closing = false;
-  const resize = new cardHost.defaultView.ResizeObserver(fit);
-  async function close(animate = true) {
-    if (closing) return; closing = true; dialog.inert = true;
-    if (animate && !reducedCardMotion()) await dialog.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.85) translateY(20px)" }], { duration: 180 }).finished.catch(() => {});
-    dispose();
-    if (animate && trigger.isConnected) trigger.focus({ preventScroll: true });
-  }
-  function dispose() {
-    resize.disconnect(); dialog.close(); dialog.remove(); activeFamilyDialog = null; disposeFamilyDialog = null;
-  }
-  dialog.querySelector("[data-family-back]").addEventListener("click", () => close());
-  dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
-  cardHost.body.append(dialog); activeFamilyDialog = dialog; disposeFamilyDialog = dispose; dialog.showModal(); resize.observe(grid); fit();
-}
+function openSicFamily(family,items,trigger){return sharedSicMarket.openFamily(family,items,trigger);}
+
 function openSicCard(sicCard, trigger = sicCard) {
   if (!sicCard || sicCardDialog.open) return;
   inspectedTrigger = trigger;
   const cloneCard = previewSicCard(sicCard);
   const installedItem = draft.sicInventory.find(item => item.id === trigger?.dataset.openSicId);
-  if(!installedItem&&window.SAFabrication.recipe(cloneCard.dataset.sicPreview)&&!VIEW_ONLY_MODE){const buy=cardHost.createElement("button");buy.className="sic-buy-blueprint";buy.textContent="Buy blueprint";buy.onclick=()=>openBlueprintPurchase(cloneCard.dataset.sicPreview);sicCardDialog._blueprintAction=buy;}
+  if(!installedItem){const type=sicCard.dataset.sicCard||sicCard.dataset.sicPreview,d=SIC_CATALOG[type];return window.SACardInspector.open(sicCard,{document:cardHost,trigger,title:d?.name,purchase:VIEW_ONLY_MODE?null:()=>{const ok=purchaseSic(type);if(ok)sharedSicMarket.dispose();return ok;},blueprint:canBuyBlueprint()&&!VIEW_ONLY_MODE&&window.SAFabrication.recipe(type)?()=>openBlueprintPurchase(type):null,preview:d&&(d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking)?()=>window.SACardInspector.previewConsole(type,cardHost):null});}
+
+  if(canBuyBlueprint()&&!installedItem&&window.SAFabrication.recipe(cloneCard.dataset.sicPreview)&&!VIEW_ONLY_MODE){const buy=cardHost.createElement("button");buy.className="sic-buy-blueprint";buy.textContent="Buy blueprint";buy.onclick=()=>openBlueprintPurchase(cloneCard.dataset.sicPreview);sicCardDialog._blueprintAction=buy;}
   if (installedItem) {
     decorateOwnedCard(cloneCard,installedItem);
     const locate = cardHost.createElement("button"); locate.type = "button"; locate.className = "sic-inspector-locate"; locate.textContent = "Locate";
@@ -1879,13 +1616,14 @@ function openSicCard(sicCard, trigger = sicCard) {
   };
   if(installedItem&&!VIEW_ONLY_MODE&&!document.body.classList.contains("ship-details-view")){const panel=cardHost.createElement("aside");panel.className="sic-context-actions";const kind=Object.keys(inventoryHeadings).find(k=>inventoryGroup(k).some(i=>i.id===installedItem.id));if(kind){renderInventoryList(panel,kind,installedItem.id);panel.addEventListener("click",e=>{if(e.target.closest("button"))closeSicCard();});body.append(panel);}}
   sicCardDialog.showModal();
-  if (!reducedCardMotion()) sicCardDialog.animate([{ opacity: 0, transform: "translateY(35px) scale(.72) rotate(-4deg)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
+  if (!cardHost.defaultView.matchMedia("(prefers-reduced-motion: reduce)").matches) sicCardDialog.animate([{ opacity: 0, transform: "translateY(35px) scale(.72) rotate(-4deg)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
 }
-async function closeSicCard() {
-  if (closingCard || !sicCardDialog.open) return; closingCard = true;
-  if (!reducedCardMotion()) await sicCardDialog.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(24px) scale(.8) rotate(2deg)" }], { duration: 170 }).finished.catch(() => {});
-  sicCardDialog.close(); closingCard = false;
-  if (inspectedTrigger?.isConnected) inspectedTrigger.focus({ preventScroll: true });
+function closeSicCard() {
+  // Never await an animation to release a modal: background frames can suspend it.
+  closingCard = false;
+  for(const animation of sicCardDialog.getAnimations())animation.cancel();
+  if(sicCardDialog.open)sicCardDialog.close();
+  if(inspectedTrigger?.isConnected)inspectedTrigger.focus({preventScroll:true});
 }
 sicCards.forEach((sicCard) => {
   sicCard.addEventListener("click", () => openSicCard(sicCard));
@@ -1899,7 +1637,7 @@ document.addEventListener("click", (event) => {
 sicCardDialog.querySelector("[data-close-sic-card]").addEventListener("click", closeSicCard);
 sicCardDialog.addEventListener("click", (event) => { if (event.target === sicCardDialog) closeSicCard(); });
 sicCardDialog.addEventListener("cancel", event => { event.preventDefault(); closeSicCard(); });
-window.addEventListener("pagehide", () => { disposeFamilyDialog?.(); if (cardHost !== document) sicCardDialog.remove(); });
+window.addEventListener("pagehide", () => { sharedSicMarket.dispose(); disposeFamilyDialog?.(); if (cardHost !== document) sicCardDialog.remove(); });
 
 const reputationValues = ["+5", "+4", "+3", "+2", "+1", "0", "+1", "+2", "+3", "+4", "+5"];
 const reputationNames = [["Benevolent", "Ruthless"], ["Virtuous", "Treacherous"], ["Civil", "Savage"], ["Powerful", "Weak"], ["Cunning", "Exploitable"]];
@@ -2018,7 +1756,7 @@ function drawDetailsCrew(){
   for(const [id,loc] of Object.entries(record?.characterLocations||{}))for(const grid of shipGrids){
     const cell=grid.querySelector(`[data-grid-index="${loc.square}"]`);if(!cell)continue;
     const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.characterWalks?.[id]?window.SAShipWalking.sample(record.characterWalks[id],Date.now()+(record.walkClockOffset||0)):record.motion?.[id];
-    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
+    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;const tokenInfo=window.SATokenArt.character(occupant||person||{});marker.dataset.tokenRace=tokenInfo.race;marker.dataset.tokenVariant=String(tokenInfo.variant);marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
     if(!marker.querySelector('.crew-figure'))marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);
     marker.title=(occupant?.name||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
     marker.dataset.walking=String(Boolean(motion?.walking));
@@ -2187,7 +1925,7 @@ function purchaseAddon(type,storedItem=null){
   if(!hosts.length)return rejectSicPurchase('Install a compatible host SIC before purchasing '+def.name+'.');
   const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options';dialog.setAttribute('aria-label','Attach '+def.name);
   dialog.innerHTML='<h2>'+escapeHtml(def.name)+'</h2><label>Attach to SIC<select data-addon-host>'+hosts.map(i=>`<option value="${escapeHtml(i.id)}">${escapeHtml(sicDefinition(i).name)} (${escapeHtml(i.id.slice(-5))})</option>`).join('')+'</select></label><p data-addon-price></p><p role="alert"></p><button type="button" data-addon-buy>Purchase and Attach</button><button type="button" data-addon-cancel>Cancel</button>';
-  if(storedItem)dialog.querySelector('[data-addon-buy]').textContent='Install stored SIC';
+  if(storedItem){dialog.querySelector('[data-addon-buy]').textContent='Install stored SIC';if(type==='vulnerability-fortification'&&storedItem.shopPurchased)dialog.querySelector('[role=alert]').textContent='Stacked fortification may add an installation charge to Pending Total. Confirm Changes reviews the total before spending.';}
   const host=()=>draft.sicInventory.find(i=>i.id===dialog.querySelector('select').value),cost=()=>storedItem?0:type==='vulnerability-fortification'?500*2**draft.sicInventory.filter(i=>i.type===type&&i.attachTo===host().id&&!i.pendingDisposition).length:def.price;
   const price=()=>dialog.querySelector('[data-addon-price]').textContent=cost().toLocaleString()+' credits';dialog.querySelector('select').onchange=()=>{clearPurchaseFeedback();dialog.querySelector('[role=alert]').textContent='';price();};price();
   dialog.querySelector('[data-addon-cancel]').onclick=()=>dialog.close();
@@ -2202,7 +1940,7 @@ function decorateOwnedCard(card,item){
  if(item.type==='blueprint'){const title=card.querySelector('h3');if(title)title.textContent='Blueprint ('+(SIC_CATALOG[item.blueprintType]?.name||'Unknown SIC')+')';}
  if(item.printed){const rules=card.querySelector('.sic-poker-rules');if(rules)rules.insertAdjacentHTML('beforeend','<small>3D printed · resale 25% · '+(item.printedFor?'Licensed to this ship':'Open licence until installed')+'</small>');}
  const threshold=card.querySelector('footer span:last-child');if(threshold&&Number(window.SAShipMap.definition(item.type).threshold)>0)threshold.innerHTML='<small>Damage Threshold</small>'+window.SAShipMap.effectiveThreshold(draft,item);
- if(item.type==='vulnerability-fortification'||SIC_CATALOG[item.type]?.hullUpgrade){const price=card.querySelector('.sic-poker-heading strong');if(price)price.textContent='Price: '+sicDefinition(item).price.toLocaleString();}
+ if(item.shopPurchased||item.type==='vulnerability-fortification'||SIC_CATALOG[item.type]?.hullUpgrade){const price=card.querySelector('.sic-poker-heading strong');if(price)price.textContent='Price: '+sicDefinition(item).price.toLocaleString();}
 }
 
 // Expand the live interior rather than copying a picture; routes, doors and confirmation stay connected.
@@ -2273,10 +2011,13 @@ if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{
 
 if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href='room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
+function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.starships||[]).some(s=>s.controlType==='pc'&&s.ship?.sicInventory?.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition)) : draft.sicInventory.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition);}
 function openBlueprintPurchase(type){
+ if(!canBuyBlueprint()){showMessage('A PC ship must own a 3D Printer before buying blueprints.','error');return;}
+
  const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
 }
-for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
+for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.hidden=!canBuyBlueprint();buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
 
 function editAirlock(square){
  const old=(draft.airlocks||[]).find(a=>a.square===square),candidate=window.SAShipMap.airlockCandidates(draft).find(a=>a.square===square);

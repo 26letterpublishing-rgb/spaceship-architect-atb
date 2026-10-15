@@ -393,7 +393,7 @@
     const item=(ship.sicInventory||[]).find(i=>i.id===ignoreId),entry=item?componentDefinition(item):definition(type);
     const cells=rectangleCells(ship,origin,entry.width,entry.height),outside=outerSpace(ship),hull=new Set(ship.gridCells||[]),sides=gridSides(ship),occupied=buildLayout(ship).footprint;
     return cells.length===entry.width*entry.height && cells.every(n=>outside.has(n)&&(!occupied.has(n)||occupied.get(n).sicId===ignoreId)) &&
-      (entry.thruster ? sides.some(side=>{const edge=cells.filter(n=>!cells.includes(n+side.offset));return edge.length>0&&edge.every(n=>side.valid(n)&&hull.has(n+side.offset)&&!triangleCells(ship).includes(n+side.offset));}) : cells.some(n=>sides.some(side=>side.valid(n)&&hull.has(n+side.offset))));
+      (entry.thruster ? sides.some(side=>{const edge=cells.filter(n=>!cells.includes(n+side.offset));return edge.length>0&&edge.some(n=>side.valid(n)&&hull.has(n+side.offset)&&!triangleCells(ship).includes(n+side.offset));}) : cells.some(n=>sides.some(side=>side.valid(n)&&hull.has(n+side.offset))));
   }
   function mixedPlacement(ship,item,origin,exteriorCell) {
     const entry=componentDefinition(item);
@@ -555,8 +555,8 @@
     const inventory = ship.sicInventory || [];
     const installed = new Set((ship.placements || []).map(p => p.sicId));
     for(const item of inventory.filter(i=>definition(i.type).hullUpgrade&&!i.pendingDisposition)){
-      if(inventory.filter(i=>i.type===item.type&&!i.pendingDisposition).length>1)return `Only one ${definition(item.type).name} per ship.`;
-      if(!installed.has(item.id)||item.storage)return 'Hull upgrades cover the whole Hull and cannot be kept in Storage.';
+      if(inventory.filter(i=>i.type===item.type&&installed.has(i.id)&&!i.pendingDisposition).length>1)return `Only one ${definition(item.type).name} per ship.`;
+      if(!installed.has(item.id)||item.storage)continue;
     }
     if(installed.size!==(ship.placements||[]).length)return 'Each SIC may be installed only once; Hover stores its four mounts together.';
     if (inventory.filter(item => installed.has(item.id) && definition(item.type).bridge).length > 1) return "A ship may have only one Bridge or Cockpit.";
@@ -582,7 +582,7 @@
         if((ship.placements||[]).some(other=>other.sicId!==p.sicId&&placementSquares(ship,inventory.find(i=>i.id===other.sicId),other).some(n=>cells.includes(n))))return `${data.name} cannot overlap another SIC.`;
       }
       if(data.probeLauncher&&(ship.sicInventory||[]).filter(i=>definition(i.type).probe&&i.attachTo===item.id&&!i.storage&&!i.pendingDisposition&&i.status!=='destroyed'&&(ship.placements||[]).some(p=>p.sicId===i.id)).length>4)return 'A Probe Launcher holds at most four probes.';
-      if(data.addon){const host=addonHost(ship,item);if(!host||host.placement.cell!==p.cell)return `${data.name} must be attached to an installed ${data.addon==='any'?'SIC with a damage threshold':data.addon}.`;if(data.hullUpgrade&&inventory.filter(i=>i.type===item.type&&!i.pendingDisposition).length>1)return `Only one ${data.name} per ship.`;if(data.shieldRecovery&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one of each recovery add-on per Shield system.';if(data.staticShield&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one Static Shields add-on per Shield system.';if(item.type==='power-core-damper'&&attachments(ship,item.attachTo,item.type).length>1)return 'Only one Power Core Damper per Engine.';continue;}
+      if(data.addon){const host=addonHost(ship,item);if(!host||host.placement.cell!==p.cell)return `${data.name} must be attached to an installed ${data.addon==='any'?'SIC with a damage threshold':data.addon}.`;if(data.hullUpgrade&&inventory.filter(i=>i.type===item.type&&installed.has(i.id)&&!i.pendingDisposition).length>1)return `Only one ${data.name} per ship.`;if(data.shieldRecovery&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one of each recovery add-on per Shield system.';if(data.staticShield&&inventory.filter(i=>i.type===item.type&&i.attachTo===item.attachTo&&!i.pendingDisposition).length>1)return 'Only one Static Shields add-on per Shield system.';if(item.type==='power-core-damper'&&attachments(ship,item.attachTo,item.type).length>1)return 'Only one Power Core Damper per Engine.';continue;}
       if(data.bridgeAddon){
         if(!bridgeAddonPlacement(ship,p.cell))return `${data.name} must be installed on a Bridge or Cockpit.`;
         continue;
@@ -645,6 +645,8 @@
   }
   function scaleRank(record) { const n=(record.ship||record).gridCells?.length||record.hullCount||record.size||0;return n<=26?1:n<=50?2:n<=100?3:n<=200?4:5; }
   function shipHeading(record){const d=record.navigation?.direction;if(d&&Number.isFinite(d.q)&&Number.isFinite(d.r)&&(d.q||d.r))return Math.atan2(1.5*d.r,Math.sqrt(3)*(d.q+d.r/2))*180/Math.PI+90;return Number(record.mapHeading??record.ship?.mapHeading)||0;}
+  function shipIconId(record={}) { const value=Number(record.ship?.mapIcon??record.mapIcon);return Number.isInteger(value)&&value>=1&&value<=8?value:1; }
+  function shipIcon(record={}) { return `ship-token-${shipIconId(record)}-v1.webp`; }
   function shipColor(record) {const color=record.mapColor||record.ship?.mapColor;if(/^#[0-9a-f]{6}$/i.test(color||''))return color;const palette=['#65cbea','#ffa66b','#b29cff','#7ce0a0','#f38cbd','#f4db79'];let hash=0;for(const c of String(record.id||record.title||''))hash=(hash*31+c.charCodeAt(0))>>>0;return palette[hash%palette.length];}
   function gravityFieldActive(record) {
     const ship=record.ship||record,state=ship.gravityFieldState,items=installedItems(record);
@@ -966,23 +968,23 @@
   function dockedMarkup(layout,cell){
     if(cell?.type!=='docking-bay'||cell.offset!==0)return '';
     const ships=layout.ship.fieldState?.systems?.[cell.sicId]?.dockedShips||[];
-    return `<span class="sa-bay-ships" style="width:${cell.width*100}%;height:${cell.height*100}%">${ships.slice(0,4).map((ship,i)=>`<img src="sic-art-starship-rank-${Math.max(1,Math.min(5,Number(ship.rank)||1))}.webp" alt="Docked starship" style="left:${25+i%2*50}%;top:${25+Math.floor(i/2)*50}%;filter:drop-shadow(0 0 3px ${shipColor(ship)})">`).join('')}</span>`;
+    return `<span class="sa-bay-ships" style="width:${cell.width*100}%;height:${cell.height*100}%">${ships.slice(0,4).map((ship,i)=>`<img src="${shipIcon(ship)}" alt="Docked starship" style="left:${25+i%2*50}%;top:${25+Math.floor(i/2)*50}%;filter:drop-shadow(0 0 3px ${shipColor(ship)})">`).join('')}</span>`;
   }
   function airlockCandidates(record) {
-    const ship=record.ship||record,l=buildLayout(ship),outside=outerSpace(ship),result=[];
+    const ship=record.ship||record,l=buildLayout(ship),outside=outerSpace(ship),result=[],bridge=[];
     for(const square of l.hull){
-      if(l.footprint.has(square))continue;
+      const room=l.footprint.get(square);if(room&&!definition(room.item.type).bridge)continue;
       for(const side of l.sides){const next=square+side.offset;
-        if((!side.valid(square)||outside.has(next))&&!l.footprint.has(next))result.push({square,side:side.name});
+        if((!side.valid(square)||outside.has(next))&&!l.footprint.has(next))(room?bridge:result).push({square,side:side.name});
       }
     }
-    return result;
+    return result.length?result:bridge;
   }
   function ensureAirlocks(record) {
     const ship=record.ship||record,candidates=airlockCandidates(ship),seen=new Set();
     ship.airlocks=(Array.isArray(ship.airlocks)?ship.airlocks:[]).filter(a=>a&&candidates.some(c=>c.square===a.square&&c.side===a.side)&&!seen.has(a.square)&&seen.add(a.square)).map(a=>({id:String(a.id||`airlock-${a.square}-${a.side}`).replace(/[^a-z0-9_-]/gi,'').slice(0,100),square:a.square,side:a.side}));
     if(!ship.airlocks.length&&candidates.length){const a=candidates[0];ship.airlocks.push({id:`airlock-${a.square}-${a.side}`,...a});}
-    return ship.airlocks.length?'':'Leave a blank hull square along an outside edge for an airlock.';
+    return ship.airlocks.length?'':'Leave a blank hull square or an exposed Bridge/Cockpit wall along an outside edge for an airlock.';
   }
   function hazardMarkup(ship,square) {
     const a=(ship.airlocks||[]).find(a=>a.square===square),open=a&&ship.airlockStates?.[a.id]?.open;
@@ -1007,7 +1009,7 @@
     const mount=impairmentMarkup(sic);
     if(definition(sic.type).mixed&&!sic.segment){const entry=componentDefinition(sic.item),xs=entry.exteriorCells.map(c=>c.x),ys=entry.exteriorCells.map(c=>c.y),minX=Math.min(...xs),minY=Math.min(...ys);if(sic.column!==minX||sic.row!==minY)return mount+'<span class="sa-exterior-tile" aria-hidden="true"></span>';sic={...sic,width:Math.max(...xs)-minX+1,height:Math.max(...ys)-minY+1,offset:0};}
     if (sic.offset) return mount+'<span class="sa-exterior-tile" aria-hidden="true"></span>';
-    const data = definition(sic.type), angle = sic.segment==="exterior"?(Number(sic.rotation)+180)%360:data.weapon&&Number.isFinite(sic.item.weaponFacing)?(sic.item.weaponFacing+180)%360:data.thruster&&layout.thrusterDirection!==null?layout.thrusterDirection:exteriorFacing(layout, square), sideways = angle % 180 !== 0;
+    const data = definition(sic.type), angle = data.weapon&&Number.isFinite(sic.item.weaponFacing)?(sic.item.weaponFacing+180)%360:sic.segment==="exterior"?(Number(sic.rotation)+180)%360:data.thruster&&layout.thrusterDirection!==null?layout.thrusterDirection:exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
     const facing=exteriorFacing(layout,square),shift=exteriorShift(sic,angle,facing),low=exteriorShift(sic,angle,facing,true);
     const shiftStyle=`--art-shift-x:${shift[0]}%;--art-shift-y:${shift[1]}%;--shape-shift-x:${low[0]}%;--shape-shift-y:${low[1]}%;`;
@@ -1103,6 +1105,7 @@
       const side = SIDES.find((entry) => entry.name === sideName);
       if (!side) return { kind: "none", side: sideName, key: "" };
       const adjacent = Number(square) + side.offset;
+      if(ship.boredWalls?.includes(doorKey(square,adjacent)))return {kind:"none",side:sideName,key:doorKey(square,adjacent)};
       if (!side.valid(Number(square)) || !hull.has(adjacent)) return { kind: "wall", side: sideName, key: "" };
       const current = footprint.get(Number(square));
       const other = footprint.get(adjacent);
@@ -1195,7 +1198,7 @@
   function hullHp(record){const base=hullSections(record);return base+(hullUpgrade(record,'hull-plating')?Math.floor(base*scaleRank(record)/10):0);}
   function hullUpgrade(record,type){return installedItems(record).some(item=>item.type===type&&!item.pendingDisposition&&operational(item)&&addonHost(record,item));}
   function hullDamage(record,amount,type){let value=Math.max(0,Number(amount)||0);if(type==='heat'&&hullUpgrade(record,'heat-resistance'))value*=.25;if(type==='laser'&&hullUpgrade(record,'laser-resistance'))value=Math.floor(value/2);return value;}
-  function hullUpgradeResizeCost(working,confirmed){const old=confirmed.ship||confirmed;return (hullSections(working)-hullSections(confirmed))*((working.ship||working).sicInventory||[]).filter(item=>!item.pendingPurchase&&!item.pendingDisposition&&definition(item.type).hullUpgrade&&(old.sicInventory||[]).some(i=>i.id===item.id)).reduce((sum,item)=>sum+definition(item.type).hullSquarePrice,0);}
+  function hullUpgradeResizeCost(working,confirmed){const old=confirmed.ship||confirmed;return (hullSections(working)-hullSections(confirmed))*((working.ship||working).sicInventory||[]).filter(item=>!item.pendingPurchase&&!item.pendingDisposition&&definition(item.type).hullUpgrade&&(old.sicInventory||[]).some(i=>i.id===item.id)).reduce((sum,item)=>sum+(item.pricePerHullSquare??definition(item.type).hullSquarePrice),0);}
   function staticShieldActive(record){
     if(gravityFieldActive(record))return false;
     const systems=record.shieldSystems||(record.ship||record).shieldSystems;
@@ -1213,7 +1216,16 @@
   function attachments(ship,id,type){return installedItems(ship).filter(i=>i.attachTo===id&&(!type||i.type===type)&&operational(i));}
   function effectiveThreshold(ship,item){return Number(definition(item.type).threshold)||0 ? Number(definition(item.type).threshold)+attachments(ship,item.id,'vulnerability-fortification').length : null;}
   function engineClearance(ship,item){return Math.max(0,(definition(item.type).clearance||0)-(attachments(ship,item.id,'power-core-damper').length?1:0));}
-  function sicPrice(item,record){const d=definition(item.type);return d.hullUpgrade?(record?hullSections(record)*d.hullSquarePrice:Math.max(0,Number(item.purchasePrice)||0)):item.type==='vulnerability-fortification'?Math.max(500,Number(item.purchasePrice)||500):d.price||0;}
+  // Stored fortifications pay only the additional host-stack cost when installed.
+  function fortificationInstallPrices(working,confirmed){
+    const ship=working.ship||working,old=confirmed.ship||confirmed,prior=new Map((old.sicInventory||[]).map(i=>[i.id,i])),oldInstalled=new Set((old.placements||[]).map(p=>p.sicId));
+    const installed=installedItems(ship).filter(i=>i.type==='vulnerability-fortification'&&!i.pendingDisposition),counts=new Map(),prices={};
+    const newlyInstalled=i=>i.shopPurchased&&(!oldInstalled.has(i.id)||prior.get(i.id)?.attachTo!==i.attachTo);
+    for(const i of installed.filter(i=>!newlyInstalled(i)))counts.set(i.attachTo,(counts.get(i.attachTo)||0)+1);
+    for(const i of installed.filter(newlyInstalled)){const count=counts.get(i.attachTo)||0;prices[i.id]=Math.max(Number(i.purchasePrice)||0,Math.round((i.fortificationBasePrice??i.purchasePrice??500)*2**count));counts.set(i.attachTo,count+1);}
+    return prices;
+  }
+  function sicPrice(item,record){const d=definition(item.type);if(item.shopPurchased&&!d.hullUpgrade)return Math.max(0,Number(item.purchasePrice)||0);return d.hullUpgrade?(record?hullSections(record)*(item.pricePerHullSquare??d.hullSquarePrice):Math.max(0,Number(item.purchasePrice)||0)):item.type==='vulnerability-fortification'?Math.max(500,Number(item.purchasePrice)||500):d.price||0;}
   function scramblePenalty(ship,sicId){const s=ship.ship||ship,item=(s.sicInventory||[]).find(i=>i.id===sicId),p=(s.placements||[]).find(p=>p.sicId===sicId);if(!item||!p)return 0;const cells=placementSquares(s,item,p),c=gridColumns(s);
     return installedItems(s).some(i=>i.type==='scramble-box'&&operational(i)&&!i.impaired&&!i.impairmentPoints&&i.status!=='impaired'&&(s.placements||[]).some(p=>p.sicId===i.id&&cells.some(n=>Math.abs(n%c-p.cell%c)+Math.abs(Math.floor(n/c)-Math.floor(p.cell/c))===1)))?1:0;}
   function equipmentBonus(ship,location,skill){
@@ -1239,5 +1251,5 @@
     const apply=()=>callback(loadViewPreferences());window.addEventListener('sa-map-view-changed',apply);
     window.addEventListener('storage',e=>{if(e.key===viewKey)apply();});
   }
-  return Object.freeze({ airlockCandidates, ensureAirlocks, hazardMarkup, triangleCells, triangleOrientation, triangleError, triangleMarkup, hullSections, hullHp, hullUpgrade, hullDamage, hullUpgradeResizeCost, staticShieldActive, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, gravityFieldActive, cloaked, scaleRank, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
+  return Object.freeze({ fortificationInstallPrices, airlockCandidates, ensureAirlocks, hazardMarkup, triangleCells, triangleOrientation, triangleError, triangleMarkup, hullSections, hullHp, hullUpgrade, hullDamage, hullUpgradeResizeCost, staticShieldActive, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, gravityFieldActive, cloaked, scaleRank, shipIconId, shipIcon, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
 }));

@@ -1,0 +1,203 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "id": "human",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e69ec5e6-f3d0-4c17-8e2c-1dbe3f40b1f9.png",
+      "prompt": "Use case: stylized-concept. Create a game token sprite atlas, exactly 2 columns by 2 rows in a square canvas, equal cells, transparent background. Race HUMAN: realistic detailed science fiction overhead crew member, clothed in neutral graphite and cream space utility uniform, no weapon. TOP ROW male short brown hair; BOTTOM ROW female dark tied hair. LEFT COLUMN standing symmetrically feet together; RIGHT COLUMN same exact character and scale with left foot forward and right foot back, walking. Strict directly overhead top-down view, face towards TOP edge; show crown of head, shoulders, arms and feet from above, not portrait/front/isometric. Each cell contains exactly one centered complete body with identical body proportions and head center placement between frames. No grid lines, no text, no shadows outside silhouette, no colored glow. Both uniforms and hairstyles sufficiently left-right symmetrical to mirror the walking image for the opposite step. Detailed but readable at 32 pixels. Each figure occupies central 76% cell width and height with transparent padding. All four sprites distinct non-overlapping, full silhouettes. This is one animation atlas asset.",
+      "output": "crew-atlas-human-v1.webp"
+    },
+    {
+      "id": "android",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-de37b1b0-3ceb-4167-be81-1cb2b234f566.png",
+      "prompt": "Create one transparent game animation atlas, exactly 2 columns by 2 rows, square canvas and four equal cells. Race android: Two gender-neutral mechanical humanoids, silver service android and graphite industrial android, distinct symmetrical head casings. TOP ROW first variant, BOTTOM ROW second variant. LEFT COLUMN standing still; RIGHT COLUMN same exact character taking a left-foot-forward walking step. All characters directly overhead top-down, heads toward TOP edge. Exact same size and head-center registration between standing and walking. Center each full body in its cell with 15% transparent padding. Symmetric clothes and details so opposite walking step can be made by horizontal mirroring. Detailed science fiction raster game tokens, readable at 32 pixels. No text, grid, background, floor, glow, ground shadows, weapons or perspective horizon. Two variants, two poses each, no other objects.",
+      "output": "crew-atlas-android-v1.webp"
+    },
+    {
+      "id": "angiluros",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-3e6fb312-601d-4237-9d34-34873ec3acf1.png",
+      "prompt": "Create one transparent game animation atlas, exactly 2 columns by 2 rows, square canvas and four equal cells. Race angiluros: Male and female bipedal feline aliens, cat heads and fur, tribal utility garments with small wooden ornaments. TOP ROW first variant, BOTTOM ROW second variant. LEFT COLUMN standing still; RIGHT COLUMN same exact character taking a left-foot-forward walking step. All characters directly overhead top-down, heads toward TOP edge. Exact same size and head-center registration between standing and walking. Center each full body in its cell with 15% transparent padding. Symmetric clothes and details so opposite walking step can be made by horizontal mirroring. Detailed science fiction raster game tokens, readable at 32 pixels. No text, grid, background, floor, glow, ground shadows, weapons or perspective horizon. Two variants, two poses each, no other objects.",
+      "output": "crew-atlas-angiluros-v1.webp"
+    },
+    {
+      "id": "antropic",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c0d0a782-a52b-4ac4-b4ac-cf39f918f798.png",
+      "prompt": "Create one transparent game animation atlas, exactly 2 columns by 2 rows, square canvas and four equal cells. Race antropic: Two small anthropomorphic animal humanoids, fox-like male and rabbit-like female, practical space uniforms. TOP ROW first variant, BOTTOM ROW second variant. LEFT COLUMN standing still; RIGHT COLUMN same exact character taking a left-foot-forward walking step. All characters directly overhead top-down, heads toward TOP edge. Exact same size and head-center registration between standing and walking. Center each full body in its cell with 15% transparent padding. Symmetric clothes and details so opposite walking step can be made by horizontal mirroring. Detailed science fiction raster game tokens, readable at 32 pixels. No text, grid, background, floor, glow, ground shadows, weapons or perspective horizon. Two variants, two poses each, no other objects.",
+      "output": "crew-atlas-antropic-v1.webp"
+    },
+    {
+      "id": "bruggle",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c39ebee5-48d4-4222-b88f-d2bf2fdca5f1.png",
+      "prompt": "Create one transparent game animation atlas, exactly 2 columns by 2 rows, square canvas and four equal cells. Race bruggle: Male and female muscular frog humanoids, broad amphibian heads, olive and ochre skin, utility harnesses. TOP ROW first variant, BOTTOM ROW second variant. LEFT COLUMN standing still; RIGHT COLUMN same exact character taking a left-foot-forward walking step. All characters directly overhead top-down, heads toward TOP edge. Exact same size and head-center registration between standing and walking. Center each full body in its cell with 15% transparent padding. Symmetric clothes and details so opposite walking step can be made by horizontal mirroring. Detailed science fiction raster game tokens, readable at 32 pixels. No text, grid, background, floor, glow, ground shadows, weapons or perspective horizon. Two variants, two poses each, no other objects.",
+      "output": "crew-atlas-bruggle-v1.webp"
+    },
+    {
+      "id": "butchers-of-hellmouth",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-5ed64177-49a0-472a-9ebb-7de65565672b.png",
+      "prompt": "Create a transparent game animation atlas, exactly 2 columns by 2 rows, four equal cells. Race butchers-of-hellmouth: Two eyeless hairless beast humanoids, rough rust and charcoal skin, utility trousers, no gore. Top row first variant, bottom row second variant. Left column standing; right column identical character stepping left foot forward. Strict directly overhead view, facing top edge. Four full centered figures, same scale and head/body registration between poses. 15% transparent cell padding. Symmetrical for mirroring opposite step. Detailed sci-fi raster game tokens readable at32px. No text, grid, floor, shadow, weapons, colored glow or background.",
+      "output": "crew-atlas-butchers-of-hellmouth-v1.webp"
+    },
+    {
+      "id": "draco-prime",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a0d38c49-307c-496c-a702-412b73eb580a.png",
+      "prompt": "Create a transparent game animation atlas, exactly 2 columns by 2 rows, four equal cells. Race draco-prime: Male and female green reptilian humanoids, scaled heads, yellow eyes, graphite utility uniforms. Top row first variant, bottom row second variant. Left column standing; right column identical character stepping left foot forward. Strict directly overhead view, facing top edge. Four full centered figures, same scale and head/body registration between poses. 15% transparent cell padding. Symmetrical for mirroring opposite step. Detailed sci-fi raster game tokens readable at32px. No text, grid, floor, shadow, weapons, colored glow or background.",
+      "output": "crew-atlas-draco-prime-v1.webp"
+    },
+    {
+      "id": "epoc",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9e5c6175-4bda-41ce-b784-234a32dceb30.png",
+      "prompt": "Create a transparent game animation atlas, exactly 2 columns by 2 rows, four equal cells. Race epoc: Male and female humanoids with elongated skulls and small bone protrusions, symmetrical ceremonial space gowns. Top row first variant, bottom row second variant. Left column standing; right column identical character stepping left foot forward. Strict directly overhead view, facing top edge. Four full centered figures, same scale and head/body registration between poses. 15% transparent cell padding. Symmetrical for mirroring opposite step. Detailed sci-fi raster game tokens readable at32px. No text, grid, floor, shadow, weapons, colored glow or background.",
+      "output": "crew-atlas-epoc-v1.webp"
+    },
+    {
+      "id": "everliving-brethren",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-d6100747-3b39-4f7d-b2c9-ebdcb6ec44fd.png",
+      "prompt": "Create a transparent game animation atlas, exactly 2 columns by 2 rows, four equal cells. Race everliving-brethren: Male and female gray undead humanoids, red eyes, worn spacesuits, no gore. Top row first variant, bottom row second variant. Left column standing; right column identical character stepping left foot forward. Strict directly overhead view, facing top edge. Four full centered figures, same scale and head/body registration between poses. 15% transparent cell padding. Symmetrical for mirroring opposite step. Detailed sci-fi raster game tokens readable at32px. No text, grid, floor, shadow, weapons, colored glow or background.",
+      "output": "crew-atlas-everliving-brethren-v1.webp"
+    },
+    {
+      "id": "flavilin",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a5d2f86c-5a16-4711-b8e6-a6e6633c7a38.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race flavilin: Male and female brown alien humanoids with folded mastiff-like skin, sparse black hair and prominent round goggles, space utility clothes. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-flavilin-v1.webp"
+    },
+    {
+      "id": "garmoc",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e9f680f6-6622-4d97-929c-610e85332e90.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race garmoc: Male and female black-skinned armored aliens, blue eyes, symmetric large head and shoulder horns, natural shieldlike bone armor. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-garmoc-v1.webp"
+    },
+    {
+      "id": "grey",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-732ef8d6-1403-4583-aaff-a797d96cf9cb.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race grey: Two thin small gray aliens, oversized bald heads and large black eyes, neutral compact space uniforms. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-grey-v1.webp"
+    },
+    {
+      "id": "horus",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-96323304-d3ee-4274-8df0-da4bfaef6332.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race horus: Male and female eagle-headed tall humanoids, symmetrical golden Egyptian-inspired space garments. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-horus-v1.webp"
+    },
+    {
+      "id": "kabuto",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-c57249e5-47aa-49bc-a6bb-93aad6a66404.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race kabuto: Two small beetle aliens, six articulated legs, symmetric black-bronze and teal-bronze carapaces, no clothes. Walking uses alternating leg groups. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-kabuto-v1.webp"
+    },
+    {
+      "id": "krax-gny-vtek",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-308cb8f1-5170-4cb0-a366-0ad86be6830c.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race krax-gny-vtek: Male and female tall lanky bone-white and gray aliens, bald angular heads, large lipless mouths, dark utility suits. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-krax-gny-vtek-v1.webp"
+    },
+    {
+      "id": "nordic-flaxen",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a35f3eea-606a-4590-842f-d713003f5a4b.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race nordic-flaxen: Male and female tall blonde humanlike aliens, pale tan skin, sleek utility uniforms. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-nordic-flaxen-v1.webp"
+    },
+    {
+      "id": "pattanilia",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ae4f189f-998f-4f55-b6d1-fb517cbdcf7b.png",
+      "prompt": "One game token animation atlas, square canvas exactly2 columns by2 rows, transparent background. Race pattanilia: Male and female hairless pale blue humanoids, holographic eyes, fitted silver and graphite utility suits. First variant top row, second variant bottom row. Left column idle, right column left foot steps forward. CAMERA DIRECTLY ABOVE looking VERTICALLY DOWN AT CROWN OF HEAD and shoulders; NOT a standing portrait, NOT front view. Figures face NORTH toward top edge. Bodies foreshortened from overhead. Four centered matching-scale full silhouettes,15%transparent padding per cell. Head center and torso center registration identical between poses. Symmetrical features so opposite walking step is horizontal mirror. Detailed realistic scifi raster art readable at32px. No lettering, grids, floors, external shadows, weapons or glows.",
+      "output": "crew-atlas-pattanilia-v1.webp"
+    },
+    {
+      "id": "skeder",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-2e95cbc9-b3fe-45ca-bfb7-8a08a91471a7.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race skeder: Two small pale green aliens, reverse-jointed legs, tough exoskeleton, oversized jagged heads, small arms. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-skeder-v1.webp"
+    },
+    {
+      "id": "slyn-tanni",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-e6b65352-6b9a-4fe4-a16d-d49e67ecf4c7.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race slyn-tanni: Male and female blue aquatic humanoids, symmetrical folded wing-fins against shoulders, simple utility harness. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-slyn-tanni-v1.webp"
+    },
+    {
+      "id": "spiddix",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-24e4cc2c-6d00-4863-b86e-026fcd305527.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race spiddix: Two oversized alien brains safely enclosed in symmetrical compact mechanical walking cradles with four jointed legs, pale blue and bronze chassis, no gore. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-spiddix-v1.webp"
+    },
+    {
+      "id": "tamalori",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-6f593b6a-f2e1-4dcc-ba32-aaacdcde21a4.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race tamalori: Male and female tall furry deer-headed humanoids in practical space uniforms, small symmetric antlers where appropriate. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-tamalori-v1.webp"
+    },
+    {
+      "id": "vinolio-paxton",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-fd222bcb-0862-4418-9eec-a886777be135.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race vinolio-paxton: Male and female powerful dark-skinned humanoids, short hair, symmetric fitted futuristic uniforms. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-vinolio-paxton-v1.webp"
+    },
+    {
+      "id": "xithx",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-483548bc-e38f-40d9-b72e-a3d66ebead1b.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race xithx: Two green mantis-like insect aliens, arthropod heads, folded forelimbs and articulated walking legs, no clothing. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-xithx-v1.webp"
+    },
+    {
+      "id": "yetuak-zune",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-a7c1c87b-b451-4ba2-8b4a-255355cfac88.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race yetuak-zune: Male and female icy pale elf humanoids, dark symmetric hooded space robes, faces towards top edge. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-yetuak-zune-v1.webp"
+    },
+    {
+      "id": "yuhorn-symitron",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-318f7f15-3450-4750-a48d-9d8f198135f6.png",
+      "prompt": "One transparent game token animation atlas, square with exactly 2 columns by 2 rows. Race yuhorn-symitron: Two large elemental beast humanoids, one rocky basalt body and one icy crystalline body, symmetric broad shoulders, no clothing. Top row first variant, bottom row second variant. Left cell standing; right cell identical character walking with left foot forward. Strict orthographic camera vertically above head looking straight down; top-down bird's eye, head faces NORTH. No front-view portraits. Same body size and head center within each equal cell. Four complete centered silhouettes with15%transparent padding, no cropping. Symmetrical for opposite stride by horizontal mirror. Detailed realistic sciencefiction art readable at32px. No text, grid, background, floor, external shadow, colored outline or weapons.",
+      "output": "crew-atlas-yuhorn-symitron-v1.webp"
+    },
+    {
+      "id": "ship-1",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-1df8ce86-1627-4be0-a633-b1e8e70d9d35.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Pathfinder: compact silhouette long central silver hull, twin swept engine outriggers, blue technical panel details. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-1-v1.webp"
+    },
+    {
+      "id": "ship-2",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-84471a45-0d9e-4ed4-a9ea-92b6f7b4725a.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Arrowhead: broad angular triangular delta hull, charcoal armor, copper technical details. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-2-v1.webp"
+    },
+    {
+      "id": "ship-3",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-2c15d1bd-dcf2-4dce-848c-31893270c5a5.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Bastion: heavily armored rectangular battleship with symmetrical side batteries and blunt bow. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-3-v1.webp"
+    },
+    {
+      "id": "ship-4",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-b34d59de-b98c-4be5-b0a7-413026183b17.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Crescent: elegant crescent-shaped alien vessel with twin forward curving arms and a small central bridge. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-4-v1.webp"
+    },
+    {
+      "id": "ship-5",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-705e5209-bd0b-42a8-851f-02e51e8053c8.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Longbow: long narrow needle-like battleship spine, paired side nacelles and silver fins. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-5-v1.webp"
+    },
+    {
+      "id": "ship-6",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7e8f574c-231c-4207-9c62-bcfe889f4fa3.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Atlas: broad industrial freighter, six symmetrical rectangular cargo pods around a central spine. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-6-v1.webp"
+    },
+    {
+      "id": "ship-7",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-294cf4ab-9c5f-45f5-a7df-6c3ed5d333ee.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Stingray: organic sleek manta-shaped space cruiser, symmetrical sweeping wings and narrow stern. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-7-v1.webp"
+    },
+    {
+      "id": "ship-8",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-663dceb7-208a-4820-8c28-10bf9d3aac38.png",
+      "prompt": "Create one detailed high resolution sciencefiction spaceship game token on fully transparent background. Citadel: massive six-sided fortress ship, central raised armored command tower, clear pointed forward bow. Exactly one complete large capital starship, orthographic top-down view directly overhead, bow facing TOP, stern facing bottom. Symmetric centered silhouette occupies80% square canvas with generous transparent margins. Fine armor plating, vents, tiny running lights, restrained realistic metallic materials. No floorplan, room interior, text, grid, background, starfield, drop shadow, colored glow, exhaust flames or other objects. Strong readable silhouette at24px but intricate largest-rank detail. All lighting contained on ship itself.",
+      "output": "ship-token-8-v1.webp"
+    }
+  ]
+}

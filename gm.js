@@ -1,6 +1,9 @@
+import { updateShops } from './shop-gm-ui.js';
 import { ATTRIBUTE_DEFS, DICE_FACES, SPACECRAFT_SKILLS, GENERAL_SKILLS, raceById, classById } from "./character-data.js?v=20260816-atb-2e";
 import { WEAPONS, weaponById } from "./weapon-data.js?v=20260816-atb-2e";
 
+await window.SABrowserStorage.ready;
+const localStorage = window.SABrowserStorage.local;
 const $ = (selector) => document.querySelector(selector);
 const SHOWCASE_MODE = new URLSearchParams(location.search).get("showcase") === "1";
 const dom = {
@@ -209,6 +212,7 @@ let encounterObjects = [];
 let encounterObjectBaseline = null;
 let encounterMapDraftSaved = false;
 let encounterMode = "surface";
+let encounterArena=window.SACombatArena.normalize(),encounterFog={enabled:false,forced:{}},arenaStartingLocations=new Map();
 let encounterPreparing = false;
 let forceEncounterBuilder = false;
 let encounterSetupRequested = false;
@@ -341,8 +345,9 @@ function downloadJson(payload, filename) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.hidden=true;document.body.append(link);
   link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  link.remove();setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function validateCampaignBackup(payload) {
@@ -408,7 +413,7 @@ function saveEncounterMapDraft() {
   encounterPositionDraft = window.SASpaceObjects.mergeDraftPositions(encounterPositionDraft, encounterPositions, (campaign.starships || []).map(ship => ship.id));
   encounterMapDraftSaved = true;
   try {
-    sessionStorage.setItem(`sa-encounter-map-draft-${code}`, JSON.stringify({ version: 1, objects: encounterObjects, baseline: encounterObjectBaseline, positions: encounterPositionDraft, mode:encounterMode, characters:[...selectedEncounterCharacters], ships:[...selectedEncounterStarships], npcs:stagedNpcs, locations:[...encounterLocations] }));
+    sessionStorage.setItem(`sa-encounter-map-draft-${code}`, JSON.stringify({ version: 1, savedAt:Date.now(), objects: encounterObjects, baseline: encounterObjectBaseline, positions: encounterPositionDraft, mode:encounterMode, characters:[...selectedEncounterCharacters], ships:[...selectedEncounterStarships], npcs:stagedNpcs, locations:[...encounterLocations],arena:encounterArena,fog:encounterFog,startingLocations:[...arenaStartingLocations] }));
   } catch { /* Keep the current draft usable if browser storage is full. */ }
 }
 
@@ -422,10 +427,12 @@ function restoreEncounterMapDraft() {
   encounterState = null;
   encounterMapDraftSaved = false;
   try {
-    const draft = JSON.parse(sessionStorage.getItem(`sa-encounter-map-draft-${code}`) || 'null');
+    const localDraft = JSON.parse(sessionStorage.getItem(`sa-encounter-map-draft-${code}`) || 'null');
+    const draft = (campaign.preparationDraft?.savedAt||0)>(localDraft?.savedAt||0) ? campaign.preparationDraft : localDraft || campaign.preparationDraft;
     if (draft?.version !== 1) return;
     const restored = window.SASpaceObjects.restoreDraft(draft, objects, (campaign.starships || []).map(ship => ship.id));
     if(draft.mode)encounterMode=draft.mode;
+    if(draft.arena)encounterArena=window.SACombatArena.normalize(draft.arena);if(draft.fog)encounterFog=draft.fog;if(Array.isArray(draft.startingLocations))arenaStartingLocations=new Map(draft.startingLocations);
     if(Array.isArray(draft.characters))selectedEncounterCharacters=new Set(draft.characters.filter(id=>campaign.characters.some(c=>c.id===id)));
     if(Array.isArray(draft.ships))selectedEncounterStarships=new Set(draft.ships.filter(id=>campaign.starships.some(s=>s.id===id)));
     if(Array.isArray(draft.npcs))stagedNpcs=draft.npcs;
@@ -576,6 +583,7 @@ function encounterRuleFields(record) {
       : null;
   return {
     raceId: identity.raceId || "",
+    iconVariant: Number(record?.character?.presentation?.iconVariant)===1?1:0,
     raceType: identity.raceType || "",
     classId: identity.classId || "",
     initialAtb: identity.classId === "rogue-drifter" ? 99 : 0,
@@ -587,6 +595,12 @@ function encounterRuleFields(record) {
     defenseScoreModifier: Number(race.defenseScoreModifier) || 0,
     dexterityBoxes: boxesFilled(record, "dexterity"),
     highestPerceptionDie: highestAttributeDie(record, "perception"),
+      perceptionDice: (record?.character?.attributes?.perception || []).filter(v=>Number(v)>=0).map(v=>[4,6,8,10,12][Number(v)]).filter(Boolean),
+      willpowerDice:(record?.character?.attributes?.willpower||[]).filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),
+      resistDistressSkill:Number(skillRating(record, "Resist Distress"))||0,
+      coordinationSkill:Number(skillRating(record,"Coordination"))||0,
+      breakFreeSkill:Number(skillRating(record, "Escape"))||0,
+      demolitionsSkill:Number(skillRating(record, "Demolitions"))||0,
     moveSpeed: Math.max(1, Number(record?.character?.computed?.moveSpeed) || 1),
     dexterityDice: (record?.character?.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
     intellectDice: (record?.character?.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => DICE_FACES[Number(value)] || 0),
@@ -600,6 +614,8 @@ function encounterRuleFields(record) {
     computerSkill: Number(skillRating(record, "Computer Systems")) || 0,
     hackingSkill: Number(skillRating(record, 'Hacking')) || 0,
     meleeSkill: Number(skillRating(record, "Melee")) || 0,
+    grapplingSkill: Number(skillRating(record, "Grappling")) || 0,
+    scienceSkill: Number(skillRating(record, "Science")) || 0,
     dodgeSkill: Number(skillRating(record, "Dodge")) || 0,
     damageReduction: Math.max(0, Number(record?.character?.computed?.damageReduction) || 0),
     maximumHp: Math.max(0, Number(record?.character?.computed?.maximumHp) || 0),
@@ -712,7 +728,7 @@ function renderTargets() {
   syncSelectedTargets();
   dom.promptTargets.innerHTML = campaign.characters.length
     ? campaign.characters.map((record) => `
-      <label class="target-option">
+      <label class="target-option" style="--character-color:${escapeHtml(record.character?.presentation?.atbColor||'#39c8ef')}">
         <input type="checkbox" data-target-id="${record.id}" ${selectedTargets.has(record.id) ? "checked" : ""} />
         <span><strong>${escapeHtml(characterName(record))}</strong><small>${record.connected ? "Connected" : "Offline"}</small></span>
       </label>`).join("")
@@ -772,7 +788,7 @@ function renderStarships() {
       <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Who Controls This Ship?<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled - visible to assigned PCs</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled - hidden from players</option></select></label>
       <div class="gm-starship-crew-groups">
-        <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
+        <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label class="pc-color-box" style="--character-color:${escapeHtml(/^#[0-9a-f]{6}$/i.test(character.character?.presentation?.atbColor||'')?character.character.presentation.atbColor:'#39e58f')}"><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
         <section><h4>NPC Crew</h4><div class="gm-starship-crew npc-crew">${npcUnits.length ? npcUnits.map((unit) => `<label><input type="checkbox" data-starship-npc-crew="${escapeHtml(unit.id)}" ${npcCrew.has(unit.id) ? "checked" : ""}/> <span>${escapeHtml(unit.characterName)}</span></label>`).join("") : "<small>Add NPCs to Combat before assigning them to a ship.</small>"}</div></section>
       </div>
       <div class="gm-starship-actions"><button type="button" data-view-starship>View</button><button type="button" data-edit-starship>Edit Ship</button><button type="button" data-save-starship-crew>Save Assignments</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
@@ -824,6 +840,8 @@ function renderRollResults() {
 }
 
 function parseCommand(raw, index) {
+  const shopKey=raw.match(/^Shop:\s*(.+)$/i)?.[1]?.trim();
+  if(shopKey){const shop=campaign?.shops?.list?.find(s=>s.id===shopKey||s.name.toLowerCase()===shopKey.toLowerCase());return {id:'shop:'+shopKey,raw,shopId:shop?.id,keyword:'Activate '+(shop?.name||shopKey),valid:!!shop};}
   const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
   let rollPart = parts.shift() || "";
   if (/^(all players|all pcs|choose pc|target character)/i.test(rollPart)) rollPart = parts.shift() || "";
@@ -1106,6 +1124,7 @@ function renderEncounterBuilder() {
   if (!campaign) return;
   let rosterMarkup = "";
   ensureEncounterDefaults();
+  renderArenaEditor();
   const approved = campaign.characters.filter((record) => record.approved !== false);
   const characterMarkup = (record, deployment = "", nested = false) => {
     const color = record.character?.presentation?.atbColor || "#39e58f";
@@ -1115,6 +1134,7 @@ function renderEncounterBuilder() {
       <span><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))}</small></span>
       <span class="encounter-stat">SPD ${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</span>
       <span class="encounter-stat">CMD ${Math.round(commandWindow(record))}</span>
+      ${encounterMode==='surface'?surfaceStartButton(record.id,characterName(record),selectedEncounterCharacters.has(record.id)):''}
       ${encounterMode === "starship" && !nested ? `<select class="encounter-deployment" data-encounter-location="${record.id}" aria-label="Starting ship for ${escapeHtml(characterName(record))}">${encounterDeploymentOptions(deployment)}</select>` : ""}
     </label>`;
   };
@@ -1176,6 +1196,7 @@ function renderEncounterBuilder() {
     <div><strong>${npc.allyNpc ? '<img class="npc-ally-badge" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
     ${encounterMode === "starship" ? `<select class="encounter-deployment" data-staged-location="${npc.id}" aria-label="Starting ship for ${escapeHtml(npc.name)}">${encounterDeploymentOptions(npc.locationStarshipId || "")}</select>` : ""}
+    ${encounterMode==='surface'?surfaceStartButton(npc.id,npc.name,true):''}
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>');
   dom.beginEncounter.disabled = encounterPreparing || (!selectedEncounterCharacters.size && !stagedNpcs.length) || (encounterMode === "starship" && !selectedEncounterStarships.size);
@@ -1227,8 +1248,10 @@ function combatLocation(starshipId) {
 function selectGmTab(tabName = "script") {
   const requestedPanel = document.querySelector(`[data-tab-panel="${tabName}"]`);
   const activeTab = requestedPanel ? tabName : "script";
-  if(code)sessionStorage.setItem(`sa-gm-tab-${code}`,activeTab);
-  if(SHOWCASE_MODE&&code)sessionStorage.setItem(`sa-explore-tab-${code}-gm`,activeTab);
+  try {
+    if(code)sessionStorage.setItem(`sa-gm-tab-${code}`,activeTab);
+    if(SHOWCASE_MODE&&code)sessionStorage.setItem(`sa-explore-tab-${code}-gm`,activeTab);
+  } catch { /* Remembering a tab is optional; navigation must still work. */ }
   const selected = document.querySelector(`.gm-tabs [data-tab="${activeTab}"]`);
   document.querySelectorAll(".gm-tabs [data-tab]").forEach((entry) => entry.classList.toggle("active", entry === selected));
   document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
@@ -1238,14 +1261,19 @@ function selectGmTab(tabName = "script") {
   });
   document.querySelector("#gmSettingsToggle")?.classList.toggle("active", activeTab === "settings");
   renderCampaign();
-  if (activeTab === "atb") showEncounterSetup();
+  if (activeTab === "atb") {showEncounterSetup();void refreshCombatSaveStatus();}
   if (activeTab === "starships") void refreshEncounterState().catch(error => showMessage(dom.message, error.message, "error"));
   updateExitEncounterVisibility();
 }
 
+let encounterRefreshSerial=0;
 async function refreshEncounterState() {
   if (!code) return null;
-  encounterState = await api(`/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
+  const serial=++encounterRefreshSerial;
+  const nextEncounter = await api(`/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
+  if(serial!==encounterRefreshSerial)return encounterState;
+  encounterState=nextEncounter;
+  if(encounterState.encounterEndedAt)sessionStorage.removeItem(`sa-live-combat-${code}`);
   if(campaign)campaign.combatActive=Boolean(encounterState.hasEngagedClock&&!encounterState.encounterEndedAt);
   if((campaign?.combatActive||encounterState?.units?.length)&&!encounterState?.encounterEndedAt&&!forceEncounterBuilder&&!encounterSetupRequested&&!document.querySelector('#atbTab')?.hidden)showEncounterLive();
   renderEncounterStatus();
@@ -1275,6 +1303,7 @@ async function syncCampaignCharactersToEncounter() {
 }
 
 function showEncounterLive() {
+  if(code)sessionStorage.setItem(`sa-live-combat-${code}`,"1");
   forceEncounterBuilder = false;
   encounterSetupRequested = false;
   dom.atbSetup.hidden = true;
@@ -1287,7 +1316,7 @@ function showEncounterLive() {
 
 function showEncounterSetup({ forceBuilder = false, explicit = false } = {}) {
   encounterSetupRequested = explicit;
-  if (!explicit && !forceBuilder && !forceEncounterBuilder && (campaign?.combatActive || encounterState?.units?.length) && !encounterState?.encounterEndedAt) {
+  if (!explicit && !forceBuilder && !forceEncounterBuilder && (campaign?.combatActive || encounterState?.units?.length || sessionStorage.getItem(`sa-live-combat-${code}`)) && !encounterState?.encounterEndedAt) {
     showEncounterLive();
     refreshEncounterState().catch((error) => showMessage(dom.message, error.message, "error"));
     return;
@@ -1421,8 +1450,10 @@ async function beginEncounter() {
         location: combatLocation(encounterMode === "starship" ? npc.locationStarshipId || "" : ""),
       });
     }
+    for(const unit of units){const saved=arenaStartingLocations.get(unit.characterId||unit.preparationUnitId);if(saved&&encounterMode==='starship'&&combatStarships.some(s=>s.id===saved.starshipId))unit.location=structuredClone(saved);}
+    if(encounterMode==='surface')window.SACombatArena.deploy(encounterArena,units);
     if(encounterMode==='starship'&&!await window.SACrewDeployment.open(combatStarships,units,encounterState?.units||[],campaign.npcRoster||[]))return;
-    const setup = { spaceObjects:encounterMode==='starship'?structuredClone(encounterObjects):[],mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
+    const setup = { arena:encounterMode==='surface'?structuredClone(encounterArena):null,fog:structuredClone(encounterFog),spaceObjects:encounterMode==='starship'?structuredClone(encounterObjects):[],mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
     const storageKey = `sa-encounter-preparation-${code}`;
     const fingerprint = JSON.stringify(setup);
     let pending;
@@ -1430,7 +1461,7 @@ async function beginEncounter() {
     if (pending?.fingerprint !== fingerprint) pending = { preparationId: crypto.randomUUID(), fingerprint };
     sessionStorage.setItem(storageKey, JSON.stringify(pending));
     let confirmCampaignName;
-    if(encounterState?.hasEngagedClock&&!encounterState.encounterEndedAt){confirmCampaignName=prompt(`Replace the active encounter in ${campaign.name}? A recovery checkpoint will be saved. Type the campaign name to confirm.`);if(confirmCampaignName!==campaign.name)return;}
+    if(encounterState?.hasEngagedClock&&!encounterState.encounterEndedAt){confirmCampaignName=await promptGm({title:'Replace Active Encounter?',message:`A recovery checkpoint will be saved. Type ${campaign.name} to replace the current encounter.`,inputLabel:'Campaign name',requiredValue:campaign.name,acceptLabel:'Replace Encounter',danger:true});if(confirmCampaignName!==campaign.name)return;}
     encounterState = await encounterAction("prepareEncounter", { ...setup, preparationId: pending.preparationId,expectedEncounterId:encounterState?.encounterId,confirmCampaignName });
     sessionStorage.removeItem(storageKey);
     sessionStorage.removeItem(`sa-encounter-map-draft-${code}`);
@@ -1442,6 +1473,7 @@ async function beginEncounter() {
     dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}&encounter=${Date.now()}`;
     showEncounterLive();
     dom.atbFrame.scrollIntoView({ block: "start", behavior: "instant" });
+    void refreshCombatSaveStatus();
     showMessage(dom.message, "Encounter prepared and paused. Engage the clock when the table is ready.", "success");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
@@ -1509,11 +1541,12 @@ function renderLibraryDelivery(){
 function renderCampaign() {
   window.SAInterfaceNotices?.setCombatActive(campaign?.combatActive);
   dom.saveCampaignBackup.disabled = SHOWCASE_MODE || Boolean(campaign?.showcase);
-  dom.saveCampaignBackup.title = dom.saveCampaignBackup.disabled ? "Explore Features cannot be exported as a campaign." : "Export Campaign Save File";
+  dom.saveCampaignBackup.title = dom.saveCampaignBackup.disabled ? "Explore Features cannot be exported as a campaign." : "Save Campaign";
   if(campaign&&window.SARoomV03?.moveRoom(campaign))return;
   if (!campaign) return;
   window.SACampaignMapUI?.update(campaign,token);window.SARoomV03?.gmControls(campaign,token);window.SAQuickPrompts?.update(campaign,token);window.SACrewLogs?.update(campaign,token);
   if(campaign.interfaceVersion==='0.3' && campaign.roomOpen===false){location.href='index.html';return;}
+  updateShops(campaign,async body=>{const result=await api('/api/campaign/shops',{code,token,...body});campaign=result.campaign;renderCampaign();return result;});
   renderLibraryDelivery();
   updateInboxCount();
   const mineralSelect=document.getElementById('giveMineralsShip'),mineralOptions=(campaign.starships||[]).map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`).join('');
@@ -1886,6 +1919,7 @@ dom.script.addEventListener("click", async (event) => {
   const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
+  if(command.shopId){button.disabled=true;try{await api('/api/campaign/shops',{code,token,operation:'activate',shopId:command.shopId,active:true});executedCommands.add(command.id);button.classList.add('executed');}catch(error){showMessage(dom.message,error.message,'error');}finally{button.disabled=false;}return;}
   if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this roll request again?", acceptLabel: "Send Again" })) return;
   const targets=storyRecipientIds();
   if(!targets.length){showMessage(dom.message,"Choose a Story Console recipient. Players must create or link a character first.",'error');return;}
@@ -2064,7 +2098,7 @@ dom.endSession.addEventListener("click", async () => {
     const exportNow = await confirmGm({
       title: "Session Complete",
       message: "Save a campaign backup now? Free hosting can lose campaign data after a restart or deployment.",
-      acceptLabel: "Export Campaign Save File",
+      acceptLabel: "Save Campaign",
       cancelLabel: "Continue Without Export",
     });
     if (exportNow) await downloadCampaignBackup();
@@ -2477,7 +2511,14 @@ document.querySelector("#passTime")?.addEventListener("click", async (event) => 
   finally { button.disabled = false; }
 });
 dom.encounterCharacterList.addEventListener('click',async event=>{const button=event.target.closest('[data-duplicate-starship]');if(!button)return;event.preventDefault();event.stopPropagation();button.disabled=true;try{const result=await api('/api/campaign/v03/ship/duplicate',{code,token,shipId:button.dataset.duplicateStarship});const previous=new Set(campaign.starships.map(s=>s.id));receiveCampaign(result.campaign);const copy=campaign.starships.find(s=>!previous.has(s.id));if(copy){document.querySelector('[data-encounter-starship="'+CSS.escape(copy.id)+'"]')?.closest('section')?.scrollIntoView({block:'center',behavior:'smooth'});showMessage(dom.encounterStatus,copy.title+' added with no crew.','success');}}catch(error){showMessage(dom.encounterStatus,error.message,'error');}finally{button.disabled=false;}});
-dom.encounterCharacterList.addEventListener("change", (event) => {
+async function removeNpcCrew(rosterId) {
+  if(!rosterId)return;
+  for(const ship of campaign.starships.filter(s=>s.crewNpcUnitIds?.includes(rosterId))){
+    const result=await api('/api/campaign/starship/crew',{code,token,starshipId:ship.id,crewCharacterIds:ship.crewCharacterIds,crewNpcUnitIds:ship.crewNpcUnitIds.filter(id=>id!==rosterId)});
+    ship.crewNpcUnitIds=result.starship.crewNpcUnitIds||[];ship.ship.crewNpcUnitIds=[...ship.crewNpcUnitIds];
+  }
+}
+dom.encounterCharacterList.addEventListener("change", async (event) => {
   const control=event.target.closest('[data-prepare-control]');if(control){control.disabled=true;void api('/api/campaign/starship/control',{code,token,starshipId:control.dataset.prepareControl,controlType:control.value}).then(result=>{const record=campaign.starships.find(s=>s.id===control.dataset.prepareControl);if(record)record.controlType=result.starship.controlType;renderEncounterBuilder();}).catch(error=>showMessage(dom.encounterStatus,error.message,'error')).finally(()=>control.disabled=false);return;}
 
   const glow=event.target.closest('[data-encounter-glow]');if(glow){void api('/api/campaign/starship/color',{code,token,starshipId:glow.dataset.encounterGlow,color:glow.value}).then(()=>{const ship=campaign.starships.find(s=>s.id===glow.dataset.encounterGlow);if(ship)ship.ship.mapColor=glow.value;renderEncounterBuilder();}).catch(error=>showMessage(dom.message,error.message,'error'));return;}
@@ -2487,7 +2528,10 @@ dom.encounterCharacterList.addEventListener("change", (event) => {
     const unit = campaignNpcRoster().find(unit => unit.id === npcInput.dataset.encounterNpc);
     if (npcInput.checked && unit) {
       if (selectEncounterShip(npcInput.dataset.crewShip)) stageCrewNpc(unit, npcInput.dataset.crewShip);
-    } else stagedNpcs = stagedNpcs.filter(npc => npc.rosterId !== npcInput.dataset.encounterNpc || npc.locationStarshipId !== npcInput.dataset.crewShip);
+    } else {
+      try{await removeNpcCrew(npcInput.dataset.encounterNpc);stagedNpcs=stagedNpcs.filter(npc=>npc.rosterId!==npcInput.dataset.encounterNpc);saveEncounterMapDraft();}
+      catch(error){showMessage(dom.encounterStatus,error.message,'error');}
+    }
     renderEncounterBuilder(); return;
   }
   const ship = event.target.closest("[data-encounter-starship]");
@@ -2540,10 +2584,12 @@ document.querySelector("#encounterBuilder")?.addEventListener("click", (event) =
   renderEncounterBuilder();
 });
 
-dom.encounterNpcList.addEventListener("click", (event) => {
+dom.encounterNpcList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-remove-staged-npc]");
   if (!button) return;
-  stagedNpcs = stagedNpcs.filter((entry) => entry.id !== button.dataset.removeStagedNpc);
+  const npc=stagedNpcs.find(entry=>entry.id===button.dataset.removeStagedNpc);button.disabled=true;
+  try{await removeNpcCrew(npc?.rosterId);stagedNpcs=stagedNpcs.filter(entry=>entry.id!==button.dataset.removeStagedNpc);saveEncounterMapDraft();}
+  catch(error){showMessage(dom.encounterStatus,error.message,'error');}
   renderEncounterBuilder();
 });
 
@@ -2752,6 +2798,8 @@ updateSoundButton();
 async function downloadCampaignBackup() {
   if (SHOWCASE_MODE || campaign?.showcase) return false;
   try {
+    saveEncounterMapDraft();
+    await api('/api/campaign/preparation-draft', {code,token,draft:JSON.parse(sessionStorage.getItem(`sa-encounter-map-draft-${code}`)||'null')});
     const backup = await api(`/api/campaign/backup?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, null, "GET");
     cacheFullCampaignBackup(backup);
     const safeName = campaign.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "campaign";
@@ -2770,12 +2818,14 @@ document.getElementById("loadCampaignSave").onclick=()=>dom.restoreOpenCampaignF
 dom.restoreOpenCampaignFile.addEventListener("change", async () => {
   try {
     const backup = await readCampaignBackup(dom.restoreOpenCampaignFile.files?.[0]);
-    if (!await confirmGm({ title: "Load Campaign?", message: "Abandon the current game and load the selected campaign file? Export your current campaign first if you want a save file.", acceptLabel: "Load Campaign", danger: true })) return;
+    if (!await confirmGm({ title: "Load Campaign?", message: "Abandon the current game and load the selected campaign file? Save your current campaign first if you want a save file.", acceptLabel: "Load Campaign", danger: true })) return;
     // Validate/load the new file before closing the old room, so a bad file cannot strand players.
     const payload = await window.SARoomV03.api('load', {backup,choice:'replace'});
+    sessionStorage.removeItem(`sa-encounter-map-draft-${code}`);
     if (payload.campaign.code !== code) await window.SARoomV03.api('close',{code,token});
     localStorage.setItem('sa-gm-token-'+payload.campaign.code,payload.token);
     localStorage.setItem('sa-current-campaign-code',payload.campaign.code);
+    await window.SABrowserStorage.flush();
     location.href='gm.html?campaign='+payload.campaign.code;
   } catch (error) {
     showMessage(dom.message, error.message, "error");
@@ -2799,7 +2849,7 @@ dom.deleteCampaign.addEventListener("click", async () => {
     gmCode=await promptGm({title:'Confirm GM Code',message:'Enter the GM Code to permanently delete this campaign.',inputLabel:'GM Code',acceptLabel:'Continue',danger:true});
     if(gmCode===null)return;
   }
-  if (!await confirmGm({ title: "Permanently Delete Campaign?", message: "Permanently delete this hosted campaign, including its characters, ships, notes, maps, and encounter? Export a Campaign Save File first if you want to recover it. Close Room instead to stop play without deleting data.", acceptLabel: "Delete Campaign", danger: true })) return;
+  if (!await confirmGm({ title: "Permanently Delete Campaign?", message: "Permanently delete this hosted campaign, including its characters, ships, notes, maps, and encounter? Save the Campaign first if you want to recover it. Close Room instead to stop play without deleting data.", acceptLabel: "Delete Campaign", danger: true })) return;
   try {
     await api("/api/campaign/delete", { code, token, campaignName: typedName, gmCode });
     localStorage.removeItem(tokenKey(code));
@@ -2866,7 +2916,7 @@ recoverEncounterButton.onclick=async()=>{try{
  await refreshEncounterState();const result=await api(`/api/campaign/checkpoints?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`,null,'GET');
  const dialog=document.createElement('dialog');dialog.style.cssText='max-width:700px;width:90vw;background:#102532;color:#fff;padding:24px';
  const title=document.createElement('h2');title.textContent='Recovery checkpoints — '+campaign.name;dialog.append(title);
- for(const checkpoint of result.checkpoints){const button=document.createElement('button');button.style.cssText='display:block;margin:10px 0;width:100%';button.textContent=new Date(checkpoint.at).toLocaleString()+' — '+checkpoint.reason;button.onclick=async()=>{const typed=prompt('Restore this checkpoint? The current state will be backed up first. Type '+campaign.name+' to confirm.');if(typed!==campaign.name)return;try{await api('/api/campaign/checkpoint/restore',{code,token,checkpointId:checkpoint.id,confirmCampaignName:typed,expectedEncounterId:encounterState?.encounterId});dialog.close();location.reload();}catch(e){showMessage(dom.message,e.message,'error');}};dialog.append(button);}
+ for(const checkpoint of result.checkpoints){const button=document.createElement('button');button.style.cssText='display:block;margin:10px 0;width:100%';button.textContent=new Date(checkpoint.at).toLocaleString()+' — '+checkpoint.reason;button.onclick=async()=>{dialog.close();const typed=await promptGm({title:'Restore Combat Checkpoint?',message:'The current state will be backed up first. Type '+campaign.name+' to confirm.',inputLabel:'Campaign name',requiredValue:campaign.name,acceptLabel:'Restore Checkpoint',danger:true});if(typed!==campaign.name){dialog.showModal();return;}try{await api('/api/campaign/checkpoint/restore',{code,token,checkpointId:checkpoint.id,confirmCampaignName:typed,expectedEncounterId:encounterState?.encounterId});dialog.close();location.reload();}catch(e){showMessage(dom.message,e.message,'error');}};dialog.append(button);}
  if(!result.checkpoints.length){const p=document.createElement('p');p.textContent='No checkpoints have been created yet.';dialog.append(p);}
  const close=document.createElement('button');close.textContent='Close';close.onclick=()=>dialog.close();dialog.append(close);dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
  }catch(e){showMessage(dom.message,e.message,'error');}};
@@ -2880,3 +2930,82 @@ window.addEventListener("sa-open-system",event=>{if(!event.detail||event.detail.
 document.getElementById('saveCombatPreparation').onclick=()=>{saveEncounterMapDraft();selectGmTab('campaign');};
 const promptTools=document.querySelector('#promptTab .tool-grid'),rollForm=document.querySelector('#rollPromptForm');
 if(promptTools&&rollForm)promptTools.prepend(rollForm);
+function renderArenaEditor(){
+  const host=document.querySelector('#surfaceArenaEditor');if(!host)return;
+  host.hidden=encounterMode!=='surface';document.querySelector('#prepareFog').checked=!!encounterFog.enabled;
+  if(host.hidden)return;
+  const units=[...(campaign?.characters||[]).filter(c=>selectedEncounterCharacters.has(c.id)).map(c=>({id:c.id,characterName:characterName(c),color:c.character?.presentation?.atbColor,raceId:c.character?.identity?.raceId,iconVariant:c.character?.presentation?.iconVariant})),...stagedNpcs.map(n=>({...n,characterName:n.name}))];
+  for(const unit of units){if(!encounterArena.floors.includes(encounterArena.spawns[unit.id])){const used=new Set(Object.values(encounterArena.spawns));const square=encounterArena.floors.find(n=>!used.has(n));if(square!==undefined)encounterArena.spawns[unit.id]=square;}}
+  window.SAArenaUI.editor(host,{arena:encounterArena,units,onChange:a=>{encounterArena=a;saveEncounterMapDraft();updateSurfaceStartLabels();}});
+}
+document.querySelector('#prepareFog').addEventListener('change',event=>{encounterFog.enabled=event.target.checked;saveEncounterMapDraft();});
+document.querySelector('#saveArenaFile').addEventListener('click',async event=>{
+ const button=event.currentTarget;button.disabled=true;
+ try{
+  if(dom.encounterBuilder.hidden&&encounterState?.units?.length){const current=await api(`/api/state?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`,null,'GET'),payload=window.SAArenaFiles.fromEncounter(current);downloadJson(payload,`${payload.mode}-arena.sa2arena`);showMessage(dom.encounterStatus,'Current arena saved as a fresh setup. Timers, damage and exploration memory are excluded.','success');return;}
+  let ships=encounterMode==='starship'?(campaign.starships||[]).filter(s=>selectedEncounterStarships.has(s.id)):[];
+  if(encounterMode==='starship'&&!ships.length)throw Error('Select at least one ship before saving this starship arena.');
+  if(ships.some(s=>s.lazyLayout))ships=(await api('/api/campaign/starship/details',{code,token,ids:ships.map(s=>s.id)})).starships;
+  const pcs=campaign.characters.filter(c=>selectedEncounterCharacters.has(c.id)).map(c=>({sourceId:c.id,name:characterName(c),shipId:encounterLocations.get(c.id)||defaultDeployment(c)}));
+  const starting=new Map(arenaStartingLocations);
+  for(const pc of pcs){const ship=ships.find(s=>s.id===pc.shipId),loc=ship?.characterLocations?.[pc.sourceId];if(!starting.has(pc.sourceId)&&loc)starting.set(pc.sourceId,{...loc,starshipId:ship.id});}
+  const payload=window.SAArenaFiles.create({mode:encounterMode,arena:encounterArena,fog:encounterFog,ships,npcs:stagedNpcs,pcs,positions:encounterPositions,objects:encounterObjects,startingLocations:[...starting]});
+  downloadJson(payload,`${encounterMode}-arena.sa2arena`);showMessage(dom.encounterStatus,'Arena saved. Encounter progress and exploration memory are excluded.','success');
+ }catch(error){showMessage(dom.encounterStatus,error.message,'error');}finally{button.disabled=false;}
+});
+document.querySelector('#loadArenaFile').addEventListener('click',()=>document.querySelector('#arenaFileInput').click());
+function chooseArenaAssignments(file){return new Promise(resolve=>{
+ const view=document.createElement('dialog');view.className='arena-import-dialog';view.innerHTML=`<h2>Load ${file.mode==='surface'?'Surface':'Starship'} Arena</h2><p>${file.ships.length} ships · ${file.npcs.length} NPCs · ${file.pcs.length} PC starting slots. This replaces the preparation draft; the active encounter stays intact until you explicitly begin a new encounter.</p><p>Saved ships are imported as new copies with no assigned crew. Existing characters and ships are preserved.</p>${file.pcs.map((slot,index)=>`<label>${escapeHtml(slot.name)}<select data-arena-slot="${index}"><option value="">Leave unassigned</option>${campaign.characters.filter(c=>c.approved!==false).map(c=>`<option value="${escapeHtml(c.id)}" ${c.id===slot.sourceId?'selected':''}>${escapeHtml(characterName(c))}</option>`).join('')}</select></label>`).join('')}<p data-error class="arena-error"></p><footer><button type="button" data-cancel>Cancel</button><button type="button" data-load>Load Arena</button></footer>`;
+ view.querySelector('[data-cancel]').onclick=()=>view.close();view.querySelector('[data-load]').onclick=()=>{const pairs=[...view.querySelectorAll('[data-arena-slot]')].map(s=>[file.pcs[Number(s.dataset.arenaSlot)].sourceId,s.value]),chosen=pairs.map(p=>p[1]).filter(Boolean);if(new Set(chosen).size!==chosen.length){view.querySelector('[data-error]').textContent='Assign each PC to only one starting slot.';return;}view.assignments=pairs;view.close();};view.onclose=()=>{const result=view.assignments||null;view.remove();resolve(result);};document.body.append(view);view.showModal();
+});}
+document.querySelector('#arenaFileInput').addEventListener('change',async event=>{
+ const file=event.target.files?.[0];event.target.value='';if(!file)return;
+ const button=document.querySelector('#loadArenaFile');button.disabled=true;
+ try{
+  if(file.size>10*1024*1024)throw Error('Arena files must be smaller than 10 MB.');
+  const parsed=window.SAArenaFiles.parse(JSON.parse(await file.text())),assignments=await chooseArenaAssignments(parsed);if(!assignments)return;
+  const pcMap=new Map(assignments),shipMap=new Map(),npcMap=new Map(),newShips=[];
+  if(parsed.ships.length){const imported=await api('/api/campaign/arena/import-ships',{code,token,ships:parsed.ships});for(const result of imported.ships){shipMap.set(result.sourceId,result.starship.id);newShips.push(result.starship);}}
+  for(const ship of newShips)if(!campaign.starships.some(s=>s.id===ship.id))campaign.starships.push(ship);
+  const npcs=parsed.npcs.map(n=>{const id=crypto.randomUUID();npcMap.set(n.id,id);return {...n,id,rosterId:undefined,locationStarshipId:shipMap.get(n.locationStarshipId)||''};});
+  encounterMode=parsed.mode;encounterArena=window.SACombatArena.normalize(parsed.arena||{});encounterArena.spawns=Object.fromEntries(Object.entries(encounterArena.spawns).map(([id,n])=>[pcMap.get(id)||npcMap.get(id)||'',n]).filter(([id])=>id));
+  encounterFog={enabled:!!parsed.fog.enabled,forced:Object.fromEntries(Object.entries(parsed.fog.forced||{}).map(([id,v])=>[id==='surface'?id:shipMap.get(id),v]).filter(([id])=>id))};
+  stagedNpcs=npcs;selectedEncounterCharacters=new Set(assignments.map(p=>p[1]).filter(Boolean));selectedEncounterStarships=new Set(newShips.map(s=>s.id));encounterLocations.clear();for(const slot of parsed.pcs){const pc=pcMap.get(slot.sourceId);if(pc&&shipMap.has(slot.shipId))encounterLocations.set(pc,shipMap.get(slot.shipId));}
+  arenaStartingLocations=new Map(parsed.startingLocations.map(([id,loc])=>[pcMap.get(id)||npcMap.get(id),{...loc,starshipId:shipMap.get(loc?.starshipId)||''}]).filter(([id])=>id));
+  encounterPositions=parsed.positions.filter(p=>shipMap.has(p.id)).map(p=>({...p,id:shipMap.get(p.id)}));encounterPositionDraft=structuredClone(encounterPositions);encounterObjects=window.SASpaceObjects.normalize?window.SASpaceObjects.normalize(parsed.objects):parsed.objects;encounterObjectBaseline=[];
+  saveEncounterMapDraft();showEncounterSetup({forceBuilder:true,explicit:true});showMessage(dom.encounterStatus,'Arena loaded into Prepare Combat. Check the starting positions, then Begin Combat.','success');
+ }catch(error){showMessage(dom.encounterStatus,error.message||'The arena file could not be loaded.','error');}finally{button.disabled=false;}
+});
+
+async function refreshCombatSaveStatus(){
+  if(!code||!token)return null;
+  const label=document.getElementById('combatSaveStatus');
+  try{const result=await api(`/api/campaign/checkpoints?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}&latestOnly=1`,null,'GET');
+    const latest=result.checkpoints[0];label.textContent=latest?'Last combat save: '+new Date(latest.at).toLocaleString():'No combat save yet. Saves begin when combat is prepared.';return latest;
+  }catch{label.textContent='Unable to check combat saves. Retry when the connection returns.';return null;}
+}
+setInterval(()=>{if(!document.hidden&&!document.getElementById('atbTab')?.hidden)void refreshCombatSaveStatus();},15000);
+document.getElementById('restoreLastCombat').onclick=async function(){
+  if(this.disabled)return;this.disabled=true;
+  try{const latest=await refreshCombatSaveStatus();if(!latest)return;
+    await refreshEncounterState();
+    if(!await confirmGm({title:'Restore Last Combat State?',message:`Restore the combat save from ${new Date(latest.at).toLocaleString()}? The current campaign state will be backed up first. Combat will return paused.`,acceptLabel:'Restore Combat'}))return;
+    await api('/api/campaign/checkpoint/restore',{code,token,checkpointId:latest.id,confirmCampaignName:campaign.name,expectedEncounterId:encounterState?.encounterId});
+    sessionStorage.setItem(`sa-live-combat-${code}`,'1');sessionStorage.setItem('sa-gm-tab','atb');
+    await refreshCampaign();await refreshEncounterState();selectGmTab('atb');showEncounterLive();dom.atbFrame.contentWindow?.location.reload();
+    await refreshCombatSaveStatus();
+  }catch(error){showMessage(dom.message,error.message,'error');}finally{this.disabled=false;}
+};
+
+function surfaceStartLabel(id){const square=encounterArena.spawns[id];return Number.isInteger(square)?`Starting Location: Row ${Math.floor(square/encounterArena.width)+1}, Column ${square%encounterArena.width+1}`:'Choose Starting Location';}
+function surfaceStartButton(id,name,enabled){return `<button type="button" data-surface-start="${escapeHtml(id)}" aria-label="Choose starting location for ${escapeHtml(name)}" ${enabled?'':'disabled'}>${surfaceStartLabel(id)}</button>`;}
+function updateSurfaceStartLabels(){document.querySelectorAll('[data-surface-start]').forEach(b=>b.textContent=surfaceStartLabel(b.dataset.surfaceStart));}
+document.getElementById('atbSetup').addEventListener('click',event=>{const button=event.target.closest('[data-surface-start]');if(!button)return;event.preventDefault();event.stopPropagation();const host=document.getElementById('surfaceArenaEditor');window.SAArenaUI.beginPlacement(host,button.dataset.surfaceStart);});
+
+function saveLocalFile(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+document.getElementById('saveStoryFile').onclick=async()=>{try{await saveScript();saveLocalFile(window.SAStoryFiles.create(campaign),'Story Console.sa2story');}catch(error){showMessage(dom.message,error.message,'error');}};
+document.getElementById('loadStoryFile').onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='.sa2story,.json';input.onchange=async()=>{try{const file=JSON.parse(await input.files[0].text());window.SAStoryFiles.parse(file);if(!await confirmGm({title:'Load Story Console?',message:'Replace the current chapters and saved story commands with this file? Existing campaign shops remain available.',acceptLabel:'Load Story Console'}))return;await saveScript();await api('/api/campaign/script/import',{code,token,file});activeScriptChapterId='';scriptDirty=false;lastScriptRange=null;await refreshCampaign();renderScriptEditor(activeScriptChapter()?.script||'');}catch(error){showMessage(dom.message,error.message,'error');}};input.click();};
+document.addEventListener('sa-insert-shop-keyword',event=>{dom.script.append(document.createTextNode((scriptSource()?'\n':'')+'::Shop:'+event.detail.id+'::'));dom.script.dispatchEvent(new Event('input',{bubbles:true}));renderScriptEditor(scriptSource());placeScriptCaretAtEnd();});
+
+document.getElementById('saveCharacterRoster').onclick=()=>saveLocalFile({format:'sa2roster',version:1,characters:(campaign.characters||[]).map(r=>{const c=structuredClone(r.character);delete c.access;delete c.campaignLink;return c;}),npcs:[...(campaign.npcTemplates||[]),...(campaign.npcRoster||[]).filter(n=>!(campaign.npcTemplates||[]).some(t=>t.id===n.templateId)).map(n=>({...n,name:n.characterName||n.name,heldWeaponId:(n.weapons||[]).find(w=>w.inventoryId===n.heldWeaponId)?.weaponId||'unarmed'}))]},'Character Roster.sa2roster');
+document.getElementById('loadCharacterRoster').onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='.sa2roster,.sa2char,.json';input.onchange=async()=>{try{if(!input.files[0])return;const file=JSON.parse(await input.files[0].text());const result=await api('/api/campaign/roster/import',{code,token,file});campaign=result.campaign;renderCampaign();showMessage(dom.message,result.added+' characters added to the roster.','success');}catch(error){showMessage(dom.message,error.message,'error');}};input.click();};

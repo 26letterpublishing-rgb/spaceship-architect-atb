@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('../combat-actions.js'), 'utf8');
 const start = source.indexOf('  const stationCategories =');
 const end = source.indexOf('  // Hold keeps', start);
-const context = {};
+const context = {window:{SACombatPanel:require('../combat-panel-ui')}};
 vm.runInNewContext(source.slice(start, end), context);
 const entries = labels => labels.map(label => [label, '[data-action]', '', 'station']);
 
@@ -18,7 +18,7 @@ test('an unstationed character has no empty ship action categories', () => {
 test('bridge categories contain only actual supported actions with accurate counts', () => {
   const labels = ['Move Ship', 'Ram', 'Skim', 'Scan Area', 'Hail Ship', 'Lock-On', 'Fire Beam Laser 4', 'Evasive Maneuvers', 'Break Lock-On', 'NUT Supplement'];
   const categories = context.stationMenuCategories(entries(labels));
-  assert.deepEqual(Array.from(categories, ({ id, count }) => [id, count]), [['movement', 3], ['sensors', 2], ['weapons', 2], ['defense', 2], ['utilities', 1]]);
+  assert.deepEqual(Array.from(categories, ({ id, count }) => [id, count]), [['movement', 3], ['sensors', 2], ['weapons', 2], ['defense', 2], ['other', 1]]);
   assert.equal(categories.reduce((sum, row) => sum + row.count, 0), labels.length);
 });
 

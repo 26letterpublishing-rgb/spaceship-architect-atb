@@ -78,8 +78,9 @@
       window.SASpaceMap.bindEditor(canvas,objects.map(o=>({id:o.id,title:o.name,spaceObject:o,ship:{gridCells:[],sicInventory:[],placements:[]}})),objects,positions=>{
         objects=window.SASpaceObjects.withPositions(objects,positions).map(o=>o.id===centerId?{...o,q:0,r:0}:o);
         requestAnimationFrame(()=>{const central=canvas.querySelector(`[data-space-ship="${CSS.escape(centerId)}"]`);if(central)central.setAttribute('transform','translate(0 0)');});
-      },{fixedIds:[centerId]});
-      window.SASpaceObjectEditor.bind(canvas,()=>objects,next=>{objects=next;render();},{fixedIds:[centerId]});
+      },{system:true,fixedIds:[centerId]});
+      window.SASpaceObjectEditor.bind(canvas,()=>objects,next=>{objects=next;render();},{system:true,fixedIds:[centerId]});
+      const planetOption=canvas.querySelector('option[value="planet"]');if(planetOption)planetOption.textContent='Planet';
       const remove=dialog.querySelector(`[data-remove-object="${CSS.escape(centerId)}"]`);if(remove){remove.disabled=true;remove.title='The central star stays at the center of its solar system.';}
     };
     dialog.querySelector('footer').append(button('Cancel',()=>dialog.close()),button('Save System',async()=>{await send('system',{mapId:map.id,starId:star.id,objects});dialog.close();status(star.name+' system saved.');},{className:'galaxy-primary'}));
@@ -106,15 +107,16 @@
   }
   async function reviewTravel(map,star,ship){
     const args={mapId:map.id,starId:star.id,shipId:ship.id},initial=(await send('quote',args)).quote;
-    let confirmed=initial.instantWarp,revision=0,pending=null,quote=initial;
-    const summary=q=>`<dl class="galaxy-trip-summary"><div><dt>Warp drive</dt><dd>${esc(q.driveName)}</dd></div><div><dt>Distance</dt><dd>${q.targetLY.toFixed(2)} light-years</dd></div><div><dt>Drive activation</dt><dd>${duration(q.activationSeconds)}</dd></div><div><dt>Travel</dt><dd>${q.instantWarp?'Instant jump':duration(q.travelSeconds)}</dd></div><div><dt>Fuel selected</dt><dd>${Object.entries(q.counts).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${g}`).join(' + ')} cells</dd></div>${q.instantWarp?'<div><dt>Auxiliary power</dt><dd>All current AU</dd></div>':''}</dl><p>Total arrival time: <strong>${duration(q.activationSeconds+q.travelSeconds)}</strong>. Time advances outside combat; GM Pass Time can fast-forward it.</p>`;
-    const fuel=initial.instantWarp?'<p>EW-FTL requires exactly two Grade S cells.</p>':`<p>Choose the fuel cells to use. Smaller selected cells are used first; unused cells remain in storage.</p><div class="galaxy-fuel-choice">${initial.fuelOptions.map(o=>`<label class="galaxy-field">Grade ${o.grade} · ${o.available} available<small>${o.rangeLY.toFixed(2)} light-years per cell</small><input type="number" min="0" max="${o.available}" step="1" name="fuel-${o.grade}" value="0" ${!o.available?'disabled':''}></label>`).join('')}</div>`;
+    let confirmed=initial.instantWarp||initial.coveredLY>0,revision=0,pending=null,quote=initial;
+    const summary=q=>`<dl class="galaxy-trip-summary"><div><dt>Warp drive</dt><dd>${esc(q.driveName)}</dd></div><div><dt>Distance</dt><dd>${q.targetLY.toFixed(2)} light-years</dd></div><div><dt>Drive activation</dt><dd>${duration(q.activationSeconds)}</dd></div><div><dt>Travel</dt><dd>${q.instantWarp?'Instant jump':duration(q.travelSeconds)}</dd></div><div><dt>Fuel selected</dt><dd>${Object.entries(q.counts).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${g}`).join(' + ')} cells</dd></div>${q.instantWarp?'<div><dt>Auxiliary power</dt><dd>All current AU</dd></div>':''}</dl><p>${q.partial?'Time until fuel runs out':'Total arrival time'}: <strong>${duration(q.activationSeconds+q.travelSeconds)}</strong>. Time advances outside combat; GM Pass Time can fast-forward it.</p><div class="galaxy-fuel-range"><strong>Total distance: ${q.targetLY.toFixed(2)} light-years</strong><progress aria-label="Distance covered by selected warp fuel" max="${q.targetLY}" value="${q.instantWarp?q.targetLY:q.coveredLY}"></progress><p>${(q.instantWarp?q.targetLY:q.coveredLY).toFixed(2)} / ${q.targetLY.toFixed(2)} light-years covered</p>${q.partial?`<label class="galaxy-partial-warning"><input type="checkbox" name="accept-partial"> I understand that fuel covers only ${q.coveredLY.toFixed(2)} light-years. The ship will stop between stars, ${q.missingLY.toFixed(2)} light-years short of the destination.</label>`:''}</div>`;
+    const fuel=initial.instantWarp?'<p>EW-FTL requires exactly two Grade S cells.</p>':`<p>Choose the fuel cells to use. Smaller selected cells are used first; unused cells remain in storage.</p><div class="galaxy-fuel-choice">${initial.fuelOptions.map(o=>`<label class="galaxy-field">Grade ${o.grade} · ${o.available} available<small>${o.rangeLY.toFixed(2)} light-years per cell</small><input type="number" min="0" max="${o.available}" step="1" name="fuel-${o.grade}" value="${initial.counts[o.grade]||0}" ${!o.available?'disabled':''}></label>`).join('')}</div>`;
     const counts=()=>Object.fromEntries([...dialog.querySelectorAll('[name^="fuel-"]')].map(i=>[i.name.slice(5),Number(i.value)]));
-    const dialog=modal('Travel to '+star.name,`<p>${esc(ship.title)} · <strong>${esc(initial.driveName)}</strong></p>${fuel}<div data-trip-quote>${initial.instantWarp?summary(initial):'<p>Select enough fuel to review the arrival time.</p>'}</div>`,async()=>{if(pending)await pending;if(!confirmed)throw Error('Choose sufficient fuel before entering warp.');await send('travel',{...args,...(!initial.instantWarp?{fuelCounts:counts()}:{})});status(ship.title+' entered warp. The GM has been notified.');},'Enter Warp');
+    const dialog=modal('Travel to '+star.name,`<p>${esc(ship.title)} · <strong>${esc(initial.driveName)}</strong></p>${fuel}<div data-trip-quote>${summary(initial)}</div>`,async()=>{if(pending)await pending;if(!confirmed)throw Error('Select at least one compatible fuel cell.');if(quote.partial&&!dialog.querySelector('[name=accept-partial]')?.checked)throw Error('Acknowledge the partial journey warning before entering warp.');await send('travel',{...args,acceptPartial:Boolean(quote.partial),...(!initial.instantWarp?{fuelCounts:counts()}:{})});status(ship.title+' entered warp. The GM has been notified.');},'Enter Warp');
     const submit=dialog.querySelector('[type=submit]');submit.disabled=!confirmed;
-    if(!initial.instantWarp)dialog.addEventListener('input',()=>{
+    if(!initial.instantWarp)dialog.addEventListener('input',event=>{
+      if(!event.target.name?.startsWith('fuel-'))return;
       const mine=++revision;confirmed=false;submit.disabled=true;dialog.querySelector('[role=alert]').textContent='';
-      pending=send('quote',{...args,fuelCounts:counts()}).then(result=>{if(mine!==revision||!dialog.isConnected)return;quote=result.quote;confirmed=true;dialog.querySelector('[data-trip-quote]').innerHTML=summary(quote);submit.disabled=false;}).catch(error=>{if(mine!==revision||!dialog.isConnected)return;dialog.querySelector('[data-trip-quote]').textContent=error.message;});
+      pending=send('quote',{...args,fuelCounts:counts()}).then(result=>{if(mine!==revision||!dialog.isConnected)return;quote=result.quote;confirmed=quote.instantWarp||quote.coveredLY>0;dialog.querySelector('[data-trip-quote]').innerHTML=summary(quote);submit.disabled=!confirmed;}).catch(error=>{if(mine!==revision||!dialog.isConnected)return;dialog.querySelector('[data-trip-quote]').textContent=error.message;});
     });
   }
 
@@ -142,8 +144,11 @@
     else if(position?.mapId===map.id){const current=map.stars.find(s=>distance(position,s)<.00001);info.textContent=journey?'In warp toward '+(map.stars.find(s=>s.id===journey.starId)?.name||'destination')+'.':current?'At '+current.name+'.':'Between stars on this map.';}
     else info.textContent=gm?'Not placed on this map. Choose “Place Ship” and click a hex.':'Ask the GM to place this ship on the map.';
     travel.append(info);
+    const currentStar=position?.mapId===map.id&&map.stars.find(s=>distance(position,s)<.00001);
+    if(currentStar&&ship&&!journey&&(gm||data.navigation?.allowed?.system!==false))travel.append(button('Enter Star System',()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,currentStar,ship)));
+    if(star&&gm)travel.append(button('View '+star.name+' System',()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,star,ship)));
     if(ship&&position?.mapId===map.id)travel.append(button('Find Ship',()=>focusMap?.(position)));
-    if(gm&&ship){travel.append(button(mode==='ship'?'Cancel Placement':'Place Ship on Map',()=>beginMode('ship'),{disabled:journey?'Drop out of warp before repositioning.':''}));if(star)travel.append(button('Place at '+star.name,async()=>{await send('position',{mapId:map.id,shipId:ship.id,q:star.q,r:star.r});status(ship.title+' placed at '+star.name+'.');},{disabled:journey?'Drop out of warp before repositioning.':''}));}
+    if(gm&&ship){travel.append(button(mode==='ship'?'Cancel Placement':'Place Ship on Map',()=>beginMode('ship'),{disabled:''}));if(star)travel.append(button('Place at '+star.name,async()=>{await send('position',{mapId:map.id,shipId:ship.id,q:star.q,r:star.r});status(ship.title+' placed at '+star.name+'.');},{disabled:''}));}
     if(journey){
       const warp=ship.ship?.warpState,progress=Math.max(0,Math.min(1,(warp?.traveledLY||0)/(warp?.targetLY||1))),progressNode=document.createElement('div');progressNode.className='galaxy-journey';
       progressNode.innerHTML=`<progress max="1" value="${progress}" aria-label="Journey distance traveled"></progress><strong>${Math.round(progress*100)}% of journey distance</strong><p>${warp?.phase==='activating'?'Warp drive activating — '+duration(Math.max(0,warp.remaining||0))+' remaining. ':''}Travel advances automatically outside combat. GM Pass Time fast-forwards the journey.</p>`;
@@ -206,20 +211,20 @@
     resizeObserver=new ResizeObserver(()=>{if(!svg.isConnected)return;if(!camera||camera.auto)fit();else apply();});resizeObserver.observe(svg);if(!camera)fit();else apply();
     svg.onselectstart=event=>event.preventDefault();svg.ondragstart=event=>event.preventDefault();svg.ondblclick=event=>event.preventDefault();
     svg.addEventListener('wheel',event=>{event.preventDefault();if(!drag)zoom(event.deltaY>0?1.12:1/1.12,world(event));},{passive:false});
-    svg.onpointerdown=event=>{if(event.button!==0||!camera)return;event.preventDefault();interacting=true;const star=event.target.closest('[data-star]'),ship=event.target.closest('[data-map-ship]');drag={id:event.pointerId,x:event.clientX,y:event.clientY,camera:{...camera},starId:star?.dataset.star,shipId:ship?.dataset.mapShip,moved:false,node:star};svg.setPointerCapture(event.pointerId);};
+    svg.onpointerdown=event=>{if(event.button!==0||!camera)return;event.preventDefault();interacting=true;const star=event.target.closest('[data-star]'),ship=event.target.closest('[data-map-ship]');drag={id:event.pointerId,x:event.clientX,y:event.clientY,camera:{...camera},starId:star?.dataset.star,shipId:ship?.dataset.mapShip,moved:false,node:star||ship};svg.setPointerCapture(event.pointerId);};
     svg.onpointermove=event=>{
       if(mode&&!drag){const p=xy(snap(world(event)));hover.removeAttribute('hidden');hover.setAttribute('transform',`translate(${p.x} ${p.y})`);}
       if(!drag||drag.id!==event.pointerId)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(!drag.moved&&Math.hypot(dx,dy)<5)return;drag.moved=true;svg.classList.add('is-dragging');
-      if(drag.starId&&gm&&!mode){const p=xy(snap(world(event)));drag.node.setAttribute('transform',`translate(${p.x} ${p.y})`);return;}if(drag.starId||drag.shipId)return;
+      if((drag.starId||drag.shipId)&&gm&&!mode){const p=xy(snap(world(event)));drag.node.setAttribute('transform',`translate(${p.x} ${p.y})`);return;}if(drag.starId||drag.shipId)return;
       const units=drag.camera.height/svg.clientHeight;camera={...drag.camera,cx:drag.camera.cx-dx*units,cy:drag.camera.cy-dy*units,auto:false};apply();
     };
     svg.onpointerleave=()=>hover.setAttribute('hidden','');
     const finish=()=>{drag=null;interacting=false;svg.classList.remove('is-dragging');if(pendingDraw){pendingDraw=false;draw();}};
-    svg.onpointercancel=()=>{const current=drag;if(current?.node){const star=map.stars.find(s=>s.id===current.starId),p=xy(star);current.node.setAttribute('transform',`translate(${p.x} ${p.y})`);}finish();};
+    svg.onpointercancel=()=>{const current=drag;if(current?.node){const star=map.stars.find(s=>s.id===current.starId)||data.positions[current.shipId],p=xy(star);current.node.setAttribute('transform',`translate(${p.x} ${p.y})`);}finish();};
     svg.onpointerup=async event=>{
       if(!drag||drag.id!==event.pointerId)return;const current=drag,position=snap(world(event));svg.releasePointerCapture(event.pointerId);finish();
       try{
-        if(current.moved){if(current.starId&&gm&&!mode){const star=map.stars.find(s=>s.id===current.starId);if(star.q!==position.q||star.r!==position.r){status('Saving star position…');await send('moveStar',{mapId:map.id,starId:star.id,...position});status(star.name+' moved.');}}return;}
+        if(current.moved){if(current.shipId&&gm&&!mode){await send('position',{mapId:map.id,shipId:current.shipId,...position});status('Ship position saved.');return;}if(current.starId&&gm&&!mode){const star=map.stars.find(s=>s.id===current.starId);if(star.q!==position.q||star.r!==position.r){status('Saving star position…');await send('moveStar',{mapId:map.id,starId:star.id,...position});status(star.name+' moved.');}}return;}
         if(mode==='ship'&&gm&&selectedShip){await send('position',{mapId:map.id,shipId:selectedShip,...position});mode='';status('Ship position saved.');draw();return;}
         if(current.starId){selectedStar=current.starId;mode='';status('');draw();return;}
         if(current.shipId){selectedShip=current.shipId;mode='';draw();return;}
@@ -232,9 +237,12 @@
     if(!host||!state)return;resizeObserver?.disconnect();
     const gm=state.role==='gm',data={maps:[],positions:{},journeys:{},...state.starmaps},map=data.maps.find(m=>m.id===selectedMap)||data.maps[0];selectedMap=map?.id||'';
     const ships=(state.starships||[]).filter(ship=>gm||ship.controlType==='pc');if(!selectedShip||!ships.some(s=>s.id===selectedShip))selectedShip=ships.find(s=>s.crewCharacterIds?.includes(state.ownCharacterId))?.id||ships.find(s=>s.controlType==='pc')?.id||ships[0]?.id||'';
+    const navigationContext={state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded};
+    if(window.SACampaignNavigationUI?.render(navigationContext))return;
     host.classList.toggle('galaxy-is-expanded',expanded);
     host.innerHTML=`<header class="galaxy-heading"><div><span>CAMPAIGN NAVIGATION</span><h2>Galaxy Map</h2><p>${gm?'Build your sector, place ships and plan travel between stars.':'Explore known stars and plan your next journey.'}</p></div><div data-map-management></div></header><div class="galaxy-tools"></div><div class="galaxy-workspace"><div class="galaxy-chart"><div class="galaxy-camera-tools"></div><div class="galaxy-mode-help"></div><div class="galaxy-map-surface"></div><div class="galaxy-countdown" data-travel-countdown hidden></div><div class="galaxy-map-legend"><span><i class="galaxy-legend-star"></i> Star</span><span><i class="galaxy-legend-ship"></i> Ship</span><span><i class="galaxy-legend-route"></i> Planned route</span><span>Drag empty space to pan · Scroll to zoom</span></div></div><aside class="galaxy-details" aria-label="Star details and travel"></aside></div><p data-galaxy-status role="status" aria-live="polite" class="${errorMessage?'is-error':''}">${esc(message)}</p>`;
     const management=host.querySelector('[data-map-management]');
+    window.SACampaignNavigationUI?.files(navigationContext,management);window.SACampaignNavigationUI?.controls(navigationContext,management);
     if(gm)management.append(button('New Galaxy Map',()=>modal('Create a galaxy map',field('name','Map name','','text','required maxlength="80" placeholder="For example: Frontier Sector"')+'<p>Start with an empty hex map, then click “Add Star” to place and name stars. Each hex begins at one parsec (3.26 light-years).</p>',async values=>{const result=await send('create',{name:values.get('name')});selectedMap=result.campaign.starmaps.maps.at(-1).id;selectedStar='';mode='star';status('Map created. Click an empty hex to add your first star.');draw();},'Create Map')));
     if(!map){host.querySelector('.galaxy-workspace').innerHTML=`<div class="galaxy-empty-map"><h3>${gm?'Chart your first sector':'No galaxy map yet'}</h3><p>${gm?'Create a map, click to place stars, then put ships at their starting positions.':'The GM can create a galaxy map for this campaign. It will appear here when it is ready.'}</p></div>`;if(expanded)management.append(button('Return to Campaign',()=>{expanded=false;draw();}));return;}
     const tools=host.querySelector('.galaxy-tools'),select=document.createElement('select');select.setAttribute('aria-label','Galaxy Map');select.innerHTML=data.maps.map(m=>`<option value="${esc(m.id)}" ${m.id===map.id?'selected':''}>${esc(m.name)}</option>`).join('');select.onchange=()=>{selectedMap=select.value;selectedStar='';mode='';status('');draw();};tools.append(select);
@@ -263,8 +271,8 @@
     if(state?.code&&state.code!==next?.code){selectedMap='';selectedStar='';selectedShip='';mode='';signature='';cameras.clear();}state=next;token=key;packetAt=performance.now();if(!state?.code)return;
     host=document.querySelector('[data-galaxy-host]');if(!host){const parent=state.role==='gm'?document.querySelector('[data-tab-panel="campaign"]'):document.querySelector('#campaignRosterLobby');if(!parent)return;host=document.createElement('section');host.dataset.galaxyHost='';host.className='campaign-galaxy';if(state.role!=='gm'){const notes=document.getElementById('campaignPrivateNotes');if(notes)parent.append(notes);}parent.append(host);}
     arrangeCampaign();updateOverview();
-    const nextSignature=JSON.stringify([state.code,state.role,state.ownCharacterId,[state.starmaps?.maps,Object.entries(state.starmaps?.positions||{}).filter(([id])=>!state.starmaps?.journeys?.[id]),Object.entries(state.starmaps?.journeys||{}).map(([id,j])=>[id,j.mapId,j.starId,j.from,j.to])],state.starships?.map(s=>[s.id,s.title,s.controlType,s.crewCharacterIds,s.characterLocations,s.ship?.warpState?.phase]),state.combatActive]);
-    if(nextSignature!==signature){signature=nextSignature;if(interacting)pendingDraw=true;else draw();}else refreshTravel();
+    const nextSignature=JSON.stringify([state.code,state.role,state.ownCharacterId,[state.starmaps?.maps,state.starmaps?.navigation,Object.entries(state.starmaps?.localPositions||{}).map(([id,p])=>[id,p.mapId,p.starId,p.phase,p.planetId,!state.starmaps?.localJourneys?.[id]?p:null]),Object.entries(state.starmaps?.localJourneys||{}).map(([id,j])=>[id,j.kind,j.from,j.to]),Object.entries(state.starmaps?.positions||{}).filter(([id])=>!state.starmaps?.journeys?.[id]),Object.entries(state.starmaps?.journeys||{}).map(([id,j])=>[id,j.mapId,j.starId,j.from,j.to])],state.starships?.map(s=>[s.id,s.title,s.controlType,s.crewCharacterIds,s.characterLocations,s.ship?.mapIcon,s.ship?.mapColor,window.SAShipMap.scaleRank(s),s.ship?.warpState?.phase]),state.combatActive]);
+    if(nextSignature!==signature){signature=nextSignature;if(interacting)pendingDraw=true;else draw();}else{refreshTravel();window.SACampaignNavigationUI?.refresh(true);}
   }
   document.addEventListener('keydown',event=>{if(event.key!=='Escape'||event.defaultPrevented||!host||host.getClientRects().length===0||document.querySelector('dialog[open]'))return;if(mode){mode='';draw();event.preventDefault();}else if(expanded){expanded=false;draw();event.preventDefault();}});
   function refreshTravel(){
@@ -290,7 +298,7 @@
   }
   function travel(packet){
     if(!state?.starmaps)return;
-    state.starmaps.positions=packet.positions;state.starmaps.journeys=packet.journeys;
+    state.starmaps.positions=packet.positions;state.starmaps.journeys=packet.journeys;state.starmaps.localPositions=packet.localPositions||{};state.starmaps.localJourneys=packet.localJourneys||{};
     for(const update of packet.ships||[]){const ship=state.starships?.find(s=>s.id===update.id);if(ship)ship.ship.warpState=update.warpState;}
     update(state,token);
   }

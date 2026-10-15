@@ -22,6 +22,9 @@
   const jetPackCharges = document.querySelector("#combatJetPackCharges");
   const statusChips = document.querySelector("#playerCombatStatusChips");
   const lastChargeCounts = new Map();
+  const cancelRecovery=document.createElement('button');cancelRecovery.type='button';cancelRecovery.textContent='Spend 1 Exertion: cancel a recovery cycle';cancelRecovery.hidden=true;statusChips?.after(cancelRecovery);
+  cancelRecovery.onclick=async()=>{cancelRecovery.disabled=true;try{await action({action:'cancelPersonalRecovery',id:currentUnit.id},'resolve',{throwOnError:true});}catch(failure){window.alert(failure.message);}finally{cancelRecovery.disabled=false;}};
+
   const shieldWrap = document.querySelector("#combatShieldWrap");
   const shieldTargets = document.querySelector("#combatShieldTargets");
   const smokeWrap = document.querySelector("#combatSmokeWrap");
@@ -39,28 +42,38 @@
   const note = document.querySelector("#combatActionNote");
   const error = document.querySelector("#combatActionError");
   const cancel = document.querySelector("#cancelCombatAction");
+  const weaponOptionsWrap=document.createElement('fieldset');weaponOptionsWrap.hidden=true;attackWrap?.before(weaponOptionsWrap);
+  function weaponOptionsValue(){
+    const result={choices:[]};for(const el of weaponOptionsWrap.querySelectorAll('[data-weapon-option]')){const key=el.dataset.weaponOption,value=el.type==='checkbox'?el.checked:el.value;if(key==='choice')result.choices.push(value);else result[key]=value;}return result;
+  }
+  function renderWeaponOptions(){
+    const current=actionWeapon(),id=current?.id;const rows=[];
+    const select=(key,label,values)=>'<label>'+label+'<select data-weapon-option="'+key+'">'+values.map(([value,text])=>'<option value="'+esc(value)+'">'+esc(text)+'</option>').join('')+'</select></label>';
+    if(id==='gravity-gun'||id==='solar-powered-t44-cannon')rows.push(select('rating',id==='gravity-gun'?'Object rating (GM chooses; maximum 20 lb)':'Light level (0 = darkness, 2 = indoors, 8 = bright sunlight)',Array.from({length:id==='gravity-gun'?8:9},(_,i)=>[i+(id==='gravity-gun'?1:0),i+(id==='gravity-gun'?1:0)])));
+    if(id==='cf-leprechaun'&&chargeCount(currentUnit,current)>0)rows.push(select('element','Element',['Physical','Fire','Heat','Electricity','Light','Ionic Force','Energy Blast','Poison'].map(x=>[x,x])));
+    if(id==='phazor')rows.push('<label><input type="checkbox" data-weapon-option="reflected"> Reflected shot (Science; confirm the surface with the GM)</label>');
+    if(id==='multi-lock-bizi-21')rows.push(select('secondTarget','Second target (optional; dice split evenly)',[['','Single target'],...(currentState.units||[]).filter(u=>u.id!==currentUnit.id&&!u.defeatedAt&&window.SACombatArena.canTarget(currentState,currentUnit,u)).map(u=>[u.id,u.characterName])]));
+    if(id==='murasama-blade')rows.push('<label><input type="checkbox" data-weapon-option="unsheathe"> Draw from sheath and attack</label>');
+    if(id==='l-x-custom-royal')for(let n=0;n<chargeCount(currentUnit,current);n++)rows.push(select('choice','Charge '+(n+1),[['damage','+1D8+2 Damage'],['accuracy','+2 To-Hit'],['range','+2 Range'],['fire','+1 Fire Intensity'],['penetrate','Ignore Damage Reduction'],['burst','+3D12 Damage; 12s recovery (once)']]));
+    weaponOptionsWrap.hidden=!rows.length;weaponOptionsWrap.innerHTML='<legend>Weapon options</legend>'+rows.join('');
+    if(id==='solar-powered-t44-cannon')weaponOptionsWrap.querySelector('select').value='2';
+  }
+  weaponOptionsWrap.addEventListener('change',updateAttackPreview);
+  const destinationWrap=document.createElement('label');destinationWrap.hidden=true;destinationWrap.textContent='Ground zero (map square)';
+  const destinationSelect=document.createElement('select');destinationWrap.append(destinationSelect);targetWrap?.after(destinationWrap);
+
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry','airlock','breachRepair']){
+    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry','airlock','breachRepair','stopDropRoll','standUp','escapeRestraint','sheathWeapon','reloadWeapon','programWeapon','armExplosive','removeSticky']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
-  const stationCategories = [
-    ['movement', 'Ship Maneuvers', 'Move Ship, Ram and Skim'],
-    ['sensors', 'Sensors & Comms', 'Scan, analyze and communicate'],
-    ['weapons', 'Targeting & Weapons', 'Acquire targets and fire'],
-    ['defense', 'Ship Defense', 'Evade, break locks and manage shields'],
-    ['utilities', 'Ship Systems', 'Operate equipment and prepare actions'],
-  ];
+  const stationCategories = window.SACombatPanel.categories;
   const categoryByOperator = new Map();
 
   function stationActionCategory(label) {
-    if (['Move Ship', 'Ram', 'Skim'].includes(label)) return 'movement';
-    if (['Scan Area', 'Scan Hex', 'Systems Analysis', 'Life Scan', 'Share Data', 'Hail Ship'].includes(label)) return 'sensors';
-    if (['Evasive Maneuvers', 'Break Lock-On', 'Restore Shield HP', 'Reinforce Field', 'Restabilize Shield'].includes(label)) return 'defense';
-    if (label.startsWith('Fire ') || ['Lock-On', 'Lock Component'].includes(label)) return 'weapons';
-    return 'utilities';
+    return window.SACombatPanel.presentation(label).category;
   }
 
   function stationMenuCategories(entries) {
@@ -89,6 +102,8 @@
 
   // Hold keeps its own square footprint, without stretching nearby item actions.
   for (const group of document.querySelectorAll('.combat-action-grid')) {
+    group.classList.add('combat-panel-layout');
+    group.querySelectorAll('.combat-action-group-label').forEach(label=>label.remove());
     const controls = document.createElement('div');
     controls.className = 'combat-turn-controls';
     const status = document.createElement('span');
@@ -96,10 +111,13 @@
     controls.append(status);
     const holdButton = group.querySelector('[data-combat-action="holdConsole"]');
     if (holdButton) controls.append(holdButton);
-    for (const selector of ['#playerDelay', '#playerEndTurn']) {
-      const button = group.querySelector(selector);
+    const wait=group.querySelector('[data-combat-action="wait3"]');if(wait)controls.prepend(wait);
+    for (const selector of group.id==='gmNpcTurnActions'?[]:['#playerDelay','#playerEndTurn']) {
+      const button = document.querySelector(selector);
       if (button) controls.append(button);
     }
+    controls.querySelectorAll('#completeTurn,#playerEndTurn').forEach(button=>{window.SACombatPanel.setLabel(button,'Pass');button.title='Finish the current action and pass readiness onward.';button.classList.add('combat-pass');});
+    controls.querySelectorAll('#gmDelay,#playerDelay').forEach(button=>{button.title='Delay this character using the delay controls.';button.classList.add('combat-delay');});
     group.append(controls);
   }
 
@@ -133,8 +151,23 @@
       .replaceAll('"', "&quot;");
   }
 
+  function openWeaponSetup(){
+    const owner=currentUnit,gun=held(owner);if(!gun)return;
+    const view=document.createElement('dialog'),heading=document.createElement('h2');heading.textContent=gun.name+' â€” GM setup';view.append(heading);
+    const form=document.createElement('form'),kind=document.createElement('select'),value=document.createElement('select'),custom=document.createElement('input'),help=document.createElement('p'),error=document.createElement('p');
+    kind.setAttribute('aria-label','Target ID mode');value.setAttribute('aria-label','Target ID');custom.setAttribute('aria-label','Target sex');
+    for(const [id,label]of [['target','Specific character'],['race','Race'],['sex','Sex']]){const o=document.createElement('option');o.value=id;o.textContent=label;kind.append(o);}
+    const refresh=()=>{value.replaceChildren();const rows=kind.value==='target'?(currentState.units||[]).map(u=>[u.characterId||u.id,u.characterName]):[...new Set((currentState.units||[]).map(u=>u.raceId).filter(Boolean))].map(r=>[r,r]);for(const [id,label]of rows){const o=document.createElement('option');o.value=id;o.textContent=label;value.append(o);}value.hidden=kind.value==='sex';custom.hidden=kind.value!=='sex';};kind.onchange=refresh;refresh();
+    if(gun.weaponId==='mk-u-id-assassin'){help.textContent='After checking the DNA sample, photograph, or existing authorization, program the safety here. Only the GM can change this setting.';form.append(kind,value,custom);}
+    else {help.textContent='Enter the loaded rounds after resolving the Iron/Magnesium supply with the GM. This does not deduct ship minerals; the card does not define the mineral-to-round conversion.';custom.type='number';custom.min='0';custom.max='8';custom.value=window.SAPersonalAmmunition.remaining(gun);custom.hidden=false;custom.setAttribute('aria-label','Loaded rounds');form.append(custom);}
+    const save=document.createElement('button');save.type='submit';save.textContent='Apply';const back=document.createElement('button');back.type='button';back.textContent='Back';back.onclick=()=>view.close();
+    form.append(error,save,back);view.append(help,form);view.onclose=()=>view.remove();
+    form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await action({action:'configurePersonalWeapon',id:owner.id,inventoryId:gun.inventoryId,program:{kind:kind.value,value:kind.value==='sex'?custom.value:value.value},ammoRemaining:Number(custom.value)},'tap',{throwOnError:true});view.close();}catch(failure){error.textContent=failure.message;}finally{save.disabled=false;}};
+    document.body.append(view);view.showModal();
+  }
+
   function held(unit = currentUnit) {
-    return (unit?.weapons || []).find((entry) => entry.inventoryId === unit.heldWeaponId) || null;
+    return window.SACombatRules.heldWeapon(unit);
   }
 
   function actionWeapon(kind = pendingKind, unit = currentUnit) {
@@ -169,9 +202,10 @@
     const options = [];
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
-      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry))
+      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry) && (!['fire','calledShot','melee','wrestle','throwItem'].includes(pendingKind)||window.SACombatArena.canTarget(currentState,currentUnit,entry)))
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`));
     if(['fire','melee','calledShot'].includes(pendingKind))options.push(...(window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee')||[]).map(d=>`<option value="${esc(d.id)}">${esc(d.characterName)}</option>`));
+    if(['fire','calledShot'].includes(pendingKind)&&held()?.weaponId==='hull-bore')options.push(...window.SACombatArena.wallTargets(currentState,currentUnit).map(w=>'<option value="'+esc(w.id)+'">'+esc(w.characterName)+'</option>'));
     return options.join("") || '<option value="">No other combatants available</option>';
   }
 
@@ -191,9 +225,10 @@
       }
       return options.join("");
     }
+    for(const owner of currentState?.units||[])for(const effect of owner.thrownEffects||[])if(effect.armedHeld&&effect.attachedId===currentUnit?.id)options.push('<option value="weapon:armed:'+esc(effect.id)+'">Armed '+esc(effect.label)+' ('+Math.ceil(effect.remaining)+' seconds)</option>');
     for (const entry of currentUnit?.weapons || []) {
       if (throwableOnly && !entry.throwable && !entry.placeable && entry.category !== "melee") continue;
-      options.push(`<option value="weapon:${esc(entry.inventoryId)}">Weapon: ${esc(entry.name)}</option>`);
+      options.push(`<option value="weapon:${esc(entry.inventoryId)}">${entry.groundLocation?"Retrieve":"Weapon"}: ${esc(entry.name)}</option>`);
     }
     if (includeItems) {
       for (const entry of currentUnit?.items || []) {
@@ -217,11 +252,12 @@
   function updateItemControls() {
     const item = selectedCarriedItem();
     const usingItem = pendingKind === "drawWeapon" && Boolean(item);
+    if(pendingKind==='drawWeapon'){targetWrap.hidden=!(usingItem&&item.catalogId==='fire-extinguisher');if(!targetWrap.hidden)target.innerHTML=targetOptions({includeSelf:true});}
     consumeWrap.hidden = !usingItem || item?.catalogId === "power-shields";
     consume.checked = usingItem && ["intoxicating-liquid", "smoke-grenade"].includes(item?.catalogId);
     shieldWrap.hidden = !(usingItem && item?.catalogId === "power-shields" && !currentUnit?.powerShield?.active);
     if (!shieldWrap.hidden) {
-      shieldTargets.innerHTML = (currentState?.units || []).filter((entry) => !entry.defeatedAt && sameCombatLocation(currentUnit, entry)).map((entry) =>
+      shieldTargets.innerHTML = (currentState?.units || []).filter((entry) => !entry.defeatedAt && sameCombatLocation(currentUnit, entry) && (!['fire','calledShot','melee','wrestle','throwItem'].includes(pendingKind)||window.SACombatArena.canTarget(currentState,currentUnit,entry))).map((entry) =>
         `<label><input type="checkbox" value="${esc(entry.id)}" ${entry.id === currentUnit.id ? "checked disabled" : ""} /> ${esc(entry.characterName)}</label>`).join("");
     }
     if (usingItem) {
@@ -244,6 +280,7 @@
     calledShot: { title: "Called Shot", target: true, attack: true, calledShot: true, note: "Called Shot adds +5 Defense to hit. A critical creates the intended special effect instead of doubling Damage." },
     drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItems: true, note: "Choose a carried item or ready a weapon. Stored items do not appear here." },
     throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, includeItems: true, note: "Smoke Grenades detonate after 5 seconds. Other explosives use their listed countdown. Thrown melee weapons deal half damage." },
+    aim: { title: "Aim", note: "Keep the selected target in the crosshairs while charging." },
     charge: { title: "Charge Weapon", note: "The Charge meter fills alongside normal ATB. Each completed segment provides one card Charge." },
     firstAid: { title: "First Aid", target: true, includeSelf: true, kit: true, note: "Choose the patient and whether to commit a carried First Aid Kit. Treatment time uses Intellect boxes + First Aid." },
     vehicle: { title: "Vehicle", weapon: "vehicle", note: "Mount, dismount, or take an available driver or passenger seat." },
@@ -260,9 +297,11 @@
     return window.SACombatRules.attackPlan(current, {
       distance: current?.category === "melee" ? 1 : Number(distance.value) || 0,
       charges: chargeCount(currentUnit, current),
+      aimDice:current?.category === "ranged" ? currentUnit?.aim?.dice || [] : [],
       aimDie: current?.category === "ranged" ? Number(currentUnit?.aim?.aimDie) || 0 : 0,
       attackType: current?.category === "melee" ? "melee" : "ranged",
       strengthDice: currentUnit?.strengthDice || [],
+      options:weaponOptionsValue(),
     });
   }
 
@@ -311,14 +350,22 @@
     pendingKind = kind;
     pendingTurn = { id: currentUnit.id, serial: currentUnit.turnSerial || 0, epoch: currentState.stateEpoch, room: currentState.roomCode };
     title.textContent = config.title;
+    renderWeaponOptions();
     const heldCurrent = held();
     const current = actionWeapon(kind);
     const charges = chargeCount(currentUnit, current);
     summary.textContent = current
       ? `${kind === "melee" && heldCurrent?.category !== "melee" ? `Attack: ${current.name} | Held: ${heldCurrent?.name || "None"}` : `Held: ${current.name}`} | To-Hit: ${current.toHit} | Damage: ${current.damage}${charges ? ` | ${charges} Charge${charges === 1 ? "" : "s"}` : ""}`
       : "No weapon is currently held.";
-    targetWrap.hidden = !config.target;
-    target.innerHTML = config.target ? targetOptions({ includeLocation: config.includeLocation, includeSelf: config.includeSelf }) : "";
+    const crosshair=['homing-spike-pistol','skull-bore'].includes(current?.weaponId)&&['aim','charge'].includes(kind);
+    targetWrap.hidden = !(config.target||crosshair);
+    target.innerHTML = (config.target||crosshair) ? targetOptions({ includeLocation: config.includeLocation, includeSelf: config.includeSelf }) : "";
+    destinationWrap.hidden=kind!=='throwItem';
+    if(kind==='throwItem'){
+      const g=window.SACombatArena.grid(currentState,currentUnit.location);
+      destinationSelect.innerHTML=g?[...g.floor].filter(n=>window.SACombatArena.canTarget(currentState,currentUnit,{location:g.location(n)})).map(n=>'<option value="'+n+'">Column '+(n%g.width+1)+', Row '+(Math.floor(n/g.width)+1)+'</option>').join(''):'';
+      if(g)destinationSelect.value=String(g.index(currentUnit.location));
+    }
     amountWrap.hidden = !config.amount;
     if (config.amount) {
       amountLabel.textContent = config.amount;
@@ -399,9 +446,11 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(['reloadWeapon','armExplosive','removeSticky'].includes(kind)){send(kind);return;}
+      if(kind==='programWeapon'){openWeaponSetup();return;}
       if(kind==='carry'){
         if(currentUnit.carryingId){send('carry');return;}
-        const patients=currentState.units.filter(p=>p.id!==currentUnit.id&&Number(p.currentHp)<=0&&!p.carriedBy&&p.location?.starshipId===currentUnit.location?.starshipId&&p.location?.square===currentUnit.location?.square);
+        const patients=window.SACrewCarry.candidates(currentState,currentUnit);
         if(patients.length===1){send('carry',{targetId:patients[0].id});return;}
         const view=document.createElement('dialog');view.innerHTML='<h2>Carry patient</h2>';
         for(const patient of patients){const choice=document.createElement('button');choice.textContent=patient.characterName;choice.onclick=()=>{view.close();send('carry',{targetId:patient.id});};view.append(choice);}
@@ -413,10 +462,12 @@
       if(kind==='consoleView'){window.SAShipNavigationUI.toggle(currentUnit);return;}
       if(kind==='moveStarship'){window.SAShipNavigationUI.open(currentUnit,{compact:true});return;}
       if (!window.SACombatBridge?.confirmGmPlayerAction?.(currentUnit, kind)) return;
+      if(kind==='move'&&currentUnit?.location?.arenaId==='surface'){window.SAArenaUI.openMove(currentUnit);return;}
       if (kind === "move" && currentUnit?.location?.starshipId && window.SACombatMap) {
         window.SACombatMap.openMove(currentUnit);
         return;
       }
+      if(kind==="aim"&&!["homing-spike-pistol","skull-bore"].includes(held()?.weaponId)){send(kind);return;}
       if (configurations[kind]) openDialog(kind);
       else send(kind);
     });
@@ -430,6 +481,7 @@
     if (!targetWrap.hidden) {
       if (!target.value) { error.textContent = "Choose a valid target."; return; }
       details.targetId = target.value;
+      if(pendingKind==='throwItem'&&target.value==='__location__')details.destination=window.SACombatArena.grid(currentState,currentUnit.location)?.location(Number(destinationSelect.value));
     }
     if (!amountWrap.hidden) {
       const entered = Number(amount.value);
@@ -469,6 +521,7 @@
         error.textContent = plan?.rangeExplanation || "That target is out of range.";
         return;
       }
+      details.weaponOptions=weaponOptionsValue();
       details.distance = Number(distance.value) || 0;
       details.calledShot = calledShot.checked;
       details.calledShotDetail = calledShotDetail.value.trim();
@@ -500,8 +553,15 @@
     }
     const current = held(mine);
     const charges = chargeCount(mine);
+    cancelRecovery.hidden=!(mine?.frozenSeconds>0);
     if (statusChips) {
       const chips = [];
+      if(window.SAPersonalAmmunition.profile(current))chips.push(['AMMO '+window.SAPersonalAmmunition.remaining(current)+' / '+window.SAPersonalAmmunition.profile(current).capacity,'aimed']);
+      if(mine?.burning)chips.push(['FIRE '+mine.burning.intensity,'drunk']);
+      if(mine?.statuses?.wet)chips.push(['WET','shields']);
+      if(mine?.frozenSeconds>0)chips.push(['RECOVERY '+Math.ceil(mine.frozenSeconds)+'s','delayed']);
+      if(mine?.net)chips.push(['NETTED','delayed']);
+      if(mine?.statuses?.prone)chips.push(['PRONE','delayed']);
       if (mine?.aim) chips.push(["AIMED", "aimed"]);
       if (mine?.timedAction?.kind === "defense") chips.push(["DEFENDING", "defending"]);
       else if (mine?.timedAction) chips.push(["DELAYED", "delayed"]);
@@ -532,18 +592,17 @@
       const helm=consoles.find(a=>a.kind==='pilot');if(helm&&!consoles.some(a=>a.kind==='lock'))entries.push(['Break Lock-On','[data-command="break"]','Maneuvers',helm.id]);
       for(const a of consoles.filter(a=>a.kind==='utility'))entries.push([a.definition.utility==='life-support'?(window.SAShipMap.gravityEnabled(a.ship)?'Disable Gravity':'Enable Gravity'):a.definition.name,'[data-utility]','',a.id]);
       for(const a of consoles.filter(a=>a.kind==='hacking'))entries.push(['Hack SIC','[data-hack]','',a.id]);
-      const visibleEntries=entries.filter(([,selector,,id])=>!(selector==='[data-order="restabilize"]'&&consoles.find(a=>a.id===id)?.remote));
+      const visibleEntries=window.SACombatPanel.sortEntries(entries.filter(([label,selector,,id])=>!(selector==='[data-order="restabilize"]'&&consoles.find(a=>a.id===id)?.remote)&&!window.SACombatOrderUI.unavailable(state,mine,consoles.find(a=>a.id===id),label,selector)));
       const operatorKey=`${state?.roomCode||''}:${mine?.id||''}:${mine?.location?.starshipId||''}`;
       const key=JSON.stringify([operatorKey,visibleEntries]);
       shortcuts.hidden=!visibleEntries.length;
       if(shortcuts.dataset.key!==key){
+        const folded=new Set([...shortcuts.querySelectorAll('details:not([open])')].map(d=>d.dataset.category));
         shortcuts.replaceChildren();
-        const resources=document.createElement('div'),primary=document.createElement('div'),secondary=document.createElement('div'),heading=document.createElement('h3');
-        resources.className='station-order-resources';resources.dataset.stationResources='';primary.className='station-primary-actions';primary.setAttribute('role','group');primary.setAttribute('aria-label','Ship action categories');secondary.className='station-secondary-actions';heading.dataset.stationCategoryTitle='';secondary.append(heading);shortcuts.append(resources,primary,secondary);
-        for(const {id:category,label,description,count} of stationMenuCategories(visibleEntries)){
-          const b=document.createElement('button');b.type='button';b.dataset.stationCategory=category;b.dataset.actionCategory=category;b.title=description;
-          const name=document.createElement('strong'),amount=document.createElement('small');name.textContent=label;amount.textContent=`${count} action${count===1?'':'s'}`;b.append(name,amount);
-          b.onclick=()=>chooseStationCategory(shortcuts,category,operatorKey);primary.append(b);
+        const resources=document.createElement('div'),panels=new Map();
+        resources.className='station-order-resources';resources.dataset.stationResources='';shortcuts.append(resources);
+        for(const {id:category,label,description} of stationMenuCategories(visibleEntries)){
+          const section=document.createElement('details'),heading=document.createElement('summary'),buttons=document.createElement('div');section.dataset.category=category;section.open=!folded.has(category);section.style.setProperty('--category-tone',description);heading.textContent=label;buttons.className='station-category-buttons';section.append(heading,buttons);shortcuts.append(section);panels.set(category,buttons);section.addEventListener('toggle',()=>window.SACombatPanel.scheduleFit());
         }
         for(const [index,[label,selector,tab,id]] of visibleEntries.entries()){
           const button=document.createElement('button'),row=document.createElement('div');row.className='station-action-choice';button.type='button';button.textContent=label;button.dataset.stationOrder=index;
@@ -554,11 +613,10 @@
             const b=window.SACombatBridge;if(!b.confirmGmPlayerAction(currentUnit,'changeGravity'))return;
             try{await b.utilityAction({id:currentUnit.id,sicId:id,kind:'gravity',enabled:!window.SAShipMap.gravityEnabled(access.ship),receipt:crypto.randomUUID()});}catch(error){window.alert(error.message);}
           };
-          const category=stationActionCategory(label);row.dataset.actionCategory=category;button.dataset.actionCategory=category;secondary.append(row);row.append(button);
+          const category=stationActionCategory(label);row.dataset.actionCategory=category;button.dataset.actionCategory=category;panels.get(category).append(row);row.append(button);window.SACombatPanel.decorate(button,label);
           const helpKey=selector.match(/data-(?:command|order)="([^"]+)"/)?.[1]||({'[data-lock]':'lock','[data-sic]':'sicLock','[data-break]':'break'})[selector];
           if(helpKey)button.title=window.SAActionHelp.descriptions[helpKey]?.[1]||'';
         }
-        chooseStationCategory(shortcuts,categoryByOperator.get(operatorKey),operatorKey);
         shortcuts.dataset.key=key;
       }
       const ownShip=consoles[0]?.ship,au=ownShip?.auState||{};
@@ -566,19 +624,25 @@
       for(const button of shortcuts.querySelectorAll('[data-station-order]')){
         const [label,selector,,id]=visibleEntries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
         const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
-        button.disabled=disabled||Boolean(reason);button.title=reason||(disabled?'Available during your active turn.':label==='Evasive Maneuvers'?'Roll evasion; Defense lasts 20 combat seconds.':`Choose target and confirm ${label}`);
-        let explanation=button.parentElement.querySelector('[data-disabled-reason]');if(!explanation){explanation=document.createElement('small');explanation.dataset.disabledReason='';button.after(explanation);}explanation.hidden=!reason;explanation.textContent=reason;
-        button.closest('.station-action-choice').hidden=button.dataset.actionCategory!==shortcuts.dataset.category;
+        button.disabled=disabled||Boolean(reason);button.title=window.SACombatPanel.presentation(label).help+(disabled?' Available during your active turn.':'');
       }
       const controlStatus=group.querySelector('[data-turn-control-status]');
-      if(controlStatus)controlStatus.textContent=mine?.consoleHold?'Holding at 99%. Resume when ready.':actionSubmitting?'Sending action…':disabled?'Waiting for your turn or current action to finish.':seated?'Choose a ship action above. Hold keeps you at 99%.':'Choose a character action. Hold keeps you at 99%.';
+      if(controlStatus)controlStatus.textContent=mine?.consoleHold?'Holding at 99%. Resume when ready.':actionSubmitting?'Sending actionâ€¦':disabled?'Waiting for your turn or current action to finish.':seated?'Choose a ship action above. Hold keeps you at 99%.':'Choose a character action. Hold keeps you at 99%.';
     }
     actionButtons.forEach((button) => {
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
 
-      if(kind==='carry'){button.textContent=mine?.carryingId?'Place patient down':'Carry';button.hidden=!mine?.carryingId&&!state.units.some(p=>p.id!==mine?.id&&Number(p.currentHp)<=0&&!p.carriedBy&&p.location?.starshipId===mine?.location?.starshipId&&p.location?.square===mine?.location?.square);}
+      if(kind==='armExplosive'){button.hidden=!current?.throwable||current.placeable;button.textContent='Arm Explosive';}
+      if(kind==='removeSticky'){button.hidden=!(state.units||[]).some(u=>(u.thrownEffects||[]).some(e=>e.attachedId===mine?.id&&!e.armedHeld&&e.weaponId==='sticky-grenade'));button.textContent='Detach Sticky';}
+      if(kind==='reloadWeapon'){button.hidden=!window.SAPersonalAmmunition.profile(current);button.textContent='Reload';}
+      if(kind==='programWeapon'){button.hidden=window.SACombatBridge.mode()!=='gm'||!['mk-u-id-assassin','silent-scope-sniper-rifle'].includes(current?.weaponId);button.textContent='Weapon Setup';unavailable=false;}
+      if(kind==='sheathWeapon'){button.hidden=held(mine)?.weaponId!=='murasama-blade';button.textContent='Sheath Murasama';}
+      if(kind==='escapeRestraint'){button.hidden=!mine?.net;button.textContent='Escape Net';}
+      if(kind==='stopDropRoll'){button.hidden=!mine?.burning;button.textContent='Stop, Drop & Roll';}
+      if(kind==='standUp'){button.hidden=!mine?.statuses?.prone;button.textContent='Stand Up';}
+      if(kind==='carry'){button.hidden=!mine?.carryingId&&!window.SACrewCarry.candidates(state,mine).length;}
       if(kind==='holdConsole'){button.hidden=false;button.textContent=mine?.consoleHold?'Resume':'Hold';button.classList.toggle('is-resume',Boolean(mine?.consoleHold));unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
       if (kind === 'moveStarship') {button.hidden=true;button.textContent='Move Ship';}
       if (kind === 'consoleView') {button.hidden=true;unavailable=false;}
@@ -594,7 +658,8 @@
       if (kind === "fire" && current?.category !== "ranged") { unavailable = true; reason = "Hold a ranged weapon to Fire Gun."; }
       if (kind === "calledShot" && !["ranged", "melee"].includes(current?.category)) { unavailable = true; reason = "Hold a ranged or melee weapon to make a Called Shot."; }
       if (kind === "throwItem") {
-        const canThrowMelee = (mine?.weapons || []).some((entry) => entry.category === "melee");
+        const armed=(state.units||[]).some(u=>(u.thrownEffects||[]).some(e=>e.armedHeld&&e.attachedId===mine?.id));
+        const canThrowMelee = armed || (mine?.weapons || []).some((entry) => entry.category === "melee");
         const canThrowExplosive = (mine?.weapons || []).some((entry) => entry.throwable || entry.placeable) || (mine?.items || []).some((entry) => entry.catalogId === "smoke-grenade");
         const explosiveCapacity = (mine?.thrownEffects || []).length < 5;
         unavailable ||= !canThrowMelee && (!canThrowExplosive || !explosiveCapacity);
@@ -606,15 +671,22 @@
       if (kind === "move" && vehicle && vehicle.driverId !== mine.id) { unavailable = true; reason = "Passengers cannot choose Move; the driver controls the vehicle."; }
       button.querySelector('[data-action-reason]')?.remove();
       button.disabled = Boolean(unavailable);
-      button.title = unavailable ? (reason||'No usable item is available for this action.') : button.textContent.trim();
-      if(unavailable&&!button.hidden&&kind!=='holdConsole'&&reason&&reason!=="Available only during your active turn."){const note=document.createElement('small');note.dataset.actionReason='';note.textContent=button.title;button.append(note);}
+      const definition=window.SACombatPanel.personal[kind];
+      if(definition){let label=definition[0];if(kind==='move'&&seated)label='Leave Console';if(kind==='holdConsole'&&mine?.consoleHold)label='Resume';if(kind==='carry'&&mine?.carryingId)label='Put Down';if(kind==='airlock')label=button.textContent;window.SACombatPanel.setLabel(button,label);button.title=(kind==='move'&&seated?'Leave the current console and return to character actions.':definition[1])+(unavailable&&reason?' '+reason:'');}
+      // Missing equipment/actions disappear; an otherwise legal action remains visible while waiting for its turn.
+      if(['charge','fire','calledShot','throwItem','drawWeapon'].includes(kind)&&unavailable&&!disabled)button.hidden=true;
+      if(kind==='charge'&&(!current||current.chargeMode!=='meter'||!current.chargeSegments))button.hidden=true;
+      if(kind==='fire'&&current?.category!=='ranged')button.hidden=true;
+      if(kind==='drawWeapon'&&!(mine?.weapons||[]).length&&!(mine?.items||[]).length)button.hidden=true;
+      button.classList.toggle('combat-context-active',!button.hidden&&(['airlock','breachRepair'].includes(kind)||kind==='move'&&seated||kind==='maintenance'&&Boolean(mine?.location?.stationed)));
     });
+    window.SACombatPanel.scheduleFit();
   }
 
   function syncCampaignLoadout(record, unit) {
     if (!record?.character || !unit) return;
     const rows = (record.character.weapons || []).flatMap((entry) => entry?.weaponId
-      ? [{ inventoryId: String(entry.id || entry.weaponId), weaponId: entry.weaponId }]
+      ? [{ inventoryId: String(entry.id || entry.weaponId), weaponId: entry.weaponId, ammoRemaining:entry.ammoRemaining, targetProgram:entry.targetProgram }]
       : []);
     const heldEntry = (record.character.weapons || []).find((entry) => entry?.held && entry?.weaponId);
     const boxes = (key) => (record.character.attributes?.[key] || []).reduce((sum, row) => sum + Math.max(0, Number(row) + 1), 0);
@@ -632,6 +704,12 @@
       heldWeaponId: heldEntry ? String(heldEntry.id || heldEntry.weaponId) : "",
       dexterityBoxes: boxes("dexterity"),
       highestPerceptionDie: highestDie("perception"),
+      perceptionDice: (record?.character?.attributes?.perception || []).filter(v=>Number(v)>=0).map(v=>[4,6,8,10,12][Number(v)]).filter(Boolean),
+      willpowerDice:(record?.character?.attributes?.willpower||[]).filter(v=>v>=0).map(v=>[4,6,8,10,12][v]),
+      resistDistressSkill:Number(skillValue("Resist Distress"))||0,
+      coordinationSkill:skillValue("Coordination"),
+      breakFreeSkill:Number(skillValue("Escape"))||0,
+      demolitionsSkill:Number(skillValue("Demolitions"))||0,
       moveSpeed: Math.max(1, Number(record.character.computed?.moveSpeed) || 1),
       weaponMechanics: skillValue("Weapon Mechanics"),
       dexterityDice: (record.character.attributes?.dexterity || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
@@ -645,16 +723,20 @@
       hackingSkill: skillValue("Hacking"),
       hackingSkill: skillValue('Hacking'),
       meleeSkill: skillValue("Melee"),
+      grapplingSkill: skillValue("Grappling"),
+      scienceSkill: skillValue("Science"),
       dodgeSkill: skillValue("Dodge"),
       strengthDice: (record.character.attributes?.strength || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       damageReduction: Math.max(0, Number(record.character.computed?.damageReduction) || 0),
       maximumHp: Math.max(0, Number(record.character.computed?.maximumHp) || 0),
       currentHp: Number.isFinite(Number(record.character.health?.current)) ? Number(record.character.health.current) : Number(record.character.computed?.maximumHp) || 0,
-      items: (record.character.items || []).map((entry) => ({ id: entry.id, catalogId: entry.catalogId, name: entry.name, description: entry.description, quantity: entry.quantity, unitCost: entry.unitCost, charges: entry.charges, chargesMax: entry.chargesMax, chargeState: entry.chargeState, special: entry.special })),
+      items: (record.character.items || []).map((entry) => ({ id: entry.id, catalogId: entry.catalogId, name: entry.name, description: entry.description, quantity: entry.quantity, unitCost: entry.unitCost, charges: entry.charges, chargesMax: entry.chargesMax, chargeState: entry.chargeState, special: entry.special, protectionHp:entry.protectionHp, ammoRounds:entry.ammoRounds })),
       intellectBoxes: boxes("intellect"),
       intellectDice: (record.character.attributes?.intellect || []).filter((value) => Number(value) >= 0).map((value) => [4, 6, 8, 10, 12][Number(value)] || 0).filter(Boolean),
       anatomySkill: skillValue("First Aid"),
+      sex:String(record.character.identity?.sex||""),
       raceId: String(record.character.identity?.raceId || ""),
+      iconVariant: Number(record.character.presentation?.iconVariant)===1?1:0,
       raceType: String(record.character.identity?.raceType || ""),
       classId: String(record.character.identity?.classId || ""),
       defenseScoreModifier: Number(record.character.computed?.defenseScoreModifier) || 0,

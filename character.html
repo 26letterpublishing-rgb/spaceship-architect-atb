@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="en">
   <head>
+<script src="browser-storage.js"></script>
     <script src="audio-mix.js"></script>
 <script src="drama-notices.js"></script>
     <script src="explore-session.js"></script>
-    <link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
+    <script src="token-art.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="warp-effects.js"></script>
   <script src="crew-tokens.js" defer></script>
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="oxygen-ui.css">
@@ -34,8 +35,12 @@
 <link rel="stylesheet" href="crew-logs.css">
 <script defer src="interior-pan.js"></script>
 <link rel="stylesheet" href="campaign-starmaps.css">
+<link rel="stylesheet" href="shop.css">
+<script src="campaign-navigation-ui.js" defer></script>
 <script src="campaign-starmaps-ui.js" defer></script>
 <link rel="stylesheet" href="ui-reputation-pass.css">
+<link rel="stylesheet" href="sic-cards.css"><script src="sic-categories.js"></script>
+<link rel="stylesheet" href="point-spend.css"><script src="point-spend.js"></script>
 </head>
   <body>
     <header class="creator-header">
@@ -60,6 +65,7 @@
       <button type="button" data-character-tab="sheet" class="active">Character Sheet</button>
       <button type="button" data-character-tab="roster" hidden>Campaign <strong id="playerInboxCount">0</strong></button>
       <button type="button" data-character-tab="starships" hidden>Starships</button>
+      <button type="button" data-character-tab="shop" hidden>Shop</button>
       <button type="button" data-character-tab="atb" hidden>Combat <small id="campaignCombatStatus" role="status" hidden><strong>OUT OF COMBAT</strong></small></button>
 
 
@@ -91,7 +97,7 @@
             <div><span id="lobbyCampaignCode">----</span><strong id="lobbyCampaignName">Campaign</strong></div>
             <div class="campaign-lobby-actions" hidden><button id="changeCampaign" type="button">Change Campaign</button><button id="createCampaignCharacter" class="primary-action" type="button">Create Character</button></div>
           </div>
-          <div class="campaign-lobby-tools" hidden><label class="import-button">Import Character<input id="importCampaignCharacter" type="file" /></label></div>
+          <div class="campaign-lobby-tools" hidden><label class="import-button">Load Character<input id="importCampaignCharacter" type="file" /></label></div>
           <div class="campaign-group-credits" data-group-credits>Group Credits <strong>0</strong></div>
           <div id="campaignRosterCards" class="campaign-roster-cards"></div>
           <section id="campaignStarshipRoster" class="campaign-starship-roster" hidden>
@@ -141,8 +147,8 @@
         <div class="library-actions">
           <button id="newCharacter" type="button">New</button>
           <button id="duplicateCharacter" type="button">Duplicate</button>
-          <button id="exportCharacter" type="button">Export</button>
-          <button id="openImportMenu" class="import-button" type="button">Import</button>
+          <button id="exportCharacter" type="button">Save Character</button>
+          <button id="openImportMenu" class="import-button" type="button">Load Character</button>
           <input id="importCharacter" type="file" hidden />
           <button id="deleteCharacter" class="danger" type="button">Delete</button>
         </div>
@@ -172,6 +178,21 @@
           <div><span>Skill Points</span><strong id="workflowSkillRemaining">Locked</strong></div>
           <div><span>Credits</span><strong id="workflowCredits">0</strong></div>
         </div>
+        <aside class="sheet-panel experience-panel" data-sheet-section="resources">
+          <div class="panel-heading"><span>Advancement</span></div>
+          <div id="creationBudgets" class="creation-budgets">
+            <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong><small id="attributeBudgetFormula">Standard allocation: 195</small></div>
+            <div><span>Skill Points</span><strong id="skillBudget">Locked</strong><small id="skillBudgetFormula">Base 35 + Intellect</small></div>
+          </div>
+          <div class="xp-readouts">
+            <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small id="xpFormula">Unspent / Total Gained</small></div>
+          </div>
+          <div class="xp-grant" hidden>
+            <label>Debug Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
+            <button id="grantXp" type="button">DEBUG: ADD EXP</button>
+          </div>
+          <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
+        </aside>
         <div class="workflow-actions">
           <button id="finalizeCharacter" class="primary-action" type="button">Finalize Character</button>
           <button id="spendExperience" class="primary-action" type="button" hidden>Spend EXP</button>
@@ -208,24 +229,11 @@
             <label>Eyes<input data-field="identity.eyes" /></label>
             <label class="identity-atb-color">ATB Color<input id="characterAtbColor" type="color" value="#39e58f" aria-label="Character ATB color" /></label>
             <label class="description-field">Physical Description<textarea data-field="identity.description" rows="3"></textarea></label>
+            <fieldset id="characterIconPicker" class="token-picker character-icon-picker"><legend>Choose Character Icon</legend><div class="token-options"></div><p data-token-hint>Choose a race to see its icons.</p></fieldset>
           </div>
         </section>
 
-        <aside class="sheet-panel experience-panel" data-sheet-section="resources">
-          <div class="panel-heading"><span>Advancement</span></div>
-          <div id="creationBudgets" class="creation-budgets">
-            <div><span>Attribute Points</span><strong id="attributeBudget">0 / 195</strong><small id="attributeBudgetFormula">Standard allocation: 195</small></div>
-            <div><span>Skill Points</span><strong id="skillBudget">Locked</strong><small id="skillBudgetFormula">Base 35 + Intellect</small></div>
-          </div>
-          <div class="xp-readouts">
-            <div class="xp-primary"><span>Experience</span><strong><b id="xpAvailable">0</b><small>/</small><b id="xpTotal">0</b></strong><small id="xpFormula">Unspent / Total Gained</small></div>
-          </div>
-          <div class="xp-grant" hidden>
-            <label>Debug Award<input id="xpGrantAmount" type="number" min="1" step="1" value="10" /></label>
-            <button id="grantXp" type="button">DEBUG: ADD EXP</button>
-          </div>
-          <p id="creatorNotice" class="creator-notice" aria-live="polite"></p>
-        </aside>
+
 
         <aside class="sheet-panel derived-panel" data-sheet-section="substats">
           <div class="panel-heading"><span>Timing &amp; Health</span></div>
@@ -392,14 +400,14 @@
               <div id="weaponInventory" class="weapon-inventory"></div>
             </div>
           </div>
-          <p class="weapon-table-note">Choose Purchase or Receive when adding a weapon. Only the held weapon is available during Combat.</p>
+          <p class="weapon-table-note">Purchase weapons in the Shop. This list equips weapons you already own; only the held weapon is available during Combat.</p>
         </section>
 
         <section class="sheet-panel gear-panel" data-sheet-section="supplies">
           <div class="panel-heading"><span>Carried Items</span><button id="addGearRow" class="compact-add" type="button" aria-label="Add item">+</button></div>
           <div class="gear-table-head" aria-hidden="true"><span>Name</span><span>Description</span><span>Qty</span><span>Cost</span><span>Actions</span></div>
           <div id="gearInventory" class="gear-inventory"></div>
-          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Add an item when this character receives or purchases one.</p>
+          <p id="gearInventoryEmpty" class="gear-empty">No carried items. Purchase supplies in the Shop.</p>
         </section>
 
         <section class="sheet-panel storage-panel" data-sheet-section="supplies">
@@ -483,9 +491,9 @@
           </form>
           <div id="joinCampaignStatus" class="join-campaign-status"></div>
         </section>
-        <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" /></label></section>
-        <section><h2>Export Character Data</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Export Character Data</button></section>
-        <section><h2>Make New Character</h2><p>This replaces the current campaign character. Export first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
+        <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Save a file first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" /></label></section>
+        <section><h2>Save Character</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Save Character</button></section>
+        <section><h2>Make New Character</h2><p>This replaces the current campaign character. Save a file first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
         <section><h2>Leave Campaign</h2><p>Break this character's campaign link so it may request entry into another campaign.</p><button id="settingsLeaveCampaign" class="danger" type="button">Leave Campaign</button></section>
         <section><h2>Session</h2><p>Log out on this browser without removing the character from its campaign.</p><button id="settingsLogout" type="button">Log Out</button></section>
       </div>
@@ -494,9 +502,10 @@
     <section id="playerStarshipsPanel" class="character-page-panel character-tool-page player-starships-panel" data-character-panel="starships" hidden>
       <div class="starship-group-credits campaign-group-credits" data-group-credits>Group Credits <strong>0</strong></div>
       <header class="character-tool-heading"><span>ASSIGNED VESSELS</span><h1>Starships</h1><p>Your position and everyone currently aboard update with the campaign.</p></header>
-      <div class="player-fleet-actions"><button type="button" id="createCampaignShip">Create Starship</button><button type="button" id="importCampaignShip">Import Starship</button><p>New ships are sent to the GM for approval. The GM assigns crew; assigned crew can upgrade and operate their ships.</p></div><div id="playerStarshipList" class="player-starship-list"></div>
+      <div class="player-fleet-actions"><button type="button" id="createCampaignShip">Create Starship</button><button type="button" id="importCampaignShip">Load Starship</button><p>New ships are sent to the GM for approval. The GM assigns crew; assigned crew can upgrade and operate their ships.</p></div><div id="playerStarshipList" class="player-starship-list"></div>
     </section>
 
+    <section id="playerShopPanel" class="character-page-panel character-tool-page shop-panel" data-character-panel="shop" hidden></section>
     <section id="playerAtbPanel" class="character-page-panel character-tool-page" data-character-panel="atb" hidden>
       <div class="player-atb-heading">
         <div class="character-tool-heading"><span>CAMPAIGN ENCOUNTER</span><h1>Combat</h1></div>
@@ -559,12 +568,12 @@
     <div id="importChoiceModal" class="modal-shell" hidden>
       <section class="confirm-dialog import-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="importChoiceTitle">
         <span class="dialog-kicker">Character Entry</span>
-        <h2 id="importChoiceTitle">Import Character</h2>
+        <h2 id="importChoiceTitle">Load Character</h2>
         <p>Load a digital character file or enter a physical character sheet manually.</p>
         <div class="dialog-actions import-choice-actions">
           <button id="cancelImportChoice" type="button">Cancel</button>
           <button id="manualInputChoice" type="button">Manual Input</button>
-          <button id="importFileChoice" class="primary-action" type="button">Import Character File</button>
+          <button id="importFileChoice" class="primary-action" type="button">Load Character</button>
         </div>
       </section>
     </div>
@@ -840,9 +849,13 @@
     <div id="rollResultToast" class="roll-result-toast" role="status" aria-live="polite" hidden></div>
   <script src="drama-card-data.js?v=console-feedback-2"></script>
     <script src="ship-map-core.js?v=console-feedback-2"></script>
+<script src="delay-rules.js"></script><script src="missile-ammunition.js"></script><script src="card-fit.js"></script><script src="sic-market-ui.js"></script><script src="card-inspector.js"></script>
+<script src="sic-card-factory.js"></script>
+  <script src="combat-arena.js"></script><script src="arena-files.js"></script><link rel="stylesheet" href="combat-arena.css"><script src="combat-arena-ui.js"></script>
     <script src="ship-floorplan-snapshot.js"></script>
     <script src="ship-power.js?v=console-feedback-2"></script>
-    <script src="space-map.js?v=travel-20261004"></script>
+    <script src="ship-distances.js"></script><script src="ship-fabrication.js"></script><script src="shop-weapons.js"></script>
+<script src="space-map.js?v=travel-20261004"></script>
     <script src="health-display.js?v=console-feedback-2"></script>
     <script src="live-dom.js"></script>
     <script src="fleet-notices.js"></script>
@@ -852,5 +865,6 @@
     <script type="module" src="character.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
 <script src="crew-logs-ui.js"></script>
+<script src="app-help.js"></script>
 </body>
 </html>

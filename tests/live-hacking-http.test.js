@@ -24,7 +24,7 @@ test('live hacking persists private puzzles and retry receipts across a real res
   const body={action:'hackingCommand',id:nova.id,kind:'guess',sessionId:board.id,guess:[board.candidates[0]],turnSerial:s.units.find(u=>u.id===nova.id).turnSerial,requestId:'persist-solve-1'};
   s=await act(body);assert.equal(s.units.find(u=>u.id===nova.id).hackingSessions[0].control,true);
   for(const field of ['hackingPrivate','password','decoys','secretId'])assert.ok(!JSON.stringify(s).includes(`"${field}"`));
-  const backup=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());assert.equal(backup.campaign.encounter.hackingPrivate,undefined);
+  const backup=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());assert.ok(backup.campaign.encounter.hackingPrivate,"GM campaign backup retains active hacking state");
   assert.equal((await fetch(base+'/ship-hacking.js')).status,404);await sleep(350);await stop();await launch();
   const reopened=await post('campaign/open',{name:'Hacking Persistence',gmCode:'private-hack-test'});token=reopened.token;
   s=await get();board=s.units.find(u=>u.id===nova.id).hackingSessions[0];assert.equal(board.control,true);assert.equal(board.history.length,1);

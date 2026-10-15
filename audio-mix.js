@@ -16,5 +16,12 @@
     gain.connect(compressor);compressor.connect(limiter);limiter.connect(context.destination);
     buses.set(profile,gain);return gain;
   }
-  root.SAAudioMix={destination,profiles};
+  let effectContext;
+  function success(){
+    try{if(localStorage.getItem('sa-atb-alerts')==='off'||localStorage.getItem('sa-atb-gm-muted')==='on')return;
+      const c=effectContext ||= new AudioContext();void c.resume();
+      [440,660,880,1320].forEach((hz,i)=>{const o=c.createOscillator(),g=c.createGain(),start=c.currentTime+i*.085;o.type='sine';o.frequency.setValueAtTime(hz,start);g.gain.setValueAtTime(0,start);g.gain.linearRampToValueAtTime(.035,start+.015);g.gain.exponentialRampToValueAtTime(.001,start+.22);o.connect(g);g.connect(destination(c,'effect'));o.start(start);o.stop(start+.24);});
+    }catch{}
+  }
+  root.SAAudioMix={destination,profiles,success};
 })(globalThis);
