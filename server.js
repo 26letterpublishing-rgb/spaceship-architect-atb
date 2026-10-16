@@ -444,6 +444,12 @@ function recordShipReports(room, operation) {
   return result;
 }
 
+function detachPlacedOrdnance(room, unit) {
+  if (!unit?.thrownEffects?.length) return;
+  room.areaEffects ||= [];
+  room.areaEffects.push({id:unit.id,kind:'detached-ordnance',characterName:unit.characterName,location:clone(unit.location),thrownEffects:clone(unit.thrownEffects)});
+  unit.thrownEffects=[];
+}
 function removeUnitFromCombatObjects(room, unitId) {
   let cancelledItem = null;
   for (const owner of room.units || []) {
@@ -674,6 +680,7 @@ function syncNpcDefeat(room, unit) {
     const affectedAttack = liveRoom.attackResolution && [liveRoom.attackResolution.attackerId, liveRoom.attackResolution.defenderId].includes(defeated.id);
     const affectedAction = liveRoom.activeAction?.unitId === defeated.id;
     const affectedItem = removeUnitFromCombatObjects(liveRoom, defeated.id);
+    detachPlacedOrdnance(liveRoom, defeated);
     liveRoom.units = liveRoom.units.filter((entry) => entry.id !== defeated.id);
     if (affectedAttack) {
       liveRoom.attackResolution = null;
@@ -749,7 +756,7 @@ function finishAttackResolution(room, logText) {
   room.attackResolution = null;
   room.activeSource = attack.source || room.activeSource;
   clearAttackCommand(room);
-  if(attack.additionalAttack&&attacker){const next=room.units.find(u=>u.id===attack.additionalAttack.defenderId);if(next&&!next.defeatedAt){pushLog(room,logText);beginAttackResolution(room,attack.additionalAttack);return;}}
+  if(attacker)for(let pending=attack.additionalAttack;pending;pending=pending.additionalAttack){const next=room.units.find(u=>u.id===pending.defenderId);if(next&&!next.defeatedAt){pushLog(room,logText);beginAttackResolution(room,pending);return;}}
   if (attack.personalEffect && !attack.consumeEffectTurn) {
     if(attack.personalEffect.skullAttach&&attacker){(attacker.weaponTimers||=[]).push({kind:'skull',name:'Skull Bore escape',check:true,attribute:'strength',skill:'Escape',...attack.personalEffect.skullAttach,remaining:6,interval:6,duration:1e9});}
     if(attack.personalEffect.growFire&&attacker?.burning)attacker.burning.intensity=Math.min(attacker.burning.maximum,attacker.burning.intensity+1);
@@ -788,7 +795,7 @@ function resolveAttackChecks(room) {
       state.followup={kind:'scatter',plan:state.plan,maximum:die};state.plan={...state.plan,damageFormula:'1D'+die,damageFormulaSupported:true};state.phase='damage';state.damageRoll=null;state.id=id();pushLog(room,'Roll 1D'+die+' for throwing scatter distance.');return null;
     }
 
-    if(state.personalEffect.removeSticky){const effect=room.units.flatMap(u=>u.thrownEffects||[]).find(e=>e.id===state.personalEffect.removeSticky);const success=state.attackerRoll.score>=13;if(effect&&success)effect.armedHeld=true;finishAttackResolution(room,attacker.characterName+(success?' detached the Sticky Grenade; use another action to throw it.':' failed to detach the Sticky Grenade.'));return {hit:false};}
+    if(state.personalEffect.removeSticky){const effect=[...room.units,...(room.areaEffects||[])].flatMap(u=>u.thrownEffects||[]).find(e=>e.id===state.personalEffect.removeSticky);const success=state.attackerRoll.score>=13;if(effect&&success)effect.armedHeld=true;finishAttackResolution(room,attacker.characterName+(success?' detached the Sticky Grenade; use another action to throw it.':' failed to detach the Sticky Grenade.'));return {hit:false};}
     if(state.personalEffect.escapeNet){const success=state.attackerRoll.score>=state.personalEffect.difficulty;if(success)attacker.net=null;finishAttackResolution(room,attacker.characterName+(success?' escaped the net.':' remains trapped in the net.'));return {hit:false};}
     const cycles=Math.max(0,Math.floor((state.personalEffect.difficulty-Number(state.attackerRoll.score))/2));
     attacker.frozenSeconds=(attacker.frozenSeconds||0)+cycles*100/Math.max(1,attacker.speed||1);
@@ -860,7 +867,7 @@ function resolveAttackChecks(room) {
     finishAttackResolution(room,state.weaponName+' deployed at '+defender.characterName+'.');return {hit:true};
   }
   if(state.weaponId==='rubber-bouncy-bombs'){
-    const walls=personalWeapons.wallsNear(room,defender);state.plan={...state.plan,damageFormula:walls+'D8',damageFormulaSupported:true};state.personalEffect={...personalWeapons.explosive('grenade',clone(defender.location)),name:'Rubber Bouncy Bombs',area:true,rubber:true};state.consumeEffectTurn=true;
+    const walls=personalWeapons.wallsNear(room,defender);state.plan={...state.plan,damageFormula:'1D8',damageScale:5*walls,damageFormulaSupported:true,criticalDamageDisabled:true};
   }
   state.plan = combatRules.damagePlan(state.plan, state.attackResult, state.attackerRoll.fusions);
   state.phase = "damage";
@@ -1573,6 +1580,7 @@ function resolveInstantDelay(room, unit, { kind = "timer", label = "" } = {}) {
 
 function moveToNextTurnOrClock(room, previousSource = null) {
   if(transitPending(room)){room.lastTick=Date.now();return;}
+  for(const source of room.areaEffects||[])if(source.kind==='detached-ordnance')for(const effect of source.thrownEffects||[])if(effect.resolving){if(resolveCompletedEvent(room,{type:'thrown',unit:source,effect},nextTurnSource(room,previousSource)))return;}
   for(const unit of room.units){if(unit.personalEffects?.length){beginPersonalEffect(room,unit,unit.personalEffects.shift());return;}}
   for (const unit of room.units) {
     if (unit.defeatedAt) continue;
@@ -1671,6 +1679,8 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   require('./personal-bore-drones').cleanup(room);
   for(const unit of room.units){personalWeapons.advance(unit,seconds*multiplier);if(unit.personalEffects?.length)completedEvents.push({type:'personal',unit});}
   tickAreaEffects(room, seconds, multiplier);
+  for(const source of room.areaEffects||[])if(source.kind==='detached-ordnance')completedEvents.push(...require('./combat-engine').advanceThrown(room,source,seconds*multiplier));
+  room.areaEffects=(room.areaEffects||[]).filter(e=>e.kind!=='detached-ordnance'||e.thrownEffects?.length);
   for (const unit of room.units) {
     if(unit.defeatedAt||!unit.speed)completedEvents.push(...require('./combat-engine').advanceThrown(room,unit,seconds*multiplier));
     if (unit.id === skipId || unit.defeatedAt || !unit.speed || crewRooms.inTreatment(room,unit.characterId||unit.id)) continue;
@@ -1859,7 +1869,8 @@ function resolveCompletedEventInner(room, event, source) {
     if(blast&&blast.origin){
       event.unit.thrownEffects=event.unit.thrownEffects.filter(e=>e.id!==event.effect.id);
       if(blast.flash){for(const {unit} of personalWeapons.blastTargets(room,blast.origin,18,1,100))personalWeapons.queue(unit,{name:blast.name,check:true,attribute:'willpower',skill:'Resist Distress',difficulty:Math.max(0,18-require('./combat-arena').distance(room,{location:blast.origin},unit))});return false;}
-      beginPersonalEffect(room,event.unit,{...blast,area:true});return true;
+      const roller=room.units.find(u=>u.id===event.unit.id)||room.units.find(u=>!u.defeatedAt&&u.team==='npc')||room.units.find(u=>!u.defeatedAt)||room.units[0];
+      if(roller){beginPersonalEffect(room,roller,{...blast,area:true});return true;}return false;
     }
     clearActiveCommand(room);
     room.pausedForTurn = true;
@@ -1948,6 +1959,7 @@ function advanceSeconds(room, seconds = 1, { exact = false, source = "clock" } =
     })
     .filter((time) => Number.isFinite(time));
   for(const zone of (room.areaEffects||[]).filter(e=>e.kind==='fallout'))times.push(zone.remaining/(interruptedId?.2:1));
+  for(const source of room.areaEffects||[])if(source.kind==='detached-ordnance')for(const effect of source.thrownEffects||[])if(!effect.resolving&&!(effect.armedMine&&effect.remaining<=0))times.push(effect.remaining/(interruptedId?.2:1));
   for(const unit of room.units.filter(u=>u.defeatedAt||!u.speed))for(const effect of unit.thrownEffects||[])if(!effect.resolving&&!(effect.armedMine&&effect.remaining<=0))times.push(effect.remaining/(interruptedId?.2:1));
   const oxygenTime=shipOxygen.nextEvent(room.starships)/(interruptedId?.2:1);
   if(Number.isFinite(oxygenTime))times.push(oxygenTime);
@@ -2883,6 +2895,11 @@ async function handleRoomAction(body, res, automated = false) {
     if(playerUnit.characterId)await campaignApi.syncCombatWeapons(room.roomCode,playerUnit.characterId,playerUnit.weapons);
     pushLog(room,'GM updated '+playerUnit.characterName+"'s "+gun.name+' setup.');
   }
+  if(action==='configureNet'){
+    if(!gmAuthorized||!playerUnit?.net){sendJson(res,403,{error:'Only the GM may adjust a trapped character’s net.'});return;}
+    const difficulty=Number(body.difficulty);if(!Number.isFinite(difficulty)||difficulty<0||difficulty>100){sendJson(res,400,{error:'Enter a net Escape difficulty from 0 to 100.'});return;}
+    playerUnit.net.difficulty=difficulty;pushLog(room,'GM set '+playerUnit.characterName+"’s net Escape difficulty to "+difficulty+'.');
+  }
   if (action === "syncCharacterLoadout") {
     const unit = playerUnit;
     if (unit) {
@@ -3256,6 +3273,7 @@ async function handleRoomAction(body, res, automated = false) {
 
   if (action === "removeUnit") {
     const unit = room.units.find((entry) => entry.id === body.id);
+    detachPlacedOrdnance(room, unit);
     if(unit?.shipAi){const ship=room.starships.find(s=>s.id===unit.location?.starshipId),item=ship&&shipAi.enabled(ship);if(item)crewRooms.roomData(ship,item.id).enabled=false;}
     if (room.attackResolution && [room.attackResolution.attackerId, room.attackResolution.defenderId].includes(body.id)) {
       const interruptedAttack = room.attackResolution;
@@ -3566,7 +3584,7 @@ async function handleRoomAction(body, res, automated = false) {
     if (room.activeAction) {
       const previousSource = room.activeSource;
       const actionToResolve = room.activeAction;
-      const unit = room.units.find((entry) => entry.id === actionToResolve.unitId);
+      const unit = [...room.units,...(room.areaEffects||[])].find((entry) => entry.id === actionToResolve.unitId);
       if (unit) {
         if (actionToResolve.kind === "thrownEffect") {
           unit.thrownEffects = (unit.thrownEffects || []).filter((effect) => effect.id !== actionToResolve.effectId);

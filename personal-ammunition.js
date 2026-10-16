@@ -9,10 +9,15 @@
   };
   const profile=w=>profiles[w?.weaponId||w?.id];
   function remaining(w){const p=profile(w);return p?Math.max(0,Math.min(p.capacity,Math.floor(Number(w.ammoRemaining??p.capacity)||0))):null;}
-  function reload(unit,weapon){
+  function reload(unit,weapon,{minerals,mineral='Iron'}={}){
     const p=profile(weapon);if(!p)throw Error('This weapon does not use a magazine.');
     let need=p.capacity-remaining(weapon);if(!need)throw Error('This weapon is already loaded.');
-    if(p.mineral)throw Error('Ask the GM to supply Iron or Magnesium ammunition using the ammunition control.');
+    if(p.mineral){
+      if(!['Iron','Magnesium'].includes(mineral))throw Error('Choose Iron or Magnesium.');
+      const stock=Math.max(0,Math.floor(Number(minerals?.[mineral])||0));
+      if(!stock)throw Error('No '+mineral+' is available aboard this ship. Each mineral unit loads one round.');
+      const loaded=Math.min(need,stock);minerals[mineral]=stock-loaded;weapon.ammoRemaining=remaining(weapon)+loaded;return loaded;
+    }
     const reserve=(unit.items||[]).filter(i=>i.catalogId===p.item&&i.quantity>0);
     if(!reserve.length)throw Error(p.water?'Carry a filled Canteen/Water Purifier to refill the Spouter.':'Purchase compatible ammunition in the Shop before reloading.');
     let loaded=0;

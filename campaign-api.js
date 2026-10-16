@@ -115,7 +115,7 @@ function drawDramaCardId(deck) {
 
 function normalizeDramaDeck(campaign) {
   const source = campaign.dramaDeck && typeof campaign.dramaDeck === "object" ? campaign.dramaDeck : null;
-  const deck = { drawPile: [], discardPile: [], hands: {}, playEvents: [] };
+  const deck = { drawPile: [], discardPile: [], hands: {}, playEvents: [], removed: [] };
   const valid = new Set(DRAMA_CARD_IDS);
   const used = new Set();
   const characterIds = new Set((campaign.characters || []).map((record) => record.id));
@@ -129,6 +129,7 @@ function normalizeDramaDeck(campaign) {
     }
   };
 
+  collect((source?.removed||[]).filter(id=>id==='drama-071'), deck.removed);
   collect(source?.drawPile, deck.drawPile);
   collect(source?.discardPile, deck.discardPile);
   for (const record of campaign.characters || []) {
@@ -2191,8 +2192,13 @@ class CampaignApi {
         sendJson(res, 404, { error: "That Drama Card is not in this character's hand." });
         return true;
       }
-      hand.splice(cardIndex, 1);
-      deck.discardPile.push(cardId);
+      // Validate and apply before consuming the card; failed choices retain the hand.
+      let automation='';
+      try{automation=require('./drama-automation').apply(campaign,record,cardId,body.choice||{},{deck,draw:drawDramaCardId});}
+      catch(error){sendJson(res,409,{error:error.message});return true;}
+      const playedIndex=hand.indexOf(cardId);if(playedIndex>=0)hand.splice(playedIndex,1);
+      if(deck.removed?.includes(cardId))deck.discardPile=deck.discardPile.filter(id=>id!==cardId);
+      else if(!deck.discardPile.includes(cardId))deck.discardPile.push(cardId);
       const event = {
         id: uid("drama-play"),
         cardId,
@@ -2207,7 +2213,7 @@ class CampaignApi {
       record.character.resources.dramaCards = hand.length;
       record.updatedAt = event.playedAt;
       await this.save(campaign);
-      sendJson(res, 200, { played: true, card: dramaCardState(cardId), campaign: this.state(campaign, token) });
+      sendJson(res, 200, { played: true, automation, card: dramaCardState(cardId), campaign: this.state(campaign, token) });
       return true;
     }
 
@@ -3317,7 +3323,7 @@ class CampaignApi {
               messageDetail: " Added to the shared Group Credits pool.",
             };
           })()
-        : applyCharacterReward(record, award, campaign);
+        : applyCharacterReward(record, {...award,amount:award.amount*(award.dramaMultipliers?.[record.id]||1)}, campaign);
       award.before ||= { shipCredits: campaign.shipCredits, characters: [] };
       award.before.characters ||= [];
       award.before.characters.push(result.before);

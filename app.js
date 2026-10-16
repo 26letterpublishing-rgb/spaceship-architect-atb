@@ -3420,9 +3420,9 @@ function render() {
   }
 
   renderAreaEffects();
+  const gmControls = document.getElementById("gmTopControls");
+  if (mode === "gm" && gmControls && gmPanicPause.parentElement !== gmControls) gmControls.append(gmPanicPause);
   if (starshipCombat) {
-    const gmControls = document.getElementById("gmTopControls");
-    if (mode === "gm" && gmControls && gmPanicPause.parentElement !== gmControls) gmControls.append(gmPanicPause);
     starshipStatusList.hidden = true;
     starshipStatusList.innerHTML = "";
   } else {

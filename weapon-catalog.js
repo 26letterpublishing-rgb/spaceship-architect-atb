@@ -894,7 +894,7 @@
     "element": "Physical",
     "range": "60",
     "sizeClass": "B",
-    "special": "ALL damage dice that roll a 6 or higher are treated as 15s. (This includes bonus dice from Aim action) Charging this weapon requires an accompaning Aim action. Charges are lost if Aim bonuses are lost. Uses Magnesium or Iron mineral as ammo. Holds 8 rounds.",
+    "special": "ALL damage dice that roll a 6 or higher are treated as 15s. (This includes bonus dice from Aim action) Charging this weapon requires an accompaning Aim action. Charges are lost if Aim bonuses are lost. Uses Magnesium or Iron mineral as ammo, one mineral unit per round. Holds 8 rounds.",
     "cost": "6800",
     "throwable": false,
     "placeable": false,

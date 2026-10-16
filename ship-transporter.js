@@ -4,18 +4,26 @@ const state=ship=>{const value=ship.ship.transporterState||={};value.receipts||=
 const points=item=>Math.max(0,Number(item.impairmentPoints)||(item.impaired||item.status==='impaired'?1:0));
 function validate(room,unit,body,turn=true){
  if(body.kind&&body.kind!=='transport')throw Error('Unknown Transporter command.');
- const a=stations.access(room,unit,body.sicId);if(!a?.definition.transporter||a.blocked||a.controlled)throw Error('Operate an available Transporter station or your own Bridge.');
+ // Planet recall is a campaign convenience: an awake character only needs to
+ // remain aboard. Outbound/combat transport still requires its physical console.
+ const recall=Boolean(body.returnPlanetId&&room.outsideCombat);
+ let a=stations.access(room,unit,body.sicId);
+ if(recall){const ship=room.starships.find(s=>s.id===unit.location?.starshipId),item=ship&&maps.installedItems(ship).find(i=>i.id===body.sicId&&maps.definition(i.type).transporter);a=ship&&item&&stations.conscious(unit)&&stations.online(item)?{id:item.id,item,definition:maps.definition(item.type),ship,seat:{key:'planet-recall:'+ship.id+':'+item.id+':'+unit.id},blocked:ship.hackedSystems?.some(h=>h.bridge||h.sicId===item.id)}:null;}
+ if(!a?.definition.transporter||a.blocked||a.controlled)throw Error(recall?'Keep a living character aboard with an available Transporter.':'Operate an available Transporter station or your own Bridge.');
  if(a.ship.currentHullHp<=0||a.ship.escapedAt||a.ship.ship.warpState?.phase==='traveling'||power.output(a.ship,room.units).en<power.demand(a.ship))throw Error('Restore ship power and remain in normal space.');
  if(turn&&(room.activeId!==unit.id||unit.delayedAction||unit.timedAction||unit.delayTimer||unit.consoleHold))throw Error('Wait for your turn and finish the current action.');
  if(a.ship.currentShieldHp>0)throw Error('Lower the source ship shields first.');
  const ids=body.passengerIds;if(!Array.isArray(ids)||!ids.length||ids.length>5||new Set(ids).size!==ids.length)throw Error('Choose one to five different passengers.');
+ const assigned=state(a.ship).systems[a.id]?.holders||[];
  const passengers=ids.map(id=>room.units.find(u=>u.id===id));const l=maps.buildLayout(a.ship.ship);
- if(passengers.some(u=>!u||u.currentHp<=0||u.shipAi||u.carriedBy||u.carryingId||u.timedAction||(u.id!==unit.id&&(u.delayedAction||u.delayTimer))||u.location?.starshipId!==a.ship.id||l.footprint.get(u.location.square)?.sicId!==a.id))throw Error('All passengers must be living, stationary characters inside this Transporter room, without a carried patient.');
+ if(passengers.some(u=>!u||u.currentHp<=0||u.shipAi||u.carriedBy||u.carryingId||u.timedAction||(u.id!==unit.id&&(u.delayedAction||u.delayTimer))||(recall?(u.location?.environment!=='surface'||u.location.planetId!==body.returnPlanetId||!assigned.includes(u.characterId||u.id)):(u.location?.starshipId!==a.ship.id||l.footprint.get(u.location.square)?.sicId!==a.id))))throw Error('All passengers must be living, stationary characters inside this Transporter room, without a carried patient.');
+ if(recall){if(!room.spaceObjects?.some(o=>o.id===body.returnPlanetId&&o.kind==='planet'&&!o.destroyedAt))throw Error('The planet is no longer available.');body.square=a.placement?.cell??a.ship.ship.placements.find(p=>p.sicId===a.id)?.cell;}
  const destination=room.starships.find(s=>s.id===body.targetId),planet=(room.spaceObjects||[]).find(o=>o.id===body.targetId&&o.kind==='planet'&&!o.destroyed&&!o.destroyedAt);
  const p=dist.positions(room.starships,room.shipPositions).find(p=>p.id===a.ship.id),q=destination?dist.positions(room.starships,room.shipPositions).find(p=>p.id===destination.id):planet;
  if(!q||dist.hexDistance(p,q)>8+1e-7)throw Error('Destination must be within eight units.');
- if(destination){if(destination.id===a.ship.id||destination.currentHullHp<=0||destination.escapedAt||destination.ship.warpState?.phase==='traveling')throw Error('Choose another present starship.');if(destination.currentShieldHp>0)throw Error('Lower the destination shields first.');if(!locks.locked(room,a.ship,destination.id))throw Error('Lock-On to the destination first.');if(!sensors.analysis(a.ship,destination.id)?.layout)throw Error('Complete Systems Analysis first.');const layout=maps.buildLayout(destination.ship);if(!Number.isInteger(body.square)||!layout.hull.has(body.square)||layout.footprint.get(body.square)?.blocked)throw Error('Choose a walkable destination square.');}
+ if(destination){if((!recall&&destination.id===a.ship.id)||destination.currentHullHp<=0||destination.escapedAt||destination.ship.warpState?.phase==='traveling')throw Error('Choose another present starship.');if(destination.currentShieldHp>0)throw Error('Lower the destination shields first.');if(!recall&&!locks.locked(room,a.ship,destination.id))throw Error('Lock-On to the destination first.');if(!recall&&!sensors.analysis(a.ship,destination.id)?.layout)throw Error('Complete Systems Analysis first.');const layout=maps.buildLayout(destination.ship);if(!Number.isInteger(body.square)||!layout.hull.has(body.square)||layout.footprint.get(body.square)?.blocked)throw Error('Choose a walkable destination square.');}
  if(!destination&&!planet)throw Error('Choose a ship or planet.');
+ if(recall){const planet=room.spaceObjects.find(o=>o.id===body.returnPlanetId);if(dist.hexDistance(p,planet)>1e-6)throw Error('Remain in orbit over this planet.');}
  const data=state(a.ship);data.systems[a.id]||={holders:[]};const holders=data.systems[a.id].holders;if(new Set([...holders,...passengers.map(u=>u.characterId||u.id)]).size>50)throw Error('All fifty transponders are already assigned.');
  const scramblers=require('./ship-countermeasures').transport(room,a.ship,passengers,destination,body.square);
  return {a,passengers,destination,planet,holders,scramblers};

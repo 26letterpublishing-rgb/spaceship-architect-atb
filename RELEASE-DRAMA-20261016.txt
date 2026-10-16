@@ -1,0 +1,35 @@
+WEAPONS, DRAMA AND ACCEPTANCE RELEASE - October 16, 2026
+User authorized implementation, testing, commit and push (#commit).
+Includes the previously authorized planet/orbit/region pass documented in RELEASE-PLANETS-20261015.txt.
+
+Changes
+- Silent Scope consumes one selected Iron or Magnesium unit for each round loaded; maximum 8, partial reload supported. Inventory and minerals survive saves. Connector Cable remains excluded.
+- Rubber Bouncy Bombs resolve separate hit/defense/damage for each target in their 3x3 area; wall-based damage is 1D8 x5 per nearby wall, including floor/ceiling. A missed target does not receive another target's damage. Solid cover excludes affected targets.
+- Placed explosives survive removal of their owner, including automatic defeated-NPC cleanup, with fuse/attachment persistence and normal manual damage rolls. Sticky grenades can still be detached and rethrown.
+- Netlauncher difficulty can be adjusted by the GM. Default remains10. Automatic size adjustment awaits the user's answer; no unapproved size rule added.
+- Seven Drama Cards automate deterministic effects: Level Up, Different Way of Doing Things, Oh Now I Remember, Share the Wealth, Bank Error in Your Favor, Vision (hand only), Massive Plot Twist (hand and permanent deck removal only). Award cards require an unclaimed award. Invalid choices retain the card; replay does not duplicate rewards. Full audit categorizes all72 cards.
+- Embedded ship sheets now refresh crew membership and appearance from live campaign updates, including Draco changes after finalization.
+- Floating GM roll-request reminder no longer covers Confirm and Submit while dice dialogs are open.
+- GM clock controls participate in the normal control layout, avoiding overlap with End Combat on narrow Surface Combat views.
+- Character sync badge stays in its header grid row instead of slipping behind navigation.
+
+Verification
+- Final full suite: 1,131 tests passed, 0 failed. Log: ../outputs/drama-release-tests-20261016.txt.
+- 208 root JavaScript syntax checks passed; CRLF-aware git whitespace check passed.
+- Earlier full run had one intermittent Rail Repeater restart-timing failure. Its isolated rerun and both subsequent full suites passed. No failing test was suppressed.
+- HTTP regressions cover manual/automatic NPC removal, explosive backup/restore, independent Rubber target hit/miss/damage, GM-only net adjustment, Silent Scope mineral consumption/ammunition backup, and existing Thunder/Bizi/Assassin/fire/suit/cover checks.
+- Drama API regressions cover offline dealing, caps, skill eligibility, pending award doubling, repeated claims, failed choices, both #32 modes, Vision hand discard and permanent #71 removal through normalization/reshuffle.
+- Fresh isolated campaign October Acceptance (9EBC), local port8798: created GM campaign through UI; created/finalized Mira Vale (Draco Prime) through the complete attribute/package/skill workflow; added Jon Reed and Tessa Grey via API fixtures. Imported a sample ship and assigned all three as crew.
+- Browser: GM/PC Campaign, Characters/Character Sheet, Starships, Shop, Prompt/Give, Inbox, Script, Settings and Combat workflows; XP award/claim, private message, library entry, shop creation/availability and purchase, nested card Back, conditional keyword save/send/normal animated roll and manual confirm, result/reward delivery, encounter preparation/clock/Wait3/End Combat, actual Campaign Save and Adventure Module downloads.
+- Draco changed appearance after finalization; new icons reached GM roster, already-open ship crew views, and both PC/GM combat maps without reopening those views. Spiddix is excluded.
+- Browser Level Up doubled25XP to50 and claimed once; #32 granted3 Reverence; #43 changed Arts0.0 to2.0. Other automatic-card modes are API-tested rather than separately clicked end-to-end.
+- Character sheet and ship statistics/crew were inspected at desktop size; Lock-On/Break Lock-On text was visible. Narrow GM control layout checked after correction. No claim of exhaustive coverage at every screen size or every equipment combination.
+- Browser console error checks were empty. Local API and test data only; no hosted/Render testing.
+
+Preservation and remaining limits
+- Tests used a temporary data directory. Personal campaign data remains in ../SA-ATB Local Development Files/campaign-data. Gold Standard and liked-build backups were not modified.
+- Full campaign and module files were downloaded successfully; new tests did not re-run every possible import combination. Existing backup/module tests passed.
+- Net size numbers remain unresolved. Drama interrupt windows, offline multi-player card decisions and GM-authored effects are explicitly listed in the audit. Sixteen clear-rule effects are a documented implementation backlog, not represented as complete.
+- Recommended next step: agree on one shared reaction-card pause/confirmation system, then add the remaining combat cards in small tested groups. Run a complete multi-device adventure playtest and version the adventure-module format before distributing modules commercially.
+
+Local server refreshed on8790 (PID24488). Personal campaign SHA256 remained 5F9CDE562514BF2F10082E4D38FF7252D60C20ED567E831D8776565974FF92C7; a safety copy was saved outside the repository at ../outputs/campaigns-before-drama-release-20261016.json.

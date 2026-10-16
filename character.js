@@ -2290,7 +2290,7 @@ function renderPlayerStarships(force = false) {
     }else{frame.dataset.playerShipDetails=record.id;frame.src='starship.html?details=1&embeddedRecord=1';}frame.style.height=dom.playerStarshipList.querySelector(`[data-player-ship-details="${CSS.escape(record.id)}"]`)?.style.height||'1200px';card.append(frame);
   }markup=template.innerHTML;}
   window.SALiveDOM.render(dom.playerStarshipList,markup);
-  for(const frame of dom.playerStarshipList.querySelectorAll('[data-player-ship-details]')){frame.contentWindow?.postMessage({type:'sa-ship-detail-update',combatShipIds:deployed?[...deployed]:null,record:livePlayerShipRecord(ships.find(s=>s.id===frame.dataset.playerShipDetails))},location.origin);syncEmbeddedShipMove(frame);}
+  for(const frame of dom.playerStarshipList.querySelectorAll('[data-player-ship-details]')){frame.contentWindow?.postMessage({type:'sa-ship-detail-update',characters:campaignState.characters,npcRoster:campaignState.npcRoster,combatShipIds:deployed?[...deployed]:null,record:livePlayerShipRecord(ships.find(s=>s.id===frame.dataset.playerShipDetails))},location.origin);syncEmbeddedShipMove(frame);}
   for(const ship of ships){
     const history=dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(ship.id)}"]`);
     if(!history)continue;
@@ -2767,11 +2767,27 @@ function fillDramaCard(card) {
   dom.dramaCardHandling.textContent = card.handling || "Reveal, resolve, then discard.";
 }
 
+function dramaAutomationOptions(card,enabled){
+  let panel=document.getElementById('dramaAutomationOptions');
+  if(!panel){panel=document.createElement('div');panel.id='dramaAutomationOptions';dom.dramaCardDisplay.after(panel);}
+  panel.replaceChildren();panel.hidden=!enabled;if(!enabled)return;
+  const select=(label,choices)=>{const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('select');input.dataset.dramaChoice='true';for(const [value,text] of choices){const option=document.createElement('option');option.value=value;option.textContent=text;input.append(option);}wrap.append(input);panel.append(wrap);};
+  const confirm=text=>{const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.dramaResolved='true';label.append(input,document.createTextNode(' '+text));panel.append(label);};
+  if(['drama-006','drama-061'].includes(card.id)){
+    const resource=card.id==='drama-006'?'experience':'credits',own=campaignState?.characters?.find(r=>r.id===campaignCharacterId);
+    select('Award to double (claim it after playing):',[['','Choose an unclaimed award'],...(own?.privateNotes||[]).filter(n=>n.kind==='award'&&n.rewardStatus==='pending'&&n.rewardResource===resource).map(n=>[n.id,n.rewardAmount+' '+resource+' — '+new Date(n.createdAt).toLocaleString()])]);
+  }
+  if(card.id==='drama-032'){select('Choose effect',[['reverence','Gain 3 Reverence'],['approved-check','Draw 2 cards after the alternate check']]);confirm('The GM approved the alternate check and I completed it.');const mode=panel.querySelector('select'),approval=panel.querySelector('input').parentElement;approval.hidden=true;mode.onchange=()=>{approval.hidden=mode.value!=='approved-check';};}
+  if(card.id==='drama-043'){select('Skill used in the resolved check',[['','Choose a skill'],...Object.entries(character.skills||{}).filter(([,v])=>v.tenths<=9).map(([k,v])=>[k,k+' ('+(v.tenths/10).toFixed(1)+')'])]);confirm('The check has resolved.');}
+  if(['drama-070','drama-071'].includes(card.id))confirm('The GM has established the story change. Discard my entire hand'+(card.id==='drama-071'?' and permanently remove this card from the deck.':'.'));
+  if(card.id==='drama-047')panel.textContent='Automatically deals one card to every campaign PC, including offline players.';
+}
 function openDramaCard(card, { alert = null, receipt = false } = {}) {
   if (!card) return;
   selectedDramaCard = alert || receipt ? null : card;
   activeDramaAlert = alert;
   fillDramaCard(card);
+  dramaAutomationOptions(card,!alert&&!receipt);
   dom.dramaCardDisplay.classList.remove("playing");
   dom.dramaCardModal.dataset.mode = receipt ? "receipt" : alert ? "alert" : "hand";
   dom.dramaCardAlertByline.hidden = !alert;
@@ -9374,7 +9390,7 @@ dom.playDramaCard?.addEventListener("click", async () => {
     dom.playDramaCard.textContent = "Confirm Play";
     dom.closeDramaCard.textContent = "Cancel";
     dom.dramaCardAlertByline.hidden = false;
-    dom.dramaCardAlertByline.textContent = "Play this card now? It will move to the shared discard pile.";
+    dom.dramaCardAlertByline.textContent = "Play this card now? Any listed automatic effect will be applied, then the card leaves your hand.";
     return;
   }
   dom.playDramaCard.disabled = true;
@@ -9382,12 +9398,12 @@ dom.playDramaCard?.addEventListener("click", async () => {
     const card = selectedDramaCard;
     const payload = await campaignRequest("/api/campaign/drama/play", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, cardId: card.id }),
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, cardId: card.id,choice:{mode:document.querySelector('[data-drama-choice]')?.value,skill:document.querySelector('[data-drama-choice]')?.value,awardNoteId:document.querySelector('[data-drama-choice]')?.value,resolved:Boolean(document.querySelector('[data-drama-resolved]')?.checked)} }),
     });
     syncDramaCampaignState(payload.campaign);
     await animateDramaCardDeparture();
     closeDramaCard();
-    notice(`${payload.card.name} played. The table has been alerted.`, "success");
+    notice(payload.automation || `${payload.card.name} played. The table has been alerted.`, "success");
   } catch (error) {
     dom.playDramaCard.disabled = false;
     dom.playDramaCard.dataset.confirming = "false";

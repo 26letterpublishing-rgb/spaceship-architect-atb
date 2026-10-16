@@ -69,8 +69,8 @@ test('renaming a star updates its central Sun without erasing authored planets',
 });
 test('Explore seeds a usable galaxy once and does not leak its secret star to players',()=>{
   const c=campaign();assert.equal(galaxy.seedShowcase(c),false);c.showcase=true;
-  assert.equal(galaxy.seedShowcase(c),true);assert.equal(c.starmaps.maps[0].stars.length,6);assert.equal(galaxy.view(c,false).maps[0].stars.length,5);
-  const map=c.starmaps.maps[0],home=map.stars.find(s=>s.name==='Haven');assert.deepEqual(c.starmaps.positions.a,{mapId:map.id,q:home.q,r:home.r});
+  assert.equal(galaxy.seedShowcase(c),true);assert.equal(c.starmaps.maps[0].stars.length,3);assert.equal(galaxy.view(c,false).maps[0].stars.length,3);
+  const map=c.starmaps.maps[0],home=map.stars.find(s=>s.name==='Haven');map.stars[1].hidden=true;assert.equal(galaxy.view(c,false).maps[0].stars.length,2);assert.deepEqual(c.starmaps.positions.a,{mapId:map.id,q:home.q,r:home.r});
   assert.ok(home.system.some(o=>o.kind==='planet'));assert.ok(home.system.some(o=>o.kind==='asteroid'));
   home.lore='Authored by GM';assert.equal(galaxy.seedShowcase(c),false);assert.equal(home.lore,'Authored by GM');
 });

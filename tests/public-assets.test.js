@@ -8,6 +8,8 @@ test("only intended browser assets are public", () => {
   assert.ok(resolvePublicAsset(root, '/console-feedback.js'));
   assert.ok(resolvePublicAsset(root, '/surveillance-console.js'));
   assert.ok(resolvePublicAsset(root, '/skill-catalog.js'));
+  for(const file of ['/planet-terrain.js','/planet-surfaces-ui.js','/planet-surfaces.css','/planet-temperate.svg','/planet-moon.svg'])assert.ok(resolvePublicAsset(root,file));
+  assert.equal(resolvePublicAsset(root,'/campaign-planets.js'),null);
   assert.equal(resolvePublicAsset(root, '/vr-simulations.js'), null);
   assert.equal(resolvePublicAsset(root, '/ship-surveillance.js'), null);
   assert.equal(resolvePublicAsset(root, "/campaign-api.js"), null);

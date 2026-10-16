@@ -1775,13 +1775,16 @@ function drawDetailsCrew(){
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-detail-update'||!pageParameters.has('embeddedRecord'))return;
   const record=event.data.record;if(!linkedCampaignState||!record||record.id!==draft.id)return;
+  const rosterChanged=JSON.stringify(linkedCampaignState.characters)!==JSON.stringify(event.data.characters||linkedCampaignState.characters)||JSON.stringify(linkedCampaignState.starships.find(s=>s.id===draft.id)?.crewCharacterIds)!==JSON.stringify(record.crewCharacterIds)||JSON.stringify(linkedCampaignState.npcRoster)!==JSON.stringify(event.data.npcRoster||linkedCampaignState.npcRoster);
+  if(Array.isArray(event.data.characters))linkedCampaignState.characters=event.data.characters;
+  if(Array.isArray(event.data.npcRoster))linkedCampaignState.npcRoster=event.data.npcRoster;
   linkedCampaignState.combatShipIds=event.data.combatShipIds??null;
   const index=linkedCampaignState.starships.findIndex(s=>s.id===draft.id),previous=linkedCampaignState.starships[index];
   if(index>=0)linkedCampaignState.starships[index]=record;
   if(JSON.stringify(previous?.ship)!==JSON.stringify(record.ship)){
     draft={...draft,...clone(record.ship),title:record.title,confirmed:constructionState(record.ship),campaignLink:null};
     shipFields.forEach(field=>{field.value=draft[field.dataset.shipField]||(field.type==='color'?window.SAShipMap.shipColor(draft):'');});renderAll();
-  }else{drawDetailsCrew();renderEmbeddedMovement();}
+  }else{if(rosterChanged)renderCampaignLink();drawDetailsCrew();renderEmbeddedMovement();}
 });
 function renderVisibleMapControls(){
   for(const grid of shipGrids){

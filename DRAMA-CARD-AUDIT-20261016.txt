@@ -1,0 +1,242 @@
+DRAMA CARD AUTOMATION AUDIT — October 16, 2026
+
+Scope: all 72 cards in the app catalog. Every card already supports shared-deck ownership, viewing, playing/revealing and discard bookkeeping. Those generic controls are not counted as effect automation. The categories below describe effect automation.
+
+This pass automates the seven low-risk bookkeeping effects listed first. None of the remaining effects are represented as implemented. Narrative effects should remain GM-led; supporting buttons may still be useful. Clear printed mechanics are listed separately from actual open questions. No dice are silently rolled.
+
+AUTOMATED NOW (7 cards; 2 have narrative portions left to the GM)
+
+06. LEVEL UP
+    Doubles one selected, unclaimed XP award for this PC; claim it through the normal Inbox. Already-claimed awards are not rewritten.
+
+32. DIFFERENT WAY OF DOING THINGS
+    Adds 3 Reverence (maximum 10), or draws 2 cards after confirmation that the GM-approved alternate check was completed.
+
+43. OH, NOW I REMEMBER
+    Permanently adds +2.0 to a selected skill rated 0.9 or lower, after the player confirms the check resolved. No XP is charged.
+
+47. SHARE THE WEALTH
+    Deals one card to every campaign PC, including offline PCs.
+
+61. BANK ERROR IN YOUR FAVOR
+    Doubles a selected, unclaimed personal Credit award for this PC. Other recipients keep their original award.
+
+70. VISION
+    PARTIAL: discards the hand after confirmation that the GM established the rewind. Story/world state is not rolled back automatically.
+
+71. MASSIVE PLOT TWIST
+    PARTIAL: discards the hand and permanently removes this card from this campaign deck after confirmation that the GM established the story change.
+
+RECOMMENDED TO KEEP GM/NARRATIVE RESOLUTION (21 cards)
+
+02. FLASHBACK
+    Backstory facts require table agreement.
+
+05. GLITCH
+    Device failure and duration are expressly GM decisions.
+
+08. JUST A HUNCH
+    Out-of-character knowledge and action permission are narrative rulings.
+
+10. RANDOM NOISE
+    The source and consequences of the distraction are narrative.
+
+13. I KNOW A GUY
+    The expert NPC and contact method need GM authorship.
+
+17. H.A.A.R.P.
+    Weather/environment and its mechanical consequences need GM judgment.
+
+18. ENVIRONMENTAL HAZARD
+    The useful feature and additional consequences depend on the scene.
+
+22. FAMOUS
+    The reason for fame and NPC response are narrative.
+
+23. HIDDEN PASSAGE
+    The route and destination need GM mapping and judgment.
+
+26. FART
+    Narrative gag; reveal/discard is sufficient.
+
+28. BRUTE HACK
+    The electronic effect is chosen by the player and judged by the GM. Ordinary attack dice remain available.
+
+29. PERSONAL EMERGENCY
+    The NPC departure and timing depend on the scene; automatic deletion would be unsafe.
+
+36. DEJA VU
+    Reveal a GM-selected map or description; automatically exposing every secret is inappropriate.
+
+37. THOUGHT DWELL
+    The NPC behavior change needs roleplay.
+
+38. SWITCHEROO
+    The fake object and plausibility need GM adjudication; inventory can be adjusted afterward.
+
+40. OLD FRIEND
+    An ally and their arrival need GM authorship.
+
+41. SAW THIS COMING
+    The trap, escape check and time are explicitly GM decisions.
+
+44. MISTAKEN IDENTITY
+    The mistaken identity and reaction need roleplay.
+
+48. MEXICAN STANDOFF
+    A third faction and its motives need GM authorship.
+
+53. WILD CARD
+    The effect is deliberately a GM-prepared event.
+
+64. FORGOTTEN PLANET
+    A legendary planet needs authored content; do not silently generate or reveal it.
+
+AUTOMATION NEEDS CLARIFICATION OR AN AGREED INTERRUPT FLOW (28 cards)
+
+01. PRACTICE ROLL
+    A completed roll may already have spent resources or dealt damage. Define whether replacement rewinds only the score, or also all consequences.
+
+04. DRAMATIC SAVE
+    Define a reaction window before damage, and what happens when the interceptor cannot reach an adjacent legal square.
+
+07. SONIC SPEED
+    Define how an out-of-turn move or automatic Dodge interrupts an already open action/roll.
+
+12. DON’T LOOK
+    Define a pre-damage reaction window. The damage and radius doubling are otherwise clear.
+
+14. REVENGEANCE
+    Define the reaction window for capturing HP damage, and whether the next damage includes area damage or damage dealt through a starship.
+
+19. BLIND SPOT
+    Define which detection events qualify (narrative NPC spotting, sensors, or both), and how the free move interrupts the clock.
+
+20. WEAK POINT
+    Define whether the card modifies pending damage or retrospectively repairs an already resolved hit; also define whether enemy includes ships for turn suppression.
+
+25. MALFUNCTION
+    The GM must choose ammo depletion or recovery delay and its duration. Define when an already selected attack may be cancelled.
+
+27. LONG SHOT
+    Define whether a completed critical failure can be reversed after its consequences have applied.
+
+30. ENOUGH!
+    Immediate pause is clear. The GM must decide whether combat ends or resumes; define the approval flow.
+
+34. FTL ESCAPE
+    Clarify whether this also skips campaign navigation activation/partial travel, or only an encounter FTL delayed resolution.
+
+35. NEVER MISS
+    Define the latest point a miss can be replaced, and whether ship shield protection remains independent of ignored Damage Reduction.
+
+39. NEAR MISS
+    Needs a damage interception window before HP application; the replacement 1D6 stays a normal player roll.
+
+45. CRITICAL MOMENT
+    Define how late an NPC check can be replaced and whether already applied consequences are reversed.
+
+46. BULLET TIME
+    Needs an agreed interrupt/resume model for open dice dialogs, pending damage and concurrent ship operations.
+
+51. POWERFLUX
+    Identify eligible operation meters, including fixed-second timers without an existing Speed field, and whether it affects a single operation only.
+
+52. REFLECT DAMAGE
+    Define which entity takes reflected ship damage, whether shields absorb it, and the reaction window before the original damage applies.
+
+55. GOOD ADVICE
+    Define how the chosen next check is identified, including offline PCs or an already open roll dialog.
+
+56. DOUBLING SEASON
+    GM explicitly chooses doubling numeric values versus resolving twice. Define exclusions and interaction with permanent deck removal, rewinds and automatic plays.
+
+57. FIRST SIGHT
+    The GM must track the affected NPC and decide when fascination ends. Charisma success can then be automated against that approved target.
+
+59. SPEAK FRIEND AND YOU MAY ENTER
+    Clarify whether this bypasses the hacking minigame, the underlying Hacking check, or only a narrative password guess.
+
+60. FATE POINT
+    Define which five actions qualify and how delayed actions, free/fast actions, attacks and interruption interact. Ship operations are already excluded by the card.
+
+62. PHOENIX
+    Needs a before-next-turn rescue window and a rule for characters already removed by defeat cleanup.
+
+63. GO FISH
+    Choose how offline players contribute cards, how long the secret choice phase waits, and whether the GM can finish for absent players.
+
+65. SCRY 3
+    Choose who acts for offline draw recipients and how simultaneous draws are queued. Bottom-card order must remain private.
+
+66. LIMIT BREAKER
+    Needs a death-interception window and rules for resuming interrupted actions. The next-five-turn accounting is otherwise clear.
+
+67. LOG JITSU
+    GM must choose restored HP and legal position and decide which destruction consequences are reversed. Shield reset can be bookkeeping after that decision.
+
+68. WHEEL OF FORTUNE
+    Choose how offline players decide, whether a newly drawn Wheel interrupts another card deal, and whether the GM can resolve absent-player choices.
+
+CLEAR-RULE AUTOMATION BACKLOG (16 cards; not implemented in this pass)
+
+03. CAME PREPARED
+    Choose a legal standard item, validate normal price and debit credits, then add inventory. Needs the existing purchase/receipt path, not an unrestricted inventory grant.
+
+09. LOCKED AND LOADED
+    Validate projectile weapon and charge rules, then apply Max Charge to this specific pending Fire action.
+
+11. THAT WAS QUICK
+    Select the new task and set its remaining time to one tenth, rounded up to a tenth. Requires integration with all three task types.
+
+15. ALL OR NOTHING
+    Offer an explicit coin-flip action and feed critical success/failure into the pending check. Never silently flip for the player.
+
+16. I ALMOST FORGOT
+    Use the normal manual 2D6 roll, then add both results as skill tenths after validation.
+
+21. CARRY INJURED
+    Apply a one-Move distance bonus and move the carried ally with the actor.
+
+24. THE ONE
+    Track five incoming attacks, triple the final Dodge score, and clear at combat end.
+
+31. JUST THE RIGHT ANGLE
+    Use explicit random SIC selection and a normal manual 1D4 impairment roll; preserve target-information privacy.
+
+33. HEY! CHECK THIS OUT!
+    Use a GM-approved standard-item selector and the Received inventory path.
+
+42. NEVER LUCKY
+    Add full Luck dice to the selected check; preserve normal dice and fusion rules.
+
+49. FLAMMABLE
+    Apply Burning intensity 5 to the projectile-damage recipient; the existing eight-active-second fire engine can handle subsequent damage.
+
+50. CONCENTRATION
+    Add 4D12 to the selected pending check through the existing dice workflow.
+
+54. WHAT DOESN’T KILL YOU
+    Read the specific final HP loss and add floor(loss/4) permanent Maximum HP; prevent duplicate application.
+
+58. BEEN SAVING THIS FOR CLOSE ENCOUNTERS
+    Validate carried weapon requirement and price under 5,000, grant as Received, then equip through normal slot rules.
+
+69. SALVAGE
+    Select up to three undamaged SICs from a defeated ship and transfer through the shared salvage system.
+
+72. JACKPOT
+    Replace the next eligible mineral quantity roll with a normal manual 1D4 + 1.
+
+RECOMMENDED DECISIONS FOR THE NEXT AUTOMATION PASS
+
+1. Reaction cards: add an explicit reaction opportunity before a result commits, freeze active combat time while it is open, and retain GM override. Avoid silently rolling back already committed damage, inventory or world changes. Decide whether this window is always offered or opened only when a relevant card is held.
+2. Offline card choices (Go Fish, Scry 3, Wheel of Fortune): allow the GM to resolve for absent players; do not silently discard their hands. Confirm your preferred default.
+3. Doubling Season: let the GM select the original card and approve the exact doubled effect before anything changes.
+4. Narrative cards: keep visible play/discard, optional GM notes and ordinary adjustment tools; no automatic story authorship.
+
+OTHER PENDING RULE DECISION
+Netlauncher: default Escape difficulty stays 10, with a GM-only Net Difficulty control. The proposed automatic smaller/normal/larger adjustments (15/10/5) are NOT implemented because no answer has been received.
+
+APPROVED RULES APPLIED
+Silent Scope: one Iron OR one Magnesium loads one round; capacity 8, partial reload supported from current ship stores. Connector Cable remains excluded.

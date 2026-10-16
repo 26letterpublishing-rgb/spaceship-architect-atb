@@ -64,7 +64,7 @@
 
   const heldReadouts = [...document.querySelectorAll("#heldWeaponReadout, [data-held-weapon-readout]")];
   for (const station of document.querySelectorAll('[data-combat-action="vehicle"]')) {
-    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry','airlock','breachRepair','stopDropRoll','standUp','escapeRestraint','sheathWeapon','reloadWeapon','programWeapon','armExplosive','removeSticky']){
+    for(const kind of ['consoleView','moveStarship','holdConsole','maintenance','carry','airlock','breachRepair','stopDropRoll','standUp','escapeRestraint','sheathWeapon','reloadWeapon','programWeapon','armExplosive','removeSticky','netDifficulty']){
       const button=document.createElement('button');button.type='button';button.className=station.className;button.dataset.combatAction=kind;button.hidden=true;station.after(button);
     }
   }
@@ -225,7 +225,7 @@
       }
       return options.join("");
     }
-    for(const owner of currentState?.units||[])for(const effect of owner.thrownEffects||[])if(effect.armedHeld&&effect.attachedId===currentUnit?.id)options.push('<option value="weapon:armed:'+esc(effect.id)+'">Armed '+esc(effect.label)+' ('+Math.ceil(effect.remaining)+' seconds)</option>');
+    for(const owner of [...(currentState?.units||[]),...(currentState?.areaEffects||[])])for(const effect of owner.thrownEffects||[])if(effect.armedHeld&&effect.attachedId===currentUnit?.id)options.push('<option value="weapon:armed:'+esc(effect.id)+'">Armed '+esc(effect.label)+' ('+Math.ceil(effect.remaining)+' seconds)</option>');
     for (const entry of currentUnit?.weapons || []) {
       if (throwableOnly && !entry.throwable && !entry.placeable && entry.category !== "melee") continue;
       options.push(`<option value="weapon:${esc(entry.inventoryId)}">${entry.groundLocation?"Retrieve":"Weapon"}: ${esc(entry.name)}</option>`);
@@ -446,6 +446,14 @@
   actionButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.combatAction;
+      if(kind==='netDifficulty'){
+        const owner=currentUnit,view=document.createElement('dialog'),form=document.createElement('form');form.innerHTML='<h2>Net Escape difficulty</h2><p>The printed card leaves size adjustments to the GM. Human-sized baseline: 10.</p><label>Difficulty <input type="number" min="0" max="100" step="any" required></label><p role="status"></p><button type="button">Cancel</button><button type="submit">Apply</button>';view.append(form);const input=form.querySelector('input');input.value=owner.net.difficulty;form.querySelector('button').onclick=()=>view.close();form.onsubmit=async e=>{e.preventDefault();try{await action({action:'configureNet',id:owner.id,difficulty:Number(input.value)},'tap',{throwOnError:true});view.close();}catch(error){form.querySelector('[role=status]').textContent=error.message;}};view.onclose=()=>view.remove();document.body.append(view);view.showModal();return;
+      }
+      if(kind==='reloadWeapon'&&currentUnit?.weapons?.find(w=>w.inventoryId===currentUnit.heldWeaponId)?.weaponId==='silent-scope-sniper-rifle'){
+        const view=document.createElement('dialog');view.innerHTML='<h2>Reload Silent Scope</h2><p>One Iron or Magnesium loads one round from this ship’s stores, up to 8 rounds.</p>';
+        for(const mineral of ['Iron','Magnesium']){const b=document.createElement('button');b.textContent='Use '+mineral;b.onclick=()=>{view.close();send(kind,{ammoMineral:mineral});};view.append(b);}
+        const cancel=document.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>view.close();view.append(cancel);view.onclose=()=>view.remove();document.body.append(view);view.showModal();return;
+      }
       if(['reloadWeapon','armExplosive','removeSticky'].includes(kind)){send(kind);return;}
       if(kind==='programWeapon'){openWeaponSetup();return;}
       if(kind==='carry'){
@@ -635,11 +643,12 @@
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
 
       if(kind==='armExplosive'){button.hidden=!current?.throwable||current.placeable;button.textContent='Arm Explosive';}
-      if(kind==='removeSticky'){button.hidden=!(state.units||[]).some(u=>(u.thrownEffects||[]).some(e=>e.attachedId===mine?.id&&!e.armedHeld&&e.weaponId==='sticky-grenade'));button.textContent='Detach Sticky';}
+      if(kind==='removeSticky'){button.hidden=![...(state.units||[]),...(state.areaEffects||[])].some(u=>(u.thrownEffects||[]).some(e=>e.attachedId===mine?.id&&!e.armedHeld&&e.weaponId==='sticky-grenade'));button.textContent='Detach Sticky';}
       if(kind==='reloadWeapon'){button.hidden=!window.SAPersonalAmmunition.profile(current);button.textContent='Reload';}
       if(kind==='programWeapon'){button.hidden=window.SACombatBridge.mode()!=='gm'||!['mk-u-id-assassin','silent-scope-sniper-rifle'].includes(current?.weaponId);button.textContent='Weapon Setup';unavailable=false;}
       if(kind==='sheathWeapon'){button.hidden=held(mine)?.weaponId!=='murasama-blade';button.textContent='Sheath Murasama';}
       if(kind==='escapeRestraint'){button.hidden=!mine?.net;button.textContent='Escape Net';}
+      if(kind==='netDifficulty'){button.hidden=window.SACombatBridge.mode()!=='gm'||!mine?.net;button.textContent='Net Difficulty';unavailable=false;}
       if(kind==='stopDropRoll'){button.hidden=!mine?.burning;button.textContent='Stop, Drop & Roll';}
       if(kind==='standUp'){button.hidden=!mine?.statuses?.prone;button.textContent='Stand Up';}
       if(kind==='carry'){button.hidden=!mine?.carryingId&&!window.SACrewCarry.candidates(state,mine).length;}
@@ -658,7 +667,7 @@
       if (kind === "fire" && current?.category !== "ranged") { unavailable = true; reason = "Hold a ranged weapon to Fire Gun."; }
       if (kind === "calledShot" && !["ranged", "melee"].includes(current?.category)) { unavailable = true; reason = "Hold a ranged or melee weapon to make a Called Shot."; }
       if (kind === "throwItem") {
-        const armed=(state.units||[]).some(u=>(u.thrownEffects||[]).some(e=>e.armedHeld&&e.attachedId===mine?.id));
+        const armed=[...(state.units||[]),...(state.areaEffects||[])].some(u=>(u.thrownEffects||[]).some(e=>e.armedHeld&&e.attachedId===mine?.id));
         const canThrowMelee = armed || (mine?.weapons || []).some((entry) => entry.category === "melee");
         const canThrowExplosive = (mine?.weapons || []).some((entry) => entry.throwable || entry.placeable) || (mine?.items || []).some((entry) => entry.catalogId === "smoke-grenade");
         const explosiveCapacity = (mine?.thrownEffects || []).length < 5;

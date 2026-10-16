@@ -586,6 +586,8 @@ button.skill-name:hover,button.skill-name:focus-visible { color:#72e5ff;text-dec
 .fubs-dialog.reveal { animation:fubs-dialog-reveal 520ms cubic-bezier(.2,.8,.2,1) both; }
 
 .skill-check-modal { z-index:1100; background:rgba(1,5,10,.8); }
+body.skill-check-open .campaign-roll-prompt,
+body.skill-roll-active .campaign-roll-prompt { display:none; }
 .skill-check-dialog {
   width:min(780px,100%);
   max-height:calc(100vh - 24px);
@@ -1747,7 +1749,7 @@ body.class-gallery-open{overflow:hidden}.class-gallery-modal{z-index:1800;paddin
   gap:5px;
   min-width:0;
 }
-.character-brand-stack .sync-indicator { grid-area:sync; }
+.character-brand-stack .sync-indicator { grid-area:sync; transform:none; }
 .brand-link {
   appearance:none;
   width:100%;
@@ -1867,6 +1869,13 @@ body.class-gallery-open{overflow:hidden}.class-gallery-modal{z-index:1800;paddin
 .drama-card-display>footer{min-height:48px;padding:10px 15px;border-top:1px solid color-mix(in srgb,var(--card-accent) 45%,transparent);color:#aab9c5;font-family:Arial,sans-serif;font-size:.62rem;line-height:1.35;text-align:center}
 .drama-card-dialog-actions{width:min(330px,84vw);display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .drama-card-dialog-actions button:only-child{grid-column:1/-1}
+#dramaAutomationOptions{width:100%;display:grid;gap:8px;font-size:.85rem;max-height:26vh;overflow:auto}
+#dramaAutomationOptions:empty,#dramaAutomationOptions[hidden]{display:none}
+#dramaAutomationOptions label{display:block;white-space:normal}
+#dramaAutomationOptions input[type=checkbox]{width:auto}
+.drama-card-dialog:has(#dramaAutomationOptions:not(:empty):not([hidden])){overflow-y:auto;grid-template-rows:auto;align-content:start}
+.drama-card-dialog:has(#dramaAutomationOptions:not(:empty):not([hidden])) .drama-card-display{max-height:48dvh;width:min(280px,60vw);flex-shrink:0}
+.drama-card-dialog:has(#dramaAutomationOptions:not(:empty):not([hidden])) .drama-card-dialog-actions{position:sticky;bottom:0;background:#050b12;padding:6px 0}
 .drama-card-modal[data-mode="receipt"] .drama-card-dialog-actions,.drama-card-modal[data-mode="alert"] .drama-card-dialog-actions{grid-template-columns:1fr}
 .drama-card-modal[data-mode="receipt"] .drama-card-close,.drama-card-modal[data-mode="alert"] .drama-card-close{grid-column:1/-1}
 .drama-card-display.playing{animation:drama-card-departure .92s cubic-bezier(.24,.72,.28,1) forwards;pointer-events:none}

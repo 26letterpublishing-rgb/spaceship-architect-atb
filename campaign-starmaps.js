@@ -5,7 +5,7 @@ const text=(s,max=2000)=>String(s||'').trim().slice(0,max);
 function point(p){if(!Number.isInteger(p?.q)||!Number.isInteger(p?.r)||Math.abs(p.q)>10000||Math.abs(p.r)>10000)throw Error('Choose whole hex coordinates between -10000 and 10000.');return {q:p.q,r:p.r};}
 function note(c,message,ship){c.privateNotes||=[];c.privateNotes.push({id:id(),direction:'to-gm',kind:'system',message,createdAt:new Date().toISOString(),readAt:null});for(const characterId of ship?.crewCharacterIds||[])c.privateNotes.push({id:id(),direction:'to-character',kind:'system',characterId,message,createdAt:new Date().toISOString(),readAt:null});}
 function view(c,gm){
- require('./campaign-navigation').state(c);const s=clone(state(c));delete s.receipts;
+ require('./campaign-navigation').state(c);const s=clone(state(c));delete s.receipts;s.recallShipIds=(s.party?.transport?c.starships:[]).filter(ship=>(gm||ship.controlType==='pc')&&ship.id===s.party.shipId&&s.localPositions?.[ship.id]?.phase==='orbit'&&require('./campaign-starmaps').travelRoom(c).units.some(u=>u.location?.starshipId===ship.id&&!u.shipAi&&require('./station-access').conscious(u))).map(ship=>ship.id);s.launchableShipIds=c.starships.filter(ship=>(gm||ship.controlType==='pc')&&require('./campaign-planets').canLaunch(c,ship)).map(ship=>ship.id);
  if(!gm){
   const ids=new Set(c.starships.filter(x=>x.controlType==='pc').map(x=>x.id));
   for(const type of ['positions','journeys','localPositions','localJourneys'])for(const key of Object.keys(s[type]||{}))if(!ids.has(key))delete s[type][key];
@@ -17,15 +17,17 @@ function view(c,gm){
    x.system=require('./campaign-navigation').objects(x).filter(o=>!o.hidden&&!hiddenPlanets.some(p=>p.name===o.name));
    if(s.navigation.allowed.system===false)x.system=x.id===s.navigation.starId?x.system.filter(o=>o.id===s.navigation.planetId):[];
   }return x;
- });return s;
+ });return require('./campaign-planets').project(s,gm);
 }
-function canPilot(c,ship,characterId){const loc=ship.characterLocations?.[characterId];if(!ship.crewCharacterIds?.includes(characterId)||!loc?.stationed)return false;const cell=maps.buildLayout(ship.ship).footprint.get(loc.square);return Boolean(cell&&maps.definition(cell.type).bridge&&maps.operational(cell.item));}
+function canPilot(c,ship,characterId){const loc=ship.characterLocations?.[characterId];if((c.characters?.find(r=>r.id===characterId)?.character.health?.current??1)<=0||!ship.crewCharacterIds?.includes(characterId)||!loc?.stationed)return false;const cell=maps.buildLayout(ship.ship).footprint.get(loc.square);return Boolean(cell&&maps.definition(cell.type).bridge&&maps.operational(cell.item));}
 const travelRoom=require('./campaign-ship-room');
 function quote(c,shipId,starId,mapId,fuelCounts){const s=state(c),ship=c.starships.find(x=>x.id===shipId),m=s.maps.find(x=>x.id===mapId),star=m?.stars.find(x=>x.id===starId),from=s.positions[shipId];if(!ship||!star||!from||from.mapId!==mapId)throw Error('Choose a ship placed on this map and a destination star.');if(ship.ship.fieldState?.dockedIn)throw Error('Docked ships travel with their carrier.');const distanceLY=hex.hexDistance(from,star)*m.lightYearsPerHex;const p=transit.plan(ship,distanceLY,{fuelCounts,allowPartial:true});if(!p.ok)throw Error(p.error);return {ship,m,star,from,plan:p};}
 function command(c,b,{gm,characterId,combatActive}){
  const s=state(c),kind=b.kind;
  if(kind==='quote'){if(!gm&&state(c).navigation?.allowed?.galaxy===false)throw Error('The GM has not made the Galaxy Map available.');const q=quote(c,b.shipId,b.starId,b.mapId,b.fuelCounts);if(!gm&&(q.star.hidden||q.ship.controlType!=='pc'))throw Error('Destination is undiscovered.');return {quote:{...q.plan,driveName:maps.definition(q.ship.ship.sicInventory.find(i=>i.id===q.plan.sicId)?.type).name,fuelOptions:(maps.definition(q.ship.ship.sicInventory.find(i=>i.id===q.plan.sicId)?.type).warpFuelGrades||[]).map(grade=>({grade,available:q.ship.ship.warpFuel?.[grade]||0,rangeLY:transit.FUEL_PARSECS[grade]*transit.PARSEC_LY/q.plan.fuelMultiplier})),activationSeconds:transit.activationSeconds(travelRoom(c),q.ship,q.plan)}};}
  if(typeof b.receipt!=='string'||b.receipt.length<8)throw Error('Missing operation receipt.');if(s.receipts.includes(b.receipt))return {};
+ if(require('./campaign-planets').command(c,b,{gm,characterId,combatActive})){s.receipts=[...s.receipts,b.receipt].slice(-200);return {};}
+ if(!gm&&s.party&&['travel','orbit','enterSystem','systemMove'].includes(kind))throw Error('Leave the planet with the party first.');
  if(require('./campaign-navigation').command(c,b,{gm,characterId,combatActive})){s.receipts=[...s.receipts,b.receipt].slice(-200);return {};}
  if(!['travel','exit'].includes(kind)&&!gm)throw Error('Only the GM may edit Starmaps.');
  const m=s.maps.find(x=>x.id===b.mapId);
@@ -77,16 +79,19 @@ function seedShowcase(c){
  const examples=[
   {name:'Haven',q:0,r:0,lore:'A friendly port and the starting point for your test fleet. Select another star to plan a journey.',planets:[{name:'Harbor',hidden:false},{name:'Verdant',hidden:false},{name:'Frostline',hidden:false}]},
   {name:'Ember',q:3,r:-1,lore:'A red star with rich asteroid fields. Useful for mining and salvage practice.',planets:[{name:'Cinder',hidden:false},{name:'Ashfall',hidden:false}]},
-  {name:'Blue Reach',q:-2,r:3,lore:'A quiet system with an ocean world. A short route for testing warp travel and partial progress.',planets:[{name:'Pelagos',hidden:false}]},
-  {name:'Farpoint',q:21,r:0,lore:'69.51 light-years from Haven. Protos needs all five starting fuel cells for a direct trip.',planets:[{name:'Wayfarer',hidden:false},{name:'Secret Moon',hidden:true}]},
-  {name:'Unknown',q:25,r:0,lore:'Beyond the total range of Protos’s starting fuel supply.',planets:[{name:'Veil',hidden:false},{name:'Pale Echo',hidden:false},{name:'Umbra',hidden:false},{name:'Dusk',hidden:false}]},
-  {name:'Ghost Light',q:-4,r:-2,hidden:true,lore:'An uncharted system revealed only when the GM makes it visible.',gmNotes:'This star demonstrates GM-only information.',planets:[{name:'Veil',hidden:false},{name:'Pale Echo',hidden:false},{name:'Umbra',hidden:false},{name:'Dusk',hidden:false}]}
+  {name:'Farpoint',q:21,r:0,lore:'69.51 light-years from Haven. Protos needs all five starting fuel cells for a direct trip.',planets:[{name:'Wayfarer',hidden:false}]}
  ];
  for(const [index,example]of examples.entries()){
   const star={id:id(),hidden:false,gmNotes:'',...example};
   star.system=space.normalize([{id:'object-star-'+star.id,kind:'sun',name:star.name,q:0,r:0,quantity:1,intensity:2},
-    ...star.planets.map((p,j)=>({id:'object-'+id(),kind:'planet',name:p.name,q:[4,-7,5,-3][j],r:[-1,2,5,-8][j],quantity:1,hidden:p.hidden,variant:['ocean','volcanic','desert','ice'][(index+j)%4]})),
+    ...star.planets.map((p,j)=>({id:'object-'+id(),kind:'planet',name:p.name,q:[4,-7,5,-3][j],r:[-1,2,5,-8][j],quantity:1,hidden:p.hidden,variant:[['temperate','ocean','ice'],['volcanic','desert'],['moon']][index][j]})),
     {id:'object-'+id(),kind:'asteroid',name:'Asteroid Field',q:-4,r:3,quantity:5,miningTarget:6}]);
+  for(const planet of star.system.filter(o=>o.kind==='planet')){
+   const world=require('./campaign-planets').surface(star,planet),base=require('./planet-terrain').generate(world.seed,planet.variant),hex=String(base.findIndex((t,i)=>i>180&&t!=='ocean')<0?315:base.findIndex((t,i)=>i>180&&t!=='ocean'));
+   world.hexes[hex]={city:true,label:planet.name+' Landing',description:'A welcoming settlement around a small landing field. Dock crews trade local news at the public market.',gmNotes:'A quiet mechanic knows the location of a hidden survey cache. The party can earn their trust by helping the town.',terrain:planet.variant==='ocean'?'temperate':planet.variant};
+   world.regions[hex]={name:planet.name+' Landing District',seed:planet.id+'/district',type:world.hexes[hex].terrain,hexes:{'82':{city:true,label:'Market Square',description:'Food stalls, repair workshops and an expedition outfitter ring the plaza.',gmNotes:'The outfitter is a former survey pilot and recognizes the cache coordinates.'},'65':{label:'Survey Station',description:'An old research outpost overlooks the landing field.',gmNotes:'Its archive contains an incomplete map of the surrounding territory.'},'98':{label:'Landing Field',description:'A clear, level area for visiting starships.'}}};
+   if(planet.name==='Harbor')world.regions[hex].hexes['82'].shop=require('./campaign-shops').normalize({id:'harbor-outfitter',name:'Harbor Outfitter',defaultAvailable:true,maxSicLevel:2,active:false});
+  }
   map.stars.push(star);
  }
  state(c).maps.push(map);

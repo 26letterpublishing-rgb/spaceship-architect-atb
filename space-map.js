@@ -435,7 +435,7 @@
     const first=svg.querySelector('[data-space-ship]');if(first)svg.insertBefore(back,first);else svg.append(back);svg.append(front);
   }
   function planetMarkup(o,c,unseen=false,system=false){
-    const variant=['ocean','desert','ice','volcanic'].includes(o.variant)?o.variant:'ocean',label=o.name+(o.destroyedAt?' / Destroyed':''),file=o.destroyedAt?'planet-debris.webp':'planet-'+variant+'.webp';
+    const variant=['temperate','moon','ocean','desert','ice','volcanic'].includes(o.variant)?o.variant:'ocean',label=o.name+(o.destroyedAt?' / Destroyed':''),file=o.destroyedAt?'planet-debris.webp':'planet-'+variant+(['temperate','moon'].includes(variant)?'.svg':'.webp');
     const radius=system?1.1:2.95;
     return `<g data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" data-planet="${escape(o.id)}" ${unseen?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(label)} / ${system?'star system planet':'7 hexes'} / pass-through scenery</title><circle r="${radius*.9}" fill="#050812" fill-opacity=".12"/><image href="${file}" x="${-radius}" y="${-radius}" width="${radius*2}" height="${radius*2}" opacity=".85" pointer-events="none"/><text y="${radius+.3}" text-anchor="middle" font-size=".55" fill="#e8d6ff" stroke="#070e14" stroke-width=".08" paint-order="stroke">${escape(label)}</text></g>`;
   }

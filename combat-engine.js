@@ -377,7 +377,7 @@ function advanceThrown(room,unit,elapsed){
     if(effect.remaining>1e-7)continue;
     if(effect.armedMine){
       const source={location:effect.origin},launcher=room?.units.find(u=>u.id===effect.launcherId)||unit;
-      if(!room||(arena.distance(room,source,launcher)??0)<15||!room.units.some(u=>!u.defeatedAt&&u.timedAction?.kind==='move'&&(arena.distance(room,source,u)??Infinity)<=3&&arena.canTarget(room,source,u)))continue;
+      if(!room||(unit.kind!=='detached-ordnance'&&(arena.distance(room,source,launcher)??0)<15)||!room.units.some(u=>!u.defeatedAt&&u.timedAction?.kind==='move'&&(arena.distance(room,source,u)??Infinity)<=3&&arena.canTarget(room,source,u)))continue;
     }
     effect.resolving=true;completed.push({type:'thrown',unit,effect});
   }
@@ -551,12 +551,12 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     unit.weapons=unit.weapons.filter(w=>w.inventoryId!==weapon.inventoryId);unit.heldWeaponId='';finishTurn(room,unit,'armed '+weapon.name+'; throw it before the countdown expires',helpers);return {ok:true,weaponConsumed:weapon.inventoryId};
   }
   if(kind==='removeSticky'){
-    const effect=room.units.flatMap(u=>u.thrownEffects||[]).find(e=>e.attachedId===unit.id&&!e.armedHeld&&e.weaponId==='sticky-grenade');
+    const effect=[...room.units,...(room.areaEffects||[])].flatMap(u=>u.thrownEffects||[]).find(e=>e.attachedId===unit.id&&!e.armedHeld&&e.weaponId==='sticky-grenade');
     if(!effect)return {ok:false,error:'No attached Sticky Grenade is waiting.'};
     return {ok:true,beginAttack:{attackerId:unit.id,defenderId:unit.id,weaponId:'remove-sticky',weaponName:'Detach Sticky Grenade',attackType:'effect',consumeEffectTurn:true,personalEffect:{check:true,attribute:'strength',skill:'Escape',difficulty:13,removeSticky:effect.id},plan:{allowed:true,attackAttribute:'strength',attackSkill:'Escape',attackModifier:0}}};
   }
   if(kind==='reloadWeapon'){
-    try{const loaded=ammunition.reload(unit,weapon);clearAim(unit);unit.weaponCharge=null;finishTurn(room,unit,'reloaded '+loaded+' rounds into '+weapon.name,helpers);return {ok:true,itemUpdate:true,weaponUpdate:true};}catch(e){return {ok:false,error:e.message};}
+    try{const ship=room.starships?.find(s=>s.id===unit.location?.starshipId);const loaded=ammunition.reload(unit,weapon,{minerals:ship?.ship?.minerals,mineral:body.ammoMineral});clearAim(unit);unit.weaponCharge=null;finishTurn(room,unit,'reloaded '+loaded+' rounds into '+weapon.name,helpers);return {ok:true,itemUpdate:true,weaponUpdate:true};}catch(e){return {ok:false,error:e.message};}
   }
   if(kind==='sheathWeapon'){
     if(weapon?.weaponId!=='murasama-blade')return {ok:false,error:'Hold the Murasama Blade to sheath it.'};
@@ -794,7 +794,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   if (kind === "throwItem") {
     const inventoryId = safeText(body.inventoryId, "", 100);
     const gearItem = carriedItem(unit, safeText(body.itemId, "", 100));
-    const armedOwner=room.units.find(u=>(u.thrownEffects||[]).some(e=>'armed:'+e.id===inventoryId&&e.armedHeld&&e.attachedId===unit.id));
+    const armedOwner=[...room.units,...(room.areaEffects||[])].find(u=>(u.thrownEffects||[]).some(e=>'armed:'+e.id===inventoryId&&e.armedHeld&&e.attachedId===unit.id));
     const armed=armedOwner?.thrownEffects.find(e=>'armed:'+e.id===inventoryId);
     const thrown = armed ? {...weaponsById.get(armed.weaponId),inventoryId,weaponId:armed.weaponId,countdownSeconds:armed.remaining} : gearItem?.catalogId === "smoke-grenade"
       ? { inventoryId: gearItem.id, weaponId: "smoke-grenade", name: gearItem.name, throwable: true, placeable: false, countdownSeconds: 5, itemId: gearItem.id, specialType: "smoke" }
@@ -1035,6 +1035,15 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       plan.damageFormula=combatRules.formatDiceFormula({dice:parts[0],flat:parsed.flat/2});plan.attackModifier-=2;
       secondPlan.damageFormula=combatRules.formatDiceFormula({dice:parts[1],flat:parsed.flat/2});secondPlan.attackModifier-=2;
       additionalAttack={attackerId:unit.id,defenderId:second.id,weaponId:weapon.weaponId,inventoryId:weapon.inventoryId,weaponName:weapon.name+' (second target)',attackType:'ranged',distance:secondDistance,plan:secondPlan,chargeCount,aimDice,aimDie,calledShot:false};
+    }
+    if(weapon.weaponId==='rubber-bouncy-bombs'){
+      const center=arena.position(requestedTarget),grid=arena.grid(room,center),index=grid?.index(center);
+      const targets=room.units.filter(other=>{
+        if(other.id===requestedTarget.id||other.defeatedAt||!arena.canTarget(room,{location:requestedTarget.location},other))return false;
+        const p=arena.position(other),g=arena.grid(room,p);if(!grid||!g||p.starshipId!==center.starshipId||p.arenaId!==center.arenaId)return false;
+        const n=g.index(p);return Math.abs(n%g.width-index%grid.width)<=1&&Math.abs(Math.floor(n/g.width)-Math.floor(index/grid.width))<=1;
+      });
+      for(const other of targets.reverse())additionalAttack={attackerId:unit.id,defenderId:other.id,weaponId:weapon.weaponId,inventoryId:weapon.inventoryId,weaponName:weapon.name,attackType:'ranged',distance:arena.distance(room,unit,other)??distance,plan:{...plan},chargeCount,aimDice:[],aimDie:0,calledShot:false,additionalAttack,recoverySeconds:weapon.recoverySeconds||6};
     }
     return {
       ok: true,

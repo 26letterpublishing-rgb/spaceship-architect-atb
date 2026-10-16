@@ -2646,6 +2646,8 @@ body.embedded-gm .unit-card.has-avatar .unit-top {
 .gm-panic-pause span {
   line-height: 1;
 }
+.gm-top-controls { flex-wrap:wrap; }
+.gm-top-controls .gm-panic-pause { position:relative; inset:auto; min-width:130px; min-height:38px; }
 
 .gm-panic-pause small {
   color: var(--cyan);

@@ -1,0 +1,32 @@
+PLANET / ORBIT / REGIONAL MAP PASS - October 15, 2026
+LOCAL ONLY. No commit, push, or deployment. Gold Standard and liked-build backups unchanged.
+
+Implemented
+- Existing campaign navigation now opens orbit on the planet's hex, uses the selected planet icon, and animates a 20-second descent. Server clock owns timing and pauses during combat.
+- Working landing equipment, propulsion, power and hull are checked. A PC may begin descent when a living crew character is stationed on the Bridge. The initiating PC (or GM) selects the landing hex.
+- Planet maps have 30 x 20 hexes; optional regions have 15 x 10. Temperate worlds generate seeded continental shapes with ~70% connected water. Desert, Ice, Volcanic, Ocean and Moon use uniform defaults. Individual terrain overrides retain authored metadata.
+- GM selects planet appearance when adding/editing planets or in the surface editor. Existing four WebP planet images reused; new Temperate/Moon SVGs total 2,062 bytes. Shared vector terrain patterns and city overlay require no per-hex image downloads.
+- GM edits labels, cities, public descriptions and GM-only information. Regions are created only where requested. Shared red party pin; ship imagery remains one hex wide on both surface and region maps.
+- Start Campaign Here sets the saved adventure starting point and current party location. PCs remain in the surface/region view until departure or GM relocation. Shipless starts work; GM retains unrestricted map editing.
+- Leave Atmosphere works directly from a region with a valid ship. Transporter travel reuses the existing 12-second validator/resolver, transponders, safety dice and room occupancy. Beam Aboard requires a living character aboard the orbiting ship; recall does not require that onboard character to sit at a station. Outbound transport retains the existing station/passenger-room requirements.
+- Hexes embed a saved Shop file or a snapshot of an existing shop. Arrival prompts the GM before activation and is deduplicated per visit. Module export clears arrival history and deactivates shops opened by a playtest visit.
+- Campaign saves resume current locations; adventure modules restore the authored starting view. Portable Galaxy Map files preserve authored terrain, regions and attached shops while remapping object identities.
+- PC state strips GM secrets and attached shop stock; only the active region's full hex details are sent. Other regions are directory entries.
+- Fresh Explore now has exactly Haven, Ember and Farpoint: six planets covering all terrain types, each with an authored region, public lore and GM notes. Harbor's Market Square demonstrates an arrival shop. Existing personal campaigns are not reseeded.
+- Help includes planet navigation and regional authoring guidance.
+
+Verification
+- Full suite: 1,124 / 1,124 passed with --test-concurrency=4 (final run ~64 seconds).
+- New regression coverage: seeded geography, dimensions, preserved edits, GM secret projection, restricted shipless starts, module versus campaign resume, live-clock descent/pause/reload/owner, working/broken departure, shop confirmation/dedup, three-star sample, transporter recall and portable Galaxy Map identity remapping.
+- Browser: GM surface editing, city public/private text, region opening, Start Campaign Here, GM arrival shop confirmation, player region restrictions/public-only notes, 20-second orbit shrink/descent, landing selection, one-hex ship, shared regional movement, and departure back to orbit on GM/PC.
+- Browser found and fixed missing public asset registration, clipped labels, and party-marker redraw signature omission. Enlarged views have a visible Return to Campaign and Escape support.
+- 15 affected runtime JavaScript syntax checks passed; CRLF-aware git diff whitespace check passed.
+- Sample six-world starmap data measured 9,446 bytes raw / 1,782 bytes gzip without ship positions. Actual campaign size depends on authored text, shops and regions.
+
+Operational notes
+- Normal local app refreshed on port 8790, PID 8904. New test showcase lives only in transient Explore state.
+- Personal campaign SHA256 before/after: 5F9CDE562514BF2F10082E4D38FF7252D60C20ED567E831D8776565974FF92C7.
+- Personal data safety copy: ../outputs/campaigns-before-planets-20261015.json.
+- Test log: ../outputs/planet-full-tests-final.txt.
+- Surface travel is deliberately GM-managed roleplay. No path costs, land vehicles, automatic travel distances or separate party splits were added.
+- Region/terrain artwork is a lightweight first-pass strategic style for review. No additional landmark types beyond City were requested for this pass.

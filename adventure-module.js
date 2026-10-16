@@ -26,7 +26,8 @@ function create(campaign, options={}) {
   content.npcRoster=(content.npcRoster||[]).map(n=>pick(n,['id','templateId','rosterId','characterName','name','raceId','raceType','iconVariant','iconRace','allyNpc','color','speed','moveSpeed','maximumHp','currentHp','physicalAttribute','mentalAttribute','physicalSkill','mentalSkill','weapons','heldWeaponId','items','location']));
   content.libraryEntries=(content.libraryEntries||[]).map(e=>pick(e,['id','title','text']));
   if(content.starmaps)for(const k of ['journeys','localJourneys','receipts'])content.starmaps[k]=k==='receipts'?[]:{};
-  if(content.shops)content.shops.receipts=[];
+  if(content.starmaps)require('./campaign-planets').resetModule(content.starmaps,content.starships);
+  if(content.shops){content.shops.receipts=[];for(const shop of content.shops.list||[]){if(shop.planetArrival)shop.active=false;delete shop.planetArrival;}}
 
   if(options.includePreparation&&campaign.preparationDraft){
     content.preparationDraft=copy(campaign.preparationDraft);
