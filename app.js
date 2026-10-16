@@ -1871,8 +1871,8 @@ window.SACombatBridge = {
   setShipColor:(shipId,color)=>action({action:'setShipColor',shipId,color},'tap'),
   surveillanceRequest:body=>campaignRequest('/api/campaign/starship/surveillance',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:mode==='player'?campaignCharacterId:body.characterId})}),
   fieldUtilityRequest:async body=>{
-    if(!state?.practice&&body.kind!=='inspect')return action({...body,action:'utilityCommand'},'resolve',{throwOnError:true});
-    const response=await campaignRequest('/api/campaign/starship/field-utility',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:body.characterId||(mode==='player'?campaignCharacterId:undefined)})});
+    if(!state?.practice&&!['inspect','airlock-inspect','airlock-dock'].includes(body.kind))return action({...body,action:'utilityCommand'},'resolve',{throwOnError:true});
+    const response=await campaignRequest('/api/campaign/starship/field-utility',{method:'POST',body:JSON.stringify({...body,starshipId:body.starshipId||state.units.find(u=>u.id===body.id)?.location?.starshipId,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:body.characterId||(mode==='player'?campaignCharacterId:undefined)})});
     if(response.campaign)receiveCampaignUpdate(response.campaign);return response;
   },
   crewRoomRequest:async body=>{

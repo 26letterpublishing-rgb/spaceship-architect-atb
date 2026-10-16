@@ -24,3 +24,8 @@ test('detected contacts expose chosen design but uncertain vessel renderer conce
 test('walking uses standing and two mirrored steps within the existing 840ms cycle',()=>{
  const css=fs.readFileSync(require.resolve('../token-art.css'),'utf8');assert.equal(art.walkCycleMs,840);assert.match(css,/spriteStand \.84s/);assert.match(css,/spriteLeft \.84s/);assert.match(css,/spriteRight \.84s/);assert.match(art.figure('human'),/translate\(32 0\) scale\(-1 1\)/);assert.match(css,/prefers-reduced-motion/);
 });
+
+test('Draco Prime appearance accepts every race except Spiddix without changing identity',()=>{
+ for(const race of art.races){const c={identity:{raceId:'draco-prime'},presentation:{iconRace:race,iconVariant:1}};assert.equal(art.character(c).race,race==='spiddix'?'draco-prime':race);assert.equal(c.identity.raceId,'draco-prime');}
+ assert.equal(art.character({identity:{raceId:'human'},presentation:{iconRace:'android'}}).race,'human');
+});

@@ -736,6 +736,7 @@
       anatomySkill: skillValue("First Aid"),
       sex:String(record.character.identity?.sex||""),
       raceId: String(record.character.identity?.raceId || ""),
+      iconRace:record.character.presentation?.iconRace,
       iconVariant: Number(record.character.presentation?.iconVariant)===1?1:0,
       raceType: String(record.character.identity?.raceType || ""),
       classId: String(record.character.identity?.classId || ""),

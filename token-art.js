@@ -4,7 +4,7 @@
   const neutral=new Set(['android','butchers-of-hellmouth','grey','kabuto','skeder','spiddix','xithx','yuhorn-symitron']);
   const ships=Object.freeze(['Pathfinder','Arrowhead','Bastion','Crescent','Longbow','Atlas','Stingray','Citadel']);
   const variant=value=>Number(value)===1?1:0;
-  function character(source={}){const c=source.character||source,race=c.identity?.raceId||c.raceId||'';return {race:races.includes(race)?race:'',variant:variant(c.presentation?.iconVariant??c.iconVariant)};}
+  function character(source={}){const c=source.character||source,baseRace=c.identity?.raceId||c.raceId||'',disguise=c.presentation?.iconRace||c.iconRace,race=baseRace==='draco-prime'&&races.includes(disguise)&&disguise!=='spiddix'?disguise:baseRace;return {race:races.includes(race)?race:'',variant:variant(c.presentation?.iconVariant??c.iconVariant)};}
   function attributes(source){const c=character(source);return `data-token-race="${c.race}" data-token-variant="${c.variant}"`;}
   function atlas(race){return races.includes(race)?`crew-atlas-${race}-v1.webp`:'';}
   // Generated atlases have transparent gutters, but their row boundary can vary.

@@ -42,3 +42,11 @@ body .desktop-sheet>.embedded-move-controls{right:-135px;top:35%}
 .ship-stores{background:#09151bcc}.ship-stores dt{font-size:13px;overflow-wrap:anywhere}.ship-stores dl div{min-width:0}.ship-stores input,.ship-stores select{min-height:32px}.ship-stores summary{padding:6px 0}
 /* Light controls keep readable text when embedded pages inherit dark-console styles. */
 body button.ship-print-button,body .crew-training-loading button{color:#000!important;text-shadow:none!important}
+
+body:not(.ship-details-view) .ship-map-display-controls.desktop-map-display{position:relative;inset:auto;width:auto;grid-column:1}.player-starship-view-controls{display:none!important}.ship-details-view .ship-grid{cursor:grab;touch-action:none}.live-crew-sheet{top:calc(26.8% + 142px);box-shadow:0 -20px 0 #080d12;z-index:6}.desktop-live-stats{overflow:visible}.construction-live-summary{display:flex!important;flex-wrap:wrap;gap:18px;margin:8px 0}.pending-construction-value{color:#ffe567!important;fill:#ffe567!important;-webkit-text-stroke:.5px #000;paint-order:stroke fill;text-shadow:1px 1px #000,-1px -1px #000}
+
+body:not(.ship-details-view) .construction-summary{display:flex!important}.ship-details-only .construction-budget-note{display:none}.live-crew-sheet{background:#080d12!important}.desktop-sheet [data-lock-dice],.desktop-sheet [data-break-lock]{overflow:visible;line-height:1.2;padding-bottom:4px}
+
+.airlock-board-button{border-color:#61ffca!important;box-shadow:0 0 12px #32ffc980;animation:airlock-board-pulse 1.4s ease-in-out infinite alternate}@keyframes airlock-board-pulse{to{box-shadow:0 0 22px #32ffcada}}@media(prefers-reduced-motion:reduce){.airlock-board-button{animation:none}}
+
+.ship-details-view .construction-summary{display:none!important}

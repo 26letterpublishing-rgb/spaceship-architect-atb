@@ -13,7 +13,8 @@
     if(now<old.until)return {...record,currentHullHp:old.value.currentHullHp,currentShieldHp:old.value.currentShieldHp,shieldSystems:old.value.shieldSystems,shieldConditions:old.value.shieldConditions,hullCondition:old.value.hullCondition,ship:{...record.ship,currentHullHp:old.value.ship.currentHullHp}};
     old.value=copy();return record;
   }
-  function hull(record,exact=false){const r=presentation(record);return track('hull',r.currentHullHp??r.ship?.currentHullHp,r.maximumHullHp??r.ship?.maximumHullHp??getMaps()?.hullHp(r.ship||r),exact);}
+  function meter(kind,data){const current=Math.max(0,Number(data?.current)||0),max=Math.max(0,Number(data?.maximum)||0);return `<span class="sa-analysis-meter ${kind}" role="meter" aria-label="${kind==='hull'?'Hull HP':'Shield HP'} — last analysis" aria-valuenow="${current}" aria-valuemin="0" aria-valuemax="${max}" title="Last Systems Analysis reading"><i style="width:${max?Math.min(100,current/max*100):0}%"></i><b>${current} / ${max}</b></span>`;}
+  function hull(record,exact=false){if(record.analysisHealth?.hull)return meter('hull',record.analysisHealth.hull);const r=presentation(record);return track('hull',r.currentHullHp??r.ship?.currentHullHp,r.maximumHullHp??r.ship?.maximumHullHp??getMaps()?.hullHp(r.ship||r),exact);}
   function segments(current, maximum) {
     const max = Math.max(0, Number(maximum) || 0);
     const filled = max ? Math.round(Math.max(0, Math.min(max, Number(current) || 0)) / max * 6) : 0;
@@ -53,7 +54,7 @@
     if (!layers.length) return '';
     return `<span class="sa-shield-groups" aria-label="${layers.length} shield system${layers.length === 1 ? '' : 's'}">${layers.map((layer, index) => `<span class="sa-shield-group" role="group" aria-label="Shield system ${index + 1}">${track('shield', layer.current, layer.maximum, exact && !layer.approximate)}</span>`).join('')}</span>`;
   }
-  function shields(record, exact = false) { return shieldTracks(shieldLayers(presentation(record)), exact); }
+  function shields(record, exact = false) { if(record.analysisHealth?.shield)return meter('shield',record.analysisHealth.shield);return shieldTracks(shieldLayers(presentation(record)), exact); }
   function logText(text, exact) {
     if (exact) return String(text || "");
     return String(text || "").replace(/;?\s*HP\s*:?\s*-?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\.?/gi, "")

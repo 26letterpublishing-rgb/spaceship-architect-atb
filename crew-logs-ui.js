@@ -40,7 +40,7 @@
   new MutationObserver(()=>{host.hidden=!own()||!!document.querySelector('#characterCampaignGate')?.hidden;}).observe(document.querySelector('#characterCampaignGate'),{attributes:true,attributeFilter:['hidden']});
  }
  function gm(){
-  if(!gmList){gmList=document.createElement('section');gmList.className='tool-card';document.querySelector('#promptTab .tool-grid')?.append(gmList);}
+  if(!gmList){gmList=document.createElement('section');gmList.className='tool-card';gmList.dataset.gmLibrary='';document.querySelector('#promptTab .tool-grid')?.append(gmList);}
   const signature=JSON.stringify([state.crewLogs,state.libraryEntries]);if(gmList.dataset.signature===signature)return;gmList.dataset.signature=signature;
   const draftTitle=gmList.querySelector('[aria-label="Data Entry title"]')?.value||'',draftText=gmList.querySelector('[aria-label="Library data"]')?.value||'';
   gmList.replaceChildren();const title=document.createElement('h3');title.textContent='Crew Logs & Library Data';gmList.append(title);
@@ -52,7 +52,7 @@
    try{await request(sent);const currentTitle=gmList.querySelector('[aria-label="Data Entry title"]'),currentText=gmList.querySelector('[aria-label="Library data"]');if(currentTitle.value===sent.title&&currentText.value===sent.text){currentTitle.value='';currentText.value='';}status.textContent='Added to all Library consoles.';}
    finally{librarySaving=false;const current=gmList.querySelector('[data-publish-library]');if(current)current.disabled=false;}
   });publish.dataset.publishLibrary='';publish.disabled=librarySaving;
-  gmList.append(label,content,publish,message);
+  gmList.append(label,content,publish,message);window.SAOrganizeGmTools?.();
  }
  window.SACrewLogs={update(next,keyToken){state=next;token=keyToken;if(state.role==='gm'){gm();return;}if(!own()){if(host)host.hidden=true;return;}if(!host)mount();host.hidden=!own()||!!document.querySelector('#characterCampaignGate')?.hidden;const value=select.value||String(state.sessionNumber);if(select.options.length!==state.sessionNumber+1){select.replaceChildren(...Array.from({length:state.sessionNumber+1},(_,n)=>new Option('Session '+n,n)));select.value=value;}if(key!==state.code+':'+own()+':'+select.value||!dirty){key=state.code+':'+own()+':'+select.value;load();}}};
 }());

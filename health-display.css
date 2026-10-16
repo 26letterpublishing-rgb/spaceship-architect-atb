@@ -13,3 +13,5 @@ span.sa-shield-group { display: inline-flex; flex: 0 0 auto; align-items: center
 .sa-health-icon.shield { background: #51856b; }
 .sa-health-icon.shield.full::before { background: #37d880; }
 .sa-health-icon.shield.half::before { background: linear-gradient(90deg, #37d880 50%, #101b23 50%); }
+
+.sa-analysis-meter{display:inline-grid;position:relative;min-width:110px;height:24px;background:#160c10;border:1px solid #f36979;border-radius:3px;overflow:hidden;vertical-align:middle}.sa-analysis-meter i{position:absolute;inset:0 auto 0 0;background:#ac243d}.sa-analysis-meter b{position:relative;text-align:center;padding:2px 6px;color:white;font:700 13px/20px Arial;text-shadow:1px 1px #000}.sa-analysis-meter.shield{border-color:#58dc95;background:#091c12}.sa-analysis-meter.shield i{background:#227b4d}

@@ -252,21 +252,13 @@
     if(mode)help.append(button('Cancel',()=>{mode='';draw();}));host.querySelector('.galaxy-chart').classList.toggle('is-placing',Boolean(mode));host.querySelector('.galaxy-map-surface').innerHTML=chartMarkup(map,ships,data);inspector(host.querySelector('.galaxy-details'),map,data,gm,ships);bindChart(host.querySelector('.galaxy-chart'),map,ships,data,gm);refreshTravel();
   }
   function arrangeCampaign(){
-    const parent=host.parentElement;if(parent.classList.contains('campaign-columns'))return;
-    const columns=document.createElement('div');columns.className='campaign-columns';const left=document.createElement('div');left.className='campaign-information';parent.insertBefore(columns,host);columns.append(left,host);
-    if(state.role!=='gm'){
-      columns.classList.add('campaign-columns-player');for(const node of [...parent.children].filter(n=>n!==columns&&n.matches('.campaign-lobby-heading,.campaign-lobby-tools,.campaign-group-credits')))left.append(node);
-      for(const id of ['campaignPrivateNotes','campaignRosterCards','campaignStarshipRoster']){const node=document.getElementById(id);if(node)left.append(node);}
-    }else{
-      const session=parent.querySelector('.session-control');if(session)left.append(session);
-      const summary=document.createElement('div');summary.dataset.campaignOverview='';left.append(summary);
-    }
+    const parent=host.parentElement;if(parent.classList.contains('campaign-single-column'))return;
+    parent.classList.add('campaign-single-column');
+    if(state.role!=='gm')for(const id of ['campaignRosterCards','campaignStarshipRoster'])document.getElementById(id)?.setAttribute('hidden','');
+    const notes=document.getElementById('campaignPrivateNotes');if(notes&&state.role!=='gm'){notes.hidden=false;parent.append(notes);}
+    const session=parent.querySelector('.session-control');if(session)parent.prepend(session);
   }
-  function updateOverview(){
-    const summary=host?.parentElement.querySelector('[data-campaign-overview]');if(!summary)return;
-    const markup=`<section><h3>Private Notes</h3>${(state.inbox||[]).filter(n=>n.direction==='to-gm').slice(-8).reverse().map(n=>`<p><strong>${esc(n.characterName||'Campaign')}</strong><br>${esc(n.message)}</p>`).join('')||'<p>No private messages.</p>'}<button type="button" data-open-inbox>Open Inbox</button></section><section><h3>Character Data</h3>${(state.characters||[]).map(c=>`<p><strong>${esc(c.character?.identity?.characterName||'Unnamed Character')}</strong> · HP ${esc(c.character?.health?.current??'—')} · Reverence ${esc(c.character?.resources?.reverence??0)}</p>`).join('')}</section><section><h3>Starship Data</h3>${(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}</strong> · ${esc(s.controlType==='pc'?'PC':'GM')}<br>Hull ${s.currentHullHp??s.maximumHullHp??'—'} / ${s.maximumHullHp??'—'}</p>`).join('')}</section>`;
-    if(summary._markup===markup)return;summary._markup=markup;summary.innerHTML=markup;summary.querySelector('[data-open-inbox]').onclick=()=>document.querySelector('[data-tab="inbox"]')?.click();
-  }
+  function updateOverview(){}
   function update(next,key){
     if(state?.code&&state.code!==next?.code){selectedMap='';selectedStar='';selectedShip='';mode='';signature='';cameras.clear();}state=next;token=key;packetAt=performance.now();if(!state?.code)return;
     host=document.querySelector('[data-galaxy-host]');if(!host){const parent=state.role==='gm'?document.querySelector('[data-tab-panel="campaign"]'):document.querySelector('#campaignRosterLobby');if(!parent)return;host=document.createElement('section');host.dataset.galaxyHost='';host.className='campaign-galaxy';if(state.role!=='gm'){const notes=document.getElementById('campaignPrivateNotes');if(notes)parent.append(notes);}parent.append(host);}

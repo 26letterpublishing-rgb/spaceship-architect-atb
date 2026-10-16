@@ -262,7 +262,7 @@
     const moveSpeed = Math.max(1, Number(unit.moveSpeed) || 1)*(window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId))?1:.5);
     preview = { square, mesh, path, station, locked, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
     confirm.disabled = !locked || path === null || !path.length;
-    confirm.textContent = station ? "Station" : "Confirm Move";
+    confirm.textContent = boardingLink(ship,{square}) ? "Board other ship" : station ? "Station" : "Confirm Move";confirm.classList.toggle("airlock-board-button",Boolean(boardingLink(ship,{square})));
     status.textContent = path === null ? "No legal path reaches that location." : !path.length ? "That character is already there." : locked ? station ? `${path.length} unit route selected. Station here.` : `${path.length} unit route selected. Confirm the move.` : path.length <= moveSpeed ? `${path.length} unit${path.length === 1 ? "" : "s"}: click to select.` : `${path.length} units: click to select ${Math.ceil(path.length / moveSpeed)} automatic Move actions.`;
     renderGrid();
   }
@@ -467,7 +467,7 @@
       : "Live interior view";
     return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
       <div class="inline-map-viewport"><div class="${classes}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
+      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -477,7 +477,7 @@
     const ship=record.ship||{};
     // AU/ATB/gravity clocks must not rebuild thousands of unchanged map cells.
     const atmosphere=Object.entries(ship.atmosphereState?.cells||{}).map(([cell,o2])=>[cell,Math.ceil(o2-1e-7)]);
-    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
+    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.iconRace,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
     return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
   }
   const inlineZoom = new Map();
@@ -710,7 +710,8 @@
     if (submit) {
       submit.disabled = moveSubmitting || !(preview?.locked && preview?.path?.length);
       submit.setAttribute("aria-busy", String(moveSubmitting));
-      submit.textContent = moveSubmitting ? "Starting..." : preview?.station ? "Station" : "Confirm Move";
+      submit.classList.toggle("airlock-board-button",Boolean(boardingLink(record,preview)));
+      submit.textContent = moveSubmitting ? "Starting..." : boardingLink(record,preview) ? "Board other ship" : preview?.station ? "Station" : "Confirm Move";
     }
   }
 
@@ -748,7 +749,8 @@
     renderStats();
     stop.hidden = unit?.timedAction?.kind !== "move";
     leaveStation.hidden = Boolean(unit?.shipAi) || !unit?.location?.stationed || combatState?.activeId !== unit?.id;
-    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : preview?.station ? "Station" : "Confirm Move";
+    confirm.classList.toggle("airlock-board-button",Boolean(boardingLink(ship,preview)));
+    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : boardingLink(ship,preview) ? "Board other ship" : preview?.station ? "Station" : "Confirm Move";
   }
 
   function open(options = {}) {
@@ -787,6 +789,7 @@
 
   function close() { dialog.classList.add("hidden"); clearMoveSelection(); }
 
+  function boardingLink(ship,preview){return ship?.ship?.airlockDocking?.links?.find(l=>l.ready&&l.square===Number(preview?.square));}
   async function submitSelectedMove({ closeAfter = false } = {}) {
     const ship = selectedShip();
     const unit = selectedUnit();
@@ -797,7 +800,7 @@
     refreshInlinePreview(document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`));
     try {
       if (mode === "gm" && interaction === "relocate") await bridge()?.action({ action: "setCombatLocation", id: unit.id, location: submittedDestination });
-      else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
+      else await bridge()?.action({ action: "playerCombatAction", id: unit.id, kind: "move", boardShipId:boardingLink(ship,preview)?.targetId, route: preview.path.map((point) => completeLocation(ship, point)), stationOnArrival: Boolean(preview.station), stationName: footprint(ship).get(Number(preview.square))?.label || "SIC", stationSlot: preview.mesh });
     } catch (error) {
       moveSubmitting = false;
       moveError = error.message || "Connection interrupted. Your destination is still selected.";

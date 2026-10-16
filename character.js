@@ -2148,7 +2148,7 @@ function livePlayerShipRecord(record) {
   for(const [id,loc]of Object.entries(locations))if(loc.environment==='surface')delete locations[id];
   const interiorOccupants=campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
   for(const u of interiorOccupants)locations[u.id]=u.location;
-  for(const [index,id] of (record.crewCharacterIds||[]).entries())if(!locations[id]&&record.ship.gridCells.length&&record.characterLocations?.[id]?.environment!=='surface'&&!(campaignState?.starships||[]).some(s=>s.id!==record.id&&s.characterLocations?.[id]))locations[id]={square:record.ship.gridCells[Math.min(Math.floor(index/2),record.ship.gridCells.length-1)],mesh:4};
+  for(const [index,id] of (record.crewCharacterIds||[]).entries())if(!locations[id]&&record.ship.gridCells.length&&!['surface','boarding'].includes(record.characterLocations?.[id]?.environment)&&!(campaignState?.starships||[]).some(s=>s.id!==record.id&&s.characterLocations?.[id]))locations[id]={square:record.ship.gridCells[Math.min(Math.floor(index/2),record.ship.gridCells.length-1)],mesh:4};
   for(const unit of (campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt?playerEncounterView?.units:[])||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId))locations[unit.characterId]=unit.location;
   if(campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt)for(const unit of playerEncounterView?.units||[])if(unit.characterId&&unit.location?.starshipId!==record.id)delete locations[unit.characterId];
   const live=dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state(),ship=live?.starships.find(s=>s.id===record.id);
@@ -6198,6 +6198,11 @@ function useFreeRuleReroll() {
 function renderCharacterIconPicker() {
   const picker=document.querySelector('#characterIconPicker');if(!picker)return;
   const art=window.SATokenArt,info=art.character(character),options=art.options(info.race);
+  let disguise=picker.querySelector('[data-icon-race]');
+  if(character.identity.raceId==='draco-prime'){
+    if(!disguise){disguise=document.createElement('select');disguise.dataset.iconRace='';disguise.setAttribute('aria-label','Draco Prime appearance');picker.prepend(disguise);disguise.onchange=()=>{character.presentation.iconRace=disguise.value;queueSave();renderCharacterIconPicker();};}
+    disguise.innerHTML=art.races.filter(r=>r!=='spiddix').map(r=>`<option value="${r}">${r.replaceAll('-',' ')}</option>`).join('');disguise.value=info.race;disguise.disabled=Boolean(campaignCode&&!campaignEditable);
+  }else disguise?.remove();
   picker.style.setProperty('--token-color',character.presentation.atbColor);
   const disabled=Boolean(campaignCode&&!campaignEditable);
   picker.querySelector('.token-options').innerHTML=options.map(o=>`<button type="button" data-character-icon="${o.value}" aria-pressed="${info.variant===o.value}" ${disabled?'disabled':''}>${art.figure(info.race,o.value)}<span>${o.label}</span></button>`).join('');
@@ -9048,13 +9053,13 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
         const view=dom.playerAtbFrame.contentWindow,unit=view.SACombatBridge.state().units.find(u=>u.id===move.combatUnitId);
         if(unit?.turnSerial!==move.turnSerial)throw Error('That turn ended. Choose Move again on your next turn.');
         const plan=view.SACombatMap.planMove(move.combatUnitId,{square:move.destination,mesh:move.destinationMesh});if(plan.error)throw Error(plan.error);
-        await view.SACombatBridge.action({action:'playerCombatAction',id:unit.id,kind:'move',route:plan.route,stationOnArrival:Boolean(plan.station),stationName:plan.stationName,stationSlot:move.destinationMesh},'resolve',{throwOnError:true});
+        await view.SACombatBridge.action({action:'playerCombatAction',id:unit.id,kind:'move',boardShipId:record.ship.airlockDocking?.links?.find(l=>l.ready&&l.square===move.destination)?.targetId,route:plan.route,stationOnArrival:Boolean(plan.station),stationName:plan.stationName,stationSlot:move.destinationMesh},'resolve',{throwOnError:true});
         starshipMoveDraft=null;renderPlayerStarships(true);return;
       }
       const arrival={square:move.destination,mesh:move.destinationMesh};
       const payload = await campaignRequest("/api/campaign/starship/move-character", {
         method: "POST",
-        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, ...arrival, animate:true, stationed:Boolean(move.station), stationSlot: arrival.mesh }),
+        body: JSON.stringify({ code: campaignCode, token: campaignToken, starshipId, characterId: ownId, ...arrival, boardShipId:record.ship.airlockDocking?.links?.find(l=>l.ready&&l.square===arrival.square)?.targetId, animate:true, stationed:Boolean(move.station), stationSlot: arrival.mesh }),
       });
       starshipMoveDraft = null;
       if (payload.campaign) receiveCampaignState(payload.campaign);
@@ -9691,8 +9696,8 @@ window.addEventListener('sa-drone-update',event=>{
 });
 
 // Room-level identity is separate from the selected character.
-const roomReturn=document.createElement('button');roomReturn.textContent='Room Lobby / Abandon Character';
-roomReturn.onclick=()=>{const room=campaignCode||PAGE_PARAMS.get('roomCreate');location.href=room?'room.html?campaign='+encodeURIComponent(room):'index.html';};
+const roomReturn=document.createElement('button');roomReturn.textContent='Abandon Character';
+roomReturn.onclick=async()=>{if(!campaignCode)return;try{if(!await window.SARoomV03.confirmRoomAction('Abandon Character','Release your character link? The character will remain saved in this campaign.','Abandon Character'))return;await window.SARoomV03.api('abandon',{code:campaignCode,token:campaignToken});location.href='room.html?campaign='+encodeURIComponent(campaignCode);}catch(error){notice(error.message,'error');}};
 document.getElementById('playerSettingsPanel')?.append(roomReturn);
 if(PAGE_PARAMS.get('roomCreate')){const finish=document.createElement('button');finish.textContent='Finish Joining Room';finish.onclick=finishRoomCreation;document.getElementById('playerSettingsPanel')?.append(finish);}
 if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');help.className='v03-panel v03-creation-context';const text=document.createElement('p');const creatingFor=PAGE_PARAMS.get('roomCreate');text.textContent=creatingFor?`Creating a character for room ${creatingFor}. Finish the sheet and choose a password to start playing. Weapons and gear become available after finalization.`:'Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.append(text);if(creatingFor){const back=document.createElement('a');back.href='room.html?campaign='+encodeURIComponent(creatingFor);back.textContent='Return to Room';back.title='Your character draft is saved on this device.';help.append(back);}const menu=document.createElement('a');menu.href='index.html';menu.textContent='Main Menu';help.append(menu);
@@ -9762,7 +9767,7 @@ window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.typ
 
 window.addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="sa-ship-editor-exit")return;const frame=dom.playerStarshipList?.querySelector("[data-player-ship-editor]");if(!frame||frame.contentWindow!==event.source)return;frame.remove();playerShipEditingId=null;renderPlayerStarships(true);notice(event.data.message||"Ship editor closed.");});
 
-document.getElementById('createCampaignShip').onclick=()=>{location.href='starship.html?new=1&roomCreate='+encodeURIComponent(campaignCode);};
+document.getElementById('createCampaignShip').onclick=()=>{location.href='starship.html?new=1&roomCreate='+encodeURIComponent(campaignCode)+'&returnCharacter='+encodeURIComponent(campaignCharacterId)+(SHOWCASE_MODE?'&showcase=1':'');};
 document.getElementById('importCampaignShip').onclick=async()=>{try{const data=await window.SARoomV03.file();if(data)await window.SARoomV03.importIntoRoom(campaignCode,'ship',data);}catch(error){notice(error.message);}};
 
 window.SAInteriorIntruderState=()=>({intruderShips:(campaignState?.starships||[]).filter(s=>s.intrudersDetected).map(s=>({id:s.id,title:s.title}))});

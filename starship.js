@@ -925,6 +925,9 @@ function renderInventory() {
 }
 function renderLiveStats() {
   const confirmed = constructionState(document.body.classList.contains('ship-details-view')?draft.confirmed:draft);
+  const baseline=constructionState(draft.confirmed||defaultDraft());
+  const baselineRecord={id:draft.id,ship:baseline},baselinePower=window.SAShipPower.output(baselineRecord,window.SAShipPower.campaignUnits(baselineRecord,linkedCampaignState?.characters));
+  const baselineStats={hull:window.SAShipMap.hullHp(baseline),shield:window.SAShipMap.installedItems(baseline).filter(i=>sicDefinition(i).shield).reduce((n,i)=>n+sicDefinition(i).shieldHp,0),au:baselinePower.au,en:baselinePower.en,hsm:shipScaleStats(baseline.gridCells.length).hsm,masking:window.SAShipMap.masking(baseline)};
   const hull = confirmed.gridCells.length, hullHp=window.SAShipMap.hullHp(confirmed);
   let capabilities=document.querySelector('[data-ship-capabilities]');
   if(!capabilities){capabilities=document.createElement('details');capabilities.dataset.shipCapabilities='';capabilities.className='ship-capabilities';const summary=document.createElement('summary');summary.textContent='Ship Capabilities';capabilities.append(summary,document.createElement('div'));document.querySelector('[data-starship-panel="sheet"]')?.prepend(capabilities);}
@@ -956,6 +959,7 @@ function renderLiveStats() {
     document.querySelector('.construction-summary')?.append(sensorSummary);
   }
   sensorSummary.textContent = `Sensors ${sensors.range} Units / ${sensorDiceText}`;
+  const oldSensors=window.SAShipMap.sensorStats(baseline);sensorSummary.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&(sensors.range!==oldSensors.range||JSON.stringify(sensors.dice)!==JSON.stringify(oldSensors.dice)));
   document.querySelectorAll('[data-propulsion]').forEach(element => { const key = element.dataset.propulsion; element.textContent = key.startsWith('impulse') ? String(propulsion.impulses[Number(key.slice(-1))] ?? 0) : String(propulsion[key] ?? 0); });
   document.querySelectorAll("[data-propulsion-summary]").forEach(element => { element.textContent = `Impulse ${propulsion.impulses.join(" + ") || "0"} | Move ${propulsion.rawSpeed} | Evade ${propulsion.evadeCount}D${propulsion.evadeDie} | Exhaust ${propulsion.exhaust} | Masking ${window.SAShipMap.masking(confirmed)}`; });
   document.querySelectorAll('[data-live-stat="hull"]').forEach((element) => { element.textContent = String(hullHp); });
@@ -968,6 +972,9 @@ function renderLiveStats() {
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
   document.querySelectorAll('[data-live-stat="credits"], [data-group-credits]').forEach((element) => { element.textContent = formatCredits(confirmed.groupCredits); });
   document.querySelectorAll("[data-confirmed-scale]").forEach((element) => { element.value = String(scale.scale); element.textContent = String(scale.scale); });
+  document.querySelectorAll('.construction-summary [data-live-stat]').forEach(e=>{const k=e.dataset.liveStat,old=k==='en'&&e.dataset.enPart==='available'?baselinePower.en-window.SAShipPower.demand(baselineRecord):baselineStats[k];e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&String(e.textContent)!==String(old));});
+  document.querySelectorAll('.construction-summary [data-propulsion]').forEach(e=>e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&propulsion[e.dataset.propulsion]!==window.SAShipMap.propulsion(baseline)[e.dataset.propulsion]));
+
 }
 function showMessage(message, tone = "info") {
   constructionMessages.forEach((element) => { element.textContent = message; element.dataset.tone = tone; });
@@ -1220,7 +1227,7 @@ shipGrids.forEach((grid) => {
   grid.addEventListener("click",event=>{if(suppressPanClick){event.preventDefault();event.stopImmediatePropagation();}},true);
   grid.addEventListener("pointerdown", (event) => {
 
-    if (mapView.mode !== "explore" || event.target.closest(".sa-map-door")) return;
+    if (event.button!==0 || (mapView.mode !== "explore" && !document.body.classList.contains("ship-details-view")) || event.target.closest(".sa-map-door,button,input,select")) return;
     panGesture = { x: event.clientX, y: event.clientY, panX: mapView.panX, panY: mapView.panY, moved:false };
 
   });
@@ -1747,7 +1754,7 @@ const shipPrintButton=document.createElement('button');shipPrintButton.type='but
 function drawDetailsCrew(){
   if(!new URLSearchParams(location.search).has('embeddedRecord'))return;
   const record=linkedCampaignState?.starships.find(s=>s.id===draft.id);
-  const walkingDoors=new Set(Object.values(record?.characterWalks||{}).flatMap(job=>window.SAShipWalking.sample(job,Date.now()+(record.walkClockOffset||0)).openDoorKeys||[]));
+  const walkingDoors=new Set([...Object.values(record?.characterWalks||{}).flatMap(job=>window.SAShipWalking.sample(job,Date.now()+(record.walkClockOffset||0)).openDoorKeys||[]),...Object.values(record?.motion||{}).flatMap(point=>point.openDoorKeys||[])]);
   for(const grid of shipGrids){for(const door of grid.querySelectorAll('[data-walk-door]'))if(!walkingDoors.has(door.dataset.doorKey)){door.classList.toggle('is-open',record?.ship?.doorStates?.[door.dataset.doorKey]==='open');delete door.dataset.walkDoor;}for(const key of walkingDoors)for(const door of grid.querySelectorAll(`[data-door-key="${CSS.escape(key)}"]`)){door.dataset.walkDoor='';door.classList.add('is-open');}}
   document.querySelectorAll('.ship-detail-crew[data-crew-id]').forEach(e=>{if(!record?.characterLocations?.[e.dataset.crewId])e.remove();});
   const aiStations=record?.aiStations||Object.values(record?.ship?.crewRoomState?.rooms||{}).filter(d=>d.enabled!==false&&d.automationMode&&d.automationMode!=='off'&&d.automationSeat).map(d=>({id:'ship-ai-'+record.id,name:d.name||'Ship AI',location:d.automationSeat}));
@@ -1817,6 +1824,8 @@ function renderEmbeddedMovement(){
       }
     }
     controls.classList.toggle('is-selecting',Boolean(embeddedMove));
+    const boarding=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.ship.airlockDocking?.links?.some(l=>l.ready&&l.square===embeddedMove?.destination);
+    const boardingButton=controls.querySelector('[data-action=confirm]');boardingButton.textContent=boarding?'Board other ship':'Confirm';boardingButton.classList.toggle('airlock-board-button',Boolean(boarding));
     for(const action of ['console','diagnostics'])controls.querySelector(`[data-action=${action}]`).disabled=Boolean(embeddedMove);
     const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),loc=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterLocations?.[own];
     const walking=Boolean(linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterWalks?.[own]);
@@ -1832,7 +1841,7 @@ function renderEmbeddedMovement(){
     for(const key of ['confirm','cancel'])controls.querySelector(`[data-action=${key}]`).hidden=!embeddedMove;
     controls.querySelector('[data-action=confirm]').disabled=!ready||embeddedMove?.submitting;
     controls.querySelector('[data-action=cancel]').disabled=Boolean(embeddedMove?.submitting&&embeddedMove?.combatUnitId);
-    controls.querySelector('[data-action=confirm]').textContent=embeddedMove?.station?'Station':'Confirm Move';
+    controls.querySelector('[data-action=confirm]').textContent=boarding?'Board other ship':embeddedMove?.station?'Station':'Confirm Move';
     controls.querySelector('output').textContent=embeddedMove?(embeddedMove.submitting?'Moving...':embeddedMove.message):'';
     let stationSelect=controls.querySelector('[data-embedded-station]');
     if(!stationSelect){stationSelect=document.createElement('select');stationSelect.dataset.embeddedStation='';stationSelect.setAttribute('aria-label','Choose a station');controls.insertBefore(stationSelect,controls.querySelector('output'));stationSelect.onchange=()=>{if(!stationSelect.value||!embeddedMove||embeddedMove.submitting)return;const [square,mesh]=stationSelect.value.split(':').map(Number);parent.postMessage({type:'sa-ship-map-destination',square,mesh},location.origin);};}
@@ -2009,7 +2018,7 @@ if(pageParameters.get("campaign")&&pageParameters.get("details")!=="1"&&!VIEW_ON
 var embeddedKeyboardMode=false,embeddedStationState=null;window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===parent&&e.data?.type==='sa-keyboard-mode'){embeddedKeyboardMode=!!e.data.enabled;embeddedStationState=e.data;renderEmbeddedMovement();document.body.classList.toggle('keyboard-movement-active',embeddedKeyboardMode);}});
 if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(embeddedKeyboardMode)e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
 
-if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href='room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
+if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href=pageParameters.get('returnCharacter')?'character.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'))+'&character='+encodeURIComponent(pageParameters.get('returnCharacter'))+'&tab=starships'+(pageParameters.get('showcase')==='1'?'&showcase=1':''):'room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
 function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.starships||[]).some(s=>s.controlType==='pc'&&s.ship?.sicInventory?.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition)) : draft.sicInventory.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition);}
 function openBlueprintPurchase(type){

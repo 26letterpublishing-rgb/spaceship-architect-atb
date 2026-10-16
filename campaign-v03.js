@@ -50,6 +50,16 @@ async function handle(api, context) {
       const nextToken=issue(api,campaign,'gm'); await api.save(campaign);
       return reply(201,{token:nextToken,campaign:api.state(campaign,nextToken)});
     }
+    if(action==='load'&&body.backup?.format==='spaceship-architect-adventure'){
+      const module=require('./adventure-module').read(body.backup);let fresh;
+      for(let attempt=0;attempt<200;attempt++){
+        fresh=normalizeCampaign({...defaultCampaign({code:campaignCode(),name:module.metadata.title,gmCode:crypto.randomBytes(32).toString('hex')}),...module.content,interfaceVersion:'0.3',roomOpen:true,players:[],imports:[],runtimeSessions:{},module:module.metadata});
+        if(await api.store.create(fresh))break;fresh=null;
+      }
+      if(!fresh)throw Error('Unable to allocate a new adventure room.');
+      api.campaignCache.set(fresh.code,fresh);const nextToken=issue(api,fresh,'gm');await api.save(fresh);
+      return reply(201,{token:nextToken,campaign:api.state(fresh,nextToken),module:module.metadata});
+    }
     if(action === 'load') {
       const source=body.backup;
       if(source?.format !== 'spaceship-architect-campaign' || source.campaign?.interfaceVersion !== '0.3' || !Array.isArray(source.campaign?.characters)) throw Error('Choose a v0.3 campaign file.');
@@ -89,6 +99,10 @@ async function handle(api, context) {
     }
     const session=api.session(token,code); if(!session) return reply(403,{error:'Join the room first.'});
     const gm=session.role==='gm';
+    if(action==='module/export'){
+      if(!gm)return reply(403,{error:'Only the GM may export an adventure.'});
+      return reply(200,require('./adventure-module').create(campaign,body));
+    }
     const player=campaign.players.find(p=>p.id===session.playerId);
     if(action==='starmap'){
       const result=require('./campaign-starmaps').command(campaign,body,{gm,characterId:session.characterId,combatActive:!api.canPassTime(code)});
@@ -115,8 +129,15 @@ async function handle(api, context) {
       const data=kind==='character'?cleanCharacter(body.data):copy(body.data?.starship || body.data?.ship || body.data);
       if(kind==='character' && (!data.identity || !data.attributes || !String(data.identity.characterName||'').trim())) throw Error('Choose a character file containing a name and attributes.');
       if(kind==='ship' && !data?.confirmedOnce) throw Error('Confirm ship construction before importing.');
-      if(kind==='ship')data.constructionCost=require('./ship-budget').cost(data);
-      campaign.imports.push({id:id('import'),kind,data,playerId:player?.id,status:'pending',requestedAt:new Date().toISOString()});
+      if(kind==='ship'){
+        data.constructionCost=require('./ship-budget').cost(data);
+        const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().filter(k=>!['updatedAt','createdAt','campaignLink','importFingerprint'].includes(k)).map(k=>[k,canonical(value[k])])):value;
+        const fingerprint=crypto.createHash('sha256').update(JSON.stringify(canonical(data))).digest('hex');
+        const prior=campaign.imports.find(r=>r.kind==='ship'&&r.playerId===player?.id&&['pending','approved'].includes(r.status)&&(r.fingerprint===fingerprint||JSON.stringify(canonical(r.data))===JSON.stringify(canonical(data))));
+        if(prior)return reply(200,{campaign:api.state(campaign,token),requestId:prior.id,duplicate:true});
+        data.importFingerprint=fingerprint;
+      }
+      campaign.imports.push({id:id('import'),kind,data,fingerprint:data.importFingerprint,playerId:player?.id,status:'pending',requestedAt:new Date().toISOString()});
     } else if(action==='ship/duplicate') {
       if(!gm)throw Error('Only the GM may duplicate a starship.');
       const original=campaign.starships.find(s=>s.id===body.shipId);if(!original)throw Error('Starship not found.');

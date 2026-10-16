@@ -308,6 +308,7 @@ function publicState(room) {
   for(const message of require('./ship-breaches').reconcile(room,campaignApi?.campaignCache.get(room.roomCode)))pushLog(room,message);
   require('./crew-carry').sync(room);
   require('./ship-field-utilities').advance(room,0);
+  require('./ship-airlock-docking').advance(room,0);
   shipAi.sync(room,preparedUnit);
   require('./ship-security-droids').sync(room,preparedUnit);
   require('./ship-security-droids').observe(room);
@@ -1258,7 +1259,7 @@ function tieCompare(a, b) {
 }
 
 function findReadyUnit(room, excludeId = null) {
-  return room.units.filter((unit) => unit.id !== excludeId && !unit.defeatedAt && !unit.consoleHold && !unit.shieldRestabilizing && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
+  return room.units.filter((unit) => unit.id !== excludeId && unit.location?.environment!=='boarding' && !unit.defeatedAt && !unit.consoleHold && !unit.shieldRestabilizing && !hasDelay(unit) && unit.atb >= room.threshold).sort((a, b) => tieCompare(a, b))[0];
 }
 
 function nextTurnSource(room, previousSource = null) {
@@ -1643,6 +1644,7 @@ function addProgress(room, seconds, { slow = false, skipId = null } = {}) {
   shipProbes.reconcile(room);
   require('./ship-field-utilities').advance(room,seconds*multiplier);
 
+  if(require('./ship-airlock-docking').advance(room,seconds*multiplier,campaign))scheduleRoomPersist(room,0);
   require('./ship-breach-drones').advance(room,seconds*multiplier);
   if(shipDrones.advance(room,seconds*multiplier))scheduleRoomPersist(room,0);
   transitEvents(room,require('./ship-descent').advance(room,seconds*multiplier));
@@ -2947,6 +2949,7 @@ async function handleRoomAction(body, res, automated = false) {
       if (body.stationOnArrival && (occupied >= 1 || stationReserved)) { sendJson(res, 409, { error: "That station is already occupied." }); return; }
       if (occupied >= 2) { sendJson(res, 409, { error: "That location already holds two characters." }); return; }
     }
+    if(body.boardShipId){try{if(body.kind!=='move')throw Error('Choose Move to board.');require('./ship-airlock-docking').boarding(room,playerUnit?.location?.starshipId,body.boardShipId,body.route?.at(-1)?.square);}catch(error){sendJson(res,409,{error:error.message});return;}}
     const result = resolvePlayerCombatAction(room, playerUnit, body, {
       id,
       clearActiveCommand,
@@ -2957,6 +2960,7 @@ async function handleRoomAction(body, res, automated = false) {
       sendJson(res, 409, { error: result.error });
       return;
     }
+    if(body.boardShipId)require('./ship-airlock-docking').reserve(room,playerUnit,body.boardShipId,body.route.at(-1).square);
     if(trigger&&playerUnit.delayedAction?.shipOrder)playerUnit.delayedAction.shipOrder.trigger=trigger;
     if(result.beginAttack?.ammoInventoryId){const inventoryId=result.beginAttack.ammoInventoryId;playerUnit.weapons=playerUnit.weapons.filter(w=>w.inventoryId!==inventoryId);playerUnit.launcherAmmo[result.beginAttack.inventoryId]=playerUnit.launcherAmmo[result.beginAttack.inventoryId].filter(id=>id!==inventoryId);result.weaponConsumed=inventoryId;}
     if (result.beginAttack && !beginAttackResolution(room, result.beginAttack)) {
@@ -3139,11 +3143,11 @@ async function handleRoomAction(body, res, automated = false) {
           (thrower.thrownEffects||=[]).push(effect);finishAttackResolution(room,state.weaponName+' placed; scatter '+state.scatterDistance+' units, countdown '+effect.remaining+' seconds.');
         }
       }else if(followup.kind==='accuracy'){
-        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>10){state.followup=followup;state.plan={...state.plan,damageFormula:'1D10',damageFormulaSupported:true};sendJson(res,400,{error:'Enter the result of the D10 (1–10).'});return;}
+        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>10){state.followup=followup;state.plan={...state.plan,damageFormula:'1D10',damageFormulaSupported:true};sendJson(res,400,{error:'Enter the result of the D10 (1â€“10).'});return;}
         state.accuracyAdjustment=rolledDamage-(state.weaponId==='thunder-rifle'?5:4);state.attackerRoll.score+=state.accuracyAdjustment;state.phase='checks';state.id=id();resolveAttackChecks(room);
       }else{
         const maximum=[4,6,8,10,12][Math.min(4,state.chargeCount||0)];
-        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>maximum){state.followup=followup;state.plan={...state.plan,damageFormula:'1D'+maximum,damageFormulaSupported:true};sendJson(res,400,{error:'Enter the damage-count die result (1–'+maximum+').'});return;}
+        if(!Number.isInteger(rolledDamage)||rolledDamage<1||rolledDamage>maximum){state.followup=followup;state.plan={...state.plan,damageFormula:'1D'+maximum,damageFormulaSupported:true};sendJson(res,400,{error:'Enter the damage-count die result (1â€“'+maximum+').'});return;}
         state.damageCount=rolledDamage;state.plan={...state.plan,damageFormula:rolledDamage+'D12'+(state.aimDice||[]).map(d=>' + 1D'+d).join(''),damageFormulaSupported:true};state.phase='damage';state.id=id();
       }
     }else     if(state.personalEffect?.area){

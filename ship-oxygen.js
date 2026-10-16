@@ -12,7 +12,7 @@ function people(campaign,room=null){
   for(const record of campaign?.characters||[]){
     const character=record.character,unit=room?.units.find(u=>u.characterId===record.id);
     const assigned=(campaign.starships||[]).find(s=>s.crewCharacterIds?.includes(record.id)&&s.characterLocations?.[record.id]);
-    if(unit?.location?.arenaId||unit?.location?.environment==='surface'||assigned?.characterLocations?.[record.id]?.environment==='surface'||unit?.vacuum||unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
+    if(unit?.location?.environment==='boarding'||assigned?.characterLocations?.[record.id]?.environment==='boarding'||unit?.location?.arenaId||unit?.location?.environment==='surface'||assigned?.characterLocations?.[record.id]?.environment==='surface'||unit?.vacuum||unit?.location?.escapePodId||assigned?.characterLocations?.[record.id]?.escapePodId)continue;
     const shipId=unit?.location?.starshipId||assigned?.id;
     if(!shipId)continue;
     const dice=(character.attributes?.health||[]).filter(n=>n>=0).map(n=>[4,6,8,10,12][n]).filter(Boolean);
@@ -26,7 +26,7 @@ function people(campaign,room=null){
   }
   for(const unit of room?.units||campaign?.npcRoster||[]){
     if(unit.characterId)continue;
-    if(unit.location?.arenaId||unit.location?.environment==='surface'||unit.vacuum||unit.location?.escapePodId)continue;
+    if(unit.location?.environment==='boarding'||unit.location?.arenaId||unit.location?.environment==='surface'||unit.vacuum||unit.location?.escapePodId)continue;
     const shipId=unit.location?.starshipId||(campaign.starships||[]).find(s=>s.crewNpcUnitIds?.includes(unit.id))?.id;
     if(!shipId)continue;
     result.push({id:unit.id,unitId:unit.id,characterId:null,shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:require('./breathing').independent(unit),

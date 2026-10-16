@@ -73,7 +73,7 @@
       return { id: entry.id, engineeringSkill: character.computed?.skills?.Engineering ?? (typeof skill === "object" ? nonnegative(skill.tenths) / 10 : skill),
         classId: character.identity?.classId,
         intellectDice: (character.attributes?.intellect || []).filter(value => Number(value) >= 0).map(value => [4, 6, 8, 10, 12][Number(value)] || 0),
-        location: location ? { ...location, starshipId: ['surface','exterior','escape-pod'].includes(location.environment)||location.escapePodId?'':record.id, sicId: placement?.sicId || "" } : null };
+        location: location ? { ...location, starshipId: ['surface','exterior','escape-pod','boarding'].includes(location.environment)||location.escapePodId?'':record.id, sicId: placement?.sicId || "" } : null };
     });
   }
 

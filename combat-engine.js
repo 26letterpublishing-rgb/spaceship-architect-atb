@@ -206,6 +206,7 @@ function syncUnitCombat(unit, source = {}) {
   unit.grapplingSkill = Math.max(0, Number(source.grapplingSkill) || 0);
   unit.scienceSkill = Math.max(0, Number(source.scienceSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
+  unit.iconRace = String(source.iconRace??unit.iconRace??'');
   unit.iconVariant = Number(source.iconVariant??unit.iconVariant)===1?1:0;
   unit.sex=safeText(source.sex,unit.sex||"",80);
   unit.raceId = safeText(source.raceId, unit.raceId || "", 80);
@@ -287,6 +288,7 @@ function migrateUnitCombat(unit) {
     scienceSkill: unit.scienceSkill,
     dodgeSkill: unit.dodgeSkill,
     raceId: unit.raceId,
+    iconRace: unit.iconRace,
     iconVariant: unit.iconVariant,
     raceType: unit.raceType,
     classId: unit.classId,
@@ -351,7 +353,7 @@ function resetVehicleAcceleration(room, unit) {
 }
 
 function effectiveSpeed(unit) {
-  if (unit?.defeatedAt || unit?.oxygenUnconscious || (unit?.currentHp != null && Number(unit.currentHp) <= 0) || unit?.consoleHold || unit?.shieldRestabilizing || unit?.frozenSeconds>0) return 0;
+  if (unit?.location?.environment==='boarding' || unit?.defeatedAt || unit?.oxygenUnconscious || (unit?.currentHp != null && Number(unit.currentHp) <= 0) || unit?.consoleHold || unit?.shieldRestabilizing || unit?.frozenSeconds>0) return 0;
   return Math.max(0, Number(unit?.speed) || 0) + Math.max(0, Number(unit?.aim?.speedBonus) || 0);
 }
 

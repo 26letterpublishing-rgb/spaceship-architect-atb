@@ -2129,3 +2129,7 @@ select.skill-guidance{border-radius:8px!important}
 @media(max-width:1000px){.creator-shell .workflow-bar{grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto}.creator-shell .workflow-bar>.workflow-counters{grid-column:1/-1;grid-row:2}.creator-shell .workflow-bar>.workflow-actions{grid-column:3}.character-creation-active .workflow-bar{grid-template-columns:1fr auto}.character-creation-active .workflow-bar>.workflow-actions{grid-column:2}}
 @media(max-width:640px){.creator-shell .workflow-bar{grid-template-columns:1fr auto}.creator-shell .workflow-bar>.experience-panel{grid-column:1/-1;grid-row:2}.creator-shell .workflow-bar>.workflow-counters{grid-row:3}.creator-shell .workflow-bar>.workflow-actions{grid-column:2}}
 @media(prefers-reduced-motion:reduce){.try-it-out{animation:none}}
+
+.campaign-single-column>#campaignPrivateNotes{width:100%;margin-top:14px}
+
+.player-starship-card:has(iframe)>.player-starship-view-controls{display:none!important}

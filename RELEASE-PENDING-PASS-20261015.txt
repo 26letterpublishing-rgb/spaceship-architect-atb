@@ -1,0 +1,38 @@
+Pending campaign / starship pass — October 15, 2026
+
+Delivered
+- PC and GM Campaign use a full-width black/grey galaxy section, compact GM clock and visible Shops heading. Removed GM duplicate notes/character/ship summaries; preserved PC private notes below the map.
+- GM Prompt/Give groups existing forms under Player Interaction, Rewards & Supplies and Campaign Tools, with collapsible sections. Quick Prompt behavior/buttons remain unchanged.
+- Script tools are on the left third; Story Console fills the right two thirds. Existing script and conditional-reward controls are retained.
+- Encounter recovery controls now share the Combat preparation location: Restore Latest and Choose Earlier Checkpoint.
+- GM Settings > Campaign contains Export Adventure Module. Metadata, opening instructions and optional pregenerated PCs/preparation are supported. Modules preserve authored scripts, chapters, conditional actions, starships, NPC templates/roster, starmaps, shops and library entries. Credentials, private delivery history, live encounters and ship runtime effects are excluded. Each import creates a fresh independent room. Opening instructions appear only to the GM in Settings. Save Campaign continues to make a full campaign backup and flushes pending script edits first.
+- Repeated uploads of the same ship by a player reuse the pending/approved submission instead of creating duplicates.
+- Active-character room navigation redirects to the character. Back to Campaign from PC ship creation returns directly to Starships, including Explore. Abandon Character explicitly releases the link.
+- PC ship map drag-to-pan works. Out-of-combat walking uses the same door open state and CSS animation as combat; no replacement animation was introduced.
+- Removed duplicate top map controls; retained the controls beside the map. Builder live statistics update from the draft with yellow/black pending styling, while linked ships retain confirmed values. Covered the old Crewmembers background heading and restored full Lock-On/Break Lock borders.
+- GM character/fleet cards show selected character and ship icons. Ally NPCs assigned to PC ships appear in the character roster with a read-only View Sheet.
+- Draco Prime may choose any race appearance except Spiddix, without changing actual race or rules.
+- Successful Systems Analysis displays red Hull and green Shield current/max meters from the last analysis snapshot; unknown/unanalysed contacts retain normal privacy and indicators.
+- Bridge Airlock Docking requires the same hex, airlocks and zero active shield HP. Twenty active seconds establishes a connection. Selecting its airlock changes movement confirmation to a pulsing Board other ship button. After walking, the passenger vanishes for five seconds and arrives at the other airlock. Separation cancels unused links but not passengers already in transit. Pauses freeze combat timing. Boarding does not mark passengers defeated or grant enemy-ship crew permissions. Out-of-combat PC transfers remain usable in Starships.
+
+Verification
+- Final complete suite: 1,114 tests passed, zero failed (node --test --test-concurrency=4 tests/*.test.js). Log: ../outputs/pending-release-tests.txt.
+- Unrestricted parallel run had two intermittent timing/restart failures; both passed independently, and the complete bounded-concurrency reruns passed.
+- Authenticated HTTP docking regression ran the actual 20-second docking and five-second boarding clocks. Additional regressions cover separation, retry safety, reconstructed campaign ticks, combat passenger health/permissions, module isolation/privacy, duplicate uploads and Draco icon restrictions.
+- Syntax: 28 changed/new JS files. CRLF-aware git diff whitespace check passed.
+- Browser: PC drag-pan; doors open during walking and close after passage; map exit; PC create-starship and Back to Campaign; live draft hull updates; duplicate toggle removal; crew title; GM/PC Campaign; three tool groups; Story Console proportions; ally NPC sheet/dismissal; checkpoint picker/close; module file import with chapters/keywords/NPC/library content; GM module instructions and export form submission.
+- Fixed issues found during browser tests: older CSS overriding layouts, missing Explore storage dependency, library form outside its group, empty-map overflow and legacy Explore-to-module load failure.
+- Screenshots: ../outputs/pending-gm-tools.jpg, pending-script-layout.jpg, pending-campaign-layout.jpg.
+
+Limits and next work
+- Fullscreen planet view is explicitly deferred to the next pass.
+- Browser export form completed without an application error, but the automation did not capture the native download event. Export payload/round-trip and file-chooser import are tested; native file-save completion is not claimed.
+- Docking has automated server coverage; every graphical live-combat boarding/console combination was not manually exercised. No Render/hosted session was tested.
+- This pass does not resolve the older weapon clarification/coverage items recorded in RELEASE-AUDIT-20261015.txt.
+- Before selling modules, use a clean-room acceptance campaign with a GM and multiple players, validate each chapter/keyword/reward, and supply a versioned compatibility note and introductory GM instructions. The next feature pass is the requested planet view.
+
+Preservation/runtime
+- Personal campaigns were backed up before work: ../outputs/campaigns-before-modules-20261015.json.
+- Personal campaign SHA256 remains 5F9CDE562514BF2F10082E4D38FF7252D60C20ED567E831D8776565974FF92C7.
+- Normal local server refreshed on port 8790, PID 15364, using the existing personal campaign-data directory.
+- Gold Standard/liked-build backup and unrelated QA/scripts were left untouched.

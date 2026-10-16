@@ -91,3 +91,10 @@ body:has(.character-tabs) .creator-header .creator-title h1{font-size:20px}
 .campaign-columns,.campaign-columns-player{height:clamp(360px,calc(100dvh - 340px),640px)!important;min-height:0!important}
 .campaign-columns .campaign-galaxy,.campaign-columns-player .campaign-galaxy{min-height:0!important}
 @media(max-width:760px){.campaign-columns,.campaign-columns-player{height:auto!important}}
+
+.campaign-single-column{display:block!important}.campaign-single-column>.session-control{display:flex;width:max-content;max-width:100%;gap:20px;align-items:center;padding:8px 12px;margin-bottom:10px}.campaign-single-column>.campaign-galaxy{width:100%;height:clamp(330px,calc(100dvh - 330px),620px);box-sizing:border-box}.campaign-single-column #campaignRosterCards,.campaign-single-column #campaignStarshipRoster{display:none!important}.campaign-single-column>.campaign-galaxy .galaxy-chart{min-height:0}.campaign-single-column>.campaign-lobby-heading{display:none}.campaign-single-column .galaxy-map-panel{min-height:0}
+
+.campaign-single-column[hidden]{display:none!important}.campaign-single-column>.campaign-galaxy{display:flex;flex-direction:column;min-height:0!important}.campaign-single-column>.campaign-galaxy .galaxy-workspace{flex:1;min-height:0;height:0}.campaign-single-column>.campaign-galaxy .galaxy-chart{height:100%;min-height:0;grid-template-rows:auto auto minmax(0,1fr) auto}.campaign-single-column>.campaign-galaxy .galaxy-details{min-height:0;height:100%;overflow:auto}
+
+@media(max-width:700px){.campaign-single-column>.campaign-galaxy{height:auto}.campaign-single-column>.campaign-galaxy .galaxy-workspace{height:auto}.campaign-single-column>.campaign-galaxy .galaxy-chart{height:48vh;min-height:300px}}
+.campaign-single-column .galaxy-empty-map{min-height:0;height:100%;box-sizing:border-box}

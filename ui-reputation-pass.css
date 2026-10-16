@@ -4,7 +4,7 @@
 .gm-tabs button[data-tab=script]{--tab-color:#9da1a8!important;--tab-dark:#252a31!important;border-top-color:#9da1a8!important;background:linear-gradient(#34383f,#14171c)}
 .gm-tabs button[data-tab=script].active{background:linear-gradient(#697079,#252a31)!important;border-color:#b4bbc6!important;box-shadow:inset 0 0 12px #c8ccd344!important}
 #scriptTab:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
-#scriptTab .story-column{min-width:0;grid-column:1;grid-row:1;background:linear-gradient(#202125,#070708);padding:12px;border:1px solid #5a6067}
+#scriptTab .story-column{min-width:0;grid-column:2;grid-row:1;background:linear-gradient(#202125,#070708);padding:12px;border:1px solid #5a6067}
 #scriptTab .story-column .script-live-editor{background:linear-gradient(#191a1e,#030304);min-height:260px;max-height:65vh}
 #scriptTab .story-column h2{font-size:20px;white-space:nowrap}#scriptTab .script-heading-actions{gap:7px;flex-wrap:wrap}#scriptTab .script-heading-actions button{white-space:nowrap;padding:8px 10px}
 #scriptTab .script-conditional-card>label{align-self:start}#scriptTab .script-conditional-card select{min-height:40px;max-height:44px}
@@ -26,3 +26,5 @@
 .reputation-chart-copy .reputation-row>text{fill:#10141a;font:900 15px Arial,sans-serif;text-anchor:end;dominant-baseline:middle}.reputation-chart-copy .reputation-row>text:nth-of-type(2){text-anchor:start}
 .encounter-preparation-actions{grid-column:1/-1;position:sticky;bottom:8px;z-index:4;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:8px;background:#09131eee;border:1px solid #365264}.encounter-preparation-actions .begin-encounter{position:static;box-shadow:none}.encounter-preparation-actions button{min-height:42px}
 .roll-request-head>div{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:baseline}
+
+#scriptTab>.script-tools-column{grid-template-columns:1fr}#scriptTab .script-tools-column>*{grid-column:1;grid-row:auto}#scriptTab .story-column .script-live-editor{min-height:65vh;max-height:none}.gm-tool-section #gmDramaDiscardPanel h3{display:none}@media(max-width:900px){#scriptTab .story-column{grid-column:1}}
