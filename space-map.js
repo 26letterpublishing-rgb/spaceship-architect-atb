@@ -434,8 +434,9 @@
       for(const [group,sweep] of [[back,1],[front,0]]){const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',`M${c.x-rx} ${c.y}A${rx} ${ry} 0 0 ${sweep} ${c.x+rx} ${c.y}`);path.setAttribute('vector-effect','non-scaling-stroke');path.setAttribute('stroke-width','.75');group.append(path);}}
     const first=svg.querySelector('[data-space-ship]');if(first)svg.insertBefore(back,first);else svg.append(back);svg.append(front);
   }
+  function planetImage(o){const variant=['temperate','moon','ocean','desert','ice','volcanic'].includes(o?.variant)?o.variant:'ocean';return o?.destroyedAt?'planet-debris.webp':'planet-'+(variant==='temperate'?'ocean':variant)+(variant==='moon'?'.svg':'.webp');}
   function planetMarkup(o,c,unseen=false,system=false){
-    const variant=['temperate','moon','ocean','desert','ice','volcanic'].includes(o.variant)?o.variant:'ocean',label=o.name+(o.destroyedAt?' / Destroyed':''),file=o.destroyedAt?'planet-debris.webp':'planet-'+variant+(['temperate','moon'].includes(variant)?'.svg':'.webp');
+    const label=o.name+(o.destroyedAt?' / Destroyed':''),file=planetImage(o);
     const radius=system?1.1:2.95;
     return `<g data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" data-planet="${escape(o.id)}" ${unseen?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(label)} / ${system?'star system planet':'7 hexes'} / pass-through scenery</title><circle r="${radius*.9}" fill="#050812" fill-opacity=".12"/><image href="${file}" x="${-radius}" y="${-radius}" width="${radius*2}" height="${radius*2}" opacity=".85" pointer-events="none"/><text y="${radius+.3}" text-anchor="middle" font-size=".55" fill="#e8d6ff" stroke="#070e14" stroke-width=".08" paint-order="stroke">${escape(label)}</text></g>`;
   }
@@ -456,5 +457,5 @@
     }
   }
   if(typeof MutationObserver!=='undefined'&&document.documentElement){const mapMounts=new MutationObserver(records=>{for(const record of records){for(const node of record.removedNodes)if(node.nodeType===1&&!node.isConnected){const maps=[...(node.matches?.('[data-space-canvas]')?[node]:[]),...node.querySelectorAll('[data-space-canvas]')];for(const svg of maps)watched.get(svg)?.();}for(const node of record.addedNodes)if(node.nodeType===1)watchMaps(node);}});mapMounts.observe(document.documentElement,{childList:true,subtree:true});watchMaps();}
-  window.SASpaceMap={update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
+  window.SASpaceMap={planetImage,update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
 }());

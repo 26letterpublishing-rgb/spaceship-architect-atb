@@ -1,0 +1,11 @@
+Local mail / takeoff / heading follow-up — October 16, 2026
+
+PC Private Notes now live in an envelope button between Help and Mute. Unread/reward indicators moved from the Campaign tab to that button. The existing messages, reward claims, deletion and Send to GM controls are retained in a dismissible dialog. Opening Campaign no longer marks messages read. Removed both map-renderer paths that reinserted the notes panel into Campaign. Updated Help.
+
+Star-system travel now rotates the ship toward its course, matching galaxy travel. Heading persists after arrival without rotating the label. Both travel types save the heading.
+
+Leave Atmosphere uses the existing descent presentation in reverse over twenty active seconds. The authoritative travel job survives reload, pauses for combat, prevents duplicate launches and remains on the surface if launch equipment fails. Arrival transitions the party into orbit. A scoped sizing correction prevents the local-map SVG from overflowing its viewport.
+
+Validation: full 1,138 tests passed; JavaScript syntax and whitespace checks passed. New regressions cover heading persistence, timed ascent, pause/reload, duplicate launch rejection and failure cancellation. Browser checks covered the header order, removal of notes from Campaign, opening/dismissing the inbox, sending a private note in a disposable room, animated takeoff through its midpoint and completed orbit, and the rendered westward ship rotation. No browser errors observed.
+
+Local preview refreshed at port 8790, PID 12296. Personal data backed up before restart and preserved. No commit/push. Prior local changes and Gold Standard retained. Temporary testing used isolated port 8798.

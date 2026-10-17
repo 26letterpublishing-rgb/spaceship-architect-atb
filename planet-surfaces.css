@@ -3,3 +3,82 @@
 .campaign-single-column>.campaign-galaxy.planet-surface-host{height:clamp(650px,calc(100dvh - 220px),900px)}.planet-surface-host .galaxy-workspace{align-items:stretch}.planet-surface-host.planet-enlarged{height:calc(100dvh - 24px)!important}.planet-chart{grid-template-rows:auto minmax(0,1fr) auto}.planet-surface-host .planet-details{box-sizing:border-box}
 
 .campaign-single-column>.campaign-galaxy.planet-orbit-host{height:clamp(600px,calc(100dvh - 220px),900px)}.planet-orbit-host .galaxy-workspace{align-items:stretch}.planet-orbit-host .galaxy-chart{display:flex!important}.planet-orbit-host [data-local-map]{flex:1}.planet-surface-host .galaxy-heading p,.planet-orbit-host .galaxy-heading p{margin:6px 0}.planet-surface-host .galaxy-heading h2{margin:4px 0}
+/* All Campaign map levels use the available viewport; actions stay outside lore. */
+body:has(.campaign-galaxy){display:flow-root}
+#characterCampaignGate:has(.campaign-galaxy){margin:6px 12px 6px}
+#characterCampaignGate:has(.campaign-galaxy)>.campaign-gate-card{padding:8px}
+.gm-shell:has(.campaign-galaxy){margin-bottom:6px}
+.campaign-single-column>.campaign-galaxy{box-sizing:border-box;height:var(--galaxy-available-height,65dvh)!important;min-height:180px!important;display:flex!important;flex-direction:column;padding:8px!important;margin:4px 0!important;gap:6px!important}
+.campaign-galaxy .galaxy-heading{margin:0;gap:8px;align-items:center}
+.campaign-galaxy .galaxy-heading h2{margin:0;font-size:20px}
+.campaign-galaxy .galaxy-heading p{display:none}
+.campaign-galaxy .galaxy-heading .session-control{margin:0;padding:0;min-height:0;display:flex;gap:6px;background:none;align-items:center}
+.campaign-galaxy .session-control>div{display:none}
+.campaign-galaxy .campaign-group-credits{margin:0!important;font-size:11px!important;white-space:nowrap}
+.campaign-galaxy .galaxy-tools{margin:0;gap:6px;align-items:end}
+.campaign-galaxy .galaxy-workspace{flex:1!important;height:0!important;min-height:0!important;overflow:visible!important;grid-template-columns:minmax(0,1fr) 260px!important;align-items:stretch!important}
+.campaign-galaxy .galaxy-chart,.campaign-galaxy .planet-chart{min-height:0!important;height:100%!important;max-height:none!important}
+.campaign-galaxy [data-local-map],.campaign-galaxy .planet-closeup{min-height:0!important;flex:1}
+.campaign-galaxy .galaxy-details{height:auto!important;max-height:none!important;min-height:0;overflow:visible!important;padding:10px}
+.campaign-galaxy [data-local-actions]{display:flex;flex-direction:column;gap:6px}
+.campaign-galaxy .galaxy-details button{margin:0;min-height:34px;white-space:normal}
+.campaign-galaxy [data-galaxy-status]{margin:0;font-size:12px}
+.campaign-galaxy [data-galaxy-status]:empty{display:none}
+.planet-chart{display:flex!important;flex-direction:column}
+.planet-chart-canvas{flex:1;min-height:0}
+.planet-chart-tools{padding:4px;gap:5px}
+.planet-legend{padding:4px 8px;gap:10px}
+.planet-details{display:flex;flex-direction:column;gap:8px}
+.planet-location-copy{flex:1;min-height:0;overflow:hidden}
+.planet-location-copy h3{margin:7px 0}
+.planet-location-copy .planet-description,.planet-location-copy .planet-secret p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:5px 0;font-size:13px}
+.planet-location-copy .planet-secret{margin:6px 0;padding:6px}
+.planet-location-copy>button{font-size:12px}
+.planet-location-actions{display:grid;gap:6px;flex:none}
+.planet-edit-tools{display:flex;gap:6px;align-items:center;padding:4px 7px;flex-wrap:wrap;background:#10222b}
+.planet-edit-tools label{display:flex;gap:6px;align-items:center;font-size:12px;margin:0}
+.planet-edit-tools select{padding:5px;min-height:30px;width:auto;margin:0}
+.planet-terrain-palette{display:flex;gap:4px}
+.planet-edit-tools button{font-size:11px;padding:4px 6px;min-height:30px!important}
+.planet-terrain-palette button{border-color:#78939c;text-transform:capitalize;display:flex;align-items:center;gap:4px}
+.planet-terrain-palette button:before{content:'';display:inline-block;width:23px;height:25px;background-image:var(--terrain-preview);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.planet-terrain-palette button[aria-pressed=true]{outline:2px solid #ffe386}
+.planet-edit-tools:not([data-mode=paint]) .planet-terrain-palette{display:none}
+.planet-chart-canvas[data-mode=paint] svg{cursor:crosshair}
+.planet-chart-canvas[data-mode=move] .planet-party-token{pointer-events:all;cursor:grab}
+.galaxy-tools button[data-nav-level]{position:relative;flex:none;min-height:34px;margin-top:17px;font-weight:bold}
+.galaxy-tools button[data-nav-level=galaxy]{background:#56377c;padding:10px 22px;font-size:15px}
+.galaxy-tools button[data-nav-level=system],.galaxy-tools button[data-nav-level=orbit]{background:#245d82;padding:8px 16px;font-size:14px}
+.galaxy-tools button[data-nav-level=surface]{background:#286344;padding:6px 12px;font-size:13px}
+.galaxy-tools button[data-nav-level=region]{background:#766036;padding:5px 9px;font-size:12px}
+.galaxy-tools button.players-view:before{content:attr(data-player-view);position:absolute;top:-18px;left:50%;transform:translateX(-50%);white-space:nowrap;color:#ff8790;font-size:11px}
+.galaxy-tools button[aria-current=page]{border-color:#fff2b6;box-shadow:inset 0 -2px #fff2b6}
+.galaxy-dialog{height:auto!important;min-height:0!important;max-height:90dvh!important}
+.planet-read-details{white-space:pre-wrap}
+@media(max-width:800px){
+ .campaign-galaxy .galaxy-workspace{grid-template-columns:minmax(0,1fr) 185px!important}
+ .campaign-galaxy .galaxy-heading>div:first-child>span{display:none}
+ .campaign-galaxy .galaxy-heading h2{font-size:16px}
+ .campaign-galaxy .galaxy-heading{flex-wrap:wrap}
+ .campaign-galaxy .galaxy-details{padding:6px;font-size:12px}
+ .planet-location-copy .planet-description,.planet-location-copy .planet-secret{display:none}
+ .planet-location-actions button{font-size:11px!important;padding:5px!important}
+ .planet-edit-tools{gap:3px}.planet-terrain-palette{flex-wrap:wrap}.planet-terrain-palette button{font-size:10px}
+ .galaxy-tools button[data-nav-level]{padding:5px 8px!important;font-size:11px!important}
+ .planet-legend>span:last-child{display:none}
+}
+.campaign-single-column>.campaign-galaxy:not(.galaxy-overview) .galaxy-workspace{display:grid!important;grid-template-rows:minmax(0,1fr)!important;grid-template-columns:minmax(0,1fr) 260px!important;gap:12px}
+.campaign-galaxy .galaxy-details:has(>[data-local-actions]:empty){display:none!important}
+.campaign-single-column>.campaign-galaxy .galaxy-workspace:has(>[data-local-map]),.campaign-single-column>.campaign-galaxy .galaxy-workspace:has(>.galaxy-details>[data-local-actions]:empty){grid-template-columns:minmax(0,1fr)!important}
+@media(max-width:800px){.campaign-single-column>.campaign-galaxy:not(.galaxy-overview) .galaxy-workspace{grid-template-columns:minmax(0,1fr) 185px!important;gap:8px}.campaign-galaxy .planet-chart{flex:none!important}.planet-chart-tools button{padding:4px 6px!important;font-size:11px}.planet-chart-tools{flex-wrap:wrap}}
+
+.campaign-single-column>.campaign-galaxy.planet-enlarged,.campaign-galaxy.galaxy-is-expanded{position:fixed!important;inset:4px!important;width:auto!important;height:calc(100dvh - 8px)!important;max-height:none!important;min-height:0!important;z-index:800!important;margin:0!important}
+.planet-edit-tools .planet-terrain-palette{display:flex!important;flex-wrap:wrap}.planet-edit-tools{flex-wrap:wrap}.planet-terrain-palette button{min-height:30px}
+.planet-chart-canvas svg{contain:strict}.planet-hex>path:first-child{transition:none;filter:none!important}
+.planet-map-status{color:#8be6ff}
+
+
+.planet-mini-preview{height:240px;width:240px;max-width:100%;margin:auto}.planet-mini-preview svg{width:100%;height:100%}.planet-directory-card{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:12px;border-bottom:1px solid #345}.planet-directory-card img{width:96px;height:96px;object-fit:contain}.planet-directory-card button{grid-column:2}.planet-terrain-palette button[data-terrain=city]:before{background:none;content:'⌂';font-size:24px;clip-path:none}.planet-terrain-palette button[data-terrain=erase-city]:before{background:none;content:'×';font-size:24px;clip-path:none}
+
+
+.planet-closeup-art{position:relative;z-index:2;pointer-events:none}.planet-orbit-ship{position:absolute;inset:0;z-index:3}

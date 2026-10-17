@@ -1,0 +1,13 @@
+October 16, 2026 — Galaxy overview layout (local only)
+
+Galaxy overview now uses the full workspace width. Compact map and ship toolbars replace the permanent scrolling inspector. Clicking a star (or using the keyboard / Star directory) opens its existing details and GM actions. Ship & travel retains placement, journey review and warp controls; Map options retains portable maps, visibility and creation.
+
+Campaign Clock and player Group Credits share the map heading. GM Shops uses a compact Open Shops strip and a dismissible panel with its existing controls. No changes to Prompt/Give, Quick Prompt, Script or game rules. Private Notes remains exclusively in the PC header mail dialog from the preceding pass.
+
+Viewport sizing and surrounding margins eliminate normal overview scrolling in the tested 1280x720 GM/PC and 550x880 GM Explore views. Long detail/editor dialogs retain accessible overflow on constrained screens. Planet, region and star-system inspectors are outside this overview redesign.
+
+Verification: 1,138 full-suite tests passed; final JavaScript syntax and CRLF-aware diff checks passed. Browser checked GM/PC overview, star directory/details, keyboard selection, Map options, PC visibility editor, system navigation, enlarged map return, shop availability toggles and dialog dismissal. Confirmed PC notes are outside Campaign and map/document dimensions have no overflow. Normal departure also completed in the disposable test room. Browser captures: ../outputs/galaxy-map-player-layout.png and ../outputs/galaxy-map-compact-layout.png.
+
+Normal local preview remains on port8790; frontend refresh only, no server restart, personal save edits, commit or push.
+
+Follow-up: GM Campaign now defaults to the shared player location on each tab selection, including regions, while keeping GM authoring permissions. Browsing elsewhere does not change player location. Clicking Campaign again resets the GM view, overview map/ship selection and enlargement. Four new browser-module regressions plus eleven existing navigation tests passed (15 total); final syntax/whitespace checks and live GM/PC Harbor comparison passed. Screenshot: ../outputs/gm-campaign-player-default.png.

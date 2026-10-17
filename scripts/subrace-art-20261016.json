@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "resolution": 512,
+  "walkCycleMs": 840,
+  "assets": [
+    {
+      "id": "android-perfect-android",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-aa825b9a-099f-4965-989b-43908f726b6e.png",
+      "output": "crew-atlas-android-perfect-android-v1.webp"
+    },
+    {
+      "id": "android-imperfect-android",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-4e60e764-00dd-4e14-b3d6-6aa0e19c99a0.png",
+      "output": "crew-atlas-android-imperfect-android-v1.webp"
+    },
+    {
+      "id": "android-perfect-robot",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7eb2549c-7698-4f97-bb09-901e3c9fa3aa.png",
+      "output": "crew-atlas-android-perfect-robot-v1.webp"
+    },
+    {
+      "id": "android-imperfect-robot",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9348311f-b75e-42c2-a4b2-61127a93813a.png",
+      "output": "crew-atlas-android-imperfect-robot-v1.webp"
+    },
+    {
+      "id": "antropic-fangs",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-6901f8bf-203b-4964-9ed8-015086788c5a.png",
+      "output": "crew-atlas-antropic-fangs-v1.webp"
+    },
+    {
+      "id": "antropic-feather",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-9934dfd4-91e0-471a-8e18-bf432195db6a.png",
+      "output": "crew-atlas-antropic-feather-v1.webp"
+    },
+    {
+      "id": "antropic-fins",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-ebb88a41-023b-46af-bf62-480953686713.png",
+      "output": "crew-atlas-antropic-fins-v1.webp"
+    },
+    {
+      "id": "antropic-fluffy",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-15e1627e-76a5-4c0f-8b56-48c993795a6e.png",
+      "output": "crew-atlas-antropic-fluffy-v1.webp"
+    },
+    {
+      "id": "yuhorn-symitron-ice",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-923dc05a-cec5-49df-bd16-9907cd475064.png",
+      "output": "crew-atlas-yuhorn-symitron-ice-v1.webp"
+    },
+    {
+      "id": "yuhorn-symitron-lava",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-6b62752a-bb40-474b-84e1-1010219dffd0.png",
+      "output": "crew-atlas-yuhorn-symitron-lava-v1.webp"
+    },
+    {
+      "id": "yuhorn-symitron-rock",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-b5e49ce1-9488-4360-9286-5733319a19d9.png",
+      "output": "crew-atlas-yuhorn-symitron-rock-v1.webp"
+    },
+    {
+      "id": "yuhorn-symitron-wood",
+      "source": "C:\\Users\\zombi\\.codex\\generated_images\\01a0a7de-5eb2-78d1-846e-920d46b20f50\\exec-7d34cd1f-0b9c-4c4a-a7a5-a0f5f09e1ccb.png",
+      "output": "crew-atlas-yuhorn-symitron-wood-v1.webp"
+    }
+  ]
+}

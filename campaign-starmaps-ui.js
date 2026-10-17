@@ -5,7 +5,7 @@
   const distance = (a,b) => (Math.abs(a.q-b.q)+Math.abs(a.r-b.r)+Math.abs(a.q+a.r-b.q-b.r))/2;
   const cameras = new Map();
   let state, token, host, selectedMap='', selectedStar='', selectedShip='', signature='';
-  let packetAt=performance.now(), animation=0;
+  let packetAt=performance.now(), animation=0,lastViewEvent='';
   let expanded=false, mode='', message='', errorMessage=false, resizeObserver, interacting=false, pendingDraw=false, focusMap=null;
 
   function status(text,error=false) {
@@ -14,6 +14,7 @@
     if(out){out.textContent=text;out.classList.toggle('is-error',error);}
   }
   async function send(kind,body={}) {
+    if(state.role==='gm'&&state.starmaps?.party&&['position','systemPosition'].includes(kind)&&state.starships?.find(s=>s.id===body.shipId)?.controlType==='pc'&&!body.forceParty){return new Promise((resolve,reject)=>{let accepted=false;const d=confirmation('Move the party aboard?', 'This leaves the current planet or region, brings the party aboard this ship, and stations a conscious PC on the Bridge.','Move Ship',async()=>{accepted=true;try{resolve(await send(kind,{...body,forceParty:true}));}catch(e){reject(e);throw e;}});d.addEventListener('close',()=>{if(!accepted)resolve({cancelled:true});},{once:true});});}
     const response=await fetch('/api/campaign/v03/starmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:state.code,token,kind,receipt:crypto.randomUUID(),...body})});
     const result=await response.json();
     if(!response.ok)throw Error(result.error||'The map could not be saved. Please try again.');
@@ -26,7 +27,7 @@
     if(options.label)node.setAttribute('aria-label',options.label);
     if(options.disabled){node.disabled=true;node.title=options.disabled;}
     node.onclick=async event=>{
-      event.stopPropagation();if(node.disabled)return;node.disabled=true;
+      event.stopPropagation();if(node.disabled)return;window.SAAudioMix?.navigation?.(/Atmosphere|Descend|Land Here|Travel Here/.test(label)?'travel':/Map|System|Orbit|Region/.test(label)?'view':'click');node.disabled=true;
       try{await action();}
       catch(error){const alert=node.closest('dialog')?.querySelector('[role="alert"]');if(alert)alert.textContent=error.message;else status(error.message,true);}
       finally{if(node.isConnected)node.disabled=Boolean(options.disabled);}
@@ -74,6 +75,8 @@
     const centerId='object-star-'+star.id,dialog=document.createElement('dialog');dialog.className='galaxy-system-dialog';
     dialog.innerHTML=`<header><div><h2>${esc(star.name)} system</h2><p>Place planets, asteroids and other objects around the central star. Drag markers to reposition them.</p></div></header><div class="galaxy-system-body"><div data-system-canvas></div></div><p role="alert"></p><footer></footer>`;
     const canvas=dialog.querySelector('[data-system-canvas]');
+    const selection=document.createElement('section');selection.className='planet-edit-selection';selection.hidden=true;dialog.querySelector('.galaxy-system-body').prepend(selection);
+    let press=null;canvas.addEventListener('pointerdown',e=>{press={x:e.clientX,y:e.clientY,id:e.target.closest('[data-space-ship]')?.dataset.spaceShip};},true);canvas.addEventListener('pointerup',e=>{if(!press||Math.hypot(e.clientX-press.x,e.clientY-press.y)>5)return;const planet=objects.find(o=>o.id===press.id&&o.kind==='planet');press=null;if(!planet)return;selection.hidden=false;selection.innerHTML='<strong>'+esc(planet.name)+'</strong> ';selection.append(button('Edit Planet',async()=>{await send('system',{mapId:map.id,starId:star.id,objects});dialog.close();window.SACampaignNavigationUI.openPlanet({state,data:state.starmaps,map,ships:state.starships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,star,planet);}));selection.scrollIntoView({block:'nearest'});},true);canvas.addEventListener('pointercancel',()=>{press=null;});
     const render=()=>{
       window.SASpaceMap.bindEditor(canvas,objects.map(o=>({id:o.id,title:o.name,spaceObject:o,ship:{gridCells:[],sicInventory:[],placements:[]}})),objects,positions=>{
         objects=window.SASpaceObjects.withPositions(objects,positions).map(o=>o.id===centerId?{...o,q:0,r:0}:o);
@@ -127,6 +130,7 @@
     if(star&&gm){
       const actions=details.querySelector('[data-star-actions]');
       actions.append(button('Edit Details',()=>starEditor(map,star)),button('Edit Solar System',()=>systemEditor(map,star),{disabled:state.combatActive?'End the current encounter before editing a solar system.':''}));
+      actions.append(button('View '+star.name+' System',()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,star,null),{className:'galaxy-primary'}));
       actions.append(button('Prepare Combat Here',async()=>{
         const opened=await send('openSystem',{mapId:map.id,starId:star.id});window.dispatchEvent(new CustomEvent('sa-open-system',{detail:opened.campaign}));
         if(expanded){expanded=false;draw();}document.querySelector('.gm-tabs [data-tab="atb"]')?.click();document.querySelector('[data-encounter-mode="starship"]')?.click();status('System loaded into Prepare Combat. Choose ships and entry positions before beginning.');
@@ -145,8 +149,8 @@
     else info.textContent=gm?'Not placed on this map. Choose “Place Ship” and click a hex.':'Ask the GM to place this ship on the map.';
     travel.append(info);
     const currentStar=position?.mapId===map.id&&map.stars.find(s=>distance(position,s)<.00001);
-    if(currentStar&&ship&&!journey&&(gm||data.navigation?.allowed?.system!==false))travel.append(button('Enter Star System',()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,currentStar,ship)));
-    if(star&&gm)travel.append(button('View '+star.name+' System',()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,star,ship)));
+    if(currentStar&&ship&&!journey&&(gm||data.navigation?.allowed?.system!==false)){const enter=()=>window.SACampaignNavigationUI.open({state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded},map,currentStar,ship);travel.append(button('Enter Star System',enter));if(star?.id===currentStar.id)details.querySelector('[data-star-actions]')?.append(button('Enter Star System',enter));}
+
     if(ship&&position?.mapId===map.id)travel.append(button('Find Ship',()=>focusMap?.(position)));
     if(gm&&ship){travel.append(button(mode==='ship'?'Cancel Placement':'Place Ship on Map',()=>beginMode('ship'),{disabled:''}));if(star)travel.append(button('Place at '+star.name,async()=>{await send('position',{mapId:map.id,shipId:ship.id,q:star.q,r:star.r});status(ship.title+' placed at '+star.name+'.');},{disabled:''}));}
     if(journey){
@@ -162,9 +166,35 @@
     }
     details.append(travel);
     const directory=document.createElement('details');directory.className='galaxy-star-directory';directory.open=!star;directory.innerHTML=`<summary>Star directory · ${map.stars.length}</summary><div></div>`;
-    for(const entry of [...map.stars].sort((a,b)=>a.name.localeCompare(b.name)))directory.lastElementChild.append(button(entry.name+(entry.hidden?' (GM only)':''),()=>{selectedStar=entry.id;draw();focusMap?.(entry);}));
+    for(const entry of [...map.stars].sort((a,b)=>a.name.localeCompare(b.name)))directory.lastElementChild.append(button(entry.name+(entry.hidden?' (GM only)':''),()=>{selectedStar=entry.id;draw();focusMap?.(entry);overviewPanel('star');}));
     details.append(directory);
   }
+  // Reuse the existing controls in focused dialogs; the map keeps the whole workspace.
+  function overviewPanel(kind) {
+    const map=state.starmaps?.maps?.find(m=>m.id===selectedMap);if(!map)return;
+    const data={positions:{},journeys:{},...state.starmaps},gm=state.role==='gm',ships=(state.starships||[]).filter(s=>gm||s.controlType==='pc');
+    const source=document.createElement('div');inspector(source,map,data,gm,ships);
+    const section=source.querySelector(kind==='star'?'.galaxy-star-info':kind==='directory'?'.galaxy-star-directory':'.galaxy-travel');
+    if(section.tagName==='DETAILS')section.open=true;
+    showOverviewPanel(kind==='star'?'Star details':kind==='directory'?'Star directory':'Ship & travel',section);
+  }
+  function showOverviewPanel(title,section) {
+    const previous=document.activeElement,dialog=document.createElement('dialog');dialog.className='galaxy-dialog galaxy-overview-dialog';
+    dialog.setAttribute('aria-label',title);dialog.innerHTML='<header><h2>'+esc(title)+'</h2></header><div class="galaxy-details"></div><p role="alert"></p><footer></footer>';
+    dialog.querySelector('.galaxy-details').append(section);dialog.querySelector('footer').append(button('Dismiss',()=>dialog.close()));
+    // Close before an existing command opens its editor or changes the map, avoiding stacked stale panels.
+    section.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))dialog.close();},true);
+    dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+    dialog.onclose=()=>{dialog.remove();if(previous?.isConnected)previous.focus();};document.body.append(dialog);dialog.showModal();
+  }
+  function sizeOverview() {
+    if(!host||!host.getClientRects().length||expanded||host.classList.contains('planet-enlarged'))return;
+    const top=host.getBoundingClientRect().top+window.scrollY;
+    const reserve=20;
+    host.style.setProperty('--galaxy-available-height',Math.max(180,window.innerHeight-top-reserve-8)+'px');
+  }
+  window.addEventListener('resize',sizeOverview);
+  document.addEventListener('click',()=>requestAnimationFrame(sizeOverview));
   function snap(point){const q=Math.sqrt(3)/3*point.x-point.y/3,r=2*point.y/3;let x=Math.round(q),z=Math.round(r),y=Math.round(-q-r);const dx=Math.abs(x-q),dz=Math.abs(z-r),dy=Math.abs(y+q+r);if(dx>dy&&dx>dz)x=-y-z;else if(dz>dy)z=-x-y;return{q:Math.max(-10000,Math.min(10000,x)),r:Math.max(-10000,Math.min(10000,z))};}
   function starLabel(name){
     const lines=[];let line='';
@@ -226,44 +256,60 @@
       try{
         if(current.moved){if(current.shipId&&gm&&!mode){await send('position',{mapId:map.id,shipId:current.shipId,...position});status('Ship position saved.');return;}if(current.starId&&gm&&!mode){const star=map.stars.find(s=>s.id===current.starId);if(star.q!==position.q||star.r!==position.r){status('Saving star position…');await send('moveStar',{mapId:map.id,starId:star.id,...position});status(star.name+' moved.');}}return;}
         if(mode==='ship'&&gm&&selectedShip){await send('position',{mapId:map.id,shipId:selectedShip,...position});mode='';status('Ship position saved.');draw();return;}
-        if(current.starId){selectedStar=current.starId;mode='';status('');draw();return;}
+        if(current.starId){selectedStar=current.starId;mode='';status('');draw();overviewPanel('star');return;}
         if(current.shipId){selectedShip=current.shipId;mode='';draw();return;}
         if(mode==='star'&&gm)starEditor(map,{},position);
       }catch(error){status(error.message,true);draw();}
     };
-    for(const node of svg.querySelectorAll('[data-star],[data-map-ship]'))node.onkeydown=event=>{if(!['Enter',' '].includes(event.key))return;event.preventDefault();if(node.dataset.star)selectedStar=node.dataset.star;else selectedShip=node.dataset.mapShip;mode='';draw();};
+    for(const node of svg.querySelectorAll('[data-star],[data-map-ship]'))node.onkeydown=event=>{if(!['Enter',' '].includes(event.key))return;event.preventDefault();if(node.dataset.star)selectedStar=node.dataset.star;else selectedShip=node.dataset.mapShip;mode='';draw();if(node.dataset.star)overviewPanel('star');};
   }
   function draw(){
     if(!host||!state)return;resizeObserver?.disconnect();
+    document.querySelectorAll('.galaxy-overview-dialog').forEach(d=>d.close());
+    for(const item of host.querySelectorAll('.session-control,[data-group-credits]'))host.parentElement.prepend(item);host.classList.remove('galaxy-overview');
     const gm=state.role==='gm',data={maps:[],positions:{},journeys:{},...state.starmaps},map=data.maps.find(m=>m.id===selectedMap)||data.maps[0];selectedMap=map?.id||'';
     const ships=(state.starships||[]).filter(ship=>gm||ship.controlType==='pc');if(!selectedShip||!ships.some(s=>s.id===selectedShip))selectedShip=ships.find(s=>s.crewCharacterIds?.includes(state.ownCharacterId))?.id||ships.find(s=>s.controlType==='pc')?.id||ships[0]?.id||'';
     const navigationContext={state,data,map,ships,host,esc,button,modal,send,status,draw,systemEditor,confirmation,expanded};
-    if(window.SACampaignNavigationUI?.render(navigationContext))return;
-    host.classList.toggle('galaxy-is-expanded',expanded);
+    if(window.SACampaignNavigationUI?.render(navigationContext)){for(const item of host.parentElement.querySelectorAll(':scope > .session-control,:scope > [data-group-credits]'))host.querySelector('.galaxy-heading')?.append(item);requestAnimationFrame(sizeOverview);return;}
+    host.classList.toggle('galaxy-is-expanded',expanded);host.classList.add('galaxy-overview');
     host.innerHTML=`<header class="galaxy-heading"><div><span>CAMPAIGN NAVIGATION</span><h2>Galaxy Map</h2><p>${gm?'Build your sector, place ships and plan travel between stars.':'Explore known stars and plan your next journey.'}</p></div><div data-map-management></div></header><div class="galaxy-tools"></div><div class="galaxy-workspace"><div class="galaxy-chart"><div class="galaxy-camera-tools"></div><div class="galaxy-mode-help"></div><div class="galaxy-map-surface"></div><div class="galaxy-countdown" data-travel-countdown hidden></div><div class="galaxy-map-legend"><span><i class="galaxy-legend-star"></i> Star</span><span><i class="galaxy-legend-ship"></i> Ship</span><span><i class="galaxy-legend-route"></i> Planned route</span><span>Drag empty space to pan · Scroll to zoom</span></div></div><aside class="galaxy-details" aria-label="Star details and travel"></aside></div><p data-galaxy-status role="status" aria-live="polite" class="${errorMessage?'is-error':''}">${esc(message)}</p>`;
     const management=host.querySelector('[data-map-management]');
+    const clockControl=host.parentElement.querySelector(':scope > .session-control');if(clockControl)host.querySelector('.galaxy-heading').append(clockControl);
+    const credits=host.parentElement.querySelector(':scope > [data-group-credits]');if(credits)host.querySelector('.galaxy-heading').append(credits);
     window.SACampaignNavigationUI?.files(navigationContext,management);window.SACampaignNavigationUI?.controls(navigationContext,management);
     if(gm)management.append(button('New Galaxy Map',()=>modal('Create a galaxy map',field('name','Map name','','text','required maxlength="80" placeholder="For example: Frontier Sector"')+'<p>Start with an empty hex map, then click “Add Star” to place and name stars. Each hex begins at one parsec (3.26 light-years).</p>',async values=>{const result=await send('create',{name:values.get('name')});selectedMap=result.campaign.starmaps.maps.at(-1).id;selectedStar='';mode='star';status('Map created. Click an empty hex to add your first star.');draw();},'Create Map')));
     if(!map){host.querySelector('.galaxy-workspace').innerHTML=`<div class="galaxy-empty-map"><h3>${gm?'Chart your first sector':'No galaxy map yet'}</h3><p>${gm?'Create a map, click to place stars, then put ships at their starting positions.':'The GM can create a galaxy map for this campaign. It will appear here when it is ready.'}</p></div>`;if(expanded)management.append(button('Return to Campaign',()=>{expanded=false;draw();}));return;}
-    const tools=host.querySelector('.galaxy-tools'),select=document.createElement('select');select.setAttribute('aria-label','Galaxy Map');select.innerHTML=data.maps.map(m=>`<option value="${esc(m.id)}" ${m.id===map.id?'selected':''}>${esc(m.name)}</option>`).join('');select.onchange=()=>{selectedMap=select.value;selectedStar='';mode='';status('');draw();};tools.append(select);
+    const tools=host.querySelector('.galaxy-tools'),select=document.createElement('select');if(gm){tools.append(button('Galaxy Map',()=>{}));window.SACampaignNavigationUI?.decorateNavigation(navigationContext,tools,'galaxy');}select.setAttribute('aria-label','Galaxy Map');select.innerHTML=data.maps.map(m=>`<option value="${esc(m.id)}" ${m.id===map.id?'selected':''}>${esc(m.name)}</option>`).join('');select.onchange=()=>{selectedMap=select.value;selectedStar='';mode='';status('');draw();};tools.append(select);
     const scale=document.createElement('span');scale.className='galaxy-scale';scale.textContent=map.parsecPreset?'1 hex = 1 parsec · 3.26 light-years':'1 hex = '+Number(map.lightYearsPerHex).toFixed(2)+' light-years';tools.append(scale);
     if(gm)tools.append(button('Change Distances',()=>scaleEditor(map),{disabled:Object.values(data.journeys).some(j=>j.mapId===map.id)?'Finish journeys on this map before changing its distances.':''}),button(mode==='star'?'Cancel Adding Star':'+ Add Star',()=>beginMode('star'),{className:'galaxy-primary'}));
     const help=host.querySelector('.galaxy-mode-help');help.innerHTML=mode==='star'?'<strong>Place a star</strong><span>Click an empty hex, then give the star a name. Drag empty space to move around the map.</span>':mode==='ship'?'<strong>Place your ship</strong><span>Click any hex or star to set the selected ship’s position.</span>':`<span>${gm?'Click a star for details · Drag a star to reposition it':'Click a star for details and travel'}</span>`;
-    if(mode)help.append(button('Cancel',()=>{mode='';draw();}));host.querySelector('.galaxy-chart').classList.toggle('is-placing',Boolean(mode));host.querySelector('.galaxy-map-surface').innerHTML=chartMarkup(map,ships,data);inspector(host.querySelector('.galaxy-details'),map,data,gm,ships);bindChart(host.querySelector('.galaxy-chart'),map,ships,data,gm);refreshTravel();
+    if(mode)help.append(button('Cancel',()=>{mode='';draw();}));host.querySelector('.galaxy-chart').classList.toggle('is-placing',Boolean(mode));host.querySelector('.galaxy-map-surface').innerHTML=chartMarkup(map,ships,data);inspector(host.querySelector('.galaxy-details'),map,data,gm,ships);
+    const details=host.querySelector('.galaxy-details'),travel=details.querySelector('.galaxy-travel'),bar=document.createElement('div');bar.className='galaxy-travel-bar';
+    bar.append(travel.querySelector('.galaxy-field'),travel.querySelector('.galaxy-muted'));
+    for(const action of [...travel.querySelectorAll(':scope > button')])if(['Enter Star System','Find Ship'].includes(action.textContent))bar.append(action);
+    bar.append(button('Ship & travel',()=>overviewPanel('travel')),button('Star directory',()=>overviewPanel('directory')));
+    if(selectedStar)bar.append(button(map.stars.find(s=>s.id===selectedStar)?.name+' · Details',()=>overviewPanel('star')));
+    host.insertBefore(bar,host.querySelector('.galaxy-workspace'));details.remove();
+    const options=document.createElement('div');options.className='galaxy-map-options';options.append(...management.children);
+    // Less frequent file and administration controls stay available in Map options.
+    if(options.children.length)management.append(button('Map options',()=>showOverviewPanel('Map options',options)));
+    if(!mode)help.hidden=true;
+    bindChart(host.querySelector('.galaxy-chart'),map,ships,data,gm);
+    tools.append(host.querySelector('.galaxy-camera-tools'));host.querySelector('.galaxy-heading').insertBefore(tools,management);requestAnimationFrame(sizeOverview);refreshTravel();
   }
   function arrangeCampaign(){
     const parent=host.parentElement;if(parent.classList.contains('campaign-single-column'))return;
     parent.classList.add('campaign-single-column');
     if(state.role!=='gm')for(const id of ['campaignRosterCards','campaignStarshipRoster'])document.getElementById(id)?.setAttribute('hidden','');
-    const notes=document.getElementById('campaignPrivateNotes');if(notes&&state.role!=='gm'){notes.hidden=false;parent.append(notes);}
     const session=parent.querySelector('.session-control');if(session)parent.prepend(session);
   }
   function updateOverview(){}
   function update(next,key){
     if(state?.code&&state.code!==next?.code){selectedMap='';selectedStar='';selectedShip='';mode='';signature='';cameras.clear();}state=next;token=key;packetAt=performance.now();if(!state?.code)return;
-    host=document.querySelector('[data-galaxy-host]');if(!host){const parent=state.role==='gm'?document.querySelector('[data-tab-panel="campaign"]'):document.querySelector('#campaignRosterLobby');if(!parent)return;host=document.createElement('section');host.dataset.galaxyHost='';host.className='campaign-galaxy';if(state.role!=='gm'){const notes=document.getElementById('campaignPrivateNotes');if(notes)parent.append(notes);}parent.append(host);}
+    host=document.querySelector('[data-galaxy-host]');if(!host){const parent=state.role==='gm'?document.querySelector('[data-tab-panel="campaign"]'):document.querySelector('#campaignRosterLobby');if(!parent)return;host=document.createElement('section');host.dataset.galaxyHost='';host.className='campaign-galaxy';parent.append(host);}
     arrangeCampaign();updateOverview();
-    const nextSignature=JSON.stringify([state.code,state.role,state.ownCharacterId,[state.starmaps?.maps,state.starmaps?.navigation,state.starmaps?.party,state.starmaps?.shopArrival,state.starmaps?.launchableShipIds,state.starmaps?.recallShipIds,Object.entries(state.starmaps?.localPositions||{}).map(([id,p])=>[id,p.mapId,p.starId,p.phase,p.planetId,!state.starmaps?.localJourneys?.[id]?p:null]),Object.entries(state.starmaps?.localJourneys||{}).map(([id,j])=>[id,j.kind,j.from,j.to]),Object.entries(state.starmaps?.positions||{}).filter(([id])=>!state.starmaps?.journeys?.[id]),Object.entries(state.starmaps?.journeys||{}).map(([id,j])=>[id,j.mapId,j.starId,j.from,j.to])],state.starships?.map(s=>[s.id,s.title,s.controlType,s.crewCharacterIds,s.characterLocations,s.ship?.mapIcon,s.ship?.mapColor,window.SAShipMap.scaleRank(s),s.ship?.warpState?.phase]),state.combatActive]);
+    const event=state.starmaps?.viewEvent;if(event?.id&&event.id!==lastViewEvent){lastViewEvent=event.id;window.dispatchEvent(new CustomEvent('sa-campaign-travel-focus',{detail:event}));}
+    const nextSignature=JSON.stringify([state.starmaps?.partyJourney?.id,state.starmaps?.travelRequests,state.code,state.role,state.ownCharacterId,[state.starmaps?.maps,state.starmaps?.navigation,state.starmaps?.party,state.starmaps?.shopArrival,state.starmaps?.launchableShipIds,state.starmaps?.recallShipIds,Object.entries(state.starmaps?.localPositions||{}).map(([id,p])=>[id,p.mapId,p.starId,p.phase,p.planetId,!state.starmaps?.localJourneys?.[id]?p:null]),Object.entries(state.starmaps?.localJourneys||{}).map(([id,j])=>[id,j.kind,j.from,j.to]),Object.entries(state.starmaps?.positions||{}).filter(([id])=>!state.starmaps?.journeys?.[id]),Object.entries(state.starmaps?.journeys||{}).map(([id,j])=>[id,j.mapId,j.starId,j.from,j.to])],state.starships?.map(s=>[s.id,s.title,s.controlType,s.crewCharacterIds,s.characterLocations,s.ship?.mapIcon,s.ship?.mapColor,window.SAShipMap.scaleRank(s),s.ship?.warpState?.phase]),state.combatActive]);
     if(nextSignature!==signature){signature=nextSignature;if(interacting)pendingDraw=true;else draw();}else{refreshTravel();window.SACampaignNavigationUI?.refresh(true,state);}
   }
   document.addEventListener('keydown',event=>{if(event.key!=='Escape'||event.defaultPrevented||!host||host.getClientRects().length===0||document.querySelector('dialog[open]'))return;if(host.classList.contains('planet-enlarged')){host.classList.remove('planet-enlarged');draw();event.preventDefault();}else if(mode){mode='';draw();event.preventDefault();}else if(expanded){expanded=false;draw();event.preventDefault();}});
@@ -290,11 +336,18 @@
   }
   function travel(packet){
     if(!state?.starmaps)return;
-    state.starmaps.positions=packet.positions;state.starmaps.journeys=packet.journeys;state.starmaps.localPositions=packet.localPositions||{};state.starmaps.localJourneys=packet.localJourneys||{};
+    state.starmaps.partyJourney=packet.partyJourney||null;state.starmaps.positions=packet.positions;state.starmaps.journeys=packet.journeys;state.starmaps.localPositions=packet.localPositions||{};state.starmaps.localJourneys=packet.localJourneys||{};
     for(const update of packet.ships||[]){const ship=state.starships?.find(s=>s.id===update.id);if(ship)ship.ship.warpState=update.warpState;}
     update(state,token);
   }
   document.addEventListener('visibilitychange',refreshTravel);
   window.addEventListener('sa-perspective-visibility',refreshTravel);
-  window.SACampaignMapUI={update,travel};
+  window.SACampaignMapUI={update,travel,showPlayerView(){
+    if(state?.role!=='gm')return;
+    const location=state.starmaps?.party||state.starmaps?.navigation;
+    selectedMap=location?.mapId||state.starmaps?.maps?.[0]?.id||'';selectedStar='';
+    selectedShip=state.starmaps?.party?.shipId||state.starships?.find(s=>s.controlType==='pc')?.id||'';
+    expanded=false;mode='';host?.classList.remove('planet-enlarged');
+    window.SACampaignNavigationUI?.showPlayerView();
+  }};
 }());

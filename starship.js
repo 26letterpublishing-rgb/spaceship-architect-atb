@@ -11,10 +11,10 @@ const shipStorage=pageParameters.get('showcase')==='1'?sessionStorage:localStora
 const EMBEDDED_GM_MODE = pageParameters.get("embedded") === "gm";
 if (EMBEDDED_GM_MODE||pageParameters.get("embedded")==="pc") document.body.classList.add("embedded-gm-starship");
 const backLink = document.querySelector(".back-link");
-if (backLink && pageParameters.get("campaign") && pageParameters.get("ship")) {
-  backLink.textContent = "Back to Campaign";
-  backLink.href = "#";
-  backLink.addEventListener("click", (event) => { event.preventDefault(); history.back(); });
+if(backLink&&(pageParameters.get('campaign')||pageParameters.get('roomCreate'))){
+ const room=pageParameters.get('campaign')||pageParameters.get('roomCreate'),person=pageParameters.get('character')||pageParameters.get('returnCharacter');
+ backLink.textContent='Back to Campaign';backLink.href=person?'character.html?'+new URLSearchParams({campaign:room,character:person,tab:'starships',...(pageParameters.get('showcase')==='1'?{showcase:'1'}:{})}):'gm.html?'+new URLSearchParams({campaign:room,tab:'starships'});
+ backLink.addEventListener('click',event=>{if(pageParameters.get('embedded')&&parent!==window){event.preventDefault();parent.postMessage({type:'sa-ship-editor-exit'},location.origin);}});
 }
 const SIC_CATALOG = window.SASicCards.populate(document);
 function cardAccent(type) {
@@ -924,10 +924,16 @@ function renderInventory() {
   });
 }
 function renderLiveStats() {
+ if(!document.querySelector('.construction-stat-preview')){
+  const source=document.querySelector('.desktop-sheet > .desktop-live-stats'),art=document.querySelector('.desktop-sheet > .blueprint-source');
+  if(source&&art){const preview=document.createElement('section');preview.className='construction-stat-preview';preview.setAttribute('aria-label','Live ship upgrade statistics');const svg=source.cloneNode(true);svg.setAttribute('viewBox','0 0 612 214');svg.removeAttribute('aria-hidden');svg.setAttribute('role','group');svg.setAttribute('aria-label','Ship statistics; pending changes are yellow');svg.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));const image=document.createElementNS('http://www.w3.org/2000/svg','image');image.setAttribute('href',art.src);image.setAttribute('width','612');image.setAttribute('height','792');svg.prepend(image);preview.append(svg);document.querySelector('.desktop-sheet').before(preview);}
+ }
+
   const confirmed = constructionState(document.body.classList.contains('ship-details-view')?draft.confirmed:draft);
   const baseline=constructionState(draft.confirmed||defaultDraft());
   const baselineRecord={id:draft.id,ship:baseline},baselinePower=window.SAShipPower.output(baselineRecord,window.SAShipPower.campaignUnits(baselineRecord,linkedCampaignState?.characters));
-  const baselineStats={hull:window.SAShipMap.hullHp(baseline),shield:window.SAShipMap.installedItems(baseline).filter(i=>sicDefinition(i).shield).reduce((n,i)=>n+sicDefinition(i).shieldHp,0),au:baselinePower.au,en:baselinePower.en,hsm:shipScaleStats(baseline.gridCells.length).hsm,masking:window.SAShipMap.masking(baseline)};
+  const baselinePropulsion=window.SAShipMap.propulsion(baseline);
+  const baselineStats={credits:formatCredits(baseline.groupCredits),darkveil:window.SAShipMap.masking(baseline)-baselinePropulsion.hsm-baselinePropulsion.exhaust,hull:window.SAShipMap.hullHp(baseline),shield:window.SAShipMap.installedItems(baseline).filter(i=>sicDefinition(i).shield).reduce((n,i)=>n+sicDefinition(i).shieldHp,0),au:baselinePower.au,en:baselinePower.en,hsm:shipScaleStats(baseline.gridCells.length).hsm,masking:window.SAShipMap.masking(baseline)};
   const hull = confirmed.gridCells.length, hullHp=window.SAShipMap.hullHp(confirmed);
   let capabilities=document.querySelector('[data-ship-capabilities]');
   if(!capabilities){capabilities=document.createElement('details');capabilities.dataset.shipCapabilities='';capabilities.className='ship-capabilities';const summary=document.createElement('summary');summary.textContent='Ship Capabilities';capabilities.append(summary,document.createElement('div'));document.querySelector('[data-starship-panel="sheet"]')?.prepend(capabilities);}
@@ -972,8 +978,11 @@ function renderLiveStats() {
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
   document.querySelectorAll('[data-live-stat="credits"], [data-group-credits]').forEach((element) => { element.textContent = formatCredits(confirmed.groupCredits); });
   document.querySelectorAll("[data-confirmed-scale]").forEach((element) => { element.value = String(scale.scale); element.textContent = String(scale.scale); });
-  document.querySelectorAll('.construction-summary [data-live-stat]').forEach(e=>{const k=e.dataset.liveStat,old=k==='en'&&e.dataset.enPart==='available'?baselinePower.en-window.SAShipPower.demand(baselineRecord):baselineStats[k];e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&String(e.textContent)!==String(old));});
-  document.querySelectorAll('.construction-summary [data-propulsion]').forEach(e=>e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&propulsion[e.dataset.propulsion]!==window.SAShipMap.propulsion(baseline)[e.dataset.propulsion]));
+  document.querySelectorAll('[data-live-stat]').forEach(e=>{const k=e.dataset.liveStat,old=k==='en'&&e.dataset.enPart==='available'?baselinePower.en-window.SAShipPower.demand(baselineRecord):baselineStats[k];e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&String(e.textContent)!==String(old));});
+  const pending=!document.body.classList.contains('ship-details-view');
+  document.querySelectorAll('[data-propulsion]').forEach(e=>{const k=e.dataset.propulsion,old=k.startsWith('impulse')?baselinePropulsion.impulses[Number(k.slice(-1))]??0:baselinePropulsion[k]??0;e.classList.toggle('pending-construction-value',pending&&String(e.textContent)!==String(old));});
+  const oldLock=window.SAShipMap.installedItems(baseline).map(sicDefinition).filter(d=>d.lockOn).sort((a,b)=>b.breakDifficulty-a.breakDifficulty)[0];
+  for(const [selector,changed]of [['[data-sensor-range]',sensors.range!==oldSensors.range],['[data-sensor-dice]',JSON.stringify(sensors.dice)!==JSON.stringify(oldSensors.dice)],['[data-firewall-level]',window.SAShipMap.firewallStats(confirmed)!==window.SAShipMap.firewallStats(baseline)],['[data-lock-dice]',JSON.stringify(bestLock?.lockDice)!==JSON.stringify(oldLock?.lockDice)],['[data-break-lock]',bestLock?.breakDifficulty!==oldLock?.breakDifficulty]])document.querySelectorAll(selector).forEach(e=>e.classList.toggle('pending-construction-value',pending&&changed));
 
 }
 function showMessage(message, tone = "info") {
@@ -1754,6 +1763,9 @@ const shipPrintButton=document.createElement('button');shipPrintButton.type='but
 function drawDetailsCrew(){
   if(!new URLSearchParams(location.search).has('embeddedRecord'))return;
   const record=linkedCampaignState?.starships.find(s=>s.id===draft.id);
+  for(const grid of shipGrids){const viewport=grid.closest('[data-grid-viewport]')||grid.parentElement;viewport.classList.toggle('planet-landed-interior',Boolean(record?.surfaceTerrain));if(record?.surfaceTerrain)viewport.style.setProperty('--planet-ground',`url("${window.SAPlanetTerrain.texture(record.surfaceTerrain)}")`);else viewport.style.removeProperty('--planet-ground');}
+  const away=record?.surfaceAwayCharacterIds?.includes(linkedCampaignState?.ownCharacterId||pageParameters.get('character'));
+  for(const grid of shipGrids)for(const door of grid.querySelectorAll('[data-door-key]')){door.disabled=!!away;door.setAttribute('aria-disabled',String(!!away));}
   const walkingDoors=new Set([...Object.values(record?.characterWalks||{}).flatMap(job=>window.SAShipWalking.sample(job,Date.now()+(record.walkClockOffset||0)).openDoorKeys||[]),...Object.values(record?.motion||{}).flatMap(point=>point.openDoorKeys||[])]);
   for(const grid of shipGrids){for(const door of grid.querySelectorAll('[data-walk-door]'))if(!walkingDoors.has(door.dataset.doorKey)){door.classList.toggle('is-open',record?.ship?.doorStates?.[door.dataset.doorKey]==='open');delete door.dataset.walkDoor;}for(const key of walkingDoors)for(const door of grid.querySelectorAll(`[data-door-key="${CSS.escape(key)}"]`)){door.dataset.walkDoor='';door.classList.add('is-open');}}
   document.querySelectorAll('.ship-detail-crew[data-crew-id]').forEach(e=>{if(!record?.characterLocations?.[e.dataset.crewId])e.remove();});
@@ -1831,6 +1843,8 @@ function renderEmbeddedMovement(){
     const boardingButton=controls.querySelector('[data-action=confirm]');boardingButton.textContent=boarding?'Board other ship':'Confirm';boardingButton.classList.toggle('airlock-board-button',Boolean(boarding));
     for(const action of ['console','diagnostics'])controls.querySelector(`[data-action=${action}]`).disabled=Boolean(embeddedMove);
     const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),loc=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterLocations?.[own];
+    const away=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.surfaceAwayCharacterIds?.includes(own);
+    controls.querySelector('[data-action=begin]').disabled=Boolean(away||embeddedMove?.submitting);controls.querySelector('[data-action=keyboard]').disabled=Boolean(away||embeddedMove?.submitting);
     const walking=Boolean(linkedCampaignState?.starships.find(s=>s.id===draft.id)?.characterWalks?.[own]);
     controls.querySelector('[data-action=begin]').textContent=walking?'Stop Walking':'Move';
     const seat=loc&&window.SAShipMap.buildLayout(draft).footprint.get(Number(loc.square));
@@ -1849,6 +1863,7 @@ function renderEmbeddedMovement(){
     let stationSelect=controls.querySelector('[data-embedded-station]');
     if(!stationSelect){stationSelect=document.createElement('select');stationSelect.dataset.embeddedStation='';stationSelect.setAttribute('aria-label','Choose a station');controls.insertBefore(stationSelect,controls.querySelector('output'));stationSelect.onchange=()=>{if(!stationSelect.value||!embeddedMove||embeddedMove.submitting)return;const [square,mesh]=stationSelect.value.split(':').map(Number);parent.postMessage({type:'sa-ship-map-destination',square,mesh},location.origin);};}
     stationSelect.hidden=!embeddedMove;stationSelect.disabled=Boolean(embeddedMove?.submitting);
+    if(away){for(const b of controls.querySelectorAll('button,select'))b.disabled=true;controls.querySelector('output').textContent='Party away from ship. Ask the GM to move your marker to the ship’s hex to board.';}
     if(embeddedMove){
       const layout=window.SAShipMap.buildLayout(draft),record=linkedCampaignState?.starships.find(s=>s.id===draft.id),own=linkedCampaignState?.ownCharacterId;
       const choices=['<option value="">Go to station…</option>'],seatCounts=new Map();
@@ -2021,7 +2036,7 @@ if(pageParameters.get("campaign")&&pageParameters.get("details")!=="1"&&!VIEW_ON
 var embeddedKeyboardMode=false,embeddedStationState=null;window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===parent&&e.data?.type==='sa-keyboard-mode'){embeddedKeyboardMode=!!e.data.enabled;embeddedStationState=e.data;renderEmbeddedMovement();document.body.classList.toggle('keyboard-movement-active',embeddedKeyboardMode);}});
 if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(embeddedKeyboardMode)e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
 
-if(pageParameters.get('roomCreate')){const back=document.querySelector('a[href="index.html"]');if(back){back.href=pageParameters.get('returnCharacter')?'character.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'))+'&character='+encodeURIComponent(pageParameters.get('returnCharacter'))+'&tab=starships'+(pageParameters.get('showcase')==='1'?'&showcase=1':''):'room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
+if(pageParameters.get('roomCreate')){const back=backLink;if(back){back.href=pageParameters.get('returnCharacter')?'character.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'))+'&character='+encodeURIComponent(pageParameters.get('returnCharacter'))+'&tab=starships'+(pageParameters.get('showcase')==='1'?'&showcase=1':''):'room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
 function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.starships||[]).some(s=>s.controlType==='pc'&&s.ship?.sicInventory?.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition)) : draft.sicInventory.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition);}
 function openBlueprintPurchase(type){

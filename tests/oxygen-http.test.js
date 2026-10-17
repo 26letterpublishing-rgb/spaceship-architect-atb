@@ -13,6 +13,7 @@ test('oxygen uses private manual checks, survives combat transitions, and releas
   const template=await fetch(`${base}/api/campaign/backup?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const created=await post('campaign/create',{name:'Oxygen Persistence',gmCode:'oxygen-test'},201),code=created.campaign.code,token=created.token;
   template.campaign.characters=template.campaign.characters.filter(c=>c.id===start.players[0].id);template.campaign.encounter.units=template.campaign.encounter.units.filter(u=>u.characterId===start.players[0].id||u.id==='unit-showcase-npc-0');
+  require('../campaign-planets').place(template.campaign,{...template.campaign.starmaps.party,hex:template.campaign.starmaps.localPositions[template.campaign.starships[0].id].surfaceHex});
   template.campaign.code=code;template.campaign.name='Oxygen Persistence';
   await post('campaign/restore',{code,token,backup:template});
   const player={...start.players[0],...await post('campaign/character/unlock',{code,characterId:start.players[0].id,pcCode:template.campaign.characters[0].pcCode})};

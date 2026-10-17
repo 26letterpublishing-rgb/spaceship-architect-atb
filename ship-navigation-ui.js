@@ -86,6 +86,9 @@
     host.body.append(dialog);dialog.showModal();
     if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
+    const depart=host.createElement('button');depart.type='button';depart.textContent='Leave Atmosphere';depart.dataset.leaveAtmosphere='';depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);form.querySelector('[data-leave]').before(depart);
+    depart.onclick=async()=>{const confirmation=host.createElement('dialog');confirmation.className='galaxy-dialog';confirmation.innerHTML='<h2>Leave Atmosphere?</h2><p>The party departs together aboard this ship.</p><form method="dialog"><button value="cancel">Cancel</button><button value="depart">Leave Atmosphere</button></form>';host.body.append(confirmation);confirmation.showModal();confirmation.addEventListener('close',async()=>{const accepted=confirmation.returnValue==='depart';confirmation.remove();if(!accepted)return;depart.disabled=true;try{await bridge.leaveAtmosphere(shipId);remember(unit);dialog.close();}catch(e){error.textContent=e.message;depart.disabled=false;}},{once:true});};
+    const departureTimer=setInterval(()=>{depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);},500);dialog.addEventListener('close',()=>clearInterval(departureTimer),{once:true});
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
     let destination=null,locked=false,planning=compact,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
     const begin=host.createElement('button'),cancel=host.createElement('button');begin.type=cancel.type='button';begin.textContent='Move Ship';cancel.textContent='Cancel Move';begin.dataset.beginMove='';submit.before(begin,cancel);
@@ -236,7 +239,7 @@
     const bridge=window.SACombatBridge;
     if(bridge.state()?.catalogPreview)return;
     if(!unit||bridge.mode()!=='player'||unit.id!==bridge.myUnitId()||window.SACombatMap?.isInlineMoveSelecting()||unit?.timedAction?.kind==='move')return;
-    let owner=window;try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)return;owner=owner.parent;}}catch{return;}
+    let owner=window;try{while(owner.frameElement&&!owner.frameElement.hasAttribute('data-explore-perspective')){if(!owner.frameElement.getClientRects().length)return;owner=owner.parent;}}catch{return;}
     if(owner.document.querySelector('dialog[open]'))return;
     if(['awaitingRoll','rolling','result','firing'].includes(bridge.state()?.planetaryEvent?.phase))return;
     if(window.SAStationAccess.consoles(bridge.state(),unit).length&&rememberedView(seatKey(unit))==='console'&&!combatViews.has(seatKey(unit)))open(unit);
@@ -272,7 +275,7 @@
   function restoreView(){
     const b=window.SACombatBridge,state=b?.state();if(!state||state.catalogPreview)return;
     let doc=document,owner=window,visible=true;
-    try{while(owner.frameElement){if(!owner.frameElement.getClientRects().length)visible=false;doc=owner.parent.document;owner=owner.parent;}}catch{visible=false;}
+    try{while(owner.frameElement&&!owner.frameElement.hasAttribute('data-explore-perspective')){if(!owner.frameElement.getClientRects().length)visible=false;doc=owner.parent.document;owner=owner.parent;}}catch{visible=false;}
     if(!visible||document.hidden){if(consoleButton)consoleButton.hidden=true;return;}
     const unit=b.mode()==='gm'?(state.units?.find(u=>u.id===state.activeId&&u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)||state.units?.find(u=>u.team!=='pc'&&window.SAStationAccess.consoles(state,u).length)):state.units?.find(u=>u.id===b.myUnitId());
     if(!consoleButton){
@@ -280,9 +283,10 @@
       const goldId='console-gold-'+crypto.randomUUID();
       consoleButton.innerHTML=`<svg aria-hidden="true" viewBox="0 0 300 64" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"><defs><linearGradient id="${goldId}" x2="0" y2="1"><stop stop-color="#fff1a0"/><stop offset=".55" stop-color="#eac145"/><stop offset="1" stop-color="#be8919"/></linearGradient></defs><path d="M1 64 L38 10 Q43 1 54 1 H246 Q257 1 262 10 L299 64Z" fill="url(#${goldId})" stroke="#fff1a2" stroke-width="2"/></svg><span style="position:relative;pointer-events:none">Console View</span>`;
       consoleButton.style.cssText='position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:10000;width:300px;max-width:90vw;min-width:0;height:64px;padding:12px 36px 8px;border:0;border-radius:0;background:transparent;color:#201500;font:900 20px Arial;box-shadow:none;filter:drop-shadow(0 -3px 8px #e9b93470);cursor:pointer';
-      consoleButton.onclick=()=>{const candidates=b.state()?.units.filter(u=>b.mode()==='gm'?u.team!=='pc'&&window.SAStationAccess.consoles(b.state(),u).length:u.id===b.myUnitId())||[];if(candidates.length===1)open(candidates[0]);else if(candidates.length){const picker=doc.createElement('dialog');picker.innerHTML='<h2>Choose NPC Console</h2>';for(const person of candidates){const choice=doc.createElement('button');choice.textContent=person.characterName;choice.onclick=()=>{picker.close();picker.remove();open(person);};picker.append(choice);}const close=doc.createElement('button');close.textContent='Close';close.onclick=()=>{picker.close();picker.remove();};picker.append(close);doc.body.append(picker);picker.showModal();}};doc.body.append(consoleButton);
+      consoleButton.onclick=()=>{const candidates=b.state()?.units.filter(u=>b.mode()==='gm'?u.team!=='pc'&&window.SAStationAccess.consoles(b.state(),u).length:u.id===b.myUnitId())||[];const visibleConsole=doc.querySelector('dialog[open][data-operator-id]');if(visibleConsole){const person=b.state()?.units.find(u=>u.id===visibleConsole.dataset.operatorId);if(person)remember(person);visibleConsole.close();return;}if(candidates.length===1)toggle(candidates[0]);else if(candidates.length){const picker=doc.createElement('dialog');picker.innerHTML='<h2>Choose NPC Console</h2>';for(const person of candidates){const choice=doc.createElement('button');choice.textContent=person.characterName;choice.onclick=()=>{picker.close();picker.remove();open(person);};picker.append(choice);}const close=doc.createElement('button');close.textContent='Close';close.onclick=()=>{picker.close();picker.remove();};picker.append(close);doc.body.append(picker);picker.showModal();}};doc.body.append(consoleButton);
     }
-    consoleButton.hidden=!visible||!['player','gm'].includes(b.mode())||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]'));
+    const activeConsole=doc.querySelector('dialog[open][data-operator-id]');const buttonHost=activeConsole||doc.body;if(consoleButton.parentElement!==buttonHost)buttonHost.append(consoleButton);consoleButton.setAttribute('aria-pressed',String(!!activeConsole));
+    consoleButton.hidden=!visible||!['player','gm'].includes(b.mode())||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]:not([data-operator-id])'));
     if(visible)sync(unit);
   }
   window.addEventListener('sa-combat-state',restoreView);

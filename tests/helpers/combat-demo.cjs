@@ -15,6 +15,9 @@ module.exports=async function configureCombatDemo(base,room){
   backup.campaign.characters=backup.campaign.characters.filter(c=>c.id==='showcase-nova');backup.campaign.encounter.units=backup.campaign.encounter.units.filter(u=>u.id==='unit-showcase-nova'||u.id==='unit-showcase-npc-0');backup.campaign.npcRoster=(backup.campaign.npcRoster||[]).filter(u=>u.id==='unit-showcase-npc-0');
   fleet(backup.campaign.starships);fleet(backup.campaign.encounter.starships);
   for(const u of backup.campaign.encounter.units){const r=backup.campaign.encounter.starships.find(s=>s.id===u.location?.starshipId);if(r)u.location={starshipId:r.id,square:r.ship.gridCells[0],mesh:4,stationed:false};}
+  // This fixture deliberately starts aboard in space, independently of Explore's surface start.
+  delete backup.campaign.starmaps.party;backup.campaign.starmaps.localPositions={};
+  for(const u of backup.campaign.encounter.units){if(!u.characterId)continue;const r=backup.campaign.starships.find(s=>s.id===u.location?.starshipId);if(r)r.characterLocations[u.characterId]={...u.location};}
   const response=await fetch(base+'/api/campaign/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:room.code,token:room.gmToken,backup})});
   if(!response.ok)throw Error('Could not prepare combat fixture: '+await response.text());
 };

@@ -899,6 +899,7 @@ function scriptSource() {
 }
 
 function inboxItemActions(note) {
+ const travel=campaign.starmaps?.travelRequests?.find(r=>r.id===note.id);if(travel?.status==='pending')return `<div class="inbox-actions"><button data-surface-decision="decline" data-request-id="${escapeHtml(note.id)}">Decline Travel</button><button data-surface-decision="approve" data-request-id="${escapeHtml(note.id)}">Approve Travel</button></div>`;
   if (note.kind === "angiluros-craft-request" && note.requestStatus === "pending") {
     return `<div class="inbox-actions"><button class="danger" type="button" data-angiluros-craft-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-angiluros-craft-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve Weapon</button></div>`;
   }
@@ -918,7 +919,7 @@ function inboxItemActions(note) {
 function updateInboxCount() {
   const requests=campaign.joinRequests||[],pendingImports=(campaign.imports||[]).filter(r=>r.status==='pending').length;
   const unread=(campaign.inbox||[]).filter(entry=>entry.direction==='to-gm'&&!entry.readAt).length+requests.length+pendingImports;
-  dom.inboxCount.textContent=String(unread);dom.pendingJoinCount.textContent=`${requests.length+pendingImports} Pending`;
+  dom.inboxCount.textContent=String(unread);dom.inboxCount.hidden=!unread;document.getElementById("gmMailButton").setAttribute("aria-label",`Private messages and notifications${unread?", "+unread+" unread":""}`);dom.pendingJoinCount.textContent=`${requests.length+pendingImports+(campaign.starmaps?.travelRequests||[]).filter(r=>r.status==='pending').length} Pending`;
 }
 function renderInbox() {
   const requests = campaign.joinRequests || [];
@@ -933,7 +934,7 @@ function renderInbox() {
     </article>`;
   }).join("");
   const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
-    <div><span>${note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "angiluros-craft-request" ? "ANCESTRAL CRAFTING" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
+    <div><span>${note.kind === "surface-travel" ? "TRAVEL REQUEST" : note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "angiluros-craft-request" ? "ANCESTRAL CRAFTING" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
     <p>${escapeHtml(note.message)}</p>
     ${inboxItemActions(note)}
   </article>`).join("");
@@ -1251,6 +1252,7 @@ function combatLocation(starshipId) {
 }
 
 function selectGmTab(tabName = "script") {
+  if(tabName==="inbox")tabName="shop";
   const requestedPanel = document.querySelector(`[data-tab-panel="${tabName}"]`);
   const activeTab = requestedPanel ? tabName : "script";
   try {
@@ -1266,6 +1268,7 @@ function selectGmTab(tabName = "script") {
   });
   document.querySelector("#gmSettingsToggle")?.classList.toggle("active", activeTab === "settings");
   renderCampaign();
+  if (activeTab === "campaign") window.SACampaignMapUI?.showPlayerView();
   if (activeTab === "atb") {showEncounterSetup();void refreshCombatSaveStatus();}
   if (activeTab === "starships") void refreshEncounterState().catch(error => showMessage(dom.message, error.message, "error"));
   updateExitEncounterVisibility();
@@ -1588,7 +1591,7 @@ function renderCampaign() {
   }
   if(!document.querySelector('#charactersTab')?.hidden){renderCharacters();renderPremadeNpcConsole();}
   if(!document.querySelector('#starshipsTab')?.hidden)renderStarships();
-  if(!document.querySelector('#inboxTab')?.hidden)renderInbox();
+  if(document.getElementById('gmMailDialog')?.open)renderInbox();
   if(!document.querySelector('#settingsTab')?.hidden)renderSettings();
   if(!document.querySelector('#promptTab')?.hidden){renderTargets();renderRollResults();}
   if(!document.querySelector('#atbTab')?.hidden&&dom.atbLive.hidden)renderEncounterBuilder();
@@ -2396,20 +2399,21 @@ dom.libraryForm.addEventListener('submit',async event=>{
   finally{libraryBusy=false;renderLibraryDelivery();}
 });
 
-dom.noteForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!selectedTargets.size) {
-    showMessage(dom.message, "Select at least one private-note recipient.", "error");
-    return;
-  }
-  try {
-    await api("/api/campaign/note/send", { code, token, targetIds: [...selectedTargets], message: dom.noteMessage.value });
-    dom.noteMessage.value = "";
-    showMessage(dom.message, "Private note delivered.", "success");
-  } catch (error) {
-    showMessage(dom.message, error.message, "error");
-  }
+document.getElementById('gmMailButton').onclick=()=>{
+  const dialog=document.getElementById('gmMailDialog');
+  const recipients=document.getElementById('gmMailRecipients'),checked=new Set([...recipients.querySelectorAll('input:checked')].map(n=>n.value));
+  recipients.innerHTML=(campaign?.characters||[]).map(r=>'<label style="--recipient-color:'+escapeHtml(r.character?.presentation?.atbColor||'#40bddd')+'"><input type="checkbox" value="'+escapeHtml(r.id)+'" '+(checked.has(r.id)?'checked':'')+'>'+escapeHtml(characterName(r))+'</label>').join('');
+  renderInbox();if(!dialog.open)dialog.showModal();
+};
+document.getElementById('closeGmMail').onclick=()=>document.getElementById('gmMailDialog').close();
+document.getElementById('gmMailDialog').addEventListener('close',()=>document.getElementById('gmMailButton').focus());
+dom.noteForm.addEventListener('submit',async event=>{
+  event.preventDefault();const targetIds=[...document.querySelectorAll('#gmMailRecipients input:checked')].map(n=>n.value),status=document.getElementById('gmMailStatus'),button=dom.noteForm.querySelector('[type=submit]');
+  if(!targetIds.length){status.textContent='Select at least one recipient.';return;}
+  if(!dom.noteMessage.value.trim()){status.textContent='Write a message first.';return;}
+  button.disabled=true;try{const result=await api('/api/campaign/note/send',{code,token,targetIds,message:dom.noteMessage.value});if(result.campaign)receiveCampaign(result.campaign);dom.noteMessage.value='';status.textContent='Private message delivered.';await refreshCampaign();renderInbox();}catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 });
+
 dom.conditionalSelect.addEventListener("change", () => loadConditionalForm(dom.conditionalSelect.value));
 dom.conditionalKind.addEventListener("change", syncConditionalKind);
 
@@ -2943,7 +2947,7 @@ function renderArenaEditor(){
   const host=document.querySelector('#surfaceArenaEditor');if(!host)return;
   host.hidden=encounterMode!=='surface';document.querySelector('#prepareFog').checked=!!encounterFog.enabled;
   if(host.hidden)return;
-  const units=[...(campaign?.characters||[]).filter(c=>selectedEncounterCharacters.has(c.id)).map(c=>({id:c.id,characterName:characterName(c),color:c.character?.presentation?.atbColor,raceId:c.character?.identity?.raceId,iconRace:c.character?.presentation?.iconRace,iconVariant:c.character?.presentation?.iconVariant})),...stagedNpcs.map(n=>({...n,characterName:n.name}))];
+  const units=[...(campaign?.characters||[]).filter(c=>selectedEncounterCharacters.has(c.id)).map(c=>({id:c.id,characterName:characterName(c),color:c.character?.presentation?.atbColor,raceId:c.character?.identity?.raceId,raceType:c.character?.identity?.raceType,iconRace:c.character?.presentation?.iconRace,iconVariant:c.character?.presentation?.iconVariant})),...stagedNpcs.map(n=>({...n,characterName:n.name}))];
   for(const unit of units){if(!encounterArena.floors.includes(encounterArena.spawns[unit.id])){const used=new Set(Object.values(encounterArena.spawns));const square=encounterArena.floors.find(n=>!used.has(n));if(square!==undefined)encounterArena.spawns[unit.id]=square;}}
   window.SAArenaUI.editor(host,{arena:encounterArena,units,onChange:a=>{encounterArena=a;saveEncounterMapDraft();updateSurfaceStartLabels();}});
 }
@@ -3021,7 +3025,7 @@ document.getElementById('loadCharacterRoster').onclick=()=>{const input=document
 
 function organizeGmTools(){
  const grid=document.querySelector('#promptTab .tool-grid');if(!grid)return;
- const groups=[['interaction','Player Interaction',['#privateNoteForm','#rollPromptForm']],['supplies','Rewards & Supplies',['#awardForm','#giveMineralsForm','.recharge-tool-card']],['campaign','Campaign Tools',['.time-tool-card','#libraryEntryForm','[data-gm-library]','#gmDramaDiscardPanel']]];
+ const groups=[['interaction','Player Interaction',['#rollPromptForm']],['supplies','Rewards & Supplies',['#awardForm','#giveMineralsForm','.recharge-tool-card']],['campaign','Campaign Tools',['.time-tool-card','#libraryEntryForm','[data-gm-library]','#gmDramaDiscardPanel']]];
  for(const [key,title,selectors]of groups){let group=grid.querySelector('[data-tool-group="'+key+'"]');if(!group){group=document.createElement('section');group.dataset.toolGroup=key;group.innerHTML='<h2>'+title+'</h2>';grid.append(group);}
   for(const selector of selectors){const card=grid.querySelector(selector);if(!card||group.contains(card))continue;const details=document.createElement('details'),summary=document.createElement('summary'),heading=card.querySelector('h3');summary.textContent=heading?.textContent||'Tools';details.className='gm-tool-section';const memory='sa-tool-section-'+selector;details.open=localStorage.getItem(memory)!=='closed';details.ontoggle=()=>localStorage.setItem(memory,details.open?'open':'closed');details.append(summary,card);group.append(details);}
  }
@@ -3034,3 +3038,6 @@ document.getElementById('exportAdventureModule').onclick=async()=>{
  const dialog=document.createElement('dialog');dialog.className='v03-dialog';dialog.innerHTML='<h2>Export Adventure Module</h2><form><label>Title<input name="title" required maxlength="120"></label><label>Author<input name="author" maxlength="120"></label><label>Module version<input name="version" value="1.0" maxlength="40"></label><label>Opening GM instructions<textarea name="instructions" rows="5" maxlength="12000"></textarea></label><label><input type="checkbox" name="characters"> Include pregenerated PCs (passwords and player links cleared)</label><label><input type="checkbox" name="preparation" checked> Include current combat preparation</label><p>Each load creates a new room. Private messages, access credentials and reward history are excluded.</p><button type="button" data-cancel>Cancel</button><button type="submit">Export Module</button><p role="status"></p></form>';dialog.querySelector('[name=title]').value=campaign.module?.title||campaign.name;for(const key of ['author','version','instructions'])if(campaign.module?.[key])dialog.querySelector('[name='+key+']').value=campaign.module[key];dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
  dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector('[type=submit]');button.disabled=true;try{await saveScript();saveEncounterMapDraft();await api('/api/campaign/preparation-draft',{code,token,draft:JSON.parse(sessionStorage.getItem('sa-encounter-map-draft-'+code)||'null')});const data=await window.SARoomV03.api('module/export',{code,token,title:form.elements.title.value,author:form.elements.author.value,version:form.elements.version.value,instructions:form.elements.instructions.value,includeCharacters:form.elements.characters.checked,includePreparation:form.elements.preparation.checked});downloadJson(data,data.metadata.title.replace(/[^a-z0-9_-]+/gi,'-')+'.sa2module');dialog.close();}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};document.body.append(dialog);dialog.showModal();
 };
+
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-surface-decision]');if(!b)return;b.disabled=true;try{const result=await api('/api/campaign/v03/starmap',{code,token,kind:'planetTravelDecision',requestId:b.dataset.requestId,approve:b.dataset.surfaceDecision==='approve',receipt:crypto.randomUUID()});if(result.campaign)receiveCampaign(result.campaign);}catch(error){b.closest('article').querySelector('p').textContent=error.message;}finally{b.disabled=false;}});
+window.addEventListener('sa-campaign-travel-focus',()=>{document.getElementById('gmMailDialog')?.close();document.querySelector('[data-tab="campaign"]')?.click();});

@@ -1,0 +1,31 @@
+October 16, 2026 - queued UI and map pass (#local)
+
+Implemented locally; no commit, push, deployment, or hosted testing.
+
+Completed:
+- GM envelope between Help and Mute opens private messages/notifications and a full-size private-note composer with recipients. Shops have their own Shop tab. Request Dice Roll stays in Prompt/Give.
+- Campaign maps use available viewport space. Location actions stay beside the map; full descriptions open separately. GM Campaign opens the shared player view.
+- Hierarchy buttons have different colors and descending sizes, with the player-view indicator independent of GM exploration.
+- Planet surfaces expand from 600 to 1,200 hexes (30 by 40) and wrap horizontally. Existing authored northern cells are preserved. New regions start uniformly with their parent hex terrain.
+- GM Pan Map, Move Markers, and Paint Terrain modes; six terrain brushes, continuous strokes, validated batches, and Undo Stroke. Painting preserves location lore, landmarks, regions, and shops.
+- Clear Edit Location Details and region renaming; compact editor dialogs.
+- Existing planet art is shared by system/combat/orbit rendering and enlarged for orbit. No new planet images generated.
+- Character drawer weapon selector/row, skill label/value layout, and animated speed preview corrected.
+- Full ship sheet statistics appear during construction/upgrades; pending changes use yellow text with black stroke and preserve confirmed baseline semantics.
+- Explicit campaign Starships return replaces unsafe browser-history navigation; embedded exit returns to the parent campaign.
+- Airlocks prefer hull cells without SIC floorplans (including an interior deck hatch); only fully occupied ships fall back to the largest SIC. Protos uses its blank hull cell.
+- Bridge offers Leave Atmosphere when the shared navigation permits it. The golden Console View button toggles the console closed. Existing authoritative ascent and twenty-second animation are reused.
+
+Validation:
+- Full suite: 1,145 passed, 0 failures (../outputs/queued-ui-full-tests-final.txt).
+- Final focused suite: 23 passed, 0 failures (../outputs/queued-ui-final-focused.txt).
+- Final syntax checks: 15 JavaScript files passed; CRLF-aware diff whitespace check passed.
+- Browser checks used disposable Explore rooms with GM and PC perspectives, 1280x720 and 550x880 viewports. Checked painting/undo, marker boarding, details editing, separate Shop, private-note delivery, player indicators, Campaign default view, ship-create return, pending Hull preview/cancel, drawer skills/speed/weapons, Bridge walk/station, console toggle, and takeoff to orbit.
+- Final narrow Campaign checks found no vertical document or nested panel scrollbars. Maps still pan/zoom as intended. Long sheet tables retain horizontal scrolling.
+- Browser errors were empty in the final navigation check; local server error log empty.
+- Not an exhaustive playthrough of every game feature or every possible viewport. Existing earlier unrelated backlog remains governed by prior reports.
+
+Normal local preview: http://127.0.0.1:8790/showcase.html
+Server PID17164 with existing local-development data folder. Personal campaigns SHA256 remains A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D.
+Proof: ../outputs/queued-ui-gm-map.png
+Preserved earlier dirty work, personal saves, Gold Standard, and unrelated QA files.

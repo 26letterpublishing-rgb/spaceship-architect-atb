@@ -2142,3 +2142,5 @@ select.skill-guidance{border-radius:8px!important}
 .campaign-single-column>#campaignPrivateNotes{width:100%;margin-top:14px}
 
 .player-starship-card:has(iframe)>.player-starship-view-controls{display:none!important}
+
+.pc-mail-button{position:relative}.pc-mail-button strong{position:absolute;right:-5px;top:-5px;min-width:18px;padding:2px;border-radius:10px;background:#f3c54d;color:#171008;font:bold 11px Arial}.pc-mail-button svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8}.pc-mail-button.reward-ready{box-shadow:0 0 12px #ffcf55}.pc-mail-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto}.pc-mail-dialog .campaign-private-notes{margin:0;min-height:0}.pc-mail-dialog .dialog-actions{position:sticky;bottom:0;background:#09151f;padding:12px 0;margin:0}#privateNotesModal{backdrop-filter:blur(7px)}

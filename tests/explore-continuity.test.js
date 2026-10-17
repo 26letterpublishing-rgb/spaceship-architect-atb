@@ -1,7 +1,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),maps=require('../ship-map-core'),walks=require('../ship-walking'),{CampaignApi}=require('../campaign-api');
 function fixture(){const records=new Map(),store={get:async c=>structuredClone(records.get(c)||null),create:async c=>(records.set(c.code,structuredClone(c)),true),save:async c=>records.set(c.code,structuredClone(c)),findByName:async()=>[]},api=new CampaignApi({store,storageMode:'test'});return {api,async call(path,body={},status=200){let result;await api.handle({method:'POST'},{},new URL('http://test/api/campaign/'+path),async()=>body,(_,s,data)=>{assert.equal(s,status,JSON.stringify(data));result=data;});return result;}};}
+function board(c){const ship=c.starships[0];require('../campaign-planets').place(c,{...c.starmaps.party,hex:c.starmaps.localPositions[ship.id].surfaceHex});return c;}
 test('walking is shared before arrival, advances without a player page and is saved at completion',async()=>{
- const f=fixture(),room=await f.call('showcase/start'),c=await f.api.campaign(room.code),ship=c.starships[0],person=room.players[0],start=ship.characterLocations[person.id]||{square:ship.ship.gridCells[0],mesh:4};ship.characterLocations[person.id]=start;
+ const f=fixture(),room=await f.call('showcase/start'),c=board(await f.api.campaign(room.code)),ship=c.starships[0],person=room.players[0],start=ship.characterLocations[person.id]||{square:ship.ship.gridCells[0],mesh:4};ship.characterLocations[person.id]=start;
  const dest={square:start.square,mesh:start.mesh===4?5:4};
  await f.call('starship/move-character',{code:room.code,token:person.token,starshipId:ship.id,characterId:person.id,...dest,animate:true});
  const job=ship.characterWalks[person.id];assert.ok(job);assert.equal(f.api.state(c,room.players[1].token).starships[0].characterWalks[person.id].duration,job.duration);
@@ -15,7 +16,7 @@ test('serializing a walking route preserves its progress and combat handoff stop
  assert.deepEqual(walks.sample(restored.characterWalks.a,4000),walks.sample(job,4000));walks.advance(restored,4000,true);assert.equal(restored.characterWalks.a,undefined);assert.notEqual(restored.characterLocations.a.square,23);
 });
 test('stopping a shared walk settles its current position and permits a new route',async()=>{
- const f=fixture(),room=await f.call('showcase/start'),c=await f.api.campaign(room.code),ship=c.starships[0],person=room.players[0],start=structuredClone(ship.characterLocations[person.id]);
+ const f=fixture(),room=await f.call('showcase/start'),c=board(await f.api.campaign(room.code)),ship=c.starships[0],person=room.players[0],start=structuredClone(ship.characterLocations[person.id]);
  const layout=maps.buildLayout(ship.ship),destination={square:ship.ship.gridCells.at(-1),mesh:4};
  assert.ok(maps.meshRoute(layout,start,destination));
  const request={code:room.code,token:person.token,starshipId:ship.id,characterId:person.id};
@@ -50,6 +51,7 @@ test('flagship supplies all science upgrades, craftable blueprints, spread ammun
 
 test('campaign environment advances galaxy travel with no browser connected',async()=>{
  const f=fixture(),result=await f.call('showcase/start'),c=await f.api.campaign(result.code),ship=c.starships[0],map=c.starmaps.maps[0],star=map.stars.find(s=>s.name==='Ember');
+ delete c.starmaps.party;delete c.starmaps.localPositions[ship.id];
  await f.call('v03/starmap',{code:c.code,token:result.gmToken,kind:'travel',mapId:map.id,starId:star.id,shipId:ship.id,receipt:'real-clock-test'});
  const start=c.starmaps.journeys[ship.id].clockAt,w=ship.ship.warpState;
  await f.api.tickEnvironment(start+5000);assert.equal(w.remaining,w.total-5);

@@ -477,7 +477,7 @@
     const ship=record.ship||{};
     // AU/ATB/gravity clocks must not rebuild thousands of unchanged map cells.
     const atmosphere=Object.entries(ship.atmosphereState?.cells||{}).map(([cell,o2])=>[cell,Math.ceil(o2-1e-7)]);
-    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.iconRace,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
+    const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.raceType,u.iconRace,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
     return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
   }
   const inlineZoom = new Map();

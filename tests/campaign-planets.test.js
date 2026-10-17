@@ -3,9 +3,9 @@ const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID
 function fixture(){const ship=require('../showcase-starters')('pc','pc',['nova','orion']),c={showcase:true,starships:[ship],characters:['nova','orion'].map(id=>({id,character:{identity:{characterName:id},attributes:{},health:{current:30}}})),npcRoster:[],privateNotes:[]};galaxy.seedShowcase(c);const map=c.starmaps.maps[0],star=map.stars[0],planet=star.system.find(p=>p.kind==='planet');seat(ship,'nova','bridge-1');return {c,ship,map,star,planet};}
 function seat(ship,id,type){const item=ship.ship.sicInventory.find(i=>type.startsWith('bridge')?maps.definition(i.type).bridge:i.type===type),p=ship.ship.placements.find(p=>p.sicId===item.id),st=maps.componentDefinition(item).stations[0];ship.characterLocations[id]={starshipId:ship.id,sicId:item.id,square:p.cell+st.y*maps.gridColumns(ship.ship)+st.x,mesh:st.mesh,stationed:true};}
 function send(f,kind,extra={},gm=true,characterId='nova'){return galaxy.command(f.c,{kind,mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,shipId:f.ship.id,receipt:randomUUID(),...extra},{gm,characterId,combatActive:false});}
-test('six tiny seeded terrain types: 600 planet hexes, 150 region hexes, coherent continents',()=>{
- for(const t of terrain.types){const a=terrain.generate('repeatable',t);assert.equal(a.length,600);assert.deepEqual(a,terrain.generate('repeatable',t));assert.equal(terrain.generate('repeatable',t,true).length,150);if(t!=='temperate')assert.ok(a.every(x=>x===t));}
- const a=terrain.generate('earth','temperate');assert.equal(a.filter(x=>x==='ocean').length,420);
+test('six tiny seeded terrain types: 1200 planet hexes, 150 region hexes, coherent continents',()=>{
+ for(const t of terrain.types){const a=terrain.generate('repeatable',t);assert.equal(a.length,1200);assert.deepEqual(a,terrain.generate('repeatable',t));assert.equal(terrain.generate('repeatable',t,true).length,150);if(t!=='temperate')assert.ok(a.every(x=>x===t));}
+ const a=terrain.generate('earth','temperate');assert.equal(a.filter(x=>x==='ocean').length,840);
  // Independent random water scatters would have many isolated land cells.
  const lone=a.filter((x,i)=>x==='temperate'&&[i-1,i+1,i-30,i+30].every(n=>a[n]!=='temperate')).length;assert.ok(lone<3);
  assert.notDeepEqual(a,terrain.generate('another earth','temperate'));
@@ -15,7 +15,7 @@ test('authoring preserves content when changing terrain or planet appearance; PC
  send(f,'planetHex',{hex:'310',terrain:'desert'});send(f,'planetType',{terrain:'ice'});send(f,'planetRegion',{hex:'310',name:'City Region'});send(f,'planetHex',{regionId:'310',hex:'82',gmNotes:'SECRET REGIONAL',description:'Town square'});
  const h=f.star.surfaces[f.planet.id].hexes['310'];assert.equal(h.gmNotes,'SECRET INFORMANT');assert.equal(h.terrain,'desert');assert.equal(h.city,true);
  const publicView=galaxy.view(f.c,false);assert.ok(!JSON.stringify(publicView).includes('SECRET'));assert.ok(!JSON.stringify(publicView).includes('Secret Stock'));assert.deepEqual(publicView.maps[0].stars[0].surfaces[f.planet.id].regions['310'],{name:'City Region'});
- assert.throws(()=>send(f,'planetHex',{hex:'0',gmNotes:'evil'},false),/Only the GM/);assert.throws(()=>send(f,'planetHex',{hex:'600'}),/inside/);
+ assert.throws(()=>send(f,'planetHex',{hex:'0',gmNotes:'evil'},false),/Only the GM/);assert.throws(()=>send(f,'planetHex',{hex:'1200'}),/inside/);
 });
 test('shipless region start restricts players; GM can relocate out of the region; campaign/module preserves authored start',()=>{
  const f=fixture();send(f,'planetRegion',{hex:'310',name:'First chapter'});send(f,'planetStart',{regionId:'310',hex:'82'});f.c.starships=[];
@@ -29,12 +29,12 @@ test('20-second descent keeps its initiator over reload and pause; only initiato
  const f=fixture();send(f,'systemPosition',{phase:'orbit'});send(f,'descend',{},false,'orion');let j=f.c.starmaps.localJourneys.pc;assert.equal(j.total,20);assert.equal(j.ownerId,'orion');
  const now=j.clockAt;galaxy.tick(f.c,now+10000,false);galaxy.tick(f.c,now+60000,true);assert.equal(j.remaining,10);
  f.c=JSON.parse(JSON.stringify(f.c));galaxy.tick(f.c,now+70000,false);assert.equal(f.c.starmaps.party.awaitingLanding,true);assert.equal(f.c.starmaps.party.landingOwnerId,'orion');
- assert.throws(()=>send(f,'planetLand',{hex:'10'},false,'nova'),/began descent/);send(f,'planetLand',{hex:'10'},false,'orion');assert.equal(f.c.starmaps.party.hex,'10');assert.equal(f.c.starmaps.party.awaitingLanding,false);
+ assert.throws(()=>send(f,'planetLand',{hex:'10'},false,'nova'),/began descent/);send(f,'planetLand',{hex:'10'},false,'orion');assert.equal(f.c.starmaps.partyJourney.kind,'landing');galaxy.tick(f.c,f.c.starmaps.partyJourney.clockAt+4000,false);assert.equal(f.c.starmaps.party.hex,'10');assert.equal(f.c.starmaps.party.awaitingLanding,false);
  assert.throws(()=>send(f,'planetLand',{hex:'11'},false,'orion'),/no landing/);
 });
 test('working newly acquired ship launches from a locked region; broken ship cannot',()=>{
- const f=fixture();send(f,'planetRegion',{hex:'310'});send(f,'planetStart',{regionId:'310',hex:'82'});f.ship.ship.currentHullHp=0;assert.throws(()=>send(f,'leavePlanet',{},false),/power and hull/);assert.ok(f.c.starmaps.party);
- f.ship.ship.currentHullHp=38;send(f,'leavePlanet',{},false);assert.equal(f.c.starmaps.party,undefined);assert.equal(f.c.starmaps.navigation.mode,'orbit');assert.equal(f.c.starmaps.navigation.allowed.galaxy,true);
+ const f=fixture();send(f,'planetRegion',{hex:'310'});send(f,'planetStart',{regionId:'310',hex:'82'});seat(f.ship,'nova','bridge-1');f.ship.ship.currentHullHp=0;assert.throws(()=>send(f,'leavePlanet',{},false),/power and hull/);assert.ok(f.c.starmaps.party);
+ f.ship.ship.currentHullHp=38;send(f,'leavePlanet',{},false);galaxy.advance(f.c,1);assert.equal(f.c.starmaps.party,undefined);assert.equal(f.c.starmaps.navigation.mode,'orbit');assert.equal(f.c.starmaps.navigation.allowed.galaxy,true);
 });
 test('arrival shops prompt once per visit, remain private, and only activate on GM confirmation',()=>{
  const f=fixture();send(f,'planetHex',{hex:'310',shopFile:{format:'sa2shop',version:1,shop:{id:'shop-1',name:'Landing Market'}}});send(f,'planetMoveParty',{hex:'310'});const arrival=f.c.starmaps.shopArrival;assert.equal(f.c.shops,undefined);send(f,'planetMoveParty',{hex:'310'});assert.equal(f.c.starmaps.shopArrival.id,arrival.id);assert.equal(galaxy.view(f.c,false).shopArrival,undefined);
@@ -64,4 +64,22 @@ test('campaign file resumes current location; adventure file restores authored r
  const backup=await call('backup?code='+c.code+'&token='+r.token,{},'GET');const restored=await call('v03/load',{backup,choice:'replace'});assert.equal(restored.campaign.starmaps.party.hex,'311');assert.equal(restored.campaign.starmaps.party.regionId,'');
  const module=await call('v03/module/export',{code:c.code,token:restored.token}),loaded=await call('v03/load',{backup:module},'POST',201);assert.equal(loaded.campaign.starmaps.party.regionId,region);assert.equal(loaded.campaign.starmaps.party.regionHex,'82');assert.ok(loaded.campaign.starmaps.maps[0].stars[0].surfaces[f.planet.id].regions[region].hexes['82'].shop);
  const joined=await call('v03/join',{code:loaded.campaign.code,name:'New visitor'});assert.equal(joined.campaign.starmaps.navigation.mode,'surface');assert.ok(!JSON.stringify(joined.campaign.starmaps).includes('former survey pilot'));
+});
+
+test('paint is atomic, permission checked, undo preserves authored content and detects later edits',()=>{
+ const f=fixture();send(f,'planetHex',{hex:'1199',terrain:'ice',label:'South City',description:'Public',gmNotes:'Secret',city:true});
+ const before=structuredClone(f.star.surfaces[f.planet.id].hexes['1199']);
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert'}]},false),/Only the GM/);
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert'},{hex:'1200',terrain:'ice'}]}),/inside/);
+ assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],before);
+ send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert',expected:'ice'}]});assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],{...before,terrain:'desert'});
+ send(f,'planetPaint',{edits:[{hex:'1199',terrain:'ice',expected:'desert'}]});assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],before);
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'moon',expected:'desert'}]}),/changed since/);
+ const normalized=planets.normalizeWorld(f.star.surfaces[f.planet.id],f.planet.id);assert.equal(normalized.hexes['1199'].label,'South City');
+});
+test('new regions uniformly inherit the parent terrain override and retain that rule after saving',()=>{
+ const f=fixture();send(f,'planetHex',{hex:'1198',terrain:'temperate'});send(f,'planetRegion',{hex:'1198',name:'Green valley'});
+ const w=planets.normalizeWorld(f.star.surfaces[f.planet.id],f.planet.id),r=w.regions['1198'];assert.equal(r.uniform,true);assert.equal(r.type,'temperate');
+ assert.ok(terrain.terrain(r.seed,r.type,r.hexes,true,r.uniform).every(t=>t==='temperate'));
+ assert.equal(terrain.wrapColumn(-1),29);assert.equal(terrain.wrapColumn(30),0);assert.equal(terrain.wrapColumn(61),1);
 });

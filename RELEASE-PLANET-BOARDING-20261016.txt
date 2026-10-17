@@ -1,0 +1,21 @@
+Planet editing and boarding — local pass, October 16, 2026
+
+Implemented
+- Clicking a planet in the system view or solar-system editor exposes Edit Planet. Edit Name / Appearance changes its name and default terrain while retaining authored content.
+- View System is beside Edit Solar System. Shops has a compact action row; narrow map layouts stack without overlapping Shops.
+- New Explore sessions start the party on Harbor, five hexes from parked Protos. Party and ship positions are independent and persist in campaign saves.
+- Ashore PCs disappear from the interior, with movement and console controls disabled. Crew assignments remain; the header distinguishes crew from people aboard.
+- Moving the party onto the ship boards PCs at available airlock cells or nearest legal interior spaces. Repeating the placement preserves existing aboard locations. Moving away clears stations and walking routes.
+- Departure requires returning to the ship, working launch equipment and a stationed Bridge character.
+- Landed interiors reuse the landing hex terrain pattern without planetary hex outlines. Space returns after departure. No new raster assets.
+- Help explains editing, boarding and departure. Secondary crew assignments no longer hide a character's actual boarding location.
+
+Verification
+Full suite: 1,136 tests passed. Five new boarding, persistence, rename and secondary-assignment regressions. Older Explore fixtures now explicitly board when testing ship-only systems. Syntax and whitespace checks passed.
+Browser: new GM/Nova sessions, surface start, disabled ashore controls, 0 aboard, GM marker-to-ship boarding, airlock arrival, movement to a Bridge station, console enabled, departure into orbit, direct planet selection in both views, rename, enlarged terrain background. No browser errors observed. UI checks used the narrow in-app viewport.
+The system editor click regression found during testing was fixed by retaining the selected marker before its existing drag renderer replaces the SVG.
+
+Delivery
+Local preview: http://127.0.0.1:8790/showcase.html
+Personal campaign data backed up before server startup; its hash was unchanged afterward. Liked-build/Gold Standard and unrelated QA files preserved.
+No commit or push. Earlier Drama/mail backlog is outside this focused pass and is not marked complete.

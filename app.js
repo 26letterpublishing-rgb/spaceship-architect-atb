@@ -1867,6 +1867,8 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 }
 
 window.SACombatBridge = {
+  canLeaveAtmosphere:shipId=>Boolean(state?.practice&&campaignState?.starmaps?.party&&!campaignState.starmaps.party.transport&&campaignState.starmaps.launchableShipIds?.includes(shipId)&&campaignState.starmaps.localPositions?.[shipId]?.phase==='surface'&&!campaignState.starmaps.localJourneys?.[shipId]),
+  leaveAtmosphere:async shipId=>{const p=campaignState?.starmaps?.localPositions?.[shipId];if(!p)throw Error('The ship is no longer on this planet.');const response=await campaignRequest('/api/campaign/v03/starmap',{method:'POST',body:JSON.stringify({code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,kind:'leavePlanet',receipt:crypto.randomUUID(),mapId:p.mapId,starId:p.starId,planetId:p.planetId,shipId})});if(response.campaign)receiveCampaignUpdate(response.campaign);return response;},
   crewLogRequest:body=>campaignRequest('/api/campaign/crew-log',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken})}),
   setShipColor:(shipId,color)=>action({action:'setShipColor',shipId,color},'tap'),
   surveillanceRequest:body=>campaignRequest('/api/campaign/starship/surveillance',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:mode==='player'?campaignCharacterId:body.characterId})}),

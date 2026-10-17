@@ -971,20 +971,23 @@
     return `<span class="sa-bay-ships" style="width:${cell.width*100}%;height:${cell.height*100}%">${ships.slice(0,4).map((ship,i)=>`<img src="${shipIcon(ship)}" alt="Docked starship" style="left:${25+i%2*50}%;top:${25+Math.floor(i/2)*50}%;filter:drop-shadow(0 0 3px ${shipColor(ship)})">`).join('')}</span>`;
   }
   function airlockCandidates(record) {
-    const ship=record.ship||record,l=buildLayout(ship),outside=outerSpace(ship),result=[],bridge=[];
+    const ship=record.ship||record,l=buildLayout(ship),outside=outerSpace(ship),blank=[],rooms=[];
+    const sizes=new Map();for(const square of l.hull){const cell=l.footprint.get(square);if(cell)sizes.set(cell.sicId,(sizes.get(cell.sicId)||0)+1);}
     for(const square of l.hull){
-      const room=l.footprint.get(square);if(room&&!definition(room.item.type).bridge)continue;
-      for(const side of l.sides){const next=square+side.offset;
-        if((!side.valid(square)||outside.has(next))&&!l.footprint.has(next))(room?bridge:result).push({square,side:side.name});
-      }
+      const room=l.footprint.get(square),edges=l.sides.filter(side=>(!side.valid(square)||outside.has(square+side.offset))&&!l.footprint.has(square+side.offset));
+      // An interior blank square may hold a deck hatch. Prefer an exposed edge
+      // when available, but never displace an SIC while a blank square exists.
+      for(const side of edges.length?edges:[l.sides[0]]){const candidate={square,side:side.name,exposed:edges.length>0,size:room?sizes.get(room.sicId)||0:0};(room?rooms:blank).push(candidate);}
     }
-    return result.length?result:bridge;
+    const largest=Math.max(0,...rooms.map(r=>r.size));
+    return (blank.length?blank:rooms.filter(r=>r.size===largest)).sort((a,b)=>Number(b.exposed)-Number(a.exposed)).map(({square,side})=>({square,side}));
   }
+
   function ensureAirlocks(record) {
     const ship=record.ship||record,candidates=airlockCandidates(ship),seen=new Set();
     ship.airlocks=(Array.isArray(ship.airlocks)?ship.airlocks:[]).filter(a=>a&&candidates.some(c=>c.square===a.square&&c.side===a.side)&&!seen.has(a.square)&&seen.add(a.square)).map(a=>({id:String(a.id||`airlock-${a.square}-${a.side}`).replace(/[^a-z0-9_-]/gi,'').slice(0,100),square:a.square,side:a.side}));
     if(!ship.airlocks.length&&candidates.length){const a=candidates[0];ship.airlocks.push({id:`airlock-${a.square}-${a.side}`,...a});}
-    return ship.airlocks.length?'':'Leave a blank hull square or an exposed Bridge/Cockpit wall along an outside edge for an airlock.';
+    return ship.airlocks.length?'':'Add a hull square for an airlock; empty squares are preferred, then the largest SIC.';
   }
   function hazardMarkup(ship,square) {
     const a=(ship.airlocks||[]).find(a=>a.square===square),open=a&&ship.airlockStates?.[a.id]?.open;

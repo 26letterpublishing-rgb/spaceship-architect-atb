@@ -1854,6 +1854,8 @@ function renderCharacterNavigation() {
   dom.angilurosSpeedBoost.hidden = !linked || gmView || character.identity.raceId !== "angiluros";
   dom.angilurosSpeedBoost.disabled = character.resources.exertionCurrent < 2;
   dom.campaignPrivateNotes.hidden = !linked || gmView;
+  document.getElementById('pcHeaderMail').hidden=!linked||gmView;
+  if(!linked||gmView)dom.privateNotesModal.hidden=true;
   dom.campaignBankCard.hidden = !linked;
   dom.saveAndSyncCharacter.hidden = !linked || gmView;
   dom.saveAndSyncCharacter.disabled = !campaignEditable;
@@ -2244,7 +2246,7 @@ function renderPlayerStarships(force = false) {
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}">Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
       const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
-      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
+      return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} crew · ${crew.filter(r=>!record.surfaceAwayCharacterIds?.includes(r.id)).length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
   }).join("");
   const current = starshipMoveDraft && dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(starshipMoveDraft.starshipId)}"]`);
   if(current && fullShipDetails) current.classList.add('is-moving');
@@ -2294,6 +2296,7 @@ function renderPlayerStarships(force = false) {
   for(const ship of ships){
     const history=dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(ship.id)}"]`);
     if(!history)continue;
+    const away=ship.surfaceAwayCharacterIds?.includes(ownId);for(const b of history.querySelectorAll('[data-player-ship-begin],[data-ship-diagnostics]'))b.disabled=Boolean(away||starshipMoveDraft?.submitting);if(away){if(starshipMoveDraft?.starshipId===ship.id)starshipMoveDraft=null;for(const b of history.querySelectorAll('[data-player-ship-begin],[data-player-ship-confirm],[data-preview-console],[data-ship-diagnostics],[data-player-ship-carry]'))b.disabled=true;}
     if(fullShipDetails&&(ship.ship.diagnostics||[]).length){
       history.querySelectorAll('.player-starship-sidebar p').forEach(p=>{if(p.textContent.startsWith('Diagnostics:'))p.remove();});
       const status=document.createElement('section');status.className='maintenance-history';status.innerHTML=ship.ship.diagnostics.map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('');history.prepend(status);
@@ -2314,6 +2317,8 @@ function refreshPrivateNotes() {
   const unclaimedReward = notes.some((note) => note.kind === "award" && note.rewardStatus === "pending");
   dom.privateNoteCount.textContent = `${unread} UNREAD`;
   dom.playerInboxCount.textContent = String(unread);
+  dom.playerInboxCount.hidden=unread===0;
+  const mail=document.getElementById('pcHeaderMail');if(mail){mail.hidden=!campaignState||campaignState.role==='gm';mail.setAttribute('aria-label',`Private notes${unread?', '+unread+' unread':''}${unclaimedReward?', reward ready':''}`);mail.title=mail.getAttribute('aria-label');}
   dom.playerInboxCount.classList.toggle("reward-ready", unclaimedReward);
   dom.playerInboxCount.closest("button")?.classList.toggle("reward-ready", unclaimedReward);
   dom.privateNotesList.innerHTML = notes.length ? notes.slice().reverse().map((note) => {
@@ -3278,7 +3283,7 @@ function scrollToWorkflowTarget(selector) {
     highlight.classList.remove("workflow-target-pulse");
     void highlight.offsetWidth;
     highlight.classList.add("workflow-target-pulse");
-    highlight.addEventListener("click", () => highlight.classList.remove("workflow-target-pulse"), {once:true});
+    highlight.dataset.creationGuide=character.creation.activeGuideStep||'';
   });
 }
 
@@ -3828,6 +3833,7 @@ function renderWorkflow() {
   }
 
   if (character.phase === "finalized") {
+    document.querySelectorAll('[data-creation-guide]').forEach(node=>node.classList.remove('workflow-target-pulse'));
     const attributePoints = Math.max(0, Math.round(Number(character.resources.attributePoints) || 0));
     const skillPoints = Math.max(0, Math.round(Number(character.resources.skillPoints) || 0));
     const available = [
@@ -3894,7 +3900,16 @@ function renderWorkflow() {
   dom.finalizeCharacter.classList.toggle("finalize-spectrum", validation.ready && requirements.length === 0 && !fubsRollInProgress);
   renderWorkflowRequirements(requirements);
   dom.phaseBadge.classList.toggle('creation-complete',requirements.length===0);dom.phaseBadge.setAttribute('aria-disabled',String(requirements.length===0));
+  for(const target of document.querySelectorAll('[data-creation-guide]')){const pending=character.phase==='draft'&&requirements.some(task=>task.key===target.dataset.creationGuide);target.classList.toggle('workflow-target-pulse',pending);}
   if(character.creation.activeGuideStep&&!requirements.some(task=>task.key===character.creation.activeGuideStep))character.creation.activeGuideStep='';
+  const activeTask=requirements.find(task=>task.key===character.creation.activeGuideStep);
+  if(activeTask?.target)requestAnimationFrame(()=>{
+    if(character.phase!=='draft'||character.creation.activeGuideStep!==activeTask.key)return;
+    const target=document.querySelector(activeTask.target);
+    if(!target)return;
+    const highlight=target.matches('input,select,textarea,button')?target.closest('label,.panel-heading')||target:target;
+    highlight.dataset.creationGuide=activeTask.key;highlight.classList.add('workflow-target-pulse');
+  });
   dom.phaseBadge.classList.toggle('step-in-progress',Boolean(character.creation.activeGuideStep));
   for(const [key,node] of [['attributes',dom.workflowAttributeRemaining],['skills',dom.workflowSkillRemaining]])node.closest('div')?.classList.toggle('allocating-points',character.creation.activeGuideStep===key&&requirements.some(task=>task.key===key));
   dom.workflowDetail.textContent = validation.ready && requirements.length === 0
@@ -5497,7 +5512,8 @@ function beginSkillReroll() {
 }
 
 function animateSpeedPreview(now) {
-  if(document.hidden||!dom.speedPreview.getClientRects().length){speedPreviewFrame=null;return;}
+  const previews=[...document.querySelectorAll('.speed-preview')].filter(e=>e.getClientRects().length);
+  if(document.hidden||!previews.length){speedPreviewFrame=null;return;}
   const speed = Math.max(0, Number(speedPreviewValue) || 0);
   let progress = 0;
   let ready = false;
@@ -5508,9 +5524,7 @@ function animateSpeedPreview(now) {
     ready = elapsed >= fillDuration;
     progress = ready ? 1 : Math.min(1, elapsed / fillDuration);
   }
-  dom.speedPreviewFill.style.transform = `scaleX(${progress})`;
-  dom.speedPreview.classList.toggle("ready", ready);
-  dom.speedPreview.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+  for(const preview of previews){preview.querySelector(".speed-preview-fill").style.transform=`scaleX(${progress})`;preview.classList.toggle("ready",ready);preview.setAttribute("aria-valuenow",String(Math.round(progress*100)));}
   speedPreviewFrame = requestAnimationFrame(animateSpeedPreview);
 }
 
@@ -5568,7 +5582,7 @@ function renderDerived() {
   }
 }
 new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&speedPreviewFrame===null)syncSpeedPreview(speedPreviewValue);}).observe(dom.speedPreview);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&speedPreviewFrame===null&&dom.speedPreview.getClientRects().length)syncSpeedPreview(speedPreviewValue);});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&speedPreviewFrame===null&&[...document.querySelectorAll('.speed-preview')].some(e=>e.getClientRects().length))syncSpeedPreview(speedPreviewValue);});
 
 function requestGmNumber(label, current, { min = -999999, max = 999999, step = "0.1" } = {}) {
   return new Promise((resolve) => {
@@ -6217,7 +6231,7 @@ function renderCharacterIconPicker() {
   let disguise=picker.querySelector('[data-icon-race]');
   if(character.identity.raceId==='draco-prime'){
     if(!disguise){disguise=document.createElement('select');disguise.dataset.iconRace='';disguise.setAttribute('aria-label','Draco Prime appearance');picker.prepend(disguise);disguise.onchange=()=>{character.presentation.iconRace=disguise.value;queueSave();renderCharacterIconPicker();};}
-    disguise.innerHTML=art.races.filter(r=>r!=='spiddix').map(r=>`<option value="${r}">${r.replaceAll('-',' ')}</option>`).join('');disguise.value=info.race;disguise.disabled=Boolean(campaignCode&&!campaignEditable);
+    disguise.innerHTML=art.allRaces.filter(art.disguiseAllowed).map(r=>`<option value="${r}">${r.replaceAll('-',' ')}</option>`).join('');disguise.value=info.race;disguise.disabled=Boolean(campaignCode&&!campaignEditable);
   }else disguise?.remove();
   picker.style.setProperty('--token-color',character.presentation.atbColor);
   const disabled=Boolean(campaignCode&&!campaignEditable);
@@ -8500,21 +8514,7 @@ dom.tabs?.addEventListener("click", (event) => {
     if (own) showCampaignCharacter(own, { editable: true, token: campaignToken, pin: own.pcCode });
   }
   showCharacterPanel(tab);
-  if (tab === "roster") {
-    let localChanged = false;
-    character.localInbox = (character.localInbox || []).map((note) => {
-      if (note.readAt) return note;
-      localChanged = true;
-      return { ...note, readAt: new Date().toISOString() };
-    });
-    if (localChanged) saveLibrary("Campaign notices read");
-    const own = campaignState?.characters.find((entry) => entry.id === campaignState.ownCharacterId);
-    const unread = (own?.privateNotes || []).filter((note) => note.direction !== "to-gm" && !note.readAt);
-    Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
-      method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: note.id }),
-    }).catch(() => null))).then(() => refreshPrivateNotes());
-  }
+
 });
 
 dom.joinCampaignRoomCode?.addEventListener("input", () => {
@@ -9018,6 +9018,7 @@ dom.playerStarshipList?.addEventListener("click", async (event) => {
   const card = event.target.closest("[data-player-starship]");
   const starshipId = begin?.dataset.playerShipBegin || destination?.dataset.playerShipId || confirm?.dataset.playerShipConfirm || cancel?.dataset.playerShipCancel || card?.dataset.playerStarship;
   const record = (campaignState?.starships || []).find((entry) => entry.id === starshipId);
+  if(record?.surfaceAwayCharacterIds?.includes(ownId)&&(begin||destination||confirm)){starshipMoveDraft=null;notice('Return to the ship’s surface hex with the party before moving aboard.','error');return;}
   if (GM_SHIP_VIEW && window.parent !== window && event.target.closest(".player-starship-edit")) {
     event.preventDefault();
     window.parent.postMessage({ type: "sa-edit-starship", starshipId }, location.origin);
@@ -9137,6 +9138,7 @@ dom.angilurosSpeedBoost?.addEventListener("click", async () => {
 dom.privateNotesList?.addEventListener("click", async (event) => {
   const claimButton = event.target.closest("[data-claim-reward]");
   if (claimButton && campaignEditable) {
+    closePlayerMail();
     claimButton.disabled = true;
     const originalLabel = claimButton.textContent;
     claimButton.textContent = "Receiving...";
@@ -9738,8 +9740,9 @@ function updateSheetDrawer(){
  for(const tab of document.querySelectorAll('[data-sheet-section-tab]')){const button=document.createElement('button');button.textContent=tab.textContent;button.dataset.drawerTab=tab.dataset.sheetSectionTab;button.onclick=()=>{if(sheetDrawerOpen&&sheetDrawerSection===button.dataset.drawerTab)sheetDrawerOpen=false;else{sheetDrawerSection=button.dataset.drawerTab;sheetDrawerOpen=true;}sheetDrawerKey='';updateSheetDrawer();};panel.querySelector('nav').append(button);}}
  sheetDrawer.hidden=activeCharacterTab==='sheet'||!campaignCharacterId;sheetDrawer.classList.toggle('is-open',sheetDrawerOpen);sheetDrawer.querySelector('section').hidden=!sheetDrawerOpen;if(!sheetDrawerOpen)return;
  const key=sheetDrawerRevision(sheetDrawerSection);if(key===sheetDrawerKey)return;sheetDrawerKey=key;const scrollTop=sheetDrawerBody.scrollTop,scrollLeft=sheetDrawerBody.scrollLeft;sheetDrawerBody.replaceChildren();
- for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];copySheetReferenceState(control,original);if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.matches('.skill-name')){const label=document.createElement('span');label.className=control.className;label.innerHTML=control.innerHTML;control.replaceWith(label);}else if(control.tagName==='BUTTON')control.hidden=true;else control.disabled=true;});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
+ for(const source of document.querySelectorAll('[data-sheet-section="'+sheetDrawerSection+'"]')){const copy=source.cloneNode(true);copy.removeAttribute('id');copy.hidden=false;copy.removeAttribute('data-sheet-section');const originals=[...source.querySelectorAll('button,input,select,textarea')];const ids=new Map();copy.querySelectorAll('[id]').forEach(n=>{ids.set(n.id,'drawer-'+n.id);n.id='drawer-'+n.id;});copy.querySelectorAll('*').forEach(n=>{for(const a of [...n.attributes]){let value=a.value;for(const [old,next]of ids)value=value.replaceAll('url(#'+old+')','url(#'+next+')').replace(new RegExp('^#'+old+'$'),'#'+next);if(value!==a.value)n.setAttribute(a.name,value);}});[...copy.querySelectorAll('button,input,select,textarea')].forEach((control,i)=>{const original=originals[i];copySheetReferenceState(control,original);if(control.tagName==='BUTTON'&&control.hasAttribute('data-roll-attribute')){control.disabled=original.disabled;control.onclick=e=>{e.stopPropagation();openAttributeCheck(control.dataset.rollAttribute);};}else if(control.tagName==='BUTTON'&&control.hasAttribute('data-attribute'))control.disabled=true;else if(control.matches('.skill-name')){const label=document.createElement('span');label.className=control.className;label.innerHTML=control.innerHTML;control.replaceWith(label);}else if(control.tagName==='BUTTON')control.hidden=true;else {control.disabled=original.disabled;for(const type of ['input','change'])control.addEventListener(type,e=>{e.stopPropagation();if(original.disabled)return;original.value=control.value;if('checked' in original)original.checked=control.checked;original.dispatchEvent(new Event(type,{bubbles:true}));sheetDrawerKey='';});}});copy.querySelectorAll('[data-roll-skill]').forEach(row=>{row.onclick=e=>{e.stopPropagation();openSkillCheck(row.dataset.rollSkill);};row.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openSkillCheck(row.dataset.rollSkill);}};});copy.querySelectorAll('.attribute-row').forEach(row=>{const dice=[...row.querySelectorAll('.attribute-die.purchased')],keep=dice.at(-1);row.querySelectorAll('.attribute-die').forEach(die=>{if(die!==keep)die.remove();});if(!keep)row.remove();});sheetDrawerBody.append(copy);}
  sheetDrawerBody.scrollTop=scrollTop;sheetDrawerBody.scrollLeft=scrollLeft;
+ if(sheetDrawerBody.querySelector(".speed-preview")&&speedPreviewFrame===null)syncSpeedPreview(speedPreviewValue);
  sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>{const active=b.dataset.drawerTab===sheetDrawerSection;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
 }
 let statisticsSignature='';
@@ -9796,3 +9799,34 @@ document.getElementById('cancelCampaignRoll')?.addEventListener('click',async ev
  try{const result=await campaignRequest('/api/campaign/roll/cancel',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,requestId:request.id})});receiveCampaignState(result.campaign);}
  catch(error){window.SAResultFeedback?.notice(error.message,'error',8000,{allowOutsideCombat:true});}finally{button.disabled=false;}
 });
+
+function closePlayerMail(){dom.privateNotesModal.hidden=true;document.getElementById('pcHeaderMail')?.focus();}
+document.getElementById('pcHeaderMail')?.addEventListener('click',()=>{if(!campaignState||campaignState.role==='gm')return;dom.campaignPrivateNotes.hidden=false;refreshPrivateNotes();dom.privateNotesModal.hidden=false;dom.closePrivateNotes.focus();markPrivateNotesRead();});
+dom.closePrivateNotes?.addEventListener('click',closePlayerMail);
+dom.privateNotesModal?.addEventListener('click',e=>{if(e.target===dom.privateNotesModal)closePlayerMail();});
+dom.privateNotesModal?.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){e.preventDefault();closePlayerMail();return;}
+ if(e.key==='Tab'){const nodes=[...dom.privateNotesModal.querySelectorAll('button,textarea,input,select,a[href]')].filter(n=>!n.disabled&&n.getClientRects().length);const first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+});
+async function markPrivateNotesRead() {
+    let localChanged = false;
+    character.localInbox = (character.localInbox || []).map((note) => {
+      if (note.readAt) return note;
+      localChanged = true;
+      return { ...note, readAt: new Date().toISOString() };
+    });
+    if (localChanged) saveLibrary("Campaign notices read");
+    const own = campaignState?.characters.find((entry) => entry.id === campaignState.ownCharacterId);
+    const unread = (own?.privateNotes || []).filter((note) => note.direction !== "to-gm" && !note.readAt);
+    Promise.all(unread.map((note) => campaignRequest("/api/campaign/note/read", {
+      method: "POST",
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, noteId: note.id }),
+    }).catch(() => null))).then(() => refreshPrivateNotes());
+  }
+
+window.addEventListener('sa-campaign-travel-focus',()=>{if(character.advancementOpen||character.pendingRoll||playerShipEditingId||activeCharacterTab==='shop'||document.querySelector('[data-player-ship-editor],.shop-dialog[open]'))return;document.querySelector('[data-console-preview-frame]')?.remove();showCharacterPanel('roster');});
+
+
+function syncShipConsoleLauncher(){let gold=document.querySelector('[data-ship-console-launcher]');const ready=activeCharacterTab==='starships'&&!campaignState?.combatActive&&!playerShipEditingId&&!document.querySelector('[data-console-preview-frame]')?[...document.querySelectorAll('[data-preview-console]')].find(b=>!b.disabled):null;
+ if(!gold){gold=document.createElement('button');gold.dataset.shipConsoleLauncher='';gold.textContent='Console View';gold.className='ship-console-launcher';gold.onclick=()=>{const button=[...document.querySelectorAll('[data-preview-console]')].find(b=>!b.disabled);button?.click();};document.body.append(gold);}gold.hidden=!ready;}
+setInterval(syncShipConsoleLauncher,500);

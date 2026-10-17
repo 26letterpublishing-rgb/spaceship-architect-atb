@@ -50,3 +50,10 @@ body:not(.ship-details-view) .construction-summary{display:flex!important}.ship-
 .airlock-board-button{border-color:#61ffca!important;box-shadow:0 0 12px #32ffc980;animation:airlock-board-pulse 1.4s ease-in-out infinite alternate}@keyframes airlock-board-pulse{to{box-shadow:0 0 22px #32ffcada}}@media(prefers-reduced-motion:reduce){.airlock-board-button{animation:none}}
 
 .ship-details-view .construction-summary{display:none!important}
+
+body [data-grid-viewport].planet-landed-interior{background-image:var(--planet-ground)!important;background-size:96px 84px!important;background-repeat:repeat!important;background-color:#334637!important}.planet-landed-interior .warp-map-background{display:none!important}.embedded-move-controls button:disabled{opacity:.45;cursor:not-allowed}
+.construction-stat-preview{width:100%;margin:8px 0;background:#060d12}
+.construction-stat-preview>.desktop-live-stats{position:static!important;display:block!important;width:100%!important;height:auto!important;aspect-ratio:612/214;overflow:hidden}
+.ship-details-view .construction-stat-preview{display:none!important}
+.construction-stat-preview .pending-construction-value{fill:#ffe24b!important;stroke:#000!important;stroke-width:1.1px!important;paint-order:stroke fill}
+.construction-stat-preview>.desktop-live-stats>image:first-child{filter:invert(1) hue-rotate(180deg) saturate(1.45) brightness(.86) contrast(1.16)}

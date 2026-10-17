@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="campaign-starmaps.css">
 <script src="planet-terrain.js" defer></script>
 <link rel="stylesheet" href="planet-surfaces.css">
+<script src="planet-motion.js" defer></script>
 <script src="planet-surfaces-ui.js" defer></script>
 <script src="campaign-navigation-ui.js" defer></script>
 <script src="campaign-starmaps-ui.js" defer></script>
@@ -49,6 +50,7 @@
         </div>
         <div class="gm-header-actions">
           <button id="saveCampaignBackup" class="campaign-export-button" type="button">Save Campaign</button>
+          <button id="gmMailButton" class="gm-sound-toggle" type="button" aria-label="Private messages and notifications" title="Private messages and notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg><strong id="gmInboxCount" hidden>0</strong></button>
           <button id="gmSoundToggle" class="gm-sound-toggle" type="button" aria-label="Mute combat sounds" title="Mute combat sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button>
           <button id="gmSettingsToggle" class="gm-settings-toggle" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button>
           <button id="exitEncounter" class="danger exit-encounter" type="button" hidden>End Combat</button>
@@ -92,7 +94,7 @@
           <button type="button" data-tab="campaign">Campaign</button><button type="button" data-tab="characters">Characters</button>
           <button type="button" data-tab="starships">Starships</button>
           <button type="button" data-tab="prompt">Prompt / Give</button>
-          <button type="button" data-tab="inbox">Inbox <strong id="gmInboxCount">0</strong></button>
+          <button type="button" data-tab="shop">Shop</button>
           <button type="button" data-tab="atb">Combat</button>
         </nav>
 
@@ -154,13 +156,18 @@
           </form>
         </section>
 
-        <section id="inboxTab" class="gm-tab" data-tab-panel="inbox" hidden>
+        <section id="shopTab" class="gm-tab" data-tab-panel="shop" hidden></section>
+        <dialog id="gmMailDialog" class="gm-mail-dialog" aria-label="Private messages and notifications"><section id="inboxTab">
           <div class="tab-heading">
             <div><span>CAMPAIGN COMMUNICATIONS</span><h2>Inbox</h2></div>
             <strong id="pendingJoinCount">0 Pending</strong>
           </div>
           <div id="gmInboxList" class="gm-inbox-list"></div>
-        </section>
+                    <form id="privateNoteForm" class="tool-card">
+              <h3>Send a Private Message</h3><div id="gmMailRecipients" class="gm-mail-recipients"></div>
+              <label>Message<textarea id="privateNoteMessage" rows="7" maxlength="4000" placeholder="Only the selected player and GM can read this note."></textarea></label>
+              <button class="primary" type="submit">Send Private Note</button>
+            <p id="gmMailStatus" role="status"></p></form><footer><button id="closeGmMail" type="button">Dismiss</button></footer></section></dialog>
 
         <section id="charactersTab" class="gm-tab" data-tab-panel="characters" hidden>
           <div class="tab-heading">
@@ -242,11 +249,7 @@
               <button id="passTime" class="primary" type="button">Pass Time</button>
               <p id="passTimeMessage" class="tool-message" role="status"></p>
             </section>
-            <form id="privateNoteForm" class="tool-card">
-              <h3>Private Note</h3>
-              <label>Message<textarea id="privateNoteMessage" rows="7" maxlength="4000" placeholder="Only the selected player and GM can read this note."></textarea></label>
-              <button class="primary" type="submit">Send Private Note</button>
-            </form>
+
             <form id="giveMineralsForm" class="tool-card">
               <h3>Give Minerals</h3>
               <label>Destination ship<select id="giveMineralsShip" required></select></label>

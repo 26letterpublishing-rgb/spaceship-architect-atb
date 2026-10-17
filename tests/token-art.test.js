@@ -25,7 +25,9 @@ test('walking uses standing and two mirrored steps within the existing 840ms cyc
  const css=fs.readFileSync(require.resolve('../token-art.css'),'utf8');assert.equal(art.walkCycleMs,840);assert.match(css,/spriteStand \.84s/);assert.match(css,/spriteLeft \.84s/);assert.match(css,/spriteRight \.84s/);assert.match(art.figure('human'),/translate\(32 0\) scale\(-1 1\)/);assert.match(css,/prefers-reduced-motion/);
 });
 
-test('Draco Prime appearance accepts every race except Spiddix without changing identity',()=>{
- for(const race of art.races){const c={identity:{raceId:'draco-prime'},presentation:{iconRace:race,iconVariant:1}};assert.equal(art.character(c).race,race==='spiddix'?'draco-prime':race);assert.equal(c.identity.raceId,'draco-prime');}
+test('Draco Prime appearance accepts humanoid races only without changing identity',()=>{
+ for(const race of art.races){const c={identity:{raceId:'draco-prime'},presentation:{iconRace:race,iconVariant:1}};assert.equal(art.character(c).race,['spiddix','kabuto','skeder','xithx'].includes(race)?'draco-prime':race);assert.equal(c.identity.raceId,'draco-prime');}
  assert.equal(art.character({identity:{raceId:'human'},presentation:{iconRace:'android'}}).race,'human');
 });
+
+test('each subtype resolves its own existing atlas through the shared walk renderer',async()=>{const {RACE_DEFS}=await import('../character-data.js');for(const race of RACE_DEFS)for(const subtype of race.types||[]){const resolved=art.character({identity:{raceId:race.id,raceType:subtype.id}}).race;assert.equal(resolved,race.id+'-'+subtype.id);assert.ok(fs.existsSync(require('path').join(__dirname,'..',art.atlas(resolved))));assert.equal(art.options(resolved).length,2);assert.match(art.figure(resolved),/crew-sprite-step/);}});

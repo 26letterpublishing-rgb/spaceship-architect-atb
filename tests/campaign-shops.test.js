@@ -12,7 +12,7 @@ test('starter SIC footprints never overlap and Protos retains printed Sensor and
  const {ship}=starter('p','pc'),cell=(x,y)=>(y+5)*24+x+5;
  const origin=type=>ship.placements.find(p=>p.sicId===ship.sicInventory.find(i=>i.type===type).id).cell;
  assert.equal(origin('sensors-2'),cell(2,3));assert.equal(origin('antenna-2'),cell(2,4));
- assert.equal(maps.definition(maps.buildLayout(ship).footprint.get(ship.airlocks[0].square).item.type).bridge,true);
+ assert.equal(maps.buildLayout(ship).footprint.has(ship.airlocks[0].square),false);
 });
 
 test('hull shop prices follow destination size and refused printed transfers do not spend money',()=>{

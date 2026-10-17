@@ -4,3 +4,42 @@
 
 .pc-sheet-drawer .attribute-row{display:inline-flex;min-height:42px;padding:0;border:0;background:none}.pc-sheet-drawer .attribute-row::before,.pc-sheet-drawer .attribute-purchased-wave{display:none}.pc-sheet-drawer .attribute-die{--die-width:42px;--die-height:42px}.pc-sheet-drawer .attribute-die svg{width:40px;height:38px}.pc-sheet-drawer .attribute-card{overflow:hidden}.pc-sheet-drawer .attribute-card-head{min-height:52px}
 .pc-sheet-drawer{z-index:100}.pc-sheet-drawer .attribute-rows{display:flex;flex-wrap:wrap;gap:5px}
+/* Drawer controls must fit their reference layout, not the full character editor. */
+.pc-sheet-drawer .skill-list{columns:1!important;column-count:1!important}
+.pc-sheet-drawer .skill-row{display:grid!important;grid-template-columns:minmax(0,1fr) 76px!important;gap:8px;padding:5px 8px}
+.pc-sheet-drawer .skill-name{grid-column:1!important;min-width:0;white-space:normal;line-height:1.25;padding:0!important}
+.pc-sheet-drawer .skill-value{grid-column:2!important;min-width:0;text-align:right}
+.pc-sheet-drawer .skill-refund,.pc-sheet-drawer .skill-buy,.pc-sheet-drawer [hidden]{display:none!important}
+.pc-sheet-drawer .weapon-table-row{align-items:start!important;min-height:0!important}
+.pc-sheet-drawer .weapon-table-row select{height:36px!important;min-height:36px!important;align-self:start!important;padding:6px!important}
+.pc-sheet-drawer .weapon-table-row>*{min-height:0;align-self:start}
+.pc-sheet-drawer .weapon-table-row .weapon-held{min-width:35px}
+.pc-sheet-drawer .weapon-table-head,.pc-sheet-drawer .weapon-table-row{grid-template-columns:220px 50px 170px 90px 100px 75px 85px 90px 65px 60px 260px 65px!important}
+.pc-sheet-drawer .weapon-table-row>select{grid-column:1}
+.pc-sheet-drawer .weapon-table-row>.weapon-held-button{grid-column:2}
+.pc-sheet-drawer .weapon-stat[data-label="To-Hit"]{grid-column:3}
+.pc-sheet-drawer .weapon-stat[data-label="Damage"]{grid-column:4}
+.pc-sheet-drawer .weapon-stat[data-label="Charge Bonus"]{grid-column:5}
+.pc-sheet-drawer .weapon-stat[data-label="Max Charge"]{grid-column:6}
+.pc-sheet-drawer .weapon-stat[data-label="Charge Time"]{grid-column:7}
+.pc-sheet-drawer .weapon-stat[data-label="Element"]{grid-column:8}
+.pc-sheet-drawer .weapon-stat[data-label="Range"]{grid-column:9}
+.pc-sheet-drawer .weapon-stat[data-label="Size"]{grid-column:10}
+.pc-sheet-drawer .weapon-stat[data-label="Special"]{grid-column:11}
+.pc-sheet-drawer .weapon-row-actions{grid-column:12}
+.pc-sheet-drawer .weapon-table-row>*{grid-row:1}
+
+/* Compact drawer tabs share the full available row. */
+.pc-sheet-drawer nav{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px!important;width:100%;margin-bottom:10px;border-bottom:2px solid #2899b7}
+.pc-sheet-drawer nav button{min-width:0!important;padding:10px 2px!important;font-size:10px!important;border-radius:6px 6px 0 0!important;background:#102735!important;border-bottom:0!important;box-shadow:none!important}
+.pc-sheet-drawer nav button.active{background:#246c82!important;color:#fff;border-color:#7deaff!important}
+.workflow-points:has(#workflowExperience){display:none!important}
+.race-card-art{position:sticky!important;top:0;height:100dvh!important;min-height:0!important;align-self:start}
+.race-card-art img{height:100%!important;width:100%;object-fit:cover;object-position:center top!important}
+
+
+.workflow-bar .experience-panel .xp-readouts,.workflow-bar .experience-panel .panel-heading{display:none!important}.workflow-bar .experience-panel:not(:has(.creation-budgets:not([hidden]))){display:none}
+
+.ship-console-launcher{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:10000;width:300px;height:64px;border:0;border-radius:0;background:linear-gradient(#fff1a0,#eac145 55%,#be8919);color:#201500;font:900 20px Arial;clip-path:polygon(0 100%,13% 12%,17% 0,83% 0,87% 12%,100% 100%)}.ship-console-launcher[hidden]{display:none!important}
+.pc-settings-button#pcSettingsButton svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pc-header-tools .crew-log-header{margin:0 4px 0 0;white-space:nowrap}
