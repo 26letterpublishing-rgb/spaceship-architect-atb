@@ -958,7 +958,7 @@ function renderLiveStats() {
   const sensors = window.SAShipMap.sensorStats(confirmed),sensorDiceText=sensors.dice.length?[...new Set(sensors.dice)].map(d=>sensors.dice.filter(n=>n===d).length+'D'+d).join(' + '):'0 dice';
   document.querySelectorAll('[data-sensor-range]').forEach(element => {element.textContent = sensors.range;});
   document.querySelectorAll('[data-firewall-level]').forEach(element=>{element.textContent=window.SAShipMap.firewallStats(draft);});
-  document.querySelectorAll('[data-sensor-dice]').forEach(element => {element.textContent = sensorDiceText;});
+  document.querySelectorAll('[data-sensor-dice]').forEach(element => {element.textContent = sensorDiceText;if(element.tagName.toLowerCase()==='text'){const fit=()=>{element.style.transition='none';element.style.fontSize='10px';const width=element.getComputedTextLength();if(width>40)element.style.fontSize=Math.max(4,10*40/width)+'px';};requestAnimationFrame(fit);document.fonts?.ready.then(fit);}});
   let sensorSummary = document.querySelector('[data-sensor-summary]');
   if (!sensorSummary) {
     sensorSummary = document.createElement('span');sensorSummary.dataset.sensorSummary='';
@@ -1779,6 +1779,7 @@ function drawDetailsCrew(){
     if(!marker.querySelector('.crew-figure'))marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);
     marker.title=(occupant?.name||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
     marker.dataset.walking=String(Boolean(motion?.walking));
+    if(!motion&&Number.isFinite(loc.heading))marker.style.setProperty('--crew-heading',loc.heading+'deg');
     if(motion){marker.style.left=`${motion.x/GRID_SIZE*100}%`;marker.style.top=`${motion.y/(draft.zoneRows||20)*100}%`;marker.style.setProperty('--crew-heading',`${motion.heading}deg`);if(marker.parentElement!==grid)grid.append(marker);}
     else{marker.style.left=`${((mesh%3)+.5)/3*100}%`;marker.style.top=`${(Math.floor(mesh/3)+.5)/3*100}%`;if(marker.parentElement!==cell)cell.append(marker);}
   }
@@ -2062,3 +2063,5 @@ document.addEventListener('change',event=>{
 
 // Interpolate saved walking routes without rebuilding the ship or sending frame updates.
 setInterval(()=>{if(window.SAExploreSession?.active()===false||document.hidden||!window.frameElement?.getClientRects().length)return;const record=linkedCampaignState?.starships?.find(s=>s.id===draft.id);if(Object.keys(record?.characterWalks||{}).length)drawDetailsCrew();},33);
+
+if(pageParameters.has('embeddedRecord')){document.addEventListener('keyup',e=>parent.postMessage({type:'sa-ship-map-key',key:e.key,release:true},location.origin));window.addEventListener('blur',()=>['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(key=>parent.postMessage({type:'sa-ship-map-key',key,release:true},location.origin)));}

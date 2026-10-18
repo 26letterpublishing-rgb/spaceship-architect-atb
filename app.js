@@ -3376,11 +3376,11 @@ function render() {
   updateGmClockButton();
   enableAlerts.textContent = playerAlertLabel();
   const soundsMuted = mode === "gm" ? gmSoundsMuted : !alertsEnabled;
-  gmMuteSound.classList.toggle("hidden", mode !== "gm" && mode !== "player");
+  gmMuteSound.classList.toggle("hidden", (mode !== "gm" && mode !== "player") || embeddedCombat);
   gmMuteSound.classList.toggle("muted", soundsMuted);
   gmMuteSound.title = soundsMuted ? "Unmute sounds" : "Mute sounds";
   gmMuteSound.setAttribute("aria-label", gmMuteSound.title);
-  visualModeToggle.classList.toggle("hidden", !!state.arena || (mode !== "gm" && mode !== "player"));
+  visualModeToggle.classList.toggle("hidden", !!state.arena || ((mode !== "gm" && mode !== "player") || embeddedCombat));
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   undoLastTiming.disabled = !state.undoAvailable;

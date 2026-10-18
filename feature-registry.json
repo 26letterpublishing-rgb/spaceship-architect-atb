@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "scope": "Canonical owners and invariants for the October 17 tab review; expand as related features are maintained.",
+  "features": [
+    {
+      "name": "Story Console",
+      "purpose": "Compose chapters and resolve keyword rewards",
+      "canonicalImplementation": "story-files.js",
+      "interfaces": [
+        "gm.js",
+        "app-help.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js",
+        "help-script-preview.png",
+        "help-script-rolls.png"
+      ],
+      "expectedBehavior": "GM attachment loading appends and opens new tabs; existing chapters, keywords and shops remain isolated.",
+      "regressionTests": [
+        "tests/tab-review.test.js",
+        "tests/tab-review-http.test.js"
+      ]
+    },
+    {
+      "name": "Location attachments",
+      "purpose": "Reuse saved content at planet and region hexes",
+      "canonicalImplementation": "planet-attachments.js",
+      "interfaces": [
+        "planet-surfaces-ui.js",
+        "gm.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-planets.js",
+        "story-files.js"
+      ],
+      "expectedBehavior": "Only GM sees loaders. NPC, surface encounter and Story files persist privately; arrival never auto-loads.",
+      "regressionTests": [
+        "tests/tab-review.test.js",
+        "tests/tab-review-http.test.js"
+      ]
+    },
+    {
+      "name": "Campaign navigation",
+      "purpose": "Browse named map hierarchy and locate the party",
+      "canonicalImplementation": "campaign-navigation-ui.js",
+      "interfaces": [
+        "campaign-starmaps-ui.js",
+        "planet-surfaces-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "planet-terrain.js",
+        "space-map.js"
+      ],
+      "expectedBehavior": "All map levels enlarge to viewport; ancestor maps retain party location; GM painting tools remain accessible.",
+      "regressionTests": [
+        "tests/campaign-planets.test.js"
+      ]
+    },
+    {
+      "name": "Character relocation",
+      "purpose": "GM moves one PC or NPC to a named location",
+      "canonicalImplementation": "character-relocation.js",
+      "interfaces": [
+        "gm.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js",
+        "planet-boarding.js",
+        "planet-travel.js"
+      ],
+      "expectedBehavior": "GM-only, preserves other characters, persists private location data and projects each PC own view; blocked during active combat.",
+      "regressionTests": [
+        "tests/tab-review-http.test.js"
+      ]
+    },
+    {
+      "name": "Campaign shops",
+      "purpose": "Manage shared priced inventory",
+      "canonicalImplementation": "campaign-shops.js",
+      "interfaces": [
+        "shop-gm-ui.js",
+        "shop.css"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js"
+      ],
+      "expectedBehavior": "Everything begins inactive, always uses standard catalog prices and cannot be deleted; ordinary shops retain existing controls.",
+      "regressionTests": [
+        "tests/campaign-shops.test.js",
+        "tests/campaign-shops-http.test.js",
+        "tests/tab-review.test.js"
+      ]
+    },
+    {
+      "name": "Private inbox",
+      "purpose": "Share mail layout and campaign recipient selection",
+      "canonicalImplementation": "inbox-ui.js",
+      "interfaces": [
+        "gm.js",
+        "character.js",
+        "inbox.css"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js",
+        "public-assets.js"
+      ],
+      "expectedBehavior": "No self-message or forged sender; PC notes visible only to recipient and GM; preserve notification actions.",
+      "regressionTests": [
+        "tests/tab-review-http.test.js"
+      ]
+    },
+    {
+      "name": "Ship walking and console",
+      "purpose": "Continuous keyboard routes and consistent console exit",
+      "canonicalImplementation": "ship-walking.js",
+      "interfaces": [
+        "starship.js",
+        "console-common.js",
+        "console-common.css"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js"
+      ],
+      "expectedBehavior": "Walking retains final facing; gold console control remains centered and becomes red Exit Console while open.",
+      "regressionTests": [
+        "tests/tab-review.test.js"
+      ]
+    },
+    {
+      "name": "Character statistics",
+      "purpose": "Track confirmed skill and unmodified dice results",
+      "canonicalImplementation": "character-statistics.js",
+      "interfaces": [
+        "character.js",
+        "server.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js"
+      ],
+      "expectedBehavior": "Receipt deduplication; attribute values use resolved dice before bonuses; manual totals without separate dice are excluded from attribute averages.",
+      "regressionTests": [
+        "tests/tab-review.test.js",
+        "tests/v03-statistics-spectator.test.js"
+      ]
+    }
+  ]
+}

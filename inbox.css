@@ -1,0 +1,13 @@
+.gm-mail-dialog{width:min(1100px,94vw);height:auto;max-height:90dvh;overflow:auto;padding:20px;background:#071721;color:#eaf6ff;border:1px solid #60bdd3;border-radius:10px;box-sizing:border-box}
+.gm-mail-dialog::backdrop{background:#000b;backdrop-filter:blur(5px)}
+.gm-mail-dialog #inboxTab,.gm-mail-dialog .shared-inbox{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,1fr);gap:16px;align-items:start}
+.gm-mail-dialog .tab-heading,.gm-mail-dialog .campaign-private-notes-heading,.gm-mail-dialog footer{grid-column:1/-1}
+.gm-mail-dialog footer{text-align:right}.gm-mail-dialog textarea{width:100%;min-height:200px;box-sizing:border-box}
+.gm-mail-recipients{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.gm-mail-recipients label{padding:8px;border:1px solid var(--recipient-color);background:color-mix(in srgb,var(--recipient-color) 15%,#081721);display:flex;gap:8px;align-items:center}
+.gm-mail-dialog .gm-inbox-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:start;align-items:start;gap:12px;padding:12px;border:1px solid #395767;background:#0c1c27;margin-bottom:10px;font:14px/1.5 Arial,sans-serif}
+.gm-mail-dialog .gm-inbox-card.unread{border-color:#edcb6f}.gm-inbox-card>div{display:grid;gap:4px}.gm-inbox-card small{font-size:11px;color:#a8c0ce}.gm-inbox-card p{grid-column:1/-1;margin:0;white-space:pre-wrap}.gm-inbox-card span{font-size:11px;color:#76d9f0}
+.gm-mail-dialog .tool-card{margin:0;padding:12px;background:#0c1c27;border:1px solid #395767}.gm-mail-dialog h3{margin:0 0 10px;font-size:18px}
+@media(max-width:700px){.gm-mail-dialog #inboxTab,.gm-mail-dialog .shared-inbox{grid-template-columns:1fr}}
+
+.gm-mail-dialog .shared-inbox{margin:0;padding:0;border:0;background:none}.gm-mail-dialog .private-notes-list,.gm-mail-dialog .gm-inbox-list{display:grid;align-content:start;max-height:none;margin:0;padding:0;overflow:visible}.gm-mail-dialog .message-gm-form{margin:0}.gm-mail-dialog button{font:14px Arial,sans-serif;text-transform:none;padding:9px 15px;border-radius:6px;background:linear-gradient(#315569,#17303e);border:1px solid #7798a8;color:#fff}.gm-mail-dialog button[type=submit]{background:linear-gradient(#246b78,#123943)}.gm-mail-dialog h2{font:700 22px Arial,sans-serif;color:#eaf6ff}.gm-mail-dialog label{font:13px Arial,sans-serif;text-transform:none}.gm-mail-dialog textarea{font:14px/1.5 Arial,sans-serif}

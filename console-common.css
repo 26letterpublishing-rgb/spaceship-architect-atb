@@ -112,3 +112,5 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
 .shared-console-layout .shared-power .console-service-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;padding:6px!important;gap:5px}
 .console-service-panel button{min-width:0;min-height:34px;padding:7px 3px}
 .shared-console-layout .shared-power [data-common-fleet]{max-height:24vh}
+
+[data-common-mounted] [data-close][hidden]{display:none!important}.catalog-console-exit{position:fixed;bottom:0;left:50%;translate:-50% 0;transform:none;transition:none;animation:none;width:300px;height:64px;border:0;background:linear-gradient(#ffaaa2,#da4545 55%,#8c1e27);color:white;font:900 20px Arial;clip-path:polygon(0 100%,13% 12%,17% 0,83% 0,87% 12%,100% 100%)}

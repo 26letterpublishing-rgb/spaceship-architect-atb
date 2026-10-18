@@ -7,7 +7,7 @@
  function stash(){try{localStorage.setItem(storageKey(),JSON.stringify({name:name.value,text:text.value,revision,dirty}));localStorage.setItem(`sa-crew-log-name:${state.code}:${own()}`,name.value);}catch{}}
  function load(){const log=entry();let local=null,journal='Crew Log';try{local=JSON.parse(localStorage.getItem(storageKey()));journal=localStorage.getItem(`sa-crew-log-name:${state.code}:${own()}`)||journal;}catch{}
  name.value=log?.name||journal;text.value=log?.text||'';revision=log?.revision||0;dirty=false;
- if(local?.dirty){name.value=local.name;text.value=local.text;revision=local.revision;dirty=true;status.textContent='Restored your local draft. Save when connected.';}else status.textContent='';toggle.textContent=name.value;}
+ if(local?.dirty){name.value=local.name;text.value=local.text;revision=local.revision;dirty=true;status.textContent='Restored your local draft. Save when connected.';}else status.textContent='';toggle.textContent=(state.characters?.find(r=>r.id===own())?.character?.identity?.characterName?.trim().split(/\s+/)[0]||'Crew')+"’s Log";}
 
  async function saveEntry(kind){
   if(saving){status.textContent='Finishing the current save. Your edits are still kept locally.';return;}
@@ -32,11 +32,11 @@
   name=document.createElement('input');name.setAttribute('aria-label','Journal name');name.maxLength=60;
   select=document.createElement('select');select.setAttribute('aria-label','Session');select.onchange=()=>{key=state.code+':'+own()+':'+select.value;load();};
   text=document.createElement('textarea');text.rows=16;text.maxLength=20000;text.setAttribute('aria-label','Session journal entry');
-  name.oninput=text.oninput=()=>{dirty=true;toggle.textContent=name.value||'Crew Log';stash();};
+  name.oninput=text.oninput=()=>{dirty=true;stash();};
   status=document.createElement('p');status.setAttribute('role','status');
   const save=saveEntry;
   const file=document.createElement('input');file.type='file';file.accept='.json';file.hidden=true;file.onchange=async()=>{try{const data=JSON.parse(await file.files[0].text());if(data.format!=='Spaceship Architect Crew Log'||!Number.isInteger(data.session)||data.session<0||data.session>state.sessionNumber||typeof data.text!=='string')throw Error('Choose a Crew Log file for an existing session.');const existing=state.crewLogs?.find(l=>l.characterId===own()&&l.session===data.session);if(existing&&existing.text!==data.text&&!confirm('Replace the current entry with the imported entry?\n\nCURRENT: '+existing.text.slice(0,300)+'\n\nIMPORTED: '+data.text.slice(0,300)+'\n\nOK keeps imported; Cancel keeps current.'))return;select.value=data.session;load();name.value=data.name||'Crew Log';text.value=data.text;dirty=true;stash();await save('save');}catch(e){status.textContent=e.message;}finally{file.value='';}};
-  panel.append(name,select,text,button('Save Entry',()=>save('save')),button('Send to GM',()=>save('submit')),button('Save Journal Entry',download),button('Load Journal Entries',()=>file.click()),file,status);panel.prepend(button('Close Crew Log',()=>panel.close()));host.append(toggle);document.querySelector('.pc-header-tools').prepend(host);document.body.append(panel);
+  panel.append(name,select,text,button('Save Entry',()=>save('save')),button('Send to GM',()=>save('submit')),button('Save Journal Entry',download),button('Load Journal Entries',()=>file.click()),file,status);panel.prepend(button('Close Crew Log',()=>panel.close()));host.append(toggle);document.querySelector('.creator-header').append(host);document.body.append(panel);
   new MutationObserver(()=>{host.hidden=!own()||!!document.querySelector('#characterCampaignGate')?.hidden;}).observe(document.querySelector('#characterCampaignGate'),{attributes:true,attributeFilter:['hidden']});
  }
  function gm(){

@@ -13,7 +13,7 @@
  }
  function sample(job,now=Date.now()){
   const elapsed=Math.max(0,now-job.startedAt),step=job.steps.find(s=>s.end>elapsed),done=!step;
-  if(done){const p=job.destination;return {...point(p,job.columns),location:p,done:true,walking:false,heading:0};}
+  if(done){const p=job.destination,last=job.steps.at(-1),a=last&&point(last.from,job.columns),b=last&&point(last.to,job.columns),heading=last?Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI+90:0;return {...point(p,job.columns),location:p,done:true,walking:false,heading};}
   const f=Math.max(0,Math.min(1,(elapsed-step.begin)/Math.max(1,step.end-step.begin))),a=point(step.from,job.columns),b=point(step.to,job.columns);
   return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,location:f<.5?step.from:step.to,heading:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI+90,walking:elapsed>=step.begin,done:false,openDoorKeys:step.doorKey?[step.doorKey]:[]};
  }
@@ -22,7 +22,7 @@
   const gravity=maps.gravityEnabled(record),elapsed=Math.max(0,(job.updatedAt||job.startedAt)-job.startedAt);
   if(job.gravity!==undefined&&job.gravity!==gravity){const factor=gravity ? 0.5 : 2;for(const step of job.steps){if(step.end>elapsed){step.begin=elapsed+(step.begin-elapsed)*factor;step.end=elapsed+(step.end-elapsed)*factor;}}job.duration=job.steps.at(-1)?.end||0;job.gravity=gravity;}
   job.updatedAt=now;
-  const value=sample(job,now);record.characterLocations[id]={carryingId:record.characterLocations[id]?.carryingId||null,...value.location,...(!value.done?{stationed:false,stationSlot:null}:{})};
+  const value=sample(job,now);record.characterLocations[id]={carryingId:record.characterLocations[id]?.carryingId||null,...value.location,heading:value.heading,...(!value.done?{stationed:false,stationSlot:null}:{})};
   const passenger=record.characterLocations[id].carryingId;if(passenger&&record.characterLocations[passenger])record.characterLocations[passenger]={...record.characterLocations[id],carryingId:null,carriedBy:id,stationed:false};
   if(value.done||stop){delete record.characterWalks[id];changed.push(id);}
  }return changed;}

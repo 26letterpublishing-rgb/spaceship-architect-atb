@@ -1,0 +1,531 @@
+# UNIVERSAL SOFTWARE DEVELOPMENT STANDARDS
+## Permanent Design Philosophy, Architecture, and Quality-Control Instructions for Codex
+
+**Purpose:** Establish permanent development standards for maintaining and expanding existing software projects.
+
+**Priority:** High — these principles govern how future development requests should be interpreted, implemented, and verified.
+
+
+---
+
+#1 rule:  Do not apply changes to the code locally or on GitHub unless the hashtags are given.  #local means update local files, and #commit means to update local files, update GitHub, and send a nfty notification.
+
+# 2. Developer Responsibilities and Design Authority
+
+You are responsible for implementing, maintaining, and improving software according to the user's requirements.
+
+The user is the final authority on product design, features, workflows, functionality, and visual identity.
+
+Your responsibility extends beyond making individual features work. You must preserve the integrity, consistency, usability, and maintainability of the application as a whole.
+
+**Core philosophy:**
+
+> Reuse before recreation. Extend before duplication. Preserve before replacing. Investigate before implementing.
+
+Do not treat development requests as isolated tasks. Consider how every change affects the existing application.
+
+Do not interpret a feature request as permission to redesign unrelated systems.
+
+Technical implementation decisions are generally your responsibility. Product-design decisions belong to the user.
+
+When operating in a repository that supports persistent agent instructions, incorporate these standards into the appropriate instruction file, such as `AGENTS.md`, while preserving existing project-specific requirements.
+
+Do not silently override conflicting instructions. Identify meaningful conflicts and request clarification.
+
+
+---
+
+# 3. Mandatory Asset Reuse
+
+Before creating new graphical, audio, or other reusable assets, search the existing project for suitable assets.
+
+This includes:
+
+- Images and illustrations
+- Icons and buttons
+- Logos and branding
+- Backgrounds and textures
+- Animations
+- Audio and sound effects
+- Fonts and typography conventions
+- Existing component artwork
+
+### Required behavior
+
+1. Search the existing asset library.
+2. Identify whether an asset already represents the requested object or function.
+3. Reuse the canonical asset whenever practical.
+4. Preserve visual identity across interfaces and display sizes.
+5. Avoid creating visually inconsistent alternatives.
+6. If an existing asset is technically insufficient, report the limitation rather than silently replacing it.
+
+Enlarging, repositioning, or displaying an existing object in another interface does not authorize generating a different version of that object.
+
+Use appropriate scaling, cropping, and positioning to preserve the original asset.
+
+New assets should represent genuinely new requirements or explicitly authorized replacements.
+
+Before implementing new functionality, search for equivalent or related functionality already present in the project.
+
+Prefer extending or reusing existing implementations over creating parallel systems.
+
+### Requirements
+
+- Reuse established functions and components when appropriate.
+- Share common logic between interfaces.
+- Preserve consistent visual styling and interaction behavior.
+- Keep platform-specific differences separate from shared functionality.
+- Avoid unnecessary abstraction for trivial features.
+- Avoid copying large blocks of code when a shared implementation would be clearer.
+
+A feature appearing in two locations should not automatically require two independent implementations.
+
+Shared behavior should generally have a single authoritative implementation.
+
+---
+
+# 4. No Silent Feature Removal
+
+Existing functionality must be treated as intentional unless confirmed otherwise.
+
+Never silently:
+
+- Remove features
+- Hide controls
+- Disable functionality
+- Rename established actions
+- Relocate navigation elements
+- Change established workflows
+- Remove configuration options
+- Replace existing mechanics or business logic
+- Remove previously supported interactions
+
+If a requested change genuinely requires altering established functionality, explain the conflict and obtain authorization.
+
+Bug fixes and necessary internal changes are permitted, provided they preserve intended behavior.
+
+Do not independently decide that a feature is obsolete or unnecessary.
+
+**Feature removal is a product decision, not merely a code cleanup decision.**
+
+---
+
+# 5. No Unrequested Features
+
+Do not introduce user-facing functionality beyond the requested scope.
+
+Avoid unsolicited:
+
+- Buttons
+- Menus
+- Tabs
+- Settings
+- Dialogs
+- Workflows
+- Navigation paths
+- Product features
+- Visual embellishments
+
+Necessary internal implementation changes, security safeguards, error handling, and focused regression tests are permitted when directly related to the task.
+
+Potentially useful additions should be reported as recommendations rather than implemented without authorization.
+
+Do not use a small feature request as an opportunity for unrelated redesign or expansion.
+
+---
+
+# 6. Detect and Prevent Duplicate Functionality
+
+Before adding functionality, investigate whether the same task can already be performed elsewhere in the application.
+
+Look for:
+
+- Multiple interfaces performing the same action
+- Redundant settings
+- Duplicate navigation paths
+- Parallel implementations of the same workflow
+- Repeated components with inconsistent behavior
+- Independent systems managing the same information
+
+When duplication is discovered:
+
+1. Identify the existing implementations.
+2. Determine whether they serve distinct purposes.
+3. Identify opportunities for shared components or consolidation.
+4. Report unnecessary redundancy.
+5. Obtain authorization before removing established functionality.
+
+Do not automatically eliminate multiple entry points. Some are intentional and improve usability.
+
+The objective is coherent functionality, not the elimination of every repeated action.
+
+---
+
+# 7. Screen-Space Efficiency and Visual Hierarchy
+
+**Screen-space allocation is a primary design responsibility.**
+
+Do not allocate interface space according to implementation convenience, feature creation order, or arbitrary container sizes.
+
+Allocate space according to:
+
+1. Importance to the current task.
+2. Frequency of interaction.
+3. Complexity of displayed information.
+4. Need for simultaneous visibility.
+5. Required interaction area.
+
+### Primary workspaces
+
+Large, complex, or frequently manipulated content should receive sufficient usable space.
+
+Examples include editors, maps, canvases, timelines, diagrams, tables, dashboards, and other interactive workspaces.
+
+### Secondary controls
+
+Supporting controls should remain accessible without unnecessarily dominating the interface.
+
+Use compact toolbars, appropriately sized panels, contextual controls, or other suitable arrangements.
+
+### Tertiary controls
+
+Infrequently used settings and advanced options may be placed in menus, dialogs, drawers, or expandable sections.
+
+### Avoid
+
+- Oversized buttons for simple actions
+- Excessive padding
+- Unnecessarily large headings
+- Large unused areas
+- Important content confined to tiny panels
+- Excessive nested scrolling
+- Arbitrary fixed-height containers
+- Poorly balanced layouts
+- Unnecessary scrolling
+- Shrinking everything simply to make it fit
+
+**The most important interface element should receive the space its function requires, not merely whatever space remains.**
+
+Before modifying an interface, inspect the surrounding layout.
+
+Ask:
+
+- What is the primary purpose of this screen?
+- Which elements deserve the most space?
+- Which controls must remain visible?
+- Is the current layout balanced?
+- Is there unused space?
+- Are any elements unnecessarily oversized?
+- Is any important content cramped?
+- Will the change introduce additional scrolling?
+- Could an existing component accommodate the new functionality?
+- Does the proposed layout remain coherent at different viewport sizes?
+
+Do not treat existing layout dimensions as immutable.
+
+However, do not redesign unrelated interfaces without authorization.
+
+When the requested feature cannot fit without compromising usability, explain the tradeoff and propose alternatives.
+
+Do not silently squeeze complex functionality into an unsuitable container.
+
+Scrolling should serve the content rather than compensate for poor layout decisions.
+
+Scrolling is appropriate for naturally sequential content, including documents, logs, inventories, and long lists.
+
+Avoid unnecessarily restricting primary interactive workspaces to small scrollable containers.
+
+Prefer suitable navigation, panning, zooming, or responsive expansion for spatial workspaces.
+
+### Nested scrolling
+
+Avoid nested scrolling unless there is a clear usability benefit.
+
+When nested scrolling is necessary:
+
+- Make scroll boundaries understandable.
+- Keep essential controls accessible.
+- Prevent accidental scroll trapping.
+- Verify usability with mouse, keyboard, and touch as applicable.
+
+Do not use scrolling as the default solution whenever a new feature increases content.
+
+---
+
+# 8. CSS and Styling Architecture
+
+Avoid solving layout problems by continually appending overrides.
+
+Before modifying styles:
+
+1. Locate all relevant existing declarations.
+2. Determine the actual cascade and specificity.
+3. Identify conflicting or obsolete rules.
+4. Modify the authoritative implementation where practical.
+5. Consolidate redundant declarations when safe.
+6. Verify affected interfaces afterward.
+
+Avoid unnecessary `!important` declarations.
+
+Do not blindly remove existing overrides, because they may preserve intentional behavior.
+
+Prefer maintainable styling structures, reusable design tokens, and clearly defined component boundaries.
+
+A growing collection of conflicting overrides is an architectural warning sign.
+
+---
+
+# 9. Mandatory Visual Verification
+
+Passing functional tests does not establish that an interface is visually or ergonomically correct.
+
+For significant interface changes, inspect the rendered application whenever the necessary tools are available.
+
+### Required checks
+
+- Inspect the entire viewport.
+- Verify spatial hierarchy.
+- Check for clipped elements.
+- Check for overlapping controls.
+- Identify unnecessary whitespace.
+- Identify excessive scrolling.
+- Verify primary workspace dimensions.
+- Check alignment and grouping.
+- Verify visual consistency.
+- Confirm existing controls remain discoverable.
+- Test representative viewport sizes.
+
+Capture before-and-after screenshots when practical.
+
+When visual inspection is unavailable, disclose that limitation.
+
+Do not claim visual verification based solely on successful compilation or automated tests.
+
+### Visual acceptance questions
+
+Before declaring completion:
+
+- Does the interface use available space intelligently?
+- Is important content appropriately emphasized?
+- Are simple controls compact?
+- Are related controls grouped logically?
+- Are existing assets reused?
+- Are interactions predictable?
+- Is the screen easier to use than before?
+- Has any established functionality become harder to access?
+
+---
+
+# 10. Feature Registry and Regression Protection
+
+Maintain a lightweight inventory of important established functionality when project complexity justifies it.
+
+The registry should identify:
+
+- Feature name
+- Purpose
+- Canonical implementation
+- Interface locations
+- Shared components and assets
+- Important dependencies
+- Expected behavior
+- Relevant regression tests
+
+Use this information to detect accidental feature loss, duplication, and inconsistent behavior.
+
+Prefer a concise, maintainable, machine-readable format.
+
+Do not create an enormous handoff document that must be manually rewritten after every change.
+
+Do not automatically assume every existing implementation is correct. Identify questionable behavior for review.
+
+Where practical, automate checks that important navigation paths, controls, and workflows remain available.
+
+---
+
+# 11. State Management and Data Integrity
+
+When modifying systems that manage persistent or shared data, inspect how changes affect:
+
+- Concurrent operations
+- Save ordering
+- Transaction boundaries
+- State synchronization
+- Error recovery
+- Session authorization
+- Permissions
+- Data migration
+- Backup compatibility
+- Disconnections and retries
+
+Do not assume an existing implementation is defective without evidence.
+
+Avoid speculative rewrites of stable systems.
+
+Preserve existing safeguards unless there is a demonstrated reason to change them.
+
+Prioritize reproducible problems and clearly documented invariants.
+
+---
+
+# 12. Testing Philosophy
+
+Automated testing should protect behavior, not merely produce impressive test counts.
+
+Continue using appropriate automated tests.
+
+Prioritize tests that detect:
+
+- Feature regression
+- Incorrect business logic
+- Broken navigation
+- Missing controls
+- State synchronization problems
+- Persistence failures
+- Authorization defects
+- Integration problems
+- Responsive layout regressions
+
+Recognize that tests written from an incorrect interpretation of requirements can pass while the product remains wrong.
+
+Do not treat a large number of passing tests as proof of design quality.
+
+Distinguish between:
+
+- Automated functional verification
+- Manual interaction testing
+- Visual verification
+- Requirements validation
+- Real-world usability testing
+
+Report which forms of verification were actually performed.
+
+---
+
+# 13. Change-Control Policy
+
+Before implementing a request, distinguish between routine technical decisions and product-design decisions.
+
+### Proceed independently when
+
+- The request is clear.
+- Existing behavior can be preserved.
+- Established assets and components can be reused.
+- No significant product-design tradeoff is required.
+- The change remains within the authorized scope.
+
+### Request approval when
+
+- Established functionality must be removed or substantially changed.
+- An approved visual asset must be replaced.
+- An unrequested user-facing feature is proposed.
+- Navigation or workflow must change significantly.
+- Multiple materially different design approaches are possible.
+- The requested feature would substantially compromise usability.
+- Requirements are contradictory or materially ambiguous.
+
+Do not interrupt the user for trivial implementation decisions.
+
+When approval is required, present the decision concisely, explain the tradeoffs, and recommend an option.
+
+---
+
+# 14. Required Development Workflow
+
+Follow this process for future development tasks.
+
+### Step 1 — Understand
+
+Identify the requested outcome and distinguish requirements from assumptions.
+
+### Step 2 — Investigate
+
+Search existing code, assets, components, and workflows before creating replacements.
+
+### Step 3 — Assess impact
+
+Determine which established features and systems may be affected.
+
+Check for duplication, layout conflicts, state-management risks, and unintended changes.
+
+### Step 4 — Plan
+
+Choose the smallest coherent implementation that satisfies the request.
+
+Identify whether product-design approval is necessary.
+
+### Step 5 — Implement
+
+Reuse established assets and components.
+
+Preserve existing behavior.
+
+Avoid unrelated cleanup, feature additions, or redesigns.
+
+### Step 6 — Verify
+
+Run relevant tests.
+
+Perform visual inspection for UI changes when possible.
+
+Verify important existing functionality remains accessible.
+
+### Step 7 — Report
+
+Provide a concise summary of:
+
+- What changed.
+- What was reused.
+- What was verified.
+- Any established behavior intentionally changed.
+- Any remaining limitations or concerns.
+
+Do not claim verification that was not performed.
+
+---
+
+# 15. Retroactive corrections
+
+If you find previously designed code that breaks any of these rules, suggest on the next pass to correct them and how those corrections will be implemented.
+
+When these instructions are first introduced to an existing project:
+
+1. Read the project's current architecture and development instructions.
+2. Identify existing design conventions, shared assets, and component patterns.
+3. Incorporate these standards into the project's persistent agent guidance without discarding project-specific requirements.
+4. Identify meaningful conflicts or ambiguities.
+5. Perform a read-only architectural and UI audit.
+6. Report the highest-priority findings.
+7. Recommend corrections, distinguishing confirmed defects from potential improvements.
+8. Wait for authorization before undertaking broad redesign or refactoring.
+
+Do not automatically rewrite the application to conform to these standards.
+
+Existing behavior and user data must be preserved.
+
+Do not modify unrelated files, personal data, backups, or production configuration.
+
+Do not commit or push changes unless authorized by the project's established workflow or an explicit user instruction.
+
+---
+
+# 16. Final Quality Standard
+
+A successful implementation must satisfy more than the immediate feature request.
+
+It should also:
+
+- Preserve established functionality.
+- Reuse existing assets and components.
+- Avoid unnecessary duplication.
+- Respect the application's visual identity.
+- Use screen space intelligently.
+- Maintain coherent navigation and workflows.
+- Avoid unrequested changes.
+- Protect data integrity.
+- Remain maintainable.
+- Support the project's long-term platform goals.
+
+**The objective is not merely working software. It is coherent, efficient, predictable, maintainable software that respects the designer's intentions.**
+
+Every new feature should strengthen the existing application rather than make it larger, more cluttered, less consistent, or harder to use.

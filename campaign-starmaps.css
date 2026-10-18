@@ -92,7 +92,7 @@ body:has(.character-tabs) .creator-header .creator-title h1{font-size:20px}
 .campaign-columns .campaign-galaxy,.campaign-columns-player .campaign-galaxy{min-height:0!important}
 @media(max-width:760px){.campaign-columns,.campaign-columns-player{height:auto!important}}
 
-.campaign-single-column{display:block!important}.campaign-single-column>.session-control{display:flex;width:max-content;max-width:100%;gap:20px;align-items:center;padding:8px 12px;margin-bottom:10px}.campaign-single-column>.campaign-galaxy{width:100%;height:clamp(330px,calc(100dvh - 330px),620px);box-sizing:border-box}.campaign-single-column #campaignRosterCards,.campaign-single-column #campaignStarshipRoster{display:none!important}.campaign-single-column>.campaign-galaxy .galaxy-chart{min-height:0}.campaign-single-column>.campaign-lobby-heading{display:none}.campaign-single-column .galaxy-map-panel{min-height:0}
+.campaign-single-column{display:block!important;min-height:0}.campaign-single-column>.session-control{display:flex;width:max-content;max-width:100%;gap:20px;align-items:center;padding:8px 12px;margin-bottom:10px}.campaign-single-column>.campaign-galaxy{width:100%;height:clamp(330px,calc(100dvh - 330px),620px);box-sizing:border-box}.campaign-single-column #campaignRosterCards,.campaign-single-column #campaignStarshipRoster{display:none!important}.campaign-single-column>.campaign-galaxy .galaxy-chart{min-height:0}.campaign-single-column>.campaign-lobby-heading{display:none}.campaign-single-column .galaxy-map-panel{min-height:0}
 
 .campaign-single-column[hidden]{display:none!important}.campaign-single-column>.campaign-galaxy{display:flex;flex-direction:column;min-height:0!important}.campaign-single-column>.campaign-galaxy .galaxy-workspace{flex:1;min-height:0;height:0}.campaign-single-column>.campaign-galaxy .galaxy-chart{height:100%;min-height:0;grid-template-rows:auto auto minmax(0,1fr) auto}.campaign-single-column>.campaign-galaxy .galaxy-details{min-height:0;height:100%;overflow:auto}
 
@@ -171,22 +171,12 @@ body:has(.galaxy-overview){display:flow-root}
 }
 .gm-shell:has(.galaxy-overview){margin-bottom:8px}
 .galaxy-overview-dialog .galaxy-travel>h3{display:none}
-.gm-mail-dialog{width:min(1100px,94vw);height:auto!important;max-height:90dvh;overflow:auto;padding:20px;background:#071721;color:#eaf6ff;border:1px solid #60bdd3;border-radius:10px}
-.gm-mail-dialog::backdrop{background:#000b;backdrop-filter:blur(5px)}
-.gm-mail-dialog #inboxTab{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,1fr);gap:16px}
-.gm-mail-dialog .tab-heading,.gm-mail-dialog footer{grid-column:1/-1}
-.gm-mail-dialog footer{text-align:right}.gm-mail-dialog textarea{width:100%;min-height:200px}
-.gm-mail-recipients{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.gm-mail-recipients label{padding:8px;border:1px solid var(--recipient-color);background:color-mix(in srgb,var(--recipient-color) 15%,#081721);display:flex;gap:8px;align-items:center}
 #gmMailButton{position:relative}#gmInboxCount{position:absolute;top:-5px;right:-4px;background:#f7cf66;color:#171207;border-radius:20px;min-width:18px;font-size:11px}
-@media(max-width:700px){.gm-mail-dialog #inboxTab{grid-template-columns:1fr}}
 
 #gmMailButton svg{fill:none!important;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .gm-tool-group[data-tool-group="interaction"]{grid-column:1/-1}
 
 
-.shop-editor-inline{position:static!important;display:block!important;width:100%!important;max-width:none!important;max-height:none!important;height:auto!important;box-sizing:border-box;margin:12px 0!important;background:#091b27;color:#ecf8ff;border:1px solid #4b8498;padding:18px}
-.shop-editor-inline .shop-stock-list{max-height:52dvh;overflow:auto}
 
 
 #promptTab .tool-grid:has([data-tool-group]){grid-template-columns:repeat(2,minmax(0,1fr))!important}

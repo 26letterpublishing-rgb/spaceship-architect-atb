@@ -182,7 +182,7 @@
     container.addEventListener('keydown',event=>{if(event.key==='Escape'&&container._objectPlacement){stop(event);cancel();}},true);
     container._cancelObjectPlacement=cancel;
   }
-  function bindEditor(container,ships,saved,onChange,{fixedIds=[],system=false}={}) {
+  function bindEditor(container,ships,saved,onChange,{fixedIds=[],system=false,overlayMarkup=''}={}) {
     const signature = JSON.stringify([ships.map(ship=>[ship.id,ship.title,window.SAShipMap.sensorStats(ship).range]),saved]);
     if (container.dataset.signature === signature) return;
     container.dataset.signature = signature;
@@ -200,7 +200,7 @@
     installObjectPlacement(container);
     container._syncObjectPlacement=()=>{const pending=container._objectPlacement,banner=container.querySelector('[data-prep-placement]');container.classList.toggle('is-placing-object',Boolean(pending));if(banner){banner.hidden=!pending;banner.querySelector('strong').textContent=pending?'Place '+pending.name:'';}if(!pending)container.querySelector('[data-object-placement-preview]')?.remove();};
     header.querySelector('[data-prep-cancel-placement]').onclick=event=>{event.stopPropagation();container._cancelObjectPlacement();};container._syncObjectPlacement();
-    function decorate(box){const svg=container.querySelector('svg');if(system)drawSystemOrbits(svg,ships);if(box)svg.setAttribute('viewBox',box);const v=svg.viewBox.baseVal;for(const rect of svg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,v[key]);
+    function decorate(box){const svg=container.querySelector('svg');if(system)drawSystemOrbits(svg,ships);if(overlayMarkup)svg.insertAdjacentHTML('beforeend',overlayMarkup);if(box)svg.setAttribute('viewBox',box);const v=svg.viewBox.baseVal;for(const rect of svg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,v[key]);
       for(const ship of ships){
         if(ship.spaceObject)continue;const group=svg.querySelector(`[data-space-ship="${CSS.escape(ship.id)}"]`),range=window.SAShipMap.sensorStats(ship).range;if(!group||!range)continue;for(const scale of [2,1]){const ring=document.createElementNS(svg.namespaceURI,'circle');ring.setAttribute('r',range*Math.sqrt(3)*scale);ring.setAttribute('fill',scale===2?'#80cde90c':'#80cde91e');ring.setAttribute('stroke',scale===2?'#88cde947':'#88cde980');ring.setAttribute('stroke-width','.06');ring.style.pointerEvents='none';group.prepend(ring);}}
     }

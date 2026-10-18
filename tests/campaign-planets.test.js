@@ -39,8 +39,8 @@ test('working newly acquired ship launches from a locked region; broken ship can
 test('arrival shops prompt once per visit, remain private, and only activate on GM confirmation',()=>{
  const f=fixture();send(f,'planetHex',{hex:'310',shopFile:{format:'sa2shop',version:1,shop:{id:'shop-1',name:'Landing Market'}}});send(f,'planetMoveParty',{hex:'310'});const arrival=f.c.starmaps.shopArrival;assert.equal(f.c.shops,undefined);send(f,'planetMoveParty',{hex:'310'});assert.equal(f.c.starmaps.shopArrival.id,arrival.id);assert.equal(galaxy.view(f.c,false).shopArrival,undefined);
  send(f,'planetShop',{arrivalId:arrival.id,open:false});assert.equal(f.c.starmaps.shopArrival,undefined);send(f,'planetMoveParty',{hex:'311'});send(f,'planetMoveParty',{hex:'310'});assert.notEqual(f.c.starmaps.shopArrival.id,arrival.id);
- send(f,'planetShop',{arrivalId:f.c.starmaps.shopArrival.id,open:true});assert.equal(f.c.shops.list[0].active,true);
- const file=require('../adventure-module').create(f.c);assert.equal(file.content.shops.list[0].active,false);assert.equal(f.c.shops.list[0].active,true);
+ send(f,'planetShop',{arrivalId:f.c.starmaps.shopArrival.id,open:true});assert.equal(f.c.shops.list.find(s=>s.id==='shop-1').active,true);
+ const file=require('../adventure-module').create(f.c);assert.equal(file.content.shops.list.find(s=>s.id==='shop-1').active,false);assert.equal(f.c.shops.list.find(s=>s.id==='shop-1').active,true);
 });
 test('Explore has exactly three stars and six completed planet types, each with an authored region',()=>{
  const f=fixture();assert.equal(f.map.stars.length,3);const all=f.map.stars.flatMap(s=>s.system.filter(p=>p.kind==='planet').map(p=>({p,w:s.surfaces[p.id]})));assert.deepEqual(new Set(all.map(x=>x.p.variant)),new Set(terrain.types));assert.ok(all.every(x=>Object.keys(x.w.regions).length>=1));assert.ok(Buffer.byteLength(JSON.stringify(f.c.starmaps))<20000);

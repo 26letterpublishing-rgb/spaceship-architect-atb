@@ -24,6 +24,7 @@
     view.dataset.consoleOwner=ownerId;
     const doc=view.ownerDocument,b=window.SACombatBridge;
     bindConsoleExit(view,unit,b);
+    const exit=view.querySelector('[data-close]');if(exit){exit.textContent='Exit Console';if(!b.state().catalogPreview)exit.hidden=true;else exit.classList.add('catalog-console-exit');}
     const choiceKey='sa-console-choices:'+location.search+':'+unit.id+':'+(view.dataset.sicId||view.className);let choices={};try{choices=JSON.parse(sessionStorage.getItem(choiceKey)||'{}');}catch{}
     const choiceId=el=>el.id||el.name||[...el.attributes].filter(a=>a.name.startsWith('data-')).map(a=>a.name+'='+a.value).join('|')||String([...view.querySelectorAll('select')].indexOf(el));
     const restored=new WeakSet();const restoreChoices=()=>{for(const select of view.querySelectorAll('select:not(.station-console-select)')){if(restored.has(select)||!select.options.length)continue;const saved=choices[choiceId(select)];if(saved!==undefined&&[...select.options].some(o=>o.value===saved)){select.value=saved;restored.add(select);select.dispatchEvent(new Event('change',{bubbles:true}));}else if(saved===undefined)restored.add(select);}};
@@ -89,7 +90,7 @@
       }
       const busy=Boolean(view.dataset.switching||view.dataset.utilityPending||person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
       for(const control of view.querySelectorAll('.console-swipe,.station-console-select')){control.disabled=busy||(control.classList.contains('console-swipe')&&window.SAStationAccess.consoles(state,person).length<2);control.title=busy?'Finish the current action before switching consoles':control.classList.contains('previous')?'Previous console':control.classList.contains('next')?'Next console':'Choose a console';}
-      if(state.practice){for(const control of view.querySelectorAll('button,input,select'))if(!control.matches(previewAllowed)){control.disabled=true;control.title='Unavailable outside combat';}view.querySelector('[data-close]').textContent='Close Console';}
+      if(state.practice){for(const control of view.querySelectorAll('button,input,select'))if(!control.matches(previewAllowed)){control.disabled=true;control.title='Unavailable outside combat';}view.querySelector('[data-close]').textContent='Exit Console';}
       for(const button of view.querySelectorAll('[data-hold]')){const held=Boolean(person.consoleHold);button.classList.toggle('resume-ready',held);button.setAttribute('aria-pressed',String(held));if(button.textContent!==(held?'Resume':'Hold'))button.textContent=held?'Resume':'Hold';}
     }
     tick();

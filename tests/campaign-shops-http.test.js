@@ -20,7 +20,7 @@ test('campaign shops enforce prices, ownership, receipts and portable campaign p
  await post('shops',{...buy,requestId:'enemy',starshipId:'showcase-npc-ship'},409);
  const saved=structuredClone(result.campaign.starships.find(s=>s.id===buy.starshipId).ship);saved.sicInventory.find(i=>i.id===item.id).purchasePrice=999999;
  result=await post('starship/save',{...pc,starship:saved});assert.equal(result.starship.ship.sicInventory.find(i=>i.id===item.id).purchasePrice,item.purchasePrice);
- const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(backup.campaign.shops.list[0].modifier,25);
+ const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());assert.equal(backup.campaign.shops.list.find(s=>s.id===shop.id).modifier,25);
  await post('shops',{...gm,operation:'activate',shopId:shop.id,active:false});
  await post('item/transaction',{...weapon,requestId:'closed'},409);
  await post('restore',{...gm,backup});

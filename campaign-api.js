@@ -511,7 +511,7 @@ function normalizeStarshipRecord(raw) {
     if(validCrew.includes(characterId)&&(['surface','exterior','boarding'].includes(location?.environment)||location?.escapePodId)){characterLocations[characterId]=clone(location);continue;}
     const square = Number(location?.square);
     const mesh = Number(location?.mesh);
-    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { carryingId:location?.carryingId?String(location.carryingId).slice(0,120):null,carriedBy:location?.carriedBy?String(location.carriedBy).slice(0,120):null, square, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
+    if (validCrew.includes(characterId) && cleanCells.includes(square)) characterLocations[characterId] = { carryingId:location?.carryingId?String(location.carryingId).slice(0,120):null,carriedBy:location?.carriedBy?String(location.carriedBy).slice(0,120):null, square, heading:Number(location?.heading)||0, mesh: Number.isInteger(mesh) ? Math.max(0, Math.min(8, mesh)) : 4, stationed: Boolean(location?.stationed), stationSlot: location?.stationed ? Math.max(0, Math.min(8, Number(location?.stationSlot) || 0)) : null };
   }
   return {
     id: String(source.id || ship.id || uid("starship")).slice(0, 120),
@@ -660,6 +660,8 @@ function normalizeCampaign(raw) {
     id: String(note?.id || uid("note")),
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
+    senderCharacterId: String(note?.senderCharacterId || ""),
+    senderName: String(note?.senderName || "").slice(0,80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
     kind: ["surface-travel", "system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
@@ -1008,7 +1010,8 @@ class CampaignApi {
         : [];
     return {
       shops: SHOPS.view(campaign,gm,campaign.characters.find(r=>r.id===ownId)?.character),
-      starmaps: require("./campaign-starmaps").view(campaign,gm),
+      starmaps: require("./campaign-starmaps").view(campaign,gm,ownId),
+      relocationDestinations: gm ? require("./character-relocation").destinations(campaign) : undefined,
       activeSystem: gm?clone(campaign.activeSystem||null):undefined,
       interfaceVersion: campaign.interfaceVersion,
       roomOpen: campaign.roomOpen,
@@ -1642,7 +1645,7 @@ class CampaignApi {
     if(path==='/api/campaign/statistics/roll'&&req.method==='POST'){
       const record=campaign.characters.find(c=>c.id===body.characterId);
       if(!record||!this.characterSession(token,code,record.id)){sendJson(res,403,{error:'Character access required.'});return true;}
-      require('./character-statistics').roll(record.character,body.skill,body.score,body.receipt);
+      require('./character-statistics').roll(record.character,body.skill,body.score,body.receipt,body.attribute,body.attributeScore);
       REPUTATION.recordRoll(campaign,record.id,body);
       await this.save(campaign);sendJson(res,200,{statistics:record.character.statistics});return true;
     }
@@ -2001,6 +2004,11 @@ class CampaignApi {
         for(const actor of room.units){const ship=campaign.starships.find(s=>s.id===actor.location?.starshipId);if(actor.characterId&&ship){ship.characterLocations[actor.characterId]={...actor.location,carryingId:actor.carryingId||null,carriedBy:actor.carriedBy||null};}else {const npc=campaign.npcRoster?.find(n=>n.id===actor.id);if(npc)Object.assign(npc,{location:actor.location,carryingId:actor.carryingId,carriedBy:actor.carriedBy});}}
         await this.save(campaign);sendJson(res,200,{text,campaign:this.state(campaign,token)});
       }catch(error){sendJson(res,409,{error:error.message});}return true;
+    }
+    if(path==='/api/campaign/character/relocate'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization required.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'End the active encounter before moving a character to another campaign location.'});return true;}
+      try{require('./character-relocation').relocate(campaign,String(body.characterId||''),String(body.destinationId||''));await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});}catch(error){sendJson(res,400,{error:error.message});}return true;
     }
     if (path === "/api/campaign/starship/move-character" && req.method === "POST") {
       const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
@@ -2494,7 +2502,7 @@ class CampaignApi {
 
     if (path === "/api/campaign/character/unlock" && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
-      if (!record || String(body.pcCode ?? body.pin ?? "") !== record.pcCode) {
+      if (!record || (!campaign.showcase && String(body.pcCode ?? body.pin ?? "") !== record.pcCode)) {
         sendJson(res, 403, { error: "PC Code is incorrect." });
         return true;
       }
@@ -2960,12 +2968,12 @@ class CampaignApi {
     if(path === '/api/campaign/script/import' && req.method === 'POST'){
       if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
       try{
-        const imported=require('./story-files').parse(body.file),shops=require('./campaign-shops');
+        const files=require('./story-files'),imported=body.append?files.append(campaign,body.file,()=>uid('chapter')):files.parse(body.file),shops=require('./campaign-shops');
         const shopState=clone(shops.state(campaign));
         const draft={...campaign,shops:shopState};
         for(const shop of imported.shops)shops.manage(draft,{operation:'load',file:{format:'sa2shop',version:1,shop},script:true});
         campaign.scriptChapters=imported.chapters;campaign.script=imported.chapters[0].script;campaign.conditionalActions=normalizeCampaign({...campaign,conditionalActions:imported.actions}).conditionalActions;campaign.shops=draft.shops;
-        await this.save(campaign);sendJson(res,200,{saved:true});
+        await this.save(campaign);sendJson(res,200,{saved:true,chapterId:imported.chapterId});
       }catch(error){sendJson(res,400,{error:error.message});}return true;
     }
 
@@ -3668,26 +3676,11 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/note/send" && req.method === "POST") {
-      if (!this.gmSession(token, code)) {
-        sendJson(res, 403, { error: "GM authorization is required." });
-        return true;
-      }
-      const message = String(body.message || "").trim().slice(0, 4000);
-      const targetIds = [...new Set(Array.isArray(body.targetIds) ? body.targetIds.map(String) : [])];
-      if (!message || !targetIds.length) {
-        sendJson(res, 400, { error: "A private note and at least one character are required." });
-        return true;
-      }
-      const notes = targetIds.filter((targetId) => campaign.characters.some((entry) => entry.id === targetId)).map((characterId) => ({
-        id: uid("note"),
-        characterId,
-        characterName: safeCharacterName(campaign.characters.find((entry) => entry.id === characterId)),
-        direction: "to-character",
-        kind: "message",
-        message,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-      }));
+      const gm=Boolean(this.gmSession(token,code)),sender=campaign.characters.find(r=>r.id===body.characterId);
+      if(!gm&&(!sender||!this.characterSession(token,code,sender.id))){sendJson(res,403,{error:'Character authorization required.'});return true;}
+      const message=String(body.message||'').trim().slice(0,4000),targetIds=[...new Set(Array.isArray(body.targetIds)?body.targetIds.map(String):[])];
+      if(!message||!targetIds.length||targetIds.some(id=>id===(gm?'gm':sender.id)||id!=='gm'&&!campaign.characters.some(r=>r.id===id))){sendJson(res,400,{error:'Choose other characters or the GM and write a message.'});return true;}
+      const notes=targetIds.map(id=>({id:uid('note'),characterId:id==='gm'?sender.id:id,characterName:id==='gm'?safeCharacterName(sender):safeCharacterName(campaign.characters.find(r=>r.id===id)),senderCharacterId:gm?'':sender.id,senderName:gm?'GM':safeCharacterName(sender),direction:id==='gm'?'to-gm':'to-character',kind:'message',message,createdAt:new Date().toISOString(),readAt:null}));
       campaign.privateNotes.push(...notes);
       await this.save(campaign);
       sendJson(res, 200, { sent: notes.length });

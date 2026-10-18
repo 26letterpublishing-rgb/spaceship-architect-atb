@@ -6,7 +6,7 @@ const state=c=>require('./campaign-navigation').state(c);
 function context(c,b){const s=state(c),map=s.maps.find(m=>m.id===b.mapId),star=map?.stars.find(x=>x.id===b.starId),planet=star?.system?.find(p=>p.id===b.planetId&&p.kind==='planet'&&!p.destroyedAt);if(!planet)throw Error('Choose an intact planet.');return {s,map,star,planet};}
 function surface(star,planet){star.surfaces||={};return star.surfaces[planet.id]||={seed:planet.id,hexes:{},regions:{}};}
 function normalizeWorld(raw,seed){
- const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region)).slice(0,region?150:1200).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
+ const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region)).slice(0,region?150:1200).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.attachments?{attachments:require('./planet-attachments').normalize(h.attachments)}:{}),...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
  const world=clean(raw);world.description=text(raw?.description);world.regions={};
  for(const [key,r]of Object.entries(raw?.regions||{}).filter(([k])=>terrain.validHex(k)).slice(0,1200))world.regions[String(Number(key))]={...clean(r,true),name:text(r?.name,80)||'Region',uniform:r?.uniform===true,type:terrain.types.includes(r?.type)?r.type:'temperate'};
  return world;
@@ -52,6 +52,7 @@ function command(c,b,auth){
   if(b.shopFile){if(b.shopFile.format!=='sa2shop'||b.shopFile.version!==1)throw Error('Choose a Save Shop file.');next.shop=require('./campaign-shops').normalize(b.shopFile.shop);next.shop.active=false;}
   if(b.shopId){const shop=require('./campaign-shops').state(c).list.find(x=>x.id===b.shopId);if(!shop)throw Error('Choose an existing shop.');next.shop=structuredClone(shop);next.shop.active=false;}
   if(b.removeShop)delete next.shop;
+  if(b.attachments!==undefined)next.attachments=require('./planet-attachments').normalize(b.attachments);
   chart.hexes[key]=next;
  }
  if(b.kind==='planetRegion'){

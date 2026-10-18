@@ -34,7 +34,7 @@ body .ship-combat-columns[data-ship-count="1"]{grid-template-columns:minmax(0,1f
 .ship-au-panel progress::-webkit-progress-value{background:#e8c653}
 .ship-au-panel progress::-moz-progress-bar{background:#e8c653}
 @media (min-width: 901px) {
-  .gm-header {min-height:52px;padding:5px 10px;grid-template-columns:minmax(180px,280px) minmax(0,1fr) auto}
+  .gm-header {min-height:52px;padding:5px 10px;grid-template-columns:minmax(140px,220px) minmax(180px,1fr) auto}
   .gm-brand img {max-height:40px;object-fit:contain}
   .gm-tabs button {min-height:38px;padding:7px 10px}
   .atb-live-toolbar {height:36px;padding:2px 8px}

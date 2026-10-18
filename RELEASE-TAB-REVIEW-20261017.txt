@@ -1,0 +1,31 @@
+OCTOBER 17 TAB REVIEW — RELEASE
+
+Scope and authorization
+Implemented the supplied GM/PC tab analysis and GM-only NPC, encounter and Story Console hex loaders under #local, then explicitly authorized for commit and push to origin/main with #commit. Completion notification follows the verified push. No hosted verification was performed. Standards preserved verbatim in DEVELOPMENT-STANDARDS.txt and referenced by AGENTS.md. feature-registry.json records canonical owners and invariants.
+
+Changes
+- Script editor extends beside the tools through Insert Roll Command. Four Help pages explain outline, Story Console, success keywords and roll insertion/Prompt/Quick Prompt, with actual UI screenshots and callouts.
+- Named, tapered map hierarchy with active pulse; three map tool buttons; consistent viewport enlargement across galaxy/system/planet/region; party markers on ancestor locations. Campaign remains within the viewport at tested wide/narrow sizes.
+- Planet/region hex attachments reuse NPC roster, encounter and Story import workflows. Load controls are GM-only. Story loading appends fresh tabs, selects the imported chapter and opens Script. Existing keyword/shop references remain isolated.
+- End Session moved to header; ATB-colored character cards; confirmed single-character relocation on Starships; protected inactive Everything shop and always-visible grey shop editor.
+- Shared GM/PC mail renderer and recipient selection with server authorization/privacy. Other-party sheet controls are disclosed by a button; Explore sample editing needs no code. Named centered character Log, fixed-size location tab, compact attribute/skill statistics and corrected Leave Campaign navigation.
+- Ship mineral/Sensor/Break Lock layout fixes; continuous held-key walking routes retain facing; centered console toggle becomes red Exit Console. Requested duplicate controls removed; bottom notices centered.
+
+Reuse
+Existing planet artwork, party pin, map renderers, import parsers, encounter preparation, chapter engine, shop catalog, dice resolution, crew logs and inbox notification actions remain authoritative. New shared inbox UI replaces duplicated markup. No replacement art or audio was generated.
+
+Validation
+- Full regression suite: 1,159 passed (outputs/tab-review-full-tests-final.txt in parent folder).
+- Final focused suite after append-isolation and attribute-statistics corrections: 47 passed (outputs/tab-review-final-focused.txt).
+- 33 JavaScript syntax checks and CRLF-aware git diff whitespace check passed.
+- Real local Explore browser checks: four Help pages; Story file attached and loaded into a new selected tab; existing chapter retained; all four map levels enlarge; map parent markers; GM cards/shop/mail; PC peer mail; Explore character switching; individual relocation; Bridge console enter/exit and sensor text fit.
+- Responsive checks at 1280x720 and 900x800. Campaign body matches viewport at narrow size; no horizontal overflow. Lists, shop inventory and Help retain appropriate content scrolling.
+- Isolated fresh-campaign HTTP test verifies permissions, note privacy, appended Story/location attachment persistence and individual relocation across restart.
+- Personal campaigns.json SHA256 unchanged: A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D.
+
+Limits
+Held WASD motion was verified through route/facing logic and automated checks, not a physical held-key browser exercise. Normal click-to-walk and Bridge arrival were exercised. NPC/encounter file parsing and authorization were checked; every encounter preparation branch was not manually repeated. Manual final-score rolls without separate dice do not invent an attribute result. No hosted or multi-device testing.
+
+Architecture audit and next-pass recommendations
+Confirmed: overlapping historical CSS rules caused Script/Shop/header size conflicts; touched authoritative rules were corrected. Separate inbox markup had diverged; common rendering now owns the requested mail views. Relocation previously existed only for Explore NPCs; it now uses one authorized campaign operation.
+Potential next pass, requiring separate scope: consolidate remaining historical layout overrides by component and extend the concise feature registry while maintaining those components. Do not broadly rewrite working map, combat or storage systems. Unrelated QA, personal saves and Gold Standard remain untouched.

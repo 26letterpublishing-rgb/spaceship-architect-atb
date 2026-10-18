@@ -12,7 +12,7 @@ function terrainAt(c,ship){
 }
 function reconcile(c,party){
  if(!party||party.transport||party.awaitingLanding)return;
- const ids=(c.characters||[]).map(r=>r.id);
+ const ids=(c.characters||[]).map(r=>r.id).filter(id=>!c.starmaps.characterWorldLocations?.[id]);
  // Ships acquired during a surface-start adventure arrive with the party.
  for(const vessel of c.starships.filter(s=>s.controlType==='pc'))if(!c.starmaps.localPositions?.[vessel.id]){const star=c.starmaps.maps.find(m=>m.id===party.mapId)?.stars.find(s=>s.id===party.starId),planet=star?.system?.find(p=>p.id===party.planetId);if(planet){c.starmaps.localPositions||={};c.starmaps.localPositions[vessel.id]={mapId:party.mapId,starId:party.starId,planetId:party.planetId,q:planet.q,r:planet.r,phase:'surface',surfaceHex:party.hex,regionId:party.regionId||'',regionHex:party.regionHex};}}
  const ship=c.starships.find(s=>s.controlType==='pc'&&atShip(c,s,party));

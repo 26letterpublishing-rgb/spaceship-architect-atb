@@ -15,7 +15,7 @@ dialog button{background-color:#173b49;color:#f0fbff;border:1px solid #71a6b8}di
 
 .cleanser-blast-warning{font-size:12px;color:#ffdc85;line-height:1.45}
 
-.campaign-export-button {background:#9e2637!important;color:#fff!important;border:1px solid #ee8290!important;border-radius:6px;padding:9px 14px;font-weight:700;}
+.campaign-export-button {background:#9e2637;color:#fff;border:1px solid #ee8290;border-radius:6px;padding:9px 14px;font-weight:700;}
 [data-player-ship-upgrade] {background:#186748!important;color:#fff!important;border:1px solid #63d9a3!important;}
 .sic-category-body[hidden]{display:none!important;}
 .sic-category legend button{background:transparent;color:inherit;border:0;padding:3px 8px;font:inherit;cursor:pointer;}
@@ -40,3 +40,5 @@ dialog button{background-color:#173b49;color:#f0fbff;border:1px solid #71a6b8}di
 .v03-lobby{position:relative}.v03-lobby #roomLeaveControl{float:right}.v03-lobby #roomLeaveControl button{font-size:12px;min-height:32px;padding:6px 12px}.v03-lobby #roomActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v03-lobby #roomActions button{height:auto;min-height:52px;margin:0}.v03-lobby #roomActions [data-action=create-starship],.v03-lobby #roomActions [data-action=create-character]{background:#185a38;color:#fff;border-color:#65d495}.v03-lobby #roomActions [data-action^=import-]{background:#303238;color:white;border-color:#73777e}@media(max-width:650px){.v03-lobby #roomActions{grid-template-columns:1fr 1fr}}
 
 .v03-lobby #roomActions{grid-auto-rows:1fr}.v03-lobby #roomActions>button{width:100%;max-width:none;min-height:64px}
+
+.campaign-export-button.session-end-button{background:linear-gradient(#247448,#123e29);border-color:#60c68c}

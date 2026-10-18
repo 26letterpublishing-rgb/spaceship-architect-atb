@@ -62,6 +62,7 @@ function forceAboard(c,ship,confirmed){
  if(!seat||!pilot)throw Error('A free working Bridge station and conscious PC are required to relocate the party aboard.');
  const p=s.localPositions[ship.id]||{};s.localPositions[ship.id]={...p,...s.party,phase:'surface',surfaceHex:s.party.hex};
  for(const vessel of c.starships){for(const id of c.characters.map(r=>r.id))if(vessel.characterLocations?.[id])vessel.characterLocations[id].environment='surface';}
+ delete s.characterWorldLocations;
  require('./planet-boarding').reconcile(c,{...s.party,transport:false,awaitingLanding:false});
  const station=seat.station;
  ship.characterLocations[pilot.id]={environment:'starship',starshipId:ship.id,square:seat.square,mesh:station.mesh,stationed:true,stationSlot:station.slot??0};

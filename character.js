@@ -1532,7 +1532,9 @@ async function browseCampaignCharacter(offset) {
   await saveCampaignCharacter();
   const currentIndex = Math.max(0, records.findIndex((entry) => entry.id === campaignCharacterId));
   const nextIndex = (currentIndex + offset + records.length) % records.length;
-  showCampaignCharacter(records[nextIndex], { editable: false });
+  const next=records[nextIndex];
+  if(SHOWCASE_MODE){const unlocked=await campaignRequest('/api/campaign/character/unlock',{method:'POST',body:JSON.stringify({code:campaignCode,characterId:next.id})});showCampaignCharacter(unlocked.record,{editable:true,token:unlocked.token});}
+  else showCampaignCharacter(next,{editable:false});
   void 0;
 }
 
@@ -1842,11 +1844,11 @@ function renderCharacterNavigation() {
   if (dom.backToMain) dom.backToMain.hidden = linked;
   const modernRoom = campaignState?.interfaceVersion === '0.3';
   if(dom.settingsLoadCharacter) dom.settingsLoadCharacter.closest('section').hidden = modernRoom;
-  if(dom.settingsNewCharacter) dom.settingsNewCharacter.closest('section').hidden = modernRoom;
-  dom.settingsLeaveCampaign.textContent = modernRoom ? 'Abandon Character' : 'Leave Campaign';
+
+  dom.settingsLeaveCampaign.textContent = 'Leave Campaign';
   const leaveSection=dom.settingsLeaveCampaign.closest('section');
-  leaveSection.querySelector('h2').textContent=modernRoom?'Abandon Character':'Leave Campaign';
-  leaveSection.querySelector('p').textContent=modernRoom?'Unlink yourself. The character remains saved in this campaign.':'Break this character’s campaign link.';
+  leaveSection.querySelector('h2').textContent='Leave Campaign';
+  leaveSection.querySelector('p').textContent='Return to room entry. Your character remains saved.';
   dom.settingsLeaveCampaign.disabled = false;
   dom.settingsLeaveCampaign.closest("section").hidden = gmView;
   dom.messageGmForm.hidden = !linked || gmView;
@@ -2065,7 +2067,8 @@ function showPinDisplay({ title = "PC Code", message = "This PC Code opens the c
   dom.campaignPinModal.hidden = false;
 }
 
-function showPinEntry(characterId) {
+async function showPinEntry(characterId) {
+  if(SHOWCASE_MODE){try{const result=await campaignRequest('/api/campaign/character/unlock',{method:'POST',body:JSON.stringify({code:campaignCode,characterId})});showCampaignCharacter(result.record,{editable:true,token:result.token});return;}catch(error){notice(error.message,'error');return;}}
   pinModalMode = "unlock";
   pendingPinCharacterId = characterId;
   dom.campaignPinTitle.textContent = "Unlock Character";
@@ -2243,7 +2246,7 @@ function renderPlayerStarships(force = false) {
       const power = window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaignState.characters));
       const shieldRecord = !playerEncounterView?.encounterEndedAt && dom.playerAtbFrame?.contentWindow?.SACombatBridge?.state()?.starships.find(s=>s.id===record.id) || record;
       const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.shields(shieldRecord, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
-      const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}">Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
+      const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}" hidden>Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
       const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
       return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} crew · ${crew.filter(r=>!record.surfaceAwayCharacterIds?.includes(r.id)).length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
@@ -2332,11 +2335,9 @@ function refreshPrivateNotes() {
           ? "CAMPAIGN NOTICE"
           : note.direction === "to-gm"
             ? "MESSAGE SENT"
-            : "PRIVATE GM MESSAGE";
+            : (note.senderName||"GM")+" MESSAGE";
     const pendingReward = note.kind === "award" && note.rewardStatus === "pending";
-    return `<article class="private-note ${note.direction !== "to-gm" && !note.readAt ? "unread" : "read"} ${pendingReward ? "pending-reward" : ""}" data-note-id="${note.id}">
-      <small>${label} | ${new Date(note.createdAt).toLocaleString()}</small><p>${escapeHtml(note.message)}</p>${privateNoteActions(note)}${pendingReward ? "" : `<button type="button" data-delete-note="${note.id}">Delete</button>`}
-    </article>`;
+    return window.SAInboxUI.card(note,{label,name:note.senderName||'GM',unread:note.direction!=='to-gm'&&!note.readAt,actions:privateNoteActions(note)+(pendingReward?'':`<button type="button" data-delete-note="${note.id}">Delete</button>`)});
   }).join("") : '<p class="campaign-empty-roster">No private notes.</p>';
 }
 
@@ -4870,7 +4871,7 @@ function commitSkillCheckCosts() {
   return true;
 }
 
-function showSkillResult({ score, equation, outcome, newFusions = [], manual = false, diceResults = [] }) {
+function showSkillResult({ score, equation, outcome, newFusions = [], manual = false, diceResults = [], attributeScore = null }) {
   if (!skillCheck) return;
   skillCheck.result = score;
   skillCheck.newFusions = newFusions;
@@ -4918,7 +4919,7 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   const freeRule = manual ? null : availableFreeReroll();
   dom.freeRuleReroll.hidden = !freeRule;
   dom.freeRuleReroll.textContent = freeRule?.label || "Use Free Reroll";
-  skillCheck.pendingSubmission = { score, outcome, manual, diceResults };
+  skillCheck.pendingSubmission = { score, outcome, manual, diceResults, attributeScore };
   dom.exitSkillResult.textContent = 'Confirm and Submit';
   dom.exitSkillResult.disabled = false;
 }
@@ -4940,8 +4941,8 @@ async function confirmSkillResult() {
     if(!check.statisticsRecorded&&!check.damage&&!PAGE_PARAMS.has('shipRoll')){
       const name=resolveSkill(character,check.skillKey)?.name||check.skillName||ATTRIBUTE_DEFS.find(a=>a.key===check.attributeKey)?.label||check.attributeKey;
       const receipt=check.statisticsReceipt||=crypto.randomUUID();
-      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,attribute:check.attributeKey,requestId:check.campaignRequestId||null,outcome:check.pendingSubmission.outcome,score:check.pendingSubmission.score,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
-      else window.SACharacterStatistics.roll(character,name,check.pendingSubmission.score,receipt);
+      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,attribute:check.attributeKey,requestId:check.campaignRequestId||null,outcome:check.pendingSubmission.outcome,score:check.pendingSubmission.score,attributeScore:check.pendingSubmission.attributeScore,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
+      else window.SACharacterStatistics.roll(character,name,check.pendingSubmission.score,receipt,check.attributeKey,check.pendingSubmission.diceResults?.length?check.pendingSubmission.diceResults.reduce((a,b)=>a+b,0):undefined);
       check.statisticsRecorded=true;queueSave();
     }
     if(!PAGE_PARAMS.has('shipRoll')){
@@ -5376,6 +5377,7 @@ async function resolvePhysicalSkillRoll(results) {
     equation: equationParts.join(" | "),
     outcome,
     newFusions: analyzed.fusions,
+    attributeScore: diceTotal,
     diceResults: [...adjustedResults, ...garmocBonusResults],
   });
 }
@@ -8550,12 +8552,12 @@ dom.messageGmForm?.addEventListener("submit", async (event) => {
   const ownId = campaignState?.ownCharacterId;
   if (!campaignCode || !campaignToken || !ownId) return;
   try {
-    await campaignRequest("/api/campaign/note/send-to-gm", {
+    await campaignRequest("/api/campaign/note/send", {
       method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: ownId, message: dom.messageGmText.value }),
+      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: ownId, targetIds:[...document.querySelectorAll("#pcMailRecipients input:checked")].map(n=>n.value), message: dom.messageGmText.value }),
     });
     dom.messageGmText.value = "";
-    notice("Private message sent to the GM.", "success");
+    notice("Private message delivered.", "success");
   } catch (error) {
     notice(error.message, "error");
   }
@@ -8674,9 +8676,8 @@ dom.settingsNewCharacter?.addEventListener("click", async () => {
 dom.settingsLeaveCampaign?.addEventListener("click", async () => {
   if(!campaignCode&&PAGE_PARAMS.get('roomCreate')){const room=PAGE_PARAMS.get('roomCreate');if(!await askConfirmation({title:'Leave Campaign?',message:'Leave this room? Your local character remains saved.',acceptLabel:'Leave Campaign',cancelLabel:'Stay'}))return;try{await window.SARoomV03.api('leave',{code:room,token:localStorage.getItem('sa-room-player-'+room)});localStorage.removeItem('sa-room-player-'+room);location.href='index.html';}catch(error){notice(error.message,'error');}return;}
   if(campaignState?.interfaceVersion === '0.3') {
-    if(!await askConfirmation({title:'Abandon Character?',message:'The character stays in this campaign and becomes available for another player to link.',acceptLabel:'Abandon Character',cancelLabel:'Stay'}))return;
-    try { const response=await fetch('/api/campaign/v03/abandon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:localStorage.getItem('sa-room-player-'+campaignCode)||localStorage.getItem(campaignTokenKey(campaignCode,campaignCharacterId))})});const data=await response.json();if(!response.ok)throw Error(data.error);location.href='room.html?campaign='+campaignCode; } catch(error){notice(error.message,'error');}
-    return;
+    if(!await askConfirmation({title:'Leave Campaign?',message:'Return to room entry? Your character remains saved in this campaign.',acceptLabel:'Leave Campaign',cancelLabel:'Stay'}))return;
+    try {await saveCampaignCharacter({force:true});await window.SARoomV03.api('leave',{code:campaignCode,token:campaignToken});localStorage.removeItem('sa-room-player-'+campaignCode);location.href='index.html';}catch(error){notice(error.message,'error');}return;
   }
   const pending = character.campaignLink?.status === "pending";
   const accepted = await askConfirmation({
@@ -8691,7 +8692,7 @@ dom.settingsLeaveCampaign?.addEventListener("click", async () => {
   if (!accepted) return;
   try {
     await detachCurrentCharacter();
-    showCharacterPanel("sheet");
+    location.href="index.html";
   } catch (error) {
     notice(error.message, "error");
   }
@@ -9714,9 +9715,6 @@ window.addEventListener('sa-drone-update',event=>{
 });
 
 // Room-level identity is separate from the selected character.
-const roomReturn=document.createElement('button');roomReturn.textContent='Abandon Character';
-roomReturn.onclick=async()=>{if(!campaignCode)return;try{if(!await window.SARoomV03.confirmRoomAction('Abandon Character','Release your character link? The character will remain saved in this campaign.','Abandon Character'))return;await window.SARoomV03.api('abandon',{code:campaignCode,token:campaignToken});location.href='room.html?campaign='+encodeURIComponent(campaignCode);}catch(error){notice(error.message,'error');}};
-document.getElementById('playerSettingsPanel')?.append(roomReturn);
 if(PAGE_PARAMS.get('roomCreate')){const finish=document.createElement('button');finish.textContent='Finish Joining Room';finish.onclick=finishRoomCreation;document.getElementById('playerSettingsPanel')?.append(finish);}
 if(!PAGE_PARAMS.get('campaign')){const help=document.createElement('section');help.className='v03-panel v03-creation-context';const text=document.createElement('p');const creatingFor=PAGE_PARAMS.get('roomCreate');text.textContent=creatingFor?`Creating a character for room ${creatingFor}. Finish the sheet and choose a password to start playing. Weapons and gear become available after finalization.`:'Weapons and gear must be obtained after joining a campaign. Character-creation EXP allocation is available here.';help.append(text);if(creatingFor){const back=document.createElement('a');back.href='room.html?campaign='+encodeURIComponent(creatingFor);back.textContent='Return to Room';back.title='Your character draft is saved on this device.';help.append(back);}const menu=document.createElement('a');menu.href='index.html';menu.textContent='Main Menu';help.append(menu);
  if(creatingFor){const link=document.createElement('button');link.type='button';link.className='room-character-link';link.textContent='Link to room '+creatingFor;link.onclick=finishRoomCreation;help.append(link);fetch('/api/campaign/state?code='+encodeURIComponent(creatingFor)+'&token='+encodeURIComponent(localStorage.getItem('sa-room-player-'+creatingFor)||'')).then(r=>r.json()).then(state=>{if(state.name)link.textContent='Link to '+state.name;}).catch(()=>{});}
@@ -9746,7 +9744,7 @@ function updateSheetDrawer(){
  sheetDrawer.querySelectorAll('[data-drawer-tab]').forEach(b=>{const active=b.dataset.drawerTab===sheetDrawerSection;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
 }
 let statisticsSignature='';
-function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
+function renderCharacterStatistics(){if(GM_ADJUSTMENT_MODE||PAGE_PARAMS.has('shipRoll')||CAMPAIGN_READ_ONLY_VIEW)return;const panel=document.querySelector('[data-character-panel="settings"]');if(!panel)return;let section=panel.querySelector('#characterStatistics');if(!section){section=document.createElement('section');section.id='characterStatistics';panel.append(section);}const stats=character.statistics||{},key=JSON.stringify([stats,character.experience?.totalGained,character.customSkills]);if(key===statisticsSignature)return;statisticsSignature=key;section.innerHTML='<h2>Character Statistics</h2><p>Largest personal hit dealt: <strong>'+Number(stats.mostDamageDealt||0)+'</strong> · Largest hit taken: <strong>'+Number(stats.mostDamageTaken||0)+'</strong></p><p>Total Experience earned: <strong>'+Number(stats.experienceEarned??character.experience?.totalGained??0)+'</strong> · Total Reverence earned: <strong>'+Number(stats.reverenceEarned||0)+'</strong></p><h3>Attributes · Average dice total, without skill bonuses</h3><table><tbody>'+ATTRIBUTE_DEFS.map(a=>{const row=stats.attributes?.[a.key];return '<tr><td>'+escapeHtml(a.label)+'</td><td>'+(row?.count||0)+'</td><td>'+(row?.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>';}).join('')+'</tbody></table><h3>Skills</h3><table><thead><tr><th>Skill / Attribute</th><th>Rolls</th><th>Average final score</th></tr></thead><tbody>'+Object.entries({...Object.fromEntries([...SPACECRAFT_SKILLS,...GENERAL_SKILLS].map(name=>[name,{count:0,total:0}])),...(stats.skills||{})}).sort(([a],[b])=>a.localeCompare(b)).map(([name,row])=>'<tr><td>'+escapeHtml(name)+'</td><td>'+row.count+'</td><td>'+(row.count?(row.total/row.count).toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table>';}
 setInterval(()=>{updateSheetDrawer();renderCharacterStatistics();},750);
 function finishRemainingDecimals() {
   if(character.phase!=='finalizing'||character.creation.batchAnimating)return;
@@ -9761,17 +9759,32 @@ function showDecimalSkip(){
 }
 
 let keyboardShipId='';
-function keyboardShipMove(key){
- const directions={w:[0,-1],ArrowUp:[0,-1],s:[0,1],ArrowDown:[0,1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]},step=directions[key.length===1?key.toLowerCase():key];
- if(!step||playerShipEditingId||!keyboardShipId||activeCharacterTab!=='starships'||campaignState?.combatActive||campaignState?.starships?.some(s=>s.characterWalks?.[campaignCharacterId])||playerShipWalk||starshipMoveDraft?.submitting||document.querySelector('dialog[open]')||Number(character.health?.current)<=0)return;
- const record=campaignState?.starships.find(s=>s.id===keyboardShipId),ownId=campaignState?.ownCharacterId||campaignCharacterId,location=record?.characterLocations?.[ownId]||{square:record?.ship?.gridCells?.[0],mesh:4};if(!record||!Number.isInteger(location.square))return;
- const cols=window.SAShipMap.gridColumns(record),mesh=location.mesh??4,x=location.square%cols*3+mesh%3+step[0],y=Math.floor(location.square/cols)*3+Math.floor(mesh/3)+step[1];if(x<0||y<0||x>=cols*3)return;
- const square=Math.floor(y/3)*cols+Math.floor(x/3),nextMesh=y%3*3+x%3;if(!record.ship.gridCells.includes(square))return;
- const card=dom.playerStarshipList.querySelector('[data-player-starship="'+CSS.escape(record.id)+'"]');if(!card)return;
- card.querySelector('[data-player-ship-begin]')?.click();previewPlayerShipDestination(record,ownId,square,nextMesh,true);
- if(starshipMoveDraft?.invalid||starshipMoveDraft?.meshRoute?.length>4){starshipMoveDraft=null;renderPlayerStarships(true);return;}
- dom.playerStarshipList.querySelector('[data-player-starship="'+CSS.escape(record.id)+'"] [data-player-ship-confirm]')?.click();
+let heldShipKey='',keyboardMovePending=Promise.resolve();
+function keyboardShipMove(key,release=false){
+ const normalized=key.length===1?key.toLowerCase():key,directions={w:[0,-1],ArrowUp:[0,-1],s:[0,1],ArrowDown:[0,1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]},step=directions[normalized];
+ if(!step)return;if(release){if(heldShipKey!==normalized)return;heldShipKey='';}else{if(heldShipKey===normalized)return;if(!keyboardShipId||playerShipEditingId||activeCharacterTab!=='starships'||campaignState?.combatActive||document.querySelector('dialog[open]')||Number(character.health?.current)<=0)return;heldShipKey=normalized;}
+ const shipId=keyboardShipId,ownId=campaignState?.ownCharacterId||campaignCharacterId;
+ keyboardMovePending=keyboardMovePending.catch(()=>{}).then(async()=>{
+  const send=body=>campaignRequest('/api/campaign/starship/move-character',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId:shipId,characterId:ownId,...body})});
+  let record=campaignState?.starships.find(s=>s.id===shipId);if(!record)return;
+  if(record.characterWalks?.[ownId]){const stopped=await send({stop:true});receiveCampaignState(stopped.campaign);record=campaignState.starships.find(s=>s.id===shipId);}
+  if(release||heldShipKey!==normalized)return;
+  const start=record.characterLocations?.[ownId];if(!start||start.environment==='surface'||!Number.isInteger(start.square))return;
+  const layout=window.SAShipMap.buildLayout(record.ship),cols=layout.columns;let previous=start,destination=null;
+  // One continuous, straight route. Release stops it through the existing server walk owner.
+  for(let i=0;i<180;i++){
+   const x=previous.square%cols*3+(previous.mesh??4)%3+step[0],y=Math.floor(previous.square/cols)*3+Math.floor((previous.mesh??4)/3)+step[1];if(x<0||y<0||x>=cols*3)break;
+   const next={square:Math.floor(y/3)*cols+Math.floor(x/3),mesh:y%3*3+x%3};if(!layout.hull.has(next.square))break;
+   const route=window.SAShipMap.meshRoute(layout,previous,next);if(!route||route.length!==1)break;
+   const occupied=Object.entries(record.characterLocations||{}).filter(([id,l])=>id!==ownId&&l.square===next.square&&l.mesh===next.mesh).length;if(occupied)break;
+   destination=next;previous=next;
+  }
+  if(destination){const result=await send({...destination,animate:true});receiveCampaignState(result.campaign);}
+ }).catch(error=>notice(error.message,'error'));
 }
+function stopKeyboardShipMove(){if(heldShipKey)keyboardShipMove(heldShipKey,true);}
+document.addEventListener('keyup',e=>keyboardShipMove(e.key,true));window.addEventListener('blur',stopKeyboardShipMove);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopKeyboardShipMove();});
+
 async function openLocalSicPower(shipId){
  const ship=campaignState.starships.find(s=>s.id===shipId),own=campaignState.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square);if(!cell)return;
  const candidates=[cell.item,...(window.SAShipMap.definition(cell.type).bridge?window.SAShipMap.installedItems(ship).filter(i=>window.SAShipMap.definition(i.type).exterior):[])];
@@ -9779,10 +9792,10 @@ async function openLocalSicPower(shipId){
  const select=dialog.querySelector('select');for(const item of candidates){const o=document.createElement('option');o.value=item.id;o.textContent=window.SAShipMap.definition(item.type).name+(item.bootRemaining>0?' — Restarting ('+Math.ceil(item.bootRemaining)+'s)':item.disabled?' — Off':' — On');select.append(o);}
  dialog.querySelector('[data-close]').onclick=()=>dialog.close();for(const kind of ['off','on'])dialog.querySelector('[data-'+kind+']').onclick=async()=>{try{const result=await campaignRequest('/api/campaign/starship/power',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,starshipId:shipId,characterId:own,sicId:select.value,kind,requestId:crypto.randomUUID()})});receiveCampaignState(result.campaign);dialog.close();}catch(error){dialog.querySelector('[role=status]').textContent=error.message;}};dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
 }
-function updateKeyboardMovement(){if(!dom.playerStarshipList||GM_SHIP_VIEW||playerShipEditingId)return;for(const card of dom.playerStarshipList.querySelectorAll('[data-player-starship]')){const ship=campaignState?.starships.find(s=>s.id===card.dataset.playerStarship);if(!ship?.crewCharacterIds.includes(campaignCharacterId))continue;let toggle=card.querySelector('[data-keyboard-movement]');if(!toggle){toggle=document.createElement('button');toggle.dataset.keyboardMovement='';toggle.onclick=()=>{keyboardShipId=keyboardShipId===ship.id?'':ship.id;updateKeyboardMovement();};(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(toggle);}toggle.textContent=keyboardShipId===ship.id?'WASD / Arrow Keys: On':'WASD / Arrow Keys: Off';toggle.setAttribute('aria-pressed',String(keyboardShipId===ship.id));toggle.hidden=Boolean(campaignState?.combatActive);card.classList.toggle('keyboard-movement-active',keyboardShipId===ship.id&&!campaignState?.combatActive);const own=campaignState?.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square),seated=cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(loc.mesh));const console=card.querySelector('[data-preview-console]');if(console){console.disabled=!seated||cell?.item?.status==='destroyed';console.classList.toggle('station-console-ready',!console.disabled);}let power=card.querySelector('[data-local-power]');if(!power){power=document.createElement('button');power.dataset.localPower='';power.textContent='SIC Power';power.onclick=()=>openLocalSicPower(ship.id);(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(power);}power.disabled=!seated||Boolean(campaignState?.combatActive);card.querySelector('[data-player-ship-details]')?.contentWindow?.postMessage({type:'sa-keyboard-mode',enabled:keyboardShipId===ship.id&&!campaignState?.combatActive,seated:Boolean(seated),consoleEnabled:Boolean(seated&&cell?.item?.status!=='destroyed'),combat:Boolean(campaignState?.combatActive)},location.origin);}}
+function updateKeyboardMovement(){if(!dom.playerStarshipList||GM_SHIP_VIEW||playerShipEditingId)return;for(const card of dom.playerStarshipList.querySelectorAll('[data-player-starship]')){const ship=campaignState?.starships.find(s=>s.id===card.dataset.playerStarship);if(!ship?.crewCharacterIds.includes(campaignCharacterId))continue;let toggle=card.querySelector('[data-keyboard-movement]');if(!toggle){toggle=document.createElement('button');toggle.dataset.keyboardMovement='';toggle.onclick=()=>{stopKeyboardShipMove();keyboardShipId=keyboardShipId===ship.id?'':ship.id;updateKeyboardMovement();};(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(toggle);}toggle.textContent=keyboardShipId===ship.id?'WASD / Arrow Keys: On':'WASD / Arrow Keys: Off';toggle.setAttribute('aria-pressed',String(keyboardShipId===ship.id));toggle.hidden=Boolean(campaignState?.combatActive);card.classList.toggle('keyboard-movement-active',keyboardShipId===ship.id&&!campaignState?.combatActive);const own=campaignState?.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square),seated=cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(loc.mesh));const console=card.querySelector('[data-preview-console]');if(console){console.disabled=!seated||cell?.item?.status==='destroyed';console.classList.toggle('station-console-ready',!console.disabled);}let power=card.querySelector('[data-local-power]');if(!power){power=document.createElement('button');power.dataset.localPower='';power.textContent='SIC Power';power.onclick=()=>openLocalSicPower(ship.id);(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(power);}power.disabled=!seated||Boolean(campaignState?.combatActive);card.querySelector('[data-player-ship-details]')?.contentWindow?.postMessage({type:'sa-keyboard-mode',enabled:keyboardShipId===ship.id&&!campaignState?.combatActive,seated:Boolean(seated),consoleEnabled:Boolean(seated&&cell?.item?.status!=='destroyed'),combat:Boolean(campaignState?.combatActive)},location.origin);}}
 setInterval(updateKeyboardMovement,750);
 document.addEventListener('keydown',e=>{if(!keyboardShipId||e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(activeCharacterTab==='starships')e.preventDefault();keyboardShipMove(e.key);}});
-window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='sa-ship-map-key')return;const frame=[...document.querySelectorAll('[data-player-ship-details]')].find(f=>f.contentWindow===e.source);if(frame)keyboardShipMove(e.data.key);});
+window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='sa-ship-map-key')return;const frame=[...document.querySelectorAll('[data-player-ship-details]')].find(f=>f.contentWindow===e.source);if(frame)keyboardShipMove(e.data.key,Boolean(e.data.release));});
 
 window.addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="sa-ship-editor-exit")return;const frame=dom.playerStarshipList?.querySelector("[data-player-ship-editor]");if(!frame||frame.contentWindow!==event.source)return;frame.remove();playerShipEditingId=null;renderPlayerStarships(true);notice(event.data.message||"Ship editor closed.");});
 
@@ -9801,7 +9814,7 @@ document.getElementById('cancelCampaignRoll')?.addEventListener('click',async ev
 });
 
 function closePlayerMail(){dom.privateNotesModal.hidden=true;document.getElementById('pcHeaderMail')?.focus();}
-document.getElementById('pcHeaderMail')?.addEventListener('click',()=>{if(!campaignState||campaignState.role==='gm')return;dom.campaignPrivateNotes.hidden=false;refreshPrivateNotes();dom.privateNotesModal.hidden=false;dom.closePrivateNotes.focus();markPrivateNotesRead();});
+document.getElementById('pcHeaderMail')?.addEventListener('click',()=>{if(!campaignState||campaignState.role==='gm')return;dom.campaignPrivateNotes.hidden=false;refreshPrivateNotes();window.SAInboxUI.recipients(document.getElementById('pcMailRecipients'),[{id:'gm',name:'GM'},...campaignState.characters.filter(r=>r.id!==campaignState.ownCharacterId).map(r=>({id:r.id,name:campaignCharacterName(r),color:r.character?.presentation?.atbColor}))]);dom.privateNotesModal.hidden=false;dom.closePrivateNotes.focus();markPrivateNotesRead();});
 dom.closePrivateNotes?.addEventListener('click',closePlayerMail);
 dom.privateNotesModal?.addEventListener('click',e=>{if(e.target===dom.privateNotesModal)closePlayerMail();});
 dom.privateNotesModal?.addEventListener('keydown',e=>{
@@ -9830,3 +9843,5 @@ window.addEventListener('sa-campaign-travel-focus',()=>{if(character.advancement
 function syncShipConsoleLauncher(){let gold=document.querySelector('[data-ship-console-launcher]');const ready=activeCharacterTab==='starships'&&!campaignState?.combatActive&&!playerShipEditingId&&!document.querySelector('[data-console-preview-frame]')?[...document.querySelectorAll('[data-preview-console]')].find(b=>!b.disabled):null;
  if(!gold){gold=document.createElement('button');gold.dataset.shipConsoleLauncher='';gold.textContent='Console View';gold.className='ship-console-launcher';gold.onclick=()=>{const button=[...document.querySelectorAll('[data-preview-console]')].find(b=>!b.disabled);button?.click();};document.body.append(gold);}gold.hidden=!ready;}
 setInterval(syncShipConsoleLauncher,500);
+
+const partyBrowse=document.createElement('button');partyBrowse.type='button';partyBrowse.textContent='View other party members';partyBrowse.setAttribute('aria-expanded','false');const partyNavigation=document.querySelector('.campaign-character-navigation');partyNavigation.hidden=true;partyNavigation.before(partyBrowse);partyBrowse.onclick=()=>{partyNavigation.hidden=!partyNavigation.hidden;partyBrowse.setAttribute('aria-expanded',String(!partyNavigation.hidden));};

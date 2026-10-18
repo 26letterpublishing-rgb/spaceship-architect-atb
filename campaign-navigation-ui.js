@@ -36,13 +36,15 @@
   return party?{...n,...party,mode:'surface',regionId:party.regionId||'',shipId:ship?.id}:{...n,shipId:ship?.id};
  }
  function decorateNavigation(c,tools,current){
-  const player=playerView(c),level=player.mode==='surface'&&player.regionId?'region':player.mode;
+  const player=playerView(c),location=view?.mode!=='galaxy'?{...player,...view}:player,map=c.data.maps.find(m=>m.id===location?.mapId)||c.map,star=map?.stars.find(s=>s.id===location?.starId),planet=star?.system?.find(p=>p.id===location?.planetId),region=star?.surfaces?.[planet?.id]?.regions?.[location?.regionId],labels={galaxy:map?.name,system:star?.name,surface:planet?.name,orbit:planet?.name,region:region?.name},level=player.mode==='surface'&&player.regionId?'region':player.mode;
   const names={galaxy:'Galaxy Map',system:'Star System',orbit:'Orbit',surface:'Planet Surface',region:'Region'};if(c.state.role==='gm'&&names[level]&&![...tools.querySelectorAll('button')].some(b=>b.textContent===names[level]||level==='system'&&b.textContent==='Star System Map'))tools.append(c.button(names[level],()=>set(player,c)));
+  if(c.state.role==='gm')for(const [kind,present,target] of [['system',star,{mode:'system',mapId:map?.id,starId:star?.id,shipId:player.shipId}],['surface',planet,{mode:'surface',mapId:map?.id,starId:star?.id,planetId:planet?.id,regionId:''}],['region',region,{mode:'surface',mapId:map?.id,starId:star?.id,planetId:planet?.id,regionId:location?.regionId}]])if(present&&![...tools.querySelectorAll('button')].some(b=>b.textContent===names[kind]||kind==='system'&&b.textContent==='Star System Map'))tools.append(c.button(names[kind],()=>set(target,c)));
   for(const button of tools.querySelectorAll('button')){
    const text=button.textContent,kind=/Galaxy Map/.test(text)?'galaxy':/Star System/.test(text)?'system':/Planet Surface/.test(text)?'surface':text==='Region'?'region':text==='Orbit'?'orbit':null;if(!kind)continue;
-   button.dataset.navLevel=kind;button.classList.toggle('players-view',level===kind);if(level===kind){button.dataset.playerView='● Players';button.setAttribute('aria-label',text+' · Players are viewing '+kind);}
+   button.dataset.navLevel=kind;button.textContent=labels[kind]||text;button.title=text;button.setAttribute('aria-label',button.textContent+' · '+text);button.classList.toggle('players-view',level===kind);if(level===kind){button.dataset.playerView='● Players';button.setAttribute('aria-label',button.textContent+' · Players are viewing '+kind);}
    if(current===kind)button.setAttribute('aria-current','page');
   }
+  tools.prepend(...[...tools.querySelectorAll('[data-nav-level]')].sort((a,b)=>['galaxy','system','orbit','surface','region'].indexOf(a.dataset.navLevel)-['galaxy','system','orbit','surface','region'].indexOf(b.dataset.navLevel)));
  }
  function render(c){
   context=c;window.SAPlanetSurfaces?.prompt(c);stamp=performance.now();cancelAnimationFrame(frame);const policy=JSON.stringify(c.data.navigation);
@@ -52,7 +54,7 @@
   c.host.classList.remove('planet-surface-host','planet-orbit-host');
   if(c.state.role==='gm'&&playerDefaultPending){view=playerView(c);playerDefaultPending=false;}
   if(c.state.role!=='gm'&&(c.data.party||!view))view=playerView(c);
-  const tab=document.querySelector('[data-character-tab="roster"]');if(tab?.firstChild?.nodeType===3){const star=c.data.maps.flatMap(m=>m.stars).find(s=>s.id===n.starId),planet=star?.system?.find(o=>o.id===n.planetId);tab.firstChild.textContent=n.mode==='surface'?'Planet '+(planet?.name||'Unknown')+' ':'Campaign ';}
+  const tab=document.querySelector('[data-character-tab="roster"]');if(tab?.firstChild?.nodeType===3){const star=c.data.maps.flatMap(m=>m.stars).find(s=>s.id===n.starId),planet=star?.system?.find(o=>o.id===n.planetId);tab.firstChild.textContent=n.mode==='surface'?'Campaign/Planet '+(planet?.name||'Unknown')+' ':'Campaign ';}
   if(!view||view.mode==='galaxy')return false;
   const map=c.data.maps.find(m=>m.id===view.mapId),star=map?.stars.find(s=>s.id===view.starId);if(!star){view=null;return false;}
   if(c.data.party&&c.data.localJourneys?.[c.data.party.shipId]?.kind==='ascend'&&c.data.localJourneys[c.data.party.shipId].remaining<=16&&(c.state.role!=='gm'||view.planetId===c.data.party.planetId))view={...view,...c.data.party,mode:'orbit',shipId:c.data.party.shipId};
@@ -70,8 +72,9 @@
   const operation=async(kind,extra={})=>{await c.send(kind,{...args,...extra});move=null;c.draw();};
   if(gm&&ship){actions.append(c.button('Place Ship Here',()=>{if(orbit)return operation('systemPosition',{phase:view.mode,planetId:planet?.id});move={place:true};c.status('Click a hex to place '+ship.title+'.');}));}
   if(!orbit){
-   const objs=star.system||[{id:'object-star-'+star.id,kind:'sun',name:star.name,q:0,r:0,intensity:2,quantity:1}],ships=c.ships.filter(s=>c.data.localPositions?.[s.id]?.starId===star.id&&c.data.localPositions[s.id].phase!=='surface'&&!s.ship?.fieldState?.dockedIn),markers=[...ships,...objs.map(o=>({id:o.id,title:o.name,spaceObject:o,ship:{gridCells:[],sicInventory:[],placements:[]}}))],points=[...ships.map(s=>({id:s.id,...c.data.localPositions[s.id]})),...objs];
-   window.SASpaceMap.bindEditor(canvas,markers,points,async positions=>{if(!gm)return;try{for(const s of ships){const p=positions.find(p=>p.id===s.id),before=c.data.localPositions[s.id];if(!equal(p,before))await c.send('systemPosition',{mapId:map.id,starId:star.id,shipId:s.id,phase:'system',q:p.q,r:p.r});} }catch(e){c.status(e.message,true);c.draw();}},{system:true,fixedIds:[...objs.map(o=>o.id),...(!gm?ships.map(s=>s.id):[])]});
+   const objs=star.system||[{id:'object-star-'+star.id,kind:'sun',name:star.name,q:0,r:0,intensity:2,quantity:1}],ships=c.ships.filter(s=>c.data.localPositions?.[s.id]?.starId===star.id&&c.data.localPositions[s.id].phase!=='surface'&&!s.ship?.fieldState?.dockedIn),markers=[...ships,...objs.map(o=>({id:o.id,title:o.name,spaceObject:o,ship:{gridCells:[],sicInventory:[],placements:[]}}))],points=[...ships.map(s=>({id:s.id,...(c.data.localPositions[s.id].phase==='orbit'?objs.find(p=>p.id===c.data.localPositions[s.id].planetId)||c.data.localPositions[s.id]:c.data.localPositions[s.id])})),...objs];
+   window.SASpaceMap.bindEditor(canvas,markers,points,async positions=>{if(!gm)return;try{for(const s of ships){const p=positions.find(p=>p.id===s.id),before=points.find(point=>point.id===s.id);if(!equal(p,before))await c.send('systemPosition',{mapId:map.id,starId:star.id,shipId:s.id,phase:'system',q:p.q,r:p.r});} }catch(e){c.status(e.message,true);c.draw();}},{system:true,overlayMarkup:(()=>{const party=c.data.party,p=party?.mapId===map.id&&party.starId===star.id&&objs.find(o=>o.id===party.planetId);if(!p)return '';const at=xy(p);return window.SAPlanetTerrain.partyMarker(at.x,at.y-.7,.035);})(),fixedIds:[...objs.map(o=>o.id),...(!gm?ships.map(s=>s.id):[])]});
+   const enlarge=canvas.querySelector('[data-prep-enlarge]');enlarge.textContent=c.host.classList.contains('planet-enlarged')?'Return to Campaign':'Enlarge Map';enlarge.onclick=()=>{c.host.classList.toggle('planet-enlarged');c.draw();};enlarge.style.marginLeft='auto';enlarge.parentElement.append(enlarge);
    canvas.querySelector('.space-map-position-details')?.remove();canvas.querySelector('[data-prep-help]').textContent=gm?'Drag ships to reposition · Click a hex to travel':'Click a destination, then Confirm Move';
    // The shared editor owns pan/zoom and GM drag. A click below only plots a move.
    let down=null;canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};},true);

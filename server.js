@@ -2625,7 +2625,7 @@ async function handleRoomAction(body, res, automated = false) {
       const report=ship?.sensorState?.reports?.[0];
       const resolved=report&&report!==previous?report:null;
       if(exertionRecord&&!queued?.extractionRoll&&!spec.damage&&Number.isFinite(body.score??resolved?.total)){
-        require('./character-statistics').roll(exertionRecord.character,spec.skill||spec.attributeKey||'Ship Systems',body.score??resolved.total,body.rollId);
+        require('./character-statistics').roll(exertionRecord.character,spec.skill||spec.attributeKey||'Ship Systems',body.score??resolved.total,body.rollId,spec.attributeKey,submitted.length?shipSensors.fusedTotal(submitted):null);
         require('./ship-reputation').recordRoll(exertionCampaign,exertionRecord.id,{attribute:spec.attributeKey,skill:spec.skill,score:body.score??resolved.total,receipt:body.rollId,source:'Combat console'});
         await campaignApi.save(exertionCampaign);
       }

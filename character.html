@@ -45,7 +45,7 @@
 <link rel="stylesheet" href="ui-reputation-pass.css">
 <link rel="stylesheet" href="sic-cards.css"><script src="sic-categories.js"></script>
 <link rel="stylesheet" href="point-spend.css"><script src="point-spend.js"></script>
-</head>
+<link rel="stylesheet" href="inbox.css"><script src="inbox-ui.js"></script></head>
   <body>
     <header class="creator-header">
       <div class="character-brand-stack">
@@ -487,7 +487,6 @@
         </section>
         <section><h2>Load New Character for Campaign</h2><p>This replaces the current campaign character. Save a file first if you need a portable backup.</p><label class="import-button">Load Character<input id="settingsLoadCharacter" type="file" /></label></section>
         <section><h2>Save Character</h2><p>Save the current character locally and download a portable character file.</p><button id="settingsExportCharacter" type="button">Save Character</button></section>
-        <section><h2>Make New Character</h2><p>This replaces the current campaign character. Save a file first if you need a portable backup.</p><button id="settingsNewCharacter" type="button">Make New Character</button></section>
         <section><h2>Leave Campaign</h2><p>Break this character's campaign link so it may request entry into another campaign.</p><button id="settingsLeaveCampaign" class="danger" type="button">Leave Campaign</button></section>
         <section><h2>Session</h2><p>Log out on this browser without removing the character from its campaign.</p><button id="settingsLogout" type="button">Log Out</button></section>
       </div>
@@ -535,16 +534,16 @@
     </div>
 
     <div id="privateNotesModal" class="modal-shell" hidden>
-      <section class="confirm-dialog pc-mail-dialog" role="dialog" aria-modal="true" aria-labelledby="privateNotesTitle">
-        <section id="campaignPrivateNotes" class="campaign-private-notes" hidden>
+      <section class="confirm-dialog pc-mail-dialog gm-mail-dialog" role="dialog" aria-modal="true" aria-labelledby="privateNotesTitle">
+        <section id="campaignPrivateNotes" class="campaign-private-notes shared-inbox" hidden>
           <div class="campaign-private-notes-heading">
-            <div><span>PRIVATE COMMUNICATIONS</span><h2 id="privateNotesTitle">Private Notes</h2></div>
+            <div><span>PRIVATE COMMUNICATIONS</span><h2 id="privateNotesTitle">Inbox</h2></div>
             <strong id="privateNoteCount">0 UNREAD</strong>
           </div>
-          <div id="privateNotesList" class="private-notes-list"></div>
-          <form id="messageGmForm" class="message-gm-form">
-            <label>Private Message to GM<textarea id="messageGmText" rows="4" maxlength="1000" placeholder="Type a short private message..."></textarea></label>
-            <button class="primary-action" type="submit">Send to GM</button>
+          <div id="privateNotesList" class="private-notes-list gm-inbox-list"></div>
+          <form id="messageGmForm" class="message-gm-form tool-card">
+            <h3>Send a Private Message</h3><div id="pcMailRecipients" class="gm-mail-recipients"></div><label>Message<textarea id="messageGmText" rows="4" maxlength="4000" placeholder="Only the recipients and GM can read this note."></textarea></label>
+            <button class="primary-action" type="submit">Send Private Note</button>
           </form>
         </section>
         <div class="dialog-actions"><button id="closePrivateNotes" type="button">Dismiss</button></div>

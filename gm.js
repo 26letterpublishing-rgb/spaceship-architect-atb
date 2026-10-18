@@ -754,7 +754,7 @@ function renderCharacters() {
             ? `<button type="button" data-class-action="peacekeeper-reward" data-character-id="${record.id}">PREVENTED COMBAT: +1 DRAMA</button>`
             : "";
       return `<article class="gm-character-card ${record.connected ? "connected" : ""}" style="--character-color:${color}">
-        <div class="character-card-head">${rosterIcon(record)}<span class="character-swatch"></span><div><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))} ${record.connected ? "| CONNECTED" : "| OFFLINE"}</small></div></div>
+        <div class="character-card-head">${rosterIcon(record)}<div><strong>${escapeHtml(characterName(record))}</strong><small>${escapeHtml(playerName(record))} ${record.connected ? "| CONNECTED" : "| OFFLINE"}</small></div></div>
         <div class="character-details">
           <div><span>Speed</span><strong>${Number(characterSpeed(record)).toFixed(1).replace(/\.0$/, "")}</strong></div>
           <div><span>Command</span><strong>${Math.round(commandWindow(record))} SEC</strong></div>
@@ -765,9 +765,9 @@ function renderCharacters() {
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can join using this room code, then create or import a character.</p>";
-  const allies=campaignNpcRoster().filter(n=>n.allyNpc&&campaign.starships.some(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(n.id)));
+  const allies=campaignNpcRoster().filter(n=>n.allyNpc);
   if(allies.length){dom.characterCount.textContent+=` · ${allies.length} Ally NPC${allies.length===1?'':'s'}`;if(!campaign.characters.length)dom.characterList.innerHTML='';}
-  for(const npc of allies){const ship=campaign.starships.find(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<span class="character-swatch"></span><div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>Ally NPC · ${escapeHtml(ship.title)}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
+  for(const npc of allies){const ship=campaign.starships.find(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>Ally NPC · ${escapeHtml(ship?.title||'With the party')}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
   const discard = campaign.dramaDeck?.discard || [];
   dom.dramaDiscardCount.textContent = `${discard.length} Card${discard.length === 1 ? "" : "s"}`;
   dom.dramaDiscardList.innerHTML = discard.length
@@ -800,9 +800,13 @@ function renderStarships() {
     </article>`;
   }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>");
   if (dom.showcaseNpcFleet) {
-    const npcs = encounterState?.units?.filter((unit) => unit.team === "npc") || [];
-    dom.showcaseNpcFleet.hidden = !SHOWCASE_MODE;
-    dom.showcaseNpcFleetList.innerHTML = npcs.map((unit) => `<label class="showcase-npc-location"><span><i style="--npc-color:${escapeHtml(unit.color || "#999")}"></i><strong>${escapeHtml(unit.characterName)}</strong></span><select data-showcase-npc-location="${escapeHtml(unit.id)}">${deploymentOptions(unit.location?.starshipId || "")}</select></label>`).join("");
+    dom.showcaseNpcFleet.hidden=false;
+    const host=dom.showcaseNpcFleetList,person=host.querySelector('[data-relocate-character]')?.value,destination=host.querySelector('[data-relocate-destination]')?.value;
+    const people=[...campaign.characters.map(r=>({id:r.id,name:characterName(r)})),...campaignNpcRoster().map(n=>({id:n.id,name:n.characterName||n.name}))];
+    host.innerHTML='<label>Character<select data-relocate-character>'+people.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')+'</select></label><label>Location<select data-relocate-destination>'+(campaign.relocationDestinations||[]).map(d=>`<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`).join('')+'</select></label><button type="button" data-relocate-confirm>Confirm Relocation</button>';
+    if(people.some(p=>p.id===person))host.querySelector('[data-relocate-character]').value=person;
+    if(campaign.relocationDestinations?.some(d=>d.id===destination))host.querySelector('[data-relocate-destination]').value=destination;
+
   }
 }
 
@@ -933,11 +937,7 @@ function renderInbox() {
       <div class="inbox-actions"><button type="button" data-join-decision="reject">Reject</button><button class="primary" type="button" data-join-decision="approve">Approve</button></div>
     </article>`;
   }).join("");
-  const messageMarkup = inbox.map((note) => `<article class="gm-inbox-card ${note.direction === "to-gm" && !note.readAt ? "unread" : ""}" data-gm-note="${note.id}">
-    <div><span>${note.kind === "surface-travel" ? "TRAVEL REQUEST" : note.kind === "roll-request" ? "ROLL REQUEST" : note.kind === "award" ? "GM AWARD" : note.kind === "reverence-gift-request" ? "REVERENCE SUGGESTION" : note.kind === "angiluros-craft-request" ? "ANCESTRAL CRAFTING" : note.kind === "system" ? "CAMPAIGN NOTICE" : note.direction === "to-gm" ? "PLAYER MESSAGE" : "SENT MESSAGE"}</span><strong>${escapeHtml(note.characterName || "Character")}</strong><small>${new Date(note.createdAt).toLocaleString()}</small></div>
-    <p>${escapeHtml(note.message)}</p>
-    ${inboxItemActions(note)}
-  </article>`).join("");
+  const messageMarkup = inbox.map(note=>window.SAInboxUI.card(note,{gm:true,label:note.kind==='message'?(note.direction==='to-gm'?'PLAYER MESSAGE':'SENT MESSAGE'):note.kind.replaceAll('-',' ').toUpperCase(),name:note.senderName?note.senderName+' → '+(note.direction==='to-gm'?'GM':note.characterName):note.characterName,unread:note.direction==='to-gm'&&!note.readAt,actions:inboxItemActions(note)})).join('');
   const markup=requestMarkup + messageMarkup || '<p class="empty-inbox">No campaign messages or pending characters.</p>';
   if(dom.inboxList.dataset.markup!==markup){dom.inboxList.innerHTML=markup;dom.inboxList.dataset.markup=markup;}
 }
@@ -2256,16 +2256,10 @@ dom.createCampaignStarship?.addEventListener("click", () => {
 });
 dom.closeStarshipEditor?.addEventListener("click", closeCampaignStarshipEditor);
 
-dom.showcaseNpcFleetList?.addEventListener("change", async (event) => {
-  const select = event.target.closest("[data-showcase-npc-location]");
-  if (!select) return;
-  select.disabled = true;
-  try {
-    await encounterAction("setCombatLocation", { id: select.dataset.showcaseNpcLocation, location: combatLocation(select.value) });
-    await refreshEncounterState();
-    renderStarships();
-  } catch (error) { showMessage(dom.message, error.message, "error"); }
-  finally { select.disabled = false; }
+dom.showcaseNpcFleetList?.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-relocate-confirm]');if(!button)return;const host=dom.showcaseNpcFleetList,person=host.querySelector('[data-relocate-character]'),destination=host.querySelector('[data-relocate-destination]');
+ if(!await confirmGm({title:'Relocate Character?',message:`Move ${person.selectedOptions[0]?.textContent} to ${destination.selectedOptions[0]?.textContent}?`,acceptLabel:'Relocate'}))return;
+ button.disabled=true;try{const result=await api('/api/campaign/character/relocate',{code,token,characterId:person.value,destinationId:destination.value});receiveCampaign(result.campaign);}catch(error){showMessage(dom.message,error.message,'error');}finally{button.disabled=false;}
 });
 
 dom.reshuffleDramaCards?.addEventListener("click", async () => {
@@ -2402,7 +2396,7 @@ dom.libraryForm.addEventListener('submit',async event=>{
 document.getElementById('gmMailButton').onclick=()=>{
   const dialog=document.getElementById('gmMailDialog');
   const recipients=document.getElementById('gmMailRecipients'),checked=new Set([...recipients.querySelectorAll('input:checked')].map(n=>n.value));
-  recipients.innerHTML=(campaign?.characters||[]).map(r=>'<label style="--recipient-color:'+escapeHtml(r.character?.presentation?.atbColor||'#40bddd')+'"><input type="checkbox" value="'+escapeHtml(r.id)+'" '+(checked.has(r.id)?'checked':'')+'>'+escapeHtml(characterName(r))+'</label>').join('');
+  window.SAInboxUI.recipients(recipients,(campaign?.characters||[]).map(r=>({id:r.id,name:characterName(r),color:r.character?.presentation?.atbColor})));
   renderInbox();if(!dialog.open)dialog.showModal();
 };
 document.getElementById('closeGmMail').onclick=()=>document.getElementById('gmMailDialog').close();
@@ -2976,7 +2970,11 @@ document.querySelector('#arenaFileInput').addEventListener('change',async event=
  const button=document.querySelector('#loadArenaFile');button.disabled=true;
  try{
   if(file.size>10*1024*1024)throw Error('Arena files must be smaller than 10 MB.');
-  const parsed=window.SAArenaFiles.parse(JSON.parse(await file.text())),assignments=await chooseArenaAssignments(parsed);if(!assignments)return;
+  await loadArenaData(JSON.parse(await file.text()));
+ }catch(error){showMessage(dom.encounterStatus,error.message||'The arena file could not be loaded.','error');}finally{button.disabled=false;}
+});
+async function loadArenaData(file){
+  const parsed=window.SAArenaFiles.parse(file),assignments=await chooseArenaAssignments(parsed);if(!assignments)return;
   const pcMap=new Map(assignments),shipMap=new Map(),npcMap=new Map(),newShips=[];
   if(parsed.ships.length){const imported=await api('/api/campaign/arena/import-ships',{code,token,ships:parsed.ships});for(const result of imported.ships){shipMap.set(result.sourceId,result.starship.id);newShips.push(result.starship);}}
   for(const ship of newShips)if(!campaign.starships.some(s=>s.id===ship.id))campaign.starships.push(ship);
@@ -2987,8 +2985,7 @@ document.querySelector('#arenaFileInput').addEventListener('change',async event=
   arenaStartingLocations=new Map(parsed.startingLocations.map(([id,loc])=>[pcMap.get(id)||npcMap.get(id),{...loc,starshipId:shipMap.get(loc?.starshipId)||''}]).filter(([id])=>id));
   encounterPositions=parsed.positions.filter(p=>shipMap.has(p.id)).map(p=>({...p,id:shipMap.get(p.id)}));encounterPositionDraft=structuredClone(encounterPositions);encounterObjects=window.SASpaceObjects.normalize?window.SASpaceObjects.normalize(parsed.objects):parsed.objects;encounterObjectBaseline=[];
   saveEncounterMapDraft();showEncounterSetup({forceBuilder:true,explicit:true});showMessage(dom.encounterStatus,'Arena loaded into Prepare Combat. Check the starting positions, then Begin Combat.','success');
- }catch(error){showMessage(dom.encounterStatus,error.message||'The arena file could not be loaded.','error');}finally{button.disabled=false;}
-});
+}
 
 async function refreshCombatSaveStatus(){
   if(!code||!token)return null;
@@ -3033,7 +3030,7 @@ function organizeGmTools(){
 window.SAOrganizeGmTools=organizeGmTools;organizeGmTools();
 const scriptPanel=document.querySelector('#scriptTab'),scriptTools=document.createElement('div');scriptTools.className='script-tools-column';scriptPanel.prepend(scriptTools);
 for(const selector of ['#conditionalActionForm','#scriptCommandBuilder'])scriptTools.append(document.querySelector(selector));
-const organizeScript=()=>{for(const node of [...scriptPanel.children])if(node.tagName==='BUTTON'||node.id==='scriptShops')scriptTools.append(node);};organizeScript();new MutationObserver(organizeScript).observe(scriptPanel,{childList:true});
+const organizeScript=()=>{for(const node of [...scriptPanel.children])if(node.tagName==='BUTTON'||node.id==='scriptShops')scriptTools.insertBefore(node,document.querySelector('#scriptCommandBuilder'));};organizeScript();new MutationObserver(organizeScript).observe(scriptPanel,{childList:true});
 document.getElementById('exportAdventureModule').onclick=async()=>{
  const dialog=document.createElement('dialog');dialog.className='v03-dialog';dialog.innerHTML='<h2>Export Adventure Module</h2><form><label>Title<input name="title" required maxlength="120"></label><label>Author<input name="author" maxlength="120"></label><label>Module version<input name="version" value="1.0" maxlength="40"></label><label>Opening GM instructions<textarea name="instructions" rows="5" maxlength="12000"></textarea></label><label><input type="checkbox" name="characters"> Include pregenerated PCs (passwords and player links cleared)</label><label><input type="checkbox" name="preparation" checked> Include current combat preparation</label><p>Each load creates a new room. Private messages, access credentials and reward history are excluded.</p><button type="button" data-cancel>Cancel</button><button type="submit">Export Module</button><p role="status"></p></form>';dialog.querySelector('[name=title]').value=campaign.module?.title||campaign.name;for(const key of ['author','version','instructions'])if(campaign.module?.[key])dialog.querySelector('[name='+key+']').value=campaign.module[key];dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
  dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector('[type=submit]');button.disabled=true;try{await saveScript();saveEncounterMapDraft();await api('/api/campaign/preparation-draft',{code,token,draft:JSON.parse(sessionStorage.getItem('sa-encounter-map-draft-'+code)||'null')});const data=await window.SARoomV03.api('module/export',{code,token,title:form.elements.title.value,author:form.elements.author.value,version:form.elements.version.value,instructions:form.elements.instructions.value,includeCharacters:form.elements.characters.checked,includePreparation:form.elements.preparation.checked});downloadJson(data,data.metadata.title.replace(/[^a-z0-9_-]+/gi,'-')+'.sa2module');dialog.close();}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};document.body.append(dialog);dialog.showModal();
@@ -3041,3 +3038,11 @@ document.getElementById('exportAdventureModule').onclick=async()=>{
 
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-surface-decision]');if(!b)return;b.disabled=true;try{const result=await api('/api/campaign/v03/starmap',{code,token,kind:'planetTravelDecision',requestId:b.dataset.requestId,approve:b.dataset.surfaceDecision==='approve',receipt:crypto.randomUUID()});if(result.campaign)receiveCampaign(result.campaign);}catch(error){b.closest('article').querySelector('p').textContent=error.message;}finally{b.disabled=false;}});
 window.addEventListener('sa-campaign-travel-focus',()=>{document.getElementById('gmMailDialog')?.close();document.querySelector('[data-tab="campaign"]')?.click();});
+
+window.SAGmLocationFiles={async load(kind,file){
+ try{
+  if(kind==='encounter'){await loadArenaData(file);return;}
+  if(kind==='npc'){const result=await api('/api/campaign/roster/import',{code,token,file});receiveCampaign(result.campaign);showMessage(dom.message,result.added+' ally NPCs added.','success');return;}
+  if(kind==='story'){await saveScript();const result=await api('/api/campaign/script/import',{code,token,file,append:true});activeScriptChapterId=result.chapterId;scriptDirty=false;lastScriptRange=null;await refreshCampaign();selectGmTab('script');renderScriptEditor(activeScriptChapter()?.script||'');}
+ }catch(error){showMessage(dom.message,error.message,'error');}
+}};
