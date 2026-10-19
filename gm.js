@@ -218,7 +218,7 @@ let forceEncounterBuilder = false;
 let encounterSetupRequested = false;
 const encounterLocations = new Map();
 const CAMPAIGN_CACHE_PREFIX = "sa-campaign-cache-v1-";
-const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false };
+const NPC_BLANK = { name: "Custom NPC", speed: 5, moveSpeed: 3, maximumHp: 30, physicalAttribute: 6, mentalAttribute: 6, physicalSkill: 1, mentalSkill: 1, heldWeaponId: "unarmed", color: "#39e58f", allyNpc: false, iconRace: "human", iconVariant: 0, statOverrides: {} };
 const BANNER_VISIBILITY_KEY = "sa-interface-banner-visible-v1";
 const BANNER_MODE_KEY = "sa-interface-banner-mode-v2";
 let bannerExitEnabled = localStorage.getItem("sa-gm-banner-exit-enabled") !== "off";
@@ -379,7 +379,7 @@ async function api(path, body = null, method = "POST") {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {const error=new Error(payload.error || "The server rejected that request.");error.status=response.status;throw error;}
-  const deliveries={'/api/campaign/award':'Reward sent','/api/campaign/item/give':'Item sent','/api/campaign/item/recharge':'Recharge sent','/api/campaign/note/send':'Private note sent','/api/campaign/roll/request':'Roll request sent','/api/campaign/starship/resources':'Ship resources updated','/api/campaign/starship/library-entry':'Library entry sent','/api/campaign/reverence-gift':'Reverence sent','/api/campaign/join/respond':'Character approval response sent','/api/campaign/exertion/rest-decision':'Rest decision sent','/api/campaign/item/deny':'Item decision sent','/api/campaign/item/cover-deficit':'Item funding updated','/api/campaign/class-action':'Class action applied','/api/campaign/angiluros/craft':'Crafting result sent'};
+  const deliveries={'/api/campaign/award':'Reward sent','/api/campaign/item/give':'Item sent','/api/campaign/item/recharge':'Recharge sent','/api/campaign/note/send':'Private note sent','/api/campaign/roll/request':'Check request sent','/api/campaign/starship/resources':'Ship resources updated','/api/campaign/starship/library-entry':'Library entry sent','/api/campaign/reverence-gift':'Reverence sent','/api/campaign/join/respond':'Character approval response sent','/api/campaign/exertion/rest-decision':'Rest decision sent','/api/campaign/item/deny':'Item decision sent','/api/campaign/item/cover-deficit':'Item funding updated','/api/campaign/class-action':'Class action applied','/api/campaign/angiluros/craft':'Crafting result sent'};
   if(method==='POST'&&deliveries[path]&&!payload.alreadyRecorded){const names=(body?.targetIds||body?.characterIds||[body?.characterId]).filter(Boolean).map(id=>characterName(campaign?.characters?.find(c=>c.id===id))).join(', ');window.SAResultFeedback?.notice(deliveries[path]+(names?' to '+names:'')+'.','success',6000,{allowOutsideCombat:true});}
   return payload;
 }
@@ -707,8 +707,8 @@ function renderConditionalControls() {
   const selected = editingConditionalActionId;
   const selectedScriptAction = dom.scriptCommandType.value;
   const options = actions.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.keyword)}</option>`).join("");
-  dom.conditionalSelect.innerHTML = `<option value="">New Action...</option>${options}`;
-  dom.scriptCommandType.innerHTML = `<option value="">Direct Roll</option>${actions.map((entry) => `<option value="${entry.id}">Keyword: ${escapeHtml(entry.keyword)}</option>`).join("")}`;
+  dom.conditionalSelect.innerHTML = `<option value="">New Reward Check...</option>${options}`;
+  dom.scriptCommandType.innerHTML = `<option value="">Scripted Direct Check</option>${actions.map((entry) => `<option value="${entry.id}">Scripted Reward Check: ${escapeHtml(entry.keyword)}</option>`).join("")}`;
   if (actions.some((entry) => entry.id === selectedScriptAction)) dom.scriptCommandType.value = selectedScriptAction;
   syncScriptCommandType();
   if (actions.some((entry) => entry.id === selected)) dom.conditionalSelect.value = selected;
@@ -767,13 +767,14 @@ function renderCharacters() {
     : "<p>No characters yet. Players can join using this room code, then create or import a character.</p>";
   const allies=campaignNpcRoster().filter(n=>n.allyNpc);
   if(allies.length){dom.characterCount.textContent+=` · ${allies.length} Ally NPC${allies.length===1?'':'s'}`;if(!campaign.characters.length)dom.characterList.innerHTML='';}
-  for(const npc of allies){const ship=campaign.starships.find(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>Ally NPC · ${escapeHtml(ship?.title||'With the party')}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
+  for(const npc of allies){const ship=campaign.starships.find(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>Ally NPC · ${escapeHtml(ship?.title||'With the party')}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select,[data-npc-icon],[data-npc-recalculate]').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
   const discard = campaign.dramaDeck?.discard || [];
   dom.dramaDiscardCount.textContent = `${discard.length} Card${discard.length === 1 ? "" : "s"}`;
   dom.dramaDiscardList.innerHTML = discard.length
     ? discard.map((card) => `<button type="button" class="gm-drama-card-mini" data-discard-card="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category || "")}" aria-label="View ${escapeHtml(card.name || "Drama Card")}">${gmDramaCardMiniMarkup(card)}</button>`).join("")
     : "<p>No Drama Cards have been played.</p>";
   dom.reshuffleDramaCards.disabled = discard.length === 0;
+  renderDramaDeckCounts();
 }
 
 function renderStarships() {
@@ -790,9 +791,9 @@ function renderStarships() {
     const npcUnits = campaignNpcRoster();
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}" style="--ship-choice-color:${window.SAShipMap.shipColor(record)}">
       <header><img class="roster-ship-icon" src="${window.SATokenArt.shipImage(record)}" alt=""/><div><h3>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
-      <dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
+      <div class="gm-starship-summary"><dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Who Controls This Ship?<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled - visible to assigned PCs</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled - hidden from players</option></select></label>
-      <div class="gm-starship-crew-groups">
+      </div><div class="gm-starship-crew-groups">
         <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label class="pc-color-box" style="--character-color:${escapeHtml(/^#[0-9a-f]{6}$/i.test(character.character?.presentation?.atbColor||'')?character.character.presentation.atbColor:'#39e58f')}"><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
         <section><h4>NPC Crew</h4><div class="gm-starship-crew npc-crew">${npcUnits.length ? npcUnits.map((unit) => `<label><input type="checkbox" data-starship-npc-crew="${escapeHtml(unit.id)}" ${npcCrew.has(unit.id) ? "checked" : ""}/> <span>${escapeHtml(unit.characterName)}</span></label>`).join("") : "<small>Add NPCs to Combat before assigning them to a ship.</small>"}</div></section>
       </div>
@@ -845,10 +846,11 @@ function renderRollResults() {
       <div class="roll-request-head"><div><strong>${escapeHtml(request.attribute)} + ${escapeHtml(request.skill)}</strong><small>${request.difficulty === null ? "No Difficulty" : `Difficulty ${request.difficulty}${request.hideDifficulty ? " (Hidden)" : ""}`}</small></div><button type="button" data-close-roll="${request.id}">Close</button></div>
       ${rows.map(({ name, result }) => `<div class="result-row"><span>${escapeHtml(name)}</span>${result ? `<strong>${result.cancelled?'—':result.score}</strong><small>${escapeHtml(result.outcome || result.mode)}</small>` : '<span class="waiting">Waiting</span><small>Pending</small>'}</div>${window.SAReputationUI?.comparison(result?.reputation)||''}`).join("")}
     </article>`;
-  }).join("") : "<p>No active roll requests.</p>";
+  }).join("") : "<p>No active check requests.</p>";
 }
 
 function parseCommand(raw, index) {
+  const fileLoad=window.SASaveFiles.decodeCommand(raw);if(fileLoad)return {id:raw,raw,fileLoad,keyword:fileLoad.label,valid:true};
   const shopKey=raw.match(/^Shop:\s*(.+)$/i)?.[1]?.trim();
   if(shopKey){const shop=campaign?.shops?.list?.find(s=>s.id===shopKey||s.name.toLowerCase()===shopKey.toLowerCase());return {id:'shop:'+shopKey,raw,shopId:shop?.id,keyword:'Activate '+(shop?.name||shopKey),valid:!!shop};}
   const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
@@ -985,13 +987,14 @@ function npcTemplateById(templateId) {
 function stagedNpc(source = null) {
   const template = source || builtinNpcTemplates[npcSequence % Math.max(1, builtinNpcTemplates.length)] || NPC_BLANK;
   npcSequence += 1;
-  return {
+  return window.SANpcStatistics.calculate({
     ...NPC_BLANK,
     ...structuredClone(template),
     id: `staged-npc-${Date.now()}-${npcSequence}`,
     templateId: template.id || "",
     customTemplate: Boolean((campaign?.npcTemplates || []).some((entry) => entry.id === template.id)),
-  };
+    statOverrides: window.SANpcStatistics.overrides(template),
+  });
 }
 
 function randomBuiltinNpc() {
@@ -1014,9 +1017,10 @@ function npcEditorMarkup(npc) {
   return `<article class="encounter-npc-card npc-editor-card" data-npc-editor="${escapeHtml(npc.id || npc.templateId || "draft")}">
     <div class="npc-card-head">
       <label>Name<input data-npc-field="name" value="${escapeHtml(npc.name)}" maxlength="40" /></label>
-      <label>ATB Speed<input data-npc-field="speed" type="number" min="0.1" max="100" step="0.1" value="${npc.speed}" /></label>
-      <label>Move<input data-npc-field="moveSpeed" type="number" min="1" max="30" step="0.1" value="${npc.moveSpeed}" /></label>
-      <label>HP<input data-npc-field="maximumHp" type="number" min="1" max="999999" step="1" value="${npc.maximumHp}" /></label>
+      <label>ATB Speed<input data-npc-field="speed" type="number" min="0.1" max="100" step="0.1" value="${npc.speed}" /><small data-stat-mode="speed"></small></label>
+      <label>Move<input data-npc-field="moveSpeed" type="number" min="1" max="30" step="0.1" value="${npc.moveSpeed}" /><small data-stat-mode="moveSpeed"></small></label>
+      <label>HP<input data-npc-field="maximumHp" type="number" min="1" max="999999" step="1" value="${npc.maximumHp}" /><small data-stat-mode="maximumHp"></small></label>
+      <button type="button" class="npc-icon-button" data-npc-icon aria-label="Choose NPC icon">${window.SATokenArt.figure(npc.iconRace || "human", npc.iconVariant)}<span>Icon</span></button>
       <label>Color<input data-npc-field="color" type="color" value="${escapeHtml(npc.color)}" /></label>
       <label class="npc-ally-field"><input data-npc-field="allyNpc" type="checkbox" ${npc.allyNpc ? "checked" : ""} /> Ally</label>
     </div>
@@ -1027,7 +1031,36 @@ function npcEditorMarkup(npc) {
       <label>Mental Skill <span>0-4</span><input data-npc-field="mentalSkill" type="number" min="0" max="4" step="0.1" value="${npc.mentalSkill}" /></label>
       <label class="npc-weapon-field">Held Weapon<select data-npc-field="heldWeaponId">${npcWeaponOptions(npc.heldWeaponId)}</select></label>
     </div>
+    <div class="npc-calculation-hint"><small>Speed, Move and HP calculate from Physical / Mental stats. Manual changes stay until you recalculate.</small><button type="button" data-npc-recalculate>Recalculate</button></div>
   </article>`;
+}
+
+function syncNpcCalculatedFields(host,npc,active=null){
+  if(!npc)return;
+  for(const field of window.SANpcStatistics.fields){
+    const input=host.querySelector('[data-npc-field="'+field+'"]');
+    if(input&&input!==active)input.value=npc[field];
+    const hint=host.querySelector('[data-stat-mode="'+field+'"]');
+    if(hint)hint.textContent=npc.statOverrides?.[field]?'Manual':'Calculated';
+  }
+}
+
+function chooseNpcIcon(npc,changed){
+  const art=window.SATokenArt,dialog=document.createElement('dialog');dialog.className='npc-icon-dialog';dialog.setAttribute('aria-label','Choose NPC icon');
+  dialog.innerHTML='<h2>Choose NPC Icon</h2><p>Choose any available appearance. Icons do not change the NPC’s statistics.</p><label>Appearance<select></select></label><div class="npc-icon-options"></div><button type="button" data-close>Close</button>';
+  const select=dialog.querySelector('select'),options=dialog.querySelector('.npc-icon-options');
+  select.innerHTML=art.allRaces.map(r=>'<option value="'+r+'">'+escapeHtml(r.replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase()))+'</option>').join('');select.value=npc.iconRace||'human';
+  const render=()=>{options.innerHTML=art.options(select.value).map(o=>'<button type="button" data-variant="'+o.value+'" aria-pressed="'+(npc.iconRace===select.value&&npc.iconVariant===o.value)+'">'+art.figure(select.value,o.value)+'<span>'+o.label+'</span></button>').join('');};
+  select.onchange=render;options.onclick=e=>{const b=e.target.closest('[data-variant]');if(!b)return;npc.iconRace=select.value;npc.iconVariant=Number(b.dataset.variant);changed();dialog.close();};
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.append(dialog);render();dialog.showModal();select.focus();
+}
+
+function bindNpcEditor(host,getNpc){
+  host.addEventListener('click',event=>{
+    const npc=getNpc();if(!npc)return;
+    if(event.target.closest('[data-npc-recalculate]')){window.SANpcStatistics.calculate(npc,true);syncNpcCalculatedFields(host,npc);}
+    if(event.target.closest('[data-npc-icon]'))chooseNpcIcon(npc,()=>{const b=host.querySelector('[data-npc-icon]');b.innerHTML=window.SATokenArt.figure(npc.iconRace,npc.iconVariant)+'<span>Icon</span>';});
+  });
 }
 
 function updateNpcField(npc, field, value) {
@@ -1043,6 +1076,7 @@ function updateNpcField(npc, field, value) {
   if (ranges[field]) {
     const [minimum, maximum] = ranges[field];
     npc[field] = Math.max(minimum, Math.min(maximum, Number(value) || minimum));
+    window.SANpcStatistics.edit(npc, field);
   } else {
     npc[field] = value;
   }
@@ -1062,6 +1096,8 @@ function npcTemplatePayload(npc) {
     heldWeaponId: npc.heldWeaponId || "unarmed",
     color: npc.color || "#39e58f",
     allyNpc: Boolean(npc.allyNpc),
+    iconRace: npc.iconRace || "", iconVariant: npc.iconVariant || 0,
+    statOverrides: window.SANpcStatistics.overrides(npc),
   };
 }
 
@@ -1095,6 +1131,7 @@ function renderPremadeNpcConsole() {
   window.SALiveDOM.render(dom.premadeNpcSelect,`<option value="">New Premade NPC</option>${templates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`).join("")}`);
   dom.premadeNpcSelect.value = premadeNpcDraft.customTemplate ? premadeNpcDraft.templateId : "";
   window.SALiveDOM.render(dom.premadeNpcEditor,npcEditorMarkup(premadeNpcDraft));
+  syncNpcCalculatedFields(dom.premadeNpcEditor,premadeNpcDraft,document.activeElement);
   dom.deletePremadeNpc.disabled = !premadeNpcDraft.customTemplate;
   dom.savePremadeNpc.textContent = premadeNpcDraft.customTemplate ? "Update Premade NPC" : "Save Premade NPC";
 }
@@ -1128,6 +1165,7 @@ function crewSelectedForShip(kind, id, shipId) {
 
 function renderEncounterBuilder() {
   if (!campaign) return;
+  document.querySelector("#atbSetup").dataset.combatMode = encounterMode;
   let rosterMarkup = "";
   ensureEncounterDefaults();
   renderArenaEditor();
@@ -1198,11 +1236,13 @@ function renderEncounterBuilder() {
   window.SALiveDOM.render(dom.encounterNpcTemplate, npcTemplateOptions());
   dom.encounterNpcTemplate.value = encounterNpcDraft?.templateId || "";
   window.SALiveDOM.render(dom.encounterNpcEditor, npcEditorMarkup(encounterNpcDraft));
+  syncNpcCalculatedFields(dom.encounterNpcEditor,encounterNpcDraft,document.activeElement);
   window.SALiveDOM.render(dom.encounterNpcList, stagedNpcs.length ? stagedNpcs.map((npc) => `<article class="staged-npc-summary" data-staged-npc="${npc.id}" style="--npc-color:${escapeHtml(npc.color)}">
     <div><strong>${npc.allyNpc ? '<img class="npc-ally-badge" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${escapeHtml(npc.name)}</strong><small>Speed ${Number(npc.speed).toFixed(1).replace(/\.0$/, "")} | HP ${npc.maximumHp} | Phys ${npc.physicalAttribute}a/+${npc.physicalSkill} | Men ${npc.mentalAttribute}a/+${npc.mentalSkill} | Move ${npc.moveSpeed}</small></div>
     <span>${escapeHtml(weaponById(npc.heldWeaponId)?.name || "Unarmed")}</span>
     ${encounterMode === "starship" ? `<select class="encounter-deployment" data-staged-location="${npc.id}" aria-label="Starting ship for ${escapeHtml(npc.name)}">${encounterDeploymentOptions(npc.locationStarshipId || "")}</select>` : ""}
     ${encounterMode==='surface'?surfaceStartButton(npc.id,npc.name,true):''}
+    <button type="button" class="npc-icon-button" data-staged-icon="${npc.id}" aria-label="Change icon for ${escapeHtml(npc.name)}">${window.SATokenArt.figure(npc.iconRace||"human",npc.iconVariant)}<span>Icon</span></button>
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>');
   dom.beginEncounter.disabled = encounterPreparing || (!selectedEncounterCharacters.size && !stagedNpcs.length) || (encounterMode === "starship" && !selectedEncounterStarships.size);
@@ -1444,6 +1484,7 @@ async function beginEncounter() {
         team: "npc",
         actorType: "character",
         npcRosterId: npc.rosterId,
+        iconRace: npc.iconRace, iconVariant: npc.iconVariant, statOverrides: npc.statOverrides,
         moveSpeed: npc.moveSpeed,
         maximumHp: npc.maximumHp,
         currentHp: npc.maximumHp,
@@ -1547,6 +1588,7 @@ function renderLibraryDelivery(){
 }
 
 function renderCampaign() {
+  window.SAContentUI?.update();
   window.SAInterfaceNotices?.setCombatActive(campaign?.combatActive);
   dom.saveCampaignBackup.disabled = SHOWCASE_MODE || Boolean(campaign?.showcase);
   dom.saveCampaignBackup.title = dom.saveCampaignBackup.disabled ? "Explore Features cannot be exported as a campaign." : "Save Campaign";
@@ -1692,7 +1734,7 @@ async function saveScript() {
   }
 }
 
-async function sendRollRequest({ targetIds, attribute, skill, difficulty = null, hideDifficulty = false, source = "GM Prompt", connectedOnly = false, completionActionId = "" }) {
+async function sendRollRequest({ targetIds, attribute, skill, difficulty = null, hideDifficulty = false, source = "Direct Check", connectedOnly = false, completionActionId = "" }) {
   const payload = await api("/api/campaign/roll/request", { code, token, targetIds, attribute, skill, difficulty, hideDifficulty, source, connectedOnly, completionActionId });
 
 
@@ -1930,8 +1972,9 @@ dom.script.addEventListener("click", async (event) => {
   const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
+  if(command.fileLoad){await window.SAContentUI.filePrompt(command.fileLoad);return;}
   if(command.shopId){button.disabled=true;try{await api('/api/campaign/shops',{code,token,operation:'activate',shopId:command.shopId,active:true});executedCommands.add(command.id);button.classList.add('executed');}catch(error){showMessage(dom.message,error.message,'error');}finally{button.disabled=false;}return;}
-  if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this roll request again?", acceptLabel: "Send Again" })) return;
+  if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this check request again?", acceptLabel: "Send Again" })) return;
   const targets=storyRecipientIds();
   if(!targets.length){showMessage(dom.message,"Choose a Story Console recipient. Players must create or link a character first.",'error');return;}
   button.disabled=true;
@@ -1942,7 +1985,7 @@ dom.script.addEventListener("click", async (event) => {
       skill: command.skill,
       difficulty: command.difficulty,
       hideDifficulty: command.hideDifficulty,
-      source: `Script: ${command.raw}`,
+      source: `${command.conditionalActionId ? 'Scripted Reward Check' : 'Scripted Direct Check'}: ${command.raw}`,
       connectedOnly: false,
       completionActionId: command.conditionalActionId,
     });
@@ -2437,7 +2480,7 @@ dom.sendConditionalAction.addEventListener("click", async () => {
       skill: action.skill,
       difficulty: action.difficulty,
       hideDifficulty: action.hideDifficulty,
-      source: `Conditional Action: ${action.keyword}`,
+      source: `Scripted Reward Check: ${action.keyword}`,
       completionActionId: action.id,
     });
     showMessage(dom.conditionalActionMessage, `Sent "${action.keyword}" to ${targets.length} character${targets.length === 1 ? "" : "s"}.`, "success");
@@ -2456,7 +2499,7 @@ dom.deleteConditionalAction.addEventListener("click", async () => {
     editingConditionalActionId = "";
     receiveCampaign(payload.campaign);
     clearConditionalForm();
-    showMessage(dom.conditionalActionMessage, "Conditional action deleted.", "success");
+    showMessage(dom.conditionalActionMessage, "Scripted Reward Check deleted.", "success");
   } catch (error) {
     showMessage(dom.conditionalActionMessage, error.message, "error");
   }
@@ -2591,6 +2634,8 @@ document.querySelector("#encounterBuilder")?.addEventListener("click", (event) =
 });
 
 dom.encounterNpcList.addEventListener("click", async (event) => {
+  const icon=event.target.closest('[data-staged-icon]');
+  if(icon){const npc=stagedNpcs.find(n=>n.id===icon.dataset.stagedIcon);if(npc)chooseNpcIcon(npc,()=>{renderEncounterBuilder();saveEncounterMapDraft();});return;}
   const button = event.target.closest("[data-remove-staged-npc]");
   if (!button) return;
   const npc=stagedNpcs.find(entry=>entry.id===button.dataset.removeStagedNpc);button.disabled=true;
@@ -2607,6 +2652,7 @@ dom.encounterNpcTemplate.addEventListener("change", () => {
 });
 dom.encounterNpcEditor.addEventListener("input", (event) => {
   updateNpcField(encounterNpcDraft, event.target.dataset.npcField, event.target.type === "checkbox" ? event.target.checked : event.target.value);
+  syncNpcCalculatedFields(dom.encounterNpcEditor,encounterNpcDraft,event.target);
 });
 dom.addEncounterNpc.addEventListener("click", () => {
   if (!encounterNpcDraft) return;
@@ -2621,7 +2667,11 @@ dom.premadeNpcSelect.addEventListener("change", () => {
 });
 dom.premadeNpcEditor.addEventListener("input", (event) => {
   updateNpcField(premadeNpcDraft, event.target.dataset.npcField, event.target.type === "checkbox" ? event.target.checked : event.target.value);
+  syncNpcCalculatedFields(dom.premadeNpcEditor,premadeNpcDraft,event.target);
 });
+bindNpcEditor(dom.premadeNpcEditor,()=>premadeNpcDraft);
+bindNpcEditor(dom.encounterNpcEditor,()=>encounterNpcDraft);
+
 dom.newPremadeNpc.addEventListener("click", () => {
   premadeNpcDraft = stagedNpc(NPC_BLANK);
   renderPremadeNpcConsole();
@@ -2748,10 +2798,21 @@ dom.dismissDramaCard?.addEventListener("click", () => {
   dom.dramaAlert.hidden = true;
   requestAnimationFrame(showNextDramaAlert);
 });
-dom.dramaDeckStatus?.addEventListener("click", () => {
-  selectGmTab("characters");
-  requestAnimationFrame(() => dom.dramaDiscardPanel?.scrollIntoView({ behavior: "smooth", block: "start" }));
-});
+function openDramaDeck(){
+  if(document.getElementById('gmDramaDeckDialog'))return;
+  const dialog=document.createElement('dialog');dialog.id='gmDramaDeckDialog';dialog.className='gm-drama-deck-dialog';dialog.setAttribute('aria-labelledby','gmDramaDeckTitle');
+  dialog.innerHTML='<header><h2 id="gmDramaDeckTitle">Drama Deck</h2><strong data-deck-counts></strong><button type="button" data-close>Close</button></header>';
+  // Move the canonical panel so its listeners and live updates are shared.
+  const panel=dom.dramaDiscardPanel,placeholder=document.createComment('Drama discard panel');panel.before(placeholder);
+  const alertPlaceholder=document.createComment('Drama card preview');dom.dramaAlert.before(alertPlaceholder);
+  dialog.append(panel,dom.dramaAlert);document.body.append(dialog);
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('cancel',event=>{if(!dom.dramaAlert.hidden){event.preventDefault();dom.dismissDramaCard.click();}});
+  dialog.addEventListener('close',()=>{placeholder.replaceWith(panel);alertPlaceholder.replaceWith(dom.dramaAlert);dialog.remove();dom.dramaDeckStatus.focus();},{once:true});
+  renderDramaDeckCounts();dialog.showModal();dialog.querySelector('[data-close]').focus();
+}
+function renderDramaDeckCounts(){const counts=document.querySelector('#gmDramaDeckDialog [data-deck-counts]');if(counts)counts.textContent=`${campaign?.dramaDeck?.drawCount||0} DRAW / ${campaign?.dramaDeck?.discardCount||0} DISCARD`;}
+dom.dramaDeckStatus?.addEventListener('click',openDramaDeck);
 dom.dramaDiscardList?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-discard-card]");
   if (!button) return;
@@ -2827,6 +2888,7 @@ dom.restoreOpenCampaignFile.addEventListener("change", async () => {
     const selectedFile=dom.restoreOpenCampaignFile.files?.[0];if(!selectedFile)return;const backup=JSON.parse(await selectedFile.text());if(!['spaceship-architect-campaign','spaceship-architect-adventure'].includes(backup.format))throw Error('Choose a Campaign or Adventure Module file.');
     if (!await confirmGm({ title: "Load Campaign?", message: "Abandon the current game and load the selected campaign file? Save your current campaign first if you want a save file.", acceptLabel: "Load Campaign", danger: true })) return;
     // Validate/load the new file before closing the old room, so a bad file cannot strand players.
+    if(backup.format==='spaceship-architect-adventure'&&backup.version===2)await window.SAModuleCache.put(backup);
     const payload = await window.SARoomV03.api('load', {backup,choice:'replace'});
     sessionStorage.removeItem(`sa-encounter-map-draft-${code}`);
     if (payload.campaign.code !== code && campaign.interfaceVersion==='0.3') await window.SARoomV03.api('close',{code,token});
@@ -2973,19 +3035,7 @@ document.querySelector('#arenaFileInput').addEventListener('change',async event=
   await loadArenaData(JSON.parse(await file.text()));
  }catch(error){showMessage(dom.encounterStatus,error.message||'The arena file could not be loaded.','error');}finally{button.disabled=false;}
 });
-async function loadArenaData(file){
-  const parsed=window.SAArenaFiles.parse(file),assignments=await chooseArenaAssignments(parsed);if(!assignments)return;
-  const pcMap=new Map(assignments),shipMap=new Map(),npcMap=new Map(),newShips=[];
-  if(parsed.ships.length){const imported=await api('/api/campaign/arena/import-ships',{code,token,ships:parsed.ships});for(const result of imported.ships){shipMap.set(result.sourceId,result.starship.id);newShips.push(result.starship);}}
-  for(const ship of newShips)if(!campaign.starships.some(s=>s.id===ship.id))campaign.starships.push(ship);
-  const npcs=parsed.npcs.map(n=>{const id=crypto.randomUUID();npcMap.set(n.id,id);return {...n,id,rosterId:undefined,locationStarshipId:shipMap.get(n.locationStarshipId)||''};});
-  encounterMode=parsed.mode;encounterArena=window.SACombatArena.normalize(parsed.arena||{});encounterArena.spawns=Object.fromEntries(Object.entries(encounterArena.spawns).map(([id,n])=>[pcMap.get(id)||npcMap.get(id)||'',n]).filter(([id])=>id));
-  encounterFog={enabled:!!parsed.fog.enabled,forced:Object.fromEntries(Object.entries(parsed.fog.forced||{}).map(([id,v])=>[id==='surface'?id:shipMap.get(id),v]).filter(([id])=>id))};
-  stagedNpcs=npcs;selectedEncounterCharacters=new Set(assignments.map(p=>p[1]).filter(Boolean));selectedEncounterStarships=new Set(newShips.map(s=>s.id));encounterLocations.clear();for(const slot of parsed.pcs){const pc=pcMap.get(slot.sourceId);if(pc&&shipMap.has(slot.shipId))encounterLocations.set(pc,shipMap.get(slot.shipId));}
-  arenaStartingLocations=new Map(parsed.startingLocations.map(([id,loc])=>[pcMap.get(id)||npcMap.get(id),{...loc,starshipId:shipMap.get(loc?.starshipId)||''}]).filter(([id])=>id));
-  encounterPositions=parsed.positions.filter(p=>shipMap.has(p.id)).map(p=>({...p,id:shipMap.get(p.id)}));encounterPositionDraft=structuredClone(encounterPositions);encounterObjects=window.SASpaceObjects.normalize?window.SASpaceObjects.normalize(parsed.objects):parsed.objects;encounterObjectBaseline=[];
-  saveEncounterMapDraft();showEncounterSetup({forceBuilder:true,explicit:true});showMessage(dom.encounterStatus,'Arena loaded into Prepare Combat. Check the starting positions, then Begin Combat.','success');
-}
+async function loadArenaData(file){return window.SAContentUI.load(file,{fileName:'Encounter.sa2arena'});}
 
 async function refreshCombatSaveStatus(){
   if(!code||!token)return null;
@@ -3018,7 +3068,8 @@ document.getElementById('loadStoryFile').onclick=()=>{const input=document.creat
 document.addEventListener('sa-insert-shop-keyword',event=>{dom.script.append(document.createTextNode((scriptSource()?'\n':'')+'::Shop:'+event.detail.id+'::'));dom.script.dispatchEvent(new Event('input',{bubbles:true}));renderScriptEditor(scriptSource());placeScriptCaretAtEnd();});
 
 document.getElementById('saveCharacterRoster').onclick=()=>saveLocalFile({format:'sa2roster',version:1,characters:(campaign.characters||[]).map(r=>{const c=structuredClone(r.character);delete c.access;delete c.campaignLink;return c;}),npcs:[...(campaign.npcTemplates||[]),...(campaign.npcRoster||[]).filter(n=>!(campaign.npcTemplates||[]).some(t=>t.id===n.templateId)).map(n=>({...n,name:n.characterName||n.name,heldWeaponId:(n.weapons||[]).find(w=>w.inventoryId===n.heldWeaponId)?.weaponId||'unarmed'}))]},'Character Roster.sa2roster');
-document.getElementById('loadCharacterRoster').onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='.sa2roster,.sa2char,.json';input.onchange=async()=>{try{if(!input.files[0])return;const file=JSON.parse(await input.files[0].text());const result=await api('/api/campaign/roster/import',{code,token,file});campaign=result.campaign;renderCampaign();showMessage(dom.message,result.added+' characters added to the roster.','success');}catch(error){showMessage(dom.message,error.message,'error');}};input.click();};
+document.getElementById('loadCharacterRoster').onclick=()=>window.SAContentUI.chooseLoad('roster');
+
 
 function organizeGmTools(){
  const grid=document.querySelector('#promptTab .tool-grid');if(!grid)return;
@@ -3031,18 +3082,20 @@ window.SAOrganizeGmTools=organizeGmTools;organizeGmTools();
 const scriptPanel=document.querySelector('#scriptTab'),scriptTools=document.createElement('div');scriptTools.className='script-tools-column';scriptPanel.prepend(scriptTools);
 for(const selector of ['#conditionalActionForm','#scriptCommandBuilder'])scriptTools.append(document.querySelector(selector));
 const organizeScript=()=>{for(const node of [...scriptPanel.children])if(node.tagName==='BUTTON'||node.id==='scriptShops')scriptTools.insertBefore(node,document.querySelector('#scriptCommandBuilder'));};organizeScript();new MutationObserver(organizeScript).observe(scriptPanel,{childList:true});
-document.getElementById('exportAdventureModule').onclick=async()=>{
- const dialog=document.createElement('dialog');dialog.className='v03-dialog';dialog.innerHTML='<h2>Export Adventure Module</h2><form><label>Title<input name="title" required maxlength="120"></label><label>Author<input name="author" maxlength="120"></label><label>Module version<input name="version" value="1.0" maxlength="40"></label><label>Opening GM instructions<textarea name="instructions" rows="5" maxlength="12000"></textarea></label><label><input type="checkbox" name="characters"> Include pregenerated PCs (passwords and player links cleared)</label><label><input type="checkbox" name="preparation" checked> Include current combat preparation</label><p>Each load creates a new room. Private messages, access credentials and reward history are excluded.</p><button type="button" data-cancel>Cancel</button><button type="submit">Export Module</button><p role="status"></p></form>';dialog.querySelector('[name=title]').value=campaign.module?.title||campaign.name;for(const key of ['author','version','instructions'])if(campaign.module?.[key])dialog.querySelector('[name='+key+']').value=campaign.module[key];dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
- dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector('[type=submit]');button.disabled=true;try{await saveScript();saveEncounterMapDraft();await api('/api/campaign/preparation-draft',{code,token,draft:JSON.parse(sessionStorage.getItem('sa-encounter-map-draft-'+code)||'null')});const data=await window.SARoomV03.api('module/export',{code,token,title:form.elements.title.value,author:form.elements.author.value,version:form.elements.version.value,instructions:form.elements.instructions.value,includeCharacters:form.elements.characters.checked,includePreparation:form.elements.preparation.checked});downloadJson(data,data.metadata.title.replace(/[^a-z0-9_-]+/gi,'-')+'.sa2module');dialog.close();}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};document.body.append(dialog);dialog.showModal();
-};
 
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-surface-decision]');if(!b)return;b.disabled=true;try{const result=await api('/api/campaign/v03/starmap',{code,token,kind:'planetTravelDecision',requestId:b.dataset.requestId,approve:b.dataset.surfaceDecision==='approve',receipt:crypto.randomUUID()});if(result.campaign)receiveCampaign(result.campaign);}catch(error){b.closest('article').querySelector('p').textContent=error.message;}finally{b.disabled=false;}});
 window.addEventListener('sa-campaign-travel-focus',()=>{document.getElementById('gmMailDialog')?.close();document.querySelector('[data-tab="campaign"]')?.click();});
 
-window.SAGmLocationFiles={async load(kind,file){
- try{
-  if(kind==='encounter'){await loadArenaData(file);return;}
-  if(kind==='npc'){const result=await api('/api/campaign/roster/import',{code,token,file});receiveCampaign(result.campaign);showMessage(dom.message,result.added+' ally NPCs added.','success');return;}
-  if(kind==='story'){await saveScript();const result=await api('/api/campaign/script/import',{code,token,file,append:true});activeScriptChapterId=result.chapterId;scriptDirty=false;lastScriptRange=null;await refreshCampaign();selectGmTab('script');renderScriptEditor(activeScriptChapter()?.script||'');}
- }catch(error){showMessage(dom.message,error.message,'error');}
-}};
+window.SAGmLocationFiles={async load(kind,file){return window.SAContentUI.load(file);}};
+window.SAContentUI.setup({
+ state:()=>campaign,
+ send:(action,body)=>api('/api/campaign/content/'+action,{code,token,...body}),
+ receive:receiveCampaign,
+ beforeLoad:()=>saveScript(),
+ confirm:(title,message)=>confirmGm({title,message,acceptLabel:'Confirm'}),
+ assignArena:file=>chooseArenaAssignments(window.SAArenaFiles.parse(file)),
+ story:async id=>{activeScriptChapterId=id;scriptDirty=false;lastScriptRange=null;selectGmTab('script');renderScriptEditor(activeScriptChapter()?.script||'');},
+ shop:()=>selectGmTab('shop'),
+ arena:()=>{sessionStorage.removeItem('sa-encounter-map-draft-'+code);restoreEncounterMapDraft();showEncounterSetup({forceBuilder:true,explicit:true});},
+ insert:raw=>{dom.script.focus();const range=lastScriptRange;if(range&&dom.script.contains(range.commonAncestorContainer)){range.deleteContents();range.insertNode(document.createTextNode(raw));}else dom.script.append(document.createTextNode((scriptSource()?'\n':'')+raw));dom.script.dispatchEvent(new Event('input',{bubbles:true}));renderScriptEditor(scriptSource());placeScriptCaretAtEnd();}
+});

@@ -1,0 +1,70 @@
+Expanded planet grid — completed locally, October 18, 2026
+
+Authorization
+Continues the existing #local task. User explicitly chose adding unique
+columns rather than stretching the original planet. No commit, push or ntfy.
+
+Result
+Planet surfaces now contain 144 columns x 40 rows (5,760 unique cells).
+Fit Map / maximum zoom-out shows one circumference. The left and right
+edges join; horizontal panning moves that seam without repeating the world
+inside the overview. All rows remain visible, with normal hex proportions.
+The shared implementation serves both GM and PC maps and surface previews.
+Region maps remain 15 x 10, with their prior default and extended zoom range.
+
+Data and travel
+Legacy IDs 0–1199 retain their original 30-column coordinates and generated
+terrain. New IDs 1200–5759 address an additional 114-column band. Existing
+authored descriptions, cities, secrets, attachments, regions, starts, party
+and ship locations therefore require no destructive save migration.
+Added continents are seeded uniquely and meet the original shores. Authored
+overrides still win. Both sides use the same coordinates, hit testing and
+route geometry. Travel wraps at the new outer seam. Previously saved journey
+endpoints/progress are retained and their display route uses current geometry.
+Normalization, painting limits, new regions, portable maps, campaign saves
+and adventure starts accept the expanded IDs. Regional IDs are unchanged.
+
+Processing
+Seeded terrain and immutable cell geometry are cached. Camera changes reuse
+the existing SVG world and lightweight wrapped instances. Pan/wheel changes
+are coalesced to one view update per animation frame; they do not fetch,
+regenerate or rebuild individual hexes. The larger map creates more SVG nodes
+on initial render; no frame-rate claim or device-wide benchmark is made.
+
+Verification
+- Final full suite: 1,178 passed, zero failures (concurrency 4).
+- Eight changed production JavaScript files passed syntax checks.
+- CRLF-aware git whitespace checks passed.
+- Regression coverage: all 5,760 coordinate/inverse mappings; legacy terrain
+  SHA256 against the pre-expansion generator; unique new terrain; coast joins;
+  expanded shortest seam route; timed travel/reload/boarding; paint concurrency;
+  added-cell campaign and portable-map persistence; GM-only data filtering;
+  existing regional starts and dimensions; overview zoom and seam panning.
+- Actual browser: disposable Explore room D6EY on local8790. GM/PC at 1800x900,
+  normal/enlarged overview, 480x900 PC overview, panning with unchanged world
+  DOM identity and hex count, new-cell selection/edit, public vs GM-only
+  description, paint/Undo on that new cell, unchanged regional default width
+  775 and successful zoom-out to 1837 without wrapping.
+- GM desktop overview: view width6984, 1740x480 rendered viewport, 5760 hexes,
+  one party-token source, complete width. PC enlarged:1772x640. PC narrow
+  map/control host fits its 472px bounds; pre-existing page overflow outside
+  that host was not changed.
+
+Geometry limitation
+A fixed world with undistorted hexes cannot fill every possible viewport
+aspect ratio in both directions. Fit Map retains the whole world and adds
+vertical margins on taller screens or side margins on very wide/short screens.
+The tested desktop overview fills the width; panning still joins its edges.
+World dimensions never change when a window is resized or another PC joins.
+
+Outputs
+../outputs/expanded-planet-overview-20261018.png
+../outputs/planet-grid-full-tests.log
+../outputs/planet-grid-server.log
+../outputs/planet-grid-server-error.log
+
+Normal local server restarted on8790, PID30484. Personal campaigns.json SHA256
+A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D
+is unchanged. Only disposable Explore data was edited for browser verification.
+Earlier Help/fleet and other local changes remain intact. Campaign Help now
+clarifies that Fit Map shows the complete planet with joined left/right edges.

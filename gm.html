@@ -5,7 +5,7 @@
     <script src="audio-mix.js"></script>
 <script src="drama-notices.js"></script>
     <script src="explore-session.js"></script>
-  <script src="token-art.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
+  <script src="token-art.js"></script><script src="npc-statistics.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
   <link rel="stylesheet" href="oxygen-ui.css">
     <link rel="stylesheet" href="ship-pass2.css">
     <link rel="stylesheet" href="view-ready.css">
@@ -26,14 +26,16 @@
     <link rel="stylesheet" href="weapon-console-ui.css" data-weapon-style>
     <link rel="stylesheet" href="sensor-console-ui.css" data-sensor-style>
     <link rel="stylesheet" href="console-common.css" data-common-console-style>
-  <link rel="stylesheet" href="room-v03.css"><script src="campaign-recovery.js" defer></script><script src="room-v03.js" defer></script>
+  <link rel="stylesheet" href="room-v03.css"><script src="campaign-recovery.js" defer></script><script src="save-file-types.js"></script><script src="module-cache.js"></script>
+  <script src="room-v03.js" defer></script>
   <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
-<link rel="stylesheet" href="quick-prompts.css"><script defer src="reputation-ui.js"></script><script defer src="quick-prompts.js"></script>
+<link rel="stylesheet" href="quick-prompts.css"><script defer src="reputation-choice.js"></script><script defer src="reputation-ui.js"></script><script defer src="quick-prompts.js"></script>
 <link rel="stylesheet" href="crew-logs.css">
 <link rel="stylesheet" href="campaign-starmaps.css">
 <script src="planet-terrain.js" defer></script>
 <link rel="stylesheet" href="planet-surfaces.css">
 <script src="planet-motion.js" defer></script>
+<script src="planet-camera.js" defer></script>
 <script src="planet-surfaces-ui.js" defer></script>
 <script src="campaign-navigation-ui.js" defer></script>
 <script src="campaign-starmaps-ui.js" defer></script>
@@ -118,23 +120,23 @@
               <button id="deleteScriptChapter" class="danger" type="button">Delete</button>
             </div>
           </div>
-          <div id="campaignScript" class="script-live-editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" data-placeholder="Type story notes here. Insert clickable roll commands with the controls below."></div>
+          <div id="campaignScript" class="script-live-editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" data-placeholder="Type story notes here. Insert clickable checks with the controls below."></div>
           </div>
           <section id="scriptCommandBuilder" class="command-builder">
-            <h3>Insert Roll Command</h3>
+            <h3>Insert Scripted Check</h3>
             <div class="builder-grid">
-              <label>Command<select id="scriptCommandType"><option value="">Direct Roll</option></select></label>
+              <label>Check<select id="scriptCommandType"><option value="">Scripted Direct Check</option></select></label>
               <label>Attribute<select id="scriptAttribute"></select></label>
               <label>Skill<select id="scriptSkill"></select></label>
               <label>Difficulty (Optional)<input id="scriptDifficulty" type="number" step="0.1" /></label>
               <p class="roll-visibility-note"><input id="scriptHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
-              <button id="insertScriptCommand" type="button">Insert Command</button>
+              <button id="insertScriptCommand" type="button">Insert Check</button>
             </div>
 
           </section>
           <form id="conditionalActionForm" class="tool-card conditional-action-card script-conditional-card">
-            <h3>Conditional Prompt / Reward</h3><p class="form-hint">Send to the Recipient chosen at the top of this Story Console. All PCs includes offline characters; they can roll when they return.</p>
-            <label>Saved Keyword<select id="conditionalActionSelect"><option value="">New Action...</option></select></label>
+            <h3>Scripted Reward Check</h3><p class="form-hint">Send to the Recipient chosen at the top of this Story Console. All PCs includes offline characters; they can roll when they return.</p>
+            <label>Saved Reward Check<select id="conditionalActionSelect"><option value="">New Reward Check...</option></select></label>
             <label>Keyword<input id="conditionalKeyword" maxlength="60" placeholder="SPOT CROWN" required /></label>
             <label>On Success<select id="conditionalKind"><option value="message">Private Message</option><option value="award">Resource Award</option></select></label>
             <label id="conditionalMessageWrap">Private Message<textarea id="conditionalMessage" rows="4" maxlength="4000" placeholder="What successful characters learn..."></textarea></label>
@@ -149,7 +151,7 @@
               <p class="roll-visibility-note"><input id="conditionalHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
             </div>
             <div class="conditional-action-buttons">
-              <button id="saveConditionalAction" class="primary" type="submit">Save Action</button>
+              <button id="saveConditionalAction" class="primary" type="submit">Save Reward Check</button>
               <button id="sendConditionalAction" type="button">Send to Story Recipient</button>
               <button id="deleteConditionalAction" class="danger" type="button" disabled>Delete</button>
             </div>
@@ -177,6 +179,11 @@
           </div>
           <div id="gmCharacterList" class="gm-character-list"></div>
 
+          <section id="gmSheetViewer" class="gm-sheet-viewer" hidden>
+            <div class="gm-sheet-viewer-toolbar"><strong id="gmSheetViewerTitle">Character Sheet</strong><button id="closeGmSheetViewer" type="button">Close Sheet</button></div>
+            <iframe id="gmSheetFrame" title="Campaign character sheet"></iframe>
+          </section>
+
           <section class="premade-npc-console">
             <div class="section-title">
               <div><h3>Premade NPCs</h3><small>Create campaign-specific enemies for manual selection during Combat.</small></div>
@@ -188,10 +195,6 @@
             </div>
             <div id="premadeNpcEditor" class="npc-single-editor"></div>
             <button id="savePremadeNpc" class="primary" type="button">Save Premade NPC</button>
-          </section>
-          <section id="gmSheetViewer" class="gm-sheet-viewer" hidden>
-            <div class="gm-sheet-viewer-toolbar"><strong id="gmSheetViewerTitle">Character Sheet</strong><button id="closeGmSheetViewer" type="button">Close Sheet</button></div>
-            <iframe id="gmSheetFrame" title="Campaign character sheet"></iframe>
           </section>
         </section>
 
@@ -270,14 +273,14 @@
               <p id="libraryEntryStatus" class="tool-message" role="status"></p>
             </form>
             <form id="rollPromptForm" class="tool-card roll-tool-card">
-              <h3>Request Dice Roll</h3>
+              <h3>Direct Check</h3>
               <div class="roll-grid">
                 <label>Attribute<select id="promptAttribute"></select></label>
                 <label>Skill<select id="promptSkill"></select></label>
                 <label>Difficulty (Optional)<input id="promptDifficulty" type="number" step="0.1" /></label>
                 <p class="roll-visibility-note"><input id="promptHideDifficulty" type="checkbox" hidden disabled />Players see the difficulty.</p>
               </div>
-              <button class="primary" type="submit">Send Roll Request</button>
+              <button class="primary" type="submit">Send Direct Check</button>
             </form>
           </div>
           <section class="roll-results-panel">
@@ -447,6 +450,7 @@
   <script src="field-utility-status.js"></script>
   <script src="crew-deployment.js"></script>
   <script src="result-feedback.js"></script>
+  <link rel="stylesheet" href="save-content.css"><script src="save-content-ui.js"></script>
   <script type="module" src="gm.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
 <script src="crew-logs-ui.js"></script>

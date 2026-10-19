@@ -1,0 +1,28 @@
+Campaign map controls — October 18, 2026
+Status: complete locally under #local. No commit, push, or ntfy notification.
+
+Requested behavior
+- Star System maps default to Edit Planets. Clicking a planet opens the shared editor for name, size, public description and appearance. Browse Planets exposes the same editor.
+- Exclusive highlighted modes distinguish editing, panning, moving ships, timed travel and repositioning planets. Galaxy, surface/region, reusable space-object editors and combat preparation use explicit modes appropriate to their operations. Pending object placement has its own highlighted action; Cancel returns to the previous mode.
+- The ship selector appears in the GM movement/travel modes. Repositioning a planet carries its orbit coordinates without changing surface hex locations. Server authorization and combat restrictions remain enforced.
+- Shared GM/PC system planet art scales to Large 110%, Small 85%, Moon 60% of the previous icon size. Existing art is reused.
+- The location hierarchy remains at the left in every Campaign map view, with no separate location heading shifting it. Four equal sections retain blank levels, wrapped names, active-level glow and the small party pin. Names use 22/20/18/16px from left to right and are centered within the sloping segments.
+- Paint Terrain offers Apply to all for Temperate, Desert, Ice, Volcanic, Ocean and Moon. The confirmation names the selected terrain. The atomic fill affects the current planet or region, preserves cities/regions/descriptions/attachments, and supports Undo Stroke. City brushes do not offer the fill action.
+- Planet shrinking first crops unused surroundings, then removes unused coordinate gaps while retaining occupied-axis order. If relocation or loss is unavoidable, saving requires confirmation of: Some Cities and Regions may be lost when reducing the size of planets.
+- Linked party, ship, character, navigation and journey locations are remapped. Even an over-capacity confirmed shrink keeps travelers on valid hexes. The previous world and locations are retained in a private recovery snapshot; snapshots remain excluded from live GM/PC payloads. Stale edits from an older planet size are rejected.
+- Campaign and combat-preparation Help describes the actual modes. Four Campaign captures were refreshed, with arrows aligned to the current controls. Script Help content remains unchanged by this pass.
+
+Reused implementations
+Shared planet editor; canonical terrain generation, paint/undo commands and world references; existing map rendering and object placement; established confirmation dialogs; existing Help renderer, artwork and mode styling. Fixed zoom/Fit button binding so controls continue working after the compact Campaign layout relocates them.
+
+Validation
+- Final full Node suite: 1,184 passed, 0 failed (outputs/map-controls-final-full-tests.log).
+- Final resize/travel-focused run: 17 passed, including a 4,800-city planet shrunk to a 300-cell moon while preserving valid party/ship locations.
+- Nine changed JavaScript files passed syntax checks; CRLF-aware git diff whitespace check passed.
+- Real disposable Explore browser checks covered default planet editing, size/art changes, planet repositioning, ship-selector modes, zoom/Fit, 1,200- and 4,800-cell fills and Undo, city-brush restrictions, resize-warning Cancel/Confirm, object placement/Cancel, preparation panning/painting, and updated Help text/arrows.
+- GM/PC layouts inspected at 1800x1000, 1280x720 and 760x900. PC controls retain role restrictions; narrow PC layout has no horizontal page overflow.
+- Normal local server restarted on port 8790 (PID 26568), and the disposable Explore room reset after testing. Final preview: outputs/map-controls-final.png.
+- Personal campaigns.json SHA256 remains A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D. Server stderr is empty.
+
+Limits
+Local tests and browser verification only; no hosted deployment or hosted multiplayer testing. When a smaller grid cannot retain every authored location, the warning is intentional: confirmed loss is possible, and recovery data is saved privately. The recovery snapshot is internal saved-file data, not a new user-facing restore workflow.

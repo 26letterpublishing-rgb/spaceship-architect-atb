@@ -3,11 +3,11 @@ const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID
 function fixture(){const ship=require('../showcase-starters')('pc','pc',['nova','orion']),c={showcase:true,starships:[ship],characters:['nova','orion'].map(id=>({id,character:{identity:{characterName:id},attributes:{},health:{current:30}}})),npcRoster:[],privateNotes:[]};galaxy.seedShowcase(c);const map=c.starmaps.maps[0],star=map.stars[0],planet=star.system.find(p=>p.kind==='planet');seat(ship,'nova','bridge-1');return {c,ship,map,star,planet};}
 function seat(ship,id,type){const item=ship.ship.sicInventory.find(i=>type.startsWith('bridge')?maps.definition(i.type).bridge:i.type===type),p=ship.ship.placements.find(p=>p.sicId===item.id),st=maps.componentDefinition(item).stations[0];ship.characterLocations[id]={starshipId:ship.id,sicId:item.id,square:p.cell+st.y*maps.gridColumns(ship.ship)+st.x,mesh:st.mesh,stationed:true};}
 function send(f,kind,extra={},gm=true,characterId='nova'){return galaxy.command(f.c,{kind,mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,shipId:f.ship.id,receipt:randomUUID(),...extra},{gm,characterId,combatActive:false});}
-test('six tiny seeded terrain types: 1200 planet hexes, 150 region hexes, coherent continents',()=>{
- for(const t of terrain.types){const a=terrain.generate('repeatable',t);assert.equal(a.length,1200);assert.deepEqual(a,terrain.generate('repeatable',t));assert.equal(terrain.generate('repeatable',t,true).length,150);if(t!=='temperate')assert.ok(a.every(x=>x===t));}
- const a=terrain.generate('earth','temperate');assert.equal(a.filter(x=>x==='ocean').length,840);
+test('six tiny seeded terrain types: 4800 planet hexes, 150 region hexes, coherent continents',()=>{
+ for(const t of terrain.types){const a=terrain.generate('repeatable',t);assert.equal(a.length,4800);assert.deepEqual(a,terrain.generate('repeatable',t));assert.equal(terrain.generate('repeatable',t,true).length,150);if(t!=='temperate')assert.ok(a.every(x=>x===t));}
+ const a=terrain.generate('earth','temperate');assert.equal(a.filter(x=>x==='ocean').length,3360);
  // Independent random water scatters would have many isolated land cells.
- const lone=a.filter((x,i)=>x==='temperate'&&[i-1,i+1,i-30,i+30].every(n=>a[n]!=='temperate')).length;assert.ok(lone<3);
+ const lone=a.filter((x,i)=>x==='temperate'&&(()=>{const {column,row}=terrain.cell(i);return [[column-1,row],[column+1,row],[column,row-1],[column,row+1]].every(([c,r])=>a[terrain.hexAt(c,r)]!=='temperate');})()).length;assert.ok(lone<3);
  assert.notDeepEqual(a,terrain.generate('another earth','temperate'));
 });
 test('authoring preserves content when changing terrain or planet appearance; PC payload excludes secrets and shops',()=>{
@@ -15,7 +15,7 @@ test('authoring preserves content when changing terrain or planet appearance; PC
  send(f,'planetHex',{hex:'310',terrain:'desert'});send(f,'planetType',{terrain:'ice'});send(f,'planetRegion',{hex:'310',name:'City Region'});send(f,'planetHex',{regionId:'310',hex:'82',gmNotes:'SECRET REGIONAL',description:'Town square'});
  const h=f.star.surfaces[f.planet.id].hexes['310'];assert.equal(h.gmNotes,'SECRET INFORMANT');assert.equal(h.terrain,'desert');assert.equal(h.city,true);
  const publicView=galaxy.view(f.c,false);assert.ok(!JSON.stringify(publicView).includes('SECRET'));assert.ok(!JSON.stringify(publicView).includes('Secret Stock'));assert.deepEqual(publicView.maps[0].stars[0].surfaces[f.planet.id].regions['310'],{name:'City Region'});
- assert.throws(()=>send(f,'planetHex',{hex:'0',gmNotes:'evil'},false),/Only the GM/);assert.throws(()=>send(f,'planetHex',{hex:'1200'}),/inside/);
+ assert.throws(()=>send(f,'planetHex',{hex:'0',gmNotes:'evil'},false),/Only the GM/);assert.throws(()=>send(f,'planetHex',{hex:'4800'}),/inside/);
 });
 test('shipless region start restricts players; GM can relocate out of the region; campaign/module preserves authored start',()=>{
  const f=fixture();send(f,'planetRegion',{hex:'310',name:'First chapter'});send(f,'planetStart',{regionId:'310',hex:'82'});f.c.starships=[];
@@ -52,7 +52,7 @@ test('transporter return reuses safety and occupancy checks; needs a living oper
  send(f,'beamAboard',{sicId:t.id,diceResults:[]},false);assert.equal(f.c.starmaps.localJourneys.pc.kind,'recall');galaxy.advance(f.c,.2);assert.equal(ship.characterLocations.nova.starshipId,'pc');assert.equal(f.c.starmaps.party,undefined);
 });
 test('portable Galaxy Maps remap planet identities while keeping terrain, regions and shops',()=>{
- const f=fixture(),file={format:'sa2-galaxy',version:1,map:f.map};send(f,'loadGalaxy',{data:file});const imported=f.c.starmaps.maps[1],p=imported.stars[0].system.find(o=>o.kind==='planet');assert.notEqual(p.id,f.planet.id);
+ const f=fixture();send(f,'planetHex',{hex:'4799',label:'Far Coast',description:'Public port',gmNotes:'PRIVATE COAST',city:true});send(f,'planetRegion',{hex:'4799',name:'Far Coast Region'});const file={format:'sa2-galaxy',version:1,map:f.map};send(f,'loadGalaxy',{data:file});const imported=f.c.starmaps.maps[1],p=imported.stars[0].system.find(o=>o.kind==='planet');assert.notEqual(p.id,f.planet.id);assert.equal(imported.stars[0].surfaces[p.id].hexes['4799'].label,'Far Coast');assert.equal(imported.stars[0].surfaces[p.id].regions['4799'].name,'Far Coast Region');assert.ok(!JSON.stringify(galaxy.view(f.c,false)).includes('PRIVATE COAST'));
  assert.equal(imported.stars[0].surfaces[p.id].seed,f.star.surfaces[f.planet.id].seed);assert.deepEqual(Object.keys(imported.stars[0].surfaces[p.id].regions),Object.keys(f.star.surfaces[f.planet.id].regions));
  assert.throws(()=>send(f,'planetRegenerate',{regionId:'__proto__'}),/valid region/);assert.equal(Object.prototype.seed,undefined);
 });
@@ -60,8 +60,9 @@ test('campaign file resumes current location; adventure file restores authored r
  const f=fixture(),{CampaignApi}=require('../campaign-api'),records=new Map(),api=new CampaignApi({store:{get:async k=>structuredClone(records.get(k)||null),create:async c=>{records.set(c.code,structuredClone(c));return true;},save:async c=>records.set(c.code,structuredClone(c)),findByName:async()=>[]}});
  const call=async(path,body={},method='POST',status=200)=>{let result;await api.handle({method},{},new URL('http://test/api/campaign/'+path),async()=>body,(_,s,v)=>{assert.equal(s,status,JSON.stringify(v));result=v;});return result;};
  const r=await call('v03/create',{name:'Planet adventure'},'POST',201),c=await api.campaign(r.campaign.code);c.starmaps=f.c.starmaps;
- const region=Object.keys(f.star.surfaces[f.planet.id].regions)[0];planets.command(c,{kind:'planetStart',mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,regionId:region,hex:'82'},{gm:true});planets.command(c,{kind:'planetMoveParty',mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,hex:'311'},{gm:true});await api.save(c);
- const backup=await call('backup?code='+c.code+'&token='+r.token,{},'GET');const restored=await call('v03/load',{backup,choice:'replace'});assert.equal(restored.campaign.starmaps.party.hex,'311');assert.equal(restored.campaign.starmaps.party.regionId,'');
+ send(f,'planetHex',{hex:'4799',label:'New coast',description:'Public coast',gmNotes:'Hidden vault',city:true});send(f,'planetRegion',{hex:'4799',name:'Expanded region'});
+ const region=Object.keys(f.star.surfaces[f.planet.id].regions)[0];planets.command(c,{kind:'planetStart',mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,regionId:region,hex:'82'},{gm:true});planets.command(c,{kind:'planetMoveParty',mapId:f.map.id,starId:f.star.id,planetId:f.planet.id,hex:'4799'},{gm:true});await api.save(c);
+ const backup=await call('backup?code='+c.code+'&token='+r.token,{},'GET');const restored=await call('v03/load',{backup,choice:'replace'});assert.equal(restored.campaign.starmaps.party.hex,'4799');assert.equal(restored.campaign.starmaps.party.regionId,'');assert.equal(restored.campaign.starmaps.maps[0].stars[0].surfaces[f.planet.id].hexes['4799'].label,'New coast');assert.equal(restored.campaign.starmaps.maps[0].stars[0].surfaces[f.planet.id].regions['4799'].name,'Expanded region');
  const module=await call('v03/module/export',{code:c.code,token:restored.token}),loaded=await call('v03/load',{backup:module},'POST',201);assert.equal(loaded.campaign.starmaps.party.regionId,region);assert.equal(loaded.campaign.starmaps.party.regionHex,'82');assert.ok(loaded.campaign.starmaps.maps[0].stars[0].surfaces[f.planet.id].regions[region].hexes['82'].shop);
  const joined=await call('v03/join',{code:loaded.campaign.code,name:'New visitor'});assert.equal(joined.campaign.starmaps.navigation.mode,'surface');assert.ok(!JSON.stringify(joined.campaign.starmaps).includes('former survey pilot'));
 });
@@ -70,7 +71,7 @@ test('paint is atomic, permission checked, undo preserves authored content and d
  const f=fixture();send(f,'planetHex',{hex:'1199',terrain:'ice',label:'South City',description:'Public',gmNotes:'Secret',city:true});
  const before=structuredClone(f.star.surfaces[f.planet.id].hexes['1199']);
  assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert'}]},false),/Only the GM/);
- assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert'},{hex:'1200',terrain:'ice'}]}),/inside/);
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert'},{hex:'4800',terrain:'ice'}]}),/inside/);
  assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],before);
  send(f,'planetPaint',{edits:[{hex:'1199',terrain:'desert',expected:'ice'}]});assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],{...before,terrain:'desert'});
  send(f,'planetPaint',{edits:[{hex:'1199',terrain:'ice',expected:'desert'}]});assert.deepEqual(f.star.surfaces[f.planet.id].hexes['1199'],before);
@@ -81,5 +82,5 @@ test('new regions uniformly inherit the parent terrain override and retain that 
  const f=fixture();send(f,'planetHex',{hex:'1198',terrain:'temperate'});send(f,'planetRegion',{hex:'1198',name:'Green valley'});
  const w=planets.normalizeWorld(f.star.surfaces[f.planet.id],f.planet.id),r=w.regions['1198'];assert.equal(r.uniform,true);assert.equal(r.type,'temperate');
  assert.ok(terrain.terrain(r.seed,r.type,r.hexes,true,r.uniform).every(t=>t==='temperate'));
- assert.equal(terrain.wrapColumn(-1),29);assert.equal(terrain.wrapColumn(30),0);assert.equal(terrain.wrapColumn(61),1);
+ assert.equal(terrain.hexAt(-1,0),null);assert.equal(terrain.hexAt(120,0),null);
 });

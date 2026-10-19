@@ -1,0 +1,34 @@
+October 18, 2026 — Save files and on-demand Module content (#local)
+
+Implemented locally
+
+Export Adventure Module now assembles separately saved files. The builder accepts multiple files, checks duplicate filenames/content and unresolved filename references, and lets the GM select Load at Start per entry. System/planet/region starting entries use explicit destination names; export validates that the startup sequence can resolve them. External-file prompts are an explicit choice.
+
+Module v2 is a JSON package with a catalog and individually compressed, checksummed files. Limits are 500 files, 16 MB per expanded file, 64 MB total expanded content, and 40 MB packaged content. Starting a Module creates a fresh room and imports only checked entries. Remaining payloads live in the local IndexedDB Module library. A campaign carries the source index and imported game state, not unopened package payloads. Reattach the original Module when using another browser/computer or after local library loss. The established Campaign Save remains a full snapshot of the growing live campaign and its progress. No new migration work was added for current campaigns.
+
+Story Console has Insert File Load, with a label, save type and filename. Recognized extensions select the type; a selected type supplies a missing extension. Inserting or opening a chapter never imports content. Clicking the keyword offers the named local file or the matching packaged Module entry, followed by a load review. Story imports append and open chapters. Existing Shop, roster and arena UI loaders share the content importer where appropriate; current Story replace functionality remains available.
+
+Arrival Content is available for stars, planets, regions and individual hexes. It supports local file suggestions, Module filenames, embedded files and existing campaign shops/chapters. Optional Remind GM on first arrival supports star entry, orbit, landing, region entry or reaching the hex. Browsing does not count as travel. Reminders are private, persisted, accessible in Settings and the inbox, and can be deferred or marked handled. They do not automatically load anything and do not recur on every arrival.
+
+Location Files provides standalone Star System, Planet and Region saves/loads. Galaxy saves can contain only an overview or include loaded systems. Selected NPCs can be saved separately. Imports validate a draft before committing, record receipts, preserve already modified/removed content on repeat loads, and offer an explicit new copy. Star System loads affect the selected star only and preserve its name, ID and galaxy position. Galaxy loads default to adding another map; replacement is explicit, handles occupied locations and retains one previous map for recovery. Export before replacement remains available. Transfer Party to Galaxy is an explicit relocation action. Manage Campaign Content exports/removes systems, NPCs and shops, with occupancy/combat/reference checks and removal receipts. Existing Delete Star uses the same checks.
+
+Privacy and existing behavior
+
+Source catalogs, arrival attachments, reminders, receipts and recovery metadata remain GM-only. Full map recovery payloads are omitted from live state. PC views receive imported world state through existing projections. Help menus and all Help images were intentionally left untouched for the separate saving-guide pass. All prior local changes remain present. No commit, push or completion notification was sent.
+
+Verification
+
+- Full suite: 1,198 passed, 0 failed. Log: ../outputs/module-workflow-qa/full-tests-verified.txt.
+- Final focused suite: 15 passed. Coverage includes package integrity/dependencies/startup resolution, import receipts, removed-content behavior, target-only replacement/recovery, physical-arrival privacy, cross-map transfer, NPC progress and persistence.
+- 21 JavaScript syntax checks; CRLF-aware git diff whitespace check passed.
+- Actual browser checks on isolated port 8791: Module picker/startup, lazy Shop import from Story keyword, catalog status, assembled Module download, complete Campaign download, filename inference, inserting an inactive keyword, system/planet Location Files, configured star arrival, private notification and reuse of previously loaded content. No browser console errors observed.
+- Downloaded Campaign inspected: catalog and load receipts present, no gzip package payload included.
+- SHA256 comparison: no Help file/image changes; original personal campaign data unchanged.
+- Captures: ../outputs/module-workflow-qa/story-file-keyword.png and module-files.png.
+
+Local runtime status
+
+Updated isolated preview remains at http://localhost:8791/index.html (PID 21192), using ../outputs/module-workflow-qa/data. Browser review room R38H is disposable.
+The attempt to restart the existing port 8790 server was rejected by automatic approval review with "blocked by policy" and no more specific reason. No part of that command executed. The original server remains PID 26568 and needs a normal restart to load the new server code. No alternate method was used to stop it.
+
+Next agreed work: write the saving Help document together. Do not update Help menus automatically based on this release note.

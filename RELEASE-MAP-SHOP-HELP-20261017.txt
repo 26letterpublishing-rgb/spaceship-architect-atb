@@ -1,0 +1,14 @@
+OCTOBER 17 MAP / SHOP / HELP FOLLOW-UP — LOCAL ONLY
+
+Requested corrections
+- The Galaxy Map remains the layout reference. Star System, Orbit, Surface and Region reuse its compact header and action row with full-width maps. Location descriptions remain in Read Location Details; existing editing, attachment loading, travel and campaign-start actions remain accessible.
+- All levels share one Enlarge Map / Return to Campaign state, including switching levels while enlarged.
+- Location navigation is a continuous triangle with a vertical left edge, horizontal baseline, measured sloping top and decreasing type sizes. Existing colors, active pulse and Players marker are preserved.
+- Shop SICs with consoles have direct Preview Console buttons on individual cards and family picker cards, plus the existing card inspector entry. Previews reuse the existing frozen console renderer and artwork. Picker spacing accounts for action buttons.
+- Script Help has four distinct actual UI screenshots: full overview, Story Console, conditional keyword rule, and Insert Roll Command. Complete controls and individual callouts/captions are included; page controls stay accessible while reading.
+
+Validation
+Browser: GM views at 1860x1000, 1280x720 and 900x800; no document overflow at 900px. Enlarged Surface/Region/System use the full map width. Switching all four map levels preserves enlargement and one Return button. GM terrain tools, location editor and NPC/encounter/Story attachments remain accessible. PC enlarged map and Travel Here action verified. Direct Shield 1, Shield 10 and Gravity Absolution Field previews opened and returned; picker buttons do not overlap. Help pages load distinct images, and the complete Insert Command control is visible in its close-up.
+Full automated run: 1,159 of 1,160 passed. Untouched rail-repeater-http.test.js failed once during concurrent execution (missing weaponOrder.burst after restart); isolated rerun passed alongside Shop/public-asset checks (6/6). No combat behavior was changed in this pass. Log: ../outputs/map-shop-help-tests.txt; rerun: ../outputs/map-shop-help-focused.txt.
+Syntax and whitespace checks passed. Personal campaigns.json SHA256 remains A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D. Tests used disposable Explore state; personal saves, Gold Standard and unrelated QA were preserved.
+No commit, push, hosted testing or ntfy notification. Frontend preview refreshed on port8790; no backend restart required. Every SIC console variant was not manually retested.

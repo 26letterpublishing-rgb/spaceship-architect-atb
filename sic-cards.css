@@ -77,7 +77,7 @@
 .sic-family-picker [data-family-feedback]:empty{display:none}
 .sic-picker-grid{flex:1;min-height:0;display:grid;align-content:center;justify-content:center;gap:14px}
 .sic-picker-slot{position:relative;min-width:0}
-.sic-picker-face{position:relative;width:350px;height:490px;transform:scale(var(--picker-scale));transform-origin:0 0}
+.sic-picker-face{position:relative;width:350px;height:var(--picker-face-height,490px);grid-template-rows:490px;grid-auto-rows:34px;transform:scale(var(--picker-scale));transform-origin:0 0}
 .sic-picker-face>.sic-purchase-button,.sic-inspector-locate{box-sizing:border-box;position:absolute;top:14px;right:9px;z-index:6;min-height:38px;padding:8px 12px;border:1px solid #9affc2;border-radius:4px;background:linear-gradient(#5df69b,#078e56);color:#001d12;font:700 12px Arial,sans-serif;cursor:pointer}
 .sic-inspection .sic-display-card:has(.sic-inspector-locate) .sic-poker-heading>div{padding-right:92px!important}
 .sic-inspector-locate:disabled{filter:grayscale(1);opacity:.55;cursor:default}
@@ -169,3 +169,6 @@
 .sic-display-card .sic-poker-heading h3{white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important}.sic-display-card .sic-poker-heading>div{max-height:100%;box-sizing:border-box}
 /* Original weapon PDF drawings use a dark panel to contrast their pale linework. */
 .sic-display-card.weapon-source-art .sic-poker-art{background:#09141d}
+
+.sic-console-preview{min-height:34px;padding:5px 9px;border:1px solid #9db3c0;border-radius:4px;background:linear-gradient(#465766,#24333e);color:#fff;font:700 12px Arial,sans-serif;cursor:pointer;width:100%}
+.sic-picker-face>.sic-console-preview{font-size:20px}

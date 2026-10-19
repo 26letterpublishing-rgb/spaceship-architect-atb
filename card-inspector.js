@@ -13,9 +13,14 @@
   action('−',()=>set(zoom-.15)).setAttribute('aria-label','Zoom out card');action('Fit Card',fit);action('+',()=>set(zoom+.15)).setAttribute('aria-label','Zoom in card');
   body.onwheel=e=>{if(!e.target.closest('.sic-display-card'))return;e.preventDefault();set(zoom+(e.deltaY<0?.15:-.15));};d.querySelector('[data-close-sic-card]').onclick=()=>d.close();d.onclose=()=>{d.remove();o.trigger?.focus({preventScroll:true});};doc.body.append(d);d.showModal();fit();window.SACardFit.observe(d);return d;
  }
+ function hasConsole(type){const d=window.SAShipMap.definition(type);return !!(d&&(d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking));}
+ function consoleButton(type,doc=document,onError=()=>{}){
+  if(!hasConsole(type))return null;const b=doc.createElement('button');b.type='button';b.className='sic-console-preview';b.textContent='Preview Console';b.setAttribute('aria-label','Preview '+window.SAShipMap.definition(type).name+' Console');
+  b.onclick=async()=>{b.disabled=true;try{await previewConsole(type,doc);}catch(e){onError(e.message);}finally{b.disabled=false;}};return b;
+ }
  async function previewConsole(type,doc=document){
   await Promise.all(['ship-navigation-ui.css','space-map.css','health-display.css','combat-workspace.css','combat-actions.css','console-common.css'].map(name=>{if([...doc.styleSheets].some(s=>s.href?.split('?')[0]===new URL(name,location.href).href))return;return new Promise((resolve,reject)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=name;l.onload=resolve;l.onerror=reject;doc.head.append(l);});}));
   const f=doc.createElement('iframe');f.title='Static console preview';f.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';f.src='index.html?catalogPreview='+encodeURIComponent(type);doc.body.append(f);const close=event=>{if(event.origin===location.origin&&event.source===f.contentWindow&&event.data?.type==='sa-close-console-preview'){f.remove();doc.defaultView.removeEventListener('message',close);}};doc.defaultView.addEventListener('message',close);
  }
- window.SACardInspector={open,previewConsole};
+ window.SACardInspector={open,previewConsole,hasConsole,consoleButton};
 })();

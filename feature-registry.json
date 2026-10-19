@@ -13,12 +13,15 @@
       "sharedDependenciesAndAssets": [
         "campaign-api.js",
         "help-script-preview.png",
+        "help-script-console.png",
+        "help-script-keywords.png",
         "help-script-rolls.png"
       ],
-      "expectedBehavior": "GM attachment loading appends and opens new tabs; existing chapters, keywords and shops remain isolated.",
+      "expectedBehavior": "Direct Check, Quick Check, Scripted Direct Check and Scripted Reward Check are display names only. Legacy command syntax and saved keys remain valid. Successful messages arrive automatically; resource awards remain inbox claims. Four focused Help pages describe these flows. GM attachment loading appends and opens new chapters. Help uses four actual section captures with labeled arrows; Scripted checks are cyan, Quick Check pink, and Direct Check refers to Prompt/Give.",
       "regressionTests": [
         "tests/tab-review.test.js",
-        "tests/tab-review-http.test.js"
+        "tests/tab-review-http.test.js",
+        "tests/check-compatibility.test.js"
       ]
     },
     {
@@ -49,11 +52,24 @@
       ],
       "sharedDependenciesAndAssets": [
         "planet-terrain.js",
-        "space-map.js"
+        "space-map.js",
+        "planet-motion.js",
+        "token-art.js",
+        "hover-glow-a-v1.webp",
+        "hover-glow-b-v1.webp",
+        "planet-camera.js",
+        "planet-grid-migration.js",
+        "galaxy-twinkle-star-v1.png"
       ],
-      "expectedBehavior": "All map levels enlarge to viewport; ancestor maps retain party location; GM painting tools remain accessible.",
+      "expectedBehavior": "GM and PC share the Galaxy shell, full-width maps and enlargement. Four equal location segments have a flat right cutoff, wrapped names, blank unavailable locations, an active-view pulse and the existing party pin. PC browsing is local and respects map visibility; approved travel refocuses without exposing GM controls. Four fitted hover emitters share two generated frames with thrust-driven burn and reduced-motion support; orbit and atmospheric travel keep the ship visible above the planet. Type labels precede location names. Enlarge is orange; Return is yellow/black with a reduced-motion-aware pulse. Planet surfaces use Large 120×40, Small 60×20 or Moon 30×10 grids. New Moons default to Moon artwork and terrain; later appearance changes remain available. Legacy worlds migrate once to Large, with authored locations and linked party, ship, region and journey references remapped together; the original grid is retained in full campaign backups and omitted from live GM/PC payloads. Both roles stop zooming out at the full map height and pan only within hard edges, with no horizontal wrapping or duplicate tokens. Region framing and extended zoom-out remain unchanged. Shared geometry, routes, previews and validation use planet-terrain.js; panning and zooming reuse SVG cells and coalesce camera updates into one animation frame. Galaxy Map alone uses the generated white star sprite with staggered CSS twinkling and reduced-motion support; solar systems keep Sun artwork. Choosing a planet surface closes the directory before navigation.",
       "regressionTests": [
-        "tests/campaign-planets.test.js"
+        "tests/campaign-planets.test.js",
+        "tests/campaign-navigation-view.test.js",
+        "tests/planet-travel.test.js",
+        "tests/planet-camera.test.js",
+        "tests/planet-grid.test.js",
+        "tests/planet-sizes-migration.test.js",
+        "tests/space-object-editor.test.js"
       ]
     },
     {
@@ -141,6 +157,200 @@
       "regressionTests": [
         "tests/tab-review.test.js",
         "tests/v03-statistics-spectator.test.js"
+      ]
+    },
+    {
+      "name": "SIC console preview",
+      "purpose": "Inspect supported SIC consoles before purchase",
+      "canonicalImplementation": "card-inspector.js",
+      "interfaces": [
+        "shop-ui.js",
+        "sic-market-ui.js",
+        "starship.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "console-common.js",
+        "ship-navigation-ui.js",
+        "Existing console artwork"
+      ],
+      "expectedBehavior": "Direct preview buttons in Shop and family pickers; inspector entry retained. Frozen preview returns to the previous card or picker without purchasing.",
+      "regressionTests": [
+        "tests/shop-refresh.test.js",
+        "tests/public-assets.test.js"
+      ]
+    },
+    {
+      "name": "Campaign roster cards",
+      "purpose": "Compact character and ship summaries",
+      "canonicalImplementation": "gm.js",
+      "interfaces": [
+        "gm.html",
+        "gm.css"
+      ],
+      "sharedDependenciesAndAssets": [
+        "token-art.js",
+        "ship-map-core.js"
+      ],
+      "expectedBehavior": "Character icons precede player names/status on the left. Ship card tint and border use the existing shipColor/ATB color. Premade NPCs follows both the roster and GM sheet viewer. Fleet cards use a compact icon/name header, responsive stats/control row and content-height crew panels; all assignment and ship actions remain available.",
+      "regressionTests": [
+        "Manual GM View Sheet open/close and character/ship card comparison"
+      ]
+    },
+    {
+      "name": "Session-end Reputation choice",
+      "purpose": "Preview one replacement decision before ending a session",
+      "canonicalImplementation": "reputation-choice.js",
+      "interfaces": [
+        "reputation-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "ship-reputation.js",
+        "campaign-api.js",
+        "ui-reputation-pass.css",
+        "starship.html"
+      ],
+      "expectedBehavior": "A single pending row/direction starts from each ship original values; only adjacent dots are selectable, each row has one active highlight, and the original dot clears the pending decision. Server retains exact ±1 validation and receipt/expectedSession duplicate protection. Manual ship-sheet editing remains separate.",
+      "regressionTests": [
+        "tests/reputation-choice.test.js",
+        "tests/reputation.test.js"
+      ]
+    },
+    {
+      "name": "Combat preparation backgrounds",
+      "purpose": "Visually identify the selected combat mode",
+      "canonicalImplementation": "gm.css",
+      "interfaces": [
+        "gm.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "combat-surface-background-v1.webp",
+        "combat-starship-background-v1.webp"
+      ],
+      "expectedBehavior": "Existing encounter mode switches the approved orange Surface or purple Starship artwork. Viewport-based sizing avoids stretching over long preparation forms. Readable controls and existing preparation behavior are preserved.",
+      "regressionTests": [
+        "Manual Surface/Starship mode switch in disposable Explore"
+      ]
+    },
+    {
+      "name": "Campaign Help",
+      "purpose": "Explain map navigation, worldbuilding, travel and location resources for each role",
+      "canonicalImplementation": "app-help.js",
+      "interfaces": [
+        "gm.html",
+        "character.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "help-campaign-gm-overview.png",
+        "help-campaign-pc-overview.png",
+        "help-campaign-star-details.png",
+        "help-campaign-system.png",
+        "help-campaign-planets.png",
+        "help-campaign-terrain.png",
+        "help-campaign-location-editor.png"
+      ],
+      "expectedBehavior": "Six pages retain the handoff order with separate GM/player text and images. The existing Help dialog, navigation, color emphasis and annotated screenshot renderer are reused. Browsing versus movement, role restrictions, exact controls, approval inbox, automatic boarding, private attachments and immediate starting-location effects are explained. Script Help content and assets are unchanged.",
+      "regressionTests": [
+        "tests/campaign-navigation-view.test.js",
+        "tests/campaign-planets.test.js",
+        "tests/planet-travel.test.js",
+        "tests/tab-review.test.js"
+      ]
+    },
+    {
+      "name": "Explicit map editing modes and planet resizing",
+      "purpose": "Make GM map gestures predictable while preserving authored worlds",
+      "canonicalImplementation": "campaign-planets.js",
+      "interfaces": [
+        "campaign-starmaps-ui.js",
+        "campaign-navigation-ui.js",
+        "planet-surfaces-ui.js",
+        "combat-arena-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "space-map.js",
+        "planet-grid-migration.js",
+        "planet-terrain.js",
+        "planet-surfaces.css",
+        "space-map.css"
+      ],
+      "expectedBehavior": "Highlighted exclusive actions separate inspection, ship placement, timed travel, planet/object repositioning, location editing and painting. Planets share one size/name/description/appearance editor. Shrink crops unused terrain or compacts empty axes before a server-enforced warning; linked locations and a private recovery snapshot are preserved. Terrain fill confirms and preserves landmarks, supports undo, and rejects stale sizes. GM/PC share fixed hierarchy placement, wrapped graded text, active glow and size-scaled system icons.",
+      "regressionTests": [
+        "tests/planet-editing.test.js",
+        "tests/planet-sizes-migration.test.js",
+        "tests/campaign-navigation-view.test.js",
+        "tests/space-object-editor.test.js",
+        "Manual GM/PC wide/narrow, mode isolation, resize cancel/confirm, fill/undo and preparation UI"
+      ]
+    },
+    {
+      "name": "Adventure files and Module packages",
+      "purpose": "Package individually saved content and load it only when the GM chooses",
+      "canonicalImplementation": "campaign-content.js",
+      "interfaces": [
+        "save-content-ui.js",
+        "gm.js",
+        "room-v03.js",
+        "campaign-navigation-ui.js",
+        "planet-surfaces-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "save-file-types.js",
+        "module-package.js",
+        "module-cache.js",
+        "content-api.js",
+        "content-arrivals.js",
+        "story-files.js",
+        "arena-files.js"
+      ],
+      "expectedBehavior": "Module v2 stores individually compressed saved files and an index. Only Load at Start entries are imported into a fresh room. Campaign saves retain imported live state, receipts and private reminder decisions, with source payloads in the local Module library. GM-only file keywords and first-arrival prompts use the same validated loader. System/planet/region imports target one location; Galaxy imports default to add, with explicit replacement and one recovery map. Reopening preserves modified and removed content; new copies are explicit. No Help changes in this pass.",
+      "regressionTests": [
+        "tests/content-workflow.test.js",
+        "tests/adventure-module.test.js",
+        "tests/check-compatibility.test.js"
+      ]
+    },
+    {
+      "name": "NPC calculated defaults and appearance",
+      "purpose": "Create simplified NPCs with editable derived values and any existing token appearance",
+      "canonicalImplementation": "npc-statistics.js",
+      "interfaces": [
+        "gm.js",
+        "gm.html",
+        "gm.css",
+        "app-help.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "combat-engine.js",
+        "campaign-api.js",
+        "arena-files.js",
+        "token-art.js",
+        "help-characters-stats.png",
+        "help-characters-prepare.png"
+      ],
+      "expectedBehavior": "New templates calculate Speed, Move and HP; each manual override survives stat changes and reload. Recalculate restores calculated values. Configured presets stay intentional. Icon choices are cosmetic and persist in templates, deployed copies, roster and arena files.",
+      "regressionTests": [
+        "tests/npc-creation.test.js",
+        "Manual premade save/reload, Prepare Combat icon/reload and responsive editor checks"
+      ]
+    },
+    {
+      "name": "Characters Help and Drama Deck dialog",
+      "purpose": "Explain the actual roster workflow and inspect the shared discard pile without leaving Characters",
+      "canonicalImplementation": "gm.js",
+      "interfaces": [
+        "gm.css",
+        "app-help.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "drama-card-data.js",
+        "help-characters-overview.png",
+        "help-characters-roster.png",
+        "help-characters-deck.png"
+      ],
+      "expectedBehavior": "The badge opens one modal that reuses existing live discard controls and full-card preview. Empty reshuffle is disabled. Close restores the panel and focus; Escape dismisses a card before the deck. Five illustrated GM Help pages document actual controls; other GM and PC topics are unchanged.",
+      "regressionTests": [
+        "Manual fresh-campaign deck counts, preview, Escape, reshuffle, empty state and Prompt/Give restoration",
+        "Manual five-page wide/narrow Help and unchanged-topic comparison"
       ]
     }
   ]

@@ -1,0 +1,84 @@
+LOCAL RELEASE — PLANET SIZES AND GALAXY STARS — October 18, 2026
+
+Authorization: #local. No commit, push, hosted deployment or ntfy notification.
+
+Behavior
+- New planet placement offers Planet (Large) 120 columns × 40 rows,
+  Planet (Small) 60 × 20, and Moon 30 × 10.
+- Moon creation sets Moon art and Moon terrain. Subsequent appearance changes
+  remain available. Solar-system object footprints are unchanged.
+- Existing unversioned surfaces upgrade once to Large. The original 30-column
+  band's IDs remain stable. Other authored cells and linked regions, party,
+  starting location, parked ships, individual characters, travel requests,
+  active journey and arrival-shop references are remapped together.
+- Cells from the removed outer columns are placed in distinct available cells
+  near that edge. The original world and mapping are retained in a private
+  recovery snapshot in full campaign saves. Live GM/PC snapshots omit it before
+  cloning, preventing extra network data or disclosure of private information.
+  If an exceptionally dense legacy world has more authored cells than the new
+  grid can hold, its overflow remains in that original recovery snapshot.
+- All surface wrapping and repeated SVG world instances are removed. Panning
+  stops at hard boundaries; maximum zoom-out stops at the full map height.
+  Narrow windows may require horizontal panning. Wider windows can have side
+  margins. Normal hex proportions are preserved. Regions retain their prior
+  default framing and extended zoom-out.
+- Shared terrain geometry drives hit testing, travel, previews, and validation
+  for all three sizes. Camera changes reuse existing SVG cells and are limited
+  to one update per animation frame. Large grids now render 4,800 cells instead
+  of the previous 5,760; Small renders 1,200 and Moon 300.
+- Galaxy Map uses the generated white star with gently staggered CSS twinkling.
+  Reduced-motion disables the animation. The original Sun artwork remains in
+  solar-system maps. This applies to GM and PC views.
+- Planet-directory selections close the directory before opening their map.
+- Campaign Help and the feature registry describe the new sizes and boundaries.
+  Script Help was preserved unchanged.
+
+Verification
+- Full suite: 1,177/1,177 passed (planet-sizes-full-tests-final.log).
+- Focused map/navigation/migration tests: 64 passed.
+- Editor and existing repeater HTTP rerun: 11 passed. Initial full run exposed
+  the editor test fixture's missing size field (updated) and the previously
+  observed intermittent repeater restart failure; the final full run passed.
+- Browser: GM Large surface Fit Map, further zoom-out clamp, hard pan limits,
+  no duplicate instances/markers; new Small and Moon creation through editor;
+  Moon graphic and all 300 Moon-textured cells; Small 1,200 cells / height860;
+  Moon height440; PC live arrival on Moon and desktop/narrow full-height fit;
+  new star sprite/animation in GM and permitted PC Galaxy view; no PC editing
+  controls; solar-system Sun asset still map-sun.webp; directory-close fix.
+- Disposable Explore QA planets were removed by resetting the test room.
+- Syntax and whitespace checks passed for this work. Full whitespace check
+  accepts CRLF line endings; no unrelated formatting changes were made.
+- Script Help SHA256 unchanged:
+  991c7502c68cd051546c1b3612cfbdecc545880d94e2f90381023193eaa6bffc
+- Personal campaign file was not edited. Baseline/final SHA256:
+  A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D
+- Normal local server: port8790, PID24644, standard local development data path.
+  Existing saved worlds migrate on access; personal campaigns were not opened
+  to exercise migration. Migration, privacy and save/load used isolated fixtures.
+
+Screenshots (../outputs/)
+- galaxy-twinkling-stars-20261018.png
+- planet-sizes-large-overview.png
+- planet-sizes-pc-moon.png
+
+Generated asset
+- galaxy-twinkle-star-v1.png (transparent PNG, 474270 bytes).
+- Mode: built-in imagegen; new image, transparent_background=true, no references.
+- Original: C:/Users/zombi/.codex/generated_images/01a0a7de-5eb2-78d1-846e-920d46b20f50/exec-31877bec-7b40-4b5e-b947-df27f52b8ca9.png
+- Prompt: Use case: stylized-concept. Asset type: a single transparent raster
+  sprite for stars on a science-fiction Galaxy Map. Create one isolated bright
+  white distant star, centered in a square canvas, actual transparent
+  background. It is a small intensely white circular dot at the center with a
+  delicate luminous white halo and four fine tapered twinkling diffraction rays
+  (vertical and horizontal, tiny softer diagonal hints). White light only, no
+  yellow or orange sun surface, no sphere texture. Crisp readable silhouette
+  when displayed at 32–48 pixels. The star and rays occupy the central70% with
+  clear transparent padding. Elegant realistic optical starlight, modest soft
+  falloff, no surrounding stars, nebula, sky, text, border, checkerboard artwork
+  or other objects. This single still sprite will be animated gently in the
+  application using brightness and opacity.
+
+Canonical owners: planet-terrain.js, planet-camera.js, planet-grid-migration.js,
+campaign-planets.js, space-objects.js, space-object-editor.js, shared campaign
+map UI. This supersedes prior 144-column/wrapping notes while preserving other
+previously authorized local changes.

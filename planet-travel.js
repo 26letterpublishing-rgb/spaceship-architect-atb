@@ -2,18 +2,13 @@
 const {randomUUID}=require('node:crypto'),terrain=require('./planet-terrain');
 const commands=new Set(['planetTravelRequest','planetTravelDecision']);
 const locationKey=p=>p&&[p.mapId,p.starId,p.planetId,p.hex,p.regionId||'',p.regionHex||''].join('/');
-function route(from,to,region=false){
- const width=region?15:30,cell=k=>{const r=Math.floor(Number(k)/width);return {q:Number(k)%width-(r-(r&1))/2,r};},a=cell(from),b=cell(to);
- const distance=(x,y)=>(Math.abs(x.q-y.q)+Math.abs(x.r-y.r)+Math.abs(x.q+x.r-y.q-y.r))/2;
- const options=region?[b]:[-width,0,width].map(n=>({...b,q:b.q+n}));const end=options.sort((x,y)=>distance(a,x)-distance(a,y))[0];
- return {from:a,to:end,distance:distance(a,end)};
-}
+const route=terrain.route;
 function notify(c,message,characterId,kind='system'){
  c.privateNotes||=[];const note={id:randomUUID(),kind,direction:characterId?'to-character':'to-gm',...(characterId?{characterId}:{}),message,createdAt:new Date().toISOString(),readAt:null};c.privateNotes.push(note);return note;
 }
 function begin(c,next,{kind='walk',ownerId='',duration}={}){
  const s=c.starmaps;if(s.partyJourney)throw Error('Wait for the party’s current journey to finish.');
- const p=s.party,regional=!!next.regionId,r=route(regional?p.regionHex:p.hex,regional?next.regionHex:next.hex,regional),total=duration??Math.max(1.5,Math.min(120,r.distance*(regional?2:4)));
+ const {planet}=require('./campaign-planets').context(c,next),p=s.party,regional=!!next.regionId,r=route(regional?p.regionHex:p.hex,regional?next.regionHex:next.hex,regional,planet.size),total=duration??Math.max(1.5,Math.min(120,r.distance*(regional?2:4)));
  s.partyJourney={id:randomUUID(),kind,from:structuredClone(p),to:structuredClone(next),route:r,total,remaining:total,clockAt:Date.now(),ownerId};
  s.viewEvent={id:s.partyJourney.id,kind};return s.partyJourney;
 }
@@ -25,7 +20,7 @@ function command(c,b,{gm,characterId,combatActive}){
   if(gm||!c.characters.some(r=>r.id===characterId))throw Error('A linked player must request travel.');
   const p=s.party,{region,planet,chart}=planets.target(c,b);if(!p||p.awaitingLanding||p.mapId!==b.mapId||p.starId!==b.starId||p.planetId!==b.planetId||(p.regionId||'')!==(b.regionId||''))throw Error('Request a destination on the party’s current map.');
   if(s.partyJourney||Object.values(s.localJourneys||{}).some(j=>['ascend','descend'].includes(j.kind)))throw Error('Wait for current travel to finish.');
-  if(!terrain.validHex(b.hex,!!region))throw Error('Choose a destination inside this map.');const hex=String(Number(b.hex));
+  if(!terrain.validHex(b.hex,!!region,planet.size))throw Error('Choose a destination inside this map.');const hex=String(Number(b.hex));
   if(hex===(region?p.regionHex:p.hex))throw Error('The party is already here.');
   const to={...p,...(region?{regionHex:hex}:{hex})};
   if(s.travelRequests.some(r=>r.status==='pending'&&locationKey(r.from)===locationKey(p)&&locationKey(r.to)===locationKey(to)))throw Error('A travel request for that hex is already pending.');

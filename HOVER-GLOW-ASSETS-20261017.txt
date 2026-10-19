@@ -1,0 +1,12 @@
+Hover glow assets — October 17, 2026
+
+Generated with the built-in image_gen tool, using real alpha transparency.
+Frame A: hover-glow-a-v1.webp
+Frame B: hover-glow-b-v1.webp
+Original generated PNGs remain in the Codex generated_images directory. Runtime copies are 256 × 256 WebP, with the original transparent margins preserved.
+
+Frame A prompt:
+Use case: stylized-concept. Asset type: transparent 2D VFX sprite for an overhead science-fiction starship game. Generate ONE isolated hover-generator energy glow, animation frame A (compressed burn). Strict orthographic top-down view, centered on a square canvas. A very bright small white-cyan plasma core, layered irregular electric-blue corona, fine curled ion filaments and short radial jets, a few sharply resolved luminous particles, translucent blue gas dissipating smoothly into alpha. Rich volumetric texture and energy turbulence, readable when shrunk to 40 pixels. Overall near-circular footprint with softly ragged edges, not a smooth oval or flat gradient. Core centered exactly at 50%/50%; luminous effect occupies central 75%, fully transparent margin around every edge. Color: white core, cyan inner burn, saturated blue outer wisps. This is light only, no metal, engine nozzle, ship, terrain, shadow, text, border, UI or visible background. Actual alpha transparency, not a checkerboard or black rectangle.
+
+Frame B prompt (frame A supplied as the reference image):
+Use case: stylized-concept. Asset type: transparent hover-generator VFX sprite, animation FRAME B. Input image is frame A and is the exact alignment, palette and style reference. Create the next energy pulse of this same hover glow: a slightly hotter, tighter white-cyan central core, with curled electric-blue plasma filaments rearranged and the short radial jets flowing outward a little farther; reshuffle the tiny glowing particles. Preserve the identical square canvas, exact core center at 50%/50%, overall occupied area and transparent margins so A and B can crossfade without jumping. Keep a near-circular irregular footprint of turbulent luminous gas and fine cyan ion tendrils, rich volumetric detail legible at small sprite size. No ship, engine casing, environment, text, background, border, UI or hard-edged oval. The glow must fade smoothly into REAL alpha transparency; no black rectangle and no painted checkerboard. Change energy turbulence only, maintaining the same single centered glow composition.

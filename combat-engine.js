@@ -107,17 +107,7 @@ function ceilTenth(value) {
   return Math.ceil((Number(value) || 0) * 10) / 10;
 }
 
-function npcAttributeDice(value) {
-  const rating = Math.max(2, Math.min(20, Math.round(Number(value) || 2)));
-  if (rating <= 4) return Array.from({ length: rating }, () => 4);
-  const dice = [4, 4, 4, 4];
-  const faces = [4, 6, 8, 10, 12];
-  for (let upgrade = 0; upgrade < rating - 4; upgrade += 1) {
-    const index = upgrade % 4;
-    dice[index] = faces[Math.min(faces.length - 1, faces.indexOf(dice[index]) + 1)];
-  }
-  return dice.sort((a, b) => b - a);
-}
+const npcAttributeDice = require('./npc-statistics').attributeDice;
 
 function applyNpcSimplifiedStats(unit, source = {}) {
   if (!unit || unit.team !== "npc") return unit;
@@ -206,6 +196,7 @@ function syncUnitCombat(unit, source = {}) {
   unit.grapplingSkill = Math.max(0, Number(source.grapplingSkill) || 0);
   unit.scienceSkill = Math.max(0, Number(source.scienceSkill) || 0);
   unit.dodgeSkill = Math.max(0, Number(source.dodgeSkill) || 0);
+  unit.statOverrides = require('./npc-statistics').overrides(source.statOverrides ? source : unit);
   unit.iconRace = String(source.iconRace??unit.iconRace??'');
   unit.iconVariant = Number(source.iconVariant??unit.iconVariant)===1?1:0;
   unit.sex=safeText(source.sex,unit.sex||"",80);
@@ -290,6 +281,7 @@ function migrateUnitCombat(unit) {
     raceId: unit.raceId,
     iconRace: unit.iconRace,
     iconVariant: unit.iconVariant,
+    statOverrides: unit.statOverrides,
     raceType: unit.raceType,
     classId: unit.classId,
     defenseScoreModifier: unit.defenseScoreModifier,

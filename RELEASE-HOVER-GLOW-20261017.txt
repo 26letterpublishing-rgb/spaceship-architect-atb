@@ -1,0 +1,11 @@
+Hover glow and orbit visibility — October 17, 2026 — #local
+
+Two generated transparent hover-plasma frames replace the old fading ellipse. Four emitters attach to the fore/aft hull edges of all eight existing ship icons. Shared markup and motion math serve GM and PC surface/region lift-off, landing and atmospheric approach. Frames crossfade with staggered pulses and gentle rotation; thrust controls burn size/intensity. Reduced motion uses a static blend. Landed ships and steady orbit have no hover burn. Aerofoil propulsion keeps its existing rear-engine effect.
+
+Runtime assets: hover-glow-a-v1.webp and hover-glow-b-v1.webp, 256 x 256 each, 56,602 bytes combined. Only two textures are loaded and reused at the four emitters. Exact built-in image_gen prompts are in HOVER-GLOW-ASSETS-20261017.txt; existing ship artwork is unchanged.
+
+Removed the half-orbit layer switch from steady orbit and atmospheric travel. The ship remains above the planet image while retaining the oval path, heading, easing and scale animation.
+
+Verification: 35 focused travel/navigation/token/persistence tests passed, including thrust strength, zero-thrust shutdown, staggered blends and reduced-motion stability. Four edited JavaScript files passed syntax checks; whitespace checks passed. Actual disposable Explore UI: GM descent/landing, PC landing and leave-atmosphere, four-corner lift snapshots, and ship visible across front/back portions of orbit after departure. Screenshots: ../outputs/hover-lift-0.png through hover-lift-2.png. No hosted/multi-device test or exhaustive live launch of all eight ship artwork variants; attachment locations were fitted by inspecting each existing image.
+
+Personal campaign data SHA256 remains A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D. Prior local changes and unrelated QA preserved. No commit, push or notification.

@@ -182,7 +182,12 @@
     container.addEventListener('keydown',event=>{if(event.key==='Escape'&&container._objectPlacement){stop(event);cancel();}},true);
     container._cancelObjectPlacement=cancel;
   }
-  function bindEditor(container,ships,saved,onChange,{fixedIds=[],system=false,overlayMarkup=''}={}) {
+  function modeButtons(modes,active,onChange){
+    ensureMapStyles(document);
+    const nav=document.createElement('nav');nav.className='map-action-modes';nav.setAttribute('aria-label','Map action');
+    for(const [value,label]of modes){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.mapMode=value;b.setAttribute('aria-pressed',String(value===active));b.onclick=e=>{e.stopPropagation();for(const other of nav.children)other.setAttribute('aria-pressed',String(other===b));onChange(value);};nav.append(b);}return nav;
+  }
+  function bindEditor(container,ships,saved,onChange,{fixedIds=[],system=false,overlayMarkup='',modeToolbar=true}={}) {
     const signature = JSON.stringify([ships.map(ship=>[ship.id,ship.title,window.SAShipMap.sensorStats(ship).range]),saved]);
     if (container.dataset.signature === signature) return;
     container.dataset.signature = signature;
@@ -193,12 +198,20 @@
     container.innerHTML=markup(ships,saved,true,{system});
     container.dataset.mapEditor='';
     const actualShips=ships.filter(ship=>!ship.spaceObject);
+    ensureMapStyles(container.ownerDocument);
+    let action=container.dataset.actionMode||'pan';
+    const canMove=id=>!container._objectPlacement&&!fixedIds.includes(id)&&(!modeToolbar||(ships.find(s=>s.id===id)?.spaceObject?ships.find(s=>s.id===id).spaceObject.kind==='planet'?action==='planets':action==='objects':action==='ships'));
     const header=container.querySelector('header');header.innerHTML='<button type="button" data-prep-zoom=".7" aria-label="Zoom in preparation map">+</button><button type="button" data-prep-zoom="1.4" aria-label="Zoom out preparation map">−</button><button type="button" data-prep-fit>Fit Map</button><button type="button" data-prep-enlarge data-map-focus>Enlarge Map</button><small data-prep-help></small><div class="space-placement-instruction" data-prep-placement hidden><strong></strong><span>Click a hex to place. Drag empty space to pan.</span><button type="button" data-prep-cancel-placement>Cancel Placement</button></div>';
-    header.querySelector('[data-prep-help]').textContent=actualShips.length?'Drag ships or objects to reposition. Rings show base and extended sensor range.':'Drag objects to reposition. Use Place on Map below to add another object.';
+    const describeAction=()=>{header.querySelector('[data-prep-help]').textContent=({pan:'Drag empty space to pan. Select a movement mode before dragging markers.',ships:'Drag a ship to reposition it. Rings show its base and extended sensor range.',planets:'Drag a planet to reposition it.',objects:'Drag a space object to reposition it.'})[action]||'Choose an action above.';};describeAction();
+    if(modeToolbar){
+      const modes=[['pan','Pan Map'],...(actualShips.length?[['ships','Move Ships']]:[]),...(ships.some(s=>s.spaceObject?.kind==='planet')?[['planets','Reposition Planets']]:[]),...(ships.some(s=>s.spaceObject&&s.spaceObject.kind!=='planet'&&!fixedIds.includes(s.id))?[['objects','Reposition Objects']]:[])];
+      if(!modes.some(([id])=>id===action)){action='pan';container.dataset.actionMode=action;describeAction();}
+      const controls=modeButtons(modes,action,next=>{action=next;container.dataset.actionMode=next;describeAction();dragging=null;container._cancelObjectPlacement?.();for(const input of container.querySelectorAll('[data-space-id]'))input.disabled=!canMove(input.dataset.spaceId);});header.prepend(controls);
+    }
     const coordinates=container.querySelector('.space-map-coordinates');
-    if(coordinates){const details=document.createElement('details');details.className='space-map-position-details';details.innerHTML='<summary>Advanced: exact hex positions</summary>';coordinates.before(details);details.append(coordinates);for(const radio of coordinates.querySelectorAll('[type="radio"]'))radio.remove();for(const input of coordinates.querySelectorAll('[data-space-id]'))if(fixedIds.includes(input.dataset.spaceId)){input.disabled=true;input.title='The central star stays at the center.';}}
+    if(coordinates){const details=document.createElement('details');details.className='space-map-position-details';details.innerHTML='<summary>Advanced: exact hex positions</summary>';coordinates.before(details);details.append(coordinates);for(const radio of coordinates.querySelectorAll('[type="radio"]'))radio.remove();for(const input of coordinates.querySelectorAll('[data-space-id]'))if(!canMove(input.dataset.spaceId)){input.disabled=true;input.title='Select the matching movement mode to edit this position.';}}
     installObjectPlacement(container);
-    container._syncObjectPlacement=()=>{const pending=container._objectPlacement,banner=container.querySelector('[data-prep-placement]');container.classList.toggle('is-placing-object',Boolean(pending));if(banner){banner.hidden=!pending;banner.querySelector('strong').textContent=pending?'Place '+pending.name:'';}if(!pending)container.querySelector('[data-object-placement-preview]')?.remove();};
+    container._syncObjectPlacement=()=>{const pending=container._objectPlacement,banner=container.querySelector('[data-prep-placement]');container.classList.toggle('is-placing-object',Boolean(pending));if(banner){banner.hidden=!pending;banner.querySelector('strong').textContent=pending?'Place '+pending.name:'';}if(!pending)container.querySelector('[data-object-placement-preview]')?.remove();for(const b of container.querySelectorAll('.map-action-modes button'))b.setAttribute('aria-pressed',String(!pending&&b.dataset.mapMode===action));const nav=container.querySelector('.map-action-modes');if(nav){nav.querySelector('[data-map-mode=place]')?.remove();if(pending){const placing=modeButtons([['place','Place '+pending.name]],'place',()=>{}).firstElementChild;nav.append(placing);}}for(const input of container.querySelectorAll('[data-space-id]'))input.disabled=!canMove(input.dataset.spaceId);};
     header.querySelector('[data-prep-cancel-placement]').onclick=event=>{event.stopPropagation();container._cancelObjectPlacement();};container._syncObjectPlacement();
     function decorate(box){const svg=container.querySelector('svg');if(system)drawSystemOrbits(svg,ships);if(overlayMarkup)svg.insertAdjacentHTML('beforeend',overlayMarkup);if(box)svg.setAttribute('viewBox',box);const v=svg.viewBox.baseVal;for(const rect of svg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,v[key]);
       for(const ship of ships){
@@ -209,15 +222,15 @@
     if(!previousBox)requestAnimationFrame(()=>fitRendered(container.querySelector('svg')));
     let points=window.SAShipDistances.positions(ships,saved);
     const redraw=()=> { const box=container.querySelector('svg').getAttribute('viewBox');container.dataset.signature=JSON.stringify([ships.map(ship=>[ship.id,ship.title,window.SAShipMap.sensorStats(ship).range]),points]);onChange(points); const template=document.createElement('template');template.innerHTML=markup(ships,points,true,{system});container.querySelector('svg').replaceWith(template.content.querySelector('svg'));decorate(box);for(const input of container.querySelectorAll('[data-space-axis]'))if(input!==document.activeElement)input.value=points.find(p=>p.id===input.dataset.spaceId)[input.dataset.spaceAxis]; };
-    const edit=event=> {const input=event.target;if(!input.dataset.spaceAxis||fixedIds.includes(input.dataset.spaceId))return;const value=Number(input.value);if(!input.value.trim()||!Number.isInteger(value)||Math.abs(value)>10000){if(event.type==='change')input.value=points.find(p=>p.id===input.dataset.spaceId)[input.dataset.spaceAxis];return;}points=points.map(p=>p.id===input.dataset.spaceId?{...p,[input.dataset.spaceAxis]:value}:p);redraw();};
+    const edit=event=> {const input=event.target;if(!input.dataset.spaceAxis||!canMove(input.dataset.spaceId))return;const value=Number(input.value);if(!input.value.trim()||!Number.isInteger(value)||Math.abs(value)>10000){if(event.type==='change')input.value=points.find(p=>p.id===input.dataset.spaceId)[input.dataset.spaceAxis];return;}points=points.map(p=>p.id===input.dataset.spaceId?{...p,[input.dataset.spaceAxis]:value}:p);redraw();};
     container.oninput=edit;container.onchange=edit;
     let dragging=null;
     const hex=event=>{const svg=container.querySelector('svg'),p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse()),q=Math.sqrt(3)/3*p.x-p.y/3,r=2*p.y/3;let x=Math.round(q),z=Math.round(r),y=Math.round(-q-r);const dx=Math.abs(x-q),dz=Math.abs(z-r),dy=Math.abs(y+q+r);if(dx>dy&&dx>dz)x=-y-z;else if(dz>dy)z=-x-y;return {q:Math.max(-10000,Math.min(10000,x)),r:Math.max(-10000,Math.min(10000,z))};};
-    container.onpointerdown=event=>{const marker=event.target.closest('[data-space-ship]');if(!marker||fixedIds.includes(marker.dataset.spaceShip))return;dragging=marker.dataset.spaceShip;container.setPointerCapture(event.pointerId);event.preventDefault();};
-    container.onpointermove=event=>{if(!dragging)return;const p=xy(hex(event));container.querySelector(`[data-space-ship="${CSS.escape(dragging)}"]`).setAttribute('transform',`translate(${p.x} ${p.y})`);};
-    container.onpointerup=event=>{if(!dragging)return;const destination=hex(event);points=points.map(p=>p.id===dragging?{...p,...destination}:p);dragging=null;container.releasePointerCapture(event.pointerId);redraw();};
-    container.onpointercancel=()=>{dragging=null;redraw();};
-    container.onclick=event=>{const zoom=event.target.closest('[data-prep-zoom]'),fit=event.target.closest('[data-prep-fit]');if(!zoom&&!fit)return;container.dataset.manualZoom=String(!fit);const svg=container.querySelector('svg');if(fit){fitRendered(svg);}else{const v=svg.viewBox.baseVal,f=Number(zoom.dataset.prepZoom),width=Math.max(1,Math.min(100000,v.width*f)),height=width*v.height/v.width;svg.setAttribute('viewBox',`${v.x+(v.width-width)/2} ${v.y+(v.height-height)/2} ${width} ${height}`);}for(const rect of svg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,svg.viewBox.baseVal[key]);};
+    container.onpointerdown=event=>{const marker=event.target.closest('[data-space-ship]');if(!marker||!canMove(marker.dataset.spaceShip))return;dragging={id:marker.dataset.spaceShip,x:event.clientX,y:event.clientY,moved:false};container.setPointerCapture(event.pointerId);event.preventDefault();};
+    container.onpointermove=event=>{if(!dragging)return;if(!dragging.moved&&Math.hypot(event.clientX-dragging.x,event.clientY-dragging.y)<5)return;dragging.moved=true;const p=xy(hex(event));container.querySelector(`[data-space-ship="${CSS.escape(dragging.id)}"]`).setAttribute('transform',`translate(${p.x} ${p.y})`);};
+    container.onpointerup=event=>{if(!dragging)return;if(!dragging.moved){dragging=null;container.releasePointerCapture(event.pointerId);return;}const destination=hex(event);points=points.map(p=>p.id===dragging.id?{...p,...destination}:p);dragging=null;container.releasePointerCapture(event.pointerId);redraw();};
+    container.onpointercancel=()=>{if(dragging){dragging=null;redraw();}};
+    for(const control of header.querySelectorAll('[data-prep-zoom],[data-prep-fit]'))control.onclick=event=>{const zoom=event.target.closest('[data-prep-zoom]'),fit=event.target.closest('[data-prep-fit]');if(!zoom&&!fit)return;container.dataset.manualZoom=String(!fit);const svg=container.querySelector('svg');if(fit){fitRendered(svg);}else{const v=svg.viewBox.baseVal,f=Number(zoom.dataset.prepZoom),width=Math.max(1,Math.min(100000,v.width*f)),height=width*v.height/v.width;svg.setAttribute('viewBox',`${v.x+(v.width-width)/2} ${v.y+(v.height-height)/2} ${width} ${height}`);}for(const rect of svg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,svg.viewBox.baseVal[key]);};
   }
   function openGlowPicker(doc=document){
     if(window.SACombatBridge?.mode()!=='gm')return;
@@ -437,7 +450,7 @@
   function planetImage(o){const variant=['temperate','moon','ocean','desert','ice','volcanic'].includes(o?.variant)?o.variant:'ocean';return o?.destroyedAt?'planet-debris.webp':'planet-'+(variant==='temperate'?'ocean':variant)+(variant==='moon'?'.svg':'.webp');}
   function planetMarkup(o,c,unseen=false,system=false){
     const label=o.name+(o.destroyedAt?' / Destroyed':''),file=planetImage(o);
-    const radius=system?1.1:2.95;
+    const radius=system?1.1*({large:1.1,small:.85,moon:.6}[o.size]||1.1):2.95;
     return `<g data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" data-planet="${escape(o.id)}" ${unseen?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(label)} / ${system?'star system planet':'7 hexes'} / pass-through scenery</title><circle r="${radius*.9}" fill="#050812" fill-opacity=".12"/><image href="${file}" x="${-radius}" y="${-radius}" width="${radius*2}" height="${radius*2}" opacity=".85" pointer-events="none"/><text y="${radius+.3}" text-anchor="middle" font-size=".55" fill="#e8d6ff" stroke="#070e14" stroke-width=".08" paint-order="stroke">${escape(label)}</text></g>`;
   }
   function bindPan(svg){
@@ -457,5 +470,5 @@
     }
   }
   if(typeof MutationObserver!=='undefined'&&document.documentElement){const mapMounts=new MutationObserver(records=>{for(const record of records){for(const node of record.removedNodes)if(node.nodeType===1&&!node.isConnected){const maps=[...(node.matches?.('[data-space-canvas]')?[node]:[]),...node.querySelectorAll('[data-space-canvas]')];for(const svg of maps)watched.get(svg)?.();}for(const node of record.addedNodes)if(node.nodeType===1)watchMaps(node);}});mapMounts.observe(document.documentElement,{childList:true,subtree:true});watchMaps();}
-  window.SASpaceMap={planetImage,update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
+  window.SASpaceMap={ensureMapStyles,modeButtons,planetImage,update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
 }());

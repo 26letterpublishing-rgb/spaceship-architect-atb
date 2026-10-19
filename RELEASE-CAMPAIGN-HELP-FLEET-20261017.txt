@@ -1,0 +1,59 @@
+Campaign Help and compact fleet cards — local pass, October 17, 2026
+
+Authorization: user #local. No commit, push, or ntfy notification.
+
+Completed
+- Campaign Help retains six topics: Overview; Galaxy Maps; Star Systems;
+  Surface & Region; Travel; Locations & Shops.
+- Separate GM and player wording, headings, and screenshots. Exact controls,
+  view-vs-location distinction, public/GM information, visited planet previews,
+  fuel/partial travel, the approval inbox, boarding, departure, Transporters,
+  location attachments, shops, and immediate Start Campaign Here effects.
+- Reuses the existing Help dialog, tabs, Previous/Next, colors and SVG arrow
+  renderer. Seven screenshots captured from disposable Explore room 7CWQ,
+  cropped from full browser captures to the actual relevant controls.
+  GM pages 1/2/3/4/6 have one image; GM page 5 is text only.
+  Player pages 1/3 have one image; the other player pages are text only.
+- Script Help text and four existing image assets are unchanged.
+- GM starship cards have a compact icon/name header, responsive stats/control
+  row, content-height crew panels and tighter action buttons. Existing ATB
+  colors, controls, selectors and event attributes are preserved.
+
+Verification
+- 38 focused tests passed: campaign-navigation-view, campaign-planets,
+  planet-travel, planet-camera, tab-review, check-compatibility.
+- Node syntax checks passed for app-help.js and gm.js.
+- Whitespace checks passed for touched files with CRLF recognized as EOL.
+- Actual GM and PC browser checks: all six Help pages, role-appropriate copy,
+  loaded screenshots, direct tabs, Previous/Next, and no horizontal overflow.
+- Visually inspected focused arrows and full overview screenshots. Verified
+  the PC Preview Surface action and the unchanged four-page Script Help.
+- Desktop 1600x1000: each fleet card measured 775x270 pixels; narrow 480x900:
+  430x386 pixels, with all controls and no horizontal card overflow.
+- No full test suite was run for these documentation/layout changes.
+- Personal campaigns.json remained unchanged:
+  A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D
+- Script Help text block remained unchanged:
+  991c7502c68cd051546c1b3612cfbdecc545880d94e2f90381023193eaa6bffc
+
+Proof and capture sources are in ../outputs:
+  compact-starship-cards-20261017.png
+  campaign-help-surface-20261017.png
+  campaign-help-checks.json
+  campaign-help-crops.json and help-campaign-*-raw.png
+
+Pending under this same #local authorization
+The user wants one complete planet across the full visible width, preserving
+the current zoom and joining the extreme left/right edges. The existing grid
+is 30 columns x 40 rows. Asked whether to add unique columns while preserving
+authored locations (recommended), or retain 1200 hexes and stretch the overview.
+Awaiting that design choice; no planet geometry, terrain, saved hex IDs,
+travel distances, or camera code was changed in this pass. A reply choosing
+the approach continues this authorized task; do not request a new hashtag.
+
+Only disposable Explore data was used for UI verification. The example's
+PC map visibility was temporarily enabled to capture player exploration.
+Unrelated prior local work and QA files were preserved.
+
+October 18 follow-up: user chose expansion. The pending planet work is now
+complete locally; see RELEASE-PLANET-GRID-20261018.txt.

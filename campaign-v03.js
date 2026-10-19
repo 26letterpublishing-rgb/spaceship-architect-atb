@@ -51,6 +51,18 @@ async function handle(api, context) {
       return reply(201,{token:nextToken,campaign:api.state(campaign,nextToken)});
     }
     if(action==='load'&&body.backup?.format==='spaceship-architect-adventure'){
+      if(body.backup.version===2){
+        const packages=require('./module-package'),pkg=packages.read(body.backup);let fresh;
+        for(let attempt=0;attempt<200;attempt++){
+          fresh=defaultCampaign({code:campaignCode(),name:pkg.metadata.title,gmCode:crypto.randomBytes(32).toString('hex')});
+          Object.assign(fresh,{interfaceVersion:'0.3',roomOpen:true,players:[],imports:[],runtimeSessions:{}});
+          packages.start(fresh,pkg,{normalizeCampaign,normalizeStarshipRecord});
+          if(await api.store.create(fresh))break;fresh=null;
+        }
+        if(!fresh)throw Error('Unable to allocate a new adventure room.');
+        api.campaignCache.set(fresh.code,fresh);const nextToken=issue(api,fresh,'gm');await api.save(fresh);
+        return reply(201,{token:nextToken,campaign:api.state(fresh,nextToken),module:pkg.metadata});
+      }
       const module=require('./adventure-module').read(body.backup);let fresh;
       for(let attempt=0;attempt<200;attempt++){
         fresh=normalizeCampaign({...defaultCampaign({code:campaignCode(),name:module.metadata.title,gmCode:crypto.randomBytes(32).toString('hex')}),...module.content,interfaceVersion:'0.3',roomOpen:true,players:[],imports:[],runtimeSessions:{},module:module.metadata});

@@ -1,0 +1,23 @@
+Queued UI follow-up — October 17, 2026 — #local
+
+The user's latest #local authorizes this queued implementation. Earlier local work remains intact. No commit, push, hosted testing or ntfy notification.
+
+Delivered
+- Planet maximum zoom-out / Fit Map shows the entire north–south extent. At that scale one full world is displayed with horizontal wrapping at its own left/right edges and no vertical drift. Hex proportions are preserved, so wide windows have side margins. Zooming in restores ordinary continuous map wrapping. Original terrain and markers are reused through lightweight SVG instances; panning does not regenerate or load individual hexes.
+- Region initial size and Fit Map width remain 775 map units. Maximum zoom-out extends to at least 1550 units (and further where the aspect ratio requires it).
+- Shared GM/PC hierarchy labels: Sector, Star System, Planet, Region. Blank names, wrapped long names, active glow and small party marker remain. Enlarge Map is orange with square corners; Return to Campaign is yellow with black text and a gentle pulse, disabled under reduced motion. Enlarged maps suppress underlying page scrollbars and restore scrolling on return.
+- Script Help explicitly refers ordinary Direct Check users to the Prompt/Give Tab. Four distinct, complete screenshots now cover the overview, Story Console, reward configuration and insertion controls. Labeled SVG arrows point to exact controls, including Save Reward Check rather than Delete. Scripted check terms are light blue, Quick Check pink; important reminders/restrictions use selective yellow/red emphasis.
+- Character icons appear left of name/status in a compact row. Premade NPCs remains below the GM sheet viewer when View Sheet opens. Starship cards use their existing shipColor/ATB color for borders and tinted backgrounds.
+- End Session Reputation uses an immutable original baseline and one pending row/direction. Only adjacent original dots can be chosen; changing a choice restores the previous row. Selecting the original clears the decision. Only the active dot in each row glows blue. Multiple selected ships each show their own original/preview chart while sharing the one session decision. Existing server ±1, receipt and expectedSession protections are preserved and exercised by regressions.
+- Approved orange Surface Combat and purple Starship Combat images switch with the existing preparation mode. Both are optimized 1672 x 941 WebP assets, 554,068 bytes combined. Originals retained; exact prompts and provenance in COMBAT-BACKGROUND-ASSETS-20261017.txt. Viewport-sized backgrounds avoid over-enlarging the art behind long forms.
+
+Verification
+- 35 focused tests passed: navigation/view parity, planet camera geometry/seam and resize behavior, surface travel/hover compatibility, legacy checks and rewards, Reputation choice replacement/clearing, server invalid-award rejection and duplicate/stale-session protection, public asset and HTML script registration gates.
+- Nine edited/new JavaScript files passed syntax checks; app-help.js and planet-surfaces-ui.js rechecked after final edits. CRLF-aware whitespace check passed.
+- Actual disposable Explore room 7CWQ at localhost:8790: all four Help pages visually checked; example command inserted and saved through the UI; character sheet open/close order; character/ship cards; Surface/Starship background switching; GM surface fitting, diagonal drag with fixed north/south edges, unchanged 1200-hex DOM, zoom-in restoring ordinary wrap, region default and extra zoom; PC normal/enlarged map; narrow 520 x 850 PC layout; Galaxy/System orange controls and yellow animated Return.
+- Actual End Session flow rolled D4, chose one row, replaced it with another, cleared it by clicking the original, chose/reclicked +1 and confirmed once. The UI advanced from Session 0 to Session 1. Server behavior also covered by existing and new endpoint tests. No exhaustive multi-ship manual session flow or full-suite rerun for this presentation-focused pass.
+- Screenshot capture initially proved shorter than the requested tall viewport. Corrected using full-page capture, then verified every actual crop. Screenshots in ../outputs: script-help-source-20261017.png, script-help-arrows-20261017.png, planet-overview-pc-20261017.png, combat-surface-applied-20261017.png and combat-starship-applied-20261017.png.
+
+Personal campaign SHA256 unchanged:
+A72D3B78E8E5DD3A7EFEA9A29A8E0466F8D1C68406798A3ED9C4F51016D9833D
+Normal local server restarted with the original data directory, PID 25196, port 8790. No server errors recorded. Unrelated QA, scripts, backups and Gold Standard were preserved.

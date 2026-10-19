@@ -64,3 +64,65 @@ test('PC and GM defaults resolve the same party location even when navigation me
     assert.equal(f.shown().view.regionId, '198');
   }
 });
+
+function named(f) {
+  f.map.name = 'Frontier Sector'; f.star.name = 'Haven';
+  f.star.system[0].name = 'Harbor';
+  f.star.surfaces = { harbor: { regions: { '198': { name: 'Harbor Landing District' } } } };
+  f.c.map = f.map;
+}
+
+test('GM and PC hierarchy retain four named slots with separate active and party indicators', () => {
+  for (const role of ['gm', 'player']) {
+    const f = screen(role); named(f); f.c.draw();
+    const entries = f.api.navigationEntries(f.c, 'surface');
+    assert.deepEqual(Array.from(entries, e => e.level), ['galaxy', 'system', 'surface', 'region']);
+    assert.deepEqual(Array.from(entries, e => e.name), ['Frontier Sector', 'Haven', 'Harbor', 'Harbor Landing District']);
+    assert.equal(entries.find(e => e.active).level, 'surface');
+    assert.equal(entries.find(e => e.party).level, 'region');
+    assert.ok(entries.every(e => !e.disabled));
+  }
+});
+
+test('empty planet and region slots stay blank and disabled; orbit uses the planet slot', () => {
+  const f = screen('player'); named(f); delete f.c.data.party;
+  f.c.data.navigation = { mode: 'galaxy', mapId: 'map', starId: 'star' }; f.c.draw();
+  let entries = f.api.navigationEntries(f.c, 'galaxy');
+  assert.equal(entries.length, 4); assert.ok(entries.slice(2).every(e => !e.name && e.disabled));
+  f.c.data.navigation = { mode: 'orbit', mapId: 'map', starId: 'star', planetId: 'harbor' };
+  // Hierarchy uses the configured location before the orbit renderer is needed.
+  entries = f.api.navigationEntries(f.c, 'orbit');
+  assert.equal(entries[2].name, 'Harbor'); assert.equal(entries[2].active, true);
+  assert.equal(entries[2].party, true); assert.equal(entries[3].disabled, true);
+});
+
+test('PC browses without movement or redraw snapback, then follows an approved travel event', () => {
+  const f = screen('player'); named(f); f.c.draw();
+  const original = JSON.stringify(f.c.data.party);
+  f.shown().set({ mode: 'galaxy', mapId: 'map' });
+  assert.equal(f.c.draw(), false); assert.equal(JSON.stringify(f.c.data.party), original);
+  f.c.data.viewEvent = { id: 'approved-travel' }; f.c.draw();
+  assert.equal(f.shown().view.mode, 'surface'); assert.equal(f.shown().view.regionId, '198');
+});
+
+test('PC visibility restrictions block hierarchy browsing and reset an invalidated view', () => {
+  const f = screen('player'); named(f); f.c.draw();
+  f.c.data.navigation.allowed = { galaxy: false, system: false };
+  f.shown().set({ mode: 'galaxy' });
+  assert.equal(f.shown().view.mode, 'surface');
+  const entries = f.api.navigationEntries(f.c, 'region');
+  assert.ok(entries[0].disabled && entries[1].disabled); assert.equal(entries[3].disabled, false);
+  const gm = screen(); named(gm); gm.c.data.navigation.allowed = { galaxy: false }; gm.c.draw();
+  assert.equal(gm.api.navigationEntries(gm.c, 'region')[0].disabled, false);
+});
+
+test('the location pin uses actual ship orbit/system state rather than a stale configured planet view', () => {
+  const f = screen('player'); named(f); delete f.c.data.party;
+  f.c.data.navigation = { mode: 'galaxy', mapId: 'map', starId: 'star', planetId: 'harbor' }; f.c.draw();
+  f.c.data.localPositions.protos = { mapId: 'map', starId: 'star', phase: 'orbit', planetId: 'harbor' };
+  let entries = f.api.navigationEntries(f.c, 'galaxy');
+  assert.equal(entries[2].party, true); assert.equal(entries[2].target.mode, 'orbit');
+  f.c.data.localPositions.protos = { mapId: 'map', starId: 'star', phase: 'system' };
+  entries = f.api.navigationEntries(f.c, 'galaxy');
+  assert.equal(entries[1].party, true); assert.ok(entries.slice(2).every(e => !e.name && e.disabled));
+});

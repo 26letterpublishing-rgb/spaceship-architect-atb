@@ -4,7 +4,7 @@
 const {randomUUID}=require('node:crypto'),maps=require('./ship-map-core'),power=require('./ship-power'),hex=require('./ship-distances'),space=require('./space-objects');
 const levels=['surface','orbit','system','galaxy'];
 const commands=new Set(['navigation','enterSystem','systemMove','orbit','descend','leavePlanet','systemPosition','undock','beamDown','beamAboard','loadGalaxy']);
-function state(c){const s=require('./campaign-starmaps').state(c);s.localPositions||={};s.localJourneys||={};s.navigation||={mode:'galaxy',allowed:{surface:true,orbit:true,system:true,galaxy:true}};return s;}
+function state(c){const s=require('./campaign-starmaps').state(c);s.localPositions||={};s.localJourneys||={};s.navigation||={mode:'galaxy',allowed:{surface:true,orbit:true,system:true,galaxy:true}};require('./planet-grid-migration').ensure(c);return s;}
 function context(c,b){const s=state(c),map=s.maps.find(m=>m.id===b.mapId),star=map?.stars.find(x=>x.id===b.starId);if(!star)throw Error('Choose a star system.');return {s,map,star};}
 function objects(star){const sun={id:'object-star-'+star.id,kind:'sun',name:star.name,q:0,r:0,quantity:1,intensity:2};return star.system||[sun];}
 function same(a,b){return a&&b&&hex.hexDistance(a,b)<1e-6;}
@@ -21,8 +21,8 @@ function normalizeFile(raw){
  return {id:randomUUID(),name:text(m.name,80)||'Loaded Galaxy',lightYearsPerHex:scale,parsecPreset:!!m.parsecPreset&&scale===3.26,stars:m.stars.map(source=>{
   const p=coords(source),key=p.q+':'+p.r;if(used.has(key))throw Error('Two stars occupy the same hex.');used.add(key);const id=randomUUID();
   if(source.system!==undefined&&(!Array.isArray(source.system)||source.system.length>500))throw Error('Invalid solar system.');
-  const original=(source.system||[]).filter(o=>o.id!=='object-star-'+source.id),system=space.normalize(original.map(o=>({...o,id:'object-'+randomUUID()}))),surfaces={};for(let i=0;i<system.length;i++)if(system[i].kind==='planet'&&source.surfaces?.[original[i].id])surfaces[system[i].id]=require('./campaign-planets').normalizeWorld(source.surfaces[original[i].id],original[i].id);
-  return {id,...p,surfaces,name:text(source.name,80)||'Unnamed Star',hidden:!!source.hidden,lore:text(source.lore),gmNotes:text(source.gmNotes),planets:(Array.isArray(source.planets)?source.planets:[]).slice(0,50).map(p=>({name:text(p.name,80),hidden:!!p.hidden})),system:[{id:'object-star-'+id,kind:'sun',name:text(source.name,80),q:0,r:0,intensity:2,quantity:1},...system]};
+  const original=(source.system||[]).filter(o=>o.id!=='object-star-'+source.id),system=space.normalize(original.map(o=>({...o,id:'object-'+randomUUID()}))),surfaces={};for(let i=0;i<system.length;i++)if(system[i].kind==='planet'&&source.surfaces?.[original[i].id])surfaces[system[i].id]=require('./campaign-planets').normalizeWorld(source.surfaces[original[i].id],original[i].id,system[i].size,system[i].variant);
+  return {id,...p,surfaces,...(source.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(source.arrivalContent)}:{}),name:text(source.name,80)||'Unnamed Star',hidden:!!source.hidden,lore:text(source.lore),gmNotes:text(source.gmNotes),planets:(Array.isArray(source.planets)?source.planets:[]).slice(0,50).map(p=>({name:text(p.name,80),hidden:!!p.hidden})),system:[{id:'object-star-'+id,kind:'sun',name:text(source.name,80),q:0,r:0,intensity:2,quantity:1},...system]};
  })};
 }
 function command(c,b,auth){

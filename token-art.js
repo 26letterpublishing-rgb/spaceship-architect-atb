@@ -5,7 +5,7 @@
   const subraces=Object.freeze(["android-perfect-android", "android-imperfect-android", "android-perfect-robot", "android-imperfect-robot", "antropic-fangs", "antropic-feather", "antropic-fins", "antropic-fluffy", "yuhorn-symitron-ice", "yuhorn-symitron-lava", "yuhorn-symitron-rock", "yuhorn-symitron-wood"]),allRaces=Object.freeze([...races,...subraces]),disguiseAllowed=r=>allRaces.includes(r)&&!['spiddix','kabuto','skeder','xithx'].includes(r);
   const ships=Object.freeze(['Pathfinder','Arrowhead','Bastion','Crescent','Longbow','Atlas','Stingray','Citadel']);
   const variant=value=>Number(value)===1?1:0;
-  function character(source={}){const c=source.character||source,baseRace=c.identity?.raceId||c.raceId||'',disguise=c.presentation?.iconRace||c.iconRace,sub=baseRace+'-'+(c.identity?.raceType||c.raceType||''),race=baseRace==='draco-prime'&&disguiseAllowed(disguise)?disguise:subraces.includes(sub)?sub:baseRace;return {race:allRaces.includes(race)?race:'',variant:variant(c.presentation?.iconVariant??c.iconVariant)};}
+  function character(source={}){const c=source.character||source,baseRace=c.identity?.raceId||c.raceId||'',disguise=c.presentation?.iconRace||c.iconRace,sub=baseRace+'-'+(c.identity?.raceType||c.raceType||''),race=(c.team==='npc'||c.physicalAttribute!=null)&&allRaces.includes(disguise)?disguise:baseRace==='draco-prime'&&disguiseAllowed(disguise)?disguise:subraces.includes(sub)?sub:baseRace;return {race:allRaces.includes(race)?race:'',variant:variant(c.presentation?.iconVariant??c.iconVariant)};}
   function attributes(source){const c=character(source);return `data-token-race="${c.race}" data-token-variant="${c.variant}"`;}
   function atlas(race){return allRaces.includes(race)?`crew-atlas-${race}-v1.webp`:'';}
   // Generated atlases have transparent gutters, but their row boundary can vary.
@@ -21,5 +21,11 @@
   function options(race){return allRaces.includes(race)?[0,1].map(v=>({value:v,label:neutral.has(race)||race.startsWith('yuhorn-')||race.includes('robot')?`Variant ${v+1}`:v?'Female':'Male'})):[];}
   function shipId(source={}){const value=Number(source.ship?.mapIcon??source.mapIcon);return Number.isInteger(value)&&value>=1&&value<=8?value:1;}
   function shipImage(source){return `ship-token-${shipId(source)}-v1.webp`;}
-  return Object.freeze({races,subraces,allRaces,disguiseAllowed,ships,variant,character,attributes,atlas,figure,options,shipId,shipImage,walkCycleMs:840});
+  // Normalized fore/aft hull edges, fitted to each existing ship silhouette.
+  const hoverMounts=[[[.09,-.22],[.30,.29]],[[.14,-.16],[.36,.29]],[[.15,-.30],[.20,.26]],[[.33,-.25],[.34,.27]],[[.065,-.22],[.14,.25]],[[.34,-.18],[.34,.24]],[[.16,-.19],[.38,.12]],[[.32,-.13],[.32,.24]]];
+  function hoverMarkup(source,size){
+    const points=hoverMounts[shipId(source)-1].flatMap(([x,y])=>[[-x,y],[x,y]]),diameter=size*.34;
+    return `<g data-hover-glow opacity="0" pointer-events="none" aria-hidden="true">${points.map(([x,y],i)=>`<g transform="translate(${x*size} ${y*size})"><g data-hover-plume="${i}">${['a','b'].map(frame=>`<image data-hover-frame="${frame}" href="hover-glow-${frame}-v1.webp" x="${-diameter/2}" y="${-diameter/2}" width="${diameter}" height="${diameter}" opacity="${frame==='a'?1:0}"/>`).join('')}</g></g>`).join('')}</g>`;
+  }
+  return Object.freeze({races,subraces,allRaces,disguiseAllowed,ships,variant,character,attributes,atlas,figure,options,shipId,shipImage,hoverMarkup,walkCycleMs:840});
 }));

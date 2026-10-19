@@ -24,11 +24,32 @@
   const selected=await new Promise(resolve=>{const d=dialog('End Session '+state.sessionNumber);let value=null;d.querySelector('[data-content]').innerHTML=`<p>Choose which ships receive the session bonuses.</p><fieldset>${ships.map(s=>`<label><input type="checkbox" data-ship="${esc(s.id)}" checked>${esc(s.title)}</label>`).join('')||'<p>No ships have registered PC crew.</p>'}</fieldset><label>Session impact die<select data-impact>${[4,6,8,10,12,20].map(n=>`<option value="${n}">D${n}</option>`).join('')}</select></label>`;d.querySelector('[data-confirm]').textContent='Continue';d.querySelector('[data-confirm]').onclick=()=>{value={shipIds:[...d.querySelectorAll('[data-ship]:checked')].map(i=>i.dataset.ship),impactSides:Number(d.querySelector('[data-impact]').value)};d.close();};d.onclose=()=>{d.remove();resolve(value);};});
   if(!selected)return null;if(!selected.shipIds.length)return selected;
   const score=await impactRoll(selected.impactSides);if(score===null)return null;
-  return new Promise(async resolve=>{const d=dialog('Choose the Reputation change');let value=null;const content=d.querySelector('[data-content]');content.innerHTML=`<p>Impact roll: <strong>${score}</strong>. Each selected ship gains up to ${score} Popularity points (maximum 100%). Choose a side below to move that Reputation slider one dot toward it.</p>`;try{
-   // Copy the actual ship-sheet chart so this is the same familiar dot interface.
-   const html=await fetch('starship.html').then(r=>r.text()),svg=new DOMParser().parseFromString(html,'text/html').querySelector('.desktop-reputation-chart');
-   svg.classList.add('reputation-chart-copy');svg.querySelector('.desktop-popularity')?.remove();svg.setAttribute('viewBox','0 0 620 190');svg.querySelectorAll('.reputation-row>text').forEach(label=>label.setAttribute('y','0'));
-   svg.querySelectorAll('.reputation-row > g').forEach((row,i)=>{for(let n=0;n<=10;n++){const dot=document.createElementNS('http://www.w3.org/2000/svg','g');dot.classList.add('reputation-position');dot.setAttribute('transform',`translate(${n*29} 0)`);dot.setAttribute('tabindex','0');dot.setAttribute('role','button');dot.setAttribute('aria-label',n===5?'Neutral — choose a side':axes[i][n<5?0:1]+' +'+Math.abs(n-5));const currentShips=ships.filter(s=>selected.shipIds.includes(s.id)&&(s.ship?.reputationSelections?.[i]??5)===n);if(currentShips.length){dot.classList.add('current-reputation');dot.style.filter='drop-shadow(0 0 4px #25b9ff)';dot.setAttribute('aria-label',dot.getAttribute('aria-label')+'; current: '+currentShips.map(s=>s.title).join(', '));}dot.innerHTML=`<circle r="9.5" fill="${currentShips.length?'#147bb4':'#151d28'}" stroke="${currentShips.length?'#72e5ff':'#fff'}"/><text y="3" text-anchor="middle" fill="white" font-size="9">${n===5?'0':'+'+Math.abs(n-5)}</text>`;const choose=()=>{if(n===5)return;svg.querySelectorAll('.selected').forEach(e=>e.classList.remove('selected'));dot.classList.add('selected');value={...selected,impactResult:score,reputationRow:i,reputationDirection:n<5?-1:1};d.querySelector('[data-confirm]').disabled=false;};dot.onclick=choose;dot.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}};row.append(dot);}});content.append(svg);
+  return new Promise(async resolve=>{const d=dialog('Choose the Reputation change');let value=null;const content=d.querySelector('[data-content]');content.innerHTML=`<p>Impact roll: <strong>${score}</strong>. Each selected ship gains up to ${score} Popularity points (maximum 100%). Choose one adjacent dot on one row. Only one +1 or −1 change is applied per ship this session. Choosing again replaces your earlier choice; selecting the original dot clears it.</p>`;try{
+   // Every preview starts from the session's original values, never the last click.
+   const choice=window.SAReputationChoice,selectedShips=ships.filter(s=>selected.shipIds.includes(s.id)),charts=[];let pending=null;
+   const html=await fetch('starship.html').then(r=>r.text()),template=new DOMParser().parseFromString(html,'text/html').querySelector('.desktop-reputation-chart');
+   const paint=()=>{
+    for(const chart of charts){const values=choice.preview(chart.original,pending);for(const dot of chart.svg.querySelectorAll('.reputation-position')){
+     const row=Number(dot.dataset.row),n=Number(dot.dataset.dot),active=values[row]===n;
+     dot.classList.toggle('current-reputation',active);dot.setAttribute('aria-pressed',String(active));
+     const label=n===5?'Neutral':axes[row][n<5?0:1]+' +'+Math.abs(n-5);
+     dot.setAttribute('aria-label',label+(active?'; active':'')+(dot.getAttribute('aria-disabled')==='true'?'; only one step from the original value is allowed':''));
+    }}
+    value=pending?{...selected,impactResult:score,reputationRow:pending.row,reputationDirection:pending.direction}:null;
+    d.querySelector('[data-confirm]').disabled=!pending;
+   };
+   for(const ship of selectedShips){
+    const svg=template.cloneNode(true),original=choice.baseline(ship.ship);charts.push({svg,original});
+    if(selectedShips.length>1){const heading=document.createElement('h3');heading.textContent=ship.title;content.append(heading);}
+    svg.classList.add('reputation-chart-copy');svg.setAttribute('aria-label',ship.title+' Reputation');svg.querySelector('.desktop-popularity')?.remove();svg.setAttribute('viewBox','0 0 620 190');svg.querySelectorAll('.reputation-row>text').forEach(label=>label.setAttribute('y','0'));
+    svg.querySelectorAll('.reputation-row > g').forEach((row,i)=>{row.replaceChildren();for(let n=0;n<=10;n++){
+     const dot=document.createElementNS(svg.namespaceURI,'g'),available=Math.abs(n-original[i])<=1;
+     dot.classList.add('reputation-position');dot.dataset.row=i;dot.dataset.dot=n;dot.setAttribute('transform',`translate(${n*29} 0)`);dot.setAttribute('tabindex',available?'0':'-1');dot.setAttribute('role','button');dot.setAttribute('aria-disabled',String(!available));
+     dot.innerHTML=`<circle r="9.5"/><text y="3" text-anchor="middle" fill="white" font-size="9">${n===5?'0':'+'+Math.abs(n-5)}</text>`;
+     const select=()=>{const next=choice.choose(original,i,n);if(next===undefined)return;pending=next;paint();};dot.onclick=select;dot.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}};row.append(dot);
+    }});content.append(svg);
+   }
+   paint();
   }catch(e){d.querySelector('[data-error]').textContent='Could not load the Reputation chart. Cancel and try again.';}
   d.querySelector('[data-confirm]').disabled=true;let confirmed=false;d.querySelector('[data-confirm]').onclick=()=>{confirmed=true;d.close();};d.onclose=()=>{d.remove();resolve(confirmed?value:null);};
   });

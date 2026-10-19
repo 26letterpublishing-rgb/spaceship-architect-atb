@@ -1,0 +1,28 @@
+GM Characters Help, NPC creation and Drama Deck — October 18, 2026
+
+Requested behavior
+- Five GM Characters Help pages retain the supplied structure with corrections for actual roster controls, NPC dice, class rewards, file loading and the shared Drama Deck.
+- Each page uses a different real screenshot from an isolated fresh campaign. Relevant instructions use the existing cyan/yellow/red emphasis. Arrow labels point at the actual controls.
+- The Characters Drama Deck badge opens a modal over the current tab. It reuses the existing discard panel, card preview, Reshuffle action and live deck counts. Empty discard piles cannot reshuffle. Escape closes a full card before closing the deck; Close restores focus to the badge.
+- New NPCs derive ATB Speed from Mental Attribute + Mental Skill, Move from 2 + Physical Skill + Physical D10/D12 count, and HP from the Physical dice maximum + 20. Each manual override persists independently. Recalculate restores all three defaults. Existing configured presets retain their values.
+- Premade and Prepare Combat NPCs can use every existing character token appearance and variant without acquiring racial mechanics. Added NPC copies retain independently editable icons, including through preparation reload, roster files and arena files.
+
+Canonical owners
+npc-statistics.js shares the existing NPC Attribute dice progression with combat-engine.js.
+gm.js shares one NPC editor and icon chooser. The Drama Deck dialog moves the existing controls rather than duplicating their state or listeners.
+token-art.js owns appearance resolution; campaign-api.js, combat-engine.js and arena-files.js retain the new metadata.
+
+Verification
+- Full suite: 1,204 tests passed, zero failures.
+- Final focused checks: 20 passed after the last combat-normalization adjustment.
+- 58 JavaScript syntax checks, JSON parsing and CRLF-aware whitespace checks passed.
+- All other GM Help topics and every PC Help topic compare equal to their pre-pass content.
+- Real browser: new template calculation, independent HP override, Recalculate, Bruggle icon save, all-appearance chooser, staged Grey icon and preparation reload, fresh campaign discard preview/Escape/reshuffle/empty state and Prompt/Give restoration.
+- Five Help page screenshots/callouts inspected; wide, 780px and 430px layouts checked. Prepare Combat editor overflow corrected using its own container width.
+- Original campaign files and frozen Gold Standard remain untouched. Native roster download completion was not retested; roster/arena round trips are covered by the tests.
+
+Publishing scope
+This #commit also includes the previously authorized local Campaign map, art, navigation, Script Help, fleet, Reputation, and save/Module work described in the October 17–18 release notes. The save/Module work still has its separate future Help-document pass; this pass changes only GM Characters Help.
+
+Local preview
+QA used an isolated data directory on port 8792. The original 8790 process was not restarted: its earlier restart was rejected by automatic approval review. Do not work around that rejection. No hosted bandwidth tests were run.

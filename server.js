@@ -2102,11 +2102,16 @@ function serveStatic(req, res) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
+    const large=/^\/api\/campaign\/(?:content\/(?:package|module|load)|v03\/load)(?:\?|$)/.test(req.url||'');
+    const limit=large?70*1024*1024:8_000_000;let bytes=0,failed=false;
     req.on("data", (chunk) => {
+      bytes+=Buffer.byteLength(chunk);if(failed)return;
+      if(bytes>limit){failed=true;body='';reject(Error('This request exceeds the '+Math.round(limit/1024/1024)+' MB upload limit.'));return;}
       body += chunk;
-      if (body.length > 8_000_000) req.destroy();
     });
+    req.on('error',reject);req.on('aborted',()=>reject(Error('Upload interrupted.')));
     req.on("end", () => {
+      if(failed)return;
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch (error) {

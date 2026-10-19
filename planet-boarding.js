@@ -8,7 +8,7 @@ function terrainAt(c,ship){
  const p=c.starmaps?.localPositions?.[ship.id];if(p?.phase!=='surface')return null;
  const star=c.starmaps.maps.find(m=>m.id===p.mapId)?.stars.find(s=>s.id===p.starId),planet=star?.system?.find(o=>o.id===p.planetId),world=star?.surfaces?.[p.planetId];if(!planet)return null;
  const region=p.regionId&&world?.regions?.[p.regionId],chart=region||world,key=region?p.regionHex:p.surfaceHex;
- return terrain.terrain(chart?.seed||planet.id,region?region.type:planet.variant,chart?.hexes,!!region,region?.uniform)[Number(key)]||planet.variant;
+ return terrain.terrain(chart?.seed||planet.id,region?region.type:planet.variant,chart?.hexes,!!region,region?.uniform,planet.size)[Number(key)]||planet.variant;
 }
 function reconcile(c,party){
  if(!party||party.transport||party.awaitingLanding)return;
@@ -41,7 +41,7 @@ function reconcile(c,party){
 }
 function startExplore(c){
  const map=c.starmaps.maps[0],star=map.stars[0],planet=star.system.find(p=>p.kind==='planet'),world=star.surfaces[planet.id],ship=c.starships.find(s=>s.controlType==='pc');if(!ship)return;
- const hex=String(Object.keys(world.regions)[0]),row=Math.floor(Number(hex)/30),column=Number(hex)%30,shipHex=String(row*30+(column<=24?column+5:column-5));
+ const hex=String(Object.keys(world.regions)[0]),{row,column}=terrain.cell(hex,false,planet.size),shipHex=terrain.hexAt(Math.min(terrain.dimensions(false,planet.size).width-1,column+5),row,false,planet.size);
  world.hexes[shipHex]={terrain:'temperate',label:'Starship Landing Field',description:'Your working starship is parked here. Return together to board at its airlock.'};
  c.starmaps.localPositions||={};c.starmaps.localPositions[ship.id]={mapId:map.id,starId:star.id,planetId:planet.id,q:planet.q,r:planet.r,phase:'surface',surfaceHex:shipHex};
  require('./campaign-planets').place(c,{mapId:map.id,starId:star.id,planetId:planet.id,hex,regionId:'',regionHex:'82',shipId:ship.id,transport:false});

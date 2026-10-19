@@ -73,19 +73,21 @@ function openSicFamily(family, items, trigger) {
       try { if (await options.purchase(type)) close(false);
       else { buy.disabled = false; dialog.querySelector("[data-family-feedback]").textContent = options.error?.() || "Purchase could not be completed."; } } catch(error) {buy.disabled=false;dialog.querySelector("[data-family-feedback]").textContent=error.message;}
     });
-    buy.disabled=Boolean(options.disabled?.(type));face.append(preview, buy);if(options.blueprint&&options.canBlueprint?.(type)!==false&&window.SAFabrication?.recipe(type)){const bp=cardHost.createElement("button");bp.className="sic-buy-blueprint";bp.textContent="Buy blueprint";bp.onclick=()=>options.blueprint(type);face.append(bp);} slot.append(face); grid.append(slot); slots.push(slot);
+    buy.disabled=Boolean(options.disabled?.(type));face.append(preview, buy);if(options.consolePreview){const consoleButton=window.SACardInspector.consoleButton(type,cardHost,message=>{dialog.querySelector('[data-family-feedback]').textContent=message;});if(consoleButton)face.append(consoleButton);}if(options.blueprint&&options.canBlueprint?.(type)!==false&&window.SAFabrication?.recipe(type)){const bp=cardHost.createElement("button");bp.className="sic-buy-blueprint";bp.textContent="Buy blueprint";bp.onclick=()=>options.blueprint(type);face.append(bp);} slot.append(face); grid.append(slot); slots.push(slot);
     if (!reducedCardMotion()) slot.animate([{ opacity: 0, transform: `translateY(45px) rotate(${(index - 2) * 5}deg) scale(.7)` }, { opacity: 1, transform: "none" }], { duration: 320, delay: index * 35, fill: "backwards" });
   }
   function fit() {
+    const faceHeight=Math.max(490,...slots.map(slot=>490+42*slot.querySelectorAll('.sic-picker-face > .sic-console-preview,.sic-picker-face > .sic-buy-blueprint').length));
+    for(const slot of slots)slot.style.setProperty('--picker-face-height',faceHeight+'px');
     const { width, height } = grid.getBoundingClientRect();
     let best = { scale: 0, columns: 1 };
     for (let columns = 1; columns <= Math.min(slots.length,options.maxColumns||slots.length); columns++) {
-      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 350), (height - (rows - 1) * 14) / (rows * 490));
+      const rows = Math.ceil(slots.length / columns), scale = Math.min(1, (width - (columns - 1) * 14) / (columns * 350), (height - (rows - 1) * 14) / (rows * faceHeight));
       if (scale > best.scale) best = { scale, columns };
     }
     const scale = Math.max(.15, best.scale);
     grid.style.gridTemplateColumns = `repeat(${best.columns},${350 * scale}px)`;
-    slots.forEach(slot => { slot.style.width = `${350 * scale}px`; slot.style.height = `${490 * scale}px`; slot.style.setProperty("--picker-scale", scale); });
+    slots.forEach(slot => { slot.style.width = `${350 * scale}px`; slot.style.height = `${faceHeight * scale}px`; slot.style.setProperty("--picker-scale", scale); });
   }
   let closing = false;
   const resize = new cardHost.defaultView.ResizeObserver(fit);

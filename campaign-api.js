@@ -702,6 +702,9 @@ function normalizeCampaign(raw) {
     mentalSkill: boundedNumber(template?.mentalSkill, 0, 4),
     heldWeaponId: String(template?.heldWeaponId || "unarmed").slice(0, 100),
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
+    iconRace: require('./token-art').allRaces.includes(template?.iconRace) ? template.iconRace : '',
+    iconVariant: require('./token-art').variant(template?.iconVariant),
+    statOverrides: require('./npc-statistics').overrides(template || {}),
     allyNpc: Boolean(template?.allyNpc ?? template?.ally),
   }));
   campaign.npcRoster ||= [];
@@ -913,6 +916,7 @@ class CampaignApi {
   }
 
   async save(campaign, { broadcast = true, incrementRevision = true } = {}) {
+    require('./content-arrivals').check(campaign);
     normalizeDramaDeck(campaign);
     const names=new Set();for(const record of campaign.starships||[]){const base=record.title||record.ship.title||"Starship";let title=base,n=1;while(names.has(title.toLowerCase()))title=base+" ("+(n++)+")";names.add(title.toLowerCase());record.title=record.ship.title=title;}
     trimPrivateNotes(campaign);
@@ -1050,6 +1054,9 @@ class CampaignApi {
       settings: clone(campaign.settings),
       preparationDraft: gm ? clone(campaign.preparationDraft || null) : undefined,
       module: gm ? clone(campaign.module || null) : undefined,
+      moduleSource: gm ? clone(campaign.moduleSource || null) : undefined,
+      contentState: gm ? clone(campaign.contentState || null) : undefined,
+      mapRecovery: gm && campaign.mapRecovery ? {savedAt:campaign.mapRecovery.savedAt,type:require('./save-file-types').identify(campaign.mapRecovery.file).id,target:clone(campaign.mapRecovery.target)} : undefined,
       npcTemplates: gm ? clone(campaign.npcTemplates) : undefined,
       npcRoster: gm ? clone(campaign.npcRoster || []) : undefined,
       crewLocations: gm ? (campaign.encounter?.units || []).map(unit => ({ id: unit.id, characterId: unit.characterId, location: clone(unit.location || null), timedAction: unit.timedAction?.kind === "move" ? { kind: "move" } : null })) : undefined,
@@ -1313,8 +1320,8 @@ class CampaignApi {
     if (req.method !== "GET") {
       try {
         body = require("./skill-catalog").migrate(await readBody(req));
-      } catch {
-        sendJson(res, 400, { error: "Bad JSON" });
+      } catch (error) {
+        sendJson(res, 400, { error: error.message?.includes('upload limit')?error.message:"Bad JSON" });
         return true;
       }
     }
@@ -1542,6 +1549,7 @@ class CampaignApi {
     }
 
     if(await require('./crew-logs').handle(this,{path,req,res,body,campaign,token,sendJson}))return true;
+    if(await require('./content-api').handle(this,{path,req,res,body,campaign,token,sendJson,normalizeCampaign,normalizeStarshipRecord,defaultCampaign}))return true;
     if(path==='/api/campaign/starship/details'&&req.method==='POST'){
       const session=this.session(token,code),gm=this.gmSession(token,code);if(!session){sendJson(res,403,{error:'Join the room first.'});return true;}
       const ids=[...new Set((Array.isArray(body.ids)?body.ids:[]).map(String))],ships=campaign.starships.filter(s=>ids.includes(s.id)&&(gm||s.controlType==='pc'));
@@ -3038,7 +3046,7 @@ class CampaignApi {
         const before = campaign.conditionalActions.length;
         campaign.conditionalActions = campaign.conditionalActions.filter((entry) => entry.id !== actionId);
         if (campaign.conditionalActions.length === before) {
-          sendJson(res, 404, { error: "Conditional action not found." });
+          sendJson(res, 404, { error: "Scripted Reward Check not found." });
           return true;
         }
         await this.save(campaign);
@@ -3059,7 +3067,7 @@ class CampaignApi {
       }
       const duplicate = campaign.conditionalActions.find((entry) => entry.id !== actionId && entry.keyword.toLowerCase() === keyword.toLowerCase());
       if (duplicate) {
-        sendJson(res, 409, { error: "That keyword is already assigned to another conditional action." });
+        sendJson(res, 409, { error: "That keyword is already assigned to another Scripted Reward Check." });
         return true;
       }
       const next = { id: actionId || uid("conditional"), keyword, kind, message, resource, amount, attribute, skill, difficulty, hideDifficulty: false };
@@ -3772,7 +3780,7 @@ class CampaignApi {
       const completionAction = campaign.conditionalActions.find((entry) => entry.id === String(body.completionActionId || "")) || null;
       const request = {
         id: uid("roll"),
-        source: String(body.source || "GM Prompt").slice(0, 160),
+        source: String(body.source || "Direct Check").slice(0, 160),
         attribute: String(body.attribute).slice(0, 40),
         skill: String(body.skill).slice(0, 80),
         difficulty: Number.isFinite(difficulty) ? difficulty : null,
@@ -3797,7 +3805,7 @@ class CampaignApi {
           direction: "to-character",
           kind: "roll-request",
           rollRequestId: request.id,
-          message: `Roll requested: ${request.attribute} + ${request.skill} (${difficultyText}).`,
+          message: `Check requested: ${request.attribute} + ${request.skill} (${difficultyText}).`,
           createdAt: request.createdAt,
           readAt: null,
         });
