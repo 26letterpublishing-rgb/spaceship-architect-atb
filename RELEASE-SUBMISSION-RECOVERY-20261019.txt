@@ -1,0 +1,46 @@
+October 19, 2026 — Combat submissions and GM recovery (#local)
+
+Damage and First Aid healing now stop at a review screen with Confirm and Submit.
+Manual totals can be corrected before submission. A failed request retains the
+same dice/result for Retry Submit. A completed or superseded request clears
+instead of trapping the player in a retry. Required character and starship rolls
+cannot be dismissed through X or Escape before completion.
+
+The shared circular close control now identifies dismissal by exact semantics,
+preserves form actions, restores buttons that change purpose between stages,
+and rebinds after dialog content is replaced. Submit controls were audited; the
+surface damage flow had automatically submitted when the dice settled rather
+than offering explicit confirmation. Other existing confirmation controls remain.
+
+GM attack recovery reuses the existing dice/manual entry and confirmation dialog.
+Resolve To-Hit for Player and Resolve Damage for Player complement existing
+Defense, First Aid and starship recovery. GM damage-count/scatter takeover keeps
+ownership of the follow-up. Obsolete player prompts and active animations clear.
+Oxygen and Cleanser operator rolls are protected; Cleanser spectators can return.
+
+Verification:
+- Full suite before final two regressions: 1,237/1,237 passed.
+- Final full suite: 1,238/1,239 passed; cloak-turn HTTP test encountered ECONNRESET.
+- Isolated rerun of that cloak test plus submission/dialog tests: 15/15 passed.
+  All 1,239 tests therefore have passing results; the full run's transient
+  connection failure is recorded rather than described as a clean full pass.
+- Twelve changed/new JavaScript syntax checks and CRLF-aware diff check passed.
+- Actual PC browser dice: damage held for confirmation, Escape did not close,
+  explicit submission acknowledged, X enabled only afterward.
+- Actual GM browser: canceled/accepted recovery confirmation, resolved a
+  disconnected PC's to-hit and damage, then confirmed NPC damage once.
+- HTTP tests cover disconnected defender, damage-count ownership, stale/duplicate
+  results, First Aid and disconnected starship accuracy/damage completion.
+- Personal campaign files backed up and unchanged by SHA-256 after server restart.
+- Normal localhost:8790 restarted as PID 22896; updated assets respond HTTP 200.
+- Disposable browser tab and port 8794 server closed; bootstrap HTML removed.
+
+Evidence: ../outputs/submission-audit-qa/damage-awaiting-confirmation.png
+Test logs: ../outputs/submission-audit-qa/full-tests-final.txt and
+../outputs/submission-audit-qa/full-tests-release.txt
+
+No new Help text, generated assets, save format changes, commit, push or ntfy.
+Existing shared dice, forms, handlers and GM recovery were extended. Personal
+campaigns, Gold Standard and unrelated QA files were preserved. Live browser
+coverage used a disposable local room; it is not a guarantee against all possible
+network failures or an external multi-device playtest.

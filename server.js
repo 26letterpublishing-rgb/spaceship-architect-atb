@@ -3205,6 +3205,9 @@ async function handleRoomAction(body, res, automated = false) {
 
   }
 
+  // A GM taking over a damage-count/scatter roll also owns its follow-up.
+  if (action === 'submitAttackDamage' && gmAuthorized && room.attackResolution) room.attackResolution.rollController = 'gm';
+
   if (action === "confirmNpcDamage") {
     const state = room.attackResolution;
     const finalDamage = Number(body.finalDamage);

@@ -472,6 +472,57 @@
         "tests/campaign-shops-http.test.js",
         "tests/content-workflow.test.js"
       ]
+    },
+    {
+      "name": "Combat submissions and GM recovery",
+      "purpose": "Keep required player results actionable and let the GM complete combat when a player disconnects",
+      "canonicalImplementation": "app.js",
+      "interfaces": [
+        "character.js",
+        "character.html",
+        "index.html",
+        "server.js",
+        "ship-roll-ui.js",
+        "missile-ui.js",
+        "oxygen-ui.js",
+        "cleanser-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "dialog-chrome.js",
+        "npc-combat-dice.js"
+      ],
+      "expectedBehavior": "Damage and healing require explicit Confirm and Submit. Failed submissions retain their results for retry; obsolete requests clear. Required combat dice cannot be dismissed through X or Escape. Shared close chrome never replaces gameplay submissions and rebinds after stage changes. GM recovery reuses existing dice/manual controls for player attack, defense and damage; follow-up damage-count/scatter dice remain GM-owned. Existing First Aid and starship recovery stay accessible.",
+      "regressionTests": [
+        "tests/damage-confirmation.test.js",
+        "tests/dialog-chrome.test.js",
+        "tests/combat-roll-takeover-http.test.js",
+        "tests/fresh-player-campaign-http.test.js",
+        "Manual PC damage confirmation and Escape protection; disconnected PC GM takeover through final damage"
+      ]
+    },
+    {
+      "name": "GM Combat Help",
+      "purpose": "Practical encounter preparation, timing, recovery and station guidance",
+      "canonicalImplementation": "combat-help-content.js",
+      "interfaces": [
+        "gm.html",
+        "app-help.js",
+        "index.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "dialog-chrome.js",
+        "help-combat-*.webp",
+        "help-characters-prepare.png",
+        "help-starships-console.webp"
+      ],
+      "expectedBehavior": "Five shared pages plus five Surface and five Starship pages in the existing Help dialog. Persistent section controls remember each section page while open. Exact controls, GM roll recovery and two-stage queued delays are explained conversationally. Actual UI screenshots and arrows match the controls. Delay readouts say Delay Rate and Higher rates finish sooner; calculation identifiers and mechanics are unchanged. Other GM and PC Help text remains unchanged.",
+      "regressionTests": [
+        "tests/combat-help.test.js",
+        "tests/dialog-chrome.test.js",
+        "tests/starship-help.test.js",
+        "tests/public-assets.test.js",
+        "Manual all-page image/navigation checks, desktop and narrow layouts, section switching, Escape and X"
+      ]
     }
   ]
 }

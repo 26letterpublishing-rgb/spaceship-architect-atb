@@ -175,6 +175,7 @@ test('fresh player builds an obscure-SIC ship, obtains paid GM approval, joins c
 
   await ready();
   const hullBefore = state.starships.find(s => s.id === enemy.id).currentHullHp;
+  const beforePcShot = await fetch(`${base}/api/campaign/backup?code=${code}&token=${gm}`).then(r=>r.json());
   state = await playerAction({ action: 'weaponCommand', id: unitId, sicId: own.ship.sicInventory.find(i => i.type === 'rapid-laser-1').id, targetId: enemy.id, requestId: 'first-player-shot' });
   pending = unit().delayedAction;
   assert.equal(pending.awaitingRoll, true);
@@ -186,6 +187,18 @@ test('fresh player builds an obscure-SIC ship, obtains paid GM approval, joins c
   assert.equal(unit().delayedAction, null);
   assert.equal(state.rollPaused, false);
   assert.ok(state.starships.find(s => s.id === enemy.id).currentHullHp < hullBefore);
+  // No player event stream is connected: the GM must be able to finish both rolls.
+  await post('campaign/restore',{code,token:gm,backup:beforePcShot});
+  state = await combat();
+  state = await playerAction({ action:'weaponCommand',id:unitId,sicId:own.ship.sicInventory.find(i=>i.type==='rapid-laser-1').id,targetId:enemy.id,requestId:'disconnected-player-shot' });
+  pending = unit().delayedAction;
+  assert.equal(pending.awaitingRoll,true);
+  state = await act({action:'rollShipAction',id:unitId,rollId:pending.id,score:18});
+  await stepsUntil(()=>Boolean(unit().delayedAction?.weaponDamage),'GM takeover reaches weapon damage');
+  pending = unit().delayedAction;
+  assert.equal(pending.rollController,'gm');
+  state = await act({action:'rollShipAction',id:unitId,rollId:pending.id,diceResults:Array(pending.weaponDamage.count).fill(2)});
+  assert.equal(unit().delayedAction,null);assert.equal(state.rollPaused,false);
   state = await act({ action: 'setHardPaused', paused: true });
   const beforeRestart = await combat();
   await sleep(500); // Let the ordinary debounced persistence finish.

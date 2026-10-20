@@ -62,7 +62,7 @@
   }
   function openDamage(m,bridge){
     if(dialog)return;
-    const doc=host(),view=dialog=doc.createElement('dialog');view.dataset.rollId=m.id;view.setAttribute('aria-label','Missile Damage');
+    const doc=host(),view=dialog=doc.createElement('dialog');view.dataset.rollId=m.id;view.setAttribute('aria-label','Missile Damage');view.setAttribute('data-required-roll','');
     view.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent';
     const frame=doc.createElement('iframe');frame.title='Missile damage dice';frame.style.cssText='width:100%;height:100%;border:0;background:transparent';
     const status=doc.createElement('div');status.setAttribute('role','status');status.style.cssText='position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);padding:20px;background:#081922;color:#fff;border:1px solid #ff8991;font:16px Arial';

@@ -387,9 +387,10 @@
             <p id="delayDialogTarget">Character</p>
           </div>
           <div class="delay-rate-readout">
-            <span>Timer</span>
+            <span>Delay Rate</span>
             <strong id="delayRatePreview">8.0</strong>
             <small id="delayModifierPreview">Base 8</small>
+            <small>Higher rates finish sooner.</small>
           </div>
         </div>
 
@@ -423,9 +424,10 @@
             <p id="queuedEffectTarget">Character</p>
           </div>
           <div class="delay-rate-readout queued-readout">
-            <span>Speed</span>
+            <span>Delay Rate</span>
             <strong id="queuedEffectRatePreview">8.0</strong>
             <small id="queuedEffectModifierPreview">Base 8</small>
+            <small>Higher rates finish sooner.</small>
           </div>
         </div>
 
@@ -551,6 +553,7 @@
         </div>
         <div id="gmNpcRollPrompts" class="gm-npc-roll-prompts"></div>
         <button id="gmResolveDefender" class="mini gm-resolve-defender" type="button" hidden>Resolve for Defender</button>
+        <button id="gmResolveAttacker" class="mini gm-resolve-defender" type="button" hidden>Resolve To-Hit for Player</button>
         <form id="gmNpcDamageForm" class="combat-action-form gm-npc-damage-confirm" hidden>
           <div id="gmNpcDamageBreakdown" class="attack-damage-breakdown"></div>
           <label>Final Damage

@@ -89,8 +89,9 @@
    rollTakeover=doc.createElement('button');rollTakeover.textContent='GM: Resolve this roll';rollTakeover.onclick=()=>sendDamage('takeover');
    rollReload=doc.createElement('button');rollReload.textContent='Retry Loading Dice';
    const reload=()=>{rollReady=false;rollSignature='';loadDeadline=Date.now()+5000;rollFrame.src=new URL('character.html?shipRoll=1',location.href);};
-   rollReload.onclick=reload;const back=doc.createElement("button");back.textContent="Return to Combat";back.onclick=()=>{hiddenRoll=e.id+":"+b.state().planetaryEvent.phase;closeRoll();};controls.append(back,rollTakeover,rollReload);rollView.append(rollFrame,controls,rollError);rollView.addEventListener('cancel',event=>{event.preventDefault();hiddenRoll=e.id+':'+b.state().planetaryEvent.phase;closeRoll();});doc.body.append(rollView);rollView.showModal();reload();
+   rollReload.onclick=reload;const back=doc.createElement("button");back.textContent="Return to Combat";back.setAttribute("data-cleanser-return","");back.onclick=()=>{if(canResolve(b,b.state().planetaryEvent))return;hiddenRoll=e.id+":"+b.state().planetaryEvent.phase;closeRoll();};controls.append(back,rollTakeover,rollReload);rollView.append(rollFrame,controls,rollError);rollView.addEventListener('cancel',event=>{event.preventDefault();if(canResolve(b,b.state().planetaryEvent))return;hiddenRoll=e.id+':'+b.state().planetaryEvent.phase;closeRoll();});doc.body.append(rollView);rollView.showModal();reload();
   }
+  rollView.toggleAttribute('data-required-roll',canResolve(b,e));rollView.querySelector('[data-cleanser-return]').disabled=canResolve(b,e);
   rollTakeover.hidden=b.mode()!=='gm'||canResolve(b,e);rollReload.hidden=rollReady||Date.now()<loadDeadline;
   const signature=JSON.stringify([e.phase,e.rollController,e.damage,canResolve(b,e)]);
   if(rollReady&&signature!==rollSignature){rollSignature=signature;rollFrame.contentWindow.postMessage(rollPayload(b,e),location.origin);}

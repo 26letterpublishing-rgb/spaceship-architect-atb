@@ -518,6 +518,8 @@ const dom = {
   submitManualCombatDamage: $("#submitManualCombatDamage"),
   rollCombatDamage: $("#rollCombatDamage"),
   exitCombatDamageResult: $("#exitCombatDamageResult"),
+  confirmCombatDamage: $("#confirmCombatDamage"),
+  editCombatDamage: $("#editCombatDamage"),
   rollResultToast: $("#rollResultToast"),
   campaignGate: $("#characterCampaignGate"),
   campaignEntryPrompt: $("#campaignEntryPrompt"),
@@ -4836,7 +4838,7 @@ function openAttributeCheck(attributeKey) {
 
 function closeSkillCheck(options = {}) {
   if(!options?.discardCombat&&(PAGE_PARAMS.has('shipRoll')||skillCheck?.combatRequest)&&!skillCheck?.cancelable&&!skillCheck?.combatSubmitted)return;
-  if (diceRoller.isActive()) return;
+  if (diceRoller.isActive()) { if (!options?.discardCombat) return; diceRoller.stop(); }
   if(PAGE_PARAMS.has('shipRoll')&&skillCheck?.cancelable&&!options?.discardCombat&&!skillCheck.submitting){parent.postMessage({type:'sa-ship-skill-cancel',rollId:skillCheck.combatRequest?.attackId},location.origin);skillCheck=null;dom.skillCheckModal.hidden=true;document.body.classList.remove('skill-check-open','skill-roll-active');return;}
   const discardCombat = options?.discardCombat === true;
   if (!discardCombat && skillCheck?.submitting) return;
@@ -5105,6 +5107,8 @@ function openCombatSkillRequest(request) {
 
 function openCombatDamageRequest(request) {
   activeCombatDamageRequest = request;
+  request.pendingResult = null;
+  dom.editCombatDamage.hidden = true;
   combatDamageSubmitted = false;
   const parsed = damageFormulaPool(request.damageFormula);
   if(request.damageFormulaSupported === false) parsed.supported=false;
@@ -5120,6 +5124,10 @@ function openCombatDamageRequest(request) {
   dom.combatDamageManual.value = "";
   dom.combatDamageManual.disabled = false;
   dom.submitManualCombatDamage.hidden = false;
+  dom.submitManualCombatDamage.textContent = healing ? 'Review Manual Healing' : 'Review Manual Damage';
+  dom.confirmCombatDamage.hidden = true;
+  dom.confirmCombatDamage.disabled = false;
+  dom.confirmCombatDamage.textContent = 'Confirm and Submit';
   dom.rollCombatDamage.hidden = false;
   dom.exitCombatDamageResult.hidden = true;
   dom.combatDamageResult.hidden = true;
@@ -5189,10 +5197,12 @@ function processPendingCombatRequest() {
   else openCombatSkillRequest(request);
 }
 
-async function finishCombatDamage(rolledDamage, mode, diceResults = []) {
-  if (!activeCombatDamageRequest || combatDamageSubmitted) return;
+function finishCombatDamage(rolledDamage, mode, diceResults = []) {
+  if (!activeCombatDamageRequest || combatDamageSubmitted || activeCombatDamageRequest.pendingResult) return;
   const request = activeCombatDamageRequest;
-  combatDamageSubmitted = true;
+  request.pendingResult = { rolledDamage, mode, diceResults: [...diceResults] };
+  dom.editCombatDamage.hidden = mode !== 'manual';
+  dom.editCombatDamage.disabled = false;
   dom.combatDamageError.textContent = '';
   dom.combatDamageResult.hidden = false;
   dom.combatDamageResult.textContent = diceResults.length
@@ -5202,38 +5212,61 @@ async function finishCombatDamage(rolledDamage, mode, diceResults = []) {
   dom.submitManualCombatDamage.hidden = true;
   dom.rollCombatDamage.hidden = true;
   dom.exitCombatDamageResult.hidden = true;
+  dom.confirmCombatDamage.hidden = false;
+  dom.confirmCombatDamage.disabled = false;
+  dom.confirmCombatDamage.textContent = 'Confirm and Submit';
+  dom.combatDamageSubtitle.textContent = 'Review your result, then Confirm and Submit to send it to the GM.';
+  dom.confirmCombatDamage.focus();
+}
+
+async function confirmCombatDamageResult() {
+  const request = activeCombatDamageRequest;
+  if (!request?.pendingResult || combatDamageSubmitted) return;
+  const { rolledDamage, mode, diceResults } = request.pendingResult;
+  combatDamageSubmitted = true;
+  dom.editCombatDamage.disabled = true;
+  dom.confirmCombatDamage.disabled = true;
+  dom.combatDamageError.textContent = '';
   try { await submitCombatMessage(request.healing ? {
     type: "sa-combat-healing-result",
-    resolutionId: activeCombatDamageRequest.resolutionId || activeCombatDamageRequest.attackId,
+    resolutionId: request.resolutionId || request.attackId,
     rolledHealing: rolledDamage,
     mode,
     diceResults,
   } : {
     type: "sa-combat-damage-result",
-    attackId: activeCombatDamageRequest.attackId,
+    attackId: request.attackId,
     rolledDamage,
     mode,
     diceResults,
   });
-    if (activeCombatDamageRequest === request) dom.exitCombatDamageResult.hidden = false;
+    if (activeCombatDamageRequest === request) {
+      dom.confirmCombatDamage.hidden = true;
+      dom.editCombatDamage.hidden = true;
+      dom.exitCombatDamageResult.hidden = false;
+      dom.combatDamageSubtitle.textContent = 'Result submitted to the GM.';
+    }
   } catch (error) {
     if (activeCombatDamageRequest !== request) return;
     combatDamageSubmitted = false;
-    if (error.obsolete) { closeCombatDamageResult(); notice(error.message, 'error'); return; }
+    if (error.obsolete) { closeCombatDamageResult({ discardCombat: true }); notice(error.message, 'error'); return; }
     dom.combatDamageError.textContent = 'Not submitted: ' + error.message + ' ';
-    const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Retry Submit';
-    retry.onclick = () => { retry.remove(); void finishCombatDamage(rolledDamage, mode, diceResults); };
-    dom.combatDamageError.append(retry);
+    dom.confirmCombatDamage.textContent = 'Retry Submit';
+    dom.confirmCombatDamage.disabled = false;
+    dom.editCombatDamage.disabled = false;
   }
 }
 
 function closeCombatDamageResult(options = {}) {
+  if (activeCombatDamageRequest && !options.discardCombat && (!combatDamageSubmitted || dom.exitCombatDamageResult.hidden)) return;
+  if (activeCombatDamageRequest && options.discardCombat && diceRoller.isActive()) diceRoller.stop();
   const processNext = options?.processNext !== false;
   dom.combatDamageModal.hidden = true;
   document.body.classList.remove("skill-check-open", "skill-roll-active");
   activeCombatDamageRequest = null;
   combatDamageSubmitted = false;
   dom.exitCombatDamageResult.hidden = true;
+  dom.confirmCombatDamage.hidden = true;
   if (processNext) processPendingCombatRequest();
 }
 
@@ -5247,7 +5280,7 @@ function resetCombatInterfaceState({ clearFrame = false } = {}) {
   pendingCombatRequest = null;
   lastReceivedCombatRequestKey = "";
   if (skillCheck?.combatRequest) closeSkillCheck({ discardCombat: true });
-  closeCombatDamageResult({ processNext: false });
+  closeCombatDamageResult({ processNext: false, discardCombat: true });
   if (clearFrame && dom.playerAtbFrame) {
     dom.playerAtbFrame.removeAttribute("src");
     delete dom.playerAtbFrame.dataset.campaignCode;
@@ -5266,8 +5299,9 @@ function submitManualCombatDamage() {
 }
 
 function rollCombatDamage() {
-  if (!activeCombatDamageRequest || combatDamageSubmitted || diceRoller.isActive()) return;
-  const parsed = activeCombatDamageRequest.parsedDamage;
+  if (!activeCombatDamageRequest || combatDamageSubmitted || activeCombatDamageRequest.pendingResult || diceRoller.isActive()) return;
+  const request = activeCombatDamageRequest;
+  const parsed = request.parsedDamage;
   if (!parsed?.supported) return;
   if (!parsed.dice.length) {
     finishCombatDamage(Math.max(0, parsed.flat), "automatic", []);
@@ -5285,6 +5319,7 @@ function rollCombatDamage() {
     onSettled: (results) => {
       document.body.classList.remove("skill-roll-active");
       diceRoller.stop();
+      if (activeCombatDamageRequest !== request) return;
       const deathActive = combatDeathSequenceActive();
       if (!deathActive) dom.combatDamageModal.hidden = false;
       finishCombatDamage(Math.max(0, results.reduce((sum, value) => sum + value, 0) + parsed.flat), "automatic", results);
@@ -5313,6 +5348,7 @@ function renderFusionSelectionState() {
 
 async function resolvePhysicalSkillRoll(results) {
   if (!skillCheck) return;
+  const rollingCheck = skillCheck;
   skillCheck.lastResults = [...results];
   const profile = rollRuleProfile();
   let adjustedResults = [...results];
@@ -5339,10 +5375,12 @@ async function resolvePhysicalSkillRoll(results) {
       sides: Array.from({ length: garmocBonusCount }, () => 20), title: "Garmoc Fusion Bonus",
       subtitle: `${garmocBonusCount} independent D20${garmocBonusCount === 1 ? "" : "s"}; these dice cannot fuse.`, fusion: false,
       onResolved: () => {}, onSettled: (bonusResults) => {
+        if (skillCheck !== rollingCheck) { resolve([]); return; }
         document.body.classList.remove("skill-roll-active"); diceRoller.stop(); dom.skillCheckModal.hidden = false; resolve(bonusResults);
       },
     }));
   }
+  if (skillCheck !== rollingCheck) return;
   const values = [
     ...skillCheck.preservedFusions.map((fusion) => fusion.value),
     ...analyzed.fusions.map((fusion) => fusion.value),
@@ -5461,6 +5499,7 @@ function rollSkillCheck() {
   if(automatic!==null){skillCheck.difficulty=dom.skillDifficulty.value;if(!commitSkillCheckCosts())return;skillCheck.immediateResult=true;skillCheck.autoSuccess=true;showSkillResult({score:automatic,equation:'Auto Succeed — minimum possible result is above zero.',outcome:'Critical Success',manual:true,diceResults:[]});return;}
 
   if (!skillCheck || !skillCheck.attributeKey) return;
+  const rollingCheck = skillCheck;
   if(skillCheck.sharedDamage){
     dom.rollSkillCheck.disabled=true;
     parent.postMessage({type:'sa-shared-damage-roll',rollId:skillCheck.combatRequest.attackId},location.origin);return;
@@ -5468,6 +5507,7 @@ function rollSkillCheck() {
   if(skillCheck.damage){
     skillCheck.currentRollSides=[...skillCheck.activeSides];dom.skillCheckModal.hidden=true;document.body.classList.add('skill-roll-active');
     diceRoller.rollPool({sides:skillCheck.currentRollSides,title:'Damage Roll',subtitle:'Add every red die. No fusion.',fusion:false,damage:true,onSettled:values=>{
+      if (skillCheck !== rollingCheck) return;
       diceRoller.stop();document.body.classList.remove('skill-roll-active');dom.skillCheckModal.hidden=false;
       const score=values.reduce((a,b)=>a+b,0)+(Number(skillCheck.overrideBonus)||0);showSkillResult({score,equation:values.join(' + ')+' = '+score,outcome:'Damage',diceResults:values});
       dom.skillResultLabel.textContent='DAMAGE';dom.skillResultOutcome.textContent='Confirm to apply damage';
@@ -5492,6 +5532,7 @@ function rollSkillCheck() {
     fusion: true,
     onResolved: () => {},
     onSettled: (results) => {
+      if (skillCheck !== rollingCheck) return;
       document.body.classList.remove("skill-roll-active");
       diceRoller.stop();
       dom.skillCheckModal.hidden = false;
@@ -6222,6 +6263,7 @@ function availableFreeReroll() {
 }
 
 function useFreeRuleReroll() {
+  const rollingCheck = skillCheck;
   const rule = availableFreeReroll();
   if (!rule || diceRoller.isActive()) return;
   const ranked = skillCheck.lastResults.map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value || a.index - b.index);
@@ -6241,6 +6283,7 @@ function useFreeRuleReroll() {
     fusion: true,
     onResolved: () => {},
     onSettled: (fresh) => {
+      if (skillCheck !== rollingCheck) return;
       const combined = Array(skillCheck.currentRollSides.length);
       kept.forEach((entry) => { combined[entry.index] = entry.value; });
       let cursor = 0;
@@ -8767,7 +8810,7 @@ window.addEventListener("message", (event) => {
       closeSkillCheck({ discardCombat: true });
     }
     if ((!attackId || activeCombatDamageRequest?.attackId === attackId) && !combatDamageSubmitted) {
-      closeCombatDamageResult({ processNext: false });
+      closeCombatDamageResult({ processNext: false, discardCombat: true });
     }
     if (!attackId || lastReceivedCombatRequestKey.startsWith(attackId + ":")) lastReceivedCombatRequestKey = "";
     return;
@@ -9247,6 +9290,19 @@ dom.rollSkillCheck.addEventListener("click", rollSkillCheck);
 dom.submitManualCombatDamage?.addEventListener("click", submitManualCombatDamage);
 dom.rollCombatDamage?.addEventListener("click", rollCombatDamage);
 dom.exitCombatDamageResult?.addEventListener("click", closeCombatDamageResult);
+dom.confirmCombatDamage?.addEventListener("click", confirmCombatDamageResult);
+dom.editCombatDamage?.addEventListener('click', () => {
+  if (!activeCombatDamageRequest || combatDamageSubmitted || activeCombatDamageRequest.pendingResult?.mode !== 'manual') return;
+  activeCombatDamageRequest.pendingResult = null;
+  dom.combatDamageManual.disabled = false;
+  dom.combatDamageResult.hidden = true;
+  dom.combatDamageError.textContent = '';
+  dom.confirmCombatDamage.hidden = true;
+  dom.editCombatDamage.hidden = true;
+  dom.submitManualCombatDamage.hidden = false;
+  dom.combatDamageSubtitle.textContent = 'Correct your manual total, then review and submit it.';
+  dom.combatDamageManual.focus();
+});
 dom.rerollSkillCheck.addEventListener("click", beginSkillReroll);
 dom.freeRuleReroll.addEventListener("click", useFreeRuleReroll);
 dom.skillCheckClose.addEventListener("click", closeSkillCheck);

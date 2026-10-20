@@ -73,4 +73,32 @@ test('GM takeover retains follow-up roll ownership without taking over a differe
     assert.equal(s.activeId, nova.id);
     assert.equal(s.units.find(u => u.id === nova.id).timedAction, null);
   });
+  await t.test('GM can finish a disconnected attacker from To-Hit through damage and NPC confirmation', async () => {
+    await restore(s => { s.attackResolution = attack(); s.pausedForTurn = true; s.activeId = nova.id; });
+    let s = await gm({ action:'submitAttackRoll', id:nova.id, attackId:'takeover-attack', rollRole:'attacker', score:10 });
+    assert.equal(s.attackResolution.attackerRoll.submittedBy,'gm');
+    s = await gm({ action:'submitAttackRoll', id:slug.id, attackId:'takeover-attack', rollRole:'defender', score:1 });
+    const pendingId=s.attackResolution.id;
+    s = await gm({ action:'submitAttackDamage', id:nova.id, attackId:pendingId, rolledDamage:2 });
+    assert.equal(s.attackResolution.phase,'gmDamage');
+    s = await gm({ action:'confirmNpcDamage', attackId:pendingId, finalDamage:2 });
+    assert.equal(s.attackResolution,null);assert.equal(s.pausedForTurn,false);
+    await post('/api/action',{roomCode:room.code,gmToken:room.gmToken,action:'submitAttackDamage',id:nova.id,attackId:pendingId,rolledDamage:2},409);
+  });
+  await t.test('GM can finish a disconnected PC defender without requiring a player response', async () => {
+    await restore(s => { s.attackResolution={...attack(),attackerId:slug.id,defenderId:nova.id,attackerName:slug.characterName,defenderName:nova.characterName};s.pausedForTurn=true;s.activeId=slug.id; });
+    await gm({action:'submitAttackRoll',id:slug.id,attackId:'takeover-attack',rollRole:'attacker',score:10});
+    let s=await gm({action:'submitAttackRoll',id:nova.id,attackId:'takeover-attack',rollRole:'defender',score:1});
+    s=await gm({action:'submitAttackDamage',id:slug.id,attackId:s.attackResolution.id,rolledDamage:1});
+    assert.equal(s.attackResolution,null);assert.equal(s.pausedForTurn,false);
+  });
+  await t.test('GM takeover at damage-count retains ownership of the final damage roll', async () => {
+    await restore(s=>{s.attackResolution={...attack(),phase:'damage',weaponId:'thunder-rifle',weaponName:'Thunder Rifle',chargeCount:0,attackerRoll:{score:10},defenseRoll:{score:1},attackResult:{critical:false},followup:{kind:'damageCount',plan:attack().plan}};s.pausedForTurn=true;s.activeId=nova.id;});
+    let s=await gm({action:'submitAttackDamage',id:nova.id,attackId:'takeover-attack',rolledDamage:2});
+    assert.equal(s.attackResolution.phase,'damage');assert.notEqual(s.attackResolution.id,'takeover-attack');assert.equal(s.attackResolution.rollController,'gm');
+    await pc({action:'submitAttackDamage',id:nova.id,attackId:s.attackResolution.id,rolledDamage:4},403);
+    s=await gm({action:'submitAttackDamage',id:nova.id,attackId:s.attackResolution.id,rolledDamage:4});
+    s=await gm({action:'confirmNpcDamage',attackId:s.attackResolution.id,finalDamage:4});
+    assert.equal(s.attackResolution,null);assert.equal(s.pausedForTurn,false);
+  });
 });

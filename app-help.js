@@ -208,21 +208,26 @@
     if(doc.getElementById('sa-app-help'))return;
     const key=typeof requestedTopic==='string'?requestedTopic:gm?document.querySelector('.gm-tab.active[data-tab-panel]')?.dataset.tabPanel:document.querySelector('[data-character-tab].active')?.dataset.characterTab;
     const topic=({roster:'campaign',sheet:'characters',atb:'combat',give:'prompt',prompts:'prompt',script:'story'})[key]||key||'campaign';
-    const content=pages[topic]||pages.campaign;let page=0;
+    const combat=gm&&topic==='combat'?window.SACombatHelpContent:null;
+    let combatType='surface',page=0;
+    const remembered={shared:0,surface:0,starship:0};
+    let content=combat?[...combat.shared,...combat[combatType]]:pages[topic]||pages.campaign;
+    const rich=['story','campaign'].includes(topic)||(gm&&['characters','settings','starships','prompt','shop','combat'].includes(topic));
     const dialog=doc.createElement('dialog');dialog.id='sa-app-help';dialog.setAttribute('aria-label','Help');
     dialog.style.cssText='width:min(1000px,94vw);max-height:85vh;box-sizing:border-box;background:#382112;color:#fff1df;border:2px solid #cd843b;border-radius:14px;padding:20px;box-shadow:0 18px 90px #000c;font:15px/1.5 Arial,sans-serif';
-    const style=doc.createElement('style');style.textContent='#sa-app-help::backdrop{background:#080401aa;backdrop-filter:blur(8px)}#sa-app-help button{font:inherit;color:#fff1df;background:#633810;border:1px solid #d8944c;border-radius:8px;padding:8px 16px;cursor:pointer}#sa-app-help button:disabled{opacity:.4;cursor:default}#sa-app-help p{margin:8px 0}#sa-app-help .help-check{color:#80ddff;font-weight:700}#sa-app-help .help-quick{color:#ff91cb;font-weight:700}#sa-app-help .help-warning{color:#ffb3a5}#sa-app-help .help-reminder{color:#ffdf77}#sa-app-help h3{font-size:17px;margin:16px 0 6px}#sa-app-help table{width:100%;border-collapse:collapse;font-size:14px}#sa-app-help th,#sa-app-help td{padding:6px 9px;border:1px solid #946138;text-align:left}#sa-app-help nav{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}#sa-app-help nav button{font-size:13px;padding:5px 9px}#sa-app-help nav button[aria-current=page]{background:#96601f;border-color:#ffcf78}';
+    const style=doc.createElement('style');style.textContent='#sa-app-help::backdrop{background:#080401aa;backdrop-filter:blur(8px)}#sa-app-help button{font:inherit;color:#fff1df;background:#633810;border:1px solid #d8944c;border-radius:8px;padding:8px 16px;cursor:pointer}#sa-app-help button:disabled{opacity:.4;cursor:default}#sa-app-help p{margin:8px 0}#sa-app-help .help-check{color:#80ddff;font-weight:700}#sa-app-help .help-quick{color:#ff91cb;font-weight:700}#sa-app-help .help-warning{color:#ffb3a5}#sa-app-help .help-reminder{color:#ffdf77}#sa-app-help h3{font-size:17px;margin:16px 0 6px}#sa-app-help table{width:100%;border-collapse:collapse;font-size:14px}#sa-app-help th,#sa-app-help td{padding:6px 9px;border:1px solid #946138;text-align:left}#sa-app-help nav{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}#sa-app-help nav button{font-size:13px;padding:5px 9px}#sa-app-help nav button[aria-current=page],#sa-app-help nav button[aria-pressed=true]{background:#96601f;border-color:#ffcf78}#sa-app-help .combat-help-nav{position:sticky;top:-20px;z-index:3;background:#382112;padding:12px 42px 6px 0}#sa-app-help .combat-help-nav nav{margin-bottom:6px}#sa-app-help .combat-help-nav button:focus-visible{outline:2px solid #80ddff;outline-offset:2px}';
     dialog.append(style);const heading=doc.createElement('h2'),body=doc.createElement('div'),preview=doc.createElement('div'),footer=doc.createElement('footer');
     heading.style.cssText='margin:0 0 12px;font-size:22px';body.style.minHeight='0';preview.style.cssText='padding:10px;border:1px solid #bd8648;background:#21160f;text-align:center;color:#ffd494';
     footer.style.cssText='display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;position:sticky;bottom:-20px;background:#382112;padding:12px 0;z-index:2';
     const prev=doc.createElement('button'),next=doc.createElement('button'),count=doc.createElement('span'),dismiss=doc.createElement('button');
     prev.textContent='Previous';next.textContent='Next';dismiss.textContent='Dismiss';dismiss.style.marginLeft='auto';
-    const renderPreview=label=>{
-      preview.replaceChildren();preview.setAttribute('role','img');preview.setAttribute('aria-label',label||'');
+    const renderPreview=(label,target=preview)=>{
+      target.replaceChildren();if(Array.isArray(label)){target.removeAttribute('role');target.removeAttribute('aria-label');for(const key of label){const part=doc.createElement('div');part.style.marginBottom='16px';target.append(part);renderPreview(key,part);}return;}target.setAttribute('role','img');target.setAttribute('aria-label',label||'');
       if(String(label||'').startsWith('ships-')){
-        preview.setAttribute('aria-label',window.SAStarshipHelpContent.shots[label]?.alt||label);preview.append(window.SAStarshipGuide.figure(doc,label));
-      }else if(/^(story|campaign|characters|settings|prompt|shop)-/.test(String(label||''))){
+        target.setAttribute('aria-label',window.SAStarshipHelpContent.shots[label]?.alt||label);target.append(window.SAStarshipGuide.figure(doc,label));
+      }else if(/^(story|campaign|characters|settings|prompt|shop|combat)-/.test(String(label||''))){
         const shots={
+          ...(combat?.shots||{}),
 "shop-overview":{"file": "help-shop-overview.png", "w": 1225, "h": 259, "alt": "GM shop list with Frontier Trading Post available and Everything closed", "caption": "Only Frontier Trading Post is open in this example. Everything remains optional.", "width": 900, "gutter": 0, "marks": []},
 "shop-editor":{"file": "help-shop-editor.png", "w": 1225, "h": 143, "alt": "Edit Shop header and the Frontier Trading Post name field", "caption": "Use the form beneath the shop list. Apply Changes saves into the campaign; Save Shop exports a file.", "width": 900, "gutter": 0, "marks": []},
 "shop-stock":{"file": "help-shop-stock.png", "w": 780, "h": 654, "alt": "Availability controls with SIC Level 2, Enable All and Exhaust Thruster search results", "caption": "Checked models above the SIC limit are still excluded. Searching filters the list without changing stock.", "width": 780, "gutter": 0, "marks": []},
@@ -257,10 +262,10 @@
           'campaign-terrain':{file:'help-campaign-terrain.png',alt:'Paint Terrain mode with six terrain types, city brushes, Undo Stroke and Apply to all at the far right',caption:'Paint Terrain changes terrain. Apply to all confirms a whole-map fill and preserves locations. Edit Locations and Move Markers are separate modes.',w:1800,h:1000,height:145,cropTop:198,width:900,gutter:250,marks:[['Apply to all',62,1750,62],['Brushes',115,390,62]]},
           'campaign-location-editor':{file:'help-campaign-location-editor.png',alt:'Location editor showing separate public description, GM-only information and Arrival shop fields',caption:'Players receive the public description. GM-only information remains private; Arrival shop is a separate setting.',w:584,h:338,width:820,gutter:236,marks:[['Public description',77,575,77],['GM only',209,575,209],['Arrival shop',312,575,312]]}
         },shot=shots[label],gutter=shot.gutter??224,totalWidth=shot.w+gutter,totalHeight=shot.height||shot.h;
-        preview.setAttribute('aria-label',shot.alt+'. '+shot.caption);
+        target.setAttribute('aria-label',shot.alt+'. '+shot.caption);
         const figure=doc.createElement('figure');figure.style.cssText='margin:0 auto;max-width:'+shot.width+'px';
         const frame=doc.createElement('div');frame.style.cssText='position:relative;aspect-ratio:'+totalWidth+'/'+totalHeight;
-        const image=doc.createElement('img');image.src=new URL(shot.file+'?v='+(label.startsWith('story-')?'20261017-arrows':label.startsWith('characters-')?'20261018-characters':label.startsWith('shop-')?'20261019-shop':label.startsWith('prompt-')?'20261019-prompt':label.startsWith('settings-')?'20261018-settings':'20261018-map-controls'),location.href).href;image.alt=shot.alt;image.style.cssText='display:block;width:'+shot.w/totalWidth*100+'%;height:auto;border:1px solid #aa8050;box-sizing:border-box';if(shot.cropTop){frame.style.overflow='hidden';image.style.transform='translateY(-'+shot.cropTop/shot.h*100+'%)';}frame.append(image);
+        const image=doc.createElement('img');image.src=new URL(shot.file+'?v='+(label.startsWith('combat-')?'20261019-combat':label.startsWith('story-')?'20261017-arrows':label.startsWith('characters-')?'20261018-characters':label.startsWith('shop-')?'20261019-shop':label.startsWith('prompt-')?'20261019-prompt':label.startsWith('settings-')?'20261018-settings':'20261018-map-controls'),location.href).href;image.alt=shot.alt;image.style.cssText='display:block;width:'+shot.w/totalWidth*100+'%;height:auto;border:1px solid #aa8050;box-sizing:border-box';if(shot.cropTop){frame.style.overflow='hidden';image.style.transform='translateY(-'+shot.cropTop/shot.h*100+'%)';}frame.append(image);
         const ns='http://www.w3.org/2000/svg',overlay=doc.createElementNS(ns,'svg'),arrowId='help-arrow-'+label;
         overlay.setAttribute('viewBox',`0 0 ${totalWidth} ${totalHeight}`);overlay.setAttribute('aria-hidden','true');overlay.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
         overlay.innerHTML=`<defs><marker id="${arrowId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#ffd474"/></marker></defs>`;
@@ -270,18 +275,41 @@
           const label=doc.createElementNS(ns,'text');label.setAttribute('x',shot.w+22);label.setAttribute('y',y+7);label.setAttribute('fill','#ffdc8b');label.setAttribute('font-size',shot.w>1400?'30':'20');label.setAttribute('font-family','Arial, sans-serif');label.setAttribute('font-weight','700');label.textContent=text;overlay.append(line,label);
         }
         frame.append(overlay);
-        const caption=doc.createElement('figcaption');caption.textContent=shot.caption;caption.style.cssText='font-size:13px;line-height:1.5;margin-top:8px';figure.append(frame,caption);preview.append(figure);
+        const caption=doc.createElement('figcaption');caption.textContent=shot.caption;caption.style.cssText='font-size:13px;line-height:1.5;margin-top:8px';figure.append(frame,caption);target.append(figure);
       }else if(/Select star/.test(label||'')){
         const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 520 70');svg.style.cssText='width:100%;max-height:75px';
-        for(const [tag,attributes] of [['path',{d:'M70 35L430 35',stroke:'#67dfff','stroke-width':2,'stroke-dasharray':'7 6'}],['circle',{cx:70,cy:35,r:18,fill:'#ffd361'}],['circle',{cx:430,cy:35,r:12,fill:'#f5a444'}],['path',{d:'M246 24L267 35L246 46L251 35Z',fill:'#73e7ff'}]]){const node=doc.createElementNS(svg.namespaceURI,tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));svg.append(node);}preview.append(svg);
+        for(const [tag,attributes] of [['path',{d:'M70 35L430 35',stroke:'#67dfff','stroke-width':2,'stroke-dasharray':'7 6'}],['circle',{cx:70,cy:35,r:18,fill:'#ffd361'}],['circle',{cx:430,cy:35,r:12,fill:'#f5a444'}],['path',{d:'M246 24L267 35L246 46L251 35Z',fill:'#73e7ff'}]]){const node=doc.createElementNS(svg.namespaceURI,tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));svg.append(node);}target.append(svg);
       }else for(const [i,text] of String(label||'').split(/\s*(?:→|\||·)\s*/).entries()){
-        const chip=doc.createElement('span');chip.textContent=text;chip.style.cssText='display:inline-block;margin:4px;padding:8px 12px;border:1px solid '+['#63d7f1','#ffcd6b','#aef0bc'][i%3]+';border-radius:6px;background:#17242a;font-size:14px';preview.append(chip);
+        const chip=doc.createElement('span');chip.textContent=text;chip.style.cssText='display:inline-block;margin:4px;padding:8px 12px;border:1px solid '+['#63d7f1','#ffcd6b','#aef0bc'][i%3]+';border-radius:6px;background:#17242a;font-size:14px';target.append(chip);
       }
     };
-    const tabs=doc.createElement('nav');tabs.setAttribute('aria-label','Help pages');if((['story','campaign'].includes(topic)||(gm&&['characters','settings','starships','prompt','shop'].includes(topic))))content.forEach((item,index)=>{const tab=doc.createElement('button');tab.textContent=item[3];tab.onclick=()=>{page=index;render();};tabs.append(tab);});
-    const render=()=>{heading.textContent=content[page][0];if((['story','campaign'].includes(topic)||(gm&&['characters','settings','starships','prompt','shop'].includes(topic))))body.innerHTML=content[page][1];else body.textContent=content[page][1];if(topic==='starships'&&(page===0||gm&&page===3)){const entry=doc.createElement('button');entry.type='button';entry.className='sg-help-entry';entry.textContent='How to Create a Starship';entry.onclick=()=>window.SAStarshipGuide.mount(dialog,{fromHelp:true});body.append(entry);}for(const [index,tab]of [...tabs.children].entries()){if(index===page)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}renderPreview(content[page][2]);preview.hidden=!content[page][2];prev.hidden=next.hidden=count.hidden=content.length===1;prev.disabled=page===0;next.disabled=page===content.length-1;count.textContent=`${page+1} / ${content.length}`;dialog.scrollTop=0;};
+    const tabs=doc.createElement('nav');tabs.setAttribute('aria-label','Help pages');
+    const sections=doc.createElement('nav');sections.setAttribute('aria-label','Combat Help sections');
+    const navigation=doc.createElement('div');if(combat)navigation.className='combat-help-nav';
+    const section=()=>page<5?'shared':combatType;
+    const remember=()=>{remembered[section()]=page<5?page:page-5;};
+    const buildTabs=()=>{
+      if(!combat&&tabs.children.length){for(const [index,tab]of [...tabs.children].entries()){if(index===page)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}return;}
+      tabs.replaceChildren();
+      if(!rich)return;
+      content.forEach((item,index)=>{
+        if(combat&&((page<5)!==(index<5)))return;
+        const tab=doc.createElement('button');tab.type='button';tab.textContent=item[3];
+        if(index===page)tab.setAttribute('aria-current','page');
+        tab.onclick=()=>{page=index;render();[...tabs.children].find(button=>button.getAttribute('aria-current')==='page')?.focus();};tabs.append(tab);
+      });
+    };
+    if(combat){
+      for(const [key,label]of [['shared','Shared Controls'],['surface','Surface Combat'],['starship','Starship Combat']]){
+        const tab=doc.createElement('button');tab.type='button';tab.textContent=label;tab.dataset.combatHelpSection=key;
+        tab.onclick=()=>{remember();if(key!=='shared')combatType=key;content=[...combat.shared,...combat[combatType]];page=key==='shared'?remembered.shared:5+remembered[key];render();};sections.append(tab);
+      }
+      navigation.append(sections);
+    }
+    navigation.append(tabs);
+    const render=()=>{heading.textContent=content[page][0];if(rich)body.innerHTML=content[page][1];else body.textContent=content[page][1];if(topic==='starships'&&(page===0||gm&&page===3)){const entry=doc.createElement('button');entry.type='button';entry.className='sg-help-entry';entry.textContent='How to Create a Starship';entry.onclick=()=>window.SAStarshipGuide.mount(dialog,{fromHelp:true});body.append(entry);}buildTabs();if(combat){remember();for(const tab of sections.children)tab.setAttribute('aria-pressed',String(tab.dataset.combatHelpSection===section()));}renderPreview(content[page][2]);preview.hidden=!content[page][2];prev.hidden=next.hidden=count.hidden=content.length===1;prev.disabled=page===0;next.disabled=page===content.length-1;count.textContent=`${page+1} / ${content.length}`;dialog.scrollTop=0;};
     prev.onclick=()=>{page--;render();};next.onclick=()=>{page++;render();};dismiss.onclick=()=>dialog.close();
-    footer.append(prev,count,next,dismiss);dialog.append(tabs,heading,body,preview,footer);doc.body.append(dialog);
+    footer.append(prev,count,next,dismiss);dialog.append(navigation,heading,body,preview,footer);doc.body.append(dialog);
     dialog.onclose=()=>{dialog.remove();(opener?.isConnected?opener:button).focus();};window.addEventListener('pagehide',()=>dialog.remove(),{once:true});render();dialog.showModal();dismiss.focus();
   }
   const anchor=document.getElementById(gm?'gmMailButton':'pcHeaderMail');if(!anchor)return;

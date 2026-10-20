@@ -17,7 +17,7 @@
   function requestExists(id){return environment.ships.some(s=>s.crew.some(c=>c.request?.id===id));}
   function openRoll(person){
     if(modal||!person.request||!submit)return;
-    const request=person.request,view=document.createElement('dialog');modal=view;view.dataset.rollId=request.id;view.className='oxygen-roll';view.setAttribute('aria-label','Oxygen resistance roll');
+    const request=person.request,view=document.createElement('dialog');modal=view;view.dataset.rollId=request.id;view.className='oxygen-roll';view.setAttribute('aria-label','Oxygen resistance roll');view.setAttribute('data-required-roll','');
     const frame=document.createElement('iframe');frame.title='Health and Endurance';frame.src='character.html?shipRoll=1';
     const status=document.createElement('div');status.className='oxygen-roll-status';status.setAttribute('role','status');
     const loading=document.createElement('span');loading.textContent='Loading Health + Endurance dice...';status.append(loading);
@@ -30,14 +30,14 @@
       if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
       if(event.data?.type==='sa-ship-skill-ready')frame.contentWindow.postMessage({type:'sa-ship-skill-open',rollId:request.id,attributeKey:'health',attributeLabel:'Health',immediateResult:true,sides:request.dice,bonus:request.skill,skill:'Athletics',difficulty:request.difficulty,difficultyLabel:`Difficulty ${request.difficulty}`,name:person.name,title:'Lack of Oxygen: Health + Endurance'},location.origin);
       if(event.data?.type==='sa-ship-skill-opened'&&event.data.rollId===request.id){clearTimeout(timer);status.hidden=true;}
-      if(event.data?.type==='sa-ship-skill-cancel')close();
+      if(event.data?.type==='sa-ship-skill-cancel')return;
       if(event.data?.type==='sa-ship-skill-result'&&event.data.rollId===request.id&&!busy){
         busy=true;status.hidden=false;loading.textContent='Submitting resistance roll...';retry.hidden=true;
         try{const result=await submit({actorId:person.id,rollId:request.id,score:event.data.score,diceResults:event.data.diceResults});close();if(result.oxygen)update(result.oxygen,submit,gm);}
         catch(error){loading.textContent=error.message;retry.hidden=false;retry.textContent='Retry Submit';retry.onclick=()=>{busy=false;receive(event);};}
       }
     };
-    window.addEventListener('message',receive);view.addEventListener('cancel',event=>{event.preventDefault();close();});
+    window.addEventListener('message',receive);view.addEventListener('cancel',event=>event.preventDefault());
     view.addEventListener('close',()=>{clearTimeout(timer);window.removeEventListener('message',receive);view.remove();modal=null;},{once:true});
     view.append(frame,status);document.body.append(view);view.showModal();
   }

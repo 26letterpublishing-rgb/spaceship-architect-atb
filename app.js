@@ -33,6 +33,7 @@ let gmDamageTargetId = "";
 let gmDamageShipId = "";
 let lastCombatPromptKey = "";
 let gmForcedDefenseEntry = false;
+let gmForcedAttackEntry = '';
 let gmNpcPromptSignature = "";
 let npcAutoRollBusy = false;
 let collapsedNpcTurnId = "";
@@ -335,6 +336,7 @@ const attackRollStatus = document.querySelector("#attackRollStatus");
 const defenseRollStatus = document.querySelector("#defenseRollStatus");
 const gmNpcRollPrompts = document.querySelector("#gmNpcRollPrompts");
 const gmResolveDefender = document.querySelector("#gmResolveDefender");
+const gmResolveAttacker = document.querySelector("#gmResolveAttacker");
 const gmNpcDamageForm = document.querySelector("#gmNpcDamageForm");
 const gmNpcDamageBreakdown = document.querySelector("#gmNpcDamageBreakdown");
 const gmNpcFinalDamage = document.querySelector("#gmNpcFinalDamage");
@@ -3089,10 +3091,10 @@ function setNpcRollControlsDisabled(disabled) {
 
 function renderGmNpcRollPrompts(attack, attacker, defender) {
   const prompts = [];
-  if (attack.phase === "checks" && !attack.attackerRoll && (attacker?.team === "npc" || attack.rollController === "gm")) prompts.push({ role: "attacker", unit: attacker });
+  if (attack.phase === "checks" && !attack.attackerRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "attacker", unit: attacker });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "npc") prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && gmForcedDefenseEntry) prompts.push({ role: "defender", unit: defender });
-  if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm")) prompts.push({ role: "damage", unit: attacker });
+  if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "damage", unit: attacker });
   const automatic=prompts.find(p=>p.unit.automationMode==='npc'&&!p.unit.automationSuspended);
   if(automatic&&!state.showcase&&!npcAutoRollBusy&&!state.hardPaused&&window.SANpcDice)setTimeout(()=>{if(!npcAutoRollBusy&&!state.hardPaused)gmNpcRollPrompts.querySelector(`[data-roll-role="${automatic.role}"][data-unit-id="${CSS.escape(automatic.unit.id)}"] [data-gm-auto-roll]`)?.click();},0);
   const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
@@ -3103,7 +3105,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
     return `<form class="combat-action-form gm-npc-roll-prompt" data-gm-roll-form data-roll-role="${role}" data-unit-id="${escapeHtml(unit.id)}">
       <p class="gm-npc-roll-pool">${escapeHtml(definition.pool)}</p>
       <label>${escapeHtml(definition.label)}<input data-gm-roll-score type="number" step="0.1" inputmode="decimal" required ${npcAutoRollBusy ? "disabled" : ""} /></label>
-      <div class="gm-npc-roll-actions"><button type="submit" class="complete" ${npcAutoRollBusy ? "disabled" : ""}>Submit Manual Score</button><button data-gm-auto-roll type="button" ${definition.dice.length && window.SANpcDice && !npcAutoRollBusy ? "" : "disabled"}>${npcAutoRollBusy ? "Roll In Progress..." : window.SANpcDice ? "Roll for NPC" : "Dice Loading..."}</button></div>
+      <div class="gm-npc-roll-actions"><button type="submit" class="complete" ${npcAutoRollBusy ? "disabled" : ""}>Submit Manual Score</button><button data-gm-auto-roll type="button" ${definition.dice.length && window.SANpcDice && !npcAutoRollBusy ? "" : "disabled"}>${npcAutoRollBusy ? "Roll In Progress..." : window.SANpcDice ? (unit.team === "pc" ? "Roll for Player" : "Roll for NPC") : "Dice Loading..."}</button></div>
     </form>`;
   }).join("");
 }
@@ -3113,6 +3115,7 @@ function renderAttackResolution(mine) {
   if (!attack) {
     if (!state?.itemResolution) clearPostedCombatPrompt();
     gmForcedDefenseEntry = false;
+    gmForcedAttackEntry = '';
     gmNpcPromptSignature = "";
     if (gmNpcRollPrompts) gmNpcRollPrompts.innerHTML = "";
     attackResolutionPanel?.classList.add("hidden");
@@ -3202,6 +3205,8 @@ function renderAttackResolution(mine) {
   const defender = state.units.find((unit) => unit.id === attack.defenderId);
   renderGmNpcRollPrompts(attack, attacker, defender);
   gmResolveDefender.hidden = !(attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && !gmForcedDefenseEntry);
+  gmResolveAttacker.hidden = !(attacker?.team === 'pc' && attack.rollController !== 'gm' && gmForcedAttackEntry !== attack.id && ((attack.phase === 'checks' && !attack.attackerRoll) || (attack.phase === 'damage' && !attack.damageRoll)));
+  gmResolveAttacker.textContent = attack.phase === 'damage' ? 'Resolve Damage for Player' : 'Resolve To-Hit for Player';
 
   const confirmNpcDamage = attack.phase === "gmDamage" && defender?.team === "npc" && attack.damageSummary;
   gmNpcDamageForm.hidden = !confirmNpcDamage;
@@ -3268,8 +3273,9 @@ function renderItemResolution(mine) {
     if (request) {
       const key = `${resolution.id}:${request.type}`;
       if (key !== lastCombatPromptKey) { lastCombatPromptKey = key; postCombatMessage(request); }
-    }
+    } else clearPostedCombatPrompt(resolution.id);
   }
+  if (mode === 'player' && resolution.rollController === 'gm') clearPostedCombatPrompt(resolution.id);
   if (mode !== "gm") { firstAidResolutionPanel?.classList.add("hidden"); return; }
   firstAidResolutionPanel.classList.remove("hidden");
   firstAidResolutionTitle.textContent = `${resolution.healerName} -> ${resolution.targetName}`;
@@ -4130,14 +4136,25 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
     if (button.isConnected) button.disabled = false;
   }
 });
-gmResolveDefender?.addEventListener("click", () => {
+gmResolveDefender?.addEventListener("click", async () => {
   const attack = state?.attackResolution;
   if (!attack || attack.phase !== "checks" || attack.defenseRoll) return;
-  if (!confirm(`Resolve ${attack.defenderName}'s Defense roll for them? Their first submitted result will be final.`)) return;
+  if (!await confirmEncounterChange('Resolve Defense for Player', `Resolve ${attack.defenderName}'s Defense roll? The first submitted result will be final.`, 'Resolve for Player')) return;
+  if (state?.attackResolution?.id !== attack.id || state.attackResolution.defenseRoll) return;
   gmForcedDefenseEntry = true;
   gmNpcPromptSignature = "";
   render();
   gmNpcRollPrompts.querySelector('[data-roll-role="defender"] [data-gm-roll-score]')?.focus();
+});
+gmResolveAttacker?.addEventListener('click', async () => {
+  const attack = state?.attackResolution;
+  if (!attack || !['checks', 'damage'].includes(attack.phase)) return;
+  if (!await confirmEncounterChange('Resolve Roll for Player', `Resolve ${attack.attackerName}'s ${attack.phase === 'damage' ? 'Damage' : 'To-Hit'} roll? The first submitted result will be final.`, 'Resolve for Player')) return;
+  if (state?.attackResolution?.id !== attack.id || state.attackResolution.phase !== attack.phase) return;
+  gmForcedAttackEntry = attack.id;
+  gmNpcPromptSignature = '';
+  render();
+  gmNpcRollPrompts.querySelector(`[data-roll-role="${attack.phase === 'damage' ? 'damage' : 'attacker'}"] [data-gm-roll-score]`)?.focus();
 });
 firstAidResolutionForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -4540,13 +4557,23 @@ setActionLogEnabled(playerActionLogEnabled);
 setInterval(playGmClockTick, 1000);
 setInterval(keepRoomAwake, KEEP_ALIVE_MS);
 
+function postedCombatResultPending(payload) {
+  if (!payload) return false;
+  const attack = state?.attackResolution, aid = state?.itemResolution;
+  if (payload.action === 'submitFirstAidRoll' || payload.action === 'submitFirstAidHealing') {
+    return aid?.id === payload.resolutionId && aid.rollController !== 'gm' && aid.phase === (payload.action === 'submitFirstAidRoll' ? 'roll' : 'healing');
+  }
+  if (attack?.id !== payload.attackId) return false;
+  if (payload.action === 'submitAttackDamage') return attack.phase === 'damage' && !attack.damageRoll && attack.rollController !== 'gm';
+  return attack.phase === 'checks' && (payload.rollRole === 'defender' ? !attack.defenseRoll : !attack.attackerRoll && attack.rollController !== 'gm');
+}
 async function submitPostedCombatResult(message, payload) {
   const reply = result => postCombatMessage({ type: 'sa-combat-submit-result', submissionId: message.submissionId, ...result });
-  if (!payload) { reply({ ok: false, obsolete: true, error: 'This roll is no longer waiting. Check the current combat result.' }); return; }
+  if (!postedCombatResultPending(payload)) { reply({ ok: false, obsolete: true, error: 'This roll is no longer waiting. Check the current combat result.' }); return; }
   try {
     await action(payload, 'resolve', { throwOnError: true });
     reply({ ok: true });
-  } catch (error) { reply({ ok: false, error: error.message }); }
+  } catch (error) { reply({ ok: false, obsolete: error.status === 409 || !postedCombatResultPending(payload), error: error.message }); }
 }
 
 window.addEventListener("message", (event) => {

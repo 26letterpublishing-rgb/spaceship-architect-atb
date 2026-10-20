@@ -1,0 +1,52 @@
+October 19, 2026 — GM Combat Help release (#commit)
+
+Fifteen conversational GM pages use the existing Help dialog: five Shared
+Controls pages, five Surface Combat pages and five Starship Combat pages.
+Persistent section controls remember each section's page while Help is open.
+Previous/Next walk through the shared pages and the selected combat type.
+The existing PC Combat Help and all other GM/PC Help text remain unchanged.
+
+Ten new screenshots were captured from the actual app in a disposable local
+room. Existing NPC-editor and Bridge-preview images are reused. Focused crops,
+Delay arrows, blue terminology, yellow reminders and red cautions support the
+instructions. Multi-image pages reuse the same screenshot renderer.
+
+Delay Console presentation changes only: Timer and Speed readouts now say
+Delay Rate, with Higher rates finish sooner. No rates, factors, critical
+calculations, identifiers, queued behavior, ATB rules or save formats changed
+in this Help pass. The prior authorized combat-submission/recovery fixes are
+included in this release; see RELEASE-SUBMISSION-RECOVERY-20261019.txt.
+
+Corrections to the handoff:
+- Restore Latest and Choose Earlier Checkpoint are the current recovery names.
+- Pause Everything is normally required before opening Delay; a paused NPC turn
+  also allows it. Queued setup requires resolution/Pass before its effect starts.
+- Naming a custom delay does not perform a scan or deal damage automatically.
+- Object placement is Starship preparation; Surface uses floor/wall/door tools.
+  Boundaries use two adjacent floor squares. Live surface fog has its own preview
+  and reveal controls. Preparation uses Expand Zone and Terrain controls.
+- Ship selection determines initial vessel assignment; the GM checks interior
+  positions before engaging the clock. Assignment does not imply a station.
+- Arena exports are reusable setups, not live battle recovery files.
+- Explicit submission, retries, GM takeover, Reset/Undo/Clear and End Combat are
+  explained using the current workflow and control labels.
+
+Validation:
+- Full suite: 1241/1242 passed. The rail-repeater HTTP restart test failed under
+  the full run, then passed in isolation alongside all three new Help tests.
+- Final Help/dialog/public-assets/guide suite: 13/13 passed.
+- Sixteen changed/new JavaScript syntax checks and CRLF-aware whitespace passed.
+- All fifteen pages navigated in the real browser; image loads checked. One
+  oversized console image found and fixed using the shared responsive renderer.
+- Desktop1280x720 and narrow680x900 visually inspected; no horizontal Help
+  overflow in final checks. Sticky navigation, Delay arrows, X and Escape checked.
+- Existing Help content compared to HEAD and unchanged. Personal campaign files
+  backed up and verified unchanged by SHA-256 after restart.
+- Normal8790 restarted PID3228 for the new public script allowlist; new content,
+  GM script tag and image assets served successfully. Disposable8794 and its
+  browser tab closed; viewport override reset. Gold Standard and unrelated QA
+  files preserved. No hosted browser playtest was performed.
+
+Evidence: ../outputs/combat-help-qa/help-desktop.png and help-narrow.png.
+Test logs: ../outputs/combat-help-qa/full-tests.txt and focused-final.txt.
+Authorized publishing: commit and push main, then final ntfy notification.

@@ -5,7 +5,7 @@
   let warmed=null;
   function prepareDice(doc){
     if(warmed?.view.isConnected)return warmed;
-    const view=doc.createElement('dialog'),frame=doc.createElement('iframe');view.setAttribute('aria-label','Ship action dice roll');
+    const view=doc.createElement('dialog'),frame=doc.createElement('iframe');view.setAttribute('aria-label','Ship action dice roll');view.setAttribute('data-required-roll','');
     view.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent';
     frame.title='Skill Check';frame.style.cssText='width:100%;height:100%;border:0;background:transparent';frame.src=new URL('character.html?shipRoll=1',location.href).href;
     view.addEventListener('cancel',event=>event.preventDefault());
