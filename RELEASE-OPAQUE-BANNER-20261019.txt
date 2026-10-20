@@ -1,0 +1,10 @@
+OPAQUE COMBAT BANNER / LOCAL RELEASE — OCTOBER 19, 2026
+Authorization: #commit (local changes, commit, push and final ntfy).
+
+ALL HANDS ON DECK now uses opaque solid backgrounds throughout its pulse, with opacity fixed at one and an opaque close button. Its automatic exit removes it directly instead of fading through the page. Scrolling text, pulse, dismissal, alarm dispatch and reduced-motion behavior remain. Other critical alert types retain their existing exit behavior.
+
+The release also includes previously completed local Settings/Starships/Prompt-Give/Shop Help and the character lifecycle/creation changes documented in their release reports. The Shop inheritance fix and screenshots are included. Unrelated QA artifacts, scratch scripts, personal campaign data and Gold Standard remain excluded.
+
+Validation: full suite 1222/1222; focused notification12; syntax18 JS files; CRLF-aware whitespace; browser component preview over a high-contrast striped background showed opacity1, no background image and opaque animated RGB colors. Automatic non-fading expiry and next-alert delivery are regression tested. Prior Help/lifecycle visual checks and their limitations remain documented separately. Personal data hashes unchanged. Normal8790 serves the static updates without restart.
+
+Evidence: ../outputs/opaque-banner-qa/opaque-banner.png and full-tests.txt. The temporary preview server/tab are cleaned up before completion. A GitHub push is not verification of hosted deployment.

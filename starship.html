@@ -19,6 +19,9 @@
     <link rel="stylesheet" href="sic-cards.css?v=console-feedback-2" />
     <link rel="stylesheet" href="ship-floorplan-snapshot.css" />
 <link rel="stylesheet" href="room-v03.css"><script src="room-v03.js" defer></script>
+<link rel="stylesheet" href="starship-guide.css">
+<script src="dialog-chrome.js" defer></script>
+<link rel="stylesheet" href="dialog-chrome.css">
 </head>
   <body>
     <header class="starship-header">
@@ -42,6 +45,7 @@
         <button class="starship-tab is-active" type="button" data-starship-tab="sheet">Construction</button>
         <button class="starship-tab" type="button" data-starship-tab="sics">SICs</button>
         <button class="starship-tab" type="button" data-starship-tab="details">Ship Details</button>
+        <button id="starshipCreationGuide" type="button">How to Create a Starship</button>
       </nav>
 
       <section class="starship-library" aria-label="Saved starships">
@@ -412,5 +416,7 @@
 <script src="sic-card-factory.js"></script>
   <script src="planet-terrain.js"></script>
   <script src="starship.js?v=console-feedback-2"></script>
+<script src="starship-help-content.js"></script>
+<script src="starship-guide.js"></script>
   </body>
 </html>

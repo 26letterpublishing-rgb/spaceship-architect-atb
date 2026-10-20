@@ -1,0 +1,13 @@
+GM PROMPT / GIVE HELP — OCTOBER 19, 2026
+Local implementation authorized by #local. No commit, push or ntfy.
+
+Seven brief, conversational GM pages replace the two generic Prompt / Give pages: Overview; Direct Checks; Quick Checks; Rewards; HP / Exertion; Campaign Tools; Drama & Shortcuts. The original handoff grouping is preserved with a dedicated recovery page.
+
+Corrections match the current controls: reward claiming versus direct changes; Quick Check recipients; recognition rerolls and remembered Affinity/Bias; snapshot-based award Undo; restoration amounts/maxima versus GM-approved Rest; ship destinations for minerals/Library; shared discard controls. The recovery page explains individual/all-PC approval, eight-hour Rest, Health Rating healing and operational Medbay recovery without detailed formulas.
+
+Seven real screenshots captured in a disposable Explore room. Restoration uses labeled arrows; key tools and reminders reuse existing cyan/pink/yellow styles. Shared Help navigation and circular close controls are reused. No mechanics, game controls, PC Help, or other GM Help topics changed.
+
+Validation: all seven pages at 1280px and 640px, image loading, no horizontal dialog overflow, Previous/Next boundaries, direct navigation, close/reopen and Escape. No browser console errors. Twelve existing focused tests passed (starship Help, tab review, Quick Prompt). JavaScript syntax, public asset resolution, byte-equivalent parsed content for other Help topics, CRLF-aware whitespace and personal campaign file hashes checked. Main localhost8790 serves updated JS/images without a restart.
+
+Screenshots and QA evidence: ../outputs/prompt-help-qa/
+Isolated QA server8794 and its temporary tab cleaned up; normal8790 remains available.

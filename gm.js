@@ -262,10 +262,13 @@ function finishGmDialog(accepted) {
   }
   const value = gmDialogState.usesInput ? dom.confirmInput.value : accepted;
   const resolve = gmDialogState.resolve;
+  const { originalParent, originalNext, returnFocus } = gmDialogState;
   gmDialogState = null;
   dom.confirmModal.hidden = true;
+  if(originalParent)originalParent.insertBefore(dom.confirmModal,originalNext?.parentNode===originalParent?originalNext:null);
   dom.confirmDialog.classList.remove("danger");
   dom.confirmError.textContent = "";
+  returnFocus?.focus();
   resolve(accepted ? value : null);
 }
 
@@ -290,9 +293,12 @@ function openGmDialog({
   dom.confirmInputLabel.textContent = inputLabel || "Response";
   dom.confirmInput.value = inputValue;
   dom.confirmError.textContent = "";
+  const originalParent=dom.confirmModal.parentNode,originalNext=dom.confirmModal.nextSibling,returnFocus=document.activeElement;
+  const topDialog=[...document.querySelectorAll('dialog[open]')].at(-1);
+  if(topDialog&&!dom.confirmModal.contains(topDialog))topDialog.append(dom.confirmModal);
   dom.confirmModal.hidden = false;
   return new Promise((resolve) => {
-    gmDialogState = { resolve, usesInput: Boolean(inputLabel), requiredValue };
+    gmDialogState = { resolve, usesInput: Boolean(inputLabel), requiredValue, originalParent, originalNext, returnFocus };
     requestAnimationFrame(() => (inputLabel ? dom.confirmInput : dom.confirmAccept).focus());
   });
 }
@@ -312,7 +318,7 @@ dom.confirmModal.addEventListener("keydown", (event) => {
     event.preventDefault();
     finishGmDialog(false);
   }
-  if (event.key === "Enter" && event.target !== dom.confirmCancel) {
+  if (event.key === "Enter" && (event.target === dom.confirmInput || event.target === dom.confirmAccept)) {
     event.preventDefault();
     finishGmDialog(true);
   }
@@ -905,6 +911,8 @@ function scriptSource() {
 }
 
 function inboxItemActions(note) {
+ if(note.kind==='death-review'&&note.requestStatus==='pending')return `<div class="inbox-actions"><button data-death-decision="keep" data-note-id="${escapeHtml(note.id)}">Keep Character Active</button><button class="danger" data-death-decision="confirm" data-note-id="${escapeHtml(note.id)}">Confirm Character Death</button></div>`;
+
  const travel=campaign.starmaps?.travelRequests?.find(r=>r.id===note.id);if(travel?.status==='pending')return `<div class="inbox-actions"><button data-surface-decision="decline" data-request-id="${escapeHtml(note.id)}">Decline Travel</button><button data-surface-decision="approve" data-request-id="${escapeHtml(note.id)}">Approve Travel</button></div>`;
   if (note.kind === "angiluros-craft-request" && note.requestStatus === "pending") {
     return `<div class="inbox-actions"><button class="danger" type="button" data-angiluros-craft-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-angiluros-craft-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve Weapon</button></div>`;
@@ -913,7 +921,7 @@ function inboxItemActions(note) {
     return `<div class="inbox-actions"><button class="danger" type="button" data-reverence-gift-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-reverence-gift-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve</button></div>`;
   }
   if (note.kind === "rest-request" && note.requestStatus === "pending") {
-    return `<div class="inbox-actions"><button class="danger" type="button" data-rest-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-rest-decision="approve-all" data-note-id="${escapeHtml(note.id)}">Approve for All</button></div>`;
+    return `<div class="inbox-actions"><button class="danger" type="button" data-rest-decision="deny" data-note-id="${escapeHtml(note.id)}">Deny</button><button class="primary" type="button" data-rest-decision="approve-all" data-note-id="${escapeHtml(note.id)}">Approve All PCs’ Rest Period</button><button class="primary" type="button" data-rest-decision="approve" data-note-id="${escapeHtml(note.id)}">Approve ${escapeHtml(note.characterName)}’s Rest Period</button></div>`;
   }
   if (note.kind !== "item-transaction") return "";
   const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
@@ -939,7 +947,7 @@ function renderInbox() {
       <div class="inbox-actions"><button type="button" data-join-decision="reject">Reject</button><button class="primary" type="button" data-join-decision="approve">Approve</button></div>
     </article>`;
   }).join("");
-  const messageMarkup = inbox.map(note=>window.SAInboxUI.card(note,{gm:true,label:note.kind==='message'?(note.direction==='to-gm'?'PLAYER MESSAGE':'SENT MESSAGE'):note.kind.replaceAll('-',' ').toUpperCase(),name:note.senderName?note.senderName+' → '+(note.direction==='to-gm'?'GM':note.characterName):note.characterName,unread:note.direction==='to-gm'&&!note.readAt,actions:inboxItemActions(note)})).join('');
+  const messageMarkup = inbox.map(note=>window.SAInboxUI.card(note,{gm:true,label:note.kind==='message'?(note.direction==='to-gm'?'PLAYER MESSAGE':'SENT MESSAGE'):note.kind.replaceAll('-',' ').toUpperCase(),name:note.senderName?note.senderName+' → '+(note.direction==='to-gm'?'GM':note.characterName):note.characterName,unread:note.direction==='to-gm'&&!note.readAt,actions:inboxItemActions(note)+(note.persistent?`<button type="button" class="danger" data-delete-retained-note="${escapeHtml(note.id)}">Delete Notification</button>`:"")})).join('');
   const markup=requestMarkup + messageMarkup || '<p class="empty-inbox">No campaign messages or pending characters.</p>';
   if(dom.inboxList.dataset.markup!==markup){dom.inboxList.innerHTML=markup;dom.inboxList.dataset.markup=markup;}
 }
@@ -1640,6 +1648,7 @@ function renderCampaign() {
 }
 
 function receiveCampaign(next) {
+  window.SACharacterLifecycle?.update(arguments[0]);
   window.SAInterfaceNotices?.setCombatActive(next.combatActive);
   const objects=next.spaceObjects||[];
   encounterObjects=window.SASpaceObjects.reconcile(encounterObjectBaseline,encounterObjects,objects);
@@ -2020,6 +2029,15 @@ dom.inboxList.addEventListener("click", async (event) => {
     } catch (error) { craftDecision.disabled = false; showMessage(dom.message, error.message, "error"); }
     return;
   }
+  const retained=event.target.closest('[data-delete-retained-note]');
+  if(retained){if(!await confirmGm({title:'Delete this notification?',message:'This retained message will be removed from the GM inbox. Its saved contacts or memorial record remain in the campaign.',acceptLabel:'Delete Notification',danger:true}))return;
+    try{await api('/api/campaign/note/delete',{code,token,noteId:retained.dataset.deleteRetainedNote});await refreshCampaign();}catch(error){showMessage(dom.message,error.message,'error');}return;
+  }
+  const death=event.target.closest('[data-death-decision]');
+  if(death){const note=campaign.inbox.find(n=>n.id===death.dataset.noteId);if(!note)return;
+    if(death.dataset.deathDecision==='confirm'&&!await confirmGm({title:'Are you sure?',message:'Confirm the death of '+note.characterName+'? This removes the character from active play and adds a basic In Memoriam entry. No XP is transferred. The underlying record is retained in the campaign backup.',acceptLabel:'Confirm Character Death',danger:true}))return;
+    death.disabled=true;try{const result=await api('/api/campaign/character/death-decision',{code,token,noteId:note.id,decision:death.dataset.deathDecision,confirmCharacterId:note.characterId});receiveCampaign(result.campaign);}catch(error){showMessage(dom.message,error.message,'error');death.disabled=false;}return;
+  }
   const restDecision = event.target.closest("[data-rest-decision]");
   if (restDecision) {
     event.stopPropagation();
@@ -2027,7 +2045,7 @@ dom.inboxList.addEventListener("click", async (event) => {
     try {
       const payload = await api("/api/campaign/exertion/rest-decision", { code, token, noteId: restDecision.dataset.noteId, decision: restDecision.dataset.restDecision });
       receiveCampaign(payload.campaign);
-      showMessage(dom.message, restDecision.dataset.restDecision === "deny" ? "Rest denied and its restored Exertion removed." : "Rest reward sent to every linked character.", "success");
+      showMessage(dom.message, restDecision.dataset.restDecision === "deny" ? "Rest denied. No resources or time were changed." : "Rest approved. Campaign time advanced eight hours and resources were restored.", "success");
     } catch (error) {
       restDecision.disabled = false;
       showMessage(dom.message, error.message, "error");
@@ -3073,7 +3091,7 @@ document.getElementById('loadCharacterRoster').onclick=()=>window.SAContentUI.ch
 
 function organizeGmTools(){
  const grid=document.querySelector('#promptTab .tool-grid');if(!grid)return;
- const groups=[['interaction','Player Interaction',['#rollPromptForm']],['supplies','Rewards & Supplies',['#awardForm','#giveMineralsForm','.recharge-tool-card']],['campaign','Campaign Tools',['.time-tool-card','#libraryEntryForm','[data-gm-library]','#gmDramaDiscardPanel']]];
+ const groups=[['interaction','Player Interaction',['#rollPromptForm']],['supplies','Rewards & Supplies',['#awardForm','.restore-tool-card','#giveMineralsForm','.recharge-tool-card']],['campaign','Campaign Tools',['.time-tool-card','#libraryEntryForm','[data-gm-library]','#gmDramaDiscardPanel']]];
  for(const [key,title,selectors]of groups){let group=grid.querySelector('[data-tool-group="'+key+'"]');if(!group){group=document.createElement('section');group.dataset.toolGroup=key;group.innerHTML='<h2>'+title+'</h2>';grid.append(group);}
   for(const selector of selectors){const card=grid.querySelector(selector);if(!card||group.contains(card))continue;const details=document.createElement('details'),summary=document.createElement('summary'),heading=card.querySelector('h3');summary.textContent=heading?.textContent||'Tools';details.className='gm-tool-section';const memory='sa-tool-section-'+selector;details.open=localStorage.getItem(memory)!=='closed';details.ontoggle=()=>localStorage.setItem(memory,details.open?'open':'closed');details.append(summary,card);group.append(details);}
  }
@@ -3098,4 +3116,9 @@ window.SAContentUI.setup({
  shop:()=>selectGmTab('shop'),
  arena:()=>{sessionStorage.removeItem('sa-encounter-map-draft-'+code);restoreEncounterMapDraft();showEncounterSetup({forceBuilder:true,explicit:true});},
  insert:raw=>{dom.script.focus();const range=lastScriptRange;if(range&&dom.script.contains(range.commonAncestorContainer)){range.deleteContents();range.insertNode(document.createTextNode(raw));}else dom.script.append(document.createTextNode((scriptSource()?'\n':'')+raw));dom.script.dispatchEvent(new Event('input',{bubbles:true}));renderScriptEditor(scriptSource());placeScriptCaretAtEnd();}
+});
+
+document.getElementById('restorePcResources')?.addEventListener('click',async function(){
+ if(!selectedTargets.size){showMessage(dom.message,'Select one or more PCs.','error');return;}
+ this.disabled=true;try{const payload=await api('/api/campaign/character/restore-resources',{code,token,targetIds:[...selectedTargets],hp:Number(document.getElementById('restorePcHp').value),exertion:Number(document.getElementById('restorePcExertion').value),full:document.getElementById('restorePcFull').checked,requestId:crypto.randomUUID()});receiveCampaign(payload.campaign);showMessage(dom.message,'Selected PCs’ resources restored.','success');}catch(error){showMessage(dom.message,error.message,'error');}finally{this.disabled=false;}
 });

@@ -1,0 +1,76 @@
+GM STARSHIPS HELP AND SHARED CREATION GUIDE — LOCAL RELEASE
+Authorized by #local. No commit, push, notification, or deployment.
+
+Delivered
+- Replaced GM Starships Help with eight pages: overview, fleet management,
+  control and crew, view and edit, statistics/resources, interiors, consoles,
+  and use during play. The existing brown Help presentation is retained.
+- Added one shared twelve-section Starship Creation Guide. GM and PC
+  Starships Help and the Creator open the same content and renderer.
+- The navy/cyan engineering manual has persistent section navigation,
+  Previous/Next, narrow-screen section selection, and Back/Close/Escape.
+- Returning to Help restores its original page, scroll and focused button.
+  Direct Creator entry returns to the Creator. Opening the guide does not
+  reload the app or read/write ship and campaign records.
+- Used sixteen cropped captures from the real local app, existing cockpit,
+  engine and thruster artwork, and the existing system-map Help image.
+  Focused arrows identify assignment saving, confirmation and airlock squares.
+
+Content corrections
+- No SIC is mandatory merely to create a ship. Ordinary flight needs the
+  relevant installed, powered and operational controls and propulsion;
+  player station access and environmental support are separate concerns.
+- Linked ship SIC purchases use the campaign Shop. Standalone creator
+  purchases, installed equipment, storage and the installation queue are
+  explained separately. Construction power cannot rely on temporary crew
+  output bonuses or offline/damaged systems reducing demand.
+- Hull size versus health, EN versus AU, resources, station access, console
+  previews, travel and physical crew placement are distinguished.
+- Confirm Changes can automatically add a missing airlock. The guide covers
+  Add, Reposition, Remove, retaining at least one, and confirming again.
+  Done / Cancel exits placement; it does not undo the changes already made.
+- Confirmation, local browser saves, portable .sa2ship files, campaign
+  linking and Campaign Save are distinct. Unlink does not create a backup.
+
+Implementation
+- starship-help-content.js owns all new prose and screenshot metadata.
+- starship-guide.js owns the shared renderer and navigation. Existing Help
+  nodes are temporarily retained, preserving their handlers and state.
+- starship-guide.css scopes the manual styling and image/entry components.
+- gm.html, character.html and starship.html load content before the renderer.
+  app-help.js adds routing and entry buttons; public-assets.js exposes the
+  two new scripts through the existing allowlist.
+- No changes to construction, combat, save formats, approval rules or game
+  mechanics. Other GM Help topics and existing PC Help wording are unchanged.
+- Previous Settings Help changes and unrelated QA files were preserved.
+  The separately reported player room-join/finalization bug remains queued.
+
+Validation
+- 18 tests passed across starship-help, public-assets, ship-power and
+  ship-airlock-docking. Asset/load-order checks cover all three interfaces.
+- JavaScript syntax, UTF-8 decoding and targeted whitespace checks passed.
+- Baseline/current content comparison: all other GM topics and every existing
+  PC Help topic unchanged; GM Starships now has eight pages.
+- Real browser: all eight Help pages and all twelve guide sections checked.
+  No horizontal overflow or missing images at 1920x1080, 1366x768 and
+  2560x1440. Representative screenshots inspected visually. At 430x850,
+  section selection and content remain readable without horizontal overflow.
+- GM and PC Help entry, standalone and embedded Creator entry, Back,
+  Close, Escape, section position retention, original Help page/scroll/focus
+  restoration and a single open dialog were exercised.
+- An isolated unfinished nine-square design retained its name and hull
+  through guide entry/Escape. Confirming the empty hull succeeded and added
+  an automatic hatch; eligible airlock squares were captured from the app.
+- 198 existing personal campaign-data files retained their original hashes.
+- Normal local server restarted successfully on 8790 (PID33452), with its
+  original data directory. Fresh standalone guide loaded without browser
+  errors. No hosted or physical-phone testing was performed.
+
+Evidence
+../outputs/starships-help-qa/browser-layout-checks.json
+../outputs/starships-help-qa/screenshot-manifest.json
+../outputs/starships-help-qa/personal-data-verification.json
+../outputs/starships-help-qa/guide-local-final.png
+../outputs/starships-help-qa/guide-layout-contact.png
+../outputs/starships-help-qa/guide-pc-430.png
+Additional source captures and focused test output are in the same folder.

@@ -121,7 +121,7 @@
   border-color:#54ffc2;
   background:linear-gradient(180deg,#99ffda,#2cdf9a);
   box-shadow:inset 0 1px rgba(255,255,255,.7),0 0 14px rgba(45,231,157,.3);
-}
+;text-shadow:none!important}
 .weapon-held-button span { display:block; font-size:.55rem; font-weight:950; text-transform:uppercase; }
 .weapon-row-remove {
   min-height:58px;

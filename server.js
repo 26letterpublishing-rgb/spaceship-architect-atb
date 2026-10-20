@@ -242,6 +242,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.encounterEndedAt = snapshot.encounterEndedAt || null;
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
+    room.combatStartAt = snapshot.combatStartAt;
     room.sensorMode = Boolean(snapshot.sensorMode);
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
     room.hackingPrivate = clone(snapshot.hackingPrivate || {secrets:{},sessions:[],receipts:[]});
@@ -394,6 +395,7 @@ function publicState(room) {
     holdPaused: room.holdPaused,
     delayRequest: room.delayRequest,
     hasEngagedClock: room.hasEngagedClock,
+    combatStartAt: room.combatStartAt,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
     lastKeepAliveAt: room.lastKeepAliveAt,
@@ -1020,6 +1022,7 @@ function snapshotRoom(room) {
     encounterEndedAt: room.encounterEndedAt,
     delayRequest: clone(room.delayRequest),
     hasEngagedClock: room.hasEngagedClock,
+    combatStartAt: room.combatStartAt,
     threshold: room.threshold,
     starships: clone(room.starships || []),
     shipDistances: clone(room.shipDistances || []),
@@ -3320,7 +3323,7 @@ async function handleRoomAction(body, res, automated = false) {
       } else {
         room.running = true;
         room.resumeAfterTurn = true;
-        if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
+        if (!room.hasEngagedClock) { shipPower.refresh(room, { reset: true }); room.combatStartAt=Date.now(); }
         room.hasEngagedClock = true;
         room.lastTick = Date.now();
         pushLog(room, "Clock started.");
@@ -3348,7 +3351,7 @@ async function handleRoomAction(body, res, automated = false) {
       if (shouldEngageDormantClock) {
         room.running = true;
         room.resumeAfterTurn = true;
-        if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
+        if (!room.hasEngagedClock) { shipPower.refresh(room, { reset: true }); room.combatStartAt=Date.now(); }
         room.hasEngagedClock = true;
         room.lastTick = Date.now();
         pushLog(room, "Clock started.");
@@ -3360,7 +3363,7 @@ async function handleRoomAction(body, res, automated = false) {
     } else {
       room.running = true;
       room.resumeAfterTurn = true;
-      if (!room.hasEngagedClock) shipPower.refresh(room, { reset: true });
+      if (!room.hasEngagedClock) { shipPower.refresh(room, { reset: true }); room.combatStartAt=Date.now(); }
       room.hasEngagedClock = true;
       room.lastTick = Date.now();
       pushLog(room, "Clock started.");
@@ -3680,7 +3683,7 @@ async function handleRoomAction(body, res, automated = false) {
   sendJson(res, 200, publicState(room));
   broadcast(room);
   scheduleRoomPersist(room);
-  if (["join", "addUnit", "removeUnit", "removeStarship", "clearEncounter", "exitEncounter"].includes(action)) campaignApi?.broadcast(room.roomCode).catch(() => {});
+  if (["setRunning", "setHardPaused", "join", "addUnit", "removeUnit", "removeStarship", "clearEncounter", "exitEncounter"].includes(action)) campaignApi?.broadcast(room.roomCode).catch(() => {});
 }
 
 const server = http.createServer(async (req, res) => {
@@ -3854,6 +3857,19 @@ async function startServer() {
     canPassTime: code => {
       const room = rooms.get(code)||campaignApi?.campaignCache.get(code)?.encounter;
       return !room || !room.hasEngagedClock || Boolean(room.encounterEndedAt);
+    },
+    characterArchived: (code,characterId)=>{
+      const room=rooms.get(code);if(!room)return;
+      let interrupted=false;
+      for(const unit of room.units.filter(u=>u.characterId===characterId)){
+        interrupted=Boolean(removeUnitFromCombatObjects(room,unit.id))||interrupted;cancelNpcDefeat(code,unit.id);
+        if(room.activeId===unit.id){room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);interrupted=true;}
+        if(room.activeAction?.unitId===unit.id){room.activeAction=null;room.pausedForTurn=false;interrupted=true;}
+        if(room.delayRequest?.unitId===unit.id)clearDelayRequest(room);
+        if(room.attackResolution&&[room.attackResolution.attackerId,room.attackResolution.defenderId].includes(unit.id)){room.attackResolution=null;clearAttackCommand(room);interrupted=true;}
+        room.units=room.units.filter(u=>u.id!==unit.id);
+      }
+      if(interrupted)moveToNextTurnOrClock(room,room.activeSource);broadcast(room);scheduleRoomPersist(room,0);
     },
     timePassed: (code, characters) => {
       const room = rooms.get(code);

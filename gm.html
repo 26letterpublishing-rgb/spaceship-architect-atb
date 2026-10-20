@@ -41,7 +41,12 @@
 <script src="campaign-starmaps-ui.js" defer></script>
 <link rel="stylesheet" href="ui-reputation-pass.css">
 <link rel="stylesheet" href="shop.css"><link rel="stylesheet" href="sic-cards.css"><script src="sic-categories.js"></script>
-<script src="story-files.js"></script><link rel="stylesheet" href="inbox.css"><script src="inbox-ui.js"></script></head>
+<script src="story-files.js"></script><link rel="stylesheet" href="inbox.css"><script src="inbox-ui.js"></script><link rel="stylesheet" href="starship-guide.css">
+<script src="character-lifecycle-ui.js" defer></script>
+<link rel="stylesheet" href="character-lifecycle-ui.css">
+<script src="dialog-chrome.js" defer></script>
+<link rel="stylesheet" href="dialog-chrome.css">
+</head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
@@ -242,6 +247,7 @@
               <p id="awardMessage" class="tool-message" role="status"></p>
               <button id="undoAward" type="button" disabled>Undo Most Recent Award</button>
             </form>
+            <section class="tool-card restore-tool-card"><h3>Restore HP / Exertion</h3><p>Restore resources for the selected PCs. This does not pass time or count as Rest.</p><label>HP to restore<input id="restorePcHp" type="number" min="0" max="999999" value="0"></label><label>Exertion to restore<input id="restorePcExertion" type="number" min="0" max="999" value="0"></label><label><input id="restorePcFull" type="checkbox"> Restore both to maximum</label><button id="restorePcResources" type="button">Restore Selected PCs</button></section>
             <section class="tool-card recharge-tool-card">
               <h3>Recharge Items</h3>
               <p>Restore carried Jet-Packs, Power Shields, and Mobile Zero-Point Energy for the selected characters.</p>
@@ -336,7 +342,7 @@
         </section>
 
         <section id="settingsTab" class="gm-tab" data-tab-panel="settings" hidden>
-          <div class="tab-heading"><div><span>CAMPAIGN ADMINISTRATION</span><h2>Settings</h2></div></div>
+          <div class="tab-heading"><div><span>CAMPAIGN ADMINISTRATION</span><h2>Settings</h2></div><button id="gmSettingsHelp" type="button" aria-label="Settings Help">Help</button></div>
           <div class="settings-grid">
             <section class="settings-card">
               <h3>Kick Player</h3>
@@ -454,6 +460,8 @@
   <script type="module" src="gm.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
 <script src="crew-logs-ui.js"></script>
+<script src="starship-help-content.js"></script>
+<script src="starship-guide.js"></script>
 <script src="app-help.js"></script>
 </body>
 </html>

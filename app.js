@@ -2810,6 +2810,7 @@ function playGmSound(name = "tap") {
       return;
     }
     if (name === "firstStart") {
+      if(window.parent!==window&&window.parent.SACharacterLifecycle)return;
       gmAlarmAudio.currentTime = 0;
       gmAlarmAudio.play().catch(() => {
         tone(180, 0, 0.18, 0.055, "sawtooth");

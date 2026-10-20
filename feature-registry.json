@@ -100,11 +100,12 @@
       "sharedDependenciesAndAssets": [
         "campaign-api.js"
       ],
-      "expectedBehavior": "Everything begins inactive, always uses standard catalog prices and cannot be deleted; ordinary shops retain existing controls.",
+      "expectedBehavior": "Everything begins inactive, always uses standard catalog prices and cannot be deleted; ordinary shops retain existing controls. Price editor Apply Changes preserves inherited item/category pricing; typed values update the live preview, while explicit zero remains an override.",
       "regressionTests": [
         "tests/campaign-shops.test.js",
         "tests/campaign-shops-http.test.js",
-        "tests/tab-review.test.js"
+        "tests/tab-review.test.js",
+        "tests/shop-editor-pricing.test.js"
       ]
     },
     {
@@ -351,6 +352,125 @@
       "regressionTests": [
         "Manual fresh-campaign deck counts, preview, Escape, reshuffle, empty state and Prompt/Give restoration",
         "Manual five-page wide/narrow Help and unchanged-topic comparison"
+      ]
+    },
+    {
+      "name": "GM Settings Help",
+      "purpose": "Explain campaign administration and the file-built Adventure Module workflow",
+      "canonicalImplementation": "app-help.js",
+      "interfaces": [
+        "gm.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "save-content-ui.js",
+        "module-package.js",
+        "help-settings-players.png",
+        "help-settings-privacy.png",
+        "help-settings-campaign.png",
+        "help-settings-export.png",
+        "help-settings-files.png"
+      ],
+      "expectedBehavior": "Both Settings and header Help open the same six-page guide. Campaign progress, nested saved contents, Module startup versus attachment, unused package retention, first-arrival reminders, targeted replacement and one-copy recovery match existing behavior. Other GM and PC Help content remains unchanged. Closing returns focus to the opener.",
+      "regressionTests": [
+        "tests/content-workflow.test.js",
+        "tests/adventure-module.test.js",
+        "Manual six-page desktop/narrow navigation, entry-point routing, screenshot callouts and unchanged-topic comparison"
+      ]
+    },
+    {
+      "name": "Starships Help and shared Starship Creation Guide",
+      "purpose": "Explain fleet management and current digital construction without changing ships or campaign data",
+      "canonicalImplementation": "starship-help-content.js",
+      "interfaces": [
+        "app-help.js",
+        "gm.html",
+        "character.html",
+        "starship.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "starship-guide.js",
+        "starship-guide.css",
+        "public-assets.js",
+        "help-starships-*.webp",
+        "cockpit-1-floor-plan.png",
+        "en-au-engine-2-floor-plan-web.webp",
+        "exhaust-thruster-1-graphic.png"
+      ],
+      "expectedBehavior": "Eight GM Help pages link to one twelve-section engineering manual shared by GM, PC and Creator. Guide navigation preserves Help page, scroll and focus and leaves construction untouched. Describes optional SICs, operational dependencies, power, installation, confirmation, automatic/editable airlocks and separate saving/linking actions. Other Help text and game mechanics remain unchanged.",
+      "regressionTests": [
+        "tests/starship-help.test.js",
+        "tests/public-assets.test.js",
+        "tests/ship-power.test.js",
+        "tests/ship-airlock-docking.test.js",
+        "Manual GM/PC/standalone/embedded entry and Back/Close/Escape, section scroll restoration, unfinished design, desktop/narrow layout and unchanged-topic checks"
+      ]
+    },
+    {
+      "name": "Character lifecycle and Rest",
+      "purpose": "GM-approved recovery, Informant contacts, death review and shared character feedback",
+      "canonicalImplementation": "character-lifecycle.js",
+      "interfaces": [
+        "character.js",
+        "gm.js",
+        "character-lifecycle-ui.js",
+        "dialog-chrome.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js",
+        "ship-crew-rooms.js",
+        "result-feedback.js",
+        "token-art.js",
+        "alarm-noise.mp4"
+      ],
+      "expectedBehavior": "Rest requests require GM approval for one PC or all active PCs, advance shared time by eight hours exactly once, restore Exertion and Health Rating HP (filled Health icons, 2-20), or maximum HP in an operational Medbay. Informant contacts and death reviews stay in the GM inbox until explicitly deleted. Confirmed deaths require named confirmation and expose only memorial summaries; XP inheritance is suggested, never transferred automatically (50%, Kabuto 75%, rounded down). Shared circular close controls preserve cancellation and mandatory roll completion. First clock engagement broadcasts the pulsating combat-start banner across GM/PC screens. ALL HANDS ON DECK uses an opaque color pulse and closes without fading through the page.",
+      "regressionTests": [
+        "tests/character-lifecycle.test.js",
+        "tests/campaign-time.test.js"
+      ]
+    },
+    {
+      "name": "GM Prompt / Give Help",
+      "purpose": "Brief purpose-first guidance for live GM checks, awards and recovery",
+      "canonicalImplementation": "app-help.js",
+      "interfaces": [
+        "gm.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "help-prompt-overview.png",
+        "help-prompt-direct.png",
+        "help-prompt-quick.png",
+        "help-prompt-awards.png",
+        "help-prompt-restore.png",
+        "help-prompt-tools.png",
+        "help-prompt-drama.png"
+      ],
+      "expectedBehavior": "Seven GM-only pages reuse shared Help navigation and close controls. Distinguish inbox awards from immediate restoration and GM-approved Rest. Quick Check owns its recipient selection. Actual screenshots and labeled arrows match current controls. PC and other GM Help content remains unchanged. No gameplay changes.",
+      "regressionTests": [
+        "tests/starship-help.test.js",
+        "tests/tab-review.test.js",
+        "tests/quick-prompt-ui.test.js"
+      ]
+    },
+    {
+      "name": "GM Shop Help",
+      "purpose": "Brief merchant setup, inventory, pricing and player-access instructions",
+      "canonicalImplementation": "app-help.js",
+      "interfaces": [
+        "gm.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "help-shop-overview.png",
+        "help-shop-editor.png",
+        "help-shop-stock.png",
+        "help-shop-prices.png",
+        "help-shop-player.png"
+      ],
+      "expectedBehavior": "Five GM-only pages reuse shared Help, actual app screenshots and labeled pricing arrows. Everything is optional. Explain load review, stock/preset replacement, numbered SIC limits, non-stacking overrides, lowest active offers and activation versus File Load. Other Help content remains unchanged.",
+      "regressionTests": [
+        "tests/shop-editor-pricing.test.js",
+        "tests/campaign-shops.test.js",
+        "tests/campaign-shops-http.test.js",
+        "tests/content-workflow.test.js"
       ]
     }
   ]

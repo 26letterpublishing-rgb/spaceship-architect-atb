@@ -5,7 +5,7 @@
 .v03-menu>label:has([data-tutorial]){display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;font-size:12px}
 .v03-menu input[data-tutorial]{appearance:auto;width:18px;height:18px;min-width:18px;padding:0;margin:0;accent-color:#51cddd}
 
-.v03-tutorial{color:#f2fbff}.v03-dialog button,.v03-tutorial button{background:#dceaf0;color:#102430;border:1px solid #7694a3;border-radius:4px;padding:10px}.gm-roll-notice{position:fixed;right:20px;bottom:20px;z-index:100000;max-width:460px;background:#102d3c;color:#effaff;border:1px solid #60d8ed;padding:18px;box-shadow:0 8px 36px #000a}.gm-roll-notice button{background:#dceaf0;color:#102430;padding:8px 20px}
+.v03-tutorial{color:#f2fbff}.v03-dialog button,.v03-tutorial button{background:#dceaf0;color:#102430;border:1px solid #7694a3;border-radius:4px;padding:10px;text-shadow:none!important}.gm-roll-notice{position:fixed;right:20px;bottom:20px;z-index:100000;max-width:460px;background:#102d3c;color:#effaff;border:1px solid #60d8ed;padding:18px;box-shadow:0 8px 36px #000a}.gm-roll-notice button{background:#dceaf0;color:#102430;padding:8px 20px;text-shadow:none!important}
 #campaignCombatStatus{display:block;font-size:10px;line-height:1.4;letter-spacing:.04em}#campaignCombatStatus[hidden]{display:none}.player-fleet-actions{padding:12px}.player-fleet-actions p{font-size:13px;color:#a6c5d5}
 
 /* Native dialog buttons must never inherit white text over the browser's light default. */

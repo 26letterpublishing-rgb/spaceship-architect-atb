@@ -4,7 +4,7 @@
 .damaged-systems-warning{border:1px solid #ff7a87;background:#350c14;color:#fff}
 .damaged-systems-warning>span:nth-child(2){flex:1;min-width:0}
 .damaged-system-light{flex:0 0 12px;height:12px;border-radius:50%;background:#ff233f;box-shadow:0 0 6px #ff234a;animation:damaged-system-pulse 1.5s ease-in-out infinite}
-.combat-activity-banner{background:#ffe077;color:#111;border:1px solid #c99624;font-size:16px}
+.combat-activity-banner{background:#ffe077;color:#111;border:1px solid #c99624;font-size:16px;text-shadow:none!important}
 .combat-activity-banner>.notice-dismiss{margin-left:auto}
 .combat-activity-banner.detection-alert{background:#970b19;color:#fff;border-color:#ff7979;animation:detection-banner-pulse 1.25s ease-in-out infinite}
 .drone-repair-notice{border:1px solid #89e5d1;background:#09242d;color:#e8fff8}.drone-repair-notice>span{flex:1}

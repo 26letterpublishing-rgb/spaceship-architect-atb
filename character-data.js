@@ -71,7 +71,7 @@ export const RACE_DEFS = [
     disadvantages: [
       "You never gain Experience. You may still record total gained Experience for your next character.",
       "You can only simulate humor, morality, and emotions, if at all.",
-      "Once per week you require a 30-minute recharge from an Engine that provides AU. Failing to recharge shuts down all systems until the recharge is performed.",
+      "Once per week you require a 30-minute recharge from an Engine that provides AU. Track this requirement with the GM; the app does not automatically enforce the weekly shutdown. Failing to recharge shuts down all systems until the recharge is performed.",
     ],
     advantages: [
       "Others may spend 75 Credits to spend 1 Experience on your character sheet for you.",
@@ -285,7 +285,7 @@ export const RACE_DEFS = [
       hpFormula: { kind: "top", attributes: ["health"], count: 2, bonus: 0, label: "Two highest Health dice" },
     },
     disadvantages: [
-      "Maximum HP equals the highest result of any two Health dice.",
+      "Maximum HP equals the maximum possible total of your two highest Health dice.",
       "-1 Move Speed.",
       "Do not add Strength dice to Melee damage.",
     ],
@@ -329,8 +329,8 @@ export const RACE_DEFS = [
     advantages: [
       "+3 Defense Score and +2 Move Speed.",
       "Immune to falling damage and capable of limited gliding.",
-      "You do not feel pain and critically succeed all Resist Distress rolls.",
-      "If you die, your next character starts with 100% of this character's total gained Experience instead of 50%. If the new character is also Kabuto, retain Reverence, Drama Cards, and personal Credits. Offspring may retain the previous character's memories.",
+      "You do not feel pain and upgrade successful Resist Distress rolls to critical successes.",
+      "If you die, your next character starts with 75% of this character's total gained Experience instead of 50%. If the new character is also Kabuto, retain Reverence and personal Credits (not Drama Cards). Offspring may retain the previous character's memories.",
     ],
   },
   {
@@ -343,7 +343,7 @@ export const RACE_DEFS = [
       postFinalizeSkillBonuses: { "Intimidation": 30, "Stealth": 20 },
     },
     disadvantages: [
-      "Maximum HP equals the highest result of any two Health dice +10.",
+      "Maximum HP equals the maximum possible total of your two highest Health dice +10.",
       "While missing 5 or more HP, you may roll no more than three Dexterity dice.",
     ],
     advantages: [
@@ -364,7 +364,7 @@ export const RACE_DEFS = [
     advantages: [
       "Add all Luck dice to Charisma rolls.",
       "Maximum HP equals the maximum roll of all Health dice +32.",
-      "After character creation, add +2.0 to one non-bold Skill of your choice.",
+      "After character creation, add +2.0 to one eligible General Skill (excluding Awareness, Dodge, Initiative, Melee, Projectile, and spacecraft Skills) of your choice.",
     ],
   },
   {
@@ -383,7 +383,7 @@ export const RACE_DEFS = [
       },
     },
     disadvantages: [
-      "Maximum HP equals the highest result of any two Health dice.",
+      "Maximum HP equals the maximum possible total of your two highest Health dice.",
       "-1 Move Speed.",
       "Do not add Strength dice to Melee damage.",
     ],
@@ -465,7 +465,7 @@ export const RACE_DEFS = [
       forbidMaxHpReverence: true,
     },
     disadvantages: [
-      "Maximum HP equals the highest result of any two Health dice +20.",
+      "Maximum HP equals the maximum possible total of your two highest Health dice +20.",
       "Enemy Critical Hits deal triple damage instead of double damage.",
       "Cannot purchase D12s in Strength or spend Reverence to increase Maximum HP.",
     ],
@@ -492,12 +492,12 @@ export const RACE_DEFS = [
       damageReduction: { kind: "top", attributes: ["health"], count: 2, bonus: 2, label: "Two highest Health dice +2" },
     },
     disadvantages: [
-      "Maximum HP equals the highest roll among all Health dice, without adding 20.",
+      "Maximum HP equals your highest Health die type, without adding 20.",
       "When rolling Stealth, ignore the highest result.",
     ],
     advantages: [
       "Natural Damage Reduction equals the maximum possible roll of any two Health dice +2. Critical Hits and Fire damage bypass this reduction.",
-      "Recover one Exertion every 15 minutes instead of restoring all Exertion after sleep.",
+      "Recover one Exertion every 15 minutes instead of needing sleep. Track this racial recovery with the GM; the app does not automatically award it as time passes.",
       "Night vision, 360-degree vision, +2 Move Speed, and a slight telepathic connection with other Xithx.",
       "While unencumbered, stand or walk on water and most liquids at half Move Speed, rounded up.",
     ],
@@ -541,8 +541,8 @@ export const RACE_DEFS = [
           "Cannot wear spacesuits or power armor.",
         ],
         advantages: [
-          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
-          "Natural Damage Reduction equals the highest roll of the top two Willpower dice.",
+          "Maximum HP equals the maximum possible total of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the maximum possible total of your two highest Willpower dice.",
           "Immune to Ice and Cold damage.",
           "A successful Unarmed Melee or Wrestle attack gives the opponent Reload/Recovery equal to one personal ATB cycle (100 divided by Speed, in seconds). The opponent may spend 1 Exertion to cancel this delay.",
           "Does not produce a heat signature.",
@@ -564,7 +564,7 @@ export const RACE_DEFS = [
           "Cannot wear spacesuits or power armor.",
         ],
         advantages: [
-          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Maximum HP equals the maximum possible total of all Health and Strength dice +15.",
           "Natural Damage Reduction equals the highest Willpower die type.",
           "Immune to Fire and Heat damage.",
           "Unarmed attacks deal all Strength dice in damage and cause Fire Intensity equal to the number of purchased Willpower dice.",
@@ -586,8 +586,8 @@ export const RACE_DEFS = [
           "Cannot wear spacesuits or power armor.",
         ],
         advantages: [
-          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
-          "Natural Damage Reduction equals the highest roll of all Willpower dice +2.",
+          "Maximum HP equals the maximum possible total of all Health and Strength dice +15.",
+          "Natural Damage Reduction equals the maximum possible total of all Willpower dice +2.",
         ],
       },
       {
@@ -605,7 +605,7 @@ export const RACE_DEFS = [
           "Cannot wear spacesuits or power armor.",
         ],
         advantages: [
-          "Maximum HP equals the highest roll of all Health and Strength dice +15.",
+          "Maximum HP equals the maximum possible total of all Health and Strength dice +15.",
           "Natural Damage Reduction equals the highest Willpower die type.",
           "Every 6 seconds while the ATB clock is active, regenerate 3 HP for each point of unspent Exertion.",
           "Spend 1 Exertion to heal half Maximum HP, rounded down. Fire damage cannot be regenerated this way.",
@@ -706,7 +706,7 @@ export const CLASS_DEFS = [
     id: "ambassador-spy",
     name: "Ambassador / Spy",
     summary: "After character creation, purchasing a Charisma or Luck die grants a free die of equal or lower value in Charisma or Luck.",
-    manual: "The free Attribute die choice will be automated with post-finalization Attribute advancement.",
+    manual: "After finalization, qualifying Charisma or Luck purchases prompt for the free Attribute die.",
   },
   {
     id: "blessed",
@@ -734,7 +734,7 @@ export const CLASS_DEFS = [
     id: "engineer",
     name: "Engineer",
     summary: "While stationed aboard a starship, add AU to an action equal to the highest Intellect die face.",
-    manual: "Station AU will be automated when station interfaces are added.",
+    manual: "The stationed Engineer benefit is applied by station action controls.",
   },
   {
     id: "gunner",

@@ -46,7 +46,12 @@
 <link rel="stylesheet" href="ui-reputation-pass.css">
 <link rel="stylesheet" href="sic-cards.css"><script src="sic-categories.js"></script>
 <link rel="stylesheet" href="point-spend.css"><script src="point-spend.js"></script>
-<link rel="stylesheet" href="inbox.css"><script src="inbox-ui.js"></script></head>
+<link rel="stylesheet" href="inbox.css"><script src="inbox-ui.js"></script><link rel="stylesheet" href="starship-guide.css">
+<script src="character-lifecycle-ui.js" defer></script>
+<link rel="stylesheet" href="character-lifecycle-ui.css">
+<script src="dialog-chrome.js" defer></script>
+<link rel="stylesheet" href="dialog-chrome.css">
+</head>
   <body>
     <header class="creator-header">
       <div class="character-brand-stack">
@@ -254,7 +259,7 @@
               <button type="button" data-hp-change="1" aria-label="Restore one HP">+</button>
               <span class="hp-maximum-readout" aria-label="Maximum HP"><small>Max</small><strong id="currentHpMaximum">28</strong></span>
             </div>
-            <button id="restoreHp" type="button">Restore to Maximum</button>
+
             <button id="marineHeal" type="button" hidden>Marine Recovery</button>
           </div>
         </aside>
@@ -276,7 +281,7 @@
             <div class="resource-card exertion-card">
               <div class="exertion-heading">
                 <span>Exertion</span>
-                <div class="exertion-heading-actions"><button id="spendOneExertion" type="button" aria-label="Spend one Exertion">-1</button><button id="restExertion" class="rest-exertion" type="button" aria-label="Rest for eight hours and restore Exertion">Rest</button></div>
+                <div class="exertion-heading-actions"><button id="spendOneExertion" type="button" aria-label="Spend one Exertion">-1</button><button id="restExertion" class="rest-exertion" type="button" aria-label="Request eight hours of Rest from the GM">Rest</button></div>
               </div>
               <div id="exertionMeter" class="exertion-meter" aria-label="Current and maximum Exertion"></div>
               <small id="exertionFormula" class="resource-formula">1 + each Willpower die at D10 or higher</small>
@@ -875,6 +880,8 @@
     <script type="module" src="character.js?v=console-feedback-2"></script>
   <script src="ship-doors.js"></script><script src="transporter-console.js"></script><script src="intruder-alert.js"></script>
 <script src="crew-logs-ui.js"></script>
+<script src="starship-help-content.js"></script>
+<script src="starship-guide.js"></script>
 <script src="app-help.js"></script>
 </body>
 </html>

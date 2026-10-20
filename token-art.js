@@ -18,7 +18,7 @@
     const frame=(column,classes,mirror=false)=>`<g class="crew-sprite-frame ${classes}"${mirror?' transform="translate(32 0) scale(-1 1)"':''}><svg x="${(32-width)/2}" y="${(32-height)/2}" width="${width}" height="${height}" viewBox="${column*cw} ${y} ${cw} ${h}" preserveAspectRatio="xMidYMid meet" overflow="hidden"><image href="${file}" width="${aw}" height="${ah}"/></svg></g>`;
     return `<svg class="crew-figure crew-sprite" viewBox="0 0 32 32" aria-hidden="true" data-perspective="overhead" data-sprite-row="${row}">${frame(0,'crew-sprite-standing')}${frame(1,'crew-sprite-step')}${frame(1,'crew-sprite-step crew-sprite-mirror',true)}</svg>`;
   }
-  function options(race){return allRaces.includes(race)?[0,1].map(v=>({value:v,label:neutral.has(race)||race.startsWith('yuhorn-')||race.includes('robot')?`Variant ${v+1}`:v?'Female':'Male'})):[];}
+  function options(race){return allRaces.includes(race)?[0,1].map(v=>({value:v,label:v?'Icon B':'Icon A'})):[];}
   function shipId(source={}){const value=Number(source.ship?.mapIcon??source.mapIcon);return Number.isInteger(value)&&value>=1&&value<=8?value:1;}
   function shipImage(source){return `ship-token-${shipId(source)}-v1.webp`;}
   // Normalized fore/aft hull edges, fitted to each existing ship silhouette.

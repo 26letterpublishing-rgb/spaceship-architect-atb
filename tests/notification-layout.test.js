@@ -93,3 +93,9 @@ test('Explore keeps a GM result while hidden and shows it when that perspective 
  const e=environment(false);let active=false;e.win.SAExploreSession={active:()=>active};e.win.SAResultFeedback.push('late-result','Nova','Awareness: 21',{allowOutsideCombat:true});e.flush();const rail=e.doc.querySelector('.interface-notice-rail');assert.equal(!!rail.popoverOpen,false);
  active=true;e.win.dispatchEvent({type:'sa-perspective-visibility'});e.flush();assert.equal(rail.popoverOpen,true);assert.match(rail.textContent,/Awareness: 21/);
 });
+
+
+test('combat-start banner expires without an opacity fade and advances queued alerts',()=>{
+ const e=environment();e.win.SAResultFeedback.critical('combat-start-test','ALL HANDS ON DECK','combat-start');const banner=e.doc.querySelector('.critical-flight-banner');let animated=false;banner.animate=()=>{animated=true;return {finished:Promise.resolve()};};
+ e.win.SAResultFeedback.critical('next-alert','Next alert','warning');e.timers.shift()();assert.equal(animated,false);assert.equal(banner.isConnected,false);assert.match(e.doc.querySelector('.critical-flight-banner').textContent,/Next alert/);
+});

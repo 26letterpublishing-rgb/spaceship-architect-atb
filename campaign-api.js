@@ -449,7 +449,7 @@ function removeStoredInventoryItem(character, itemId, quantity = 1) {
 }
 function trimPrivateNotes(campaign) {
   const notes = Array.isArray(campaign.privateNotes) ? campaign.privateNotes : [];
-  const keep = new Set(notes.slice(-GM_INBOX_LIMIT).map((note) => note.id));
+  const keep = new Set(notes.filter(note=>note.persistent||note.kind==="rest-request"&&note.requestStatus==="pending").concat(notes.slice(-GM_INBOX_LIMIT)).map(note=>note.id));
   for (const record of campaign.characters || []) {
     notes.filter((note) => note.characterId === record.id).slice(-PLAYER_INBOX_LIMIT).forEach((note) => keep.add(note.id));
   }
@@ -622,6 +622,8 @@ function normalizeCampaign(raw) {
     pcCode: String(record?.pcCode ?? record?.pin ?? ""),
     approved: true,
     imported: Boolean(record?.imported),
+    informantsDelivered: Boolean(record?.informantsDelivered),
+    deathReviewPending: Boolean(record?.deathReviewPending),
     createdAt: record?.createdAt || new Date().toISOString(),
     updatedAt: record?.updatedAt || new Date().toISOString(),
     character: record?.character && typeof record.character === "object" ? record.character : {},
@@ -656,14 +658,15 @@ function normalizeCampaign(raw) {
   const shipNames=new Set();for(const record of campaign.starships){const base=record.title;let title=base,index=1;while(shipNames.has(title.toLocaleLowerCase()))title=base+' ('+(index++)+')';record.title=record.ship.title=title;shipNames.add(title.toLocaleLowerCase());}
   trimAwardHistory(campaign);
   campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
-  campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).slice(-1000).map((note) => ({
+  campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).filter((n,i,all)=>n.persistent||i>=all.length-1000).map((note) => ({
     id: String(note?.id || uid("note")),
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     senderCharacterId: String(note?.senderCharacterId || ""),
     senderName: String(note?.senderName || "").slice(0,80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
-    kind: ["surface-travel", "system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
+    persistent: Boolean(note?.persistent),
+    kind: ["informant-contacts", "death-review", "surface-travel", "system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -672,7 +675,7 @@ function normalizeCampaign(raw) {
     rewardStatus: ["pending", "claimed", "cancelled"].includes(note?.rewardStatus) ? note.rewardStatus : "",
     rewardClaimedAt: note?.rewardClaimedAt || null,
     rewardAppliedAmount: Math.max(0, Math.round(Number(note?.rewardAppliedAmount) || 0)),
-    requestStatus: ["pending", "approved", "denied"].includes(note?.requestStatus) ? note.requestStatus : "",
+    requestStatus: ["pending", "approved", "denied", "confirmed", "kept-active"].includes(note?.requestStatus) ? note.requestStatus : "",
     requesterCharacterId: String(note?.requesterCharacterId || ""),
     targetCharacterId: String(note?.targetCharacterId || ""),
     requestedAmount: Math.max(0, Math.min(10, Math.round(Number(note?.requestedAmount) || 0))),
@@ -735,6 +738,7 @@ function campaignBackup(campaign) {
       revision: campaign.revision,
       updatedAt: campaign.updatedAt,
       exportedAt,
+      memorials: clone(campaign.memorials||[]),
       sessionNumber: campaign.sessionNumber,
       characterCount: campaign.characters.length,
     },
@@ -809,7 +813,7 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, snapshotEncounter = () => null, characterMoved = () => {}, environmentChanged = () => {}, ensureRescueEncounter = null }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, snapshotEncounter = () => null, characterMoved = () => {}, characterArchived = () => {}, environmentChanged = () => {}, ensureRescueEncounter = null }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = code => [...new Set([...connectedCharacterIds(code), ...[...(this.clients?.get(code)||[])].map(client=>this.session(client.token,code)).filter(session=>session?.role==='character').map(session=>session.characterId)])];
@@ -820,6 +824,7 @@ class CampaignApi {
     this.liveEncounter = liveEncounter;
     this.snapshotEncounter = snapshotEncounter;
     this.characterMoved = characterMoved;
+    this.characterArchived = characterArchived;
     this.environmentChanged = environmentChanged;
     this.ensureRescueEncounter = ensureRescueEncounter;
     this.environmentTicks = new Map();
@@ -915,7 +920,79 @@ class CampaignApi {
     return this.campaignLoads.get(normalizedCode);
   }
 
+  async updateCampaignAtomically(campaign, update) {
+    const code=campaign.code, previous=this.saveQueues.get(code)||Promise.resolve();
+    const queued=previous.catch(()=>{}).then(async()=>{
+      const next=clone(campaign);const result=update(next);
+      next.revision=(Number(next.revision)||1)+1;next.updatedAt=new Date().toISOString();
+      trimPrivateNotes(next);if(!next.showcase)await this.store.save(next);
+      Object.assign(campaign,next);await this.broadcast(code,campaign);return result;
+    });
+    this.saveQueues.set(code,queued);
+    try{return await queued;}finally{if(this.saveQueues.get(code)===queued)this.saveQueues.delete(code);}
+  }
+
+  async passCampaignTime(campaign, minutes, requestId, restRequest=null) {
+    const code=campaign.code;
+    const previous = this.saveQueues.get(code) || Promise.resolve();
+        const queued = previous.catch(() => {}).then(async () => {
+          const receipt = (campaign.timeReceipts || []).find(entry => entry.id === requestId);
+          if (receipt) {
+            if (receipt.minutes !== minutes) throw new Error("This time request was already used for a different duration.");
+            return receipt;
+          }
+          if (!this.canPassTime(code)) throw new Error("End combat before passing campaign time.");
+          const next = clone(campaign);
+          const restNote=restRequest&&next.privateNotes.find(n=>n.id===restRequest.noteId&&n.kind==='rest-request');
+          if(restRequest&&restNote?.requestStatus!=='pending')throw Error('That Rest request is no longer pending.');
+          const targets=restRequest?next.characters.filter(r=>r.approved&&!r.memorial&&(restRequest.all||r.id===restNote.characterId)&&Number(r.character.health?.current)>0):[];
+          if(restRequest&&!targets.length)throw Error('No living PCs are available to rest.');
+          const medbay=new Set(targets.filter(r=>CREW_ROOMS.restingInMedbay(transitRoom(next),next,r.id)).map(r=>r.id));
+          const actors=OXYGEN.people(next);OXYGEN.sync(next.starships,actors);
+          if(OXYGEN.pending(next.starships))throw new Error('Resolve the pending oxygen roll before passing time.');
+          const occupied=next.starships.filter(s=>actors.some(a=>a.shipId===s.id&&!a.immune&&a.hp>0));
+          const elapsed=Math.min(minutes,Math.max(.000001,OXYGEN.nextEvent(occupied))/60);
+          if(restRequest&&elapsed<minutes)throw Error('Resolve oxygen safety before approving an uninterrupted eight-hour Rest.');
+          let healed = 0, recharged = 0;
+          for (const record of next.characters.filter(entry => entry.approved)) {
+            const result = CAMPAIGN_TIME.passCharacterTime(record.character, elapsed);
+            healed += result.healed; recharged += result.recharged.length;
+            record.updatedAt = new Date().toISOString();
+            next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${Number(elapsed.toFixed(3))} minutes. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
+          }
+          require('./campaign-starmaps').advance(next,elapsed);
+          const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
+          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
+          TRANSIT.advance(transitRoom(next),elapsed*60);
+          require('./ship-black-hole-gun').cooldowns(transitRoom(next),elapsed*60);const chargedRoom=transitRoom(next);chargedRoom.starships=chargedRoom.starships.filter(s=>require('./ship-devastation').needsPower(s));SHIP_POWER.advance(chargedRoom,elapsed*60);
+          CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
+          OXYGEN.advance(next.starships,actors,elapsed*60);
+          syncCampaignCarry(next);
+          require('./ancestral-crafting').advance(next,elapsed);
+          if(restRequest){
+            const now=new Date().toISOString();
+            for(const record of targets){const gain=require('./character-lifecycle').rest(record.character,medbay.has(record.id));record.updatedAt=now;next.privateNotes.push({id:uid('note'),characterId:record.id,characterName:safeCharacterName(record),direction:'to-character',kind:'system',message:'The GM approved eight hours of Rest. Restored '+gain.hp+' HP and '+gain.exertion+' Exertion.'+(medbay.has(record.id)?' Medbay Rest restores maximum HP.':''),createdAt:now,readAt:null});}
+            for(const note of next.privateNotes.filter(n=>n.kind==='rest-request'&&n.requestStatus==='pending'&&targets.some(r=>r.id===n.characterId))){note.requestStatus='approved';note.requestResolvedAt=now;note.readAt||=now;}
+          }
+          next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + elapsed;
+          next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
+          next.revision = (Number(next.revision) || 1) + 1;
+          next.updatedAt = new Date().toISOString();
+          trimPrivateNotes(next);
+          if (!next.showcase) await this.store.save(next);
+          Object.assign(campaign, next);
+          this.timePassed(code, campaign.characters);
+          await this.broadcast(code, campaign);
+          return result;
+        });
+        this.saveQueues.set(code, queued);
+        try { return await queued; }
+        finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
+  }
+
   async save(campaign, { broadcast = true, incrementRevision = true } = {}) {
+    for(const record of campaign.characters||[])if(Number(record.character.health?.current)>0&&!campaign.privateNotes.some(n=>n.kind==='death-review'&&n.characterId===record.id&&n.requestStatus==='pending'))record.deathReviewPending=false;
+    require('./character-lifecycle').sync(campaign);
     require('./content-arrivals').check(campaign);
     normalizeDramaDeck(campaign);
     const names=new Set();for(const record of campaign.starships||[]){const base=record.title||record.ship.title||"Starship";let title=base,n=1;while(names.has(title.toLowerCase()))title=base+" ("+(n++)+")";names.add(title.toLowerCase());record.title=record.ship.title=title;}
@@ -1046,6 +1123,8 @@ class CampaignApi {
       scriptChapters: gm ? clone(campaign.scriptChapters) : undefined,
       conditionalActions: gm ? clone(campaign.conditionalActions) : undefined,
       shipCredits: campaign.shipCredits,
+      memorials: clone(campaign.memorials||[]),
+      combatAnnouncement: (()=>{const room=this.liveEncounter(campaign.code)||campaign.encounter;return room?.hasEngagedClock&&!room.encounterEndedAt&&room.combatStartAt?{id:room.encounterId+":"+room.combatStartAt,at:room.combatStartAt}:null;})(),
       crewLogs:clone(require('./crew-logs').visible(campaign,ownId,gm)),
       libraryEntries:clone(campaign.libraryEntries||[]),
       gmConnected:[...(this.clients.get(campaign.code)||[])].some(client=>this.gmSession(client.token,campaign.code)),
@@ -1078,13 +1157,14 @@ class CampaignApi {
             }
           : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
-      inbox: gm ? clone(campaign.privateNotes.slice(-GM_INBOX_LIMIT)) : undefined,
+      inbox: gm ? clone(campaign.privateNotes.filter((note,i,all)=>note.persistent||note.kind==="rest-request"&&note.requestStatus==="pending"||i>=all.length-GM_INBOX_LIMIT)) : undefined,
       characters: campaign.characters.map((record) => ({
         ...publicCharacter(record, {
           gm,
           own: record.id === ownId,
           notes: limitedNotes(notesByCharacter.get(record.id) || [], PLAYER_INBOX_LIMIT),
         }),
+        restPending: campaign.privateNotes.some(n=>n.kind==="rest-request"&&n.characterId===record.id&&n.requestStatus==="pending"),
         claimed: (campaign.players||[]).some(p=>p.characterId===record.id),
         connected: connectedIds.has(record.id),
       })),
@@ -2669,50 +2749,7 @@ class CampaignApi {
         const minutes = CAMPAIGN_TIME.durationMinutes(body.amount, body.unit);
         const requestId = String(body.requestId || "");
         if (!/^[\w-]{8,100}$/.test(requestId)) throw new Error("A time request ID is required.");
-        const previous = this.saveQueues.get(code) || Promise.resolve();
-        const queued = previous.catch(() => {}).then(async () => {
-          const receipt = (campaign.timeReceipts || []).find(entry => entry.id === requestId);
-          if (receipt) {
-            if (receipt.minutes !== minutes) throw new Error("This time request was already used for a different duration.");
-            return receipt;
-          }
-          if (!this.canPassTime(code)) throw new Error("End combat before passing campaign time.");
-          const next = clone(campaign);
-          const actors=OXYGEN.people(next);OXYGEN.sync(next.starships,actors);
-          if(OXYGEN.pending(next.starships))throw new Error('Resolve the pending oxygen roll before passing time.');
-          const occupied=next.starships.filter(s=>actors.some(a=>a.shipId===s.id&&!a.immune&&a.hp>0));
-          const elapsed=Math.min(minutes,Math.max(.000001,OXYGEN.nextEvent(occupied))/60);
-          let healed = 0, recharged = 0;
-          for (const record of next.characters.filter(entry => entry.approved)) {
-            const result = CAMPAIGN_TIME.passCharacterTime(record.character, elapsed);
-            healed += result.healed; recharged += result.recharged.length;
-            record.updatedAt = new Date().toISOString();
-            next.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "recharge", message: `GM passed ${Number(elapsed.toFixed(3))} minutes. Restored ${result.healed} HP${result.recharged.length ? ` and recharged ${result.recharged.join(", ")}` : ""}.`, createdAt: record.updatedAt, readAt: null });
-          }
-          require('./campaign-starmaps').advance(next,elapsed);
-          const result = { id: requestId, minutes, advancedMinutes:elapsed, oxygenInterrupted:elapsed<minutes, healed, recharged };
-          for(const ship of next.starships || []) {require('./ship-maintenance').passTime(ship,elapsed);require('./ship-cleanser').passTime(ship,elapsed);}
-          TRANSIT.advance(transitRoom(next),elapsed*60);
-          require('./ship-black-hole-gun').cooldowns(transitRoom(next),elapsed*60);const chargedRoom=transitRoom(next);chargedRoom.starships=chargedRoom.starships.filter(s=>require('./ship-devastation').needsPower(s));SHIP_POWER.advance(chargedRoom,elapsed*60);
-          CREW_ROOMS.advance(transitRoom(next),next,elapsed*60);
-          OXYGEN.advance(next.starships,actors,elapsed*60);
-          syncCampaignCarry(next);
-          require('./ancestral-crafting').advance(next,elapsed);
-          next.elapsedMinutes = (Number(next.elapsedMinutes) || 0) + elapsed;
-          next.timeReceipts = [...(next.timeReceipts || []), result].slice(-200);
-          next.revision = (Number(next.revision) || 1) + 1;
-          next.updatedAt = new Date().toISOString();
-          trimPrivateNotes(next);
-          if (!next.showcase) await this.store.save(next);
-          Object.assign(campaign, next);
-          this.timePassed(code, campaign.characters);
-          await this.broadcast(code, campaign);
-          return result;
-        });
-        this.saveQueues.set(code, queued);
-        let result;
-        try { result = await queued; }
-        finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
+        const result = await this.passCampaignTime(campaign, minutes, requestId);
         sendJson(res, 200, { ...result, campaign: this.state(campaign, token) });
       } catch (error) { sendJson(res, 400, { error: error.message }); }
       return true;
@@ -2758,6 +2795,7 @@ class CampaignApi {
         message: "",
       };
       next.resources ||= {};
+      if(Number.isFinite(Number(body.baseExertion)))next.resources.exertionCurrent=Math.max(0,Math.min(Number(next.resources.exertionMax)||0,(Number(record.character.resources?.exertionCurrent)||0)+(Number(next.resources.exertionCurrent)||0)-Number(body.baseExertion)));
       next.vrTrainingDay=record.character.vrTrainingDay;
       next.health ||= { current: null, permanentBonus: 0 };
       next.health.recoveryMinutes = record.character.health?.recoveryMinutes || 0;
@@ -2786,7 +2824,7 @@ class CampaignApi {
       record.character = next;
       record.updatedAt = new Date().toISOString();
       await this.save(campaign);
-      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase, currentHp: next.health.current });
+      sendJson(res, 200, { saved: true, updatedAt: record.updatedAt, creditsBase: next.resources.creditsBase, currentHp: next.health.current, exertionCurrent: next.resources.exertionCurrent });
       this.timePassed(code,[record]);
       return true;
     }
@@ -2808,6 +2846,36 @@ class CampaignApi {
       sendJson(res, 200, { changed: true, pcCode: record.pcCode });
       return true;
     }
+
+    if(path==='/api/campaign/character/death-decision'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      try{
+        const archivedId=await this.updateCampaignAtomically(campaign,next=>{
+          const note=next.privateNotes.find(n=>n.id===body.noteId&&n.kind==='death-review');
+          if(!note||!['confirm','keep'].includes(body.decision))throw Error('Choose a pending death review.');
+          if(note.requestStatus!=='pending')return null;
+          const record=next.characters.find(r=>r.id===note.characterId);if(!record)throw Error('Character not found.');
+          if(body.decision==='confirm'&&body.confirmCharacterId!==record.id)throw Error('Confirm the named character death first.');
+          if(body.decision==='confirm'){
+            const identity=record.character.identity||{};
+            next.memorials=[...(next.memorials||[]),{id:record.id,name:identity.characterName||'Character',playerName:identity.playerName||'',race:identity.race||identity.raceId||'',raceId:identity.raceId||'',className:identity.className||identity.classId||'',presentation:clone(record.character.presentation||{}),session:next.sessionNumber,elapsedMinutes:Number(next.elapsedMinutes)||0,at:new Date().toISOString()}];
+            next.archivedCharacters=[...(next.archivedCharacters||[]),clone(record)];releaseDramaHand(next,record.id);
+            next.characters=next.characters.filter(r=>r.id!==record.id);
+            for(const request of next.privateNotes)if(request.kind==='rest-request'&&request.characterId===record.id&&request.requestStatus==='pending'){request.requestStatus='denied';request.requestResolvedAt=new Date().toISOString();}
+            for(const player of next.players||[])if(player.characterId===record.id)player.characterId=null;
+            for(const session of Object.values(next.runtimeSessions||{}))if(session.characterId===record.id){session.characterId=null;session.role='viewer';}
+            for(const ship of next.starships){ship.crewCharacterIds=(ship.crewCharacterIds||[]).filter(id=>id!==record.id);if(ship.characterLocations)delete ship.characterLocations[record.id];}
+            if(next.encounter?.units)next.encounter.units=next.encounter.units.filter(u=>u.characterId!==record.id);
+            if(next.bankerCharacterId===record.id)next.bankerCharacterId=null;
+          }
+          note.requestStatus=body.decision==='confirm'?'confirmed':'kept-active';note.requestResolvedAt=new Date().toISOString();
+          return body.decision==='confirm'?record.id:null;
+        });
+        if(archivedId){for(const session of this.sessions.values())if(session.code===code&&session.characterId===archivedId){session.characterId=null;session.role='viewer';}this.characterArchived(code,archivedId);await this.broadcast(code,campaign);}
+        sendJson(res,200,{campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,400,{error:error.message});}return true;
+    }
+
 
     if (path === "/api/campaign/character/delete" && req.method === "POST") {
       const record = campaign.characters.find((entry) => entry.id === body.characterId);
@@ -3388,60 +3456,39 @@ class CampaignApi {
         sendJson(res, 403, { error: "Character authorization is required." });
         return true;
       }
-      record.character.resources ||= {};
-      const before = Math.max(0, Math.round(Number(body.before) || 0));
-      const maximum = Math.max(0, Math.round(Number(record.character.resources.exertionMax) || Number(body.maximum) || 0));
-      const grantedAmount = Math.max(0, maximum - before);
-      record.character.resources.exertionCurrent = maximum;
-      record.updatedAt = new Date().toISOString();
-      campaign.privateNotes.push({
-        id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-gm", kind: "rest-request",
-        requestStatus: "pending", grantedAmount,
-        message: `${safeCharacterName(record)} rested and restored ${grantedAmount} Exertion. Ignoring this message approves the Rest.`,
-        createdAt: record.updatedAt, readAt: null,
-      });
-      await this.save(campaign);
-      sendJson(res, 200, { rested: true, campaign: this.state(campaign, token) });
-      return true;
+      if(!record.approved||record.memorial||Number(record.character.health?.current)<=0){sendJson(res,400,{error:'Only an active, conscious character can request Rest.'});return true;}
+      if(!campaign.privateNotes.some(n=>n.kind==='rest-request'&&n.characterId===record.id&&n.requestStatus==='pending'))campaign.privateNotes.push({id:uid('note'),characterId:record.id,characterName:safeCharacterName(record),direction:'to-gm',kind:'rest-request',requestStatus:'pending',message:safeCharacterName(record)+' requests eight hours of Rest. Approval passes eight hours once, restores Exertion and heals Health Rating HP (maximum HP in an operational Medbay).',createdAt:new Date().toISOString(),readAt:null});
+      await this.save(campaign);sendJson(res,200,{requested:true,campaign:this.state(campaign,token)});return true;
     }
-
-    if (path === "/api/campaign/exertion/rest-decision" && req.method === "POST") {
-      if (!this.gmSession(token, code)) {
-        sendJson(res, 403, { error: "GM authorization is required." });
-        return true;
-      }
-      const note = campaign.privateNotes.find((entry) => entry.id === body.noteId && entry.kind === "rest-request");
-      if (!note || note.requestStatus !== "pending") {
-        sendJson(res, 409, { error: "That Rest message is no longer pending." });
-        return true;
-      }
-      const now = new Date().toISOString();
-      if (body.decision === "deny") {
-        const record = campaign.characters.find((entry) => entry.id === note.characterId);
-        if (record) {
-          record.character.resources ||= {};
-          record.character.resources.exertionCurrent = Math.max(0, Math.round(Number(record.character.resources.exertionCurrent) || 0) - Math.max(0, Number(note.grantedAmount) || 0));
-          record.updatedAt = now;
-          campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "system", message: "The GM denied that Rest. The Exertion restored by it was removed.", createdAt: now, readAt: null });
-        }
-        note.requestStatus = "denied";
-      } else if (body.decision === "approve-all") {
-        for (const record of campaign.characters) {
-          const award = { id: uid("award"), resource: "rest", amount: 1, targetIds: [record.id], before: { shipCredits: campaign.shipCredits, characters: [] }, at: now, claimRequired: true, claimedCharacterIds: [], androidExperienceIds: [] };
-          campaign.awardHistory.push(award);
-          campaign.privateNotes.push({ id: uid("note"), characterId: record.id, characterName: safeCharacterName(record), direction: "to-character", kind: "award", awardId: award.id, rewardResource: "rest", rewardAmount: 1, rewardStatus: "pending", message: "The GM approved Rest for everyone. Receive this reward to restore all Exertion.", createdAt: now, readAt: null });
-        }
-        trimAwardHistory(campaign);
-        note.requestStatus = "approved";
-      } else {
-        sendJson(res, 400, { error: "Choose Deny or Approve for All." });
-        return true;
-      }
-      note.requestResolvedAt = now;
-      note.readAt ||= now;
-      await this.save(campaign);
-      sendJson(res, 200, { resolved: true, campaign: this.state(campaign, token) });
-      return true;
+    if(path==='/api/campaign/exertion/rest-decision'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      try{
+        if(!['approve','approve-all','deny'].includes(body.decision))throw Error('Choose an approval or Deny.');
+        const note=campaign.privateNotes.find(n=>n.id===body.noteId&&n.kind==='rest-request');if(!note)throw Error('Rest request not found.');
+        if(body.decision==='deny'){
+          await this.updateCampaignAtomically(campaign,next=>{const current=next.privateNotes.find(n=>n.id===note.id);if(current?.requestStatus==='pending'){current.requestStatus='denied';current.requestResolvedAt=new Date().toISOString();}});
+        }else await this.passCampaignTime(campaign,480,'rest-'+note.id,{noteId:note.id,all:body.decision==='approve-all'});
+        sendJson(res,200,{resolved:true,campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,400,{error:error.message});}return true;
+    }
+    if(path==='/api/campaign/character/restore-resources'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      if(!/^[\w-]{8,100}$/.test(String(body.requestId||''))){sendJson(res,400,{error:'A request ID is required.'});return true;}
+      try{
+        await this.updateCampaignAtomically(campaign,next=>{
+          next.resourceReceipts||=[];
+          if(next.resourceReceipts.includes(body.requestId))return;
+          const targets=Array.isArray(body.targetIds)?body.targetIds:[];
+          for(const record of next.characters.filter(r=>r.approved&&!r.memorial&&targets.includes(r.id))){
+            const gain=require('./character-lifecycle').restore(record.character,{hp:body.hp,exertion:body.exertion,full:body.full===true});record.updatedAt=new Date().toISOString();
+            if(record.character.health.current>0&&!next.privateNotes.some(n=>n.kind==='death-review'&&n.characterId===record.id&&n.requestStatus==='pending'))record.deathReviewPending=false;
+            next.privateNotes.push({id:uid('note'),characterId:record.id,characterName:safeCharacterName(record),direction:'to-character',kind:'system',message:'GM restored '+gain.hp+' HP and '+gain.exertion+' Exertion.',createdAt:record.updatedAt,readAt:null});
+          }
+          next.resourceReceipts.push(body.requestId);
+        });
+        this.timePassed(code,campaign.characters);
+        sendJson(res,200,{campaign:this.state(campaign,token)});
+      }catch(error){sendJson(res,400,{error:error.message});}return true;
     }
 
     if (path === "/api/campaign/reverence/spent" && req.method === "POST") {
@@ -3753,6 +3800,7 @@ class CampaignApi {
         sendJson(res, 403, { error: "Character authorization is required." });
         return true;
       }
+      if(note.persistent&&!this.gmSession(token,code)){sendJson(res,403,{error:'Only the GM can delete a retained notification.'});return true;}
       campaign.privateNotes = campaign.privateNotes.filter((entry) => entry.id !== note.id);
       await this.save(campaign);
       sendJson(res, 200, { deleted: true });

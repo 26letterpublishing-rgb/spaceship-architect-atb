@@ -1,0 +1,28 @@
+LOCAL CHARACTER LIFECYCLE / CREATION PASS - October 19, 2026
+Authorization: #local. No commit, push or ntfy notification.
+
+IMPLEMENTED
+- New is disabled on a fresh creation sheet. Existing draft progress enables it.
+- Removed class disadvantage placeholders and generic finalization implementation notes; descriptions now explain class-specific behavior.
+- Race/subrace language review: Nordic Flaxen eligible General Skills, explicit maximum-value HP/DR wording, and existing Kabuto Resist Distress success-upgrade behavior. Android weekly charging and Xithx fifteen-minute Exertion recovery are explicitly GM-tracked; no new automation was invented for them.
+- Kabuto suggested inheritance is 75% of total gained XP, rounded down. A replacement Kabuto retains Reverence/personal Credits by table handling, with no Drama Card inheritance. Ordinary Drama Card use is unchanged.
+- Informants enter five names/types, including Other. Closing suspends finalization and preserves the entries; reopening resumes it. Approved contacts deliver one retained GM note directing Story Console integration. Reading does not remove it; only GM Delete Notification does.
+- Health Rating counts filled Health icons (2-20). GM-approved Rest restores Exertion and Health Rating HP, capped at maximum; an operational Medbay restores maximum HP. GM can approve the requesting character or all active, conscious PCs, or deny. Approval uses shared Pass Time for eight hours once, including normal time-dependent systems. Unsafe/interrupted time or active combat cannot silently grant a completed Rest.
+- Prompt/Give has selected-PC HP/Exertion restoration. Removed Restore to Maximum from the sheet. Server receipts prevent duplicate restoration and repeated Rest approval; failed persistence does not consume the action or alter resources.
+- Possible death sends a retained GM review with available/total XP and suggested manual transfer (50%, Kabuto 75%). Keep Character Active preserves revival options. Confirm Character Death requires a named Are You Sure confirmation, removes the character from active play, retains its full record privately in Campaign backups and exposes only basic In Memoriam summaries in GM/PC Settings. No XP transfer is automatic.
+- Shared sheet/preview ATB sheen stays clipped to the filled meter. Icon options use Icon A/Icon B. Creation calculation explanations are yellow; derived values are light blue and recalculate as attributes/skills change, including DEX D10 Move Speed.
+- Shared circular top-right X controls reuse cancellation/acknowledgement handlers across native/custom dimmed dialogs. Removed redundant dismissal footers. Required unresolved rolls keep dismissal disabled. Nested GM confirmations now appear above the inbox; keyboard Enter on X cannot approve a command.
+- Removed text shadows from explicit dark-text controls; enlarged character-ready copy.
+- First clock engagement displays a larger scrolling, pulsating ALL HANDS ON DECK banner on GM/PC screens with the existing alarm/mute behavior. Pause/resume does not retrigger it. Explore perspectives resume queued banners when selected.
+
+VALIDATION
+- Full Node suite: 1,217 passing, zero failing (tests-complete.txt).
+- Ten lifecycle regressions cover Health Rating, normal/Medbay Rest, approvals/denial, duplicate/concurrent requests, failed persistence, selected restoration, XP suggestions, death confirmation/archive, contact retention and portable Campaign restore.
+- 13 modified runtime JavaScript files passed syntax and UTF-8 checks; CRLF-aware git diff whitespace check passed. Original unchanged-line endings preserved to keep diffs reviewable.
+- Disposable real-browser flows: DEX D10 Move Speed update; fresh-sheet New disabled; Informant close/resume/custom type/five-contact completion; PC Rest with full Exertion but missing HP, GM individual/all controls and individual approval; nested death confirmation X cancellation then approval; retained inbox note and both GM/PC memorial summaries; race gallery close; narrow tutorial acknowledgement X; global combat banner visible over PC Settings.
+- Audited static dialog inventory and dynamic dismissal patterns. All 15 character-sheet modal definitions have close controls; representative dialog families were clicked, not every possible combat/SIC state. Required dice resolution remains protected. Audio playback was wired to the existing asset but not audibly auditioned.
+- Screenshots: ../outputs/character-lifecycle-qa/combat-alert-pc-settings.png and death-confirmation.png.
+- Normal local server restarted on port 8790, PID1968; new assets return HTTP200 and server error log is empty. Original personal campaign files hash-identical before/after restart. Isolated QA used port8793 and disposable Explore data.
+
+PRESERVED / LIMITS
+Earlier Settings/Starships Help, guide assets, unrelated QA and existing uncommitted work remain. No Help menus were rewritten in this pass. The previously queued room-join/finalization limbo issue is outside this pass. Manual race recovery/recharge rules remain manual and are described as such. Savings/XP transfers are not performed automatically.

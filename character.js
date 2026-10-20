@@ -387,7 +387,6 @@ const dom = {
   damageReductionFormula: $("#damageReductionFormula"),
   currentHp: $("#currentHp"),
   currentHpMaximum: $("#currentHpMaximum"),
-  restoreHp: $("#restoreHp"),
   marineHeal: $("#marineHeal"),
   exertionMeter: $("#exertionMeter"),
   exertionFormula: $("#exertionFormula"),
@@ -852,6 +851,7 @@ let campaignSaving = false;
 let lastCampaignSyncAt = null;
 let campaignBaselineCredits = 0;
 let campaignBaselineHp = null;
+let campaignBaselineExertion = 0;
 let campaignSaveTimer = null;
 let suppressCampaignSave = false;
 let gmAdjustmentSnapshot = null;
@@ -1561,7 +1561,7 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
         token: campaignToken,
         characterId: campaignCharacterId,
         baseCredits: campaignBaselineCredits,
-        baseCurrentHp: campaignBaselineHp,
+        baseCurrentHp: campaignBaselineHp, baseExertion: campaignBaselineExertion,
         seenCraftedWeapons: [...seenCraftedWeapons, ...character.weapons.map(w=>w.craftRequestId), ...character.storedWeapons.map(w=>w.craftRequestId)].filter(Boolean),
         exact: Boolean(exact && GM_ADJUSTMENT_MODE),
         character,
@@ -1570,6 +1570,7 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
     if (Number.isFinite(Number(payload.creditsBase))) {
       character.resources.creditsBase = Number(payload.creditsBase);
       campaignBaselineCredits = Number(payload.creditsBase);
+      if(Number.isFinite(payload.exertionCurrent))campaignBaselineExertion=payload.exertionCurrent;
       renderResources();
     }
     if (Number.isFinite(Number(payload.currentHp))) {
@@ -2027,6 +2028,7 @@ function showCampaignCharacter(record, { editable = false, token = "", pin = "" 
     activeId = opened.id;
     character = opened;
   }
+  campaignBaselineExertion=Number(opened.resources?.exertionCurrent)||0;
   campaignBaselineCredits = Number(opened.resources?.creditsBase) || 0;
   campaignBaselineHp = Number.isFinite(Number(opened.health?.current)) ? Number(opened.health.current) : Number(opened.computed?.maximumHp) || 0;
   campaignCharacterId = record.id;
@@ -2410,6 +2412,7 @@ function receiveCampaignState(nextState) {
   document.querySelector('[data-console-preview-frame]')?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
+  window.SACharacterLifecycle?.update(nextState);
   window.SACampaignMapUI?.update(nextState,campaignToken);
   window.SACrewLogs?.update(nextState,campaignToken);
   window.SACrewRoomStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/crew-room',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:nextState.ownCharacterId,...body})}));
@@ -2440,6 +2443,9 @@ function receiveCampaignState(nextState) {
     seenCraftedWeapons.add(w.craftRequestId);
   }
   if (deliveredCraft) renderWeapons();
+  const remoteExertion=Number(remote.character?.resources?.exertionCurrent)||0;
+  if(campaignEditable){const delta=(Number(character.resources.exertionCurrent)||0)-campaignBaselineExertion;character.resources.exertionCurrent=Math.max(0,Math.min(character.resources.exertionMax,remoteExertion+(campaignDirty||campaignSaving?delta:0)));}
+  campaignBaselineExertion=remoteExertion;
   const remoteHp = Number(remote.character?.health?.current);
   if (campaignEditable && (campaignDirty || campaignSaving) && Number.isFinite(remoteHp)) {
     const localHp = Number(character.health?.current);
@@ -3654,7 +3660,7 @@ function applyClassSelection(value) {
   queueSave();
   renderAll();
   if (character.identity.classId) scrollToCreationModifiers();
-  notice(`${character.identity.className} selected. Class effects will apply during finalization.`, "success");
+  notice(`${character.identity.className} selected. See the class card for its bonuses and actions.`, "success");
 }
 
 function renderClassGallery() {
@@ -3675,8 +3681,19 @@ function showClassCardDetail(classId) {
   dom.classCardDetailName.textContent = definition.name;
   dom.classCardDetailIcon.innerHTML = profile.icon;
   dom.classCardDetailSummary.textContent = definition.summary;
-  const notes = [definition.manual, definition.pendingAtb ? "Some dedicated ATB prompts are still resolved at the table until their station or combat interface is added." : ""].filter(Boolean);
-  dom.classCardDetailNotes.innerHTML = notes.length ? notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("") : "<li>All currently automated effects apply during finalization.</li>";
+  const notes = {
+    'blessed':'Finalization grants 10 Reverence and five Drama Cards. Your cards join the campaign deck when the character is linked.',
+    'corporate-worker':'Finalization adds 15,000 credits to your personal balance.',
+    'heavy':'Your calculated Maximum HP includes +15 after finalization; weapon size eligibility uses the Heavy adjustment.',
+    'informant':'After finalization, enter five named contacts and their types. The GM receives a persistent message to incorporate them into the Story Console. Coordinate additional contacts on new star-system arrivals with the GM.',
+    'mastermind':'After finalization, the sheet uses Initiative ×1.5 for Speed and Awareness ×45 for Command Window.',
+    'marine-soldier':'Use Marine Recovery on your sheet once per session; roll Willpower using the normal dice interface.',
+    'engineer':'The stationed Engineer benefit is applied by the station action controls.',
+    'ambassador-spy':'After finalization, a qualifying Charisma or Luck purchase prompts for the free Attribute die.',
+    'scout-sniper':'Survival and Awareness gain +2.0 after finalization. In combat, the Aim control offers the Exertion-funded immediate action.',
+    '':'No class-specific bonuses or actions are added.'
+  }[definition.id] || definition.summary;
+  dom.classCardDetailNotes.innerHTML = `<li>${escapeHtml(notes)}</li>`;
   dom.chooseClassCard.textContent = definition.id ? `Choose ${definition.name}` : "Choose No Class";
   dom.classGalleryChooser.hidden = true;
   dom.classCardDetail.hidden = false;
@@ -3785,7 +3802,7 @@ function renderClass() {
         : `${modifierRulesMarkup("Racial Advantages", raceAdvantages, "advantage")}${modifierRulesMarkup("Racial Disadvantages", raceDisadvantages, "disadvantage")}`
       : `<p class="modifier-empty">Choose a race to display its advantages and disadvantages.</p>`;
   const classContent = character.identity.classId
-    ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}${modifierRulesMarkup("Class Disadvantages", [], "disadvantage")}`
+    ? `${modifierRulesMarkup("Class Advantage", [classDefinition.summary], "advantage")}`
     : `<p class="modifier-empty">${character.identity.classChosen ? 'No Class selected. No class modifiers apply.' : 'Choose a class to display its advantages.'}</p>`;
   dom.automaticModifiers.innerHTML = `
     <article class="modifier-summary race-modifier">
@@ -3797,7 +3814,7 @@ function renderClass() {
       <strong>${escapeHtml(classDefinition.name)}</strong>
       ${classContent}
       ${classDefinition.manual ? `<small>${escapeHtml(classDefinition.manual)}</small>` : ""}
-      ${character.identity.classId ? `<small>${character.phase === "finalized" ? "Automated effects are active; other listed rules remain available for table resolution." : "Class effects apply during finalization."}</small>` : ""}
+
     </article>`;
 }
 function scrollToCreationModifiers() {
@@ -3815,6 +3832,9 @@ function scrollToCreationModifiers() {
 
 
 function renderWorkflow() {
+  document.body.classList.toggle('character-creating',character.phase==='draft');
+  dom.newCharacter.disabled=character.phase==='draft'&&!draftHasProgress(character);
+  dom.newCharacter.title=dom.newCharacter.disabled?'This sheet is already new.':'Create a new character';
   const validation = draftValidation();
   dom.phaseBadge.className = `phase-badge ${character.phase}`;
   dom.workflowBar.classList.remove("invalid");
@@ -3829,7 +3849,8 @@ function renderWorkflow() {
     renderWorkflowRequirements([{ label: `Rolling Skill Decimals - ${remaining} remaining`, tone: "warning" }]);
     dom.workflowDetail.textContent = "Each completed result is saved immediately.";
     dom.finalizeCharacter.textContent = "Finalizing...";
-    dom.finalizeCharacter.disabled = true;
+    dom.finalizeCharacter.disabled = remaining>0;
+    if(!remaining)dom.finalizeCharacter.textContent="Finish Contacts";
     return;
   }
 
@@ -4346,7 +4367,10 @@ function renderResources() {
   const maxHpForbidden = Boolean(race.forbidMaxHpReverence);
   dom.exertionMeter.innerHTML = exertionMeterMarkup(character.resources.exertionCurrent, character.resources.exertionMax);
   if (GM_ADJUSTMENT_MODE) dom.exertionMeter.dataset.gmDirectEdit = "exertionCurrent";
-  dom.restExertion.disabled = character.resources.exertionCurrent >= character.resources.exertionMax || Boolean(character.pendingRoll);
+  const pendingRest=campaignState?.characters?.find(r=>r.id===campaignCharacterId)?.restPending;
+  dom.restExertion.disabled=character.phase!=='finalized'||!campaignCode||!campaignEditable||character.health.current<=0||pendingRest||Boolean(character.pendingRoll)||(character.resources.exertionCurrent>=character.resources.exertionMax&&character.health.current>=maximumHp());
+  dom.restExertion.textContent=pendingRest?'Rest Awaiting GM':'Request Rest';
+  dom.restExertion.title=campaignCode?'Request eight hours of Rest from the GM.':'Join a campaign to request Rest.';
   dom.spendOneExertion.disabled = character.phase !== "finalized" || character.resources.exertionCurrent < 1 || Boolean(character.pendingRoll) || (Boolean(campaignCode) && !campaignEditable);
   const gmExertion = Number(character.gmAdjustments?.exertionMax) || 0;
   dom.exertionFormula.textContent = `Base 1 + each Willpower die at D10 or higher${gmExertion ? ` ${gmExertion > 0 ? "+" : ""}${gmExertion} GM adjustment` : ""}`;
@@ -5526,7 +5550,7 @@ function animateSpeedPreview(now) {
     ready = elapsed >= fillDuration;
     progress = ready ? 1 : Math.min(1, elapsed / fillDuration);
   }
-  for(const preview of previews){preview.querySelector(".speed-preview-fill").style.transform=`scaleX(${progress})`;preview.classList.toggle("ready",ready);preview.setAttribute("aria-valuenow",String(Math.round(progress*100)));}
+  for(const preview of previews){preview.querySelector(".speed-preview-fill").style.width=`${progress*100}%`;preview.classList.toggle("ready",ready);preview.setAttribute("aria-valuenow",String(Math.round(progress*100)));}
   speedPreviewFrame = requestAnimationFrame(animateSpeedPreview);
 }
 
@@ -5537,13 +5561,14 @@ function syncSpeedPreview(speed) {
     speedPreviewValue = normalizedSpeed;
     speedPreviewCharacterId = character.id;
     speedPreviewStartedAt = performance.now();
-    dom.speedPreviewFill.style.transform = "scaleX(0)";
+    dom.speedPreviewFill.style.width = "0%";
     dom.speedPreview.classList.remove("ready");
   }
   if (speedPreviewFrame === null) speedPreviewFrame = requestAnimationFrame(animateSpeedPreview);
 }
 
 function renderDerived() {
+  renderResources();
   const derived = derivedValues();
   const hp = maximumHpDetails();
   const reduction = damageReductionDetails();
@@ -6255,7 +6280,6 @@ function renderAll() {
   renderExperience();
   renderAttributes();
   renderSkills();
-  renderResources();
   renderDerived();
   renderWeapons();
   renderGear();
@@ -6738,7 +6762,7 @@ async function collectFinalizationChoices() {
   if (character.identity.raceId === "nordic-flaxen") {
     const values = await requestRuleChoices({
       title: "Nordic Flaxen Skill",
-      message: "Choose one non-bold Skill to receive +2.0 after finalization.",
+      message: "Choose one eligible General Skill to receive +2.0 after finalization. Awareness, Dodge, Initiative, Melee, Projectile and spacecraft Skills are excluded.",
       options: ALL_SKILLS.filter((name) => !BOLD_SKILLS.has(name)).map((name) => ({ value: name, label: name })),
     });
     if (!values) return false;
@@ -6782,6 +6806,7 @@ function spendMechanicalXp(cost, description) {
 }
 
 async function beginFinalization() {
+  if(character.phase==="finalizing"&&!character.creation.finalizationQueue.length&&character.identity.classId==="informant")return finishFinalization();
   const validation = draftValidation();
   if (!validation.ready || character.phase !== "draft") {
     notice(validation.issues[0] || "Resolve the remaining creation requirements first.", "error");
@@ -6909,6 +6934,12 @@ async function finishFinalization() {
     }
     character.creation.raceGrantsApplied = true;
   }
+  if(character.identity.classId==='informant'&&((character.informants||[]).length!==5||character.informants.some(c=>!c.name||!c.type))){
+    character.informants||=[];
+    const contacts=await window.SACharacterLifecycle.collectContacts(character.informants);
+    if(!contacts){finalizationPresentationActive=false;saveLibrary('Contact entry paused');renderAll();return;}
+    character.informants=contacts;
+  }
   character.phase = "finalized";
   if (character.fubs.status === "unrolled") character.fubs.status = "not-activated";
   character.advancementOpen = false;
@@ -6928,7 +6959,7 @@ async function finishFinalization() {
 }
 
 function showPostFinalizationGuide(){
-  const shell=document.createElement("div");shell.className="modal-shell";shell.innerHTML=`<section class="confirm-dialog" role="dialog" aria-modal="true"><h2>Your character is ready</h2><p>Save your character to keep a local backup.</p><p>To play, enter your GM’s campaign using their room code, then load your character. After linking to a campaign, you can spend your starting credits on weapons and gear.</p><div class="dialog-actions"><button type="button">Show Save Character</button></div></section>`;document.body.append(shell);shell.querySelector("button").onclick=()=>{shell.remove();scrollToWorkflowTarget("#exportCharacter");};
+  const shell=document.createElement("div");shell.className="modal-shell";shell.innerHTML=`<section class="confirm-dialog character-ready-dialog" role="dialog" aria-modal="true"><h2>Your character is ready</h2><p>Save your character to keep a local backup.</p><p>To play, enter your GM’s campaign using their room code, then load your character. After linking to a campaign, you can spend your starting credits on weapons and gear.</p><div class="dialog-actions"><button type="button">Show Save Character</button><button type="button" data-close-ready>Close</button></div></section>`;document.body.append(shell);shell.querySelector("button").onclick=()=>{shell.remove();scrollToWorkflowTarget("#exportCharacter");};shell.querySelector("[data-close-ready]").onclick=()=>shell.remove();
 }
 
 function campaignSkillKey(skillName) {
@@ -8219,31 +8250,11 @@ dom.debugReverence.addEventListener("click", () => {
   notice("DEBUG: +1 Reverence.", "success");
 });
 
-dom.restExertion.addEventListener("click", async () => {
-  if (character.resources.exertionCurrent >= character.resources.exertionMax) return;
-  const accepted = await askConfirmation({
-    title: "Rest for eight hours?",
-    message: "A full eight-hour rest restores every spent Exertion point.",
-    acceptLabel: "Rest and Restore",
-    cancelLabel: "Keep Going",
-  });
-  if (!accepted) return;
-  const before = character.resources.exertionCurrent;
-  character.resources.exertionCurrent = character.resources.exertionMax;
-  queueSave();
-  renderResources();
-  notice("Eight-hour rest complete. Exertion restored.", "success");
-  if (!campaignCode || !campaignCharacterId || !campaignEditable) return;
-  try {
-    await saveCampaignCharacter({ force: true });
-    const payload = await campaignRequest("/api/campaign/exertion/rest", {
-      method: "POST",
-      body: JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, before, maximum: character.resources.exertionMax }),
-    });
-    receiveCampaignState(payload.campaign);
-  } catch (error) {
-    notice(`Rest completed, but the GM notification failed: ${error.message}`, "error");
-  }
+dom.restExertion.addEventListener('click',async()=>{
+  if(dom.restExertion.disabled)return;
+  if(!await askConfirmation({title:'Request eight hours of Rest?',message:'The GM must approve. Approval advances campaign time eight hours and restores all Exertion plus Health Rating HP. Rest in an operational Medbay restores maximum HP.',acceptLabel:'Request Rest',cancelLabel:'Keep Going'}))return;
+  dom.restExertion.disabled=true;
+  try{await saveCampaignCharacter({force:true});const payload=await campaignRequest('/api/campaign/exertion/rest',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId})});receiveCampaignState(payload.campaign);notice('Rest requested. Waiting for GM approval.','success');}catch(error){notice(error.message,'error');}finally{renderResources();}
 });
 
 dom.skillAttributeChoices.addEventListener("click", (event) => {
@@ -9280,12 +9291,6 @@ dom.pcCodeAccept.addEventListener("click", () => {
   closePcCodeModal(first);
 });
 
-dom.restoreHp.addEventListener("click", () => {
-  character.health.current = maximumHp();
-  queueSave();
-  renderDerived();
-});
-
 dom.marineHeal.addEventListener("click", async () => {
   if (character.identity.classId !== "marine-soldier" || character.session.marineHealingUsed || diceRoller.isActive()) return;
   const accepted = await askConfirmation({
@@ -9446,7 +9451,7 @@ window.addEventListener("beforeunload", () => {
   if (CAMPAIGN_READ_ONLY_VIEW || GM_ADJUSTMENT_MODE) return;
   saveLibrary();
   if (campaignCode && campaignCharacterId && campaignEditable && campaignDirty) {
-    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, baseCurrentHp: campaignBaselineHp, character });
+    const body = JSON.stringify({ code: campaignCode, token: campaignToken, characterId: campaignCharacterId, baseCredits: campaignBaselineCredits, baseCurrentHp: campaignBaselineHp, baseExertion: campaignBaselineExertion, character });
     navigator.sendBeacon?.("/api/campaign/character/save", new Blob([body], { type: "application/json" }));
   }
 });

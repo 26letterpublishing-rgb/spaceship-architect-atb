@@ -1,0 +1,13 @@
+GM SHOP HELP AND PRICE INHERITANCE — OCTOBER 19, 2026
+Authorized #local: local changes and checks only; no commit, push or ntfy.
+
+Five GM-only Help pages retain the handoff structure: Overview; Create & Files; Stock; Prices; Access & Purchases. Brief explanations cover optional Everything, campaign edits versus portable files, load review and duplicate imports, stock replacement/presets, numbered SIC limits, non-stacking pricing and combined cheapest offers, location/Story activation versus File Load, console previews and stored SICs. Five real cropped GM/PC screenshots from a disposable Explore room; pricing uses labeled arrows. Existing shared Help navigation, colors and close controls reused. All other GM Help and all PC Help content preserved by parsed-content comparison.
+
+Reviewed pricing defect fixed in shop-gm-ui.js: Apply Changes no longer recreates the selected inherited override. Actual numeric input explicitly updates the selected rule and live preview without resetting the typed field/caret. Explicit Reset to 0% remains an override. No save format, availability, purchase permissions, inventory quantities or pricing hierarchy changes.
+
+Verification: 35 focused tests passed across editor pricing (4 new regression cases), campaign shops, shop refresh, shop HTTP persistence, content workflow and shared Help. Browser verified typed discounts, immediate inherited-save and subsequent parent price changes. All five Help pages load images at 1280px and 640px, no horizontal overflow; direct navigation, Previous/Next boundaries, close/reopen and Escape passed. Syntax and CRLF-aware whitespace checks passed. Personal campaign files unchanged by hash; main8790 serves updated static files without restart.
+
+Limitations: native/browser file selection could not read the disposable .sa2shop fixture (NotReadableError), so manual file-upload completion is unverified. Automated import/persistence checks passed. An existing MutationObserver warning occurred during the player-view session; no change to that unrelated system. No claim of a full-suite rerun.
+
+Evidence: ../outputs/shop-help-qa/finished-help.png and raw screenshots/baselines.
+Isolated8794 test server and tab cleaned up. Normal8790 remains running.

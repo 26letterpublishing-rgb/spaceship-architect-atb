@@ -1,7 +1,7 @@
 /* One readable card face for the shop, collection and inspection view. */
 .sic-display-card.sic-poker-card{box-sizing:border-box!important;position:relative;width:100%!important;height:490px!important;min-height:490px!important;aspect-ratio:auto!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(105px,42%)!important;grid-template-rows:82px 156px minmax(0,1fr) 56px!important;border:1px solid #607581!important;border-radius:6px!important;overflow:hidden;color:#edf3f7;background:#080d12;box-shadow:0 10px 22px #0008;letter-spacing:0;text-align:left;font-family:Arial,sans-serif;transition:transform 180ms ease,box-shadow 180ms ease,border-color 180ms ease}
 .sic-display-card .sic-poker-heading{display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;grid-column:1/-1!important;grid-row:1!important;min-height:0!important;margin:0!important;padding:0!important;border-bottom:1px solid #899ba6!important;align-items:stretch!important;background:#080d12}
-.sic-display-card .sic-poker-heading>span{display:flex;align-items:center;justify-content:center;flex-direction:column;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px!important;font-weight:800;color:#10140a;background:#f2df16;padding:3px!important}
+.sic-display-card .sic-poker-heading>span{display:flex;align-items:center;justify-content:center;flex-direction:column;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px!important;font-weight:800;color:#10140a;background:#f2df16;padding:3px!important;text-shadow:none!important}
 .sic-display-card .sic-poker-heading>span small{font-size:9px!important;margin-top:4px!important}
 .sic-display-card .sic-poker-heading>div{align-self:center;min-width:0;padding:8px 10px!important;text-align:left!important}
 .sic-market-item:has(>.sic-purchase-button)>.sic-display-card .sic-poker-heading>div{padding-right:112px!important}
@@ -78,7 +78,7 @@
 .sic-picker-grid{flex:1;min-height:0;display:grid;align-content:center;justify-content:center;gap:14px}
 .sic-picker-slot{position:relative;min-width:0}
 .sic-picker-face{position:relative;width:350px;height:var(--picker-face-height,490px);grid-template-rows:490px;grid-auto-rows:34px;transform:scale(var(--picker-scale));transform-origin:0 0}
-.sic-picker-face>.sic-purchase-button,.sic-inspector-locate{box-sizing:border-box;position:absolute;top:14px;right:9px;z-index:6;min-height:38px;padding:8px 12px;border:1px solid #9affc2;border-radius:4px;background:linear-gradient(#5df69b,#078e56);color:#001d12;font:700 12px Arial,sans-serif;cursor:pointer}
+.sic-picker-face>.sic-purchase-button,.sic-inspector-locate{box-sizing:border-box;position:absolute;top:14px;right:9px;z-index:6;min-height:38px;padding:8px 12px;border:1px solid #9affc2;border-radius:4px;background:linear-gradient(#5df69b,#078e56);color:#001d12;font:700 12px Arial,sans-serif;cursor:pointer;text-shadow:none!important}
 .sic-inspection .sic-display-card:has(.sic-inspector-locate) .sic-poker-heading>div{padding-right:92px!important}
 .sic-inspector-locate:disabled{filter:grayscale(1);opacity:.55;cursor:default}
 @keyframes sic-card-sheen{0%,30%{background-position:100% 0}70%,100%{background-position:0 0}}

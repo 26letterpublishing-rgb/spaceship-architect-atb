@@ -659,7 +659,7 @@ h2 {
   border-color: var(--cyan);
   color: #031018;
   font-weight: 900;
-}
+;text-shadow:none!important}
 
 .hidden {
   display: none !important;
@@ -2191,7 +2191,7 @@ body.embedded-gm .unit-card.has-avatar .unit-top {
   border-color: var(--green);
   color: #03140b;
   font-weight: 900;
-}
+;text-shadow:none!important}
 
 .dialog-actions {
   display: grid;
@@ -4074,3 +4074,7 @@ input[type="checkbox"],input[type="radio"]{appearance:auto;box-sizing:border-box
 label:has(>input[type="checkbox"]),label:has(>input[type="radio"]){display:flex;align-items:center;gap:8px;text-transform:none;line-height:1.45}
 button:focus-visible,a:focus-visible{outline:2px solid #b9f6ff;outline-offset:3px}
 select option,select optgroup{color:#edf7ff;background:#0b1925}
+
+.player-combat-preview .combat-preview-fill::before{opacity:.82;animation:atbCurrentFlow 1.8s ease-in-out infinite}
+.player-combat-preview .combat-preview-fill{overflow:hidden}
+@media(prefers-reduced-motion:reduce){.player-combat-preview .combat-preview-fill::before{animation:none}}

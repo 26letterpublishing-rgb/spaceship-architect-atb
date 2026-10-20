@@ -27,6 +27,8 @@
   function critical(key,message,type='danger'){
     const doc=host(),win=doc.defaultView;
     if(win!==window&&win.SAResultFeedback)return win.SAResultFeedback.critical(key,message,type);
+    noticeHost(); // Resume queued alerts when an Explore perspective becomes visible.
+    if(type==='combat-start'){critical.queue?.splice(0);critical.close?.();}
     const queue=critical.queue??=[],keys=critical.keys??=new Set();if(keys.has(key))return;keys.add(key);if(keys.size>500)keys.delete(keys.values().next().value);queue.push({message,type});if(!critical.active)next();
     critical.resume=next;
     function next(){
@@ -39,7 +41,7 @@
       const reduce=win.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const width=track.clientWidth,length=text.scrollWidth,ms=Math.max(7000,(width+length)/115*1000);
       if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,fill:'forwards'});}
-      timer=setTimeout(()=>{banner.animate([{opacity:1},{opacity:0}],{duration:650,fill:'forwards'}).finished.then(close).catch(close);},reduce?8000:ms);
+      timer=setTimeout(()=>{if(item.type==='combat-start'){close();return;}banner.animate([{opacity:1},{opacity:0}],{duration:650,fill:'forwards'}).finished.then(close).catch(close);},reduce?8000:ms);
     }
   }
   function closeButton(node,onClose=()=>{},label='Dismiss notification'){

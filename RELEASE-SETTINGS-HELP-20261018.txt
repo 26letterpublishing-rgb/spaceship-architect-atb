@@ -1,0 +1,31 @@
+GM Settings Help — October 18, 2026 (#local)
+
+Scope
+- Added the requested Help button in the GM Settings heading, using the shared Help dialog.
+- Header Help now resolves the active GM panel, including Settings. Closing Help returns focus to the button that opened it.
+- Six pages retain the supplied handoff order: Overview; Players & Characters; Interface & Privacy; Save & Access; Export Module; Content & Reminders.
+- Five distinct real screenshots show administration controls, privacy, Campaign file controls, an example Module exporter and its catalog. Existing color emphasis, page tabs and arrow rendering are reused.
+
+Workflow clarifications
+- Save Campaign preserves progress and imported content; retain the original Adventure Module for unused packaged files.
+- Starting a Module creates a fresh campaign and processes Load at Start. Attaching a Module to an existing campaign makes its catalog available without processing startup files.
+- A Galaxy save can include loaded systems; Systems include their planets/surfaces/regions and Planets include their regions. Unchecking a separate file does not defer content embedded in another starting file.
+- Module export packages copies of individually saved files. Updating source files requires rebuilding the package. Starting destinations must exist in starting content.
+- Shops start closed, imported ships need crew assignments, and arenas stage preparation without starting combat. Only one current preparation exists.
+- File keywords and first-arrival reminders require GM action. Later keeps a reminder available; it does not repeat on every arrival.
+- Load New Copy still replaces the selected destination for Systems, Planets and Regions. Map recovery retains one latest copy.
+- Manage Campaign Content supports systems, NPC templates and shops. NPC removal also removes associated deployed roster/crew/preparation entries.
+- Log Out, Close Room and Delete Campaign have distinct effects. Banker authority restricts Group Credit transfers. Local banner preferences differ from campaign-wide streaming privacy.
+
+Verification
+- 18 focused save/Module tests passed: tests/content-workflow.test.js and tests/adventure-module.test.js.
+- JavaScript syntax, registry JSON parsing and CRLF-aware whitespace checks passed.
+- Compared evaluated Help content with the baseline: every other GM topic and all PC topics unchanged.
+- Real isolated browser QA on port 8792: example Module export/download, attach without startup imports, Story import opening a new chapter, and loaded/unloaded catalog statuses.
+- All six Settings pages, Next/Previous/page tabs, both Help entry points and focus restoration verified. Existing Script and Characters Help routing checked.
+- Desktop 1265px and narrow 430px layouts checked; no horizontal Help overflow. Screenshot callouts visually inspected.
+- Personal campaign data hashes unchanged. Only the disposable QA campaign was modified for examples. No save/loading code, formats, gameplay, other Help topics or frozen Gold Standard assets changed.
+
+Local delivery
+No commit, push or completion notification. Static Help changes require a page refresh. The existing isolated preview on 8792 was used; the original 8790 process was not restarted. Its earlier restart was rejected with the generic message "blocked by policy"; the responsible reviewer or rule was not identified.
+QA sources and captures: ../outputs/settings-help-qa/.

@@ -219,6 +219,11 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
   }
   announce(ship,result.text);data.receipts=[...(data.receipts||[]),{id,fingerprint,result}].slice(-256);return result;
 }
+function restingInMedbay(room,campaign,id){
+ const actor=actors(room,campaign).find(a=>a.id===id);if(!actor)return false;
+ const ship=room.starships.find(s=>s.id===actor.loc?.starshipId);if(!ship)return false;
+ return maps.installedItems(ship).some(item=>maps.definition(item.type).utility==='medbay'&&inside(ship,item.id,actor)&&maps.roomOxygen(ship,actor.loc?.square)>10&&stations.online(item)&&!impairment(item)&&ship.currentHullHp!==0&&power.output(ship,room.units).en>=power.demand(ship));
+}
 function reconcile(room,campaign){
   const people=actors(room,campaign);let changed=reconcileHibernation(room,campaign,people);
   for(const {job} of jobs(room))if(['treating','healing','risk','adjudication'].includes(job.phase)){job.phase='cancelled';changed=true;}
@@ -279,4 +284,4 @@ function inspect(room,campaign,unit,sicId,gm){
     skills:record?vrSimulations.skills(record.character).filter(s=>s.value*10<VR_MAX_TENTHS).map(s=>({...s,trainingGain:s.value*10>VR_D4_LIMIT_TENTHS?1:null})):[],
     trained:record?.character.vrTrainingDay===Math.floor(Number(campaign?.elapsedMinutes||0)/1440),umbrexium:Number(access.ship.ship.minerals?.Umbrexium||0),aiAlert:state(access.ship).aiAlert||null};
 }
-module.exports={TREATMENT_SECONDS,RECOVERY_SECONDS,state,roomData,jobs,pending,inTreatment,hibernating,actors,command,advance,nextEvent,reconcile,resolve,rolls,announce,inspect,libraryTargets,deliverLibrary};
+module.exports={restingInMedbay,TREATMENT_SECONDS,RECOVERY_SECONDS,state,roomData,jobs,pending,inTreatment,hibernating,actors,command,advance,nextEvent,reconcile,resolve,rolls,announce,inspect,libraryTargets,deliverLibrary};
