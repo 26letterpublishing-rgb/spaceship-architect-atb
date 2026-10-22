@@ -1,6 +1,6 @@
 [
   {"id":"security-guard","name":"Security Guard","speed":5,"moveSpeed":3,"maximumHp":36,"physicalAttribute":8,"mentalAttribute":6,"physicalSkill":2,"mentalSkill":1,"heldWeaponId":"standard-sidearm","color":"#39e58f"},
-  {"id":"space-slug","name":"Space Slug","speed":3,"moveSpeed":2,"maximumHp":28,"physicalAttribute":6,"mentalAttribute":2,"physicalSkill":1,"mentalSkill":0,"heldWeaponId":"unarmed","color":"#7ad66d"},
+  {"id":"space-slug","strengthDiceOverride":[4,4],"name":"Space Slug","speed":3,"moveSpeed":2,"maximumHp":28,"physicalAttribute":6,"mentalAttribute":2,"physicalSkill":1,"mentalSkill":0,"heldWeaponId":"unarmed","color":"#7ad66d"},
   {"id":"civilian","name":"Civilian","speed":4,"moveSpeed":2,"maximumHp":20,"physicalAttribute":4,"mentalAttribute":5,"physicalSkill":0,"mentalSkill":1,"heldWeaponId":"unarmed","color":"#f2d16b"},
   {"id":"chief-security-guard","name":"Chief Security Guard","speed":7,"moveSpeed":4,"maximumHp":48,"physicalAttribute":10,"mentalAttribute":8,"physicalSkill":3,"mentalSkill":2,"heldWeaponId":"t16-autoblaster-5000","color":"#35b7ff"},
   {"id":"thug","name":"Thug","speed":6,"moveSpeed":3,"maximumHp":40,"physicalAttribute":8,"mentalAttribute":4,"physicalSkill":2,"mentalSkill":0,"heldWeaponId":"rusty-sawed-off","color":"#f07a4a"},

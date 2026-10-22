@@ -10,7 +10,7 @@ test('effects reuse their compression bus, lift quiet dice, and keep launch gain
   }
   const audio=context(),mix=sandbox.SAAudioMix;
   const dice=mix.destination(audio,'character');
-  assert.equal(dice.gain.value,2.4);
+  assert.equal(dice.gain.value,4);
   assert.equal(mix.destination(audio,'character'),dice);
   assert.equal(audio.nodes.length,3,'one persistent bus rather than a new graph per dice bounce');
   assert.equal(dice.output.type,'compressor');assert.equal(dice.output.ratio.value,8);

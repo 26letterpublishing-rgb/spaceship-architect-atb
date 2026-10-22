@@ -401,8 +401,8 @@ button.skill-name:hover,button.skill-name:focus-visible { color:#72e5ff;text-dec
 .empty-list-note { margin:0; padding:4px 0 2px; color:#718396; font-size:.65rem; }
 
 .resource-grid { padding:7px; display:grid; grid-template-columns:minmax(190px,1fr) minmax(110px,.55fr) minmax(120px,.65fr) minmax(420px,2.25fr); gap:6px; align-items:stretch; }
-.resource-card { min-height:0; padding:7px 8px; display:grid; gap:4px; align-content:start; border:1px solid var(--line); background:rgba(5,10,17,.72); }
-.resource-card > span,.reverence-heading span,.exertion-heading span { color:var(--muted); font-size:.65rem; font-weight:850; text-transform:uppercase; }
+.resource-card { min-height:0; padding:3px 8px; display:grid; gap:2px; align-content:start; border:1px solid var(--line); background:rgba(5,10,17,.72); }
+.resource-card > span,.reverence-heading span,.exertion-heading span { color:var(--green); font-size:1.2rem;line-height:1.1; font-weight:850; text-transform:uppercase; }
 .resource-card > strong,.resource-values,.resource-control-line > strong,.reverence-heading strong { color:var(--cyan); font-size:1.2rem; }
 .resource-control-line,.reverence-heading { display:flex; align-items:center; justify-content:space-between; gap:6px; }
 .resource-values { display:flex; align-items:center; gap:4px; }
@@ -1593,7 +1593,7 @@ button,
 
 
 /* Final compact sheet polish */
-.credits-card>span{color:#ffe35c!important;text-shadow:0 0 8px rgba(255,220,68,.28)}
+.credits-card>span{color:var(--green);text-shadow:none}
 .character-tabs{border-bottom:5px solid #7c42d4;box-shadow:0 5px 15px rgba(113,54,207,.28)}
 .character-tabs button{--tab-color:#31cdea;--tab-dark:#082638;border-top:3px solid var(--tab-color)!important;color:color-mix(in srgb,var(--tab-color) 64%,white);background:linear-gradient(180deg,color-mix(in srgb,var(--tab-color) 10%,#091521),#091521 48%)!important}
 .character-tabs button[data-character-tab="sheet"]{--tab-color:#42d9ff;--tab-dark:#073047}
@@ -1743,6 +1743,7 @@ body.class-gallery-open{overflow:hidden}.class-gallery-modal{z-index:1800;paddin
 }
 .character-brand-stack {
   grid-area:brand;
+  width:100%;
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
   grid-template-areas:"brand room" "sync sync";
@@ -1975,7 +1976,7 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 .pc-settings-button{flex:none;width:40px;height:40px;padding:0;align-self:center;background:#183441;color:#d6f5ff;border:1px solid #658290;border-radius:50%;font-size:24px}.ship-construction-cost{color:#79eca6;font-size:.8rem;white-space:nowrap}#characterStatistics table{display:block}#characterStatistics thead{display:none}#characterStatistics tbody{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}#characterStatistics tr{font-size:12px;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;padding:5px;background:#0b202d;border:1px solid #284657;min-width:0}#characterStatistics td{border:0;padding:0;overflow-wrap:anywhere}#characterStatistics td:nth-child(2)::after{content:" rolls";font-size:.72rem;color:#b9cbd4}#characterStatistics td:nth-child(3)::before{content:"avg ";font-size:.72rem;color:#b9cbd4}@media(max-width:1450px){#characterStatistics tbody{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1000px){#characterStatistics tbody{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){#characterStatistics tbody{grid-template-columns:1fr}}
 
 .drama-card-display{width:min(470px,88vw);max-height:78vh;aspect-ratio:5/7}.drama-card-display>div{align-content:center;gap:20px;padding:20px;min-height:0;overflow:auto}.drama-card-display h2,.drama-card-display h3{font-size:clamp(24px,2.5vw,36px);line-height:1.1}.drama-card-display p{font-size:clamp(17px,1.5vw,23px);line-height:1.4}.drama-card-display>footer{font-size:13px}.drama-card-mini-face>div{align-content:center;gap:16px;padding:22px 26px}.drama-card-mini-face h4{font-size:2.8rem}.drama-card-mini-face p{font-size:1.9rem;line-height:1.25}
-.creator-header{grid-template-columns:minmax(220px,440px) minmax(0,1fr) auto;grid-template-areas:"brand title tools";align-items:center}.pc-header-tools{grid-area:tools;display:flex;gap:8px;align-items:center}.interface-banner-hidden .creator-header{grid-template-columns:1fr auto;grid-template-areas:"title tools"}.campaign-starship-card strong{white-space:normal;overflow-wrap:normal;text-overflow:clip}.campaign-starship-card>div{min-width:0}@media(max-width:800px){.creator-header{grid-template-columns:1fr auto;grid-template-areas:"brand tools" "title title"}}
+.creator-header{grid-template-columns:minmax(310px,440px) minmax(0,1fr) auto;grid-template-areas:"brand title tools";align-items:center}.pc-header-tools{grid-area:tools;display:flex;gap:8px;align-items:center}.interface-banner-hidden .creator-header{grid-template-columns:1fr auto;grid-template-areas:"title tools"}.campaign-starship-card strong{white-space:normal;overflow-wrap:normal;text-overflow:clip}.campaign-starship-card>div{min-width:0}@media(max-width:800px){.creator-header{grid-template-columns:1fr auto;grid-template-areas:"brand tools" "title title"}}
 
 #pcHeaderSound svg{display:block;width:24px;height:24px;margin:auto;overflow:visible}
 #pcHeaderSound svg>path:first-child{fill:#dff8ff}
@@ -2154,3 +2155,14 @@ select.skill-guidance{border-radius:8px!important}
 
 .speed-preview-fill::before{left:0;width:58%;opacity:.82;mix-blend-mode:screen;transform:translateX(-125%) skewX(-16deg);background:linear-gradient(105deg,transparent 0%,#ffffff17 24%,#ffffff9e 48%,#ffffff2e 66%,transparent 100%);animation:characterAtbFlow 1.8s ease-in-out infinite}
 @keyframes characterAtbFlow{from{transform:translateX(-125%) skewX(-16deg)}to{transform:translateX(210%) skewX(-16deg)}}
+
+.creator-header{position:relative}
+#savedSyncBanner{position:absolute;right:29%;bottom:3px;padding:3px 12px;background:#123c2b;border:1px solid #59ecac;border-radius:4px;color:#9fffd1;font-size:12px;font-weight:800;pointer-events:none;animation:saved-sync-notice .3s ease-out}
+#savedSyncBanner[hidden]{display:none}
+@keyframes saved-sync-notice{from{transform:translateY(-5px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){#savedSyncBanner{animation:none}}
+
+/* Field titles outrank section headings without enlarging their panels. */
+#characterSheet .derived-grid>div>span,#characterSheet .hp-console>span,#characterSheet .identity-choice-field>span,#characterSheet .identity-grid>label,#characterSheet .attribute-name,#characterSheet .field-label,#characterSheet .xp-primary>span,#characterSheet .weapon-slot-heading>span,#characterSheet .advantages-notes{font-size:1.2rem;line-height:1.1;color:var(--green);font-weight:800}
+#characterSheet .derived-grid>div{row-gap:2px;padding-top:3px;padding-bottom:3px}
+#characterSheet .identity-grid>label{gap:2px}

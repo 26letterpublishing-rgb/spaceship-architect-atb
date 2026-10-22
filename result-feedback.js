@@ -3,7 +3,7 @@
   // The campaign shell owns the answer for its embedded consoles. A paused
   // encounter remains combat; a console preview or preparation screen does not.
   function isCombatActive(){const win=host().defaultView;return win===window?combatActive:Boolean(win.SAInterfaceNotices?.isCombatActive());}
-  function setCombatActive(active){const next=Boolean(active);if(next===combatActive)return;combatActive=next;if(!next){critical.queue?.splice(0);critical.close?.();for(const card of tray?.children||[])if(card.dataset.allowOutsideCombat!=='true'){card.remove();}if(noticeNode?.dataset.allowOutsideCombat!=='true'&&noticeNode)noticeNode.hidden=true;}host().defaultView.SAInterfaceNoticeHost?.refresh();}
+  function setCombatActive(active){const next=Boolean(active);if(next===combatActive)return;combatActive=next;if(!next){waiting();critical.queue?.splice(0);critical.close?.();for(const card of tray?.children||[])if(card.dataset.allowOutsideCombat!=='true'){card.remove();}if(noticeNode?.dataset.allowOutsideCombat!=='true'&&noticeNode)noticeNode.hidden=true;}host().defaultView.SAInterfaceNoticeHost?.refresh();}
   function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}if(!doc.querySelector('link[data-result-feedback],link[href*="result-feedback.css"]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('result-feedback.css',location.href).href;link.dataset.resultFeedback='';doc.head.append(link);}return doc;}
   function noticeHost(){
     const doc=host(),win=doc.defaultView;
@@ -55,6 +55,15 @@
     noticeNode.dataset.allowOutsideCombat=String(allowOutsideCombat);noticeNode.querySelector('span').textContent=message;noticeNode.dataset.outcome=type;noticeNode.hidden=false;noticeHost().mount(noticeNode);noticeHost().schedule();
     clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{noticeNode.hidden=true;noticeHost().refresh();},duration);
   }
+  let waitingNode;
+  function waiting(message=''){
+    const doc=host(),win=doc.defaultView;
+    if(win!==window&&win.SAResultFeedback)return win.SAResultFeedback.waiting(message);
+    if(!message){waitingNode?.remove();waitingNode=null;win.SAInterfaceNoticeHost?.refresh();return;}
+    if(!waitingNode){waitingNode=doc.createElement('aside');waitingNode.className='interface-notice combat-waiting-notice';waitingNode.setAttribute('role','status');}
+    if(waitingNode.textContent!==message)waitingNode.textContent=message;
+    noticeHost().mount(waitingNode,'combat-wait');
+  }
   function stored(key){try{return sessionStorage.getItem(key);}catch{return false;}}
   function push(key,title,message,{topLayer=false,reputation=null,details=null,allowOutsideCombat=false}={}){
     const storageKey='sa-result:'+key;if(seen.has(key)||stored(storageKey))return;seen.add(key);
@@ -81,6 +90,6 @@
   }
   function observe(){const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;for(const unit of state.units||[]){for(const result of unit.actionResults||[]){const owns=bridge.mode()==='gm'?result.controller==='gm'||unit.team==='npc':unit.id===bridge.myUnitId()&&result.controller!=='gm';if(owns&&result.stage!=='input')push(`${state.roomCode}:${unit.id}:${result.id}`,result.label,(Number.isFinite(result.total)?`Roll total ${Number(result.total.toFixed(2))}. `:'')+result.text);}}}
   window.addEventListener('sa-combat-state',event=>{const state=event.detail?.state||window.SACombatBridge?.state();setCombatActive(state?.hasEngagedClock&&!state.practice&&!state.catalogPreview&&!state.encounterEndedAt);observe();});
-  window.addEventListener('pagehide',()=>{critical.queue?.splice(0);critical.close?.();if(tray?.ownerDocument===document)tray.remove();noticeNode?.remove();clearTimeout(noticeTimer);try{host().defaultView.SAInterfaceNoticeHost?.refresh();}catch{}});
-  window.SAInterfaceNotices={host:noticeHost,closeButton,isCombatActive,setCombatActive};window.SAResultFeedback={push,notice,critical};
+  window.addEventListener('pagehide',()=>{critical.queue?.splice(0);critical.close?.();waiting();if(tray?.ownerDocument===document)tray.remove();noticeNode?.remove();clearTimeout(noticeTimer);try{host().defaultView.SAInterfaceNoticeHost?.refresh();}catch{}});
+  window.SAInterfaceNotices={host:noticeHost,closeButton,isCombatActive,setCombatActive};window.SAResultFeedback={push,notice,critical,waiting};
 }());

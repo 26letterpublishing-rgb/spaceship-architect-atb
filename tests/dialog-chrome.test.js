@@ -56,3 +56,17 @@ test('hidden and disabled close controls keep X disabled until the result is ack
  close.hidden=false;close.disabled=true;e.flush();assert.equal(e.x().disabled,true);
  close.disabled=false;e.flush();assert.equal(e.x().disabled,false);
 });
+
+
+test('X uses the final close action while preserving a separate Back navigation action',()=>{
+ const e=fixture(true);let back=0,closed=0;
+ const previous=e.button('Back',{onclick:()=>back++}),close=e.button('Close',{onclick:()=>closed++});
+ e.run();e.x().click();assert.equal(closed,1);assert.equal(back,0);
+ assert.equal(previous.classList.contains('dialog-original-dismiss'),false);
+ assert.equal(close.classList.contains('dialog-original-dismiss'),true);
+});
+test('console exit is replaced by X and restored when reused as Console View',()=>{
+ const e=fixture(true);let exits=0;const button=e.button('Exit Console',{onclick:()=>exits++});e.run();
+ assert.ok(button.classList.contains('dialog-original-dismiss'));e.x().click();assert.equal(exits,1);
+ button.textContent='Console View';e.flush();assert.equal(button.classList.contains('dialog-original-dismiss'),false);
+});

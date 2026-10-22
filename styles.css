@@ -3964,7 +3964,8 @@ body.embedded-gm .unit-actions {
 .gm-mode .unit-owner,
 body.embedded-gm .unit-owner { font-size: .72rem; line-height: 1.15; }
 .gm-mode .npc-combat-stats,
-body.embedded-gm .npc-combat-stats { margin-top: 2px; }
+body.embedded-gm .npc-combat-stats { margin-top: 0; }
+body.embedded-gm .unit-card:has(.npc-combat-stats){padding-top:6px;padding-bottom:6px}
 .gm-mode .meter,
 body.embedded-gm .meter { margin-top: 6px; }
 

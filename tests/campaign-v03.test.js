@@ -41,6 +41,24 @@ test('v0.3 file-owned rooms keep exclusive player links through refresh/restart 
  await f.call('v03/close',{code,token:joined.token});await f.call('v03/join',{code,name:'Late'},410);
  const loaded=await f.call('v03/load',{backup});assert.equal(loaded.campaign.code,code);assert.equal(loaded.campaign.roomOpen,true);
 });
+test('repeated character imports share one approval and old duplicates resolve together',async()=>{
+ const f=fixture(),r=await f.call('v03/create',{name:'Approval dedup'},201),code=r.campaign.code,p=await f.call('v03/join',{code,name:'Pat'});
+ const data={id:'same-character',phase:'finalized',identity:{characterName:'Traveler'},attributes:{intellect:[6,6]}};
+ await f.call('v03/import',{code,token:p.token,kind:'character',data});
+ const retry=await f.call('v03/import',{code,token:p.token,kind:'character',data});assert.equal(retry.duplicate,true);
+ let c=await f.api().campaign(code);assert.equal(c.imports.length,1);const first=c.imports[0];c.imports.push({...structuredClone(first),id:'old-duplicate'});await f.api().save(c);
+ await f.call('v03/import/respond',{code,token:r.token,requestId:first.id,approve:true});
+ c=await f.api().campaign(code);assert.equal(c.imports.filter(x=>x.status==='pending').length,0);assert.equal(c.imports[1].status,'superseded');
+});
+
+test('confirmed self-imposed skill checks notify the GM once per roll receipt',async()=>{
+ const f=fixture(),r=await f.call('v03/create',{name:'Check notices'},201),code=r.campaign.code,p=await f.call('v03/join',{code,name:'Pat'});
+ const created=await f.call('v03/character/create',{code,token:p.token,character:{phase:'finalized',identity:{characterName:'Pat'}}});
+ const roll={code,token:p.token,characterId:created.campaign.ownCharacterId,skill:'Awareness',score:18,receipt:'same-roll',selfInitiated:true};
+ await f.call('statistics/roll',roll);await f.call('statistics/roll',roll);
+ const notes=(await f.api().campaign(code)).privateNotes.filter(n=>n.kind==='skill-roll');assert.equal(notes.length,1);assert.match(notes[0].message,/Pat rolled Awareness: 18/);
+});
+
 test('v0.3 room actions reject missing identities and invalid imports',async()=>{
 const f=fixture();await f.call('v03/create',{name:''},400);const room=await f.call('v03/create',{name:'Test'},201),code=room.campaign.code;
 await f.call('v03/join',{code,name:''},400);await f.call('v03/abandon',{code},403);await f.call('v03/load',{backup:{format:'wrong'}},400);

@@ -39,3 +39,11 @@ test('component reports name analyzed SICs for attacker and own SICs for defende
   assert.match(b.weaponState.reports[0].text,/Incoming weapon damage to Rapid Laser 1/);
  }
 });
+
+test('PC Help Rapid Laser worked example uses top two dice, range, burst cap and shield absorption',()=>{
+ const {room,a,b,unit}=fixture();a.ship.gridCells=Array.from({length:70},(_,i)=>i);unit.dexterityDice=[8,6];unit.weaponSystemsSkill=2;room.shipPositions[1].q=2;room.shipPositions[1].r=0;b.sensorScenarioMasking=6;sensors.refresh(room);
+ const spec=weapons.rollSpec(room,unit,{shipId:a.id,targetId:b.id,sicId:'gun'});assert.equal(spec.bonus,0);assert.equal(spec.difficulty,6);assert.equal(sensors.fusedTotal([8,6])+spec.bonus,14);
+ b.ship.sicInventory.push({id:'shield',type:'shield-1'});b.ship.placements.push({sicId:'shield',cell:44});shields.refresh(room);shields.entries(b)[0].state.hp=6;
+ const before=a.auState.current;assert.equal(weapons.queue(room,unit,{...order,requestId:'help-example'}).ok,true);assert.equal(a.auState.current,before-5);assert.equal(unit.delayedAction.rate,14);
+ const roll=()=>4;roll.submittedScore=14;weapons.resolveInput(room,unit,roll);assert.equal(unit.delayedAction.weaponDamage.count,4);weapons.resolveDamage(room,unit,[2,3,4,1]);assert.equal(b.currentShieldHp,0);assert.equal(b.currentHullHp,40);
+});

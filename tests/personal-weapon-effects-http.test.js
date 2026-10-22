@@ -37,29 +37,30 @@ test('personal effects use confirmed rolls, preserve clock pauses and survive ca
  await t.test('Thunder accuracy and damage-count use distinct validated dice phases',async()=>{
   await restore(s=>{s.activeId=actor;s.pausedForTurn=true;s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'thunder',weaponId:'thunder-rifle'}]);s.units[0].heldWeaponId='thunder';});
   let s=await gm({action:'playerCombatAction',id:actor,kind:'fire',targetId:target});let attackId=s.attackResolution.id;
-  s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:40});s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:1});
+  s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:1});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:40});
   assert.equal(s.attackResolution.followup.kind,'accuracy');attackId=s.attackResolution.id;
   await post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,action:'submitAttackDamage',id:actor,attackId,rolledDamage:11},400);
   s=await gm({action:'submitAttackDamage',id:actor,attackId,rolledDamage:5});assert.equal(s.attackResolution.followup.kind,'damageCount');assert.equal(s.attackResolution.plan.damageFormula,'1D4');
   s=await gm({action:'submitAttackDamage',id:actor,attackId:s.attackResolution.id,rolledDamage:3});assert.equal(s.attackResolution.plan.damageFormula,'3D12');assert.equal(s.units.find(u=>u.id===target).currentHp,200);
  });
- await t.test('automatic defeated-NPC cleanup keeps already placed explosives',async()=>{
+ await t.test('defeated NPC stays on the battlefield with its placed explosives',async()=>{
   await restore(s=>{s.units[0].currentHp=0;s.units[0].defeatedAt=Date.now()-6000;s.units[0].defeatRemovesAt=Date.now()-100;s.units[0].thrownEffects=[{id:'defeated-owner',weaponId:'grenade',label:'Grenade',origin:structuredClone(s.units[1].location),remaining:10,total:10}];});
-  let copy;for(let i=0;i<40;i++){copy=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());if(!copy.campaign.encounter.units.some(u=>u.id===actor))break;await new Promise(r=>setTimeout(r,50));}
-  assert.equal(copy.campaign.encounter.units.some(u=>u.id===actor),false);assert.equal(copy.campaign.encounter.areaEffects.find(e=>e.kind==='detached-ordnance').thrownEffects[0].remaining,10);
+  const copy=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());
+  const fallen=copy.campaign.encounter.units.find(u=>u.id===actor);
+  assert.ok(fallen);assert.equal(fallen.currentHp,0);assert.equal(fallen.thrownEffects[0].remaining,10);
  });
  await t.test('two Bizi targets resolve separate rolls and consume exactly one action',async()=>{
   await restore(s=>{const third={...structuredClone(s.units[1]),id:'second-target',location:{arenaId:'surface',starshipId:'',square:43,mesh:4}};s.units.push(third);s.activeId=actor;s.pausedForTurn=true;s.units[0].atb=100;s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'bizi',weaponId:'multi-lock-bizi-21'}]);s.units[0].heldWeaponId='bizi';});
   let s=await gm({action:'playerCombatAction',id:actor,kind:'fire',targetId:target,weaponOptions:{secondTarget:'second-target'}});
-  for(const defender of [target,'second-target']){const attackId=s.attackResolution.id;assert.equal(s.attackResolution.defenderId,defender);s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:10});s=await gm({action:'submitAttackRoll',id:defender,attackId,rollRole:'defender',score:100});if(defender===target)assert.equal(s.units.find(u=>u.id===actor).atb,100);}
+  for(const defender of [target,'second-target']){const attackId=s.attackResolution.id;assert.equal(s.attackResolution.defenderId,defender);s=await gm({action:'submitAttackRoll',id:defender,attackId,rollRole:'defender',score:100});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:10});if(defender===target)assert.equal(s.units.find(u=>u.id===actor).atb,100);}
   assert.equal(s.attackResolution,null);assert.equal(s.units.find(u=>u.id===actor).atb,0);
  });
  await t.test('Rubber bombs independently check each target in a 3x3 area and roll per-target wall damage',async()=>{
   await restore(s=>{s.units[0].location.square=81;s.units[1].location.square=86;s.units.push({...structuredClone(s.units[1]),id:'rubber-second',location:{arenaId:'surface',starshipId:'',square:87,mesh:4}});s.activeId=actor;s.pausedForTurn=true;s.units[0].atb=100;s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'rubber',weaponId:'rubber-bouncy-bombs'},{inventoryId:'launcher',weaponId:'mine-launcher'}]);s.units[0].launcherAmmo={launcher:['rubber']};s.units[0].heldWeaponId='launcher';});
   let s=await gm({action:'playerCombatAction',id:actor,kind:'fire',targetId:target});
-  let attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:1});s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:100});
+  let attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:100});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:1});
   assert.equal(s.attackResolution.defenderId,'rubber-second');assert.equal(s.units.find(u=>u.id===target).currentHp,200);
-  attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:100});s=await gm({action:'submitAttackRoll',id:'rubber-second',attackId,rollRole:'defender',score:1});assert.equal(s.attackResolution.plan.damageFormula,'1D8');assert.equal(s.attackResolution.plan.damageScale,10);
+  attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:'rubber-second',attackId,rollRole:'defender',score:1});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:100});assert.equal(s.attackResolution.plan.damageFormula,'1D8');assert.equal(s.attackResolution.plan.damageScale,10);
   s=await gm({action:'submitAttackDamage',id:actor,attackId,rolledDamage:4});assert.equal(s.attackResolution.damageSummary.applied,40);s=await gm({action:'confirmNpcDamage',attackId,finalDamage:40});assert.equal(s.units.find(u=>u.id==='rubber-second').currentHp,160);assert.equal(s.units.find(u=>u.id===target).currentHp,200);assert.equal(s.attackResolution,null);
  });
  await t.test('GM net adjustment rejects players and persists the chosen difficulty',async()=>{

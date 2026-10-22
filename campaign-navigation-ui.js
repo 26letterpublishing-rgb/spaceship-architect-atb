@@ -60,6 +60,11 @@
   if(map?.id===player.mapId){marker=0;if(star?.id===player.starId&&playerLevel!=='galaxy'){marker=1;if(samePlanet&&['surface','region'].includes(playerLevel)){marker=2;if(region&&regionId===player.regionId&&playerLevel==='region')marker=3;}}}
   return entries.map((entry,i)=>({...entry,active:entry.level===(current==='orbit'?'surface':current),party:i===marker,disabled:!entry.name||!allowed(c,entry.target.mode)||entry.regionAllowed===false}));
  }
+ function myLocation(c){
+  const location=window.SACampaignLocation.locate(c.state);if(!location){c.status('Your current location is not available on these maps.');return;}
+  set(location,c);if(location.mode==='galaxy')c.focusGalaxy?.(location);
+  else requestAnimationFrame(()=>{if(location.mode==='surface')window.SAPlanetSurfaces.focusLocation?.(location);else if(location.mode==='system'){const svg=c.host.querySelector('[data-space-canvas]');if(svg){window.SASpaceMap.fitContacts(svg,[{id:location.shipId,ship:{}}],[{...location,id:location.shipId}]);svg.dataset.userViewBox=svg.getAttribute('viewBox');}}});
+ }
  function decorateNavigation(c,tools,current,selectedRegion){
   for(const b of tools.querySelectorAll('button'))if(b.dataset.navLevel||['Galaxy Map','Star System','Star System Map','Orbit','Planet Surface','Region'].includes(b.textContent))b.remove();
   let group=tools.querySelector('.campaign-location-nav');
@@ -75,6 +80,7 @@
    if(entry.party){const pin=document.createElementNS('http://www.w3.org/2000/svg','svg');pin.classList.add('campaign-location-pin');pin.setAttribute('viewBox','-15 -22 30 42');pin.setAttribute('aria-hidden','true');pin.innerHTML=window.SAPlanetTerrain.partyMarker(0,0);button.append(pin);}
    group.append(button);
   }
+  if(c.state.role!=='gm'&&!c.host.querySelector('[data-my-location]')){const button=c.button('My Location',()=>myLocation(c));button.dataset.myLocation='';tools.append(button);}
   shapeNavigation(tools);
  }
  // Reuse the Galaxy Map shell: navigation/camera above, contextual actions in one row.

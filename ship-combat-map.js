@@ -24,7 +24,13 @@
   let selectedUnitId = "";
   let selectedShipId = "";
   let interaction = "view";
-  let preview = null;
+  let preview = null,routeMode='direct',waypoints=[];
+  function waypointLabels(columns,minCol=0,minRow=0){
+    if(routeMode!=='custom')return '';
+    return waypoints.map((p,i)=>{const x=p.square%columns-minCol+((p.mesh%3)+.5)/3,y=Math.floor(p.square/columns)-minRow+(Math.floor(p.mesh/3)+.5)/3;return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" fill="white" stroke="#07120e" stroke-width=".04" paint-order="stroke" font-size=".22">${i+1}</text>`;}).join('');
+  }
+  function routeControls(){return `<nav class="map-action-modes" aria-label="Movement route"><button type="button" data-crew-route="direct" aria-pressed="${routeMode==='direct'}">Direct Route</button><button type="button" data-crew-route="custom" aria-pressed="${routeMode==='custom'}">Custom Route</button><button type="button" data-crew-undo>Undo Last Point</button><button type="button" data-crew-clear>Clear Route</button></nav>`;}
+  const fullRouteControls=document.createElement('div');status.before(fullRouteControls);
   let moveSubmitting = false;
   let moveError = "";
   let expandedMap = null;
@@ -131,7 +137,7 @@
     moveViewportOwner=null;moveViewportResize=null;
     document.querySelectorAll('[data-inline-ship-map]').forEach(host=>host.style.removeProperty('--movement-map-height'));
     closeExpandedMap();
-    preview = null;
+    preview = null;waypoints=[];
     moveSubmitting = false;
     moveError = "";
     interaction = "view";
@@ -226,7 +232,7 @@
     const unit = selectedUnit();
     const ship = selectedShip();
     if (!unit || !ship) return;
-    if(moveSubmitting)return;
+    if(moveSubmitting||routeMode==='custom'&&!locked)return;
     moveError='';
     if (!locked && preview && preview.square === square && preview.mesh === mesh) return;
     if (layoutFor(ship.ship).footprint.get(Number(square))?.blocked) {
@@ -258,7 +264,13 @@
       renderGrid();
       return;
     }
-    const path = findPath(unit, { square, mesh });
+    let path;
+    if(routeMode==='custom'){
+      const last=waypoints.at(-1),start=last?{...unit,location:completeLocation(ship,last)}:unit;
+      const segment=findPath(start,{square,mesh});
+      if(!segment?.length){moveError=segment===null?'No legal path reaches that point. Choose another point.':'That point is already selected.';status.textContent=moveError;return;}
+      waypoints.push({square,mesh,segment});path=waypoints.flatMap(p=>p.segment);
+    }else path=findPath(unit,{square,mesh});
     const moveSpeed = Math.max(1, Number(unit.moveSpeed) || 1)*(window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId))?1:.5);
     preview = { square, mesh, path, station, locked, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
     confirm.disabled = !locked || path === null || !path.length;
@@ -334,7 +346,7 @@
         const column = point.square % columns; const row = Math.floor(point.square / columns);
         return `${column + ((point.mesh % 3) + .5) / 3},${row + (Math.floor(point.mesh / 3) + .5) / 3}`;
       }).join(" ");
-      grid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 ${columns} ${rows}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
+      grid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 ${columns} ${rows}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" />${waypointLabels(columns)}</svg>`);
     }
   }
 
@@ -456,7 +468,7 @@
         const y = Math.floor(point.square / columns) - minRow + (Math.floor(point.mesh / 3) + .5) / 3;
         return `${x},${y}`;
       }).join(" ");
-      line = `<svg class="combat-move-line" viewBox="0 0 ${colCount} ${rowCount}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`;
+      line = `<svg class="combat-move-line" viewBox="0 0 ${colCount} ${rowCount}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" />${waypointLabels(columns,minCol,minRow)}</svg>`;
     }
     const isSelected = selectedShipId === record.id;
     const selected = selectedUnit();
@@ -467,7 +479,7 @@
       : "Live interior view";
     return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
       <div class="inline-map-viewport"><div class="${classes}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions"><button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
+      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -622,6 +634,7 @@
       if (event.target.closest("[data-interior-fit]")) fitInline(mapHost);
     });
     if (doc !== document) {
+      shell.addEventListener("click",handleRouteControls,true);
       shell.addEventListener("click", handleInlineClick, true);
       shell.addEventListener("pointerover", handleInlineHover);
       shell.addEventListener("click", handleInlinePointer, true);
@@ -701,7 +714,7 @@
         const y = Math.floor(point.square / columns) - minRow + (Math.floor(point.mesh / 3) + .5) / 3;
         return `${x},${y}`;
       }).join(" ");
-      mapGrid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 ${maxCol - minCol + 1} ${maxRow - minRow + 1}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" /></svg>`);
+      mapGrid.insertAdjacentHTML("beforeend", `<svg class="combat-move-line" viewBox="0 0 ${maxCol - minCol + 1} ${maxRow - minRow + 1}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" />${waypointLabels(columns,minCol,minRow)}</svg>`);
     }
     const prompt = host.querySelector(".inline-map-toolbar>span");
     if (prompt) prompt.textContent = moveSubmitting ? "Starting movement..." : moveError || (preview?.locked ? `${preview.path?.length || 0} unit route selected.` : "Point to preview a route; click to select. Or choose a station below.");
@@ -737,6 +750,7 @@
   }
 
   function render() {
+    fullRouteControls.hidden=interaction!=='move';fullRouteControls.innerHTML=routeControls();
     const available = ships().length > 0;
     openButton?.classList.toggle("hidden", !available || !["gm", "player"].includes(mode));
     if (interaction !== "move" || !document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`)) renderInlineMaps();
@@ -762,7 +776,7 @@
     selectedShipId = options.starshipId || unit?.location?.starshipId || ships()[0]?.id || "";
     shipSelect.innerHTML = ships().map((ship) => `<option value="${esc(ship.id)}">${esc(ship.title)}</option>`).join("");
     shipSelect.value = selectedShipId;
-    preview = null;
+    preview = null;waypoints=[];
     confirm.disabled = true;
     cancel.textContent = interaction === "view" ? "Close" : "Cancel";
     status.textContent = interaction === "move" ? "Choose a destination." : mode === "gm" ? "Select a combatant, then choose a square to relocate them." : "View current locations and operate accessible doors.";
@@ -921,6 +935,14 @@
     if (!button) return;
     open({ starshipId: button.dataset.openShipMap, interaction: mode === "gm" ? "relocate" : "view" });
   }
+  function handleRouteControls(event){
+    const button=event.target.closest('[data-crew-route],[data-crew-undo],[data-crew-clear]');if(!button||moveSubmitting)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    if(button.dataset.crewRoute){routeMode=button.dataset.crewRoute;waypoints=[];}else if(button.hasAttribute('data-crew-undo'))waypoints.pop();else waypoints=[];
+    const end=waypoints.at(-1);preview=end?{...end,path:waypoints.flatMap(p=>p.segment),station:stationAt(selectedShip(),end.square,end.mesh),locked:true,color:'green'}:null;
+    confirm.disabled=!preview;render();renderInlineMaps(document,true);if(expandedMap)renderInlineMaps(expandedMap.dialog,true);
+  }
+  document.addEventListener('click',handleRouteControls,true);
   document.addEventListener("click", handleInlineClick, true);
   function handleInteriorStation(event){
     const select=event.target.closest?.('[data-interior-station]'),host=select?.closest('[data-inline-ship-map]');
@@ -943,7 +965,7 @@
     if (!host || !cell || interaction !== "move" || selectedShipId !== host.dataset.inlineShipMap) return;
     event.preventDefault();
     event.stopPropagation();
-    chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
+    if(routeMode!=='custom')chooseDestination(Number(cell.dataset.mapSquare), Number(cell.dataset.mapMesh), true);
     refreshInlinePreview(host);
   }
   document.addEventListener("click", handleInlinePointer, true);
@@ -1005,7 +1027,7 @@
       selectedUnitId = unit.id;
       selectedShipId = unit.location?.starshipId || "";
       interaction = "move";
-      preview = null;
+      preview = null;waypoints=[];
       moveSubmitting = false;
       moveError = "";
       const host = document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`);

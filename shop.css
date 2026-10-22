@@ -46,3 +46,6 @@
 .shop-category-grid.is-items>details{margin:0;min-width:0}
 @media(max-width:1000px){.shop-category-grid.is-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.shop-category-grid.is-items{grid-template-columns:1fr}}
+
+.gm-equipment-catalog .shop-balances,.gm-equipment-catalog .shop-ship-picker,.gm-equipment-catalog [data-group="Shared SIC Storage"]{display:none}
+[data-equipment-reference]>summary{padding:12px;color:#80ddff;font-size:1.1rem;cursor:pointer}

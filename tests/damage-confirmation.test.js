@@ -22,7 +22,7 @@ for(const healing of [false,true])test(`${healing?'healing':'damage'} waits for 
  release();await pending;
  assert.equal(sent[0].type,healing?'sa-combat-healing-result':'sa-combat-damage-result');
  assert.equal(sent[0].rolledHealing??sent[0].rolledDamage,9);
- assert.equal(dom.exitCombatDamageResult.hidden,false);
+ assert.equal(dom.combatDamageModal.hidden,true);
  c.closeCombatDamageResult();assert.equal(c.activeCombatDamageRequest,null);
 });
 test('failed submissions retain the exact dice and retry without rolling or changing the result',async()=>{

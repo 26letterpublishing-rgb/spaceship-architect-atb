@@ -52,7 +52,7 @@
     if(!result.ok)return result;
     const settings=inputSettings(room,unit,body.sicId);
     unit.delayedAction={id:`pilot-${unit.id}-${Date.now()}`,kind:'action',label:'Input ship movement',settings,rate:settings.rate,remaining:100,total:100,consumeTurn:true,resolving:false,
-      shipOrder:{shipId:result.ship.id,sicId:body.sicId||unit.location.sicId,station:stations.station(room,unit)?.key,target:{...body.destination},baseSpeed:result.ship.navigation.baseSpeed,boosts:result.ship.navigation.boosts}};
+      shipOrder:{shipId:result.ship.id,sicId:body.sicId||unit.location.sicId,station:stations.station(room,unit)?.key,target:{...result.ship.navigation.target},waypoints:result.ship.navigation.waypoints,baseSpeed:result.ship.navigation.baseSpeed,boosts:result.ship.navigation.boosts}};
     return {ok:true,ship:result.ship};
   }
   function resolveInput(room,unit){
@@ -65,10 +65,12 @@
     if(room.starships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.tether?.targetId===ship.id)))return {ok:false,error:'Ship movement cancelled: held by a Tractor Beam.'};
     const boosts=pending.boosts.filter(b=>(ship.ship.placements||[]).some(p=>p.sicId===b.id)&&online(ship.ship.sicInventory.find(i=>i.id===b.id)));
     const cost=boosts.reduce((n,b)=>n+b.cost,0),speed=pending.baseSpeed+boosts.reduce((n,b)=>n+b.speed,0);
-    const start=distances.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id),length=distances.hexDistance(start,pending.target);
+    const start=distances.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id);
+    const points=[pending.target,...(pending.waypoints||[])];while(points.length>1&&distances.hexDistance(start,points[0])<1e-6)points.shift();
+    const target=points.shift(),length=distances.hexDistance(start,target);
     if(length<1e-6 || speed<=0)return {ok:false,error:'Ship is already at the destination or cannot move.'};
     if(cost&&!power.spend(room,ship.id,cost))return {ok:false,error:'Insufficient AU when pilot input finished; previous route retained.'};
-    ship.navigation={phase:'powered',traveled:0,target:pending.target,direction:{q:(pending.target.q-start.q)/length,r:(pending.target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:POWERED_PERIOD*length/speed,pilotId:unit.id};
+    ship.navigation={phase:'powered',traveled:0,target,waypoints:points,direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},baseSpeed:pending.baseSpeed,boosts,speed,remaining:POWERED_PERIOD*length/speed,pilotId:unit.id};
     return {ok:true,ship,cost};
   }
   function order(room, unit, body) {
@@ -76,7 +78,9 @@
     if (!allowed) return {ok:false,error:'Remain at an operational cockpit station on a ship with operational thrusters.'};
     if(room.starships.some(s=>Object.values(s.ship.fieldState?.systems||{}).some(d=>d.tether?.targetId===allowed.ship.id)))return {ok:false,error:'Release or disable the Tractor Beam holding this ship before moving.'};
     if(allowed.ship.escapedAt||['activating','traveling'].includes(allowed.ship.ship.warpState?.phase))return {ok:false,error:'Cancel warp activation before moving. Ships in warp have left the battlefield.'};
-    const target = body.destination;
+    let target = body.destination;
+    const waypoints=body.waypoints??[];
+    if(!Array.isArray(waypoints)||waypoints.length>60||waypoints.some(p=>!p||![p.q,p.r].every(n=>Number.isInteger(n)&&Math.abs(n)<=10000)))return {ok:false,error:'Choose up to 60 valid waypoint hexes.'};
     if (!target || ![target.q,target.r].every(n => Number.isInteger(n) && Math.abs(n) <= 10000)) return {ok:false,error:'Choose a destination hex.'};
     const ids = body.boostIds || [];
     if (!Array.isArray(ids) || ids.length > 4 || new Set(ids).size !== ids.length) return {ok:false,error:'Choose each thruster boost only once.'};
@@ -87,11 +91,13 @@
       const d = maps.definition(item.type); boosts.push({id, speed:d.auBoost, cost:d.auCost});
     }
     const start = distances.positions(room.starships, room.shipPositions).find(p => p.id === allowed.ship.id);
+    const points=[...waypoints,target].map(p=>({q:p.q,r:p.r})).filter((p,i,list)=>distances.hexDistance(i?list[i-1]:start,p)>1e-6);
+    target=points.shift()||target;
     const length = distances.hexDistance(start, target), speed = allowed.speed + boosts.reduce((n,b)=>n+b.speed,0);
     if (length < 1e-6 || speed <= 0) return {ok:false,error:'Choose a different hex and a positive Move Speed.'};
     const cost = boosts.reduce((n,b)=>n+b.cost,0);
     if (cost && !power.spend(room,allowed.ship.id,cost)) return {ok:false,error:'Not enough AU for the selected boosts.'};
-    allowed.ship.navigation = { phase:'powered', traveled:0, target:{q:target.q,r:target.r}, direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},
+    allowed.ship.navigation = { phase:'powered', traveled:0, target:{q:target.q,r:target.r}, waypoints:points, direction:{q:(target.q-start.q)/length,r:(target.r-start.r)/length},
       baseSpeed:allowed.speed, boosts, speed, remaining:POWERED_PERIOD*length/speed, pilotId:unit.id };
     return {ok:true,ship:allowed.ship,cost};
   }
@@ -115,7 +121,7 @@
         if(distance>1e-9)nav.direction={q:(nav.target.q-position.q)/distance,r:(nav.target.r-position.r)/distance};
       }
       let left = seconds;
-      for (let step=0;left>1e-9 && step<64 && nav.phase !== 'stopped';step++) {
+      for (let step=0;left>1e-9 && step<96 && nav.phase !== 'stopped';step++) {
         if (!(nav.speed > 0)) { nav.phase='stopped'; nav.remaining=0; break; }
         // Gravity is additive displacement, not a direction-independent engine penalty.
         const resistance=0;
@@ -132,6 +138,11 @@
         }
         if (nav.remaining <= 1e-9) {
           if (nav.phase==='powered') { position.q=nav.target.q;position.r=nav.target.r; }
+          if(nav.phase==='powered'&&nav.waypoints?.length){
+            nav.target=nav.waypoints.shift();const distance=distances.hexDistance(position,nav.target);
+            if(distance>1e-9)nav.direction={q:(nav.target.q-position.q)/distance,r:(nav.target.r-position.r)/distance};
+            nav.remaining=POWERED_PERIOD*distance/nav.speed;continue;
+          }
           nav.speed=Math.max(0,Math.floor((nav.phase==='powered' ? nav.traveled : nav.speed)/2 + 1e-9)-2);
           nav.phase=nav.speed ? 'drift' : 'stopped'; nav.remaining=nav.speed ? PERIOD : 0;
         }

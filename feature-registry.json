@@ -489,9 +489,10 @@
       ],
       "sharedDependenciesAndAssets": [
         "dialog-chrome.js",
-        "npc-combat-dice.js"
+        "npc-combat-dice.js",
+        "result-feedback.js"
       ],
-      "expectedBehavior": "Damage and healing require explicit Confirm and Submit. Failed submissions retain their results for retry; obsolete requests clear. Required combat dice cannot be dismissed through X or Escape. Shared close chrome never replaces gameplay submissions and rebinds after stage changes. GM recovery reuses existing dice/manual controls for player attack, defense and damage; follow-up damage-count/scatter dice remain GM-owned. Existing First Aid and starship recovery stay accessible.",
+      "expectedBehavior": "Damage and healing require explicit Confirm and Submit. Failed submissions retain their results for retry; obsolete requests clear. Required combat dice cannot be dismissed through X or Escape. Shared close chrome never replaces gameplay submissions and rebinds after stage changes. GM recovery reuses existing dice/manual controls for player attack, defense and damage; follow-up damage-count/scatter dice remain GM-owned. Existing First Aid and starship recovery stay accessible. Defense resolves before the attacker receives To-Hit. Passive Waiting for GM/PC messages persist until that stage changes, including First Aid and ship checks. GM retains takeover controls. Successful damage submission closes its dialog; failed submissions retain the result.",
       "regressionTests": [
         "tests/damage-confirmation.test.js",
         "tests/dialog-chrome.test.js",
@@ -515,13 +516,92 @@
         "help-characters-prepare.png",
         "help-starships-console.webp"
       ],
-      "expectedBehavior": "Five shared pages plus five Surface and five Starship pages in the existing Help dialog. Persistent section controls remember each section page while open. Exact controls, GM roll recovery and two-stage queued delays are explained conversationally. Actual UI screenshots and arrows match the controls. Delay readouts say Delay Rate and Higher rates finish sooner; calculation identifiers and mechanics are unchanged. Other GM and PC Help text remains unchanged.",
+      "expectedBehavior": "Five Overview pages and five pages per GM Surface/Starship branch share persistent top Overview and miniature orange/purple combat tabs with PC Help. Switching branches remembers the page; Previous/Next stay inside the branch. Page labels name the active branch. All GM Help uses brief conversational instructions.",
       "regressionTests": [
         "tests/combat-help.test.js",
         "tests/dialog-chrome.test.js",
         "tests/starship-help.test.js",
         "tests/public-assets.test.js",
         "Manual all-page image/navigation checks, desktop and narrow layouts, section switching, Escape and X"
+      ]
+    },
+    {
+      "name": "Custom combat movement routes",
+      "purpose": "Let mouse and touch users choose intermediate stopping points",
+      "canonicalImplementation": "combat-engine.js",
+      "interfaces": [
+        "combat-arena-ui.js",
+        "ship-combat-map.js",
+        "ship-navigation-ui.js",
+        "ship-navigation.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "combat-arena.js",
+        "ship-map.js",
+        "ship-distances.js"
+      ],
+      "expectedBehavior": "Direct Route and Custom Route share normal path legality. Click/tap waypoints, undo or clear, then confirm. Surface and interior melee bonuses use only the final uninterrupted straight stretch, capped by Move Speed. Interrupted movement counts only completed steps. Starship routes preserve intermediate turns and spend selected boost AU once.",
+      "regressionTests": [
+        "tests/combat-arena-movement.test.js",
+        "tests/ship-navigation.test.js",
+        "Manual surface and interior waypoint/undo/confirm"
+      ]
+    },
+    {
+      "name": "PC Help and shared Combat navigation",
+      "purpose": "Concise illustrated player instructions verified against current controls",
+      "canonicalImplementation": "app-help.js",
+      "interfaces": [
+        "character.html",
+        "index.html"
+      ],
+      "sharedDependenciesAndAssets": [
+        "pc-help-content.js",
+        "pc-combat-help.js",
+        "pc-help-shots.js",
+        "help-pc-*.png",
+        "starship-guide.js"
+      ],
+      "expectedBehavior": "Character 8, Campaign 6, Starships 9, Settings 4 and Shop 5 pages preserve handoff sequences. Combat has Overview 5, Surface 9 and Starship 6 pages with remembered branches and expandable worked examples. Starships retains the shared Creation Guide. Real UI screenshots and accurately described console previews illustrate current behavior. Help itself does not alter mechanics.",
+      "regressionTests": [
+        "tests/combat-help.test.js",
+        "tests/starship-help.test.js",
+        "tests/public-assets.test.js",
+        "Manual all-page images/navigation, narrow and desktop layouts, guide return and focus"
+      ]
+    },
+    {
+      "name": "PC My Location",
+      "purpose": "Return the Campaign camera to the character physical location",
+      "canonicalImplementation": "campaign-location.js",
+      "interfaces": [
+        "campaign-navigation-ui.js",
+        "campaign-starmaps-ui.js",
+        "planet-surfaces-ui.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-starmaps.js"
+      ],
+      "expectedBehavior": "Use the individual character location and actual occupied ship before party fallback. Choose galaxy, system, orbit, planet or region and focus the relevant location without moving anyone or overriding GM visibility. Expose only the requesting player location in player state.",
+      "regressionTests": [
+        "tests/campaign-location.test.js",
+        "tests/star-discovery.test.js",
+        "Manual planet/region navigation and single-button redraw"
+      ]
+    },
+    {
+      "name": "Automatic nearby-star discovery",
+      "purpose": "Reveal hidden stars encountered by player-controlled ships",
+      "canonicalImplementation": "star-discovery.js",
+      "interfaces": [
+        "campaign-starmaps.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-starmaps.js"
+      ],
+      "expectedBehavior": "Discover hidden stars in the occupied hex or six adjacent hexes along actual galaxy travel, including fast-forward segments. Instant warp and GM repositioning discover only at arrival. GM ships and map browsing do not discover stars. Notify GM and crew once and immediately broadcast newly visible stars; retain hidden planet and private information filtering.",
+      "regressionTests": [
+        "tests/star-discovery.test.js"
       ]
     }
   ]

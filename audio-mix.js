@@ -1,7 +1,7 @@
 // Shared effects bus: lift quiet UI sounds without boosting protected alarm/explosion clips.
 (function(root){
   const contexts=new WeakMap();
-  const profiles={effect:2,character:2.4,ambient:1.5,launch:1};
+  const profiles={effect:3,character:4,ambient:2,launch:1};
   function destination(context,profile='effect'){
     let buses=contexts.get(context);
     if(!buses){buses=new Map();contexts.set(context,buses);}

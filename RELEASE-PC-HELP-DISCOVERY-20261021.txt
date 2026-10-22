@@ -1,0 +1,35 @@
+October 21, 2026 - PC Help, location and discovery release (#commit)
+
+Completed under the user's existing commit authorization and AFK delegation. Includes the earlier authorized GM Help/playtest queue documented in RELEASE-PLAYTEST-HELP-20261021.txt. Its local-only delivery status is historical; this release publishes that work together with the additions below.
+
+DECISIONS AND IMPLEMENTATION
+1. Preserved the nine-page PC Starships sequence: Your Starships; Ship Information and Statistics; Life Aboard Your Starship; Movement and Stations; Consoles and Ship Interactions; Ship Condition and Repairs; Equipment, Storage, and Upgrades; Crew and Ship Access; Starships During Travel and Combat. Used the revised 1/3/4/5 and supplied 2/6/8/9. The original standalone Page 7 wording was not available, so its equipment/storage/upgrades subject and existing verified workflow were retained in concise wording. The existing shared twelve-section Creation Guide remains the construction reference, including airlocks.
+2. Verified Help against current controls and code. Used Confirm Move, Toggle Console/Console View in their correct contexts; described diagnostics as remaining in the relevant room while the GM advances time. Kept detailed arithmetic in expandable Combat examples and ordinary explanations brief. Help changes introduce no new gameplay rules.
+3. PC noncombat Help contains Character 8, Campaign 6, Starships 9, Settings 4 and Shop 5 pages. Shop explains browsing any weapon/SIC and console previews even when a shop cannot sell it. PC Combat contains Overview 5, Surface 9 and Starship 6 pages. GM Combat retains its 15 pages.
+4. GM and PC Combat Help share persistent top Overview, orange Surface and purple Starship tabs. Each branch remembers its page; Previous/Next remain within that branch. A compact topic selector replaces a row of topic buttons. Active branch names, page counts and background colors make orientation explicit.
+5. Added 23 actual application captures and reused suitable existing assets. Campaign images show the finished galaxy, system, planet and region views. Console previews and the shared manual-check example are labeled accurately. Native-resolution captures replaced blurry scaled captures. No fabricated UI screenshots were used.
+6. My Location is a view-only camera action. It follows the character's own physical location and actual occupied vessel before using legacy party fallback, chooses the appropriate map level, and respects the GM's map visibility. It never moves a character or exposes another player's private location.
+7. Automatic discovery applies to player-controlled ships in the star's own hex or any of its six neighbors. It checks the actual traveled segment so fast-forwarding cannot skip detection. Instant warp and GM repositioning check arrival only; browsing and GM-controlled ships reveal nothing. Discovery sends one notice and broadcasts new visibility without exposing hidden planets or private details.
+8. Corrected the enlarged ship interior's duplicate close control: one circular X closes it and restores focus, with movement/station controls preserved. This completes the previously authorized dialog sweep.
+9. Included the earlier completed queue: sequential combat prompts/passive waiting, protected submissions and GM recovery, custom routes and final-straight melee bonuses, Slug 2D4, fallen NPC artwork, postcombat PC map hiding, catalog/previews, Save/Sync and notification improvements, character handoff guard, typography, audio, Drama wording and keyboard/dialog changes. See the previous report for detailed decisions and limits.
+
+VERIFICATION
+- Earlier full suite: 1,263/1,263 passed.
+- Final full suite after the last gameplay change: 1,266/1,267 passed. The existing intermittent rail-repeater HTTP restart test failed reading weaponOrder.burst; its isolated rerun together with Help tests passed all 6. This is not represented as a clean final full-suite pass.
+- Final focused Help/location/discovery/ship-weapon suites: 30/30 passed.
+- All 50 modified/new JavaScript files passed syntax checks; CRLF-aware whitespace checks passed.
+- Browser checked all 32 noncombat PC pages, 20 PC Combat pages and 15 GM Combat pages for navigation, image loading and narrow-screen overflow. Desktop/narrow themes, branch memory, guide return/focus and enlarged-interior X verified.
+- Real PC-to-GM surface gun sequence verified: waiting for GM Defense, mandatory To-Hit, Confirm and Submit, damage confirmation and encounter continuation. Two-waypoint route and postcombat map disappearance verified. My Location planet/region behavior and redraw uniqueness verified in browser; remaining location modes and discovery geometry/warp/privacy covered by tests.
+- Worked Rapid Laser example verified against current weapon/roll/power/shield code and regression coverage.
+- Final browser error log empty. All 23 new screenshots and five entry/code assets returned HTTP 200 on normal port 8790.
+- Both personal campaign files still match the pre-pass SHA-256 baseline after the normal-server restart. Gold Standard, unrelated QA and scripts preserved.
+
+LIMITS
+The intermittent repeater restart failure remains a testing concern. Automatic discovery was exercised by automated state/geometry tests rather than a complete multi-device browser journey. Real touchscreen hardware, speaker loudness and the friend's original laptop/password-loop conditions were not reproduced. Not every possible dynamic dialog or station action was manually exercised. Older queue limits remain documented in RELEASE-PLAYTEST-HELP-20261021.txt.
+
+LOCAL HANDOFF
+Normal server: http://127.0.0.1:8790/showcase.html, node PID 22852.
+Temporary QA browser closed and its isolated server stopped; disposable artifacts remain outside the repository under outputs.
+Logs: ../outputs/pc-help-final-full-tests.txt, pc-help-final-rerun.txt, pc-help-release-focused.txt, pc-help-normal-server.log.
+Visual proof: ../outputs/pc-help-final-narrow.png and pc-help-final-desktop.png.
+Commit/push main and final completion notification are authorized. No personal campaign or QA data is included in the commit.

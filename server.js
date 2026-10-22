@@ -640,7 +640,7 @@ function syncNpcDefeat(room, unit) {
     delete unit.oxygenUnconscious;
     return;
   }
-  if (unit.team !== 'npc' || unit.location?.starshipId) {
+  if (hp <= 0) {
     cancelNpcDefeat(room.roomCode,unit.id);delete unit.defeatRemovesAt;
     const newlyUnconscious = !unit.defeatedAt;
     unit.defeatedAt ||= Date.now();
@@ -661,45 +661,7 @@ function syncNpcDefeat(room, unit) {
     if (newlyUnconscious) pushLog(room, `${unit.characterName} is unconscious. ATB and actions stopped.`);
     return;
   }
-  const medicalShip=room.starships.find(s=>s.id===unit.location?.starshipId),medicalCell=medicalShip&&shipMapCore.buildLayout(medicalShip.ship).footprint.get(unit.location.square);
-  if(unit.medbayTreatment||medicalCell?.type==='medbay'){cancelNpcDefeat(room.roomCode,unit.id);unit.defeatedAt||=Date.now();unit.atb=0;return;}
-  const newlyDefeated = !unit.defeatedAt;
-  if(unit.oxygenUnconscious){cancelNpcDefeat(room.roomCode,unit.id);unit.defeatedAt||=Date.now();return;}
-  unit.defeatedAt = Number(unit.defeatedAt) || Date.now();
-  unit.defeatRemovesAt = Number(unit.defeatRemovesAt) || unit.defeatedAt + 5600;
-  unit.atb = Math.min(unit.atb, Math.max(0, room.threshold - 0.001));
-  if (newlyDefeated) pushLog(room, `${unit.characterName} was defeated.`);
-  cancelNpcDefeat(room.roomCode, unit.id);
-  const remaining = Math.max(0, unit.defeatRemovesAt - Date.now());
-  const key = npcDefeatKey(room.roomCode, unit.id);
-  npcDefeatTimers.set(key, setTimeout(() => {
-    npcDefeatTimers.delete(key);
-    const liveRoom = getRoom(room.roomCode);
-    const defeated = liveRoom?.units.find((entry) => entry.id === unit.id);
-    if (!liveRoom || !defeated || defeated.team !== "npc" || Number(defeated.currentHp) > 0) return;
-    const previousSource = liveRoom.activeSource;
-    const wasActive = liveRoom.activeId === defeated.id;
-    const affectedAttack = liveRoom.attackResolution && [liveRoom.attackResolution.attackerId, liveRoom.attackResolution.defenderId].includes(defeated.id);
-    const affectedAction = liveRoom.activeAction?.unitId === defeated.id;
-    const affectedItem = removeUnitFromCombatObjects(liveRoom, defeated.id);
-    detachPlacedOrdnance(liveRoom, defeated);
-    liveRoom.units = liveRoom.units.filter((entry) => entry.id !== defeated.id);
-    if (affectedAttack) {
-      liveRoom.attackResolution = null;
-      clearAttackCommand(liveRoom);
-    }
-    if (liveRoom.activeAction?.unitId === defeated.id) liveRoom.activeAction = null;
-    if (wasActive || affectedAttack || affectedAction || affectedItem) {
-      liveRoom.activeId = null;
-      liveRoom.pausedForTurn = false;
-      clearActiveCommand(liveRoom);
-      moveToNextTurnOrClock(liveRoom, previousSource);
-    }
-    pushLog(liveRoom, `${defeated.characterName} was removed from combat.`);
-    broadcast(liveRoom);
-    scheduleRoomPersist(liveRoom, 0);
-    campaignApi?.broadcast(liveRoom.roomCode).catch(() => {});
-  }, remaining));
+
 }
 async function applyWeaponHitEffects(room,target,state,applied) {
   const attacker=room.units.find(u=>u.id===state.attackerId);if(!attacker)return;
@@ -747,7 +709,7 @@ function beginAttackResolution(room, details) {
   if(defender.personalDrone)room.attackResolution.defenseRoll={score:14,mode:'fixed'};
   if(details.personalEffect?.check){room.attackResolution.defenseRoll={score:details.personalEffect.difficulty};return room.attackResolution;}
   if(details.doorTarget){room.attackResolution.phase='damage';room.attackResolution.attackResult={hit:true,critical:false};room.attackResolution.defenseRoll={score:0};pushLog(room,attacker.characterName+' attacks '+defender.characterName+'. Roll '+details.plan.damageFormula+' damage. A hit of 10 or more causes one breach point.');return room.attackResolution;}
-  pushLog(room, attacker.characterName + " targeted " + defender.characterName + " with " + details.weaponName + " at " + details.distance + " unit" + (details.distance === 1 ? "" : "s") + "; attack and Defense rolls requested.");
+  pushLog(room, attacker.characterName + " targeted " + defender.characterName + " with " + details.weaponName + " at " + details.distance + " unit" + (details.distance === 1 ? "" : "s") + "; Defense requested first.");
   return room.attackResolution;
 }
 
@@ -2737,9 +2699,7 @@ async function handleRoomAction(body, res, automated = false) {
 
   if (action === "stopTravel") {
     if (!playerUnit || playerUnit.timedAction?.kind !== "move") { sendJson(res, 409, { error: "That character is not traveling." }); return; }
-    if(playerUnit.location?.arenaId==='surface')playerUnit.location=require('./combat-arena').position(playerUnit);
-    playerUnit.timedAction = null;
-    playerUnit.travelRoute = [];
+    require('./combat-engine').stopMovement(room,playerUnit);
     playerUnit.atb = room.threshold;
     pushLog(room, `${playerUnit.characterName} stopped moving and may act.`);
     if (!room.pausedForTurn) pauseForReadyUnit(room, playerUnit, "travel-stop");
@@ -3108,6 +3068,10 @@ async function handleRoomAction(body, res, automated = false) {
     }
     if (!Number.isFinite(score)) {
       sendJson(res, 400, { error: "Enter a valid final Score." });
+      return;
+    }
+    if (rollRole === 'attacker' && !state.defenseRoll) {
+      sendJson(res, 409, { error: 'Waiting for Defense before the To-Hit roll.' });
       return;
     }
     const field = rollRole === "attacker" ? "attackerRoll" : "defenseRoll";

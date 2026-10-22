@@ -37,7 +37,7 @@
     "name": "CAME PREPARED",
     "category": "Deus Ex Machina",
     "text": "Choose any standard item you could normally purchase. Pay its normal Credit cost and add it to your carried inventory immediately, as if you had it all along.",
-    "handling": "Add the item as Purchased, reveal, then discard.",
+    "handling": "Pay for the item and add it to your inventory, then discard this card.",
     "tags": [
       "Inventory",
       "Credits",
@@ -87,7 +87,7 @@
     "name": "SONIC SPEED",
     "category": "Spotlight",
     "text": "Play at any time, even during another character's action. Immediately Move up to three times your Move Speed without changing your ATB. Alternatively, play when you are attacked to automatically succeed on that Dodge Check.",
-    "handling": "Resolve immediately as an interrupt, then discard.",
+    "handling": "Resolve immediately, then discard.",
     "tags": [
       "Move",
       "Interrupt",
@@ -136,7 +136,7 @@
     "name": "THAT WAS QUICK",
     "category": "Spotlight",
     "text": "Play when your character begins a task represented by a Delay Timer, Delayed Resolution, or Queued Effect. Reduce its remaining time to 10%, rounded up to the nearest tenth of a second.",
-    "handling": "Edit the active timer, reveal, then discard.",
+    "handling": "Reduce the remaining wait, then discard.",
     "tags": [
       "Delay Timer",
       "Delayed Resolution",
@@ -252,7 +252,7 @@
     "name": "WEAK POINT",
     "category": "Spotlight",
     "text": "Play after you deal damage to an enemy. If the attack was a Critical Success, the next two times that enemy's ATB reaches 100%, reset it to 0% without giving them a turn. Otherwise, double the attack's final damage.",
-    "handling": "Create a two-trigger status or modify damage, then discard.",
+    "handling": "On a Critical Success, the enemy loses their next two turns. Otherwise, double the damage. Then discard this card.",
     "tags": [
       "Critical Success",
       "Skip Turn",
@@ -315,7 +315,7 @@
     "name": "MALFUNCTION",
     "category": "Deus Ex Machina",
     "text": "Play when a character chooses Fire Gun. Their held weapon loses all stored Charges and cannot fire. The GM decides whether it requires ammunition or a Reload/Recovery Delay before it works again.",
-    "handling": "Apply the weapon status, then discard.",
+    "handling": "The weapon cannot fire until the GM’s required reload or recovery is finished, then discard this card.",
     "tags": [
       "Weapon",
       "Malfunction",
@@ -405,7 +405,7 @@
     "name": "DIFFERENT WAY OF DOING THINGS",
     "category": "Rule Breaker",
     "text": "Choose one: Before a Check, convince the GM to let you use a different Attribute or Skill. If the GM agrees and you make the Check that way, draw 2 Drama Cards. OR gain 3 Reverence.",
-    "handling": "Resolve the chosen mode, then discard.",
+    "handling": "Choose the Check option or the Reverence, then discard this card.",
     "tags": [
       "Alternate Check",
       "Draw",
@@ -417,8 +417,8 @@
     "number": 33,
     "name": "HEY! CHECK THIS OUT!",
     "category": "Deus Ex Machina",
-    "text": "Name a non-unique standard item that would be perfect for the current situation. You look down and find one beside your foot. Add it to your inventory as Received.",
-    "handling": "Add the item as Received, then discard.",
+    "text": "Name a non-unique standard item that would be perfect for the current situation. You look down and find one beside your foot. Add it to your inventory for free.",
+    "handling": "Take the free item, then discard this card.",
     "tags": [
       "Item",
       "Discovery",
@@ -518,7 +518,7 @@
     "name": "SAW THIS COMING",
     "category": "Deus Ex Machina",
     "text": "Choose a character in the scene. Reveal a trap you secretly prepared earlier; they are immediately caught in it. The GM determines the escape Check or Delay Timer required to break free.",
-    "handling": "Apply the trap status, then discard.",
+    "handling": "The trap takes effect; discard this card.",
     "tags": [
       "Trap",
       "Retroactive",
@@ -581,7 +581,7 @@
     "name": "BULLET TIME",
     "category": "Spotlight",
     "text": "Play at any time during Combat. Pause the current resolution, set your ATB to 100%, and take a turn immediately. Your ATB resets normally when that turn ends, then the interrupted resolution continues.",
-    "handling": "Create an interrupt turn, resolve it, then discard.",
+    "handling": "Take your turn immediately, then discard this card.",
     "tags": [
       "ATB",
       "Interrupt",
@@ -732,8 +732,8 @@
     "number": 58,
     "name": "BEEN SAVING THIS FOR CLOSE ENCOUNTERS",
     "category": "Deus Ex Machina",
-    "text": "Play at any time while you are carrying at least one weapon. Choose a standard weapon costing fewer than 5,000 Credits. Add it to your inventory as Received and make it your held weapon; you had it hidden all along.",
-    "handling": "Add the weapon as Received, equip it, then discard.",
+    "text": "Play at any time while you are carrying at least one weapon. Choose a standard weapon costing fewer than 5,000 Credits. Add it to your inventory for free and make it your held weapon; you had it hidden all along.",
+    "handling": "Take and equip the free weapon, then discard this card.",
     "tags": [
       "Weapon",
       "Inventory",
@@ -785,7 +785,7 @@
     "name": "PHOENIX",
     "category": "Deus Ex Machina",
     "text": "Play on another character immediately after they reach 0 HP, before the next active turn begins. Restore that character to full HP.",
-    "handling": "Cancel removal if needed, restore full HP, then discard.",
+    "handling": "Bring that character back at full HP, then discard this card.",
     "tags": [
       "Revive",
       "Full HP",
@@ -850,7 +850,7 @@
     "name": "LOG JITSU",
     "category": "Deus Ex Machina",
     "text": "Play when you die or your starship is destroyed. Reveal that the destruction was an elaborate illusion meant to lower the enemy's guard. If used on your character, reposition up to four times your Move Speed. If used on your starship, it reappears with 0 Shields. Explain how the illusion worked; the better the explanation, the more HP the GM restores.",
-    "handling": "Cancel defeat, reposition, restore GM-determined HP, then discard.",
+    "handling": "Return to the scene, move, and restore the HP chosen by the GM. Then discard.",
     "tags": [
       "False Death",
       "Reposition",
@@ -904,7 +904,7 @@
     "name": "MASSIVE PLOT TWIST",
     "category": "Deus Ex Machina",
     "text": "Declare one specific change to the current situation. It becomes true, and the GM must explain how the story adapts. Discard your entire Drama Card hand, then remove MASSIVE PLOT TWIST from the campaign's deck permanently.",
-    "handling": "Discard the rest of the hand; move this card to Removed From Campaign, not the discard pile.",
+    "handling": "Discard your other cards and permanently remove this card from the campaign.",
     "tags": [
       "Narrative Authority",
       "Discard Hand",

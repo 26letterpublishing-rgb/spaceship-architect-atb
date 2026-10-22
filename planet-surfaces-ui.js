@@ -77,7 +77,7 @@
    }
   }
   inspect();window.SACampaignNavigationUI.compactLayout(c,{tools,management,camera:ct,actions:details});
-  const fitAspect=()=>{if(!svg.isConnected)return;const wasOverview=camera.overview;viewport=C.limits(!!region,canvas.clientWidth,canvas.clientHeight,planet.size);defaultBox.h=defaultBox.w/viewport.aspect;if(wasOverview)camera.w=viewport.maxWidth;apply();};resize=new ResizeObserver(fitAspect);resize.observe(canvas);requestAnimationFrame(fitAspect);active.svg=svg;active.canvas=canvas;animate();
+  const fitAspect=()=>{if(!svg.isConnected)return;const wasOverview=camera.overview;viewport=C.limits(!!region,canvas.clientWidth,canvas.clientHeight,planet.size);defaultBox.h=defaultBox.w/viewport.aspect;if(wasOverview)camera.w=viewport.maxWidth;apply();};resize=new ResizeObserver(fitAspect);resize.observe(canvas);requestAnimationFrame(fitAspect);active.focusLocation=location=>{const index=region?location.regionHex:location.hex;if(index===undefined)return;const p=point(index,!!region),w=Math.min(viewport.maxWidth,region?600:900);camera={x:p.x-w/2,y:p.y-w/viewport.aspect/2,w};selected=String(index);inspect();apply();};active.svg=svg;active.canvas=canvas;animate();
 
   return true;
  }
@@ -134,5 +134,5 @@
  }
  function refresh(next){if(active){active.c.state=next;active.c.data=next.starmaps;active.stamp=performance.now();animate();}}
  function preview(c,world,planet){const values=T().terrain(world.seed||planet.id,planet.variant,world.hexes,false,false,planet.size),d=c.modal(planet.name+' — Surface Preview','<p>Read-only overview of known public locations.</p><div class="planet-mini-preview"></div>',async()=>{},'Close');const host=d.querySelector('.planet-mini-preview');host.innerHTML='<svg viewBox="0 0 '+T().geometry(false,planet.size).width+' '+T().geometry(false,planet.size).height+'" aria-label="Surface overview">'+values.map((t,i)=>{const p=point(i,false,planet.size);return '<path transform="translate('+p.x+' '+p.y+')" d="'+path+'" fill="'+T().colors[t]+'"/>';}).join('')+'</svg>';}
- window.SAPlanetSurfaces={render,icon,prompt,refresh,preview,updateHover,editPlanet};
+ window.SAPlanetSurfaces={focusLocation:location=>active?.focusLocation?.(location),render,icon,prompt,refresh,preview,updateHover,editPlanet};
 })();

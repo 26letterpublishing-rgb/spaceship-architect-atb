@@ -18,7 +18,7 @@
     if(!notice){notice=doc.createElement('button');notice.type='button';notice.setAttribute('role','status');notice.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#260d13;color:#ff7887;border:1px solid #ff7686;padding:9px 16px;max-width:70vw;font:700 14px Arial';doc.body.append(notice);}
     const relevant=gm?waiting:waiting.filter(u=>u.id===mine?.id&&request(u).rollController!=='gm');
     const calls=state.starships.filter(s=>gm||s.id===mine?.location?.starshipId).flatMap(s=>(s.commandSystems?.calls||[]).filter(c=>c.status==='incoming').map(c=>s.title+': you are being Hailed by '+c.title));
-    const awaiting=mine&&(request(mine)?.rollController==='gm'||state.delayRequest?.unitId===mine.id||state.activeAction?.unitId===mine.id||(state.itemResolution?.healerId===mine.id&&(state.itemResolution.phase==='gmDifficulty'||state.itemResolution.rollController==='gm'))||(state.attackResolution?.attackerId===mine.id&&(state.attackResolution.phase==='gmDamage'||state.attackResolution.rollController==='gm')));
+    const awaiting=mine&&(state.delayRequest?.unitId===mine.id||state.activeAction?.unitId===mine.id);
     const logs=state.log||[],index=logs.findIndex(e=>e.id===lastLog),fresh=lastLog?logs.slice(index+1):[];lastLog=logs.at(-1)?.id||lastLog;
     const updates=fresh.filter(e=>gm?/laser|scan complete|detected|Life Scan|succeeded|failed|connected|prepared|analysis|repair|reboot|Hail/i.test(e.text):/laser|Hail answered|Hail ended/i.test(e.text));
     if(updates.length){result=updates.map(e=>e.text).join(' | ');until=Date.now()+7000;}

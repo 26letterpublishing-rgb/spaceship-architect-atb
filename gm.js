@@ -926,7 +926,7 @@ function inboxItemActions(note) {
   if (note.kind !== "item-transaction") return "";
   const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
   const cover = Number(note.deficit) > 0 ? `<button type="button" data-cover-deficit="${escapeHtml(note.characterId)}">Cover Deficit (+${Number(note.deficit).toLocaleString()} Credits)</button>` : "";
-  return deny || cover ? `<div class="inbox-actions">${deny}${cover}</div>` : "";
+  return `<div class="inbox-actions">${deny}${cover}<button type="button" data-delete-retained-note="${escapeHtml(note.id)}">Approve</button></div>`;
 }
 
 
@@ -1098,6 +1098,7 @@ function npcTemplatePayload(npc) {
     moveSpeed: Number(npc.moveSpeed) || 3,
     maximumHp: Number(npc.maximumHp) || 30,
     physicalAttribute: Number(npc.physicalAttribute) || 6,
+    strengthDiceOverride: npc.strengthDiceOverride || null,
     mentalAttribute: Number(npc.mentalAttribute) || 6,
     physicalSkill: Number(npc.physicalSkill) || 0,
     mentalSkill: Number(npc.mentalSkill) || 0,

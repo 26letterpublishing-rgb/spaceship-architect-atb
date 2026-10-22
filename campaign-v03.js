@@ -141,6 +141,13 @@ async function handle(api, context) {
       const data=kind==='character'?cleanCharacter(body.data):copy(body.data?.starship || body.data?.ship || body.data);
       if(kind==='character' && (!data.identity || !data.attributes || !String(data.identity.characterName||'').trim())) throw Error('Choose a character file containing a name and attributes.');
       if(kind==='ship' && !data?.confirmedOnce) throw Error('Confirm ship construction before importing.');
+      if(kind==='character'){
+        const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().filter(k=>!['updatedAt','createdAt','campaignLink','access','importFingerprint'].includes(k)).map(k=>[k,canonical(value[k])])):value;
+        const fingerprint=crypto.createHash('sha256').update(JSON.stringify(canonical(data))).digest('hex');
+        const prior=campaign.imports.find(r=>r.kind===kind&&r.playerId===player?.id&&['pending','approved'].includes(r.status)&&(r.fingerprint===fingerprint||JSON.stringify(canonical(r.data))===JSON.stringify(canonical(data))));
+        if(prior)return reply(200,{campaign:api.state(campaign,token),requestId:prior.id,duplicate:true});
+        data.importFingerprint=fingerprint;
+      }
       if(kind==='ship'){
         data.constructionCost=require('./ship-budget').cost(data);
         const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().filter(k=>!['updatedAt','createdAt','campaignLink','importFingerprint'].includes(k)).map(k=>[k,canonical(value[k])])):value;
@@ -170,6 +177,13 @@ async function handle(api, context) {
         if(request.kind==='character') { request.data.phase='finalized'; request.data.pendingRoll=null; request.data.advancementOpen=false; }
         request.status='approved';
       } else request.status='rejected';
+      // Old repeated uploads may already exist. Resolve matching requests together.
+      if(request.kind==='character')for(const other of campaign.imports){
+        if(other!==request&&other.kind==='character'&&other.playerId===request.playerId&&other.status==='pending'&&
+          ((request.data.id&&other.data.id===request.data.id)||(request.fingerprint&&other.fingerprint===request.fingerprint)||JSON.stringify(other.data)===JSON.stringify(request.data))){
+          other.status='superseded';other.resolvedBy=request.id;
+        }
+      }
     } else if(action==='import/finish') {
       if(!player || player.characterId) throw Error('An unlinked player must finish this import.');
       const request=campaign.imports.find(r=>r.id===body.requestId&&r.playerId===player.id&&r.kind==='character'&&r.status==='approved');

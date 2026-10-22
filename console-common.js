@@ -96,6 +96,7 @@
     tick();
     if(b.state()?.catalogPreview)requestAnimationFrame(()=>requestAnimationFrame(()=>{
       if(!view.isConnected)return;const frozen=view.cloneNode(true);frozen.removeAttribute('open');frozen.removeAttribute('data-console-owner');frozen.dataset.catalogSnapshot='true';
+      frozen.querySelectorAll('.dialog-close-rail').forEach(node=>node.remove());
       const sourceControls=view.querySelectorAll('input,select,textarea');
       frozen.querySelectorAll('input,select,textarea').forEach((el,index)=>{el.value=sourceControls[index].value;if('checked' in el)el.checked=sourceControls[index].checked;});
       for(const anim of frozen.querySelectorAll('animate,animateTransform'))anim.remove();

@@ -59,3 +59,20 @@ test('portable imports are not blocked by a different saved campaign session', a
   assert.equal(b.requests.at(-1).body.code, 'BBBB');
   assert.equal(b.requests.at(-1).body.token, 'target-token');
 });
+const characterSource=fs.readFileSync(require.resolve('../character.js'),'utf8');
+function finalizationBrowser({linked=false}={}){
+  const calls={passwords:0,creates:0,opened:[]};let resolvePassword;
+  const password=new Promise(resolve=>{resolvePassword=resolve;});
+  const context={PAGE_PARAMS:new URLSearchParams('roomCreate=ROOM'),character:{phase:'finalized'},localStorage:{getItem:()=> 'player-token'},notice:()=>{},campaignRequest:async()=>({roomOpen:true,...(linked?{ownCharacterId:'new-character'}:{})}),window:{SARoomV03:{roomKey:()=> 'room-key',input:()=>{calls.passwords++;return password;},api:async()=>{calls.creates++;return {campaign:{ownCharacterId:'new-character'}};},openCharacter:async(state,token)=>{calls.opened.push({state,token});}}}};
+  vm.createContext(context);vm.runInContext(characterSource.slice(characterSource.indexOf('let roomCreationPending='),characterSource.indexOf('async function initializeCharacterApp()'))+';this.finish=finishRoomCreation;',context);
+  return {calls,finish:context.finish,resolvePassword};
+}
+test('room finalization ignores repeated clicks while choosing one password and enters the campaign directly',async()=>{
+  const b=finalizationBrowser();const first=b.finish();await Promise.resolve();await b.finish();
+  assert.equal(b.calls.passwords,1);b.resolvePassword('test-only');await first;
+  assert.equal(b.calls.creates,1);assert.equal(b.calls.opened.length,1);assert.equal(b.calls.opened[0].token,'player-token');
+});
+test('retrying a completed room finalization resumes the linked character without another password or approval',async()=>{
+  const b=finalizationBrowser({linked:true});await b.finish();
+  assert.equal(b.calls.passwords,0);assert.equal(b.calls.creates,0);assert.equal(b.calls.opened[0].state.ownCharacterId,'new-character');
+});

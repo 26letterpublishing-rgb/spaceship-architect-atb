@@ -133,7 +133,7 @@
     dialog.querySelector('[data-sg-close]').onclick = leave;
     render(index);
     if (!dialog.open) dialog.showModal();
-    dialog.querySelector('[data-sg-back]').focus({preventScroll:true});
+    requestAnimationFrame(()=>(dialog.querySelector('.dialog-circle-close')||dialog.querySelector('[data-sg-back]')).focus({preventScroll:true}));
   }
 
   function openFromCreator(opener) {

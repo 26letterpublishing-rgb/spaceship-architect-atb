@@ -103,6 +103,25 @@ function clamp(value, min, max, fallback = min) {
   return Math.max(min, Math.min(max, Number.isFinite(number) ? number : fallback));
 }
 
+function recordMovementCharge(room,unit,route,start,maxUnits,fallback=0){
+  const straight=arena.straightRun(room,start,route),previous=unit.lastMoveRun;
+  const samePoint=(a,b)=>a&&b&&a.starshipId===b.starshipId&&a.arenaId===b.arenaId&&a.square===b.square&&(a.mesh??4)===(b.mesh??4);
+  const continues=unit.movementChargeUnits>0&&straight.units===route.length&&previous?.direction===straight.direction&&samePoint(previous.end,start);
+  unit.movementChargeUnits=Math.min(maxUnits,route.length?straight.units+(continues?unit.movementChargeUnits:0):fallback);
+  unit.lastMoveStart={...(continues?unit.lastMoveStart:straight.start||start)};
+  unit.lastMoveRun=straight;
+}
+
+function stopMovement(room,unit){
+  const action=unit?.timedAction;if(action?.kind!=='move')return;
+  const route=action.routeSegment||[],done=Math.max(0,Math.min(route.length,Math.floor((1-action.remaining/Math.max(.001,action.total))*route.length)));
+  if(action.chargeBefore){Object.assign(unit,action.chargeBefore);if(done)recordMovementCharge(room,unit,route.slice(0,done),action.startLocation,action.moveSpeed);}
+  else unit.movementChargeUnits=0;
+  unit.location=normalizeCombatLocation(done?route[done-1]:action.startLocation||unit.location);
+  unit.timedAction=null;unit.travelRoute=[];
+}
+function movementChargeSnapshot(unit){return {movementChargeUnits:unit.movementChargeUnits||0,lastMoveStart:unit.lastMoveStart,lastMoveRun:unit.lastMoveRun};}
+
 function ceilTenth(value) {
   return Math.ceil((Number(value) || 0) * 10) / 10;
 }
@@ -117,7 +136,9 @@ function applyNpcSimplifiedStats(unit, source = {}) {
   unit.physicalSkill = Math.max(0, Math.min(4, Number(source.physicalSkill ?? unit.physicalSkill) || 0));
   unit.mentalSkill = Math.max(0, Math.min(4, Number(source.mentalSkill ?? unit.mentalSkill) || 0));
   unit.dexterityDice = npcAttributeDice(unit.physicalAttribute);
-  unit.strengthDice = npcAttributeDice(unit.physicalAttribute);
+  const strengthOverride=source.strengthDiceOverride??unit.strengthDiceOverride;
+  unit.strengthDiceOverride=Array.isArray(strengthOverride)&&strengthOverride.length&&strengthOverride.every(d=>[4,6,8,10,12].includes(d))?strengthOverride.slice(0,20):null;
+  unit.strengthDice = unit.strengthDiceOverride || npcAttributeDice(unit.physicalAttribute);
   unit.projectileSkill = unit.physicalSkill;
   unit.meleeSkill = unit.grapplingSkill = unit.physicalSkill;
   unit.perceptionDice = unit.willpowerDice = npcAttributeDice(unit.mentalAttribute);
@@ -290,6 +311,7 @@ function migrateUnitCombat(unit) {
     recurringHealingLabel: unit.recurringHealingLabel,
     strengthDice: unit.strengthDice,
     physicalAttribute: unit.physicalAttribute,
+    strengthDiceOverride: unit.strengthDiceOverride,
     mentalAttribute: unit.mentalAttribute,
     physicalSkill: unit.physicalSkill,
     mentalSkill: unit.mentalSkill,
@@ -399,7 +421,7 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
   if(unit.timedAction?.kind==='move'&&unit.location?.arenaId==='surface'&&room?.arena){
     const current=arena.position(unit),action=unit.timedAction,start=Math.max(0,Math.floor((1-action.remaining/Math.max(.001,action.total))*action.routeSegment.length));let from=current,blocked=false;
     for(const point of action.routeSegment.slice(start)){if(!arena.step(room.arena,from,point)){blocked=true;break;}from=point;}
-    if(blocked){unit.location=normalizeCombatLocation(current);unit.timedAction=null;unit.travelRoute=[];unit.atb=room.threshold;setCombatBrief(unit,'move','Movement stopped',['A door or obstacle blocked the remaining route.']);}
+    if(blocked){stopMovement(room,unit);unit.atb=room.threshold;setCombatBrief(unit,'move','Movement stopped',['A door or obstacle blocked the remaining route.']);}
   }
   if (unit.timedAction) {
     if(room)shipMaps.updateMovementGravity(unit.timedAction,unit.location?.arenaId==='surface'||shipMaps.gravityEnabled(room.starships?.find(s=>s.id===unit.location?.starshipId))?1:.5);
@@ -415,6 +437,8 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
           const segment = unit.travelRoute.splice(0, Math.max(1,Math.floor(moveSpeed)));
           const destination = segment[segment.length - 1];
           if (destination) {
+            const chargeBefore=movementChargeSnapshot(unit);
+            if(room)recordMovementCharge(room,unit,segment,unit.location,moveSpeed);
             const doorDelay = room ? routeDoorDelay(room, segment) : 0; const duration = Math.max(0.1, ceilTenth((3 * segment.length) / moveSpeed + doorDelay));
             unit.timedAction = {
               id: `${completedAction.id}-next-${unit.travelRoute.length}`,
@@ -427,7 +451,7 @@ function tickCombatTimers(unit, seconds, multiplier = 1, room = null) {
               gravityScale: completedAction.gravityScale??1,
               destination,
               routed: true,
-              routeSegment: segment,
+              routeSegment: segment,chargeBefore,
               startLocation: normalizeCombatLocation(completedAction.destination),
               doorDelay,
               startedAt: Date.now(),
@@ -629,8 +653,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     const routeSegment = requestedRoute.slice(0, units);
     const doorDelay = routeDoorDelay(room, routeSegment); const duration = Math.max(0.1, ceilTenth((3 * units) / maxUnits + doorDelay));
     clearAim(unit);
-    unit.movementChargeUnits = Math.min(maxUnits, units);
-    unit.lastMoveStart={...unit.location};
+    const chargeBefore=movementChargeSnapshot(unit);
+    recordMovementCharge(room,unit,routeSegment,unit.location,maxUnits,units);
     if (useJetPack) spendItemCharge(unit, "jet-pack", 1);
     if (mounted?.driverId === unit.id) {
       mounted.currentMoveSpeed = Math.min(mounted.maximumMoveSpeed, mounted.currentMoveSpeed + mounted.acceleration);
@@ -647,7 +671,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       gravityScale: unit.location?.arenaId==='surface'||shipMaps.gravityEnabled(room.starships?.find(s=>s.id===unit.location?.starshipId))?1:.5,
       destination: routeSegment[routeSegment.length - 1] || null,
       routed: Boolean(requestedRoute.length),
-      routeSegment,
+      routeSegment,chargeBefore,
       startLocation: normalizeCombatLocation(unit.location),
       doorDelay,
       startedAt: Date.now(),
@@ -655,7 +679,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       stationName: safeText(body.stationName, "SIC", 80),
       stationSlot: Math.max(0, Number(body.stationSlot) || 0),
     }, `${unit.characterName} moved ${units} unit${units === 1 ? "" : "s"} (${duration.toFixed(1)} sec).`, helpers);
-    setCombatBrief(unit, kind, `Moved ${units} unit${units === 1 ? "" : "s"}`, [`Immediate action in ${duration.toFixed(1)} sec`, `${units} melee movement Charge${units === 1 ? "" : "s"}`]);
+    setCombatBrief(unit, kind, `Moved ${units} unit${units === 1 ? "" : "s"}`, [`Immediate action in ${duration.toFixed(1)} sec`, `${unit.movementChargeUnits} melee movement Charge${unit.movementChargeUnits === 1 ? "" : "s"}`]);
     return { ok: true };
   }
 
@@ -1176,4 +1200,5 @@ module.exports = {
   syncUnitCombat,
   advanceThrown,
   tickCombatTimers,
+  stopMovement,
 };

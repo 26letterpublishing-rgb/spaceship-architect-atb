@@ -78,7 +78,7 @@
     dialog.dataset.sicId=pilotSicId;
     dialog.innerHTML=`<form><header><div class="pilot-identity"><small>HELM / ${esc(unit.characterName)}</small><h2>${esc(seated.ship.title)}</h2></div><div class="pilot-command"><strong data-turn-announcement role="status" aria-live="polite"></strong><div class="pilot-command-track" role="progressbar" aria-label="Command window remaining" aria-valuemin="0" aria-valuemax="100"><i data-command-fill></i></div><small data-command-status></small></div><div class="pilot-header-actions"><button type="button" data-sound>${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
       <section class="pilot-fleet"><h3>Fleet Condition</h3><div data-fleet></div><div class="pilot-telemetry" aria-hidden="true">NAV LINK 07.14<br>PHASE SYNC / NOMINAL<br><i></i>VECTOR LOCK 0A:9F</div></section>
-      <section class="pilot-chart"><div class="pilot-chart-title"><h3>Navigation</h3><span data-flight></span></div><div data-navigation-map>${window.SASpaceMap.markup(initial.starships,initial.shipPositions,false,{navigation:true})}</div><div class="navigation-fields"><label>Hex Q<input name="q" type="number" min="-10000" max="10000" step="1" required></label><label>Hex R<input name="r" type="number" min="-10000" max="10000" step="1" required></label><button type="button" data-zoom=".7" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-zoom="1.4" aria-label="Zoom out" title="Zoom out">&#8722;</button></div></section>
+      <section class="pilot-chart"><div class="pilot-chart-title"><h3>Navigation</h3><span data-flight></span></div><div data-navigation-map>${window.SASpaceMap.markup(initial.starships,initial.shipPositions,false,{navigation:true})}</div><nav class="map-action-modes" data-nav-route><button type="button" data-route-mode="direct" aria-pressed="true">Direct Route</button><button type="button" data-route-mode="custom" aria-pressed="false">Custom Route</button><button type="button" data-route-undo>Undo Last Point</button><button type="button" data-route-clear>Clear Route</button></nav><div class="navigation-fields"><label>Hex Q<input name="q" type="number" min="-10000" max="10000" step="1" required></label><label>Hex R<input name="r" type="number" min="-10000" max="10000" step="1" required></label><button type="button" data-zoom=".7" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-zoom="1.4" aria-label="Zoom out" title="Zoom out">&#8722;</button></div></section>
       <section class="pilot-activity"><h3>Combat Activity</h3><div data-activity></div></section>
       <section class="pilot-power"><h3>Action Units</h3><div class="pilot-au" data-au></div><div class="pilot-recharge"><i data-recharge></i></div><fieldset><legend>AU Boosts</legend><div data-boosts></div></fieldset>${waveform}</section>
       <section class="pilot-input"><h3>Command Processor</h3><div class="pilot-rings" data-rings></div><div data-factors></div><div class="pilot-input-progress"><i data-input-progress></i></div><output data-input-status></output><output data-estimate></output></section>
@@ -90,7 +90,7 @@
     depart.onclick=async()=>{const confirmation=host.createElement('dialog');confirmation.className='galaxy-dialog';confirmation.innerHTML='<h2>Leave Atmosphere?</h2><p>The party departs together aboard this ship.</p><form method="dialog"><button value="cancel">Cancel</button><button value="depart">Leave Atmosphere</button></form>';host.body.append(confirmation);confirmation.showModal();confirmation.addEventListener('close',async()=>{const accepted=confirmation.returnValue==='depart';confirmation.remove();if(!accepted)return;depart.disabled=true;try{await bridge.leaveAtmosphere(shipId);remember(unit);dialog.close();}catch(e){error.textContent=e.message;depart.disabled=false;}},{once:true});};
     const departureTimer=setInterval(()=>{depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);},500);dialog.addEventListener('close',()=>clearInterval(departureTimer),{once:true});
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
-    let destination=null,locked=false,planning=compact,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
+    let destination=null,waypoints=[],routeMode='direct',locked=false,planning=compact,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
     const begin=host.createElement('button'),cancel=host.createElement('button');begin.type=cancel.type='button';begin.textContent='Move Ship';cancel.textContent='Cancel Move';begin.dataset.beginMove='';submit.before(begin,cancel);
     begin.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!svg.dataset.manualCamera)fitVisible();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
@@ -154,7 +154,7 @@
       }
       let cost=0,speed=access?.speed||0;
       for(const box of form.querySelectorAll('[name=boost]')){if(box.checked){const d=window.SAShipMap.definition(thrusters.find(t=>t.id===box.value).type);cost+=d.auCost;speed+=d.auBoost;}}
-      const au=seat.ship.auState||{current:0,maximum:0,progress:0},length=destination?window.SAShipDistances.hexDistance(start,destination):0;
+      const au=seat.ship.auState||{current:0,maximum:0,progress:0},length=destination?(routeMode==='custom'&&waypoints.length?waypoints:[destination]).reduce((sum,p,i,list)=>sum+window.SAShipDistances.hexDistance(i?list[i-1]:start,p),0):0;
       for(const box of form.querySelectorAll('[name=boost]')){
         const d=window.SAShipMap.definition(thrusters.find(t=>t.id===box.value).type),unaffordable=!box.checked&&cost+d.auCost>(au.available??au.current);
         box.disabled=!available;box.dataset.unaffordable=String(unaffordable);box.setAttribute('aria-disabled',String(!available||unaffordable));box.closest('label').classList.toggle('boost-unaffordable',unaffordable);
@@ -202,17 +202,24 @@
       window.SASpaceMap.coverViewport(svg);
       window.SASpaceMap.sensorRange(svg,start,window.SAShipMap.sensorStats(seat.ship).range);
       const a=xy(start),b=destination&&xy(destination),scale=3*pixel;
-      const drift=window.SAShipNavigation.driftDistance(length),end=b&&length?{x:b.x+(b.x-a.x)*drift/length,y:b.y+(b.y-a.y)*drift/length}:b;
-      const nextMarker=b?`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="#75ffc4" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/><path d="M${b.x} ${b.y} L${end.x} ${end.y}" stroke="#ffe191" stroke-dasharray="${scale*3} ${scale*2}" stroke-width="${scale}"/><circle cx="${end.x}" cy="${end.y}" r="${scale*2}" fill="none" stroke="#ffe191" stroke-width="${scale}"/>`:'';
-      if(nextMarker!==lastMarker){marker.innerHTML=nextMarker;lastMarker=nextMarker;}
+      const finalStart=routeMode==='custom'&&waypoints.length>1?waypoints.at(-2):start,c=xy(finalStart),finalLength=destination?window.SAShipDistances.hexDistance(finalStart,destination):0;
+      const drift=window.SAShipNavigation.driftDistance(length),end=b&&finalLength?{x:b.x+(b.x-c.x)*drift/finalLength,y:b.y+(b.y-c.y)*drift/finalLength}:b;
+      const nextMarker=b?`<path d="M${a.x} ${a.y} ${routeMode==='custom'?waypoints.map(p=>{const v=xy(p);return `L${v.x} ${v.y}`;}).join(' '):`L${b.x} ${b.y}`}" fill="none" stroke="#75ffc4" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/><path d="M${b.x} ${b.y} L${end.x} ${end.y}" stroke="#ffe191" stroke-dasharray="${scale*3} ${scale*2}" stroke-width="${scale}"/><circle cx="${end.x}" cy="${end.y}" r="${scale*2}" fill="none" stroke="#ffe191" stroke-width="${scale}"/>`:'';
+      if(nextMarker!==lastMarker){marker.innerHTML=nextMarker+(routeMode==='custom'?waypoints.map((p,i)=>{const v=xy(p);return `<text x="${v.x}" y="${v.y}" fill="white" stroke="#07120e" stroke-width="${pixel*3}" paint-order="stroke" text-anchor="middle" font-size="${pixel*16}">${i+1}</text>`;}).join(''):'');lastMarker=nextMarker;}
     }
     function select(event,lock){
-      if(submitting||!planning||q.disabled||(!lock&&locked))return;
+      if(submitting||!planning||q.disabled||(!lock&&(locked||routeMode==='custom')))return;
       const p=new host.defaultView.DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
       const rawQ=Math.sqrt(3)/3*p.x-p.y/3,rawR=2*p.y/3;let x=Math.round(rawQ),z=Math.round(rawR),y=Math.round(-rawQ-rawR);
       const dx=Math.abs(x-rawQ),dz=Math.abs(z-rawR),dy=Math.abs(y+rawQ+rawR);if(dx>dy&&dx>dz)x=-y-z;else if(dz>dy)z=-x-y;
-      if(Math.abs(x)>10000||Math.abs(z)>10000)return;destination={q:x,r:z};locked=lock;q.value=x;r.value=z;error.textContent='';redraw();
+      if(Math.abs(x)>10000||Math.abs(z)>10000)return;destination={q:x,r:z};if(routeMode==='custom'&&lock&&JSON.stringify(waypoints.at(-1))!==JSON.stringify(destination))waypoints.push({...destination});locked=lock;q.value=x;r.value=z;error.textContent='';redraw();
     }
+    form.querySelector('[data-nav-route]').onclick=event=>{
+      const button=event.target.closest('button');if(!button||submitting||!planning)return;
+      if(button.dataset.routeMode){routeMode=button.dataset.routeMode;waypoints=[];}else if(button.hasAttribute('data-route-undo'))waypoints.pop();else waypoints=[];
+      destination=waypoints.at(-1)||null;locked=!!destination;q.value=destination?.q??'';r.value=destination?.r??'';
+      for(const b of form.querySelectorAll('[data-route-mode]'))b.setAttribute('aria-pressed',String(b.dataset.routeMode===routeMode));redraw();
+    };
     svg.addEventListener('click',e=>select(e,true));
     svg.addEventListener('pointermove',e=>select(e,false));
     form.querySelector('.pilot-chart').addEventListener('pointerleave',()=>{if(!locked&&!submitting){destination=null;q.value='';r.value='';redraw();}});
@@ -220,9 +227,9 @@
       const box=e.target.closest('input[name=boost]');
       if(box?.dataset.unaffordable==='true'){e.preventDefault();auWarningUntil=performance.now()+2200;dialog.dataset.auWarning='true';auWarning.textContent='not enough Auxiliary power';}
     });
-    form.addEventListener('input',e=>{if([q,r].includes(e.target)){locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
+    form.addEventListener('input',e=>{if([q,r].includes(e.target)){waypoints=[];routeMode='direct';for(const b of form.querySelectorAll('[data-route-mode]'))b.setAttribute('aria-pressed',String(b.dataset.routeMode===routeMode));locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
     for(const control of form.querySelectorAll('[data-zoom]'))control.onclick=()=>{svg.dataset.manualCamera='true';auto.setAttribute('aria-pressed','false');window.SASpaceMap.zoom(svg,Number(control.dataset.zoom));redraw();};
-    form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',sicId:pilotSicId,destination:{...destination},boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;destination=null;planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
+    form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',sicId:pilotSicId,destination:{...destination},waypoints:routeMode==='custom'?waypoints:[],boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;destination=null;waypoints=[];planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
     const rememberDismissal=()=>remember(bridge.state().units.find(u=>u.id===pilotId));
     form.querySelector('[data-leave]').onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;dialog.close();window.SACombatMap.openMove(pilot);};
     form.querySelector('[data-close]').onclick=()=>{rememberDismissal();dialog.close();};

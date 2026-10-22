@@ -140,3 +140,27 @@ test('persisted fractional positions and navigation resume without resetting dis
   navigation.advance(room,18);navigation.advance(restored,18);assert.deepEqual(restored.shipPositions,room.shipPositions);
   assert.deepEqual(restored.shipDistances,distances.fromPositions(room.starships,room.shipPositions));
 });
+
+
+test('custom ship routes turn at each waypoint, persist, and spend a boost only once',()=>{
+  const {room,ship,unit}=fixture();
+  assert.equal(navigation.queue(room,unit,{waypoints:[{q:3,r:0},{q:3,r:3}],destination:{q:0,r:3},boostIds:['thruster']}).ok,true);
+  assert.equal(ship.auState.current,3);
+  assert.equal(navigation.resolveInput(room,unit).ok,true);assert.equal(ship.auState.current,1);
+  navigation.advance(room,2.5);near(room.shipPositions[0].q,3);near(room.shipPositions[0].r,0);
+  navigation.advance(room,1);near(room.shipPositions[0].q,3);near(room.shipPositions[0].r,1.2);
+  const restored=JSON.parse(JSON.stringify(room));
+  navigation.advance(room,4);navigation.advance(restored,4);
+  assert.deepEqual(room.shipPositions,restored.shipPositions);near(room.shipPositions[0].q,0);near(room.shipPositions[0].r,3);
+  assert.equal(ship.auState.current,1);assert.equal(ship.navigation.phase,'drift');
+  navigation.advance(room,12);near(room.shipPositions[0].q,-2);near(room.shipPositions[0].r,3);
+});
+
+test('invalid custom route points leave the current ship order and AU untouched',()=>{
+  const {room,ship,unit}=fixture();navigation.order(room,unit,{destination:{q:10,r:0}});
+  const before=JSON.stringify(ship.navigation);
+  for(const waypoints of [[{q:.5,r:1}],[null],Array.from({length:61},()=>({q:1,r:0}))]){
+    assert.equal(navigation.order(room,unit,{destination:{q:3,r:3},waypoints,boostIds:['thruster']}).ok,false);
+    assert.equal(JSON.stringify(ship.navigation),before);assert.equal(ship.auState.current,3);
+  }
+});

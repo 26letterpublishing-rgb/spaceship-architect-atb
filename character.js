@@ -1549,6 +1549,13 @@ function queueCampaignCharacterSave(delay = 280) {
   campaignSaveTimer = setTimeout(saveCampaignCharacter, delay);
 }
 
+let syncBannerTimer;
+function showSavedSyncBanner(){
+  let banner=document.getElementById('savedSyncBanner');
+  if(!banner){banner=document.createElement('span');banner.id='savedSyncBanner';banner.setAttribute('role','status');document.querySelector('.creator-header')?.append(banner);}
+  banner.textContent='Saved & Synced';banner.hidden=false;clearTimeout(syncBannerTimer);
+  syncBannerTimer=setTimeout(()=>{banner.hidden=true;},2400);
+}
 async function saveCampaignCharacter({ force = false, exact = false } = {}) {
   if (force && campaignCode && campaignCharacterId && campaignEditable) campaignDirty = true;
   if (!campaignCode || !campaignCharacterId || !campaignEditable || !campaignDirty || campaignSaving) return false;
@@ -1586,6 +1593,7 @@ async function saveCampaignCharacter({ force = false, exact = false } = {}) {
     dom.saveStatus.classList.remove("saving");
     lastCampaignSyncAt = new Date();
     renderSyncIndicator("synced");
+    showSavedSyncBanner();
     cacheCampaignCharacter();
     return true;
   } catch (error) {
@@ -1829,6 +1837,8 @@ function renderPlayerShop(){
 }
 function renderCharacterNavigation() {
   const linked = Boolean(campaignCode && campaignCharacterId && (campaignState || character.campaignLink?.status === "linked"));
+  document.getElementById('sheetSyncCharacter').hidden=!linked||!campaignEditable;
+  document.getElementById('sheetSaveCharacter').hidden=GM_ADJUSTMENT_MODE;
   const pending = character.campaignLink?.status === "pending";
   const mayJoin = character.phase === "finalized" && !linked;
   const gmView = campaignState?.role === "gm";
@@ -4967,7 +4977,7 @@ async function confirmSkillResult() {
     if(!check.statisticsRecorded&&!check.damage&&!PAGE_PARAMS.has('shipRoll')){
       const name=resolveSkill(character,check.skillKey)?.name||check.skillName||ATTRIBUTE_DEFS.find(a=>a.key===check.attributeKey)?.label||check.attributeKey;
       const receipt=check.statisticsReceipt||=crypto.randomUUID();
-      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,attribute:check.attributeKey,requestId:check.campaignRequestId||null,outcome:check.pendingSubmission.outcome,score:check.pendingSubmission.score,attributeScore:check.pendingSubmission.attributeScore,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
+      if(campaignCode&&campaignCharacterId){const r=await fetch('/api/campaign/statistics/roll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:campaignCharacterId,skill:name,attribute:check.attributeKey,selfInitiated:!check.campaignRequestId&&!check.combatRequest,requestId:check.campaignRequestId||null,outcome:check.pendingSubmission.outcome,score:check.pendingSubmission.score,attributeScore:check.pendingSubmission.attributeScore,receipt})});const data=await r.json();if(!r.ok)throw Error(data.error);character.statistics=data.statistics;}
       else window.SACharacterStatistics.roll(character,name,check.pendingSubmission.score,receipt,check.attributeKey,check.pendingSubmission.diceResults?.length?check.pendingSubmission.diceResults.reduce((a,b)=>a+b,0):undefined);
       check.statisticsRecorded=true;queueSave();
     }
@@ -5245,6 +5255,7 @@ async function confirmCombatDamageResult() {
       dom.editCombatDamage.hidden = true;
       dom.exitCombatDamageResult.hidden = false;
       dom.combatDamageSubtitle.textContent = 'Result submitted to the GM.';
+      closeCombatDamageResult({ discardCombat: true });
     }
   } catch (error) {
     if (activeCombatDamageRequest !== request) return;
@@ -6995,7 +7006,7 @@ async function finishFinalization() {
   notice("Character finalized. Advancement rules are now active.", "success");
   await playFinalizedIdentityReveal();
   finalizationPresentationActive = false;
-  if(PAGE_PARAMS.get('roomCreate'))await finishRoomCreation();
+  if(PAGE_PARAMS.get('roomCreate')){await finishRoomCreation();return;}
   renderCharacterLayout();
   renderCharacterNavigation();
   showPostFinalizationGuide();
@@ -9377,6 +9388,8 @@ dom.marineHeal.addEventListener("click", async () => {
 });
 
 dom.exportCharacter.addEventListener("click", exportCurrentCharacter);
+document.getElementById('sheetSaveCharacter').addEventListener('click',exportCurrentCharacter);
+document.getElementById('sheetSyncCharacter').addEventListener('click',()=>dom.saveAndSyncCharacter.click());
 
 dom.openImportMenu?.addEventListener("click", () => {
   dom.importChoiceModal.hidden = false;
@@ -9512,11 +9525,23 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
+let roomCreationPending=false;
 async function finishRoomCreation(){
-  const code=PAGE_PARAMS.get('roomCreate');if(!code)return;if(character.phase!=='finalized'){await askConfirmation({title:'Finish the character first',message:'Finalize this character before linking it to the campaign. You can return to the room at any time; your draft is saved.',acceptLabel:'Okay',cancelLabel:'Back'});return;}
-  try{const password=await window.SARoomV03.input('Character Ready','Choose your character password');if(password===null){notice('Character saved. Use Finish Joining Room to set a password and enter.');return;}
-  const token=localStorage.getItem(window.SARoomV03.roomKey(code));const result=await window.SARoomV03.api('character/create',{code,token,password,character});window.SARoomV03.openCharacter(result.campaign,token);
+  const code=PAGE_PARAMS.get('roomCreate');if(!code||roomCreationPending)return;
+  if(character.phase!=='finalized'){await askConfirmation({title:'Finish the character first',message:'Finalize this character before linking it to the campaign. You can return to the room at any time; your draft is saved.',acceptLabel:'Okay',cancelLabel:'Back'});return;}
+  roomCreationPending=true;
+  try{
+    const token=localStorage.getItem(window.SARoomV03.roomKey(code));
+    // A prior submission may have succeeded even if its response was interrupted.
+    const state=await campaignRequest('/api/campaign/state?code='+encodeURIComponent(code)+'&token='+encodeURIComponent(token||''));
+    if(state.ownCharacterId){await window.SARoomV03.openCharacter(state,token);return;}
+    if(!state.roomOpen)throw Error('The room is unavailable. Your character is saved; return to the room to reconnect.');
+    const password=await window.SARoomV03.input('Character Ready','Choose your character password');
+    if(password===null){notice('Character saved. Use Finish Joining Room to set a password and enter.');return;}
+    const result=await window.SARoomV03.api('character/create',{code,token,password,character});
+    await window.SARoomV03.openCharacter(result.campaign,token);
   }catch(error){notice(error.message,'error');}
+  finally{roomCreationPending=false;}
 }
 
 async function initializeCharacterApp() {
@@ -9855,7 +9880,7 @@ async function openLocalSicPower(shipId){
 }
 function updateKeyboardMovement(){if(!dom.playerStarshipList||GM_SHIP_VIEW||playerShipEditingId)return;for(const card of dom.playerStarshipList.querySelectorAll('[data-player-starship]')){const ship=campaignState?.starships.find(s=>s.id===card.dataset.playerStarship);if(!ship?.crewCharacterIds.includes(campaignCharacterId))continue;let toggle=card.querySelector('[data-keyboard-movement]');if(!toggle){toggle=document.createElement('button');toggle.dataset.keyboardMovement='';toggle.onclick=()=>{stopKeyboardShipMove();keyboardShipId=keyboardShipId===ship.id?'':ship.id;updateKeyboardMovement();};(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(toggle);}toggle.textContent=keyboardShipId===ship.id?'WASD / Arrow Keys: On':'WASD / Arrow Keys: Off';toggle.setAttribute('aria-pressed',String(keyboardShipId===ship.id));toggle.hidden=Boolean(campaignState?.combatActive);card.classList.toggle('keyboard-movement-active',keyboardShipId===ship.id&&!campaignState?.combatActive);const own=campaignState?.ownCharacterId||campaignCharacterId,loc=ship.characterLocations?.[own],cell=loc&&window.SAShipMap.buildLayout(ship.ship).footprint.get(loc.square),seated=cell?.stations.some(s=>s.x===cell.column&&s.y===cell.row&&s.mesh===Number(loc.mesh));const console=card.querySelector('[data-preview-console]');if(console){console.disabled=!seated||cell?.item?.status==='destroyed';console.classList.toggle('station-console-ready',!console.disabled);}let power=card.querySelector('[data-local-power]');if(!power){power=document.createElement('button');power.dataset.localPower='';power.textContent='SIC Power';power.onclick=()=>openLocalSicPower(ship.id);(card.querySelector('.player-starship-sidebar')||card.querySelector('header'))?.append(power);}power.disabled=!seated||Boolean(campaignState?.combatActive);card.querySelector('[data-player-ship-details]')?.contentWindow?.postMessage({type:'sa-keyboard-mode',enabled:keyboardShipId===ship.id&&!campaignState?.combatActive,seated:Boolean(seated),consoleEnabled:Boolean(seated&&cell?.item?.status!=='destroyed'),combat:Boolean(campaignState?.combatActive)},location.origin);}}
 setInterval(updateKeyboardMovement,750);
-document.addEventListener('keydown',e=>{if(!keyboardShipId||e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(activeCharacterTab==='starships')e.preventDefault();keyboardShipMove(e.key);}});
+document.addEventListener('keydown',e=>{if(activeCharacterTab!=='starships'||!keyboardShipId||e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(activeCharacterTab==='starships')e.preventDefault();keyboardShipMove(e.key);}});
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='sa-ship-map-key')return;const frame=[...document.querySelectorAll('[data-player-ship-details]')].find(f=>f.contentWindow===e.source);if(frame)keyboardShipMove(e.data.key,Boolean(e.data.release));});
 
 window.addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="sa-ship-editor-exit")return;const frame=dom.playerStarshipList?.querySelector("[data-player-ship-editor]");if(!frame||frame.contentWindow!==event.source)return;frame.remove();playerShipEditingId=null;renderPlayerStarships(true);notice(event.data.message||"Ship editor closed.");});

@@ -700,6 +700,7 @@ function normalizeCampaign(raw) {
     moveSpeed: boundedNumber(template?.moveSpeed, 1, 30),
     maximumHp: Math.round(boundedNumber(template?.maximumHp, 1, 999999)),
     physicalAttribute: Math.round(boundedNumber(template?.physicalAttribute, 2, 20)),
+    strengthDiceOverride: Array.isArray(template?.strengthDiceOverride) ? template.strengthDiceOverride.filter(d=>[4,6,8,10,12].includes(d)).slice(0,20) : null,
     mentalAttribute: Math.round(boundedNumber(template?.mentalAttribute, 2, 20)),
     physicalSkill: boundedNumber(template?.physicalSkill, 0, 4),
     mentalSkill: boundedNumber(template?.mentalSkill, 0, 4),
@@ -1733,7 +1734,11 @@ class CampaignApi {
     if(path==='/api/campaign/statistics/roll'&&req.method==='POST'){
       const record=campaign.characters.find(c=>c.id===body.characterId);
       if(!record||!this.characterSession(token,code,record.id)){sendJson(res,403,{error:'Character access required.'});return true;}
+      const alreadyRecorded=record.character.statistics?.receipts?.includes('roll:'+body.receipt);
       require('./character-statistics').roll(record.character,body.skill,body.score,body.receipt,body.attribute,body.attributeScore);
+      if(!alreadyRecorded&&record.character.statistics?.receipts?.includes('roll:'+body.receipt)&&body.selfInitiated===true){
+        campaign.privateNotes.push({id:uid('note'),kind:'skill-roll',characterId:record.id,characterName:safeCharacterName(record),direction:'to-gm',message:`${safeCharacterName(record)} rolled ${String(body.skill).slice(0,100)}: ${Number(body.score)}.`,createdAt:new Date().toISOString(),readAt:null});
+      }
       REPUTATION.recordRoll(campaign,record.id,body);
       await this.save(campaign);sendJson(res,200,{statistics:record.character.statistics});return true;
     }

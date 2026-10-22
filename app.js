@@ -3091,7 +3091,7 @@ function setNpcRollControlsDisabled(disabled) {
 
 function renderGmNpcRollPrompts(attack, attacker, defender) {
   const prompts = [];
-  if (attack.phase === "checks" && !attack.attackerRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "attacker", unit: attacker });
+  if (attack.phase === "checks" && attack.defenseRoll && !attack.attackerRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "attacker", unit: attacker });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "npc") prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && gmForcedDefenseEntry) prompts.push({ role: "defender", unit: defender });
   if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "damage", unit: attacker });
@@ -3112,6 +3112,31 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
 
 function renderAttackResolution(mine) {
   const attack = state?.attackResolution;
+  let wait = '';
+  if(attack){
+    const role=attack.phase==='checks'&&!attack.defenseRoll?'defender':'attacker';
+    const unit=state.units.find(u=>u.id===attack[role+'Id']);
+    const gmOwns=attack.phase==='gmDamage'||unit?.team==='npc'||role==='attacker'&&(attack.rollController==='gm'||gmForcedAttackEntry===attack.id)||mode==='gm'&&role==='defender'&&gmForcedDefenseEntry;
+    const own=mode==='gm'?gmOwns:!gmOwns&&unit?.id===mine?.id;
+    const action=attack.phase==='gmDamage'?'apply damage':attack.phase==='damage'?'roll damage':role==='defender'?'roll Defense':'roll To-Hit';
+    if(!own)wait=`Waiting for ${gmOwns?'GM':unit?.characterName||'player'} to ${action}…`;
+  }
+  if(!attack&&state?.itemResolution){
+    const treatment=state.itemResolution,unit=state.units.find(u=>u.id===treatment.healerId);
+    const gmOwns=treatment.phase==='gmDifficulty'||treatment.rollController==='gm'||unit?.team==='npc';
+    const own=mode==='gm'?gmOwns:!gmOwns&&unit?.id===mine?.id;
+    const action=treatment.phase==='gmDifficulty'?'set the First Aid difficulty':treatment.phase==='healing'?'roll healing':'roll First Aid';
+    if(!own)wait=`Waiting for ${gmOwns?'GM':unit?.characterName||'player'} to ${action}…`;
+  }
+  if(!attack&&!state?.itemResolution){
+    const unit=state?.units.find(u=>!u.delayedAction?.automated&&(u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length));
+    const roll=unit?.delayedAction?.awaitingRoll?unit.delayedAction:unit?.pendingShipRolls?.[0];
+    if(roll){
+      const gmOwns=unit.team==='npc'||roll.rollController==='gm',own=mode==='gm'?gmOwns:!gmOwns&&unit.id===mine?.id;
+      if(!own)wait=`Waiting for ${gmOwns?'GM':unit.characterName||'player'} to roll ${roll.label||'their ship action'}…`;
+    }
+  }
+  window.SAResultFeedback?.waiting(wait);
   if (!attack) {
     if (!state?.itemResolution) clearPostedCombatPrompt();
     gmForcedDefenseEntry = false;
@@ -3124,7 +3149,7 @@ function renderAttackResolution(mine) {
 
   if (mode === "player" && mine) {
     let request = null;
-    if (attack.phase === "checks" && mine.id === attack.attackerId && !attack.attackerRoll && attack.rollController!=='gm') {
+    if (attack.phase === "checks" && attack.defenseRoll && mine.id === attack.attackerId && !attack.attackerRoll && attack.rollController!=='gm') {
       const attackSkill = attack.plan?.attackSkill || (attack.attackType === "melee" ? "Melee" : "Projectile");
       request = {
         type: "sa-combat-roll-request",
@@ -3204,8 +3229,11 @@ function renderAttackResolution(mine) {
   const attacker = state.units.find((unit) => unit.id === attack.attackerId);
   const defender = state.units.find((unit) => unit.id === attack.defenderId);
   renderGmNpcRollPrompts(attack, attacker, defender);
+  const awaitingPlayer=Boolean(wait)&&!gmForcedDefenseEntry&&gmForcedAttackEntry!==attack.id;
+  attackResolutionPanel.classList.toggle('awaiting-player',awaitingPlayer);
+  attackResolutionPanel.setAttribute('role',awaitingPlayer?'region':'dialog');
   gmResolveDefender.hidden = !(attack.phase === "checks" && !attack.defenseRoll && defender?.team === "pc" && !gmForcedDefenseEntry);
-  gmResolveAttacker.hidden = !(attacker?.team === 'pc' && attack.rollController !== 'gm' && gmForcedAttackEntry !== attack.id && ((attack.phase === 'checks' && !attack.attackerRoll) || (attack.phase === 'damage' && !attack.damageRoll)));
+  gmResolveAttacker.hidden = !(attacker?.team === 'pc' && attack.rollController !== 'gm' && gmForcedAttackEntry !== attack.id && ((attack.phase === 'checks' && attack.defenseRoll && !attack.attackerRoll) || (attack.phase === 'damage' && !attack.damageRoll)));
   gmResolveAttacker.textContent = attack.phase === 'damage' ? 'Resolve Damage for Player' : 'Resolve To-Hit for Player';
 
   const confirmNpcDamage = attack.phase === "gmDamage" && defender?.team === "npc" && attack.damageSummary;
@@ -3278,6 +3306,9 @@ function renderItemResolution(mine) {
   if (mode === 'player' && resolution.rollController === 'gm') clearPostedCombatPrompt(resolution.id);
   if (mode !== "gm") { firstAidResolutionPanel?.classList.add("hidden"); return; }
   firstAidResolutionPanel.classList.remove("hidden");
+  const awaitingPlayer=resolution.phase!=='gmDifficulty'&&resolution.rollController!=='gm'&&state.units.find(u=>u.id===resolution.healerId)?.team==='pc';
+  firstAidResolutionPanel.classList.toggle('awaiting-player',awaitingPlayer);
+  firstAidResolutionPanel.setAttribute('role',awaitingPlayer?'region':'dialog');
   firstAidResolutionTitle.textContent = `${resolution.healerName} -> ${resolution.targetName}`;
   firstAidResolutionMeta.textContent = resolution.useKit ? "First Aid Kit committed" : "No First Aid Kit used";
   firstAidResolutionSummary.innerHTML = `<div><span>Treatment Speed</span><strong>${Number(resolution.treatmentRating).toFixed(1)}</strong></div><div><span>Base Difficulty</span><strong>${resolution.baseDifficulty}</strong></div><div><span>Status</span><strong>${resolution.phase === "gmDifficulty" ? "GM SETS DIFFICULTY" : resolution.phase === "roll" ? "WAITING FOR SKILL CHECK" : "WAITING FOR HEALING ROLL"}</strong></div>`;
@@ -4657,7 +4688,7 @@ function queueVisibleCombatRecovery() {
   visibleRecoveryTimer = setTimeout(recoverVisibleCombatState, 80);
 }
 if(window.frameElement){let wasVisible=false;new ResizeObserver(()=>{const visible=Boolean(window.frameElement?.getClientRects().length);if(visible&&!wasVisible)render();wasVisible=visible;}).observe(window.frameElement);}
-window.addEventListener('sa-perspective-visibility',event=>{if(event.detail.active){connectEvents();queueVisibleCombatRecovery();}else{events?.close();events=null;}});
+window.addEventListener('sa-perspective-visibility',event=>{if(event.detail.active){connectEvents();queueVisibleCombatRecovery();}else{events?.close();events=null;window.SAResultFeedback?.waiting('');}});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) { queueVisibleCombatRecovery(); resumeAudio(); }
 });

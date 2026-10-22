@@ -1,0 +1,38 @@
+October 21, 2026 — GM Help and queued playtest changes (#local)
+
+Implemented locally; no commit, push, hosted deployment or ntfy notification.
+
+GM HELP
+All GM tab Help pages use shorter, conversational explanations aimed at players who know Spaceship Architect. Existing structure, screenshots, arrows and useful colored terms are retained. Combat Help starts with five shared pages, then offers Surface and Starship branches (five pages each), with orange/purple backgrounds and explicit branch/page labels. PC Help page text was compared against the pre-pass copy and is unchanged. The shared construction guide retains its content except the previously identified misleading Damage Threshold sentence.
+
+COMBAT AND MOVEMENT
+Defense now precedes the attacker's To-Hit prompt. Persistent passive messages identify who must act and what they must do; First Aid and ship checks use the same waiting mechanism. Damage/healing still require Confirm and Submit; successful submission closes the dialog, while failures retain results. Required combat rolls remain protected from dismissal, and GM recovery remains available.
+Custom Route adds click/tap waypoints, Undo Last Point and Clear Route for surface, ship interior and starship navigation. Normal legal path checks remain authoritative. Melee movement bonuses count the final straight stretch, capped by Move Speed; interrupted movement counts only completed steps. Ship boosts are charged once for the entire route. Space Slug Strength is 2D4. Charge is labeled Charge (gun). Surface walls are slightly thicker. Fallen surface NPCs retain the existing fallen character artwork instead of disappearing. PCs no longer see the arena after combat ends.
+
+CHARACTERS, CATALOG AND NOTIFICATIONS
+Character-sheet field titles are larger and green, with reduced padding/gaps to keep the panels compact. NPC stat text is larger with compensating reductions in padding/button space. PC branding has more header space. Save and Sync sit before Spend EXP; successful normal synchronization briefly displays Saved & Synced. Save reuses the existing portable character exporter.
+GM and PC Shop views share the equipment catalog and SIC console previews. PCs can inspect unavailable weapons/SICs; purchasing still requires an available shop. Duplicate approval requests for the same character share one review, including cleanup of older pending duplicates. Self-imposed skill checks produce receipt-safe GM notices. Weapon-purchase notices include an Approve acknowledgement.
+Drama Card wording was reviewed and internal programming terms were replaced with player-facing language. Quiet effects have higher gain; the combat alarm is unchanged.
+Room creation already auto-approved new finalized characters. The finalization page now prevents duplicate password submissions, awaits campaign navigation, skips the standalone joining guide, and resumes an existing successful registration after an interrupted response without requesting another password.
+
+DIALOGS AND KEYBOARD
+The shared circular X has reserved space; meaningful Back navigation and gameplay submissions remain intact. Cloned console previews no longer duplicate close rails. Console Exit dismissal uses X; Leave Console remains a separate gameplay action. The creation guide and enlarged interiors account for the new close row. Sticky Drama Deck headers remain below it.
+Enter confirms supported single-line dialog inputs; native forms retain their behavior. Tab/Shift+Tab and Escape work with eligible dialogs. Home/End/Page Up/Page Down scroll the focused panel while text editing and browser Ctrl/Command shortcuts remain available. WASD/arrow ship movement only intercepts keys on its active Starships view.
+The missing room code on a separate Chrome laptop was not reproduced. It is visible in the tested desktop/narrow layouts; device-local banner/privacy preferences remain a possible cause, not a confirmed diagnosis.
+
+VALIDATION
+- Full automated run: 1,250/1,252 passed. The planet travel timing assertion and repeater restart test failed under the concurrent run; both passed on isolated sequential rerun. Earlier full run passed all 1,250 tests before the final room-handoff tests were added.
+- Final focused suites: 38 passed; final dialog/guide suite: 11 passed.
+- JavaScript syntax checks, CRLF-aware diff whitespace checks and PC Help text parity passed.
+- All 59 referenced Help image URLs returned HTTP 200.
+- Real browser: all 41 noncombat GM Help pages and all 15 Combat Help pages; branch themes/page labels; desktop/narrow layouts; mandatory PC To-Hit/damage submission; waiting notices; surface and interior waypoint/undo/confirmation; space waypoint labels/undo/confirmation and ship underway; fallen NPC retained; PC arena hidden after combat; GM SIC console preview; PC unavailable-shop catalog with disabled purchase; Save/Sync placement; creation-guide close returning to Help; one console X without duplicate Exit Console; final normal-server Help.
+- Browser/server error logs were clear at final verification.
+
+LIMITS
+Actual phone touch hardware and speaker loudness were not measured. Click/tap use the same route handlers. The browser did not expose the character export's blob download event; the button uses the existing exporter and no exporter changes were made. The new room handoff and retry behavior were regression-tested, but the friend's original multi-device password loop was not reproduced end-to-end. All dialog families use shared close behavior; not every possible dynamic dialog state was manually exercised.
+
+LOCAL HANDOFF
+Normal port 8790 runs the current source, node PID 19708 (launcher PID 30532). Uses the existing external campaign-data directory. Both personal campaign files match hashes recorded before starting this server. Disposable QA used port 8793 and its own output data. Gold Standard and unrelated QA/scripts were not modified.
+Preview: http://127.0.0.1:8790/showcase.html
+Screenshot: ../outputs/gm-help-final-20261021.png
+Logs: ../outputs/queue-full-complete.txt, queue-final-rerun.txt, queue-last-focused.txt, queue-dialog-final.txt

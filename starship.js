@@ -1986,7 +1986,7 @@ async function enlargeShipInterior(viewport,source){
   const doc=owner.document,shell=doc.createElement('dialog'),host=doc.createElement('div');
   shell.setAttribute('aria-label','Enlarged starship interior');
   shell.style.cssText='position:fixed;inset:8px;width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:none;max-height:none;margin:auto;padding:0;border:1px solid #70cce0;background:#06151e;color:#eefaff;overflow:hidden';
-  host.style.cssText='width:100%;height:100%';shell.append(host);
+  host.style.cssText='width:100%;height:calc(100% - 38px)';const closeButton=doc.createElement('button');closeButton.type='button';closeButton.textContent='Back';closeButton.onclick=closeEnlargedShipInterior;shell.append(host,closeButton);
   const shadow=host.attachShadow({mode:'open'});
   const links=[...document.querySelectorAll('link[rel="stylesheet"]')].filter(link=>/starship\.css|ship-pass2\.css|ship-map-presentation\.css|crew-tokens\.css/.test(link.href));
   const loading=links.map(link=>new Promise(resolve=>{const copy=doc.createElement('link');copy.rel='stylesheet';copy.href=link.href;copy.onload=resolve;copy.onerror=resolve;shadow.append(copy);}));
@@ -2000,7 +2000,7 @@ async function enlargeShipInterior(viewport,source){
     .interior-actions>.embedded-move-controls button{width:auto!important;flex:0 1 auto!important;min-height:38px;grid-column:auto!important}.interior-actions>.embedded-move-controls output{flex:1 0 100%;text-align:center}.interior-actions select{min-height:36px;max-width:280px;color:#ecfaff;background:#11323e}
     .crew-token{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--token-color,#50dfff)!important;min-width:24px;min-height:24px}
   `;shadow.append(style);
-  const body=doc.createElement('body');body.className='enlarged-body';body.innerHTML='<header class="interior-header"><strong></strong><nav><button type="button" data-large-zoom="out" aria-label="Zoom out">−</button><button type="button" data-large-zoom="in" aria-label="Zoom in">+</button><button type="button" data-large-zoom="fit">Fit Ship</button><button type="button" data-large-zoom="focus">Enlarge / Character</button><button type="button" data-large-close>Back</button></nav></header><main class="interior-stage"></main><footer class="interior-actions"></footer>';
+  const body=doc.createElement('body');body.className='enlarged-body';body.innerHTML='<header class="interior-header"><strong></strong><nav><button type="button" data-large-zoom="out" aria-label="Zoom out">−</button><button type="button" data-large-zoom="in" aria-label="Zoom in">+</button><button type="button" data-large-zoom="fit">Fit Ship</button><button type="button" data-large-zoom="focus">Enlarge / Character</button></nav></header><main class="interior-stage"></main><footer class="interior-actions"></footer>';
   body.querySelector('strong').textContent=draft.title||'Starship Interior';shadow.append(body);doc.body.append(shell);
   const grid=viewport.querySelector('.ship-grid'),controlHost=grid.closest('.desktop-sheet')||grid.closest('.mobile-grid-panel'),controls=controlHost?.querySelector('.embedded-move-controls');
   const marker=document.createComment('interior viewport'),controlMarker=document.createComment('interior actions');
@@ -2012,7 +2012,6 @@ async function enlargeShipInterior(viewport,source){
   shell.addEventListener('cancel',e=>{e.preventDefault();closeEnlargedShipInterior();});
   shell.addEventListener('keydown',e=>{if(embeddedKeyboardMode&&!e.target.closest('input,select,textarea')&&['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
   shell.addEventListener('pointerup',finishHullPaint);shell.addEventListener('pointercancel',finishHullPaint);
-  body.querySelector('[data-large-close]').onclick=closeEnlargedShipInterior;
   body.querySelectorAll('[data-large-zoom]').forEach(button=>button.onclick=()=>{const action=button.dataset.largeZoom;if(action==='fit')fitShipToViewport();else if(action==='focus')focusShipCharacter();else zoomShipGrid(action==='in'?1.25:.8);});
   shell.showModal();resize();
   await Promise.race([Promise.all(loading),new Promise(resolve=>owner.setTimeout(resolve,2500))]);

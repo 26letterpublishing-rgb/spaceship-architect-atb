@@ -30,6 +30,14 @@
   }
   function grid(state,location){if(location?.arenaId==='surface'&&state.arena)return surfaceGrid(state.arena);const ship=state.starships?.find(s=>s.id===location?.starshipId);return ship?shipGrid(ship):null;}
   function position(unit){const action=unit?.timedAction;if(action?.kind==='move'&&action.routeSegment?.length){const progress=Math.max(0,Math.min(1,1-action.remaining/Math.max(.001,action.total)));const i=Math.floor(progress*action.routeSegment.length)-1;return i>=0?action.routeSegment[Math.min(i,action.routeSegment.length-1)]:action.startLocation||unit.location;}return unit?.location;}
+  function straightRun(state,start,path){
+    const g=grid(state,start);if(!g||!path.length)return {units:0,start};
+    let from=start,direction=null,units=0,runStart=start;
+    for(const to of path){const a=g.index(from),b=g.index(to),dx=b%g.width-a%g.width,dy=Math.floor(b/g.width)-Math.floor(a/g.width),next=dx+','+dy;
+      if(dx||dy){if(next!==direction){units=0;runStart=from;direction=next;}units++;}from=to;
+    }
+    return {units,start:runStart,direction,end:from};
+  }
   // Both map views use the same continuous path, heading and door pause timing.
   function movement(unit,coords,walking=true){
     const action=unit?.timedAction,route=action?.kind==='move'?action.routeSegment:[];
@@ -98,5 +106,5 @@
       if(target.openSquare!=null&&!state.arena.floors.includes(target.openSquare))state.arena.floors.push(target.openSquare);
     }else{const ship=state.starships.find(s=>s.id===target.shipId)?.ship;if(ship){ship.boredWalls=[...new Set([...(ship.boredWalls||[]),target.key])];}}
   }
-  return {wallTargets,boreWall,themes,boundaryLayout,normalize,expand,edgeKey,surfaceGrid,shipGrid,grid,position,movement,distance,sight,canTarget,route,step,deploy,doors,updateFog,isVisible,project};
+  return {wallTargets,boreWall,themes,boundaryLayout,normalize,expand,edgeKey,surfaceGrid,shipGrid,grid,position,straightRun,movement,distance,sight,canTarget,route,step,deploy,doors,updateFog,isVisible,project};
 });

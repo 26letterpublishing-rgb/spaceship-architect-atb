@@ -274,9 +274,9 @@
       const scale=window.SAShipMap.gravityEnabled(currentState?.starships?.find(s=>s.id===currentUnit?.location?.starshipId))?1:.5;
       return Math.max(1,(jetPack?.checked ? 4 : vehicle?.driverId === currentUnit?.id ? Number(vehicle.currentMoveSpeed) || 1 : Number(currentUnit?.moveSpeed) || 1)*scale);
     }, value: () => configurations.move.max(), jetPack: true, note: "Movement time follows Move Speed. Zero gravity halves movement speed. Moving clears Aim." },
-    melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Movement from the immediately previous action adds one Charge per unit, limited by Move Speed and the card's Max Charge." },
+    melee: { title: "Melee Attack", target: true, attack: true, melee: true, note: "Your final straight stretch of movement adds melee Charges, up to your Move Speed and the card's limit." },
     wrestle: { title: "Grappling", target: true, note: "The GM and player resolve this nearby contest manually." },
-    fire: { title: "Fire Gun", target: true, attack: true, note: "Choose the target and distance. The attacker and defender will receive simultaneous roll prompts." },
+    fire: { title: "Fire Gun", target: true, attack: true, note: "Choose your target. Defense is rolled first, then To-Hit and damage." },
     calledShot: { title: "Called Shot", target: true, attack: true, calledShot: true, note: "Called Shot adds +5 Defense to hit. A critical creates the intended special effect instead of doubling Damage." },
     drawWeapon: { title: "Use Item / Draw Weapon", weapon: "all", includeItems: true, note: "Choose a carried item or ready a weapon. Stored items do not appear here." },
     throwItem: { title: "Throw Item", weapon: "throwable", target: true, includeLocation: true, includeItems: true, note: "Smoke Grenades detonate after 5 seconds. Other explosives use their listed countdown. Thrown melee weapons deal half damage." },

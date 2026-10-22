@@ -114,3 +114,7 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
 .shared-console-layout .shared-power [data-common-fleet]{max-height:24vh}
 
 [data-common-mounted] [data-close][hidden]{display:none!important}.catalog-console-exit{position:fixed;bottom:0;left:50%;translate:-50% 0;transform:none;transition:none;animation:none;width:300px;height:64px;border:0;background:linear-gradient(#ffaaa2,#da4545 55%,#8c1e27);color:white;font:900 20px Arial;clip-path:polygon(0 100%,13% 12%,17% 0,83% 0,87% 12%,100% 100%)}
+
+/* Named console grid rows stay intact; reserve header space for the shared X. */
+.shared-console-layout.has-close-chrome>.dialog-close-rail{position:absolute;top:12px;right:12px;width:38px}
+.shared-console-layout.has-close-chrome>header{padding-right:48px!important}

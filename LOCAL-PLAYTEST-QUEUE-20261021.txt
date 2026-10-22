@@ -1,0 +1,2 @@
+Authorized #local pass completed. See RELEASE-PLAYTEST-HELP-20261021.txt for implementation, validation and limits.
+GM Help and queued playtest changes are available on normal port 8790. PC Help page text is unchanged. No commit, push or ntfy.
