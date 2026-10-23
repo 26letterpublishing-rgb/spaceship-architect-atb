@@ -16,7 +16,7 @@ function environment(combat=true){
   getBoundingClientRect(){return{height:this.classList.contains('interface-notice-rail')?(this.popoverOpen?this.children.filter(n=>!n.hidden).length*48:0):this.height||50};}animate(){return {finished:Promise.resolve()};}
  }
  const frames=[],timers=[],store=new Map(),win={matchMedia:()=>({matches:true}),innerHeight:800,listeners:{},addEventListener(name,fn){(this.listeners[name]??=[]).push(fn);},dispatchEvent(event){for(const fn of this.listeners[event.type]||[])fn(event);},requestAnimationFrame:fn=>frames.push(fn),ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}disconnect(){}}};doc={addEventListener(){},defaultView:win,createElement:t=>new Element(t)};doc.documentElement=new Element('html');doc.head=new Element('head');doc.body=new Element('body');doc.documentElement.append(doc.head,doc.body);doc.querySelectorAll=s=>doc.documentElement.querySelectorAll(s);doc.querySelector=s=>doc.querySelectorAll(s)[0]||null;doc.getElementById=id=>doc.querySelectorAll('*').find(n=>n.id===id)||null;win.document=doc;
- const context=vm.createContext({window:win,document:doc,location:{href:'http://localhost/index.html'},URL,CustomEvent:class{},setTimeout:fn=>(timers.push(fn),timers.length),clearTimeout(){},setInterval(){},clearInterval(){},sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},matchMedia:()=>({matches:true}),console});
+ const context=vm.createContext({window:win,document:doc,location:{href:'http://localhost/index.html'},URL,CustomEvent:class{},setTimeout:(fn,ms)=>(fn.delay=ms,timers.push(fn),timers.length),clearTimeout(){},setInterval(){},clearInterval(){},sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},matchMedia:()=>({matches:true}),console});
  const run=name=>vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'..',name),'utf8'),context);run('result-feedback.js');win.SAInterfaceNotices.setCombatActive(combat);
  const flush=()=>{for(let limit=0;frames.length&&limit<20;limit++)frames.shift()();assert.equal(frames.length,0);};
  return{win,doc,run,flush,timers,store};
@@ -97,5 +97,7 @@ test('Explore keeps a GM result while hidden and shows it when that perspective 
 
 test('combat-start banner expires without an opacity fade and advances queued alerts',()=>{
  const e=environment();e.win.SAResultFeedback.critical('combat-start-test','ALL HANDS ON DECK','combat-start');const banner=e.doc.querySelector('.critical-flight-banner');let animated=false;banner.animate=()=>{animated=true;return {finished:Promise.resolve()};};
+ assert.equal(e.timers[0].delay,10000);assert.equal(banner.querySelector('small').textContent,'---enter the combat tab immediately!---');assert.equal(banner.querySelector('button'),null);
+ e.win.SAResultFeedback.critical('combat-start-test','All hands on deck','combat-start');assert.equal(banner.isConnected,true,'a repeated announcement cannot remove the ten-second banner');assert.equal(e.timers.length,1);
  e.win.SAResultFeedback.critical('next-alert','Next alert','warning');e.timers.shift()();assert.equal(animated,false);assert.equal(banner.isConnected,false);assert.match(e.doc.querySelector('.critical-flight-banner').textContent,/Next alert/);
 });

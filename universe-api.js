@@ -8,6 +8,14 @@ async function handle(api,{path,req,res,body,campaign,token,sendJson}){
   if(body.action==='settings'){
    if(body.dated)next.universeClock.offsetSeconds=clock.dateSeconds(body)-clock.seconds(next);
    next.universeClock.dated=!!body.dated;next.universeClock.monthNames=!!body.monthNames;next.universeClock.paused=!!body.paused;
+  }else if(body.action==='session'){
+   if(body.expectedSession!==next.sessionNumber)throw Error('This session changed. Refresh and try again.');
+   if(body.operation==='begin'){
+    if(next.universeClock.sessionActive!==true){next.universeClock.sessionActive=true;next.universeClock.paused=false;}
+   }else if(body.operation==='pause'||body.operation==='resume'){
+    if(next.universeClock.sessionActive!==true)throw Error('Begin the session first.');
+    next.universeClock.paused=body.operation==='pause';
+   }else throw Error('Unknown session control.');
   }else if(body.action==='authoring')next.settings.moduleAuthoring=body.enabled===true;
   else if(body.action==='switch'){
    const keyword=String(body.keyword||'').trim(),key=conditions.key(keyword);conditions.condition({switches:[{keyword}]});

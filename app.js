@@ -2960,6 +2960,7 @@ function playerAlertLabel() {
 function enablePlayerAlerts({ testSound = false } = {}) {
   alertsEnabled = true;
   safeLocalStorageSet("sa-atb-alerts", "on");
+  window.SAAudioMix.refreshMute();
   ensureAudio();
   if (testSound) {
     if(state?.activeId===myUnitId){const unit=state.units.find(entry=>entry.id===myUnitId);lastNotifiedActiveId=`${state.roomCode}:${myUnitId}:${unit?.turnSerial || 0}`;}
@@ -2970,6 +2971,7 @@ function enablePlayerAlerts({ testSound = false } = {}) {
 function disablePlayerAlerts() {
   alertsEnabled = false;
   safeLocalStorageSet("sa-atb-alerts", "off");
+  window.SAAudioMix.refreshMute();
   for (const node of activeGmAudioNodes) {
     try {
       node.gain.gain.cancelScheduledValues(audioContext?.currentTime || 0);
@@ -4055,6 +4057,7 @@ gmMuteSound.addEventListener("click", () => {
   }
   gmSoundsMuted = !gmSoundsMuted;
   safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  window.SAAudioMix.refreshMute();
   if (gmSoundsMuted) stopGmAudio();
   playGmSound("tap");
   render();
@@ -4621,6 +4624,7 @@ window.addEventListener("message", (event) => {
     gmSoundsMuted = Boolean(message.muted);
     if (gmSoundsMuted) stopGmAudio();
     safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+    window.SAAudioMix.refreshMute();
     gmMuteSound.classList.toggle("muted", gmSoundsMuted);
     gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
     return;
@@ -4628,6 +4632,7 @@ window.addEventListener("message", (event) => {
   if (message.type === "sa-player-sound-enabled") {
     alertsEnabled = Boolean(message.enabled);
     safeLocalStorageSet("sa-atb-alerts", alertsEnabled ? "on" : "off");
+    window.SAAudioMix.refreshMute();
     if (alertsEnabled) ensureAudio();
     render();
     return;

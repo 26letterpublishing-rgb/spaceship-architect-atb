@@ -1,0 +1,21 @@
+October 23, 2026 — Session controls, sound mute, and combat announcement
+
+Scope authorized by #commit: GM header icon centering; immediate active-sound muting; centered ten-second All hands on deck announcement; joined Begin / Pause / End session pill and clock gating.
+
+Changes and decisions
+- Circular GM icons retain zero padding and centered SVGs. Compact text-button padding no longer overrides them.
+- Begin Session X starts automatic in-universe time. The narrow center control is fixed at 24 by 32 pixels: orange pause icon while running, green right-facing play triangle while manually paused. The active Begin segment is green.
+- New/previously unstarted sessions do not advance automatically. Existing elapsed time remains intact. Explicit Pass Time and approved Rest remain available. Existing quarter-speed combat, ATB pause, room closure, and disconnected-GM clock rules still apply.
+- End immediately pauses a running clock during the existing popularity/reputation procedure. Cancellation restores the prior state. Successful End stops automatic time and advances the session number; the next session waits for Begin. End remains available for the existing Session 0 completion workflow. GM-only server controls reject stale session numbers and preserve atomic save failures.
+- Muting immediately zeros existing sound buses, stops active clips, cancels still-loading clips, and propagates through embedded screens. Unmuting restores sound levels without replaying cancelled alarms. Safari gesture-unlock behavior is retained.
+- Combat-start text reads All hands on deck with the smaller subtitle ---enter the combat tab immediately!---. The opaque banner pulses at screen center and scrolls across in 10,000 ms. Reduced-motion users receive a stationary ten-second banner. Repeated copies of the same announcement cannot close it early. Other notification styles/durations are unchanged.
+- Brief Settings Help sentence explains Begin, Pause/Resume, End and Adjust Time.
+
+Verification
+- Final full test run: 1285/1285 passed. Initial full run: 1284/1285 with an unrelated cloak HTTP ECONNRESET; isolated rerun and 23 affected checks passed before the clean final full run.
+- Changed JavaScript syntax and CRLF-aware whitespace checks passed.
+- Disposable browser campaign: Begin; refresh persistence; orange-to-green Pause/Resume; cancellation from End; completed impact roll/reputation/End; stopped next session; next Begin; live surface-combat announcement; mute/unmute; matching GM/PC clock; desktop and 768px tablet screenshots.
+- Screenshots and test output: ../outputs/session-controls-qa-20261023/. combat-banner.png shows the centered live announcement and session pill. Tablet and PC captures verify header fit.
+- Physical iPad/Safari audio output was not tested. Automated mixer tests verify stopping active and loading clips plus existing effect buses; browser mute controls were exercised during the live alarm.
+- QA tab closed, viewport reset, disposable server stopped. Normal local 8790 restarted as PID17032; HTTP200 confirmed. Personal data/campaigns.json SHA256 unchanged: 7B679E7F05595DFFB15F8ED08CC82DCD4961505088379330B38742D5D017E190.
+- Unrelated QA/scripts and Gold Standard excluded. No Render billing or quota settings changed. GitHub main push and final ntfy complete the authorized release; Render deploy completion is not independently verified here.

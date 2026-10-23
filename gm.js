@@ -1634,6 +1634,7 @@ function renderCampaign() {
   const sessionNumber = Math.max(0, Number(campaign.sessionNumber) || 0);
   dom.sessionNumberLabel.textContent = `Session ${sessionNumber}`;
   dom.endSession.textContent = `End Session ${sessionNumber}`;
+  renderSessionControls();
   dom.undoAward.disabled = !campaign.lastAward;
   const moduleInfo=document.getElementById('adventureModuleInfo');
   moduleInfo.hidden=!campaign.module;
@@ -1681,7 +1682,7 @@ function connectCampaignEvents() {
   events?.close();
   events = new EventSource(`/campaign-events?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
   events.addEventListener('galaxy-travel',event=>window.SACampaignMapUI?.travel(JSON.parse(event.data)));
-  events.addEventListener("universe-clock",event=>{const v=JSON.parse(event.data);if(campaign)Object.assign(campaign,v);window.SAUniverseUI?.packet(v);});
+  events.addEventListener("universe-clock",event=>{const v=JSON.parse(event.data);if(campaign){Object.assign(campaign,v);campaign.universe=v;renderSessionControls();}window.SAUniverseUI?.packet(v);});
   events.addEventListener("campaign", (event) => receiveCampaign(JSON.parse(event.data)));
   events.addEventListener('encounter-locations',event=>{
     const update=JSON.parse(event.data);if(!campaign)return;
@@ -2173,13 +2174,45 @@ dom.closeSheetViewer.addEventListener("click", () => {
   dom.characterList.hidden = false;
 });
 
+let sessionControlBusy = false;
+function renderSessionControls() {
+  if(!campaign)return;
+  const cfg=campaign.universe?.universeClock||campaign.universeClock||{},active=cfg.sessionActive===true,paused=!!cfg.paused;
+  const begin=document.getElementById('beginSession'),pause=document.getElementById('pauseSession');
+  begin.textContent=`Begin Session ${campaign.sessionNumber}`;
+  begin.disabled=sessionControlBusy||active;
+  begin.classList.toggle('active',active);
+  begin.setAttribute('aria-pressed',String(active));
+  pause.disabled=sessionControlBusy||!active;
+  pause.classList.toggle('paused',paused);
+  pause.setAttribute('aria-label',paused?'Resume session clock':'Pause session clock');
+  pause.title=paused?'Resume session clock':'Pause session clock';
+  pause.querySelector('path').setAttribute('d',paused?'M4 2l10 6-10 6z':'M4 3h3v10H4zM9 3h3v10H9z');
+  dom.endSession.disabled=sessionControlBusy;
+}
+async function sessionClockControl(operation,expectedSession=campaign.sessionNumber){
+  const payload=await api('/api/campaign/universe',{code,token,action:'session',operation,expectedSession});
+  receiveCampaign(payload.campaign);
+}
+for(const [id,operation]of [['beginSession',()=> 'begin'],['pauseSession',()=>(campaign.universe?.universeClock||campaign.universeClock)?.paused?'resume':'pause']]){
+  document.getElementById(id).addEventListener('click',async()=>{
+    if(sessionControlBusy)return;
+    sessionControlBusy=true;renderSessionControls();
+    try{await sessionClockControl(operation());}catch(error){showMessage(dom.message,error.message,'error');}
+    finally{sessionControlBusy=false;renderSessionControls();}
+  });
+}
 dom.endSession.addEventListener("click", async () => {
-  dom.endSession.disabled = true;
+  if(sessionControlBusy)return;
+  sessionControlBusy=true;renderSessionControls();
+  const expectedSession=campaign.sessionNumber,cfg=campaign.universe?.universeClock||campaign.universeClock||{},wasRunning=cfg.sessionActive===true&&!cfg.paused;
+  let ended=false;
   try {
-    const expectedSession=campaign.sessionNumber;
+    if(wasRunning)await sessionClockControl('pause',expectedSession);
     const reputation=await window.SAReputationUI.endSession(campaign);if(reputation===null)return;
     const payload = await api("/api/campaign/session/end", { code, token, receipt:crypto.randomUUID(), expectedSession, reputation });
     receiveCampaign(payload.campaign);
+    ended=true;
     showMessage(dom.message, `Session ${payload.sessionEnded} ended. Player abilities and counters were reset.`, "success");
     const exportNow = await confirmGm({
       title: "Session Complete",
@@ -2191,7 +2224,10 @@ dom.endSession.addEventListener("click", async () => {
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   } finally {
-    dom.endSession.disabled = false;
+    if(!ended&&wasRunning&&campaign.sessionNumber===expectedSession){
+      try{await sessionClockControl('resume',expectedSession);}catch(error){showMessage(dom.message,error.message,'error');}
+    }
+    sessionControlBusy=false;renderSessionControls();
   }
 });
 
@@ -2778,6 +2814,7 @@ dom.brand.addEventListener("click", async () => {
   location.href = "index.html";
 });
 function updateSoundButton() {
+  window.SAAudioMix.refreshMute();
   dom.soundToggle.classList.toggle("muted", gmSoundsMuted);
   dom.soundToggle.setAttribute("aria-label", gmSoundsMuted ? "Unmute combat sounds" : "Mute combat sounds");
   dom.soundToggle.title = gmSoundsMuted ? "Unmute combat sounds" : "Mute combat sounds";
@@ -2785,8 +2822,6 @@ function updateSoundButton() {
 dom.soundToggle.addEventListener("click", () => {
   gmSoundsMuted = !gmSoundsMuted;
   localStorage.setItem("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
-  if (gmSoundsMuted) gmDramaAudioContext?.suspend().catch(() => {});
-  else gmDramaAudioContext?.resume().catch(() => {});
   updateSoundButton();
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
 });

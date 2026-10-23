@@ -18,4 +18,7 @@
 .critical-flight-banner[data-type="combat-start"] button{background:#45101b;border-color:#fff}
 @media(prefers-reduced-motion:reduce){.critical-flight-banner[data-type="combat-start"]{animation:none}}
 
-.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{font-size:clamp(24px,2.8vw,36px)}
+.critical-flight-banner[data-type="combat-start"]{inset:50% 0 auto;transform:translateY(-50%);padding:18px 12px;pointer-events:none}
+.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{font-size:clamp(30px,4vw,60px);line-height:1.2;text-align:center;text-transform:none}
+.critical-flight-banner[data-type="combat-start"] .critical-flight-track small{display:block;font-size:clamp(12px,1.2vw,18px);line-height:1.6;letter-spacing:0;text-shadow:none}
+@media(prefers-reduced-motion:reduce){.critical-flight-banner[data-type="combat-start"] .critical-flight-track{text-align:center}.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{white-space:normal}}

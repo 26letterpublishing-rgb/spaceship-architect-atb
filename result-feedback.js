@@ -28,20 +28,25 @@
     const doc=host(),win=doc.defaultView;
     if(win!==window&&win.SAResultFeedback)return win.SAResultFeedback.critical(key,message,type);
     noticeHost(); // Resume queued alerts when an Explore perspective becomes visible.
-    if(type==='combat-start'){critical.queue?.splice(0);critical.close?.();}
-    const queue=critical.queue??=[],keys=critical.keys??=new Set();if(keys.has(key))return;keys.add(key);if(keys.size>500)keys.delete(keys.values().next().value);queue.push({message,type});if(!critical.active)next();
+    const queue=critical.queue??=[],keys=critical.keys??=new Set();if(keys.has(key))return;
+    if(type==='combat-start'){queue.splice(0);critical.close?.();}
+    keys.add(key);if(keys.size>500)keys.delete(keys.values().next().value);queue.push({message,type});if(!critical.active)next();
     critical.resume=next;
     function next(){
       if(win.SAExploreSession?.active?.()===false){critical.active=false;return;}
       const item=queue.shift();if(!item){critical.active=false;return;}critical.active=true;
       const banner=doc.createElement('aside');banner.className='critical-flight-banner';banner.dataset.type=item.type;banner.setAttribute('role','alert');banner.setAttribute('popover','manual');
       const track=doc.createElement('div'),text=doc.createElement('span');track.className='critical-flight-track';text.textContent=item.message;track.append(text);
+      if(item.type==='combat-start'){
+        text.textContent='All hands on deck';
+        const subtitle=doc.createElement('small');subtitle.textContent='---enter the combat tab immediately!---';text.append(subtitle);
+      }
       let closed=false,timer;const close=()=>{if(closed)return;closed=true;clearTimeout(timer);banner.remove();critical.close=null;next();};
-      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.onclick=close;banner.append(track,button);doc.body.append(banner);banner.showPopover();
+      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.onclick=close;banner.append(track);if(item.type!=='combat-start')banner.append(button);doc.body.append(banner);banner.showPopover();
       const reduce=win.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const width=track.clientWidth,length=text.scrollWidth,ms=Math.max(7000,(width+length)/115*1000);
+      const width=track.clientWidth,length=text.scrollWidth,ms=item.type==='combat-start'?10000:Math.max(7000,(width+length)/115*1000);
       if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,fill:'forwards'});}
-      timer=setTimeout(()=>{if(item.type==='combat-start'){close();return;}banner.animate([{opacity:1},{opacity:0}],{duration:650,fill:'forwards'}).finished.then(close).catch(close);},reduce?8000:ms);
+      timer=setTimeout(()=>{if(item.type==='combat-start'){close();return;}banner.animate([{opacity:1},{opacity:0}],{duration:650,fill:'forwards'}).finished.then(close).catch(close);},item.type==='combat-start'?10000:reduce?8000:ms);
     }
   }
   function closeButton(node,onClose=()=>{},label='Dismiss notification'){

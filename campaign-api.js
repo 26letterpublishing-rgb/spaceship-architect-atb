@@ -3238,6 +3238,9 @@ class CampaignApi {
         record.updatedAt = new Date().toISOString();
       }
       campaign.sessionNumber += 1;
+      campaign.universeClock||={};
+      campaign.universeClock.sessionActive=false;
+      campaign.universeClock.paused=false;
       campaign.reputationSession=null;
       if(receipt){campaign.endSessionReceipts||={};campaign.endSessionReceipts[receipt]=endedSession;}
       await this.save(campaign);

@@ -1733,6 +1733,7 @@ function renderCharacterHeader() {
 }
 
 function renderPlayerSoundSetting() {
+  window.SAAudioMix.refreshMute();
   const sound=document.getElementById('pcHeaderSound');if(sound){sound.classList.toggle('muted',!playerSoundsEnabled);sound.title=playerSoundsEnabled?'Mute sounds':'Unmute sounds';sound.setAttribute('aria-label',sound.title);sound.setAttribute('aria-pressed',String(!playerSoundsEnabled));}
   dom.playerSoundToggle?.querySelectorAll("[data-player-sounds]").forEach((button) => {
     const selected = (button.dataset.playerSounds === "true") === playerSoundsEnabled;

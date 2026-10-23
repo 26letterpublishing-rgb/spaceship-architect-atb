@@ -1,4 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+test('mute stops active and loading clips, silences buses, and reaches embedded screens',async()=>{
+ const values=new Map(),listeners={};let started=0,stopped=0,childRefresh=0,resolveFetch;
+ const audio={state:'running',destination:{},resume:async()=>{},decodeAudioData:async()=>({}),createGain:()=>({gain:{},connect(){},disconnect(){}}),createBufferSource:()=>({connect(){},disconnect(){},start(){started++;},stop(){stopped++;this.onended?.();}}),createDynamicsCompressor:()=>({connect(){},threshold:{},knee:{},ratio:{},attack:{},release:{}}),createWaveShaper:()=>({connect(){}})};
+ const sandbox=vm.createContext({URL,location:{href:'http://localhost/'},AudioContext:function(){return audio;},localStorage:{getItem:k=>values.get(k)},document:{addEventListener(){},querySelectorAll:s=>s==='iframe'?[{contentWindow:{SAAudioMix:{refreshMute:()=>childRefresh++}}}]:[]},addEventListener:(name,fn)=>listeners[name]=fn,fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(1)})});
+ vm.runInContext(fs.readFileSync(require.resolve('../audio-mix.js'),'utf8'),sandbox);const mix=sandbox.SAAudioMix,bus=mix.destination(audio,'effect');
+ const active=mix.clip('alarm.mp4');await active.finished;assert.equal(started,1);
+ values.set('sa-atb-gm-muted','on');mix.refreshMute();assert.equal(stopped,1);assert.equal(bus.gain.value,0);assert.equal(childRefresh,1);
+ await mix.clip('alarm.mp4').finished;assert.equal(started,1);
+ values.set('sa-atb-gm-muted','off');listeners.storage({key:'sa-atb-gm-muted'});assert.equal(bus.gain.value,3);assert.equal(started,1,'unmute does not restart the old alarm');
+ sandbox.fetch=()=>new Promise(resolve=>resolveFetch=resolve);const pending=mix.clip('slow.mp4');
+ values.set('sa-atb-alerts','off');mix.refreshMute();values.set('sa-atb-alerts','on');mix.refreshMute();
+ resolveFetch({ok:true,arrayBuffer:async()=>new ArrayBuffer(1)});await pending.finished;assert.equal(started,1,'muting during loading cancels the pending sound');
+ await mix.clip('alarm.mp4').finished;assert.equal(started,2,'future sounds play normally after unmute');
+});
 test('effects reuse their compression bus, lift quiet dice, and keep launch gain unchanged',()=>{
   const sandbox=vm.createContext({});
   vm.runInContext(fs.readFileSync(require.resolve('../audio-mix.js'),'utf8'),sandbox);

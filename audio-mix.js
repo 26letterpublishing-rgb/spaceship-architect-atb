@@ -1,6 +1,16 @@
 // Shared effects bus: lift quiet UI sounds without boosting protected alarm/explosion clips.
 (function(root){
   if(root.SAAudioMix)return;
+  const busesToMute=new Set(),activeClips=new Set();
+  function isMuted(){try{return root.localStorage?.getItem('sa-atb-alerts')==='off'||root.localStorage?.getItem('sa-atb-gm-muted')==='on';}catch{return false;}}
+  function refreshMute(localOnly=false){
+    if(!localOnly){try{if(root.parent&&root.parent!==root&&root.parent.SAAudioMix){root.parent.SAAudioMix.refreshMute();return;}}catch{}}
+    const muted=isMuted();
+    for(const bus of busesToMute)bus.node.gain.value=muted?0:bus.volume;
+    if(muted){for(const clip of [...activeClips])clip.stop();for(const media of root.document?.querySelectorAll?.('audio,video')||[])media.pause();}
+    for(const frame of root.document?.querySelectorAll?.('iframe')||[]){try{frame.contentWindow?.SAAudioMix?.refreshMute(true);}catch{}}
+  }
+  root.addEventListener?.('storage',event=>{if(event.key==='sa-atb-alerts'||event.key==='sa-atb-gm-muted')refreshMute();});
   let sharedContext;
   function context(){
     try{if(root.parent&&root.parent!==root&&root.parent.SAAudioMix)return root.parent.SAAudioMix.context();}catch{}
@@ -15,17 +25,20 @@
   const clips=new Map();
   function clip(url,volume=1){
     let cancelled=false,source=null;
+    const handle={stop(){cancelled=true;try{source?.stop();}catch{}activeClips.delete(handle);}};
+    activeClips.add(handle);
     const finished=(async()=>{
-      const c=context();if(!c)return;
+      if(isMuted()){handle.stop();return;}
+      const c=context();if(!c){handle.stop();return;}
       const key=new URL(url,root.location.href).href;
       if(!clips.has(key))clips.set(key,fetch(key).then(r=>{if(!r.ok)throw Error('Audio unavailable');return r.arrayBuffer();}).then(b=>c.decodeAudioData(b)).catch(error=>{clips.delete(key);throw error;}));
-      const buffer=await clips.get(key);if(cancelled)return;
-      await c.resume();if(cancelled)return;
+      const buffer=await clips.get(key);if(cancelled||isMuted()){handle.stop();return;}
+      await c.resume();if(cancelled||isMuted()){handle.stop();return;}
       source=c.createBufferSource();source.buffer=buffer;const gain=c.createGain();gain.gain.value=volume;
-      source.connect(gain);gain.connect(c.destination);source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
+      source.connect(gain);gain.connect(c.destination);source.onended=()=>{source.disconnect();gain.disconnect();activeClips.delete(handle);};source.start();
     })();
-    finished.catch(()=>{});
-    return {finished,stop(){cancelled=true;try{source?.stop();}catch{}}};
+    finished.catch(()=>activeClips.delete(handle));
+    handle.finished=finished;return handle;
   }
   const contexts=new WeakMap();
   const profiles={effect:3,character:4,ambient:2,launch:1};
@@ -34,7 +47,8 @@
     if(!buses){buses=new Map();contexts.set(context,buses);}
     if(buses.has(profile))return buses.get(profile);
     const gain=context.createGain(),compressor=context.createDynamicsCompressor();
-    gain.gain.value=profiles[profile]||profiles.effect;
+    const volume=profiles[profile]||profiles.effect;
+    gain.gain.value=isMuted()?0:volume;busesToMute.add({node:gain,volume});
     compressor.threshold.value=-10;compressor.knee.value=12;compressor.ratio.value=8;
     compressor.attack.value=.003;compressor.release.value=.18;
     // Bounded output also protects against several effects sounding at once.
@@ -56,5 +70,5 @@
       o.type=kind==='travel'?'triangle':'sine';o.frequency.setValueAtTime(kind==='travel'?130:kind==='view'?520:820,t);o.frequency.exponentialRampToValueAtTime(kind==='travel'?360:kind==='view'?1040:640,t+d);g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.024,t+.015);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(destination(c,'effect'));o.start(t);o.stop(t+d+.02);
     }catch{}
   }
-  root.SAAudioMix={destination,profiles,success,navigation,context,unlock,clip};
+  root.SAAudioMix={destination,profiles,success,navigation,context,unlock,clip,refreshMute};
 })(globalThis);
