@@ -4,7 +4,8 @@
  const selector='dialog,[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"]';
  const dismissal=/^(close|dismiss|cancel|exit|keep going|not now|ok|got it|understood|back|later|combat view|close (dialog|window|sheet|room|console)|exit console|back to (fleet|roster|prepare combat|sic card)|keep current character)$/i;
  function isDismissal(button){
-  if(button.classList.contains('dialog-circle-close')||button.hasAttribute('data-dialog-action'))return false;
+  if(button.classList.contains('dialog-circle-close')||button.hasAttribute('data-dialog-action')||button.hasAttribute('data-dialog-confirm'))return false;
+  if(button.hasAttribute('data-dialog-dismiss'))return true;
   // A form submission is an action, including a button with no explicit type.
   if(button.type==='submit'&&button.form&&!(button.form.method==='dialog'&&button.value==='cancel'))return false;
   const text=button.textContent.trim();
@@ -24,8 +25,8 @@
   const buttons=[...dialog.querySelectorAll('button')].filter(b=>b.closest(selector)===dialog&&!b.classList.contains('dialog-circle-close'));
   const dismissals=buttons.filter(isDismissal),available=dismissals.filter(b=>!b.disabled&&!b.closest('[hidden]'));
   const candidates=available.length?available:dismissals;
-  const close=candidates.find(b=>/^(close|dismiss|exit|combat view|back to)/i.test(b.textContent.trim()))||candidates[0];
-  if(pair?.hiddenButton&&(pair.hiddenButton!==close||!isDismissal(pair.hiddenButton)))restore(pair);
+  const close=candidates.find(b=>b.hasAttribute('data-dialog-dismiss'))||candidates.find(b=>/^(close|dismiss|exit|combat view|back to)/i.test(b.textContent.trim()))||candidates[0];
+  if(pair?.hiddenButton&&(pair.hiddenButton!==close||!isDismissal(pair.hiddenButton)||pair.hiddenButton.hasAttribute('data-dialog-keep')))restore(pair);
   if(!pair&&!close&&dialog.tagName!=='DIALOG')return;
   if(!pair){
    const x=document.createElement('button');x.type='button';x.className='dialog-circle-close';x.textContent='\u00d7';x.setAttribute('aria-label','Close dialog');
@@ -42,15 +43,54 @@
     }
    };
   }
-  if(pair.bar.parentElement!==dialog)dialog.prepend(pair.bar);
+  // Backdrop wrappers are not the visible box. Anchor to each reviewed panel type.
+  const panelClasses=['combat-action-panel','combat-map-panel','delay-dialog-panel','queued-effect-panel','backup-conflict-dialog'];
+  const surface=[...dialog.children].find(n=>panelClasses.some(name=>n.classList.contains(name)))||dialog;
+  if(pair.bar.parentElement!==surface)surface.prepend(pair.bar);
+  if(window.requestAnimationFrame){pair.dialog=dialog;pair.surface=surface;positioned.add(pair);schedulePosition();}
   pair.close=close;
   const disabled=dialog.hasAttribute('data-required-roll')||(close?close.disabled||!!close.closest('[hidden]'):dialog.tagName!=='DIALOG');
   if(pair.x.disabled!==disabled)pair.x.disabled=disabled;
-  if(close&&!pair.hiddenButton){
+  if(close&&!close.hasAttribute('data-dialog-keep')&&!pair.hiddenButton){
    pair.hiddenButton=close;
    pair.originalAttributes={'aria-hidden':close.getAttribute('aria-hidden'),tabindex:close.getAttribute('tabindex')};
    close.classList.add('dialog-original-dismiss');close.setAttribute('aria-hidden','true');close.tabIndex=-1;
   }
+ }
+ // Fixed chrome can straddle a scrolling dialog's border without being clipped by its content.
+ const positioned=new Set();let positionFrame=0;
+ function positionCloses(){
+  positionFrame=0;
+  for(const pair of positioned){
+   if(!pair.dialog.isConnected){positioned.delete(pair);continue;}
+   const {bar,surface,dialog}=pair;
+   if(!surface.getClientRects().length||dialog.closest('[hidden],.hidden')||(dialog.tagName==='DIALOG'&&!dialog.open)){bar.style.visibility='hidden';continue;}
+   const r=surface.getBoundingClientRect(),v=window.visualViewport;
+   let left=v?.offsetLeft||0,top=v?.offsetTop||0,right=left+(v?.width||window.innerWidth),bottom=top+(v?.height||window.innerHeight);
+   // A scrolling backdrop may own a scrollbar that visualViewport does not subtract.
+   for(let parent=surface.parentElement;parent;parent=parent.parentElement){
+    const css=getComputedStyle(parent),p=parent.getBoundingClientRect();
+    if(/auto|scroll|hidden|clip/.test(css.overflowX)&&parent.clientWidth){left=Math.max(left,p.left+parent.clientLeft);right=Math.min(right,p.left+parent.clientLeft+parent.clientWidth);}
+    if(/auto|scroll|hidden|clip/.test(css.overflowY)&&parent.clientHeight){top=Math.max(top,p.top+parent.clientTop);bottom=Math.min(bottom,p.top+parent.clientTop+parent.clientHeight);}
+   }
+   const x=Math.max(left+3,Math.min(right-37,r.right-17)),y=Math.max(top+3,Math.min(bottom-37,r.top-17));
+   // Account for a transformed ancestor (animated FUBS/cards/embedded panels).
+   const current=bar.getBoundingClientRect(),scaleX=current.width/34||1,scaleY=current.height/34||1;
+   const nextLeft=(parseFloat(bar.style.left)||0)+(x-current.left)/scaleX;
+   const nextTop=(parseFloat(bar.style.top)||0)+(y-current.top)/scaleY;
+   if(Math.abs(current.left-x)>.25)bar.style.left=nextLeft+'px';
+   if(Math.abs(current.top-y)>.25)bar.style.top=nextTop+'px';
+   bar.style.visibility='visible';
+  }
+ }
+ function schedulePosition(){if(!positionFrame)positionFrame=window.requestAnimationFrame(positionCloses);}
+ if(window.requestAnimationFrame){
+  window.addEventListener('resize',schedulePosition);
+  document.addEventListener('scroll',schedulePosition,true);
+  window.visualViewport?.addEventListener('resize',schedulePosition);
+  window.visualViewport?.addEventListener('scroll',schedulePosition);
+  // Also follows dialog animations and content resized by live updates.
+  window.setInterval(schedulePosition,150);
  }
  function scan(root){if(root.nodeType!==1)return;if(root.matches(selector))enhance(root);root.querySelectorAll(selector).forEach(enhance);}
  const observer=new MutationObserver(records=>{
@@ -63,8 +103,23 @@
   }
   dialogs.forEach(enhance);
  });
- observer.observe(document.documentElement,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden','open','disabled','type','aria-label','data-required-roll']});
+ observer.observe(document.documentElement,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden','open','disabled','type','aria-label','data-required-roll','data-dialog-action','data-dialog-confirm','data-dialog-dismiss','data-dialog-keep']});
  scan(document.documentElement);
+ // A server-issued reset crosses same-origin embedded views synchronously.
+ // Never invoke a submit button while tearing down an obsolete prompt.
+ const resetSeen=new Set();
+ function resetView(signal){
+  if(!signal?.id||resetSeen.has(signal.id))return;resetSeen.add(signal.id);
+  window.dispatchEvent(new CustomEvent('sa-combat-reset',{detail:signal}));
+  for(const dialog of document.querySelectorAll(selector)){
+   if(dialog.tagName==='DIALOG'){if(dialog.open)dialog.close();}
+   else if(['combat-action-dialog','combat-map-dialog','turn-dialog','delay-dialog','queued-effect-dialog','backup-conflict-shell'].some(name=>dialog.classList.contains(name)))dialog.classList.add('hidden');
+   else {const pair=controls.get(dialog);if(pair?.close&&!pair.close.disabled&&isDismissal(pair.close))pair.close.click();else dialog.hidden=true;}
+  }
+  for(const frame of document.querySelectorAll('iframe')){try{frame.contentWindow.SADialogReset?.apply(signal);}catch{}}
+ }
+ window.SADialogReset={apply:resetView,broadcast(signal){let root=window;try{while(root.parent!==root&&!root.frameElement?.hasAttribute('data-explore-perspective'))root=root.parent;}catch{}root.SADialogReset?.apply(signal);resetView(signal);}};
+
  document.addEventListener?.('keydown',event=>{
   if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey)return;
   const target=event.target,dialog=target.closest?.(selector);

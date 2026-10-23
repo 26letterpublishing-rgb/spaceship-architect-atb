@@ -1,0 +1,55 @@
+OCTOBER 22 PLAYTEST REPAIRS — LOCAL BUILD
+
+Status: implemented locally under #local. No commit, push, hosted deployment or completion notification.
+Local server restarted on port 8790, PID 22772. Personal campaign and epoch hashes are unchanged. Gold Standard and unrelated QA/scripts were preserved. Mobile-only simplification remains deferred.
+
+TOP TEN, IN THE USER'S PRIORITY ORDER
+1. Combat recovery: the circular X is now inside the visible Fire Gun panel, rather than positioned against the full-screen backdrop. Reset and Undo send a unique signal to connected clients, clear obsolete dialogs/dice/routes and delayed combat feedback, and reject actions sent from a pre-reset state. Reset can clear views even when no undo snapshot remains. It preserves the existing restore-previous-action behavior when a snapshot exists. Valid prompts may be reconstructed from the restored combat state; required current submissions still cannot be manually dismissed.
+2. Safari audio: touch, pointer and keyboard gestures unlock a shared same-origin AudioContext. Returning to a page resumes interruptions. Embedded views no longer close that shared context when unloaded. Alarm and explosion clips use the unlocked context; alarm volume remains unchanged. This fixes identified code paths, but actual iPad sound output is not verified here.
+3. Notifications: ordinary notices now size to their contents with a viewport maximum, compact padding and compact action buttons. The actual combat mute notice was captured at roughly 263 by 44 pixels. Result notices retain their readable detail and explicit dismissal.
+4. Card zoom: GM catalog stacks use the correct grid selectors and explicit bounded sizing. The inspector scales the complete card, including text and artwork; the card entrance animation no longer overrides its zoom transform. Reopening and resizing were tested at desktop and tablet dimensions.
+5. Setup Undo: Undo Edit restores arena floors, boundaries, doors, terrain, expansion and starting placements. Brush strokes are one undoable edit. History is local to the open editor, with up to 40 normal edits; it is not a new save-file format.
+6. Unspent experience: Spend EXP glows through rainbow colors when XP is available and advancement is closed. Reduced-motion preferences receive a steady glow.
+7. Advancement decisions: the prompt names the skill, die and rolled result, shows the resulting increase and reroll cost, hides when leaving the sheet, and returns on the sheet. Larger text is centered within the viewport. Existing automatic acceptance of a maximum roll is unchanged.
+8. Prices and Purchase: weapon/SIC price text is slightly larger than the fitted card title. The enlarged inspector keeps the green Purchase button at the card's upper-right corner. Disabled catalog purchases remain disabled.
+9. Repeated taps: action labels no longer destroy and recreate their inner text on every clock update. One live Wait 3 click successfully queued the action; other action labels retain their context-sensitive wording.
+10. Movement: Direct Route and Custom Route form a joined pill with the active half green. Ready Confirm Move glows. Undo Last Point, Clear Route and Cancel are smaller and grouped. Route lines animate their color with contrasting glow. Map zoom, fit and character-focus controls sit in a compact upper-right group. Existing route rules remain intact.
+
+OTHER FIXES / DECISIONS
+- PC To-Hit receives the resolved defender score plus applicable Defense bonus. An actual NPC Defense roll of 12 appeared as difficulty 12 on the PC prompt.
+- Combat maps suppress browser text selection and touch callouts while retaining map interaction.
+- Purchase Approve dismisses the inbox entry directly, without the separate delete-confirmation step. Ordinary deletion still uses its existing confirmation.
+- PC resource HUD uses its measured height rather than a fixed row-height assumption. Portrait and landscape tablet-sized views were checked. Sheet Save, Sync and Spend EXP now wrap instead of falling off screen.
+- The default GM room-code setting already showed the room code. That behavior was verified and preserved.
+- Aerofoil impairment had been described as a manual GM effect. Accepted atmospheric entry now rolls the existing 8D10 Heat penalty once, applies existing Heat Resistance and records the result. A usable Hover Generator avoids relying on the impaired Aerofoil. Both Campaign and Combat descent share this implementation.
+- Both Surface and Starship victory use an opaque Victory! banner with the existing success sound, approximately five seconds of display, then a fly-away exit. Victory does not automatically end the encounter; the GM retains End Combat and salvage control. Surface victory is persisted and undone with encounter state.
+- The visual pass found an unrelated-to-content sizing error within combat roll summaries: hiding the Attribute Back button left its narrow grid column assigned to the Attribute name. Both locked-Attribute and damage summaries now use the proper three-column layout.
+- A cramped calculated-stat hint in NPC preparation now wraps in its allocated space.
+
+VERIFICATION
+- Final full automated suite: 1,272 passed, zero failed. Log: ../outputs/oct22-final-tests.txt.
+- Added a further class-based reset/reopen regression after the full suite; all 13 focused reset/dialog/advancement tests passed. Earlier reset/audio/Aerofoil focused set: all 14 passed.
+- Syntax checks passed for 30 changed/new JavaScript files. CRLF-aware whitespace check passed.
+- Normal 8790 server and changed static assets returned HTTP 200 after restart; error log was empty.
+- Personal campaigns.json and campaign-epoch.txt SHA-256 hashes match the pre-work baseline.
+- Actual browser checks: seven GM tabs plus Settings; PC Sheet, Shop, Starships, Settings and live Combat; desktop, 1024x768 landscape and 768x1024 portrait; card stack sizing and full-card zoom; arena paint/Undo; advancement hide/return and readable decision; XP glow; Fire Gun X; PC dialog cleared by GM Reset; direct/custom waypoints and Undo Last Point; one-click Confirm Move and Wait 3; GM NPC Defense, PC To-Hit and explicit Damage submission; combat-start banner and compact mute/result notifications.
+
+VISUAL EVIDENCE
+Folder: ../outputs/oct22-visual/
+Representative final captures:
+- gm-weapon-stacks.png and gm-weapon-zoom.png
+- pc-weapon-inspector.png and pc-weapon-portrait-zoom.png
+- pc-hud-portrait.png and pc-sheet-tablet.png
+- pc-reroll-readable.png
+- pc-fire-dialog.png and pc-after-gm-reset.png
+- pc-move-direct.png
+- pc-to-hit-known-difficulty.png and pc-damage-submit.png
+- pc-combat-muted-notice.png
+- setup-undo.png
+The folder also contains earlier diagnostic captures, including pre-fix layout states and loading states; those are not final acceptance evidence.
+
+LIMITS / FOLLOW-UP VALIDATION
+- Tests used the Windows in-app Chromium browser, not physical iPad Safari. Safari audio, real touch taps and pinch behavior still need the next device playtest.
+- A native GM HP-edit prompt stalled browser automation late in the pass. Recovery attempts could not finish the timed Victory screenshot or confirm closing the temporary test tabs/resetting the browser viewport. The disposable QA server on 8793 was stopped. This automation failure does not establish that the ordinary browser app froze. No personal campaign was used for QA.
+- Victory trigger/persistence/Undo and Aerofoil damage were verified in automated tests; final Victory timing and sound were not observed end to end after that browser interruption.
+- The actual browser firing flow used Standard Sidearm. The Homing Spike Pistol card was inspected, and the shared Fire Gun panel/close path was tested; the exact uncharged Homing Spike firing attempt was not separately reproduced on an iPad.

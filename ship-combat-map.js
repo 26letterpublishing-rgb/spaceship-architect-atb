@@ -477,9 +477,9 @@
     const prompt = isSelected && interaction === "move"
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Point to preview a route; click to select. Or choose a station below.")
       : "Live interior view";
-    return `<div class="inline-map-toolbar"><span>${esc(prompt)}</span><div>${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
+    return `<div class="combat-map-stats">${statsMarkup(record)}</div><div class="inline-map-toolbar"><span>${esc(prompt)}</span>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
       <div class="inline-map-viewport"><div class="${classes}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div><div class="combat-map-stats">${statsMarkup(record)}</div></div>`;
+      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -620,18 +620,13 @@
     const shell = doc.createElement("dialog");
     shell.className = "expanded-interior-dialog";
     const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
-    shell.innerHTML = `<header><strong>${esc(record?.title || "Starship Interior")}</strong><div><button type="button" data-interior-zoom="-1" aria-label="Zoom out">&#8722;</button><button type="button" data-interior-zoom="1" aria-label="Zoom in">+</button><button type="button" data-interior-fit>Fit Ship</button><button type="button" data-interior-center>Enlarge / Character</button><button type="button" data-interior-back>Back</button></div></header><section data-inline-ship-map="${esc(host.dataset.inlineShipMap)}"></section>`;
+    shell.innerHTML = `<header><strong>${esc(record?.title || "Starship Interior")}</strong><button type="button" data-interior-back>Back</button></header><section data-inline-ship-map="${esc(host.dataset.inlineShipMap)}"></section>`;
     const mapHost = shell.querySelector("[data-inline-ship-map]");
     expandedMap = { dialog: shell, host: mapHost, source, cellSize: 96 };
     shell.addEventListener("cancel", (event) => { event.preventDefault(); closeExpandedMap(); });
     shell.addEventListener("click", (event) => {
       if (event.target.closest("[data-interior-back]")) return closeExpandedMap();
-      const zoom = event.target.closest("[data-interior-zoom]");
-      if (zoom && expandedMap) {
-        zoomInterior(mapHost,Number(zoom.dataset.interiorZoom)>0?1.25:.8);
-      }
-      if (event.target.closest("[data-interior-center]")) zoomInterior(mapHost,1,true);
-      if (event.target.closest("[data-interior-fit]")) fitInline(mapHost);
+
     });
     if (doc !== document) {
       shell.addEventListener("click",handleRouteControls,true);
@@ -801,6 +796,7 @@
     viewport.scrollTop = Math.max(0, minRow * cellSize - (viewport.clientHeight - (maxRow - minRow + 1) * cellSize) / 2 + 20);
   }
 
+  window.addEventListener('sa-combat-reset',()=>{close();closeExpandedMap();});
   function close() { dialog.classList.add("hidden"); clearMoveSelection(); }
 
   function boardingLink(ship,preview){return ship?.ship?.airlockDocking?.links?.find(l=>l.ready&&l.square===Number(preview?.square));}
@@ -1046,6 +1042,6 @@
     isInlineMoveSelecting: () => interaction === "move",
     render,
     renderInlineMaps,
-    refreshArenaFog(){if(expandedMap){const record=ships().find(s=>s.id===expandedMap.host.dataset.inlineShipMap);if(record)window.SAArenaUI?.shipFog(expandedMap.host,record);}},
+    refreshArenaFog(){const ship=selectedShip();if(ship&&!dialog.classList.contains('hidden'))window.SAArenaUI?.shipFog(grid,ship);if(expandedMap){const record=ships().find(s=>s.id===expandedMap.host.dataset.inlineShipMap);if(record)window.SAArenaUI?.shipFog(expandedMap.host,record);}},
   };
 })();

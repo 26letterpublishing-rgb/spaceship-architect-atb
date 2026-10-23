@@ -61,7 +61,7 @@
         "planet-grid-migration.js",
         "galaxy-twinkle-star-v1.png"
       ],
-      "expectedBehavior": "GM and PC share the Galaxy shell, full-width maps and enlargement. Four equal location segments have a flat right cutoff, wrapped names, blank unavailable locations, an active-view pulse and the existing party pin. PC browsing is local and respects map visibility; approved travel refocuses without exposing GM controls. Four fitted hover emitters share two generated frames with thrust-driven burn and reduced-motion support; orbit and atmospheric travel keep the ship visible above the planet. Type labels precede location names. Enlarge is orange; Return is yellow/black with a reduced-motion-aware pulse. Planet surfaces use Large 120×40, Small 60×20 or Moon 30×10 grids. New Moons default to Moon artwork and terrain; later appearance changes remain available. Legacy worlds migrate once to Large, with authored locations and linked party, ship, region and journey references remapped together; the original grid is retained in full campaign backups and omitted from live GM/PC payloads. Both roles stop zooming out at the full map height and pan only within hard edges, with no horizontal wrapping or duplicate tokens. Region framing and extended zoom-out remain unchanged. Shared geometry, routes, previews and validation use planet-terrain.js; panning and zooming reuse SVG cells and coalesce camera updates into one animation frame. Galaxy Map alone uses the generated white star sprite with staggered CSS twinkling and reduced-motion support; solar systems keep Sun artwork. Choosing a planet surface closes the directory before navigation.",
+      "expectedBehavior": "GM and PC share the Galaxy shell, full-width maps and enlargement. Four equal location segments have a flat right cutoff, wrapped names, blank unavailable locations, an active-view pulse and the existing party pin. PC browsing is local and respects map visibility; approved travel refocuses without exposing GM controls. Four fitted hover emitters share two generated frames with thrust-driven burn and reduced-motion support; orbit and atmospheric travel keep the ship visible above the planet. Type labels precede location names. Enlarge is orange; Return is yellow/black with a reduced-motion-aware pulse. Planet surfaces use Large 120\u00d740, Small 60\u00d720 or Moon 30\u00d710 grids. New Moons default to Moon artwork and terrain; later appearance changes remain available. Legacy worlds migrate once to Large, with authored locations and linked party, ship, region and journey references remapped together; the original grid is retained in full campaign backups and omitted from live GM/PC payloads. Both roles stop zooming out at the full map height and pan only within hard edges, with no horizontal wrapping or duplicate tokens. Region framing and extended zoom-out remain unchanged. Shared geometry, routes, previews and validation use planet-terrain.js; panning and zooming reuse SVG cells and coalesce camera updates into one animation frame. Galaxy Map alone uses the generated white star sprite with staggered CSS twinkling and reduced-motion support; solar systems keep Sun artwork. Choosing a planet surface closes the directory before navigation.",
       "regressionTests": [
         "tests/campaign-planets.test.js",
         "tests/campaign-navigation-view.test.js",
@@ -174,7 +174,7 @@
         "ship-navigation-ui.js",
         "Existing console artwork"
       ],
-      "expectedBehavior": "Direct preview buttons in Shop and family pickers; inspector entry retained. Frozen preview returns to the previous card or picker without purchasing.",
+      "expectedBehavior": "Direct preview buttons in Shop and family pickers; inspector entry retained. Frozen preview returns to the previous card or picker without purchasing. Shared card inspection scales text and art together; stack sizing also works in the GM catalog without a shop wrapper. Price text exceeds the title size; Purchase keeps its green card-corner treatment.",
       "regressionTests": [
         "tests/shop-refresh.test.js",
         "tests/public-assets.test.js"
@@ -210,7 +210,7 @@
         "ui-reputation-pass.css",
         "starship.html"
       ],
-      "expectedBehavior": "A single pending row/direction starts from each ship original values; only adjacent dots are selectable, each row has one active highlight, and the original dot clears the pending decision. Server retains exact ±1 validation and receipt/expectedSession duplicate protection. Manual ship-sheet editing remains separate.",
+      "expectedBehavior": "A single pending row/direction starts from each ship original values; only adjacent dots are selectable, each row has one active highlight, and the original dot clears the pending decision. Server retains exact \u00b11 validation and receipt/expectedSession duplicate protection. Manual ship-sheet editing remains separate.",
       "regressionTests": [
         "tests/reputation-choice.test.js",
         "tests/reputation.test.js"
@@ -492,7 +492,7 @@
         "npc-combat-dice.js",
         "result-feedback.js"
       ],
-      "expectedBehavior": "Damage and healing require explicit Confirm and Submit. Failed submissions retain their results for retry; obsolete requests clear. Required combat dice cannot be dismissed through X or Escape. Shared close chrome never replaces gameplay submissions and rebinds after stage changes. GM recovery reuses existing dice/manual controls for player attack, defense and damage; follow-up damage-count/scatter dice remain GM-owned. Existing First Aid and starship recovery stay accessible. Defense resolves before the attacker receives To-Hit. Passive Waiting for GM/PC messages persist until that stage changes, including First Aid and ship checks. GM retains takeover controls. Successful damage submission closes its dialog; failed submissions retain the result.",
+      "expectedBehavior": "Damage and healing require explicit Confirm and Submit. Failed submissions retain their results for retry; obsolete requests clear. Required combat dice cannot be dismissed through X or Escape. Shared close chrome never replaces gameplay submissions and rebinds after stage changes. GM recovery reuses existing dice/manual controls for player attack, defense and damage; follow-up damage-count/scatter dice remain GM-owned. Existing First Aid and starship recovery stay accessible. Defense resolves before the attacker receives To-Hit. Passive Waiting for GM/PC messages persist until that stage changes, including First Aid and ship checks. GM retains takeover controls. Successful damage submission closes its dialog; failed submissions retain the result. Reset/Undo broadcasts a unique reset signal through embedded views, closes obsolete dialogs and dice, cancels delayed feedback, and rejects pre-reset actions. Reset also clears views when no undo snapshot exists. Required live submissions remain protected from manual dismissal.",
       "regressionTests": [
         "tests/damage-confirmation.test.js",
         "tests/dialog-chrome.test.js",
@@ -540,7 +540,7 @@
         "ship-map.js",
         "ship-distances.js"
       ],
-      "expectedBehavior": "Direct Route and Custom Route share normal path legality. Click/tap waypoints, undo or clear, then confirm. Surface and interior melee bonuses use only the final uninterrupted straight stretch, capped by Move Speed. Interrupted movement counts only completed steps. Starship routes preserve intermediate turns and spend selected boost AU once.",
+      "expectedBehavior": "Direct Route and Custom Route share normal path legality. Click/tap waypoints, undo or clear, then confirm. Surface and interior melee bonuses use only the final uninterrupted straight stretch, capped by Move Speed. Interrupted movement counts only completed steps. Starship routes preserve intermediate turns and spend selected boost AU once. Direct/Custom use a joined active-green toggle; ready Confirm Move and route lines glow. Secondary Undo/Clear/Cancel controls stay grouped and compact, with map navigation at the upper right. Stable action labels survive clock updates for reliable single taps.",
       "regressionTests": [
         "tests/combat-arena-movement.test.js",
         "tests/ship-navigation.test.js",
@@ -602,6 +602,86 @@
       "expectedBehavior": "Discover hidden stars in the occupied hex or six adjacent hexes along actual galaxy travel, including fast-forward segments. Instant warp and GM repositioning discover only at arrival. GM ships and map browsing do not discover stars. Notify GM and crew once and immediately broadcast newly visible stars; retain hidden planet and private information filtering.",
       "regressionTests": [
         "tests/star-discovery.test.js"
+      ]
+    },
+    {
+      "name": "Shared browser audio unlock",
+      "purpose": "Keep effects audible across embedded views and Safari gestures",
+      "canonicalImplementation": "audio-mix.js",
+      "interfaces": [
+        "app.js",
+        "character.js",
+        "gm.js",
+        "character-lifecycle-ui.js",
+        "combat-feedback.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "alarm-noise.mp4",
+        "ship-explosion.mp3"
+      ],
+      "expectedBehavior": "Reuse one same-origin context, unlock on touch/key/pointer gestures and resume interruptions. Embedded teardown does not close shared audio. Preserve alarm volume. Physical iPad playback still requires device verification.",
+      "regressionTests": [
+        "tests/audio-mix.test.js"
+      ]
+    },
+    {
+      "name": "Aerofoil atmospheric impairment",
+      "purpose": "Automate the existing entry damage rule once per descent",
+      "canonicalImplementation": "atmospheric-entry.js",
+      "interfaces": [
+        "campaign-navigation.js",
+        "ship-descent.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "ship-map-core.js",
+        "ship-shields.js"
+      ],
+      "expectedBehavior": "An operational impaired Aerofoil rolls 8D10 Heat on accepted entry, once per receipt, applying existing Heat Resistance. An available Hover Generator avoids reliance on the Aerofoil. Healthy or uninstalled equipment does not inflict the penalty.",
+      "regressionTests": [
+        "tests/atmospheric-entry.test.js"
+      ]
+    },
+    {
+      "name": "Surface and starship victory presentation",
+      "purpose": "Celebrate victory without ending the encounter for the GM",
+      "canonicalImplementation": "combat-feedback.js",
+      "interfaces": [
+        "server.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "combat-feedback.css",
+        "audio-mix.js"
+      ],
+      "expectedBehavior": "Show Victory for about five seconds with a success sound, then fly away. Surface victory requires defeated hostile NPCs and a surviving PC; the signal survives saves and is reverted by Undo. The GM still controls End Combat.",
+      "regressionTests": [
+        "tests/combat-reset-http.test.js",
+        "Existing starship victory regression suite"
+      ]
+    },
+    {
+      "name": "In-Universe clock and module switches",
+      "purpose": "Shared campaign chronology and optional GM-authored conditional file prompts",
+      "canonicalImplementation": "universe-clock.js",
+      "interfaces": [
+        "universe-ui.js",
+        "module-author-ui.js",
+        "gm.js",
+        "character.js",
+        "app-help.js"
+      ],
+      "sharedDependenciesAndAssets": [
+        "campaign-api.js",
+        "universe-api.js",
+        "module-conditions.js",
+        "module-package.js",
+        "save-content-ui.js",
+        "save-file-types.js"
+      ],
+      "expectedBehavior": "Numbered 30-day months and 12-month years by default. Elapsed time is independent of GM display-date edits; normal rate outside combat, quarter rate while ATB runs, paused for ATB waits or absent GM. Pass Time and approved Rest share elapsedMinutes. Campaigns retain time and switch selections, modules package definitions and conditional variants only. Module authoring starts hidden; hiding controls preserves existing keywords. GM confirmation toggles keywords; first matching alternate file is suggested, never auto-loaded. Default and alternate files remain distinct with metadata and readable filename suffixes.",
+      "regressionTests": [
+        "tests/universe-modules.test.js",
+        "tests/content-workflow.test.js",
+        "tests/campaign-time.test.js"
       ]
     }
   ]

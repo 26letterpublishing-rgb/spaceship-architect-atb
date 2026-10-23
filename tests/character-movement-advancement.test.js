@@ -9,7 +9,7 @@ test('maximum D6/D8 advancement keeps once without opening reroll choices',()=>{
  for(const sides of [6,8]){
   let accepted=0,choices=0;
   const character={pendingRoll:{kind:'advancement-d6',result:sides,sides,preRatingTenths:20,baseCost:50},identity:{},experience:{available:1000}};
-  const context=vm.createContext({character,acceptAdvancementResult:()=>{accepted++;character.pendingRoll=null;},diceRoller:{showChoices:()=>choices++}});
+  const context=vm.createContext({character,activeCharacterTab:'sheet',pendingRollTitle:()=> 'Athletics',acceptAdvancementResult:()=>{accepted++;character.pendingRoll=null;},diceRoller:{title:{},subtitle:{},shell:{},showChoices:()=>choices++}});
   vm.runInContext(source.slice(source.indexOf('function presentAdvancementDecision('),source.indexOf('function rerollAdvancement(')),context);
   context.presentAdvancementDecision();context.presentAdvancementDecision();
   assert.equal(accepted,1);assert.equal(choices,0);

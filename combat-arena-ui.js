@@ -2,6 +2,7 @@
   'use strict';
   const A=window.SACombatArena,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let state=null,mode='',mine='',previewFog=false,reveal=false,moveUnit=null,moveRoute=null,moveLocked=false,moveSubmitting=false,hoverSquare=null,liveKey='',fogSerial=0,zoom=1,focusView=false;
+  window.addEventListener('sa-combat-reset',()=>{moveUnit=null;moveRoute=null;moveLocked=false;moveSubmitting=false;waypoints=[];liveKey='';});
   const editors=new WeakMap(),origins=new Map();
   let dragging=null,routeMode='direct',waypoints=[];
   function bindDrag(host,arena,onDrop,enabled=true){
@@ -31,10 +32,10 @@
   }
   function editor(host,options){
     window.SASpaceMap.ensureMapStyles(host.ownerDocument);
-    let e=editors.get(host);if(!e){e={tool:'pan',first:null,unit:'',automatic:true};editors.set(host,e);}e.options=options;
-    const a=options.arena,units=options.units||[],placed=units.map(u=>({...u,location:{arenaId:'surface',square:a.spawns[u.id]??-1}})).filter(u=>u.location.square>=0);
-    host.innerHTML=`<div class="arena-toolbar"><strong>Surface Arena · ${a.width} × ${a.height}</strong><button type="button" data-arena-expand>Expand Zone +2 Each Side</button><label>Terrain <select data-arena-theme>${Object.entries(A.themes).map(([v,l])=>`<option value="${v}" ${a.theme===v?'selected':''}>${l}</option>`).join('')}</select></label><nav class="map-action-modes" aria-label="Map action">${[['pan','Pan Map'],['floor','Paint Floor'],['wall','Add Walls'],['door','Add Doors'],['erase','Erase Boundaries'],['place','Move Characters']].map(([v,l])=>`<button type="button" data-arena-tool="${v}" aria-pressed="${e.tool===v}">${l}</button>`).join('')}</nav><label ${e.tool!=='door'?'hidden':''}><input type="checkbox" data-arena-auto ${e.automatic?'checked':''}>Automatic door</label><label ${e.tool!=='place'?'hidden':''}>Character <select data-arena-unit><option value="">Choose character</option>${units.map(u=>`<option value="${esc(u.id)}" ${e.unit===u.id?'selected':''}>${esc(u.characterName||u.name)}</option>`).join('')}</select></label></div><p class="arena-help">${e.tool==='pan'?'Drag the view to pan. Select a highlighted action to edit the arena.':e.tool==='place'?'Choose a character, then click a floor square. Unplaced characters are assigned a free floor square when combat begins.':['wall','door','erase'].includes(e.tool)?'Click two adjacent floor squares to edit the boundary between them.':'Click or drag to paint walkable floor and solid terrain. Use Move Characters to reposition characters.'} Each floor square is one movement unit.</p><p class="arena-error" role="status"></p>${mapMarkup(a,placed,{selected:e.first})}`;
-    const redraw=()=>editor(host,e.options),changed=()=>{e.options.arena=A.normalize(a);options.onChange(e.options.arena);redraw();},error=t=>host.querySelector('.arena-error').textContent=t;
+    let e=editors.get(host);if(!e){e={tool:'pan',first:null,unit:'',automatic:true,history:[]};editors.set(host,e);}e.options=options;
+    const a=options.arena,before=structuredClone(a),units=options.units||[],placed=units.map(u=>({...u,location:{arenaId:'surface',square:a.spawns[u.id]??-1}})).filter(u=>u.location.square>=0);
+    host.innerHTML=`<div class="arena-toolbar"><strong>Surface Arena · ${a.width} × ${a.height}</strong><button type="button" data-arena-undo ${e.history.length?'':'disabled'}>Undo Edit</button><button type="button" data-arena-expand>Expand Zone +2 Each Side</button><label>Terrain <select data-arena-theme>${Object.entries(A.themes).map(([v,l])=>`<option value="${v}" ${a.theme===v?'selected':''}>${l}</option>`).join('')}</select></label><nav class="map-action-modes" aria-label="Map action">${[['pan','Pan Map'],['floor','Paint Floor'],['wall','Add Walls'],['door','Add Doors'],['erase','Erase Boundaries'],['place','Move Characters']].map(([v,l])=>`<button type="button" data-arena-tool="${v}" aria-pressed="${e.tool===v}">${l}</button>`).join('')}</nav><label ${e.tool!=='door'?'hidden':''}><input type="checkbox" data-arena-auto ${e.automatic?'checked':''}>Automatic door</label><label ${e.tool!=='place'?'hidden':''}>Character <select data-arena-unit><option value="">Choose character</option>${units.map(u=>`<option value="${esc(u.id)}" ${e.unit===u.id?'selected':''}>${esc(u.characterName||u.name)}</option>`).join('')}</select></label></div><p class="arena-help">${e.tool==='pan'?'Drag the view to pan. Select a highlighted action to edit the arena.':e.tool==='place'?'Choose a character, then click a floor square. Unplaced characters are assigned a free floor square when combat begins.':['wall','door','erase'].includes(e.tool)?'Click two adjacent floor squares to edit the boundary between them.':'Click or drag to paint walkable floor and solid terrain. Use Move Characters to reposition characters.'} Each floor square is one movement unit.</p><p class="arena-error" role="status"></p>${mapMarkup(a,placed,{selected:e.first})}`;
+    const remember=()=>{if(JSON.stringify(before)!==JSON.stringify(a)){e.history.push(before);if(e.history.length>40)e.history.shift();}},redraw=()=>editor(host,e.options),changed=()=>{remember();e.options.arena=A.normalize(a);options.onChange(e.options.arena);redraw();},error=t=>host.querySelector('.arena-error').textContent=t;
     bindDrag(host,a,(id,n)=>{if(Object.entries(a.spawns).some(([other,square])=>other!==id&&square===n))throw Error('That starting square is occupied.');a.spawns[id]=n;changed();},e.tool==='place');
 
     // One intent per brush stroke; revisiting a square never reverses the paint.
@@ -48,9 +49,10 @@
     host.onpointercancel=event=>{pan=null;if(brush){brush=null;changed();}else tokenCancel(event);};
     host.onchange=event=>{if(event.target.matches('[data-arena-theme]')){a.theme=event.target.value;changed();return;}if(event.target.matches('[data-arena-tool]')){e.tool=event.target.value;e.first=null;redraw();}if(event.target.matches('[data-arena-auto]'))e.automatic=event.target.checked;if(event.target.matches('[data-arena-unit]'))e.unit=event.target.value;};
     host.onclick=event=>{
+      if(event.target.closest('[data-arena-undo]')){const previous=e.history.pop();if(previous){e.options.arena=previous;e.first=null;options.onChange(previous);redraw();}return;}
       const tool=event.target.closest('[data-arena-tool]');if(tool){e.tool=tool.dataset.arenaTool;e.first=null;e.suppressClick=false;redraw();return;}
       if(e.suppressClick){e.suppressClick=false;return;}
-      if(event.target.closest('[data-arena-expand]')){try{e.options.arena=A.expand(a);e.first=null;options.onChange(e.options.arena);redraw();}catch(x){error(x.message);}return;}
+      if(event.target.closest('[data-arena-expand]')){try{e.options.arena=A.expand(a);e.history.push(before);e.first=null;options.onChange(e.options.arena);redraw();}catch(x){error(x.message);}return;}
       const cell=event.target.closest('[data-arena-cell]');if(!cell)return;const n=Number(cell.dataset.arenaCell);if(e.tool==='pan')return;
       if(e.tool==='floor'){if(a.floors.includes(n)){if(Object.values(a.spawns).includes(n)){error('Move the starting character before removing this floor.');return;}a.floors=a.floors.filter(x=>x!==n);a.walls=a.walls.filter(k=>!k.split(':').includes(String(n)));for(const k of Object.keys(a.doors))if(k.split(':').includes(String(n)))delete a.doors[k];}else a.floors.push(n);changed();return;}
       if(!a.floors.includes(n)){error('Choose walkable floor squares for this tool.');return;}
@@ -71,7 +73,16 @@
     }else if(layout){for(const [node,marker]of origins)marker.replaceWith(node);origins.clear();layout.before(list,host);layout.remove();}
     return host;
   }
-  async function command(data){return window.SACombatBridge.action(data);}
+  async function command(data){return window.SACombatBridge.action(data,'tap',{throwOnError:true});}
+  const revealingSquares=new Set();
+  async function revealSquare(mapId,square){
+    const key=mapId+':'+square;if(revealingSquares.has(key))return;revealingSquares.add(key);
+    const wasForced=state.visibility?.[mapId]?.forced?.includes(square);
+    try{await command({action:'forceCombatVisibility',mapId,square});const message=pane()?.querySelector('.arena-error');if(message)message.textContent=wasForced?'Manual reveal removed. PCs still see areas within their sight.':'Square revealed for PCs.';}
+    catch(error){const message=pane()?.querySelector('.arena-error');if(message)message.textContent=error.message;}
+    finally{revealingSquares.delete(key);}
+  }
+  function refreshFog(){window.SACombatMap?.renderInlineMaps(document,true);window.SACombatMap?.refreshArenaFog?.();}
   function syncTokens(host){if(!state.arena)return;const width=state.arena.width,height=state.arena.height;
     for(const token of host.querySelectorAll('.arena-token[data-unit-id]')){const unit=state.units.find(u=>u.id===token.dataset.unitId);if(!unit)continue;
       const carrier=unit.carriedBy&&state.units.find(u=>u.id===unit.carriedBy),moving=carrier||unit;
@@ -105,15 +116,15 @@
     if(state.arena)bindDrag(host,state.arena,async(id,square)=>{await command({action:'setCombatLocation',id,location:A.surfaceGrid(state.arena).location(square)});liveKey='';render();},gm&&!moveUnit);
     host.onpointerover=event=>{const cell=event.target.closest('[data-arena-cell]');if(moveUnit&&!moveLocked&&!moveSubmitting&&cell&&Number(cell.dataset.arenaCell)!==hoverSquare)chooseRoute(Number(cell.dataset.arenaCell),false);};
     host.onkeydown=event=>{if(['Enter',' '].includes(event.key)&&event.target.matches('[data-arena-door]')){event.preventDefault();event.target.click();}};
-    host.onchange=async event=>{try{if(event.target.matches('[data-live-fog]'))await command({action:'setCombatFog',enabled:event.target.checked});if(event.target.matches('[data-fog-preview]')){previewFog=event.target.checked;liveKey='';render();window.SACombatMap?.renderInlineMaps(document,true);}}catch(e){host.querySelector('.arena-error').textContent=e.message;}};
+    host.onchange=async event=>{try{if(event.target.matches('[data-live-fog]'))await command({action:'setCombatFog',enabled:event.target.checked});if(event.target.matches('[data-fog-preview]')){previewFog=event.target.checked;liveKey='';render();refreshFog();}}catch(e){host.querySelector('.arena-error').textContent=e.message;}};
     host.onclick=async event=>{try{
       const routeButton=event.target.closest('[data-route-mode],[data-route-undo],[data-route-clear]');if(routeButton){if(routeButton.dataset.routeMode){routeMode=routeButton.dataset.routeMode;waypoints=[];}else if(routeButton.hasAttribute('data-route-undo'))waypoints.pop();else waypoints=[];moveRoute=waypoints.flatMap(p=>p.segment);moveLocked=!!moveRoute.length;liveKey='';render();return;}
       const z=event.target.closest('[data-arena-zoom]');if(z){zoom=Math.max(.5,Math.min(4,zoom*(Number(z.dataset.arenaZoom)>0?1.25:.8)));fitMap(host);return;}
       if(event.target.closest('[data-arena-fit]')){zoom=1;focusView=false;fitMap(host);return;}if(event.target.closest('[data-arena-focus]')){zoom=1;focusView=true;fitMap(host,true);return;}
-      if(event.target.closest('[data-fog-reveal]')){if(!state.fog?.enabled){host.querySelector('.arena-error').textContent='Enable Fog of War before revealing squares.';return;}reveal=!reveal;previewFog||=reveal;render();window.SACombatMap?.renderInlineMaps(document,true);return;}
+      if(event.target.closest('[data-fog-reveal]')){if(!state.fog?.enabled){host.querySelector('.arena-error').textContent='Enable Fog of War before revealing squares.';return;}reveal=!reveal;previewFog||=reveal;render();refreshFog();return;}
       if(event.target.closest('[data-arena-cancel]')){moveUnit=null;moveRoute=null;moveLocked=false;render();return;}
       if(event.target.closest('[data-arena-confirm]')){if(moveSubmitting||!moveLocked||!moveRoute?.length)return;moveSubmitting=true;refreshPreview(host);try{const actor=moveUnit,route=moveRoute;await command({action:'playerCombatAction',kind:'move',id:actor.id,route,turnSerial:actor.turnSerial});moveUnit=null;moveRoute=null;moveLocked=false;}finally{moveSubmitting=false;liveKey='';render();}return;}
-      const forced=event.target.closest('[data-fog-square]');if(forced&&gm&&reveal){await command({action:'forceCombatVisibility',mapId:'surface',square:Number(forced.dataset.fogSquare)});return;}
+      const forced=event.target.closest('[data-fog-square]');if(forced&&gm&&reveal){await revealSquare('surface',Number(forced.dataset.fogSquare));return;}
       const door=event.target.closest('[data-arena-door]');if(door?.dataset.arenaDoor){await command({action:'operateSurfaceDoor',id:gm?state.activeId:mine,doorKey:door.dataset.arenaDoor});return;}
       const cell=event.target.closest('[data-arena-cell]');if(cell&&moveUnit&&!moveSubmitting)chooseRoute(Number(cell.dataset.arenaCell),true);
     }catch(e){host.querySelector('.arena-error').textContent=e.message;}};
@@ -123,7 +134,7 @@
     const signature=JSON.stringify([state?.fog?.enabled,state?.visibility?.[record.id],mode,previewFog,reveal]);if(grid.dataset.fogSignature===signature&&grid.querySelector(':scope > .arena-fog'))return;grid.dataset.fogSignature=signature;grid.querySelector(':scope > .arena-fog')?.remove();if(!state?.fog?.enabled||mode==='gm'&&!previewFog&&!reveal)return;
     const cells=[...grid.querySelectorAll('[data-inline-square],[data-map-square]')].map(e=>Number(e.dataset.inlineSquare??e.dataset.mapSquare)),w=window.SAShipMap.gridColumns(record),xs=cells.map(n=>n%w),ys=cells.map(n=>Math.floor(n/w));if(!cells.length)return;
     const b=grid.id==='combatMapGrid'?{x:0,y:0,width:w*3,height:window.SAShipMap.gridRows(record)*3}:{x:Math.min(...xs)*3,y:Math.min(...ys)*3,width:(Math.max(...xs)-Math.min(...xs)+1)*3,height:(Math.max(...ys)-Math.min(...ys)+1)*3};grid.insertAdjacentHTML('beforeend',fogMarkup(state.visibility?.[record.id],b));const fog=grid.querySelector(':scope > .arena-fog');
-    if(fog){fog.onkeydown=event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}};fog.onclick=async event=>{const cell=event.target.closest('[data-fog-square]');if(cell&&mode==='gm'&&reveal){event.stopPropagation();try{await command({action:'forceCombatVisibility',mapId:record.id,square:Number(cell.dataset.fogSquare)});}catch(e){pane().querySelector('.arena-error').textContent=e.message;}}};}
+    if(fog){fog.onkeydown=event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}};fog.onclick=async event=>{const cell=event.target.closest('[data-fog-square]');if(cell&&mode==='gm'&&reveal){event.stopPropagation();await revealSquare(record.id,Number(cell.dataset.fogSquare));}};}
   }
   window.addEventListener('resize',()=>{if(state?.arena)fitMap(pane());});
   window.addEventListener('sa-combat-state',event=>{state=event.detail.state;mode=event.detail.mode;mine=event.detail.myUnitId;render();document.querySelectorAll('[data-inline-ship-map]').forEach(host=>{const record=state.starships?.find(s=>s.id===host.dataset.inlineShipMap);if(record)shipFog(host,record);});const full=document.querySelector('#combatMapGrid'),record=state.starships?.find(s=>s.id===full?.dataset.fogShipId);if(record)shipFog(full,record);window.SACombatMap?.refreshArenaFog?.();});

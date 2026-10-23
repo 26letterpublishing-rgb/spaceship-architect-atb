@@ -52,3 +52,9 @@ body.surface-combat-mode #initiativePanel>.section-head{margin-bottom:8px}body.s
 /* Surface walls need contrast against patterned terrain. Ship interiors retain their scale. */
 .arena-boundary>.sa-map-wall.horizontal{height:4%}.arena-boundary>.sa-map-wall.vertical{width:4%}
 .arena-boundary>.sa-map-wall.top{top:-2%}.arena-boundary>.sa-map-wall.bottom{bottom:-2%}.arena-boundary>.sa-map-wall.left{left:-2%}.arena-boundary>.sa-map-wall.right{right:-2%}
+
+.arena-board,.arena-board button,.arena-token{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.arena-board button{-webkit-tap-highlight-color:transparent}.arena-board button:focus:not(:focus-visible){outline:none}
+
+.arena-fog.is-revealing{touch-action:none}
+.arena-fog.is-revealing rect:hover,.arena-fog.is-revealing rect:focus-visible{stroke:#fff;stroke-width:.09;outline:none}
+.arena-fog.is-revealing rect[fill="#50ddab"]{stroke:#73ffd3;stroke-width:.07}

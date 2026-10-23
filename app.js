@@ -460,9 +460,7 @@ const visualModeToggle = document.querySelector("#visualModeToggle");
 const campaignCharacterPicker = document.querySelector("#campaignCharacterPicker");
 const campaignCharacterPin = document.querySelector("#campaignCharacterPin");
 const campaignCharacterStatus = document.querySelector("#campaignCharacterStatus");
-const gmAlarmAudio = new Audio("alarm-noise.mp4");
-gmAlarmAudio.preload = "auto";
-gmAlarmAudio.volume = 0.72;
+let gmAlarmClip;
 
 const DEFEAT_FLASH_DELAY_MS = 4050;
 const DEFEAT_SEQUENCE_MS = 5600;
@@ -1795,6 +1793,12 @@ function receiveState(nextState, { force = false, streamReset = false } = {}) {
     return false;
   }
 
+  if(state&&nextState.combatReset?.id&&nextState.combatReset.id!==state.combatReset?.id){
+    lastCombatPromptKey='';gmNpcPromptSignature='';gmForcedDefenseEntry=false;gmForcedAttackEntry='';
+    delayModalState=null;queuedEffectModalState=null;pendingActionLog=null;
+    clearTimeout(damageAlertTimer);clearTimeout(actionLogTimeout);
+    window.SADialogReset?.broadcast(nextState.combatReset);
+  }
   const previousUnits = new Map((state?.units || []).map((unit) => [unit.id, unit]));
   const newlyDefeated = (nextState.units || []).filter((unit) => unit.defeatedAt && !previousUnits.get(unit.id)?.defeatedAt);
   state = nextState;
@@ -1834,6 +1838,7 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
         ...payload,
         roomCode: currentRoomCode,
         expectedEncounterId:state?.encounterId,
+        expectedCombatResetId:state?.combatReset?.id||'',
         gmToken: mode === "gm" ? gmCampaignToken : undefined,
         characterToken: mode === "player" || payload.controlledBy === "player" ? campaignCharacterToken : undefined,
         characterId: payload.characterId || (mode === "player" ? campaignCharacterId : undefined),
@@ -2723,7 +2728,7 @@ function notifyCommandWindowIfNeeded(active) {
 
 function ensureAudio() {
   const Context = window.AudioContext || window.webkitAudioContext;
-  if (!audioContext) audioContext = new Context();
+  if (!audioContext) audioContext = window.SAAudioMix.context();
   if (audioContext.state === "suspended") void audioContext.resume().catch(() => {});
   return audioContext;
 }
@@ -2737,8 +2742,7 @@ function resumeAudio() {
 }
 
 function stopGmAudio() {
-  gmAlarmAudio.pause();
-  gmAlarmAudio.currentTime = 0;
+  gmAlarmClip?.stop();
   for (const node of activeGmAudioNodes) {
     try {
       node.gain.gain.cancelScheduledValues(audioContext?.currentTime || 0);
@@ -2813,8 +2817,9 @@ function playGmSound(name = "tap") {
     }
     if (name === "firstStart") {
       if(window.parent!==window&&window.parent.SACharacterLifecycle)return;
-      gmAlarmAudio.currentTime = 0;
-      gmAlarmAudio.play().catch(() => {
+      gmAlarmClip?.stop();
+      gmAlarmClip=window.SAAudioMix.clip("alarm-noise.mp4",.72);
+      gmAlarmClip.finished.catch(() => {
         tone(180, 0, 0.18, 0.055, "sawtooth");
         tone(360, 0.2, 0.18, 0.052, "sawtooth");
         tone(720, 0.42, 0.2, 0.046, "square");
@@ -2925,8 +2930,8 @@ function playDefeatTone() {
   const audible = mode === "gm" ? !gmSoundsMuted : alertsEnabled;
   if (!audible) return;
   try {
-    const ctx=new AudioContext(),gain=ctx.createGain();gain.gain.value=.12;gain.connect(window.SAAudioMix.destination(ctx,"effect"));
-    [330,262,196].forEach((hz,i)=>{const osc=ctx.createOscillator();osc.type='triangle';osc.frequency.value=hz;osc.connect(gain);osc.start(ctx.currentTime+i*.18);osc.stop(ctx.currentTime+(i+1)*.18);});setTimeout(()=>ctx.close(),800);
+    const ctx=window.SAAudioMix.context(),gain=ctx.createGain();gain.gain.value=.12;gain.connect(window.SAAudioMix.destination(ctx,"effect"));
+    [330,262,196].forEach((hz,i)=>{const osc=ctx.createOscillator();osc.type='triangle';osc.frequency.value=hz;osc.connect(gain);osc.start(ctx.currentTime+i*.18);osc.stop(ctx.currentTime+(i+1)*.18);});
   } catch {
     // The defeat animation remains clear when a browser blocks audio.
   }
@@ -3156,6 +3161,7 @@ function renderAttackResolution(mine) {
         attackId: attack.id,
         rollRole: "attacker",
         skill: attackSkill,
+        difficulty: Number(attack.defenseRoll.score)+(Number(attack.defenseBonus)||0),
         attribute: attack.plan?.attackAttribute || "dexterity",
         bonusDice: attack.attackType === "melee" ? [] : (attack.aimDice || (attack.aimDie ? [attack.aimDie] : [])),
         subtitle: `Roll ${attack.plan?.attackAttribute || "dexterity"} + ${attackSkill}. The app will add the weapon, Charge, and Range modifiers after both Scores arrive.`,
@@ -4019,7 +4025,7 @@ visualModeToggle.addEventListener("click", () => {
   setVisualMode(visualMode === "ring" ? "bars" : "ring");
 });
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
-resetAll.title="Undo the last action and restore its preceding state";
+resetAll.title="Close dialogs on every device and restore the preceding action when available";
 let encounterConfirmationPending=false;
 function confirmEncounterChange(title,message,acceptLabel,requiredText=null){
   if(encounterConfirmationPending)return Promise.resolve(false);
@@ -4038,7 +4044,7 @@ function confirmEncounterChange(title,message,acceptLabel,requiredText=null){
     doc.body.append(dialog);dialog.showModal();cancel.focus();
   });
 }
-resetAll.addEventListener("click", async () => {if(await confirmEncounterChange('Undo last action?','A recovery checkpoint will be saved before restoring the preceding state.','Undo Last Action'))await action({ action: "reset" }, "resolve");});
+resetAll.addEventListener("click", async () => {if(await confirmEncounterChange('Reset combat prompts?','Close open dialogs on every connected device and restore the previous action when one is available. A recovery checkpoint is saved first.','Reset'))await action({ action: "reset" }, "resolve");});
 gmMuteSound.addEventListener("click", () => {
   if (mode === "player") {
     if (alertsEnabled) disablePlayerAlerts();

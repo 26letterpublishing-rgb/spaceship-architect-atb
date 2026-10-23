@@ -3,7 +3,7 @@
   const detections=new Set();
   let typingAudio=null;
   function typing(){
-    try{typingAudio ||= new AudioContext();typingAudio.resume();}catch{return null;}
+    try{typingAudio ||= window.SAAudioMix.context();typingAudio.resume();}catch{return null;}
     const timer=setInterval(()=>{if(!bridge()?.soundEnabled()||host().hidden)return;const ctx=typingAudio,t=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.018),ctx.sampleRate),values=buffer.getChannelData(0);for(let i=0;i<values.length;i++)values[i]=(Math.random()*2-1)*Math.exp(-i/values.length*5);const source=ctx.createBufferSource(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=700+Math.random()*1800;filter.Q.value=.8;gain.gain.value=.045;source.connect(filter);filter.connect(gain);gain.connect(window.SAAudioMix.destination(ctx,"effect"));source.start(t);source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};},90);
     return {stop:()=>clearInterval(timer)};
   }
@@ -64,5 +64,5 @@
     sound?.update?.(next==='atb'?(Math.sin(performance.now()/1800)+1)/2:next==='analysis'?processing.progress/100:delay?1-delay.remaining/100:.5,next==='atb'?.16:.5);
     if(view?.classList.contains('sensor-console')){const svg=view.querySelector('[data-space-canvas]');if(svg&&delay?.sensorOrder?.hex)mark(svg,delay.sensorOrder.hex,true);else if(svg&&view.dataset.selectHex!=='true'&&view.dataset.triggerHex!=='true')svg.querySelector('[data-hex-feedback]')?.remove();}
   },200);
-  window.addEventListener('pagehide',()=>{clearInterval(timer);sound?.stop();typingAudio?.close();doc.removeEventListener('pointermove',pointer);doc.removeEventListener('click',click,true);typingIcon.remove();style.remove();});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);sound?.stop();doc.removeEventListener('pointermove',pointer);doc.removeEventListener('click',click,true);typingIcon.remove();style.remove();});
 }());

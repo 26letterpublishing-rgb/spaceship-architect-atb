@@ -1417,6 +1417,7 @@ function exportStarship() {
   if (!draft.confirmedOnce) return;
   const portable=clone(draft);delete portable.campaignLink;delete portable.crewCharacterIds;delete portable.crewmemberNames;
   const payload = { format: "spaceship-architect-2e-starship", version: 1, exportedAt: new Date().toISOString(), starship: portable };
+  if(window.parent!==window&&window.parent.SAModuleAuthor?.enabled())return window.parent.SAModuleAuthor.save(payload,(draft.title||'Starship')+'.sa2ship');
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob); const link = document.createElement("a");
   link.href = url; link.download = `${(draft.title || "starship").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.sa2ship`;

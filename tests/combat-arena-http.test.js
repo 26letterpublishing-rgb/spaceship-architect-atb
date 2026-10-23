@@ -10,6 +10,15 @@ test('surface arena authorization, fog, doors, persisted memory and portable shi
  const pc=(b,status=200)=>post('/api/action',{roomCode:code,characterId:person.id,characterToken:person.token,...b},status);
  const state=()=>fetch(base+`/api/state?room=${code}&token=${token}`).then(r=>r.json());
  const playerState=()=>fetch(base+`/api/state?room=${code}&token=${person.token}`).then(r=>r.json());
+ // Starship reveals use mesh indices and must arrive in the actual PC projection.
+ const interior=await gm({action:'setCombatFog',enabled:true}),shipId=interior.starships[0].id,visibility=interior.visibility[shipId];
+ const unseen=Array.from({length:visibility.width*visibility.height},(_,i)=>i).find(i=>!visibility.visible.includes(i));
+ assert.ok(Number.isInteger(unseen));
+ await gm({action:'forceCombatVisibility',mapId:shipId,square:unseen});
+ assert.ok((await playerState()).visibility[shipId].visible.includes(unseen));
+ await gm({action:'forceCombatVisibility',mapId:shipId,square:unseen});
+ assert.ok(!(await playerState()).visibility[shipId].visible.includes(unseen));
+ assert.ok((await playerState()).visibility[shipId].explored.includes(unseen));
  const arena=A.normalize({theme:'city',width:35,height:7,floors:Array.from({length:35},(_,i)=>i),doors:{'0:1':{open:false,automatic:false}},spawns:{[person.id]:0,guard:20}});
  let s=await gm({action:'prepareEncounter',preparationId:'surface-arena-http',mode:'surface',starships:[],arena,fog:{enabled:true},units:[{team:'pc',characterId:person.id,location:{arenaId:'surface',square:0}},{team:'npc',preparationUnitId:'guard',characterName:'Hidden Guard',maximumHp:30,currentHp:30,speed:1,location:{arenaId:'surface',square:20}}]});
  const nova=s.units.find(u=>u.characterId===person.id),guard=s.units.find(u=>u.team==='npc');assert.equal(nova.location.square,0);assert.equal(s.arena.width,35);

@@ -51,19 +51,21 @@
 <script src="character-lifecycle-ui.js" defer></script>
 <link rel="stylesheet" href="character-lifecycle-ui.css">
 <script src="dialog-chrome.js" defer></script>
+<script src="movement-controls.js" defer></script><link rel="stylesheet" href="movement-controls.css">
 <link rel="stylesheet" href="dialog-chrome.css">
+<script src="universe-clock.js"></script><script src="module-conditions.js"></script><script src="universe-ui.js" defer></script><link rel="stylesheet" href="universe-ui.css">
 </head>
   <body>
     <header class="creator-header">
-      <div class="character-brand-stack">
+      <div class="universe-header-identity"><div class="character-brand-stack">
         <button id="characterBanner" class="brand-link" type="button" aria-label="Spaceship Architect banner">
-          <img src="SAATBBanner.jpg" alt="Spaceship Architect" />
+          <img src="spaceship-architect-2e-banner.png" alt="Spaceship Architect" />
         </button>
         <div id="characterRoomCode" class="character-room-code" hidden><span>ROOM</span><strong id="characterRoomCodeValue">----</strong></div>
         <div id="syncIndicator" class="sync-indicator local" title="Saved on this device"><i aria-hidden="true"></i><span>LOCAL</span></div>
       </div>
       <button id="creatorTitle" class="creator-title" type="button"><span id="creatorRoleLabel">Second Edition</span><h1 id="creatorCampaignTitle">Character Creator</h1></button>
-      <div class="pc-header-tools"><button id="pcHeaderMail" class="pc-settings-button pc-mail-button" type="button" aria-label="Private notes" title="Private notes" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg><strong id="playerInboxCount" hidden>0</strong></button><button id="pcHeaderSound" class="pc-settings-button" type="button" aria-label="Mute sounds" title="Mute sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button><button id="pcSettingsButton" class="pc-settings-button" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button></div>
+      </div><div id="universeClock" hidden></div><div class="pc-header-tools"><button id="pcHeaderMail" class="pc-settings-button pc-mail-button" type="button" aria-label="Private notes" title="Private notes" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg><strong id="playerInboxCount" hidden>0</strong></button><button id="pcHeaderSound" class="pc-settings-button" type="button" aria-label="Mute sounds" title="Mute sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg></button><button id="pcSettingsButton" class="pc-settings-button" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg></button></div>
     </header>
 
     <section id="gmAdjustmentBar" class="gm-adjustment-bar" hidden>
@@ -526,7 +528,7 @@
         <p id="campaignPinMessage">Your PC Code opens this character after it joins a campaign.</p>
         <strong id="campaignPinDisplay" class="campaign-pin-display">----</strong>
         <label id="campaignPinEntryWrap" hidden>Enter PC Code<input id="campaignPinEntry" type="text" maxlength="120" autocomplete="off" /></label>
-        <div class="dialog-actions"><button id="campaignPinCancel" type="button">Exit</button><button id="campaignPinConfirm" class="primary-action" type="button">Continue</button></div>
+        <div class="dialog-actions"><button id="campaignPinCancel" data-dialog-dismiss data-dialog-keep type="button">Exit</button><button id="campaignPinConfirm" class="primary-action" type="button">Continue</button></div>
       </section>
     </div>
 
@@ -580,7 +582,7 @@
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <span class="dialog-kicker">Confirm Command</span><h2 id="confirmTitle">Are you sure?</h2><p id="confirmMessage"></p>
         <div id="confirmPreview" class="confirm-preview" hidden></div>
-        <div class="dialog-actions"><button id="confirmCancel" type="button">Keep Current Character</button><button id="confirmAccept" class="danger" type="button">Start Over</button></div>
+        <div class="dialog-actions"><button id="confirmCancel" data-dialog-dismiss data-dialog-keep type="button">Keep Current Character</button><button id="confirmAccept" data-dialog-action class="danger" type="button">Start Over</button></div>
       </section>
     </div>
     <div id="importChoiceModal" class="modal-shell" hidden>
@@ -601,7 +603,7 @@
         <span class="dialog-kicker">Xithx Culture</span>
         <h2 id="xithxGenderTitle">Gender Presentation</h2>
         <p>Xithx gender presentation reverses the customary human expectation: males are generally feminine, while females are generally masculine.</p>
-        <div class="dialog-actions"><button id="closeXithxGenderNotice" class="primary-action" type="button">Understood</button></div>
+        <div class="dialog-actions"><button id="closeXithxGenderNotice" data-dialog-dismiss data-dialog-keep class="primary-action" type="button">Understood</button></div>
       </section>
     </div>
     <div id="wipeOverlay" class="wipe-overlay" hidden aria-hidden="true"><span></span></div>
@@ -625,7 +627,7 @@
             <small>One-time use</small>
           </div>
           <p class="fubs-backstory-guidance">(incorporate this prompt into your backstory!)</p>
-          <button id="fubsExit" class="primary-action" type="button">Exit</button>
+          <button id="fubsExit" data-dialog-dismiss data-dialog-keep class="primary-action" type="button">Keep This Result</button>
         </div>
       </section>
     </div>
@@ -705,7 +707,7 @@
           <div class="skill-result-actions">
             <button id="freeRuleReroll" type="button" hidden>Use Free Reroll</button>
             <button id="rerollSkillCheck" type="button">Spend 2 Reverence to Reroll</button>
-            <button id="exitSkillResult" class="primary-action" type="button">Confirm and Submit</button>
+            <button id="exitSkillResult" data-dialog-action class="primary-action" type="button">Confirm and Submit</button>
           </div>
         </section>
       </section>
@@ -734,9 +736,9 @@
           <div class="skill-setup-actions">
             <button id="submitManualCombatDamage" type="button">Review Manual Damage</button>
             <button id="rollCombatDamage" class="primary-action" type="button">Roll for Me</button>
-            <button id="confirmCombatDamage" class="primary-action" type="button" hidden>Confirm and Submit</button>
+            <button id="confirmCombatDamage" data-dialog-action class="primary-action" type="button" hidden>Confirm and Submit</button>
             <button id="editCombatDamage" type="button" hidden>Edit Manual Total</button>
-            <button id="exitCombatDamageResult" class="primary-action" type="button" hidden>Exit</button>
+            <button id="exitCombatDamageResult" data-dialog-dismiss class="primary-action" type="button" hidden>Exit</button>
           </div>
         </section>
       </section>

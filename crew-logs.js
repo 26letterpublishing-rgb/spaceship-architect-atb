@@ -31,7 +31,7 @@ async function handle(api,{path,req,res,body,campaign,token,sendJson}){
    if(!log){log={id:crypto.randomUUID(),characterId:id,session:number};logs(campaign).push(log);}
    if(body.revision!==undefined&&Number(body.revision)!==Number(log.revision||0))throw Error('This entry changed elsewhere. Reload before replacing it.');
    const text=clean(body.text,20000);if(kind==='submit'&&!text.trim())throw Error('Write an entry first.');
-   Object.assign(log,{name:clean(body.name,60).trim()||'Crew Log',text,characterName:campaign.characters.find(c=>c.id===id)?.character.identity?.characterName||'Character',revision:(log.revision||0)+1,updatedAt:new Date().toISOString()});
+   Object.assign(log,{name:clean(body.name,60).trim()||'Crew Log',text,characterName:campaign.characters.find(c=>c.id===id)?.character.identity?.characterName||'Character',revision:(log.revision||0)+1,universeTime:require('./universe-clock').stamp(campaign),updatedAt:new Date().toISOString()});
    if(kind==='submit'){if(!log.submittedAt)campaign.privateNotes.push({id:crypto.randomUUID(),characterId:id,characterName:log.characterName,direction:'to-gm',kind:'message',message:log.characterName+' submitted '+log.name+' for Session '+number+'. Review and approve in Prompt / Give → Crew Logs.',createdAt:new Date().toISOString(),readAt:null});log.submittedAt=new Date().toISOString();}
   }else throw Error('Unknown Crew Log operation.');
   await api.save(campaign);sendJson(res,200,{campaign:api.state(campaign,token)});

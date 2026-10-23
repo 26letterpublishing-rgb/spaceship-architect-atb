@@ -243,6 +243,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.delayRequest = clone(snapshot.delayRequest);
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.combatStartAt = snapshot.combatStartAt;
+    room.surfaceVictoryAt = snapshot.surfaceVictoryAt;
     room.sensorMode = Boolean(snapshot.sensorMode);
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
     room.hackingPrivate = clone(snapshot.hackingPrivate || {secrets:{},sessions:[],receipts:[]});
@@ -362,6 +363,10 @@ function publicState(room) {
     }
   }
   if(destroyedActiveSource!==undefined)moveToNextTurnOrClock(room,destroyedActiveSource);
+  if(room.arena&&room.hasEngagedClock&&!room.encounterEndedAt){
+    const foes=room.units.filter(u=>u.team==='npc'&&!u.allyNpc);
+    if(foes.length&&foes.every(u=>u.defeatedAt||Number(u.currentHp)<=0)&&room.units.some(u=>u.team==='pc'&&!u.defeatedAt&&Number(u.currentHp)>0)&&!room.surfaceVictoryAt){room.surfaceVictoryAt=new Date().toISOString();pushLog(room,'VICTORY: the opposition has been defeated.',{victory:true});}
+  }
   const survivors=room.starships.filter(s=>!s.destroyedAt&&!s.escapedAt&&s.currentHullHp>0);
   if(!shipTargets.flights(room).some(m=>['flying','impact'].includes(m.phase))&&room.starships.length>1&&survivors.length===1&&room.units.some(u=>u.team==='pc'&&u.location?.starshipId===survivors[0].id)&&!survivors[0].victoryAt){survivors[0].victoryAt=new Date().toISOString();pushLog(room,`VICTORY: ${survivors[0].title} is the last surviving ship.`,{starshipId:survivors[0].id,victory:true});}
   recordShipReports(room,()=>shipSensors.refresh(room));
@@ -396,6 +401,7 @@ function publicState(room) {
     delayRequest: room.delayRequest,
     hasEngagedClock: room.hasEngagedClock,
     combatStartAt: room.combatStartAt,
+    surfaceVictoryAt: room.surfaceVictoryAt,
     lastInterruptedId: room.lastInterruptedId,
     lastInterruptedAt: room.lastInterruptedAt,
     lastKeepAliveAt: room.lastKeepAliveAt,
@@ -409,6 +415,7 @@ function publicState(room) {
     shipDistances: shipDistances.fromPositions(room.starships || [], room.shipPositions),
     units: room.units.map(unit=>shipHacking.publicUnit(room,unit)),
     log: room.log.slice(-30),
+    combatReset: room.combatReset || null,
     undoAvailable: Boolean(room.undoSnapshot),
     showcase: Boolean(room.showcase || campaignApi?.isShowcase(room.roomCode)),
     sensorMode: Boolean(room.sensorMode),
@@ -432,7 +439,9 @@ function pushLog(room, text, context = {}) {
     const ships = new Set(mentioned.map(unit => unit.location?.starshipId).filter(Boolean));
     if (ships.size === 1) context = {...context, starshipId:[...ships][0]};
   }
-  room.log.push({ id: id(), at: new Date().toLocaleTimeString(), timestamp:new Date().toISOString(), text, ...context });
+  const campaignClock=campaignApi?.campaignCache?.get(room.roomCode);
+  const universeTime=campaignClock?require('./universe-clock').stamp(campaignClock):null;
+  room.log.push({ id: id(), universeTime, at: universeTime?.label||new Date().toLocaleTimeString(), timestamp:new Date().toISOString(), text, ...context });
   room.log = room.log.slice(-80);
 }
 
@@ -985,6 +994,7 @@ function snapshotRoom(room) {
     delayRequest: clone(room.delayRequest),
     hasEngagedClock: room.hasEngagedClock,
     combatStartAt: room.combatStartAt,
+    surfaceVictoryAt: room.surfaceVictoryAt,
     threshold: room.threshold,
     starships: clone(room.starships || []),
     shipDistances: clone(room.shipDistances || []),
@@ -1027,6 +1037,7 @@ function restoreUndoSnapshot(room) {
   room.encounterEndedAt = snapshot.encounterEndedAt;
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
+  room.surfaceVictoryAt = snapshot.surfaceVictoryAt;
   room.sensorMode = Boolean(snapshot.sensorMode);
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
   room.threshold = snapshot.threshold;
@@ -2246,6 +2257,7 @@ async function handleRoomAction(body, res, automated = false) {
     if(!show||show.id!==body.rollId){sendJson(res,409,{error:'This automatic roll has ended.'});return;}
     show.animationComplete=true;scheduleRoomPersist(room,0);sendJson(res,200,{ok:true});return;
   }
+  if(body.expectedCombatResetId!==undefined&&body.expectedCombatResetId!==(room.combatReset?.id||'')&&!['reset','undoLastAction','undoLastTiming'].includes(action)){sendJson(res,409,{error:'The GM restored combat. This action is no longer current; choose it again.'});return;}
   if(body.expectedEncounterId&&body.expectedEncounterId!==room.encounterId&&!(action==='prepareEncounter'&&gmAuthorized&&room.preparations?.some(r=>r.id===body.preparationId&&r.fingerprint===preparationFingerprint(body)))){sendJson(res,409,{error:'The encounter changed in another tab. Refresh before sending this action.'});return;}
   if(gmAuthorized&&action==='clearEncounter'&&room.units.length){const campaign=await campaignApi.campaign(room.roomCode);if(body.confirmCampaignName!==campaign.name||body.expectedEncounterId!==room.encounterId){sendJson(res,409,{error:'Type the campaign name to confirm clearing the current encounter.'});return;}}
   if(gmAuthorized&&['clearEncounter','exitEncounter','reset','undoLastAction','undoLastTiming'].includes(action))await campaignApi.checkpoint(await campaignApi.campaign(room.roomCode),'Before '+action,snapshotRoom(room));
@@ -2385,7 +2397,8 @@ async function handleRoomAction(body, res, automated = false) {
   if (action === "undoLastAction" || action === "undoLastTiming" || action === 'reset') {
     const resources=room.undoSnapshot?.characterResources;
     const restored = restoreUndoSnapshot(room);
-    if(!restored){sendJson(res,409,{error:'No previous action is available to undo.'});return;}
+    if(!restored&&action!=='reset'){sendJson(res,409,{error:'No previous action is available to undo.'});return;}
+    room.combatReset={id:require('node:crypto').randomUUID(),kind:action==='reset'?'reset':'undo'};
     if(resources){const campaign=await campaignApi.campaign(room.roomCode);for(const saved of resources){const record=campaign?.characters.find(c=>c.id===saved.id);if(record&&Number.isFinite(saved.exertion)){record.character.resources||={};record.character.resources.exertionCurrent=saved.exertion;}}if(campaign)await campaignApi.save(campaign);}
     if (restored) {
       await Promise.all(room.units.flatMap((unit) => (
@@ -3489,6 +3502,7 @@ async function handleRoomAction(body, res, automated = false) {
     room.lastInterruptedAt = 0;
     room.lastTick = Date.now();
     room.hasEngagedClock = false;
+    room.surfaceVictoryAt = null;
     room.encounterEndedAt = null;
     pushLog(room, "Encounter cleared.");
   }
@@ -3810,6 +3824,7 @@ async function startServer() {
       pushLog(room,'Rescue encounter started in empty space. Ship and crew positions preserved.');await campaignApi.saveEncounter(campaign.code,snapshotRoom(room));broadcast(room);return room;
     },
     liveEncounter: code => rooms.get(code),
+    universePaused: code => {const room=rooms.get(code);return !!room&&(transitPending(room)||shipOxygen.pending(room.starships));},
     snapshotEncounter: code => rooms.has(code)?snapshotRoom(rooms.get(code)):null,
     characterMoved: (code,shipId,characterId,location) => {
       const room=rooms.get(code),unit=room?.units.find(u=>u.characterId===characterId),ship=room?.starships.find(s=>s.id===shipId);

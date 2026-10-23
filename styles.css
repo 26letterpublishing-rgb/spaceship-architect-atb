@@ -4079,3 +4079,6 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 .player-combat-preview .combat-preview-fill::before{opacity:.82;animation:atbCurrentFlow 1.8s ease-in-out infinite}
 .player-combat-preview .combat-preview-fill{overflow:hidden}
 @media(prefers-reduced-motion:reduce){.player-combat-preview .combat-preview-fill::before{animation:none}}
+
+/* Compact NPC automation controls keep the roster readable. */
+button[data-action="automation"]{font-size:.75rem;line-height:1.15;min-height:28px;min-width:0;padding:4px 10px;vertical-align:middle}

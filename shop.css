@@ -30,17 +30,17 @@
 .gm-shop-list article{position:relative;padding-top:16px}.gm-shop-list article h3{font-size:21px;max-width:65%;margin:0 0 20px}.gm-shop-list .shop-availability{position:absolute;right:12px;top:12px;font-size:15px;display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #647889;border-radius:6px;background:#17232e}.shop-availability:has(:checked){background:#134f38;color:#a4ffd3}.shop-availability input{width:20px;height:20px}
 @media(max-width:1000px){.shop-category-grid.is-items{columns:2}.shop-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){.shop-category-grid.is-items{columns:1}.shop-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Six browsable stacks use the shared SIC picker rather than a long weapon list. */
-.shop-panel .weapon-family-market{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:24px 18px;align-items:start;padding:10px 8px 16px}
+.sic-card-gallery.weapon-family-market{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:24px 18px;align-items:start;padding:10px 8px 16px}
 .weapon-family-market>.sic-family-stack{container-type:inline-size;min-width:0;width:100%}
-.shop-panel .weapon-family-market>.sic-family-stack>summary{padding:0;height:calc(140cqw + 120px)}
+.sic-card-gallery.weapon-family-market>.sic-family-stack>summary{padding:0;height:var(--stack-height,360px)}
 .weapon-family-market .sic-family-stack>summary>strong{position:relative;display:block;box-sizing:border-box;height:82px;min-height:82px;margin:0 0 34px;padding:0 16px 8px 0;border-bottom:2px solid var(--weapon-group-color);font-size:18px;line-height:1.2;color:var(--weapon-group-color)}
 .weapon-family-market .sic-family-stack>summary>strong small{display:block;width:100%;font-size:13px;line-height:1.6;color:#bdccd7}
 .weapon-family-market .sic-family-stack>summary>strong:after{position:absolute;right:0;top:0}
-.weapon-family-market .sic-stack-preview.sic-market-item{width:350px;max-width:none;height:490px;transform:scale(calc(100cqw / 350px));transform-origin:top left}
+.weapon-family-market .sic-stack-preview.sic-market-item{width:350px;max-width:none;height:490px;transform:scale(var(--stack-scale,.5));transform-origin:top left}
 .weapon-family-market .sic-stack-preview .sic-display-card{width:350px!important}
 .shop-stack-help{margin:10px 0;color:#b5cbd7;font-size:15px}
-@media(max-width:1100px){.shop-panel .weapon-family-market{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:600px){.shop-panel .weapon-family-market{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.weapon-family-market .sic-family-stack>summary>strong{font-size:16px}}
+@media(max-width:1100px){.sic-card-gallery.weapon-family-market{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.sic-card-gallery.weapon-family-market{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.weapon-family-market .sic-family-stack>summary>strong{font-size:16px}}
 
 .shop-category-grid.is-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;columns:auto}
 .shop-category-grid.is-items>details{margin:0;min-width:0}

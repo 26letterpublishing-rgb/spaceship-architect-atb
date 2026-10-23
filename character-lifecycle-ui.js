@@ -13,7 +13,7 @@
  const seenCombat=new Set();
  function update(state){
   const announcement=state.combatAnnouncement;
-  if(announcement&&!seenCombat.has(announcement.id)){seenCombat.add(announcement.id);if(Date.now()-announcement.at<15000){window.SAResultFeedback?.critical(announcement.id,'ALL HANDS ON DECK ... Combat has started! Go to the Combat tab immediately!','combat-start');try{if(localStorage.getItem('sa-atb-alerts')!=='off'&&localStorage.getItem('sa-atb-gm-muted')!=='on'){const alarm=new Audio('alarm-noise.mp4');alarm.volume=.72;alarm.play().catch(()=>{});}}catch{}}}
+  if(announcement&&!seenCombat.has(announcement.id)){seenCombat.add(announcement.id);if(Date.now()-announcement.at<15000){window.SAResultFeedback?.critical(announcement.id,'ALL HANDS ON DECK ... Combat has started! Go to the Combat tab immediately!','combat-start');try{if(localStorage.getItem('sa-atb-alerts')!=='off'&&localStorage.getItem('sa-atb-gm-muted')!=='on'){window.SAAudioMix.clip('alarm-noise.mp4',.72);}}catch{}}}
 
   const host=document.querySelector('#settingsTab .settings-grid')||document.getElementById('playerSettingsPanel');if(!host)return;
   let section=document.getElementById('inMemoriam');if(!section){section=document.createElement('section');section.id='inMemoriam';section.className='settings-card';host.append(section);}

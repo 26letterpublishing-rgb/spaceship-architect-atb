@@ -6,7 +6,7 @@
 .sic-display-card .sic-poker-heading>div{align-self:center;min-width:0;padding:8px 10px!important;text-align:left!important}
 .sic-market-item:has(>.sic-purchase-button)>.sic-display-card .sic-poker-heading>div{padding-right:112px!important}
 .sic-display-card .sic-poker-heading h3{font:800 15px/1.15 Arial,sans-serif!important;text-transform:uppercase;margin:0!important;overflow-wrap:anywhere;letter-spacing:0}
-.sic-display-card .sic-poker-heading strong{display:block;font:700 12px/1.25 Arial,sans-serif!important;color:#67eb94;margin-top:4px!important}
+.sic-display-card .sic-poker-heading strong{display:block;font:700 17px/1.25 Arial,sans-serif!important;color:#67eb94;margin-top:4px!important}
 .sic-display-card .sic-poker-art{grid-column:2!important;grid-row:2!important;width:100%!important;height:100%!important;max-width:100%!important;object-fit:contain!important;object-position:center!important;border:0!important;border-left:1px solid #34464f!important;background:#05090d}
 .sic-display-card .sic-poker-stats{display:grid!important;grid-column:1!important;grid-row:2!important;grid-template-columns:1fr!important;margin:0!important;border:0!important}
 .sic-display-card .sic-poker-stats>div{display:flex!important;align-items:center!important;justify-content:space-between!important;grid-column:1!important;gap:4px;padding:4px 6px!important;border:0!important;border-bottom:1px solid #2c3a43!important}
@@ -172,3 +172,5 @@
 
 .sic-console-preview{min-height:34px;padding:5px 9px;border:1px solid #9db3c0;border-radius:4px;background:linear-gradient(#465766,#24333e);color:#fff;font:700 12px Arial,sans-serif;cursor:pointer;width:100%}
 .sic-picker-face>.sic-console-preview{font-size:20px}
+
+.inspection-card-stage{position:relative;flex:none;overflow:hidden}.inspection-card-stage>.sic-display-card{position:absolute;left:0;top:0}.shared-card-inspector .inspection-card-stage>.sic-purchase-button{position:absolute;top:13px;right:9px}

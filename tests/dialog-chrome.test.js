@@ -16,10 +16,11 @@ function fixture(native=false){
  }
  const root=new Element('html'),dialog=new Element(native?'dialog':'section');if(!native)dialog.setAttribute('role','dialog');root.append(dialog);
  const button=(text,attrs={})=>{const b=new Element('button');b.textContent=text;Object.assign(b,attrs);dialog.append(b);return b;};
- const run=()=>vm.runInNewContext(fs.readFileSync(require.resolve('../dialog-chrome.js'),'utf8'),{document:{documentElement:root,createElement:t=>new Element(t)},Event,MutationObserver:class{constructor(fn){observer=fn;}observe(){}}});
+ const window={dispatchEvent(){}};
+ const run=()=>vm.runInNewContext(fs.readFileSync(require.resolve('../dialog-chrome.js'),'utf8'),{window,document:{documentElement:root,createElement:t=>new Element(t),querySelectorAll:s=>root.querySelectorAll(s)},Event,CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}},MutationObserver:class{constructor(fn){observer=fn;}observe(){}}});
  const flush=()=>observer([{type:'childList',target:dialog,addedNodes:[]}]);
  const x=()=>dialog.querySelectorAll('button').find(b=>b.classList.contains('dialog-circle-close'));
- return {Element,root,dialog,button,run,flush,x};
+ return {Element,root,dialog,button,run,flush,x,window};
 }
 test('PC submissions stay visible and X only runs the separate close handler',()=>{
  for(const label of ['Confirm and Submit','Retry Submit','Submit Manual Damage','Save PC Code and Finalize','Save Contacts and Finish','Confirm Transfer','Send to GM','Use Drama Card','Request Rest','Confirm Damage']){
@@ -69,4 +70,33 @@ test('console exit is replaced by X and restored when reused as Console View',()
  const e=fixture(true);let exits=0;const button=e.button('Exit Console',{onclick:()=>exits++});e.run();
  assert.ok(button.classList.contains('dialog-original-dismiss'));e.x().click();assert.equal(exits,1);
  button.textContent='Console View';e.flush();assert.equal(button.classList.contains('dialog-original-dismiss'),false);
+});
+
+test('backdrop dialogs place their close rail inside the visible content panel',()=>{const e=fixture();const panel=new e.Element('div');panel.className='combat-action-panel';e.dialog.append(panel);const close=e.button('Cancel');panel.append(close);e.run();assert.equal(e.x().parentElement.parentElement,panel);});
+
+test('server reset closes required overlays without submitting and allows class-based dialogs to reopen',()=>{
+ for(const name of ['combat-action-dialog','delay-dialog','queued-effect-dialog','combat-map-dialog']){
+  const e=fixture();let submitted=0;e.dialog.className=name;e.dialog.setAttribute('data-required-roll','');e.button('Confirm and Submit',{onclick:()=>submitted++});e.run();
+  e.window.SADialogReset.apply({id:'reset-one'});assert.equal(submitted,0);assert.ok(e.dialog.classList.contains('hidden'));assert.equal(e.dialog.hidden,false);
+  e.dialog.classList.remove('hidden');e.window.SADialogReset.apply({id:'reset-one'});assert.ok(!e.dialog.classList.contains('hidden'),'a repeated signal must not close a new prompt');
+ }
+});
+
+
+test('explicit confirmation Exit remains visible; X cancels through Stay Here',()=>{
+ const e=fixture();let accepted=0,cancelled=0;
+ const yes=e.button('Exit',{onclick:()=>accepted++});yes.setAttribute('data-dialog-action','');
+ const no=e.button('Stay Here',{onclick:()=>cancelled++});no.setAttribute('data-dialog-dismiss','');no.setAttribute('data-dialog-keep','');
+ e.run();assert.ok(!yes.classList.contains('dialog-original-dismiss'));assert.ok(!no.classList.contains('dialog-original-dismiss'));
+ e.x().click();assert.equal(accepted,0);assert.equal(cancelled,1);yes.click();assert.equal(accepted,1);
+});
+test('FUBS keeps an explicit acceptance action and X never rerolls',()=>{
+ const e=fixture();let kept=0,rerolled=0;e.button('Reroll FUBS',{onclick:()=>rerolled++});
+ const keep=e.button('Keep This Result',{onclick:()=>kept++});keep.setAttribute('data-dialog-dismiss','');keep.setAttribute('data-dialog-keep','');
+ e.run();assert.ok(!keep.classList.contains('dialog-original-dismiss'));e.x().click();assert.equal(kept,1);assert.equal(rerolled,0);
+});
+test('all reviewed backdrop layouts anchor the X to the panel rather than the dimmed viewport',()=>{
+ for(const name of ['combat-map-panel','delay-dialog-panel','queued-effect-panel','backup-conflict-dialog']){
+  const e=fixture(),panel=new e.Element('div');panel.className=name;e.dialog.append(panel);panel.append(e.button('Cancel'));e.run();assert.equal(e.x().parentElement.parentElement,panel,name);
+ }
 });

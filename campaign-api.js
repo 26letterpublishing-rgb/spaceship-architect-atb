@@ -604,7 +604,7 @@ function normalizeCampaign(raw) {
   campaign.conditionalActions = (Array.isArray(campaign.conditionalActions) ? campaign.conditionalActions : []).slice(0, 250).map((action) => ({
     id: String(action?.id || uid("conditional")).slice(0, 100),
     keyword: String(action?.keyword || "").trim().slice(0, 60),
-    kind: action?.kind === "award" ? "award" : "message",
+    kind: action?.kind === "switch" ? "switch" : action?.kind === "award" ? "award" : "message",
     message: String(action?.message || "").trim().slice(0, 4000),
     resource: REWARD_RESOURCES.includes(action?.resource) ? action.resource : "experience",
     amount: Math.round(boundedNumber(action?.amount, 0, 999999999)),
@@ -612,7 +612,7 @@ function normalizeCampaign(raw) {
     skill: String(action?.skill || "").slice(0, 80),
     difficulty: Number.isFinite(Number(action?.difficulty)) ? Number(action.difficulty) : 0,
     hideDifficulty: false,
-  })).filter((action) => action.keyword && action.attribute && action.skill && action.difficulty >= 0);
+  })).filter((action) => action.keyword && (action.kind === "switch" || action.attribute && action.skill && action.difficulty >= 0));
   campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
   campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
   campaign.settings.hideRoomCode = Boolean(campaign.settings.hideRoomCode);
@@ -814,7 +814,7 @@ function writeEvent(response, event, data) {
 }
 
 class CampaignApi {
-  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, snapshotEncounter = () => null, characterMoved = () => {}, characterArchived = () => {}, environmentChanged = () => {}, ensureRescueEncounter = null }) {
+  constructor({ store, storageMode, connectedCharacterIds = () => [], restoreEncounter = () => {}, deleteEncounter = () => {}, canPassTime = () => true, timePassed = () => {}, liveEncounter = () => null, universePaused = () => false, snapshotEncounter = () => null, characterMoved = () => {}, characterArchived = () => {}, environmentChanged = () => {}, ensureRescueEncounter = null }) {
     this.store = store;
     this.storageMode = storageMode;
     this.connectedCharacterIds = code => [...new Set([...connectedCharacterIds(code), ...[...(this.clients?.get(code)||[])].map(client=>this.session(client.token,code)).filter(session=>session?.role==='character').map(session=>session.characterId)])];
@@ -823,6 +823,7 @@ class CampaignApi {
     this.canPassTime = canPassTime;
     this.timePassed = timePassed;
     this.liveEncounter = liveEncounter;
+    this.universePaused = universePaused;
     this.snapshotEncounter = snapshotEncounter;
     this.characterMoved = characterMoved;
     this.characterArchived = characterArchived;
@@ -1032,9 +1033,24 @@ class CampaignApi {
     return {notices:require('./fleet-status').project(room||{starships:ships,units:[],encounterEndedAt:true},session),ships:OXYGEN.project(ships,{gm:session?.role==='gm',characterId:session?.role==='character'?session.characterId:null,paused}),combat};
   }
 
+  clockPacket(campaign,now=Date.now()) {
+    const online=[...(this.clients.get(campaign.code)||[])].some(c=>this.gmSession(c.token,campaign.code));
+    const combat=!this.canPassTime(campaign.code),room=this.liveEncounter(campaign.code)||campaign.encounter;
+    return {elapsedMinutes:Number(campaign.elapsedMinutes)||0,universeClock:clone(campaign.universeClock||{}),rate:require('./universe-clock').rate(campaign,online&&(!combat||!this.universePaused(campaign.code)),combat,room),serverNow:now};
+  }
+  async tickUniverse(campaign,now=Date.now()) {
+    this.universeTicks||=new Map();
+    const packet=this.clockPacket(campaign,now),old=this.universeTicks.get(campaign.code);
+    if(this.saveQueues.has(campaign.code))return;
+    this.universeTicks.set(campaign.code,{at:now,rate:packet.rate,saved:old?.saved||now});
+    if(old&&old.rate&&packet.rate){campaign.elapsedMinutes=(Number(campaign.elapsedMinutes)||0)+Math.max(0,(now-old.at)/1000)*Math.min(old.rate,packet.rate)/60;}
+    for(const client of this.clients.get(campaign.code)||[])writeEvent(client.response,'universe-clock',this.clockPacket(campaign,now));
+    if(old&&(old.rate||packet.rate)&&now-old.saved>=5000){this.universeTicks.get(campaign.code).saved=now;await this.save(campaign,{broadcast:false});}
+  }
   async tickEnvironment(now=Date.now()){
     if(this.environmentBusy)return;this.environmentBusy=true;
     try{for(const campaign of this.campaignCache.values()){
+      await this.tickUniverse(campaign,now);
       const tick=this.environmentTicks.get(campaign.code)||{at:now,saved:now},seconds=Math.max(0,(now-tick.at)/1000);tick.at=now;this.environmentTicks.set(campaign.code,tick);
       const combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null,ships=room?.starships||campaign.starships;
       const galaxy=require('./campaign-starmaps'),travel=galaxy.tick(campaign,now,combat);
@@ -1091,6 +1107,9 @@ class CampaignApi {
         ? campaign.rollRequests.filter((request) => request.targetIds.includes(ownId))
         : [];
     return {
+      universe: this.clockPacket(campaign),
+      elapsedMinutes:Number(campaign.elapsedMinutes)||0,
+      moduleSwitches:gm?clone(campaign.moduleSwitches||{}):undefined,
       shops: SHOPS.view(campaign,gm,campaign.characters.find(r=>r.id===ownId)?.character),
       starmaps: require("./campaign-starmaps").view(campaign,gm,ownId),
       relocationDestinations: gm ? require("./character-relocation").destinations(campaign) : undefined,
@@ -1387,11 +1406,15 @@ class CampaignApi {
       const set = this.clients.get(code) || new Set();
       this.clients.set(code, set);
       set.add(client);
+      this.universeTicks||=new Map();if(!this.universeTicks.has(code)||this.clockPacket(campaign).rate&&!this.universeTicks.get(code).rate)this.universeTicks.set(code,{at:Date.now(),rate:this.clockPacket(campaign).rate,saved:Date.now()});
       await this.broadcast(code,campaign);
       const heartbeat = setInterval(() => res.write(`: keep-alive ${Date.now()}\n\n`), 25000);
       req.on("close", () => {
         clearInterval(heartbeat);
         set.delete(client);
+        const latest=this.campaignCache.get(code)||campaign;
+        const clockTick=this.universeTicks?.get(code);if(clockTick)clockTick.rate=this.clockPacket(latest).rate;
+        void this.save(latest,{broadcast:false}).catch(()=>{});
         void this.broadcast(code).catch(()=>{});
       });
       return true;
@@ -1630,6 +1653,7 @@ class CampaignApi {
     }
 
     if(await require('./crew-logs').handle(this,{path,req,res,body,campaign,token,sendJson}))return true;
+    if(await require('./universe-api').handle(this,{path,req,res,body,campaign,token,sendJson}))return true;
     if(await require('./content-api').handle(this,{path,req,res,body,campaign,token,sendJson,normalizeCampaign,normalizeStarshipRecord,defaultCampaign}))return true;
     if(path==='/api/campaign/starship/details'&&req.method==='POST'){
       const session=this.session(token,code),gm=this.gmSession(token,code);if(!session){sendJson(res,403,{error:'Join the room first.'});return true;}
@@ -3127,14 +3151,15 @@ class CampaignApi {
         return true;
       }
       const keyword = String(body.keyword || "").trim().slice(0, 60);
-      const kind = body.kind === "award" ? "award" : "message";
+      const kind = body.kind === "switch" ? "switch" : body.kind === "award" ? "award" : "message";
+      if(kind==='switch'&&!campaign.settings.moduleAuthoring){sendJson(res,400,{error:'Enable Switch Toggles for Adventure Module authoring first.'});return true;}
       const message = String(body.message || "").trim().slice(0, 4000);
       const resource = REWARD_RESOURCES.includes(body.resource) ? body.resource : "experience";
       const amount = Math.round(boundedNumber(body.amount, 0, 999999999));
       const attribute = String(body.attribute || "").trim().slice(0, 40);
       const skill = String(body.skill || "").trim().slice(0, 80);
       const difficulty = Number(body.difficulty);
-      if (!keyword || !attribute || !skill || !Number.isFinite(difficulty) || difficulty < 0 || (kind === "message" ? !message : amount < 1)) {
+      if (!keyword || (kind==="switch" && /[\\/<>:]|^(?:__proto__|constructor|prototype)$/i.test(keyword)) || (kind!=="switch" && (!attribute || !skill || !Number.isFinite(difficulty) || difficulty < 0 || (kind === "message" ? !message : amount < 1)))) {
         sendJson(res, 400, { error: "Keyword, Attribute, Skill, Difficulty, and the selected delivery are required." });
         return true;
       }

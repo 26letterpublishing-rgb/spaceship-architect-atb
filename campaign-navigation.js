@@ -64,7 +64,7 @@ function command(c,b,auth){
   if(!gm&&!accessible(s,'orbit'))throw Error('The GM has not made orbit available.');if(local.phase==='surface')throw Error('Leave the planet surface first.');const planet=objects(star).find(o=>o.id===b.planetId&&o.kind==='planet'&&!o.destroyedAt);if(!planet||!same(local,planet))throw Error('Move onto the planet’s hex first.');local.phase='orbit';local.planetId=planet.id;
  }else if(b.kind==='descend'||b.kind==='leavePlanet'){
   const landing=maps.capabilities(ship).some(x=>['hover','aerofoil'].includes(x.key)&&x.available);
-  const suitable=ship.ship.sicInventory.some(i=>maps.definition(i.type).landing&&maps.operational(i)&&!i.impaired&&(ship.ship.placements||[]).some(p=>p.sicId===i.id));
+  const suitable=ship.ship.sicInventory.some(i=>maps.definition(i.type).landing&&maps.operational(i)&&(maps.definition(i.type).landing==='aerofoil'||!i.impaired)&&(ship.ship.placements||[]).some(p=>p.sicId===i.id));
   if(!landing||!suitable||maps.propulsion(ship).moveSpeed<=0)throw Error('Working descent equipment and thrusters are required.');
   const leave=b.kind==='leavePlanet';if(local.phase!==(leave?'surface':'orbit'))throw Error(leave?'The ship is not on a planet surface.':'Enter orbit first.');if(!gm&&!leave&&!accessible(s,'surface'))throw Error('The GM has not made this view available.');
   if(leave&&s.party&&!s.party.transport&&local.surfaceHex!==undefined&&!require('./planet-boarding').atShip(c,ship))throw Error('The party must return to the starship’s surface hex before leaving the atmosphere.');
@@ -72,7 +72,7 @@ function command(c,b,auth){
   if(leave&&s.party&&s.party.planetId!==local.planetId)throw Error('This ship is not at the party’s planet.');
   if(leave&&s.partyJourney)throw Error('Wait for surface movement to finish.');
   if(leave){s.viewEvent={id:randomUUID(),kind:'ascend',ownerId:characterId};s.positions[ship.id]={mapId:map.id,q:star.q,r:star.r};s.localPositions[ship.id]=local;s.localJourneys[ship.id]={kind:'ascend',flightStyle:maps.capabilities(ship).some(x=>x.key==='aerofoil'&&x.available)?'aerofoil':'hover',from:{q:local.q,r:local.r},to:{q:local.q,r:local.r},total:20,remaining:20,ownerId:characterId||'',clockAt:Date.now()};}
-  else {delete local.surfaceHex;delete local.regionId;delete local.regionHex;s.localJourneys[ship.id]={kind:'descend',from:{q:local.q,r:local.r},to:{q:local.q,r:local.r},total:20,remaining:20,ownerId:characterId||'',clockAt:Date.now()};}
+  else {delete local.surfaceHex;delete local.regionId;delete local.regionHex;s.localJourneys[ship.id]={kind:'descend',from:{q:local.q,r:local.r},to:{q:local.q,r:local.r},total:20,remaining:20,ownerId:characterId||'',clockAt:Date.now()};const entry=require('./atmospheric-entry').apply(require('./campaign-starmaps').travelRoom(c),ship,s.localJourneys[ship.id]);if(entry)require('./campaign-starmaps').note(c,entry.text,ship);}
  }else if(b.kind==='beamDown'){
   if(local.phase!=='orbit'||!accessible(s,'surface')&&!gm)throw Error('Enter orbit around an available planet first.');
   const room=transportRoom(c,star),unit=room.units.find(u=>u.id===(gm?b.operatorId:characterId));if(!unit)throw Error('Choose an operator at the Bridge or Transporter.');

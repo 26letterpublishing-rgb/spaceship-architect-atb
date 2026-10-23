@@ -1,0 +1,31 @@
+OCTOBER 23, 2026 — IN-UNIVERSE CLOCK AND DYNAMIC ADVENTURE MODULES
+
+Authorized: #commit; user AFK, no questions. Includes the preceding authorized October 22 playtest and popup/banner changes documented in their existing release reports.
+
+Implemented
+- Shared GM/PC navy-to-green banner clock. Numbered elapsed units by default; Settings > Adjust Time can show an editable calendar date, named months, or pause the clock.
+- 30 days per month, 12 months per year. Display-date offsets are separate from elapsed campaign time, so setting Year 3004 does not trigger a five-month adventure condition.
+- Server-owned elapsed time runs at normal speed outside combat and quarter speed while the combat clock advances. It stops for paused ATB/pending combat rolls, an explicitly paused universe clock, a closed room, or no connected GM. No offline catch-up. Existing Pass Time and approved Rest add to the same elapsedMinutes total.
+- Combat and crew-log entries retain in-universe timestamps. Existing real timestamps remain available.
+- Switch authoring is hidden behind Enable Switch Toggles in Insert Scripted Check, with the requested warning. Switch Toggle disables irrelevant reward fields and changes the action to Save Switch. Inserted keywords confirm ON/OFF changes and visibly show the current state.
+- GM-only, durable switch updates use retry identifiers and current-state checks. Hiding authoring controls preserves existing switches and conditional prompts.
+- Optional collapsed alternate-file controls in individual GM saves, including maps, Story, roster/NPCs, shops, arenas and embedded character/ship editors. Keywords appear in the downloaded filename; default-file and condition metadata are also embedded in the save.
+- Switch ON/OFF and elapsed-time conditions, including time since a switch last changed. Conditions are combined; the first matching alternate wins, otherwise the default is suggested. Explicit alternate lists have Move Up; package order controls metadata-based alternatives.
+- Story File Load and location Arrival Content support alternatives. Packaged variants are indexed without loading their content; conditional files cannot be Load at Start. Suggestions show the selected filename and reason, then retain the existing GM-confirmed loading workflow.
+- Preview Conditions simulates elapsed time and switch states without changing the campaign. Only brief GM Settings/Script Help additions.
+
+Decisions
+- Clock persistence checkpoints occur every five seconds while active, plus existing saves and disconnect handling. A process crash can therefore lose a few seconds of wall-clock progress; restored sessions do not count downtime.
+- Switches are named campaign story outcomes, initially OFF. Their current values and change timestamps stay in Campaign saves; authored definitions and file conditions travel in Modules.
+- Save-file conditions use metadata rather than trying to infer meaning from filename text. Existing content is never automatically overwritten when a condition changes.
+- Default filenames and matching alternate types are validated. Modules check file dependencies; external prompts remain an explicit exporter choice.
+- Existing Story switches are reused by keyword on import; a colliding ordinary reward keyword is reported instead of silently breaking the branch.
+- The header shares space between identity, clock and actions; the existing responsive two-row arrangement is retained at narrow widths. Existing controls remain available.
+
+Verification
+- FINAL full suite: 1,283/1,283 passed. Two earlier full runs passed 1,281/1,282 each. First run: existing planet-boarding numeric-hex assertion failed; second run: existing planet-travel duration assertion failed. Both passed subsequent isolated/focused runs. No failures in new clock/module tests.
+- Final affected/workflow/travel run: 25/25. Subsequent clock/content/Pass Time run: 21/21. Latest affected clock/content/Pass Time run: 22/22, including the added stale-encounter pause regression.
+- 54 syntax checks on changed/new JavaScript; CRLF-aware git whitespace check.
+- Disposable server 8793: actual GM checkbox warning, Save Switch, insertion, confirmation, ON/OFF label, calendar editing and pause, matching PC date, conditional file prompt and simulated default/alternate selection. Desktop screenshots and tablet-width PC inspection. Screenshot artifacts are under outputs/universe-qa-20261023 outside the repository.
+- Browser download completion remains unverified: the in-app browser timed out waiting for the iframe's download event, although the Save File dialog completed without an error. File metadata, type validation, package integrity and conditional resolution are covered by automated tests. Physical iPad/Safari audio and touch testing remains a playtest limitation from the preceding release.
+- QA tab closed, viewport override reset, QA server stopped. Normal local server restarted on 8790, PID 21896. Personal campaigns file verified by hash; no direct personal-data edits. Unrelated QA folders/scripts and Gold Standard excluded.

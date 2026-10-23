@@ -19,3 +19,13 @@ test('effects reuse their compression bus, lift quiet dice, and keep launch gain
   assert.equal(mix.destination(audio,'launch').gain.value,1);
   assert.notEqual(mix.destination(context(),'character'),dice,'different AudioContexts never share nodes');
 });
+
+test('Safari gesture unlock reuses the same audio context across embedded screens',()=>{
+ const listeners={};let count=0,starts=0,resumes=0;
+ const audio={state:'suspended',sampleRate:44100,destination:{},resume(){resumes++;this.state='running';return Promise.resolve();},createBuffer(){return {};},createBufferSource(){return {connect(){},start(){starts++;},disconnect(){}};}};
+ const source=fs.readFileSync(require.resolve('../audio-mix.js'),'utf8');
+ const parent=vm.createContext({webkitAudioContext:function(){count++;return audio;},document:{addEventListener(name,fn){listeners[name]=fn;}},addEventListener(){}});
+ vm.runInContext(source,parent);listeners.touchend();assert.equal(count,1);assert.equal(starts,1);assert.ok(resumes);
+ const child=vm.createContext({parent,document:{addEventListener(){}},addEventListener(){}});vm.runInContext(source,child);assert.equal(child.SAAudioMix.context(),audio);assert.equal(count,1);
+ audio.state='interrupted';child.SAAudioMix.unlock();assert.equal(audio.state,'running');assert.equal(starts,2);
+});

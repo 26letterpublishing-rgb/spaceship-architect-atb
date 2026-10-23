@@ -583,7 +583,7 @@ button.skill-name:hover,button.skill-name:focus-visible { color:#72e5ff;text-dec
 .fubs-reroll-control small { color:#9a87a7; font-size:.52rem; text-transform:uppercase; }
 .fubs-reroll-control button { --accent:#a963d1; }
 .fubs-backstory-guidance { margin:0; align-self:center; color:#cdbbd7; font-size:.7rem; font-weight:850; text-align:center; text-transform:none; }
-.fubs-dialog.reveal { animation:fubs-dialog-reveal 520ms cubic-bezier(.2,.8,.2,1) both; }
+.fubs-dialog.reveal { animation:fubs-dialog-reveal 520ms cubic-bezier(.2,.8,.2,1) backwards; }
 
 .skill-check-modal { z-index:1100; background:rgba(1,5,10,.8); }
 body.skill-check-open .campaign-roll-prompt,
@@ -696,7 +696,7 @@ body.skill-roll-active .campaign-roll-prompt { display:none; }
 @keyframes choices-arrive { from { opacity:0; transform:translate(-50%,-2px); } to { opacity:1; transform:translate(-50%,4px); } }
 @keyframes fubs-shine { 0%,100% { filter:brightness(1); box-shadow:inset 0 1px rgba(255,255,255,.3),0 0 8px rgba(231,182,64,.18); } 50% { filter:brightness(1.24); box-shadow:inset 0 1px rgba(255,255,255,.5),0 0 19px rgba(231,182,64,.66); } }
 @keyframes fubs-attention { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); filter:brightness(1.5); box-shadow:0 0 28px rgba(246,210,103,.9); } }
-@keyframes fubs-dialog-reveal { from { opacity:0; transform:translateY(12px) scale(.97); filter:brightness(1.5); } to { opacity:1; transform:none; filter:brightness(1); } }
+@keyframes fubs-dialog-reveal { from { opacity:0; transform:translateY(12px) scale(.97); filter:brightness(1.5); } to { opacity:1; transform:none; filter:none; } }
 @keyframes speed-preview-wave { from { transform:translateX(0) skewX(-15deg); } to { transform:translateX(345%) skewX(-15deg); } }
 @keyframes speed-preview-ready { from { filter:brightness(1); opacity:.76; } to { filter:brightness(1.65); opacity:1; } }
 @keyframes roll-toast {
@@ -1205,7 +1205,7 @@ body.skill-roll-active .campaign-roll-prompt { display:none; }
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:58px; }
+.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:var(--character-hud-height,58px); }
 .resource-hud-visible .player-atb-frame { height:calc(100dvh - 275px); }
 
 .tabbed-character-toolbar { margin-top:0; margin-bottom:8px; }
@@ -1349,7 +1349,7 @@ body.skill-roll-active .campaign-roll-prompt { display:none; }
   .global-character-hud > div { min-height:38px; padding:3px 2px; }
   .global-character-hud span { font-size:.42rem; }
   .global-character-hud strong { font-size:.72rem; }
-  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:46px; }
+  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:var(--character-hud-height,46px); }
   .resource-hud-visible .player-atb-frame { height:calc(100dvh - 255px); }
   .tabbed-layout .workflow-bar.draft-active,
   .tabbed-layout .tabbed-character-toolbar.resources-active + .workflow-bar.draft-active { top:79px; }
@@ -1391,7 +1391,7 @@ html { -webkit-text-size-adjust:100%; }
   top:6px;
   z-index:70;
 }
-.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:58px; }
+.resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:var(--character-hud-height,58px); }
 .character-creation-active .tabbed-character-toolbar { display:none!important; }
 .character-creation-active #characterSheet {
   display:flex;
@@ -1444,7 +1444,7 @@ html { -webkit-text-size-adjust:100%; }
   background:linear-gradient(180deg,rgba(17,32,47,.99),rgba(6,15,25,.99));
   box-shadow:0 8px 20px rgba(0,0,0,.42);
 }
-.resource-hud-visible .campaign-sheet-viewer-heading { top:58px; }
+.resource-hud-visible .campaign-sheet-viewer-heading { top:var(--character-hud-height,58px); }
 .campaign-sheet-viewer-heading > div { min-width:0; display:grid; justify-items:center; gap:2px; }
 .campaign-sheet-viewer-heading > div span { color:var(--cyan); font-size:.54rem; font-weight:900; }
 .campaign-sheet-viewer-heading > div strong { max-width:100%; overflow:hidden; color:#fff; font-size:1rem; text-overflow:ellipsis; white-space:nowrap; }
@@ -1485,8 +1485,8 @@ html { -webkit-text-size-adjust:100%; }
     overflow:auto;
     overscroll-behavior:contain;
   }
-  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:46px; }
-  .resource-hud-visible .campaign-sheet-viewer-heading { top:46px; }
+  .resource-hud-visible .creator-shell.tabbed-layout .tabbed-character-toolbar { top:var(--character-hud-height,46px); }
+  .resource-hud-visible .campaign-sheet-viewer-heading { top:var(--character-hud-height,46px); }
   .campaign-sheet-viewer { margin-inline:-10px; }
   .campaign-sheet-viewer-heading {
     grid-template-columns:1fr auto;
@@ -2166,3 +2166,26 @@ select.skill-guidance{border-radius:8px!important}
 #characterSheet .derived-grid>div>span,#characterSheet .hp-console>span,#characterSheet .identity-choice-field>span,#characterSheet .identity-grid>label,#characterSheet .attribute-name,#characterSheet .field-label,#characterSheet .xp-primary>span,#characterSheet .weapon-slot-heading>span,#characterSheet .advantages-notes{font-size:1.2rem;line-height:1.1;color:var(--green);font-weight:800}
 #characterSheet .derived-grid>div{row-gap:2px;padding-top:3px;padding-bottom:3px}
 #characterSheet .identity-grid>label{gap:2px}
+
+/* Keep finalized sheet actions reachable when the status text grows. */
+.creator-shell.character-finalized .workflow-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.creator-shell.character-finalized .workflow-bar>.workflow-copy{flex:1 1 220px;min-width:0}
+.creator-shell.character-finalized .workflow-bar>.experience-panel{flex:1 1 170px;min-width:0}
+.creator-shell.character-finalized .workflow-bar>.workflow-actions{flex:0 1 auto;flex-wrap:wrap;margin-left:auto;max-width:100%}
+.creator-shell.character-finalized .workflow-actions button{min-width:100px;width:auto;padding:8px 16px}
+.global-character-hud{height:auto;overflow:visible;top:env(safe-area-inset-top,0px)}
+.global-character-hud>div{height:auto}.global-character-hud strong{white-space:normal;overflow:visible;overflow-wrap:anywhere}
+
+.dice-roller.choices-ready .dice-stage{left:50%;top:45%;width:min(480px,calc(100vw - 32px));height:min(300px,calc(100dvh - 140px))}
+.dice-roller.choices-ready .dice-copy{max-width:100%;width:max-content;border-radius:12px;padding:10px 14px;background:#071722}
+.dice-roller.choices-ready .dice-copy h2{font-size:18px;line-height:1.25}
+.dice-roller.choices-ready .dice-copy p{font-size:15px;line-height:1.35;color:#d2e4ee;margin-top:5px}
+.dice-roller.choices-ready .dice-actions button{font-size:14px;min-height:38px}
+
+/* A locked combat Attribute has no Back button to occupy the narrow first column. */
+.skill-roll-summary:has(>.attribute-return[hidden]),.skill-roll-summary.combat-damage-summary{grid-template-columns:minmax(90px,.8fr) minmax(0,1.5fr) minmax(90px,.8fr)}
+.skill-roll-summary:has(>.attribute-return[hidden])>div:last-child,.skill-roll-summary.combat-damage-summary>div:last-child{grid-column:auto;border-top:0}
+.skill-roll-summary>div{min-width:0}
+
+/* Identity field labels sit halfway between the section heading (.77rem) and sheet titles (1.2rem). */
+#characterSheet .identity-grid>label:not(.identity-atb-color),#characterSheet .identity-choice-field>span{color:var(--cyan);font-size:.985rem}

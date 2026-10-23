@@ -130,6 +130,7 @@ for (const [family, items] of families) {
   summary.innerHTML = `<strong>${escapeHtml(family)}${options.showCounts?`<small>${items.length} card${items.length===1?'':'s'}</small>`:""}</strong>`; summary.append(preview);
   const cards = document.createElement("div"); cards.className = "sic-family-cards"; cards.append(...items);
   stack.append(summary, cards); market.append(stack);
+  const resizeStack=new ResizeObserver(entries=>{for(const entry of entries){const width=entry.contentRect.width;if(width>0){preview.style.setProperty('--stack-scale',String(Math.min(1,width/350)));summary.style.setProperty('--stack-height',(Math.min(350,width)*1.4+120)+'px');}}});resizeStack.observe(stack);
   summary.addEventListener("click", event => { event.preventDefault(); openSicFamily(family, items, summary); });
 }
 

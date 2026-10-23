@@ -99,5 +99,5 @@
   .starship-tabs > #starshipCreationGuide {font-size:12px;padding:7px 10px;}
 }
 
-#sa-starship-guide.has-close-chrome[open]{grid-template-rows:auto auto minmax(0,1fr) auto}
+#sa-starship-guide.has-close-chrome[open]{grid-template-rows:auto minmax(0,1fr) auto}
 #sa-starship-guide.has-close-chrome [data-sg-back]{display:none}

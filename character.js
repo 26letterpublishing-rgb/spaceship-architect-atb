@@ -644,7 +644,7 @@ function ensureCharacterAudio() {
   if (!playerSoundsEnabled) return null;
   const Context = window.AudioContext || window.webkitAudioContext;
   if (!Context) return null;
-  if (!characterAudioContext) characterAudioContext = new Context();
+  if (!characterAudioContext) characterAudioContext = window.SAAudioMix.context();
   if (characterAudioContext.state === "suspended") characterAudioContext.resume().catch(() => {});
   return characterAudioContext;
 }
@@ -1816,6 +1816,7 @@ function showCharacterPanel(tab = "sheet") {
     panel.hidden = panel.dataset.characterPanel !== activeCharacterTab;
   });
   dom.tabs.querySelectorAll("[data-character-tab]").forEach((button) => button.classList.toggle("active", button.dataset.characterTab === activeCharacterTab));
+  if(character.pendingRoll?.kind==='advancement-d6'){diceRoller.shell.hidden=activeCharacterTab!=='sheet';if(activeCharacterTab==='sheet'&&character.pendingRoll.result!==null)presentAdvancementDecision();}
   if (activeCharacterTab === "sheet") renderCharacterLayout();
   if (activeCharacterTab === "roster") renderCampaignRoster();
   if (activeCharacterTab === "starships") renderPlayerStarships();
@@ -2424,6 +2425,7 @@ function receiveCampaignState(nextState) {
   document.querySelector('[data-console-preview-frame]')?.contentWindow?.postMessage({type:'sa-campaign-state',campaign:nextState},location.origin);
   processDramaPlayEvents(nextState);
   campaignState = nextState;
+  window.SAUniverseUI?.update(nextState);
   window.SACharacterLifecycle?.update(nextState);
   window.SACampaignMapUI?.update(nextState,campaignToken);
   window.SACrewLogs?.update(nextState,campaignToken);
@@ -2509,6 +2511,7 @@ function connectCampaignState() {
   if (!campaignCode) return;
   campaignEvents = new EventSource(`/campaign-events?code=${encodeURIComponent(campaignCode)}&token=${encodeURIComponent(campaignToken || "")}`);
   campaignEvents.addEventListener('galaxy-travel',event=>window.SACampaignMapUI?.travel(JSON.parse(event.data)));
+  campaignEvents.addEventListener("universe-clock",event=>{const v=JSON.parse(event.data);if(campaignState)Object.assign(campaignState,v);window.SAUniverseUI?.packet(v);});
   campaignEvents.addEventListener("campaign", (event) => receiveCampaignState(JSON.parse(event.data)));
   campaignEvents.addEventListener('oxygen',event=>window.SAOxygenUI.update(JSON.parse(event.data),body=>campaignRequest('/api/campaign/oxygen/roll',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,...body})}),campaignState?.role==='gm'));
   campaignEvents.addEventListener('encounter-locations',event=>{
@@ -3884,6 +3887,7 @@ function renderWorkflow() {
     dom.workflowDetail.textContent = character.advancementOpen ? "Purchases are permanent. Finish spending when you are done." : "Race, Class, and creation allocations are locked.";
     dom.spendExperience.textContent = character.advancementOpen ? "Finish Spending" : attributePoints || skillPoints ? "Spend Advancement" : "Spend EXP";
     dom.spendExperience.disabled = Boolean(character.pendingRoll);
+    dom.spendExperience.classList.toggle('next-action-glow',!character.advancementOpen&&Number(character.experience.available)>0);
     return;
   }
 
@@ -6721,7 +6725,7 @@ function showWorkflowTutorial(key, target = "") {
   character.creation.activeGuideStep=key;queueSave();renderWorkflow();
   const shell = document.createElement("div");
   shell.className = "modal-shell workflow-tutorial-modal";
-  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Character Creation</span><h2>${escapeHtml(copy[0])}</h2><p>${escapeHtml(copy[1])}</p><div class="dialog-actions"><button type="button" class="primary-action">Got It</button></div></section>`;
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><span class="dialog-kicker">Character Creation</span><h2>${escapeHtml(copy[0])}</h2><p>${escapeHtml(copy[1])}</p><div class="dialog-actions"><button type="button" class="primary-action" data-dialog-dismiss data-dialog-keep>Got It</button></div></section>`;
   document.body.append(shell);
   if (key === "attributes") addAttributePurchaseGuide(shell);
   if (key === "identity") {
@@ -6740,11 +6744,14 @@ function autoFillIdentity() {
   const choices=[0,1,2].filter(i=>i!==previous),index=choices[Math.floor(Math.random()*choices.length)];
   const preset=window.SAIdentityPresets.get(character.identity.raceId,character.identity.raceType,index);
   if(!preset)return;
-  Object.assign(character.identity,preset,{homePlanetKind:HOME_PLANETS.includes(preset.homePlanet)?'preset':'other'});
+  const blank=value=>value==null||String(value).trim()==='';
+  const fillHome=blank(character.identity.homePlanet);
+  for(const [key,value] of Object.entries(preset)){
+    if(blank(character.identity[key]))character.identity[key]=value;
+  }
+  if(fillHome)character.identity.homePlanetKind=HOME_PLANETS.includes(character.identity.homePlanet)?'preset':'other';
   character.creation.identityPresetIndex=index;
-  const colors=['#ff678e','#ffaf4d','#ffe066','#66e6a0','#4ed9ed','#6e9cff','#bd8aff','#f786d5'];
-  const available=colors.filter(c=>c!==character.presentation.atbColor);
-  character.presentation.atbColor=available[Math.floor(Math.random()*available.length)];
+  // Color and icon are existing choices, not empty identity fields.
   queueSave();renderAll();
 }
 
@@ -6769,7 +6776,7 @@ function showDraftIntroduction() {
   if (character.phase !== "draft" || manualInputMode() || CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW || document.querySelector(".draft-introduction-modal")) return;
   const shell = document.createElement("div");
   shell.className = "modal-shell draft-introduction-modal";
-  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><button type="button" class="draft-guide-copy phase-badge draft">Next Step</button><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action">OK</button></div></section>`;
+  shell.innerHTML = `<section class="confirm-dialog" role="dialog" aria-modal="true"><div class="draft-guide-demo"><button type="button" class="draft-guide-copy phase-badge draft">Next Step</button><span class="draft-guide-arrow" aria-hidden="true">&#8592;</span></div><h2>Click Next Step</h2><p>Click this button to learn what you need to do next. The Next Step button stays at the top left at all times.</p><div class="dialog-actions"><button type="button" class="primary-action" data-dialog-dismiss data-dialog-keep>OK</button></div></section>`;
   document.body.append(shell);
   character.creation.introductionSeen = true;
   queueSave();
@@ -7254,6 +7261,9 @@ function presentAdvancementDecision() {
     acceptAdvancementResult();
     return;
   }
+  diceRoller.title.textContent=pendingRollTitle(pending)+' — rolled '+pending.result+' on D'+(pending.sides||6);
+  diceRoller.subtitle.textContent='Keep this skill increase of +'+(pending.result/10).toFixed(1)+' or '+(freeReroll?'reroll for free.':('spend '+rerollCost+' XP to reroll. The new result replaces this roll.'));
+  diceRoller.shell.hidden=activeCharacterTab!=='sheet';
   diceRoller.showChoices([
     { label: freeReroll ? "Reroll Free" : `Reroll - ${rerollCost} XP`, className: "primary-action", action: () => rerollAdvancement(freeReroll ? 0 : rerollCost) },
     { label: "Keep", action: () => acceptAdvancementResult() },
@@ -7407,7 +7417,7 @@ async function showBackstoryRequired() {
   await askConfirmation({
     title: "Write Backstory First.",
     message: "FUBS can only be rolled after something has been written in the Character Background.",
-    cancelLabel: "Exit",
+    cancelLabel: "Got It",
     singleAction: true,
   });
   const background = document.querySelector('[data-field="notes"]');
@@ -7463,6 +7473,7 @@ async function exportCurrentCharacter() {
   const payload = { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: new Date().toISOString(), character:portable };
   const json = JSON.stringify(payload, null, 2);
   const baseName = filenameForCharacter();
+  if(window.parent!==window&&window.parent.SAModuleAuthor?.enabled())return window.parent.SAModuleAuthor.save(payload,baseName+".sa2character");
   const mobileDevice = Boolean(navigator.userAgentData?.mobile) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
   const sharedFile = mobileDevice && typeof File === "function"
     ? new File([json], `${baseName}.sa2character.json`, { type: "application/json" })
@@ -8549,7 +8560,7 @@ dom.characterBanner?.addEventListener("click", async () => {
   const accepted = await askConfirmation({
     title: campaignCode ? "Exit campaign?" : "Return to the main menu?",
     message: campaignCode ? "Your character remains linked and saved. You can log back in from the main menu." : "Current character data is saved locally.",
-    acceptLabel: "Exit",
+    acceptLabel: campaignCode ? "Exit Campaign" : "Return to Main Menu",
     cancelLabel: "Stay Here",
   });
   if (accepted) window.location.href = "index.html";
@@ -9931,3 +9942,8 @@ function syncShipConsoleLauncher(){let gold=document.querySelector('[data-ship-c
 setInterval(syncShipConsoleLauncher,500);
 
 const partyBrowse=document.createElement('button');partyBrowse.type='button';partyBrowse.textContent='View other party members';partyBrowse.setAttribute('aria-expanded','false');const partyNavigation=document.querySelector('.campaign-character-navigation');partyNavigation.hidden=true;partyNavigation.before(partyBrowse);partyBrowse.onclick=()=>{partyNavigation.hidden=!partyNavigation.hidden;partyBrowse.setAttribute('aria-expanded',String(!partyNavigation.hidden));};
+
+const vitalHud=document.getElementById('globalCharacterHud');
+if(vitalHud)new ResizeObserver(()=>{document.documentElement.style.setProperty('--character-hud-height',(vitalHud.hidden?0:Math.ceil(vitalHud.getBoundingClientRect().height)+8)+'px');}).observe(vitalHud);
+
+window.addEventListener("sa-combat-reset",()=>resetCombatInterfaceState());

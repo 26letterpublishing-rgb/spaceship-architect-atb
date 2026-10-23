@@ -8,7 +8,7 @@ function freshArrivals(value){if(!value||typeof value!=='object')return value;if
 function shipLocation(s,id){const p=s.localPositions?.[id]||s.positions?.[id];if(!p||p.starId)return p;const star=s.maps.find(m=>m.id===p.mapId)?.stars.find(x=>x.q===p.q&&x.r===p.r);return {...p,starId:star?.id};}
 function clean(value){if(Array.isArray(value))return value.map(clean);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([k])=>!['legacyGrid','resizeBackup','access','campaignLink','runtimeSessions'].includes(k)).map(([k,v])=>[k,clean(v)]));return value;}
 function validate(file){
- const kind=types.identify(file).id;if(JSON.stringify(file).length>16*1024*1024)throw Error('Content files must be smaller than 16 MB.');
+ const kind=types.identify(file).id;if(file.moduleVariant){const v=require('./module-conditions').variant(file.moduleVariant);if(types.filename(v.baseFile,kind).type!==kind)throw Error('The default file must use the same save type.');}if(JSON.stringify(file).length>16*1024*1024)throw Error('Content files must be smaller than 16 MB.');
  if(kind==='story')require('./story-files').parse(file);
  if(kind==='shop')require('./campaign-shops').normalize(file.shop);
  if(kind==='arena')require('./arena-files').parse(file);

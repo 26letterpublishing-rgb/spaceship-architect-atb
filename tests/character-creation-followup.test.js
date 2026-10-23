@@ -19,14 +19,15 @@ test('every race and subtype has three complete editable identity suggestions wi
   assert.equal(identity.get('antropic','fins',0).hair,'None');
   assert.match(identity.get('yuhorn-symitron','rock',0).description,/stone/);
 });
-test('Auto Fill preserves race, class and player name while replacing editable identity and color',()=>{
+test('Auto Fill fills only blank identity fields and preserves color and existing choices',()=>{
   const character={phase:'draft',identity:{raceId:'human',raceType:'',classId:'pilot',playerName:'Real Player'},creation:{},presentation:{atbColor:'#ff678e'}};
   let saves=0,renders=0;
   const c=vm.createContext({character,CAMPAIGN_READ_ONLY_VIEW:false,window:{SAIdentityPresets:identity},HOME_PLANETS:['Earth'],Math:Object.assign(Object.create(Math),{random:()=>0}),queueSave:()=>saves++,renderAll:()=>renders++});
   vm.runInContext(source.slice(source.indexOf('function autoFillIdentity('),source.indexOf('function highlightSkillGuidance(')),c);
   c.autoFillIdentity();assert.equal(character.identity.raceId,'human');assert.equal(character.identity.classId,'pilot');assert.equal(character.identity.playerName,'Real Player');
-  assert.equal(character.identity.characterName,'Mara Solis');assert.notEqual(character.presentation.atbColor,'#ff678e');
-  c.autoFillIdentity();assert.equal(character.identity.characterName,'Elias Okoro');assert.equal(saves,2);assert.equal(renders,2);
+  assert.equal(character.identity.characterName,'Mara Solis');assert.equal(character.presentation.atbColor,'#ff678e');
+  character.identity.homePlanet='My Planet';character.identity.homePlanetKind='other';character.identity.age=0;character.identity.hair='   ';
+  c.autoFillIdentity();assert.equal(character.identity.characterName,'Mara Solis');assert.equal(character.identity.homePlanet,'My Planet');assert.equal(character.identity.homePlanetKind,'other');assert.equal(character.identity.age,0);assert.ok(character.identity.hair.trim());assert.equal(saves,2);assert.equal(renders,2);
   character.identity.raceId='';c.autoFillIdentity();assert.equal(saves,2);
 });
 test('Finish Now animates the saved remaining batch before updating skills or finishing',async()=>{

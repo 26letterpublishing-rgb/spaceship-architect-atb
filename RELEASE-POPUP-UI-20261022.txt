@@ -1,0 +1,52 @@
+LOCAL UI / POPUP REVIEW — OCTOBER 22, 2026
+
+Scope: the follow-up #local queue, plus Jason's supplied banner/title images. No commit, push or completion notification. Earlier October 22 playtest repairs remain in the working tree; this report supplements RELEASE-PLAYTEST-REPAIRS-20261022.txt.
+
+CHANGES AND DECISIONS
+- Choose Earlier Checkpoint, Restore Latest and Encounter Setup share one recovery row. Encounter Setup and the live code appear only for a live/prepared encounter; normal setup still works.
+- Automate NPC uses 12px text and a 28px minimum height, preserving its action.
+- Inline starship statistics precede the interior map. Display checkboxes and navigation sit below it. The enlarged interior uses the same lower controls; duplicate header zoom controls were removed, preserving all zoom/fit/focus functions.
+- Identity field labels are light blue at .985rem, halfway between the .77rem category and former 1.2rem label. ATB Color remains unchanged. No box dimensions were enlarged.
+- Auto Fill Identity fills blank fields only. Existing names, home planet/type, physical details, ATB color and icon stay intact. Numeric zero is treated as an entered value.
+- Fog Reveal Squares no longer starts map drag/pan on a reveal target, so slight pointer drift cannot suppress its click. Commands report success/failure; pending clicks on the same cell are deduplicated. Preview/reveal toggles refresh inline, enlarged and full interior maps. Reveal cells gain an outline for visibility. This remains a combat-mesh-square reveal, not a whole-room reveal.
+- Circular X controls straddle the visible panel's upper-right corner and clamp inside the viewport/scrollable ancestor when a full-screen panel has no outer margin. The shared positioner follows scrolling, resizing and animated dialog content. Backdrop wrappers anchor to their actual content box.
+- FUBS animation no longer leaves a filter containing block that clips the fixed close control after the entrance animation.
+- Banner image copied unchanged to spaceship-architect-2e-banner.png, used by GM, PC, combat and ship-creator headers. Title image copied unchanged to spaceship-architect-2e-title.png, used by the main-menu hero at its natural 16:9 ratio. Existing SAATBBanner.jpg retained. No generated substitute, crop or redesign.
+
+POPUP DECISIONS / SOURCE REVIEW
+This was a review of individual actions, not a blanket restoration/removal of every footer button.
+- Character Main Menu/Exit Campaign confirmation: explicit primary action is protected from dismissal classification. Stay Here remains visible. X selects Stay Here; it never exits.
+- FUBS result: Reroll FUBS remains optional; Keep This Result is visible. X keeps the current result and never rerolls.
+- Attribute/creation tutorial: Got It/OK remain visible acknowledgements, with safe X dismissal. The backstory-required notice now says Got It instead of Exit.
+- Xithx notice: Understood remains visible.
+- Character password prompt: Cancel remains a visible alternative; X cancels without setting a password.
+- Skill results / combat damage: Confirm and Submit are explicitly action-marked. Required rolls retain disabled close protection. Damage-result close remains unavailable until its legitimate stage.
+- GM generic confirmation / campaign exit: Confirm/Exit Campaign and Cancel remain distinct; X cancels.
+- Native form confirmations (room creation/import/replace, ship approvals, file saves/loads, scientific effects): submit buttons remain actions. X follows cancellation, not acceptance.
+- Combat Fire/action, NPC attack, Delay, queued effect, map and backup-conflict wrappers: X attaches to the actual panel, not the backdrop. Required-result safeguards and reset behavior stay intact.
+- Crew deployment: Confirm Positions/Begin Combat remains explicit; cancellation remains a separate path.
+- Informant submission, death approvals, Rest, restoration and advancement: retained their existing save/approve/submit choices; no automatic affirmative behavior added.
+- Combat-result and Warp Exit Report: OK retained as an acknowledgement.
+- Help and Starship Creation Guide: Previous/Next/navigation retained. Read-only dismissal is X; redundant Back/Close-to-the-same-parent behavior remains consolidated.
+- Race/class selection: Choose/selection actions retained; X cancels without selecting. Gallery scrollbar no longer clips X.
+- Weapon/SIC inspectors and blueprint/add-on dialogs: Purchase/Add/View actions retained. X performs the existing Back/cancel path.
+- SIC consoles, maintenance, NPC console choice and room references: operation buttons retained; X uses the existing exit/back path.
+- Oxygen/ship roll/training and other dice flows: required-roll/submission protections retained; no generic X bypass introduced.
+- Read-only result details / action help: X is sufficient where the old Close had no confirmation or submission side effect.
+
+VERIFICATION
+- Full automated suite: 1,277 passed, zero failed. Final log copied to ../outputs/popup-review-20261022/tests-full.txt.
+- The first full run had one stale UI fixture missing the newly moved recovery controls. Updated the fixture and verified setup hides those controls; subsequent full run passed.
+- New/expanded regressions: explicit Exit-vs-cancel semantics, FUBS keep-vs-reroll, panel anchoring, preserving entered Identity values, fog clicks versus panning, and GM-revealed interior visibility reaching PC state.
+- Final asset/interior focused checks: 12 passed.
+- Nine changed JavaScript files passed syntax checks; CRLF-aware git diff whitespace check passed. Original mixed line endings in styles.css preserved.
+- Both supplied PNG hashes match their local copies; normal local server 8790 serves both with HTTP 200 and identical bytes.
+- Live Chromium checks: Main Menu confirmation both choices/X and successful return; FUBS result acceptance/X with unchanged result; creation acknowledgements; Try It Out clearance; race gallery; Character Help; GM exit confirmation; recovery toolbar alignment; compact NPC controls; reordered interior statistics; inline/enlarged reveal; enlarged zoom and X.
+- Responsive visual checks covered desktop, 768x1024 and 390x844. Saved captures in ../outputs/popup-review-20261022, including main-menu-desktop.png, main-menu-phone.png, fubs-tablet.png, attribute-tutorial-tablet.png, attribute-tutorial-phone.png, race-gallery-desktop.png, character-help-desktop.png, gm-confirm-desktop.png, combat-toolbar-desktop.png, interior-layout.png, interior-expanded.png, title-desktop.png and new-pc-banner.png.
+
+LIMITS / CLEANUP
+- This is source review plus representative live workflow coverage, not a claim that every possible dynamic popup state was clicked. Physical Safari/iPad behavior remains unverified.
+- Precise mouse clicks already revealed interior squares before the repair; the confirmed conflict was reveal-target dragging/panning. PC visibility and reveal removal were additionally checked through HTTP tests.
+- A final live GM recovery Fire attempt for a disconnected PC holding an uncharged Standard Sidearm stalled the browser automation connection. getJsDialog returned none; later screenshot/reload/close attempts timed out. No final Fire screenshot or successful close is claimed. A fresh browser tab worked normally for artwork verification. This observation alone does not distinguish an app hang from an automation failure; the exact uncharged firing path needs targeted follow-up.
+- Browser viewport reset succeeded. Completed character/artwork tabs were closed; closure of the stalled combat tab could not be confirmed. Isolated QA server 8793 stopped. Normal server 8790 was left running; these frontend changes need only a refresh.
+- QA used an isolated temporary campaign-data directory and a disposable character draft. Existing local files, prior authorized changes, unrelated QA/scripts and Gold Standard were preserved.

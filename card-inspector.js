@@ -3,13 +3,13 @@
  function open(source,o={}){
   const doc=o.document||document,d=doc.createElement('dialog');d.className='sic-card-dialog sic-inspection shared-card-inspector';d.setAttribute('aria-label',o.title||source.querySelector('h3')?.textContent||'Card details');
   d.innerHTML='<button data-close-sic-card aria-label="Back to cards">Back</button><div data-sic-card-dialog-body><aside class="sic-inspector-tools"></aside></div><p role="alert"></p>';
-  const body=d.querySelector('[data-sic-card-dialog-body]'),tools=body.querySelector('aside'),card=window.SASicMarket.previewCard(source);body.append(card);
-  function action(label,fn,disabled=false){const b=doc.createElement('button');b.textContent=label;b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){d.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=disabled;}};tools.append(b);return b;}
-  if(o.purchase)action('Purchase',async()=>{if(await o.purchase())d.close();},!!o.disabled).disabled=!!o.disabled;
+  const body=d.querySelector('[data-sic-card-dialog-body]'),tools=body.querySelector('aside'),card=window.SASicMarket.previewCard(source);const stage=doc.createElement('div');stage.className='inspection-card-stage sic-market-item';stage.append(card);body.append(stage);card.style.animation='none';card.style.transition='none';
+  function action(label,fn,disabled=false){const b=doc.createElement('button');b.textContent=label;b.disabled=disabled;b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){d.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=disabled;}};tools.append(b);return b;}
+  if(o.purchase){const buy=action('Purchase',async()=>{if(await o.purchase())d.close();},!!o.disabled);buy.className='sic-purchase-button';stage.append(buy);}
   if(o.blueprint)action('Buy blueprint',o.blueprint,!!o.disabled).disabled=!!o.disabled;
   if(o.preview)action('Preview Console',()=>o.preview(d));
-  let zoom=1;const set=n=>{zoom=Math.max(.5,Math.min(3,n));card.style.zoom=zoom;d.style.setProperty('--inspection-width',(350*zoom+220)+'px');};
-  const fit=()=>set(Math.min(1,(doc.defaultView.innerHeight-100)/520,(doc.defaultView.innerWidth-240)/350));
+  let zoom=1;const set=n=>{zoom=Math.max(.5,Math.min(3,n));card.style.transform='scale('+zoom+')';card.style.transformOrigin='top left';stage.style.width=(350*zoom)+'px';stage.style.height=(490*zoom)+'px';d.style.setProperty('--inspection-width',(350*zoom+190)+'px');};
+  const fit=()=>set(Math.min(1,(doc.defaultView.innerHeight-100)/520,(doc.defaultView.innerWidth-190)/350));
   action('−',()=>set(zoom-.15)).setAttribute('aria-label','Zoom out card');action('Fit Card',fit);action('+',()=>set(zoom+.15)).setAttribute('aria-label','Zoom in card');
   body.onwheel=e=>{if(!e.target.closest('.sic-display-card'))return;e.preventDefault();set(zoom+(e.deltaY<0?.15:-.15));};d.querySelector('[data-close-sic-card]').onclick=()=>d.close();d.onclose=()=>{d.remove();o.trigger?.focus({preventScroll:true});};doc.body.append(d);d.showModal();fit();window.SACardFit.observe(d);return d;
  }

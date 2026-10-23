@@ -347,6 +347,7 @@ function cacheCampaignState(nextCampaign) {
 }
 
 function downloadJson(payload, filename) {
+  if(window.SAModuleAuthor?.enabled())return window.SAModuleAuthor.save(payload,filename);
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;
@@ -454,7 +455,7 @@ function playDramaJolt() {
   if (gmSoundsMuted) return;
   const Context = window.AudioContext || window.webkitAudioContext;
   if (!Context) return;
-  gmDramaAudioContext ||= new Context();
+  gmDramaAudioContext ||= window.SAAudioMix.context();
   const audio = gmDramaAudioContext;
   const sound = () => {
     const startsAt = audio.currentTime + 0.015;
@@ -668,6 +669,9 @@ function renderScriptChapterControls() {
 }
 
 function syncConditionalKind() {
+  const toggle=dom.conditionalKind.value==="switch";
+  for(const el of [dom.conditionalMessage,dom.conditionalResource,dom.conditionalAmount,dom.conditionalAttribute,dom.conditionalSkill,dom.conditionalDifficulty,dom.conditionalHideDifficulty]){el.disabled=toggle;el.closest("label")?.classList.toggle("switch-dim",toggle);}
+  document.getElementById("saveConditionalAction").textContent=toggle?"Save Switch":"Save Reward Check";dom.sendConditionalAction.disabled=toggle;
   const award = dom.conditionalKind.value === "award";
   dom.conditionalMessageWrap.hidden = award;
   dom.conditionalAwardWrap.hidden = !award;
@@ -709,12 +713,13 @@ function loadConditionalForm(actionId) {
 }
 
 function renderConditionalControls() {
-  const actions = campaign?.conditionalActions || [];
+  window.SAUniverseUI?.authoring(campaign);
+  const actions = (campaign?.conditionalActions || []).filter(a=>a.kind!=="switch"||campaign.settings?.moduleAuthoring);
   const selected = editingConditionalActionId;
   const selectedScriptAction = dom.scriptCommandType.value;
   const options = actions.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.keyword)}</option>`).join("");
   dom.conditionalSelect.innerHTML = `<option value="">New Reward Check...</option>${options}`;
-  dom.scriptCommandType.innerHTML = `<option value="">Scripted Direct Check</option>${actions.map((entry) => `<option value="${entry.id}">Scripted Reward Check: ${escapeHtml(entry.keyword)}</option>`).join("")}`;
+  dom.scriptCommandType.innerHTML = `<option value="">Scripted Direct Check</option>${actions.map((entry) => `<option value="${entry.id}">${entry.kind==='switch'?'Switch Toggle':'Scripted Reward Check'}: ${escapeHtml(entry.keyword)}</option>`).join("")}`;
   if (actions.some((entry) => entry.id === selectedScriptAction)) dom.scriptCommandType.value = selectedScriptAction;
   syncScriptCommandType();
   if (actions.some((entry) => entry.id === selected)) dom.conditionalSelect.value = selected;
@@ -870,6 +875,7 @@ function parseCommand(raw, index) {
   const conditionalAction = keyword
     ? (campaign?.conditionalActions || []).find((entry) => entry.keyword.toLowerCase() === keyword.toLowerCase())
     : null;
+  if(conditionalAction?.kind==='switch')return {id:raw,raw,keyword:conditionalAction.keyword,switchKeyword:conditionalAction.keyword,valid:true};
   if (conditionalAction) {
     attribute = conditionalAction.attribute;
     skill = conditionalAction.skill;
@@ -926,7 +932,7 @@ function inboxItemActions(note) {
   if (note.kind !== "item-transaction") return "";
   const deny = note.reversible ? `<button class="danger" type="button" data-deny-item="${escapeHtml(note.transactionId)}">Deny</button>` : "";
   const cover = Number(note.deficit) > 0 ? `<button type="button" data-cover-deficit="${escapeHtml(note.characterId)}">Cover Deficit (+${Number(note.deficit).toLocaleString()} Credits)</button>` : "";
-  return `<div class="inbox-actions">${deny}${cover}<button type="button" data-delete-retained-note="${escapeHtml(note.id)}">Approve</button></div>`;
+  return `<div class="inbox-actions">${deny}${cover}<button type="button" data-delete-retained-note="${escapeHtml(note.id)}" data-purchase-ack>Approve</button></div>`;
 }
 
 
@@ -1364,6 +1370,8 @@ function showEncounterLive() {
   forceEncounterBuilder = false;
   encounterSetupRequested = false;
   dom.atbSetup.hidden = true;
+  dom.returnToEncounterSetup.hidden = false;
+  dom.liveEncounterCode.hidden = false;
   dom.atbLive.hidden = false;
   dom.liveEncounterCode.textContent = campaign?.settings?.hideRoomCode ? "\u2022\u2022\u2022\u2022" : code;
   const expected = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
@@ -1379,6 +1387,8 @@ function showEncounterSetup({ forceBuilder = false, explicit = false } = {}) {
     return;
   }
   dom.atbLive.hidden = true;
+  dom.returnToEncounterSetup.hidden = true;
+  dom.liveEncounterCode.hidden = true;
   dom.atbSetup.hidden = false;
   if (forceBuilder) {
     forceEncounterBuilder = true;
@@ -1555,7 +1565,7 @@ function renderScriptEditor(source = scriptSource()) {
     const label = command?.valid
       ? command.keyword || `${command.skill || command.attribute} Check`
       : `INVALID ROLL PROMPT / ${match[1].trim()}`;
-    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}</button></span>&#8203;`);
+    pieces.push(`<span class="script-command-token" contenteditable="false" data-script-command data-command-raw="${escapeHtml(match[1])}"><button type="button" class="script-command-chip ${command?.switchKeyword&&campaign.moduleSwitches?.[command.switchKeyword.toLowerCase()]?.active?"module-switch-on":""} ${command?.valid ? "" : "invalid"} ${executedCommands.has(command?.id) ? "executed" : ""}" data-send-command="${index}" ${command?.valid ? "" : "disabled"}>${escapeHtml(label)}${command?.switchKeyword?(campaign.moduleSwitches?.[command.switchKeyword.toLowerCase()]?.active?" · ON":" · OFF"):""}</button></span>&#8203;`);
     cursor = expression.lastIndex;
     index += 1;
   }
@@ -1659,6 +1669,7 @@ function receiveCampaign(next) {
   processDramaPlayEvents(next);
   notifyPromptResults(next);
   campaign = next;
+  window.SAUniverseUI?.update(next);
   if (!targetSelectionTouched && !selectedTargets.size && next.characters?.length === 1) {
     selectedTargets.add(next.characters[0].id);
   }
@@ -1670,6 +1681,7 @@ function connectCampaignEvents() {
   events?.close();
   events = new EventSource(`/campaign-events?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
   events.addEventListener('galaxy-travel',event=>window.SACampaignMapUI?.travel(JSON.parse(event.data)));
+  events.addEventListener("universe-clock",event=>{const v=JSON.parse(event.data);if(campaign)Object.assign(campaign,v);window.SAUniverseUI?.packet(v);});
   events.addEventListener("campaign", (event) => receiveCampaign(JSON.parse(event.data)));
   events.addEventListener('encounter-locations',event=>{
     const update=JSON.parse(event.data);if(!campaign)return;
@@ -1982,6 +1994,7 @@ dom.script.addEventListener("click", async (event) => {
   const index = Number(button.dataset.sendCommand);
   const command = scriptCommandList()[index];
   if (!command?.valid) return;
+  if(command.switchKeyword){button.disabled=true;try{await window.SAUniverseUI.toggle(command.switchKeyword);renderScriptEditor(scriptSource());}catch(e){showMessage(dom.message,e.message,'error');}finally{button.disabled=false;}return;}
   if(command.fileLoad){await window.SAContentUI.filePrompt(command.fileLoad);return;}
   if(command.shopId){button.disabled=true;try{await api('/api/campaign/shops',{code,token,operation:'activate',shopId:command.shopId,active:true});executedCommands.add(command.id);button.classList.add('executed');}catch(error){showMessage(dom.message,error.message,'error');}finally{button.disabled=false;}return;}
   if (executedCommands.has(command.id) && !await confirmGm({ title: "Send Again?", message: "Send this check request again?", acceptLabel: "Send Again" })) return;
@@ -2031,7 +2044,7 @@ dom.inboxList.addEventListener("click", async (event) => {
     return;
   }
   const retained=event.target.closest('[data-delete-retained-note]');
-  if(retained){if(!await confirmGm({title:'Delete this notification?',message:'This retained message will be removed from the GM inbox. Its saved contacts or memorial record remain in the campaign.',acceptLabel:'Delete Notification',danger:true}))return;
+  if(retained){if(!retained.hasAttribute('data-purchase-ack')&&!await confirmGm({title:'Delete this notification?',message:'This retained message will be removed from the GM inbox. Its saved contacts or memorial record remain in the campaign.',acceptLabel:'Delete Notification',danger:true}))return;
     try{await api('/api/campaign/note/delete',{code,token,noteId:retained.dataset.deleteRetainedNote});await refreshCampaign();}catch(error){showMessage(dom.message,error.message,'error');}return;
   }
   const death=event.target.closest('[data-death-decision]');
@@ -3081,7 +3094,7 @@ function surfaceStartButton(id,name,enabled){return `<button type="button" data-
 function updateSurfaceStartLabels(){document.querySelectorAll('[data-surface-start]').forEach(b=>b.textContent=surfaceStartLabel(b.dataset.surfaceStart));}
 document.getElementById('atbSetup').addEventListener('click',event=>{const button=event.target.closest('[data-surface-start]');if(!button)return;event.preventDefault();event.stopPropagation();const host=document.getElementById('surfaceArenaEditor');window.SAArenaUI.beginPlacement(host,button.dataset.surfaceStart);});
 
-function saveLocalFile(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function saveLocalFile(value,name){if(window.SAModuleAuthor?.enabled())return window.SAModuleAuthor.save(value,name);const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.getElementById('saveStoryFile').onclick=async()=>{try{await saveScript();saveLocalFile(window.SAStoryFiles.create(campaign),'Story Console.sa2story');}catch(error){showMessage(dom.message,error.message,'error');}};
 document.getElementById('loadStoryFile').onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='.sa2story,.json';input.onchange=async()=>{try{const file=JSON.parse(await input.files[0].text());window.SAStoryFiles.parse(file);if(!await confirmGm({title:'Load Story Console?',message:'Replace the current chapters and saved story commands with this file? Existing campaign shops remain available.',acceptLabel:'Load Story Console'}))return;await saveScript();await api('/api/campaign/script/import',{code,token,file});activeScriptChapterId='';scriptDirty=false;lastScriptRange=null;await refreshCampaign();renderScriptEditor(activeScriptChapter()?.script||'');}catch(error){showMessage(dom.message,error.message,'error');}};input.click();};
 document.addEventListener('sa-insert-shop-keyword',event=>{dom.script.append(document.createTextNode((scriptSource()?'\n':'')+'::Shop:'+event.detail.id+'::'));dom.script.dispatchEvent(new Event('input',{bubbles:true}));renderScriptEditor(scriptSource());placeScriptCaretAtEnd();});
@@ -3123,3 +3136,5 @@ document.getElementById('restorePcResources')?.addEventListener('click',async fu
  if(!selectedTargets.size){showMessage(dom.message,'Select one or more PCs.','error');return;}
  this.disabled=true;try{const payload=await api('/api/campaign/character/restore-resources',{code,token,targetIds:[...selectedTargets],hp:Number(document.getElementById('restorePcHp').value),exertion:Number(document.getElementById('restorePcExertion').value),full:document.getElementById('restorePcFull').checked,requestId:crypto.randomUUID()});receiveCampaign(payload.campaign);showMessage(dom.message,'Selected PCs’ resources restored.','success');}catch(error){showMessage(dom.message,error.message,'error');}finally{this.disabled=false;}
 });
+
+window.SAUniverseUI.setup({state:()=>campaign,send:body=>api('/api/campaign/universe',{code,token,...body}),receive:receiveCampaign,confirm:(title,message)=>confirmGm({title,message,acceptLabel:'Confirm'})});

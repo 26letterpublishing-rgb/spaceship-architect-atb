@@ -5,6 +5,7 @@ function normalize(list=[],fresh=false){
  if(!Array.isArray(list)||list.length>50)throw Error('Use up to 50 attachments at a location.');const ids=new Set();
  return list.map(raw=>{const named=types.filename(raw.fileName||raw.label,raw.type),id=!fresh&&/^[\w-]{1,100}$/.test(raw.id||'')?raw.id:randomUUID();if(ids.has(id))throw Error('Duplicate arrival content identifier.');ids.add(id);if(!['file','embedded','module','existing'].includes(raw.source))throw Error('Choose a content source.');
   const out={id,label:String(raw.label||named.name).trim().slice(0,100),fileName:named.name,type:named.type,source:raw.source,remind:raw.remind===true,event:['star','orbit','land','region','hex'].includes(raw.event)?raw.event:'hex',instructions:String(raw.instructions||'').slice(0,3000)};
+  if(raw.alternatives?.length)out.alternatives=types.fileCommand(raw).alternatives;
   if(raw.source==='embedded'){if(!raw.file)throw Error('Choose a saved content file.');require('./campaign-content').validate(raw.file);if(types.identify(raw.file).id!==out.type)throw Error('The attached file does not match the selected type.');out.file=copy(raw.file);}
   if(raw.source==='existing'){if(!['shop','story'].includes(out.type))throw Error('Choose an existing shop or Story chapter.');out.existingId=String(raw.existingId||'').slice(0,120);if(!out.existingId)throw Error('Choose existing content.');}
   return out;

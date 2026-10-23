@@ -344,6 +344,7 @@
     error.textContent = "";
   }
 
+  window.addEventListener('sa-combat-reset',()=>{closeDialog();actionSubmitting=false;});
   function openDialog(kind) {
     const config = configurations[kind];
     if (!config || !dialog || !currentUnit) return;
@@ -638,28 +639,29 @@
       if(controlStatus)controlStatus.textContent=mine?.consoleHold?'Holding at 99%. Resume when ready.':actionSubmitting?'Sending actionâ€¦':disabled?'Waiting for your turn or current action to finish.':seated?'Choose a ship action above. Hold keeps you at 99%.':'Choose a character action. Hold keeps you at 99%.';
     }
     actionButtons.forEach((button) => {
+      let label=button.textContent;
       const kind = button.dataset.combatAction;
       let unavailable = disabled;
       button.hidden=Boolean(seated)&&!['moveStarship','move','consoleView','holdConsole'].includes(kind);
 
-      if(kind==='armExplosive'){button.hidden=!current?.throwable||current.placeable;button.textContent='Arm Explosive';}
-      if(kind==='removeSticky'){button.hidden=![...(state.units||[]),...(state.areaEffects||[])].some(u=>(u.thrownEffects||[]).some(e=>e.attachedId===mine?.id&&!e.armedHeld&&e.weaponId==='sticky-grenade'));button.textContent='Detach Sticky';}
-      if(kind==='reloadWeapon'){button.hidden=!window.SAPersonalAmmunition.profile(current);button.textContent='Reload';}
-      if(kind==='programWeapon'){button.hidden=window.SACombatBridge.mode()!=='gm'||!['mk-u-id-assassin','silent-scope-sniper-rifle'].includes(current?.weaponId);button.textContent='Weapon Setup';unavailable=false;}
-      if(kind==='sheathWeapon'){button.hidden=held(mine)?.weaponId!=='murasama-blade';button.textContent='Sheath Murasama';}
-      if(kind==='escapeRestraint'){button.hidden=!mine?.net;button.textContent='Escape Net';}
-      if(kind==='netDifficulty'){button.hidden=window.SACombatBridge.mode()!=='gm'||!mine?.net;button.textContent='Net Difficulty';unavailable=false;}
-      if(kind==='stopDropRoll'){button.hidden=!mine?.burning;button.textContent='Stop, Drop & Roll';}
-      if(kind==='standUp'){button.hidden=!mine?.statuses?.prone;button.textContent='Stand Up';}
+      if(kind==='armExplosive'){button.hidden=!current?.throwable||current.placeable;label='Arm Explosive';}
+      if(kind==='removeSticky'){button.hidden=![...(state.units||[]),...(state.areaEffects||[])].some(u=>(u.thrownEffects||[]).some(e=>e.attachedId===mine?.id&&!e.armedHeld&&e.weaponId==='sticky-grenade'));label='Detach Sticky';}
+      if(kind==='reloadWeapon'){button.hidden=!window.SAPersonalAmmunition.profile(current);label='Reload';}
+      if(kind==='programWeapon'){button.hidden=window.SACombatBridge.mode()!=='gm'||!['mk-u-id-assassin','silent-scope-sniper-rifle'].includes(current?.weaponId);label='Weapon Setup';unavailable=false;}
+      if(kind==='sheathWeapon'){button.hidden=held(mine)?.weaponId!=='murasama-blade';label='Sheath Murasama';}
+      if(kind==='escapeRestraint'){button.hidden=!mine?.net;label='Escape Net';}
+      if(kind==='netDifficulty'){button.hidden=window.SACombatBridge.mode()!=='gm'||!mine?.net;label='Net Difficulty';unavailable=false;}
+      if(kind==='stopDropRoll'){button.hidden=!mine?.burning;label='Stop, Drop & Roll';}
+      if(kind==='standUp'){button.hidden=!mine?.statuses?.prone;label='Stand Up';}
       if(kind==='carry'){button.hidden=!mine?.carryingId&&!window.SACrewCarry.candidates(state,mine).length;}
-      if(kind==='holdConsole'){button.hidden=false;button.textContent=mine?.consoleHold?'Resume':'Hold';button.classList.toggle('is-resume',Boolean(mine?.consoleHold));unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
-      if (kind === 'moveStarship') {button.hidden=true;button.textContent='Move Ship';}
+      if(kind==='holdConsole'){button.hidden=false;label=mine?.consoleHold?'Resume':'Hold';button.classList.toggle('is-resume',Boolean(mine?.consoleHold));unavailable=actionSubmitting||(!mine?.consoleHold&&(disabled||Boolean(mine?.timedAction)));}
+      if (kind === 'moveStarship') {button.hidden=true;label='Move Ship';}
       if (kind === 'consoleView') {button.hidden=true;unavailable=false;}
-      if(kind==='airlock'||kind==='breachRepair'){const info=window.SAVacuumUI.available(mine,state);button.hidden=kind==='airlock'?!info.airlock:!info.holes?.length;button.textContent=kind==='airlock'?(info.ship?.ship.airlockStates?.[info.airlock?.id]?.open?'Close Airlock':'Open Airlock'):'Repair Hull Breach';}
-      if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));button.textContent='SIC Maintenance';}
+      if(kind==='airlock'||kind==='breachRepair'){const info=window.SAVacuumUI.available(mine,state);button.hidden=kind==='airlock'?!info.airlock:!info.holes?.length;label=kind==='airlock'?(info.ship?.ship.airlockStates?.[info.airlock?.id]?.open?'Close Airlock':'Open Airlock'):'Repair Hull Breach';}
+      if (kind === 'maintenance') {button.hidden=!state?.starships?.some(s=>s.id===mine?.location?.starshipId&&window.SAShipMap.buildLayout(s.ship).footprint.has(mine.location.square));label='SIC Maintenance';}
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
-      if(kind==='move'){button.hidden=Boolean(mine?.shipAi);button.textContent=seated?'Leave Console':'Move Character';button.classList.toggle('leave-console-arrow',Boolean(seated));}
-      if(kind==='wait3')button.textContent='Wait 3 sec';
+      if(kind==='move'){button.hidden=Boolean(mine?.shipAi);label=seated?'Leave Console':'Move Character';button.classList.toggle('leave-console-arrow',Boolean(seated));}
+      if(kind==='wait3')label='Wait 3 sec';
       let reason = disabled ? "Available only during your active turn." : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
@@ -681,7 +683,7 @@
       button.querySelector('[data-action-reason]')?.remove();
       button.disabled = Boolean(unavailable);
       const definition=window.SACombatPanel.personal[kind];
-      if(definition){let label=definition[0];if(kind==='move'&&seated)label='Leave Console';if(kind==='holdConsole'&&mine?.consoleHold)label='Resume';if(kind==='carry'&&mine?.carryingId)label='Put Down';if(kind==='airlock')label=button.textContent;window.SACombatPanel.setLabel(button,label);button.title=(kind==='move'&&seated?'Leave the current console and return to character actions.':definition[1])+(unavailable&&reason?' '+reason:'');}
+      if(definition){if(kind!=='airlock'&&kind!=='breachRepair')label=definition[0];if(kind==='move'&&seated)label='Leave Console';if(kind==='holdConsole'&&mine?.consoleHold)label='Resume';if(kind==='carry'&&mine?.carryingId)label='Put Down';window.SACombatPanel.setLabel(button,label);button.title=(kind==='move'&&seated?'Leave the current console and return to character actions.':definition[1])+(unavailable&&reason?' '+reason:'');}else window.SACombatPanel.setLabel(button,label);
       // Missing equipment/actions disappear; an otherwise legal action remains visible while waiting for its turn.
       if(['charge','fire','calledShot','throwItem','drawWeapon'].includes(kind)&&unavailable&&!disabled)button.hidden=true;
       if(kind==='charge'&&(!current||current.chargeMode!=='meter'||!current.chargeSegments))button.hidden=true;

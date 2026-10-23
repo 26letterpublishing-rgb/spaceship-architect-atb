@@ -22,7 +22,7 @@
     for(const ship of ships){
       const warp=ship.ship.warpState,previous=phases.get(ship.id);
       if(previous==='traveling'&&['arrived','exited','interrupted'].includes(warp?.phase)){
-        const report=warp.report||{},view=document.createElement('dialog');view.className='transit-damage';view.setAttribute('aria-label','Warp Exit Report');view.innerHTML=`<h2>${esc(ship.title)}: Warp Exit Report</h2><p>${esc(report.reason||warp.phase)}</p><p>Distance traveled: ${Number((report.traveledLY||0).toFixed(4))} light-years</p><p>Fuel used: ${Object.entries(report.fuelUsed||{}).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${esc(g)}`).join(', ')||'none'}</p><p>Unused active-cell range discarded: ${Number((report.discardedLY||0).toFixed(4))} light-years</p><button type="button">OK</button>`;view.querySelector('button').onclick=()=>view.close();view.onclose=()=>view.remove();document.body.append(view);view.showModal();
+        const report=warp.report||{},view=document.createElement('dialog');view.className='transit-damage';view.setAttribute('aria-label','Warp Exit Report');view.innerHTML=`<h2>${esc(ship.title)}: Warp Exit Report</h2><p>${esc(report.reason||warp.phase)}</p><p>Distance traveled: ${Number((report.traveledLY||0).toFixed(4))} light-years</p><p>Fuel used: ${Object.entries(report.fuelUsed||{}).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${esc(g)}`).join(', ')||'none'}</p><p>Unused active-cell range discarded: ${Number((report.discardedLY||0).toFixed(4))} light-years</p><button type="button" data-dialog-dismiss data-dialog-keep>OK</button>`;view.querySelector('button').onclick=()=>view.close();view.onclose=()=>view.remove();document.body.append(view);view.showModal();
       }
       phases.set(ship.id,warp?.phase);
     }

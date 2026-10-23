@@ -276,7 +276,7 @@ test("real HTTP server supports a fresh GM, two PCs, and both ship-link workflow
   assert.equal(resumed.starships[0].auState.current,flightSave.starships[0].auState.current);
   assert.equal(resumed.running,false);assert.equal(resumed.hardPaused,true);
   token=(await post('open',{name:'HTTP Crew Regression',gmCode:'local-test-gm'})).token;
-  const noUndo=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomCode:code,gmToken:token,action:'reset'})});assert.equal(noUndo.status,409);assert.match((await noUndo.json()).error,/No previous action/);flight=await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();assert.deepEqual(flight.starships[0].navigation,flightSave.starships[0].navigation);
+  const noUndo=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomCode:code,gmToken:token,action:'reset'})});assert.equal(noUndo.status,200);assert.equal((await noUndo.json()).combatReset.kind,'reset');flight=await (await fetch(`${base}/api/state?room=${code}&token=${token}`)).json();assert.deepEqual(flight.starships[0].navigation,flightSave.starships[0].navigation);
   // Exercise new vacuum state through the real HTTP preparation and roll paths.
   const hazardShip={id:'hazard-http',title:'Airlock test',ship:{gridCells:[21,22,23,41,42,43,61,62,63],sicInventory:[],placements:[],airlocks:[{id:'hatch',square:21,side:'top'}],airlockStates:{},breachState:{holes:{},processed:{}},extractionState:{jobs:{},receipts:[],events:[]}}};
   await combat({action:'clearEncounter',preparing:true});

@@ -46,17 +46,20 @@
 <script src="character-lifecycle-ui.js" defer></script>
 <link rel="stylesheet" href="character-lifecycle-ui.css">
 <script src="dialog-chrome.js" defer></script>
+<script src="movement-controls.js" defer></script><link rel="stylesheet" href="movement-controls.css">
 <link rel="stylesheet" href="dialog-chrome.css">
+<script src="universe-clock.js"></script><script src="module-conditions.js"></script><script src="universe-ui.js" defer></script><link rel="stylesheet" href="universe-ui.css">
+<script src="module-author-ui.js" defer></script>
 </head>
   <body>
     <main class="gm-shell">
       <header class="gm-header">
-        <button id="gmBrand" type="button" class="gm-brand" aria-label="Return to the main menu"><img src="SAATBBanner.jpg" alt="Spaceship Architect" /></button>
+        <div class="universe-header-identity"><button id="gmBrand" type="button" class="gm-brand" aria-label="Return to the main menu"><img src="spaceship-architect-2e-banner.png" alt="Spaceship Architect" /></button>
         <div id="campaignHeading" class="campaign-heading" hidden>
           <span>ROOM <b id="campaignCodeHeading">----</b></span>
           <strong id="campaignNameHeading">Campaign</strong>
         </div>
-        <div class="gm-header-actions">
+        </div><div id="universeClock" hidden></div><div class="gm-header-actions">
           <button id="endSession" class="campaign-export-button session-end-button" type="button">End Session 0</button>
           <button id="saveCampaignBackup" class="campaign-export-button" type="button">Save Campaign</button>
           <button id="gmMailButton" class="gm-sound-toggle" type="button" aria-label="Private messages and notifications" title="Private messages and notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg><strong id="gmInboxCount" hidden>0</strong></button>
@@ -297,7 +300,7 @@
         </section>
 
         <section id="atbTab" class="gm-tab atb-tab" data-tab-panel="atb" hidden>
-          <div class="arena-file-actions" style="padding:8px 0"><button type="button" id="restoreLastCombat">Restore Last Combat State</button><small id="combatSaveStatus" role="status">Combat is saved automatically.</small></div>
+          <div class="arena-file-actions combat-recovery-toolbar"><button type="button" id="restoreLastCombat">Restore Last Combat State</button><button id="returnToEncounterSetup" type="button" hidden>Encounter Setup</button><small id="combatSaveStatus" role="status">Combat is saved automatically.</small><strong id="liveEncounterCode" hidden>----</strong></div>
           <section id="atbSetup" class="atb-setup">
             <div class="tab-heading">
               <div><span>CAMPAIGN ENCOUNTER</span><h2>Prepare Combat</h2></div>
@@ -337,7 +340,7 @@
             </div>
           </section>
           <section id="atbLive" class="atb-live" hidden>
-            <div class="atb-live-toolbar"><button id="returnToEncounterSetup" type="button">Encounter Setup</button><strong id="liveEncounterCode">----</strong></div>
+
             <iframe id="atbFrame" title="Spaceship Architect ATB Encounter"></iframe>
           </section>
         </section>
@@ -419,7 +422,7 @@
         <p id="gmConfirmMessage"></p>
         <label id="gmConfirmInputWrap" hidden><span id="gmConfirmInputLabel">Response</span><input id="gmConfirmInput" type="text" autocomplete="off" /></label>
         <p id="gmConfirmError" class="tool-message error" role="alert"></p>
-        <div class="gm-confirm-actions"><button id="gmConfirmCancel" type="button">Cancel</button><button id="gmConfirmAccept" class="danger" type="button">Confirm</button></div>
+        <div class="gm-confirm-actions"><button id="gmConfirmCancel" data-dialog-dismiss data-dialog-keep type="button">Cancel</button><button id="gmConfirmAccept" data-dialog-action class="danger" type="button">Confirm</button></div>
       </section>
     </div>
 

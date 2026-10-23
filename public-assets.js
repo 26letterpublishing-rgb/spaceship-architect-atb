@@ -2,8 +2,9 @@ const path = require("path");
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
+ 'universe-clock.js','universe-ui.js','universe-ui.css','module-conditions.js','module-author-ui.js',
   'character-lifecycle-ui.js', 'character-lifecycle-ui.css', 'dialog-chrome.js', 'dialog-chrome.css',
-  'npc-statistics.js', 'campaign-location.js', 'pc-help-content.js', 'pc-combat-help.js', 'pc-help-shots.js', 'combat-help-content.js', 'starship-help-content.js', 'starship-guide.js',
+  'npc-statistics.js', 'movement-controls.js', 'movement-controls.css', 'campaign-location.js', 'pc-help-content.js', 'pc-combat-help.js', 'pc-help-shots.js', 'combat-help-content.js', 'starship-help-content.js', 'starship-guide.js',
   'save-file-types.js','module-cache.js','save-content-ui.js',
   "browser-storage.js", "inbox-ui.js", "app-help.js", "personal-ammunition.js",
   "combat-arena.js", "combat-arena-ui.js", "arena-files.js", "combat-panel-ui.js", "crew-carry.js",
