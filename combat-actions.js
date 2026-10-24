@@ -291,11 +291,15 @@
     return (currentState?.units || []).find((entry) => entry.id === target.value) || null;
   }
 
+  function attackDistance() {
+    const door=window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee').find(d=>d.id===target.value);
+    return door?.distance ?? window.SACombatRules?.mappedDistance(currentState,currentUnit,selectedTargetUnit()) ?? (Number(distance.value)||0);
+  }
   function currentAttackPlan() {
     const current = actionWeapon();
     if (!current || !window.SACombatRules) return null;
     return window.SACombatRules.attackPlan(current, {
-      distance: current?.category === "melee" ? 1 : Number(distance.value) || 0,
+      distance: current?.category === "melee" ? 1 : attackDistance(),
       charges: chargeCount(currentUnit, current),
       aimDice:current?.category === "ranged" ? currentUnit?.aim?.dice || [] : [],
       aimDie: current?.category === "ranged" ? Number(currentUnit?.aim?.aimDie) || 0 : 0,
@@ -314,7 +318,7 @@
     if (!attackWrap || attackWrap.hidden) return;
     const door=window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee').find(d=>d.id===target.value);
     const mapped=window.SACombatRules?.mappedDistance(currentState,currentUnit,selectedTargetUnit());
-    distance.disabled=Boolean(door)||mapped!==null&&mapped!==undefined;if(door)distance.value=String(door.distance);else if(mapped!==null&&mapped!==undefined)distance.value=String(mapped);
+    distance.disabled=Boolean(door)||mapped!==null&&mapped!==undefined;if(door)distance.value=String(Number(door.distance.toFixed(1)));else if(mapped!==null&&mapped!==undefined)distance.value=String(Number(mapped.toFixed(1)));
     note.textContent=door?'Stationary door: roll weapon damage. Three qualifying hits break it open: 40 damage for a Brig cell door, 10 for other doors.':configurations[pendingKind]?.note||'';
     const current = actionWeapon();
     const plan = currentAttackPlan();
@@ -345,6 +349,12 @@
   }
 
   window.addEventListener('sa-combat-reset',()=>{closeDialog();actionSubmitting=false;});
+  function refreshFormAvailability() {
+    // Hidden inputs retain old values; they must not block unrelated actions in native validation.
+    form?.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=Boolean(control.closest('[hidden]'));});
+    useKit.disabled=useKitWrap.hidden||!(currentUnit?.items||[]).some(entry=>entry.catalogId==='first-aid-kit');
+    if(!attackWrap.hidden)updateAttackPreview();
+  }
   function openDialog(kind) {
     const config = configurations[kind];
     if (!config || !dialog || !currentUnit) return;
@@ -409,6 +419,7 @@
     note.textContent = config.note || "";
     updateItemControls();
     error.textContent = "";
+    refreshFormAvailability();
     dialog.classList.remove("hidden");
     const panel = dialog.querySelector(".combat-action-panel");
     if (panel) panel.scrollTop = 0;
@@ -435,6 +446,7 @@
     } finally {
       actionSubmitting = false;
       form?.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = false; });
+      refreshFormAvailability();
       renderControls({
         mine: currentUnit,
         state: currentState,
@@ -531,7 +543,7 @@
         return;
       }
       details.weaponOptions=weaponOptionsValue();
-      details.distance = Number(distance.value) || 0;
+      details.distance = attackDistance();
       details.calledShot = calledShot.checked;
       details.calledShotDetail = calledShotDetail.value.trim();
       details.smokePenalty = !smokeWrap.hidden && smokeAffected.checked ? Number((currentState?.areaEffects || []).find((entry) => entry.kind === "smoke")?.penalty) || 0 : 0;

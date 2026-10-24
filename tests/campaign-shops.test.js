@@ -33,3 +33,14 @@ test('shop fortifications retain their discount and charge the host stacking dif
  assert.equal(require('../ship-budget').buildDelta(before,after),250);
  assert.equal(require('../ship-budget').buildDelta(after,structuredClone(after)),0);
 });
+
+test('blueprints require an owned confirmed printer and cannot bypass the gate with a purchase request',()=>{
+ const c=fixture(),body={operation:'blueprint',requestId:'bp',itemId:'sic:sensors-1',starshipId:'p'};
+ for(const ship of c.starships)ship.ship.sicInventory=ship.ship.sicInventory.filter(i=>i.type!=='3d-printer');
+ assert.throws(()=>shops.shipPurchase(c,body,false,'nova'),/3D Printer/);
+ const printer={id:'qa-printer',type:'3d-printer',pendingPurchase:true};c.starships[0].ship.sicInventory.push(printer);
+ assert.throws(()=>shops.shipPurchase(c,body,false,'nova'),/3D Printer/);
+ printer.pendingPurchase=false;shops.shipPurchase(c,body,false,'nova');
+ const credits=c.shipCredits;shops.shipPurchase(c,body,false,'nova');assert.equal(c.shipCredits,credits);
+ printer.pendingDisposition='sell';assert.throws(()=>shops.shipPurchase(c,{...body,requestId:'other-bp',itemId:'sic:shield-1'},false,'nova'),/3D Printer/);
+});

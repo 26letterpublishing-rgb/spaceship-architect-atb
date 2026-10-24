@@ -43,4 +43,18 @@ test('Reset and Undo notify all clients and reject pre-reset actions', { timeout
   const victory=s.surfaceVictoryAt;assert.equal((await state()).surfaceVictoryAt,victory,'Victory is stable across updates');
   s=await gm({action:'undoLastAction'});assert.equal(s.surfaceVictoryAt,null,'Undo clears the reverted victory');
   assert.ok(s.units.some(u=>u.team==='npc'&&u.currentHp>0));
+  const aboard=structuredClone(encounter);aboard.arena=null;aboard.surfaceVictoryAt=null;
+  assert.ok(aboard.starships.length,'Fixture includes ships');
+  const foes=aboard.units.filter(u=>u.team==='npc'&&!u.allyNpc);
+  assert.ok(foes.length);aboard.units.push({...structuredClone(foes[0]),id:'surviving-ally',allyNpc:true,currentHp:30,maximumHp:30});
+  await post('/api/campaign/restore',{code:room.code,token:room.gmToken,backup:{...saved,campaign:{...saved.campaign,encounter:aboard}}});
+  for(let i=0;i<foes.length;i++){
+    s=await gm({action:'setNpcHp',id:foes[i].id,maximumHp:30,currentHp:0});
+    if(i<foes.length-1)assert.equal(s.surfaceVictoryAt,null,'Living hostile prevents infantry victory aboard ships');
+  }
+  assert.ok(s.surfaceVictoryAt,'Infantry victory aboard ships ignores surviving allies');
+  assert.equal(s.units.find(u=>u.id==='surviving-ally').currentHp,30);
+  const shipVictory=s.surfaceVictoryAt;assert.equal((await state()).surfaceVictoryAt,shipVictory);
+  s=await gm({action:'undoLastAction'});assert.equal(s.surfaceVictoryAt,null);
+
 });

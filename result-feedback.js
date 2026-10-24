@@ -50,7 +50,7 @@
     }
   }
   function closeButton(node,onClose=()=>{},label='Dismiss notification'){
-    const b=node.ownerDocument.createElement('button');b.type='button';b.className='notice-dismiss';b.textContent='\u00d7';b.setAttribute('aria-label',label);
+    const b=node.ownerDocument.createElement('button');b.type='button';b.className='notice-dismiss';b.dataset.uiSound='none';b.textContent='\u00d7';b.setAttribute('aria-label',label);
     b.addEventListener('pointerdown',e=>e.stopPropagation());b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();onClose();node.hidden=true;noticeHost().refresh();});return b;
   }
   function notice(message,type='',duration=4800,{allowOutsideCombat=false}={}){

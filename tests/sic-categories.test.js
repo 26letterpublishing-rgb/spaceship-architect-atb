@@ -42,3 +42,5 @@ test('the actual builder registers Hull and Static cards and retains them when c
  const reopened=context.constructionState(context.constructionState(ship));assert.equal(reopened.sicInventory.length,4);assert.equal(reopened.placements.length,4);
  for(const item of reopened.sicInventory){assert.equal(item.attachTo,item.type==='static-shield'?'shield-host':'hull');assert.equal(item.storage,false);assert.equal(item.pendingPurchase,false);}
 });
+
+test('Lock On SICs are grouped with Sensors',()=>{for(let tier=1;tier<=7;tier++){const id='lock-on-'+tier;assert.equal(categories.category(id,maps.definition(id)),'sensors');}});

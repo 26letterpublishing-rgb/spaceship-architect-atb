@@ -826,6 +826,14 @@ function renderInventoryList(container, kind, onlyId=null) {
     if(!item.pendingDisposition&&definition.mixed&&(!placement||Number.isInteger(placement.exteriorCell))){
       actions.append(inventoryButton('Rotate Interior','rotate-sic',()=>rotateSic(item,'interior')),inventoryButton('Rotate Exterior','rotate-sic',()=>rotateSic(item,'exterior')));
     }else if (!item.pendingDisposition && definition.width !== definition.height) actions.append(inventoryButton(`Rotate (${definition.width}x${definition.height})`, "rotate-sic", () => rotateSic(item)));
+    for(const button of actions.querySelectorAll('.rotate-sic')){
+      const segment=button.textContent.includes('Exterior')?'exterior':button.textContent.includes('Interior')?'interior':null;
+      const shape=segment?window.SAShipMap.segmentDefinition(item,segment):window.SAShipMap.componentDefinition(item);
+      const w=shape.width,h=shape.height,preview=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      preview.classList.add('rotation-preview');preview.setAttribute('viewBox',`0 0 ${w*10} ${h*10}`);preview.setAttribute('aria-hidden','true');
+      preview.innerHTML=Array.from({length:w*h},(_,n)=>`<rect x="${n%w*10+.5}" y="${Math.floor(n/w)*10+.5}" width="9" height="9" fill="${definition.color||'#85afa3'}" stroke="#09131d"/>`).join('');
+      button.append(preview);button.title=`Current footprint: ${w} by ${h}`;
+    }
     if(['docking-bay','brig'].includes(item.type)&&!item.pendingDisposition){
       const brig=item.type==='brig',minimum=brig?1:2,prefix=brig?'brig':'bay',title=brig?'Brig':'Docking Bay';
       const size=document.createElement('label');size.textContent=title+' size (hull costs normally) ';size.style.display='flex';size.style.gap='6px';size.style.flexWrap='wrap';
@@ -950,7 +958,7 @@ function renderLiveStats() {
   const au = power.au;
   const shields=installed.filter(item=>sicDefinition(item).shield).reduce((sum,item)=>sum+sicDefinition(item).shieldHp,0);
   document.querySelectorAll('[data-live-stat="shield"]').forEach(element=>{element.textContent=String(shields);});
-  document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(au); });
+  document.querySelectorAll('[data-live-stat="au"]').forEach(element => { element.textContent = String(element.hasAttribute('data-au-current')?Math.min(au,Number(linked?.auState?.current??au)):au); });
   const scale = shipScaleStats(hull);
   const propulsion = window.SAShipMap.propulsion(confirmed);
   document.querySelectorAll('[data-live-stat="darkveil"]').forEach(element=>{element.textContent=String(window.SAShipMap.masking(confirmed)-propulsion.hsm-propulsion.exhaust);});
@@ -1517,7 +1525,14 @@ async function linkStarship(event) {
   } catch (error) { campaignMessage(error.message, "error"); }
 }
 async function syncLinkedStarship(strict=false,destroyedIds=[]) {
-  if (!draft.campaignLink?.roomCode || !draft.confirmedOnce) return;
+  if(!draft.confirmedOnce)return;
+  if(!draft.campaignLink?.roomCode){
+    const code=pageParameters.get('campaign');
+    if(!code||!EMBEDDED_GM_MODE)return;
+    const result=await campaignApi('/api/campaign/starship/link',{code,...activeCampaignCredentials(code),controlType:'gm',starship:draft});
+    draft.campaignLink={roomCode:code,campaignName:result.campaignName,controlType:result.starship.controlType,accessKey:result.accessKey,buildRevision:result.starship.buildRevision||0};
+    linkedCampaignState=null;await refreshLinkedCampaign();return;
+  }
   const link = draft.campaignLink; const credentials = activeCampaignCredentials(link.roomCode);
   try { const result=await campaignApi("/api/campaign/starship/save", { code: link.roomCode, token: credentials.token, characterId: credentials.characterId, accessKey: link.accessKey, buildRevision:link.buildRevision||0, destroyedIds, starship: draft }); link.buildRevision=result.starship.buildRevision||0; }
   catch (error) { if(strict)throw error;campaignMessage(`Saved locally. Campaign sync needs attention: ${error.message}`, "error"); }
@@ -2048,7 +2063,7 @@ function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.stars
 function openBlueprintPurchase(type){
  if(!canBuyBlueprint()){showMessage('A PC ship must own a 3D Printer before buying blueprints.','error');return;}
 
- const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
+ const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(!canBuyBlueprint()){message.textContent='A PC ship must own a 3D Printer before buying blueprints.';return;}if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
 }
 for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.hidden=!canBuyBlueprint();buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
 

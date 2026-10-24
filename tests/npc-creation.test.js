@@ -34,5 +34,13 @@ test('NPC template saves and roster imports preserve icons, manual values and au
   const npc={id:'custom',name:'Guard',...stats.calculate({physicalAttribute:9,physicalSkill:3,mentalAttribute:6,mentalSkill:2,statOverrides:{}}),maximumHp:91,statOverrides:{maximumHp:true},iconRace:'spiddix',iconVariant:1,allyNpc:true};
   const saved=await call('npc-templates',{...auth,templates:[npc]});assert.equal(saved.campaign.npcTemplates[0].maximumHp,91);assert.equal(saved.campaign.npcTemplates[0].statOverrides.speed,false);assert.equal(saved.campaign.npcRoster[0].iconRace,'spiddix');
   const loaded=await call('content/load',{...auth,file:{format:'sa2roster',version:1,characters:[],npcs:saved.campaign.npcTemplates}});const imported=loaded.campaign.npcTemplates.find(n=>n.id!==npc.id);assert.equal(imported.iconRace,'spiddix');assert.equal(imported.iconVariant,1);assert.equal(imported.maximumHp,91);assert.equal(imported.statOverrides.speed,false);
+  const hostile={...npc,id:'hostile',name:'Hostile QA',allyNpc:false};
+  await call('npc-templates',{...auth,templates:[npc,hostile]});
+  const repeated=await call('npc-templates',{...auth,templates:[npc,hostile]});
+  assert.equal(repeated.campaign.npcRoster.filter(n=>n.templateId==='hostile'||n.id==='roster-hostile').length,1);
+  assert.equal(records.get(auth.code).npcRoster.some(n=>!n.allyNpc&&n.characterName==='Hostile QA'),true);
+  const other=await call('v03/create',{name:'Other NPC QA'},201);
+  assert.equal(other.campaign.npcRoster.some(n=>n.characterName==='Hostile QA'),false);
+  await call('npc-templates',{code:other.campaign.code,token:auth.token,templates:[hostile]},403);
   const pc=await call('v03/join',{code:auth.code,name:'PC'});await call('npc-templates',{code:auth.code,token:pc.token,templates:[]},403);
 });

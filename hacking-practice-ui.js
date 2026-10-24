@@ -10,7 +10,7 @@
     $('#moduleArt').src=module.image.replace(/(#[^?]+)\?.*$/, '$1');
     $('#moduleArt').alt=`${module.name} equipment`;
   }
-  function showFirewallArt(){const tier=Number($('#firewall').value);$('#firewallArt').src='cpu-firewall-tiers.svg#tier-'+tier;$('#firewallArt').alt=tier?'CPU Firewall '+tier:'No CPU Firewall';}
+  function showFirewallArt(){const tier=Number($('#firewall').value);$('#firewallArt').src=tier?window.SAShipMap.definition('cpu-security-'+tier).cardArt:'cpu-firewall-tiers.svg#tier-0';$('#firewallArt').alt=tier?'CPU Firewall '+tier:'No CPU Firewall';}
 
   function persist(){if(ending)return;try{sessionStorage.setItem(key,JSON.stringify({token,draft,pending}));}catch{}}
   async function request(method,body){

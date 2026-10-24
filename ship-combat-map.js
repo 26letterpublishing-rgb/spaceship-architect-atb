@@ -110,18 +110,12 @@
     document.body.classList.toggle("inline-ship-move-selecting", enabled);
     const setImportant = (node, property, value) => node?.style.setProperty(property, value, "important");
     if (enabled) {
-      setImportant(playerPanel, "display", "none");
-      setImportant(activePanel, "display", "none");
+      setImportant(playerPanel, "visibility", "hidden");
+      setImportant(activePanel, "visibility", "hidden");
       setImportant(turnDialog, "display", "none");
-      setImportant(initiativePanel, "display", "block");
-      setImportant(initiativePanel, "position", "static");
-      setImportant(initiativePanel, "width", "100%");
-      setImportant(initiativePanel, "max-height", "none");
-      setImportant(initiativePanel, "margin", "0");
-      setImportant(initiativePanel, "overflow", "visible");
-      setImportant(initiativePanel, "transform", "none");
     } else {
-      [playerPanel, activePanel, turnDialog].forEach((node) => node?.style.removeProperty("display"));
+      [playerPanel, activePanel].forEach((node) => node?.style.removeProperty("visibility"));
+      turnDialog?.style.removeProperty("display");
       ["display", "position", "width", "max-height", "margin", "overflow", "transform"].forEach((property) => initiativePanel?.style.removeProperty(property));
     }
     if (!enabled) {
@@ -477,9 +471,9 @@
     const prompt = isSelected && interaction === "move"
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Point to preview a route; click to select. Or choose a station below.")
       : "Live interior view";
-    return `<div class="combat-map-stats">${statsMarkup(record)}</div><div class="inline-map-toolbar"><span>${esc(prompt)}</span>${isSelected&&interaction==='move'?stationChoiceMarkup(record,selected):''}</div>
-      <div class="inline-map-viewport"><div class="${classes}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      <div class="inline-map-footer">${isSelected && interaction === "move" ? `<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}<div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
+    return `<div class="combat-map-stats">${statsMarkup(record)}</div><div class="inline-map-toolbar"><span>${esc(prompt)}</span></div>
+      <div class="inline-map-stage"><div class="inline-map-viewport"><div class="${classes}" data-origin-column="${minCol}" data-origin-row="${minRow}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
+      ${isSelected && interaction === "move" ? `<div class="inline-map-move-controls">${stationChoiceMarkup(record,selected)}<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div><div class="inline-map-footer"><div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -495,6 +489,28 @@
   const inlineZoom = new Map();
   const fitObservers=new Map();
   const manualInlineViews=new WeakSet();
+  // Client-only cameras outlive replaceable DOM hosts; no camera data is sent to the room.
+  const interiorCameras=new Map();
+  const cameraKey=host=>`${combatState?.encounterId||combatState?.roomCode||''}:${host===expandedMap?.host?'expanded':'inline'}:${host.dataset.inlineShipMap}`;
+  function rememberInlineView(host){
+    const viewport=host?.querySelector('.inline-map-viewport'),grid=host?.querySelector('.inline-combat-map-grid');
+    if(!viewport?.clientWidth||!grid)return;
+    const size=host===expandedMap?.host?expandedMap.cellSize:inlineZoom.get(host.dataset.inlineShipMap);
+    if(!size)return;
+    const v=viewport.getBoundingClientRect(),g=grid.getBoundingClientRect();
+    interiorCameras.set(cameraKey(host),{size,x:Number(grid.dataset.originColumn||0)+(v.left+viewport.clientWidth/2-g.left)/size,y:Number(grid.dataset.originRow||0)+(v.top+viewport.clientHeight/2-g.top)/size});
+  }
+  function restoreInlineView(host){
+    const saved=interiorCameras.get(cameraKey(host)),viewport=host.querySelector('.inline-map-viewport'),grid=host.querySelector('.inline-combat-map-grid');
+    if(!saved||!viewport?.clientWidth||!grid)return false;
+    if(host===expandedMap?.host){expandedMap.cellSize=saved.size;expandedMap.dialog.style.setProperty('--expanded-cell-size',saved.size+'px');}
+    else{inlineZoom.set(host.dataset.inlineShipMap,saved.size);grid.style.setProperty('--preview-cell-size',saved.size+'px');}
+    const v=viewport.getBoundingClientRect(),g=grid.getBoundingClientRect();
+    viewport.scrollLeft+=g.left-v.left+(saved.x-Number(grid.dataset.originColumn||0))*saved.size-viewport.clientWidth/2;
+    viewport.scrollTop+=g.top-v.top+(saved.y-Number(grid.dataset.originRow||0))*saved.size-viewport.clientHeight/2;
+    return true;
+  }
+
   function fitInline(host){
     const viewport=host.querySelector('.inline-map-viewport'),grid=host.querySelector('.inline-combat-map-grid');
     if(!viewport?.clientWidth||!viewport.clientHeight||!grid)return;
@@ -511,6 +527,7 @@
       viewport.scrollLeft=Math.max(0,gridRect.left-viewRect.left+(Number(grid.dataset.hullColumn||0)+cols/2)*size-viewport.clientWidth/2);
       viewport.scrollTop=Math.max(0,gridRect.top-viewRect.top+(Number(grid.dataset.hullRow||0)+rows/2)*size-viewport.clientHeight/2);
     }
+    rememberInlineView(host);
   }
   function watchFit(host){
     for(const [node,observer] of fitObservers)if(!node.isConnected){observer.disconnect();fitObservers.delete(node);}
@@ -519,11 +536,11 @@
     const observer=new ResizeObserver(()=>{
       const viewport=host.querySelector('.inline-map-viewport');
       const w=viewport?.clientWidth||0,h=viewport?.clientHeight||0;
-      if(w&&h&&(w!==width||h!==height)&&(!manualInlineViews.has(host)||!width||!height))fitInline(host);
+      if(w&&h&&(w!==width||h!==height)){if(!restoreInlineView(host))fitInline(host);}
       width=w;height=h;
     });
     fitObservers.set(host,observer);observer.observe(host);
-    requestAnimationFrame(()=>fitInline(host));
+    requestAnimationFrame(()=>{if(!restoreInlineView(host))fitInline(host);});
   }
 
   function movementCanvasHeight(screenHeight, obstruction, toolbarHeight, footerHeight) {
@@ -590,6 +607,7 @@
     else{inlineZoom.set(host.dataset.inlineShipMap,size);grid.style.setProperty('--preview-cell-size',size+'px');}
     viewport.scrollLeft=x*size-viewport.clientWidth/2;viewport.scrollTop=y*size-viewport.clientHeight/2;
     if(focus)centerInterior(host);
+    rememberInlineView(host);
   }
   let interiorLoading=false;
   async function expandInterior(host, source) {
@@ -638,7 +656,7 @@
     renderInlineMaps(shell);
     shell.addEventListener('change',handleInteriorStation);
     shell.showModal();
-    owner.requestAnimationFrame(() => fitInline(mapHost));
+    owner.requestAnimationFrame(() => {if(!restoreInlineView(mapHost))fitInline(mapHost);});
   }
 
   window.addEventListener("pagehide", closeExpandedMap);
@@ -664,9 +682,10 @@
       }
       const markup = inlineMapMarkup(record);
       if (inlineMarkupCache.get(host) !== markup) {
-        const oldViewport=host.querySelector(".inline-map-viewport"),scroll=oldViewport?{left:oldViewport.scrollLeft,top:oldViewport.scrollTop}:null;
+        if(!interiorCameras.has(cameraKey(host)))rememberInlineView(host);
         host.innerHTML = markup;
-        if(scroll){const nextViewport=host.querySelector(".inline-map-viewport");if(nextViewport){nextViewport.scrollLeft=scroll.left;nextViewport.scrollTop=scroll.top;}}
+        restoreInlineView(host);
+        host.querySelector('.inline-map-viewport')?.addEventListener('scroll',()=>rememberInlineView(host),{passive:true});
         inlineMarkupCache.set(host, markup);
       }
       window.SAWarpEffects?.updateMap(record,host.querySelector('.inline-combat-map-grid'));
@@ -1030,14 +1049,8 @@
       if (!host) { open({ interaction: "move", unitId: unit.id, starshipId: selectedShipId }); return; }
       setInlineMoveSelecting(true);
       renderInlineMaps();
-      requestAnimationFrame(() => {
-        fitMoveToScreen(host,true);
-        moveViewportOwner?.removeEventListener('resize',moveViewportResize);
-        moveViewportOwner=movementScreen(host).owner;
-        moveViewportResize=()=>fitMoveToScreen(host);moveViewportOwner.addEventListener('resize',moveViewportResize);
-        // Let the enclosing PC frame report its new height before final alignment.
-        requestAnimationFrame(()=>requestAnimationFrame(()=>fitMoveToScreen(host,true)));
-      });
+      // Selecting a route does not recenter, resize or scroll the player's map.
+      restoreInlineView(host);
     },
     isInlineMoveSelecting: () => interaction === "move",
     render,

@@ -1664,7 +1664,13 @@ function renderTabbedStatus() {
   dom.tabStatusExertion.textContent = Math.max(0, Number(character.resources.exertionCurrent) || 0) + " / " + Math.max(0, Number(character.resources.exertionMax) || 0);
   dom.tabStatusCredits.textContent = (Number(character.resources.creditsBase) || 0).toLocaleString();
   updatePointReadout(dom.tabStatusCredits,Number(character.resources.creditsBase)||0,character.id);
-  if (dom.hudWeaponOverload) dom.hudWeaponOverload.hidden = !weaponSlotAllocation().overloaded;
+  const overloaded=weaponSlotAllocation().overloaded;
+  if (dom.hudWeaponOverload) dom.hudWeaponOverload.hidden = !overloaded;
+  if(character.phase==='finalized'&&!CAMPAIGN_READ_ONLY_VIEW&&!GM_SHIP_VIEW&&window.SAResultFeedback){
+    const previous=overloadNotices.get(character.id);
+    if(overloaded&&!previous)window.SAResultFeedback.critical('overburdened:'+character.id+':'+crypto.randomUUID(),'Overburdened — store excess weapons. ATB Speed is reduced 30%.');
+    overloadNotices.set(character.id,overloaded);
+  }
 
   const visible = resourceHudVisible && character.phase === "finalized" && !CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW;
   dom.globalCharacterHud.hidden = !visible;
@@ -5780,6 +5786,7 @@ function weaponInitials(name) {
   return words.slice(0, 3).map((word) => word[0]).join("").toUpperCase();
 }
 
+const overloadNotices=new Map();
 function renderWeaponSlots() {
   if (!dom.weaponSlotPyramid) return;
   const allocation = weaponSlotAllocation();

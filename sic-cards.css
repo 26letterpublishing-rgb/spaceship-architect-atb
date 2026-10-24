@@ -181,3 +181,6 @@
  .shared-card-inspector .sic-inspector-tools{position:static;flex:0 0 auto;flex-direction:row;flex-wrap:wrap;width:100%;min-width:0}
  .shared-card-inspector .sic-inspector-tools button{width:auto;flex:0 1 auto}
 }
+
+.sic-display-card.sic-ammunition-card>.sic-poker-art{grid-column:1/-1!important;border-left:0!important}
+.sic-display-card.sic-ammunition-card>.sic-poker-rules{grid-row:3/5!important}

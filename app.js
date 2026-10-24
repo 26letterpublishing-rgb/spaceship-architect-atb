@@ -3692,7 +3692,7 @@ function moveRingUnit(id, targetIndex, groupId = "") {
     ringMovedId = "";
     if (visualMode === "ring") render();
   }, 1000);
-  unitList.innerHTML = state?.starships?.length ? shipCombatColumnsMarkup(state.units) : tacticalRingMarkup(state.units);
+  if(state?.starships?.length)renderShipCombatColumns();else unitList.innerHTML=tacticalRingMarkup(state.units);
   window.SACombatMap?.renderInlineMaps?.(unitList);
 }
 
@@ -4565,7 +4565,7 @@ unitList.addEventListener("pointerdown", (event) => {
     timer: setTimeout(() => {
       ringDrag = { id, groupId, pointerId: event.pointerId, active: true };
       document.body.classList.add("ring-dragging");
-      unitList.innerHTML = state?.starships?.length ? shipCombatColumnsMarkup(state.units) : tacticalRingMarkup(state.units);
+      if(state?.starships?.length)renderShipCombatColumns();else unitList.innerHTML=tacticalRingMarkup(state.units);
       window.SACombatMap?.renderInlineMaps?.(unitList);
     }, 460),
   };

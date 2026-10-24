@@ -135,7 +135,7 @@ for (const [family, items] of families) {
 }
 
 if(options.categories!==false){
-const marketEntries=[...market.children].filter(node=>node.matches('.sic-market-item,.sic-family-stack'));
+const marketEntries=[...market.children].filter(node=>node.matches('.sic-market-item,.sic-family-stack')).sort((a,b)=>b.querySelectorAll('.sic-family-cards [data-sic-card]').length-a.querySelectorAll('.sic-family-cards [data-sic-card]').length);
 const marketHosts=sicCategoryHosts(marketEntries,market,node=>node.querySelector('[data-sic-card]')?.dataset.sicCard,'market');
 marketEntries.forEach(node=>marketHosts.get(node).append(node));
 }

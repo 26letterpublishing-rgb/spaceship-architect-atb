@@ -1,0 +1,35 @@
+OCTOBER 24 PLAYTEST REPAIR RELEASE
+
+Scope: Jason authorized #commit (local changes, commit, push and final configured ntfy). No deployment operation is authorized or performed. Gold Standard and unrelated QA/scripts are excluded.
+
+REPAIRS
+- Stable ship-interior layout and client-local cameras across turn changes, move selection/cancel and network refresh. Separate expanded/inline cameras retain zoom and world center after remount/resize. Fit remains explicit. GM and PC interfaces share the map path; desktop/tablet ATB geometry stays consistent.
+- Charge confirmation disables stale hidden form fields so native validity cannot block unrelated actions. Target distance displays one decimal while calculations/submissions retain the exact mapped value.
+- Ship line-of-sight geometry invalidates after room/weapon rotation or station layout changes. Tests confirm a previously visible enemy behind a newly closed door remains untargetable. The original playtest wall-shot sequence was not independently reproduced; this is a verified geometry-cache correction, not a claim to have reproduced every reported shot.
+- Infantry Victory also checks aboard ships, excludes allies and requires all hostile NPCs defeated plus a living PC. Undo clears the reverted announcement.
+- GM Characters shows all campaign NPCs beneath PCs and adds an Add NPC entry point to the existing editor. Fleet adds confirmed .sa2ship import, with confirmation and fresh identity. Confirming a newly created GM campaign ship automatically joins that fleet. PC imports retain their existing GM approval path.
+- Overburdened status uses existing critical notices. Notification dismissal is silent.
+- Blueprint purchase rechecks printer eligibility at confirmation; existing server gates remain authoritative. PC Help mentions blueprints briefly.
+- Land Wheels uses its canonical wheel art even in low-resolution views, instead of the generic hover pod.
+- Hacking Practice CPU Security uses the equipment card art. Ammunition cards no longer reserve a blank statistics column. Missile artwork loaded successfully in rendered inspection; no missing source asset was reproduced.
+- Lock On joins Sensors; larger SIC families are listed first in their category. EN/AU readouts remain available while shopping, including the creator. Rotate controls have small footprint previews.
+- Exterior weapon artwork fills its declared multi-cell footprint. Twenty-one tightly cropped WebP derivatives reuse the original tier atlases (818,408 bytes combined); the original SVG atlases are untouched. scripts/extract-weapon-floorplans.py rebuilds them.
+- Brief GM/PC/Starship Help updates cover the changed fleet, NPC, power and blueprint workflows.
+
+VERIFICATION
+- Final complete Node suite: 1,318 passed, zero failed. The first run had an HTTP ECONNRESET (passed isolated), an outdated atlas-only assertion, and a linking-path regression caught by existing tests. The latter was corrected to preserve player approval; final suite passed.
+- Real isolated Chrome GM/PC workflows: stable turn/select/cancel/network camera, explicit Fit, GM viewport, tablet transition, and PC aboard GM-controlled ship. Separate camera tests cover remount, resize, independent encounter/ship/expanded views.
+- Real Charge confirmation passed with an intentionally invalid stale hidden amount; a later repeated fixture attempt stalled on a missing Charge control after encounter restoration. This was not an audio/listening test.
+- Real Chrome: ammunition inspector images, EXT footprint, rotation preview presence, shopping summary, automatic fleet creation/reload, NPC save/roster, Load Starship and Explore Features GM creation.
+- Tests cover current closed-door LOS, rotated-layout cache, ship/surface Victory/allies/Undo, NPC persistence/dedup/isolation, printer gating/idempotence and category identity.
+- Desktop/tablet screenshots reviewed. Physical iPad/Safari, audio quality, extended real-player sessions and live Render deployment are not verified.
+- Personal data/campaigns.json unchanged: SHA256 5666051D44B14CAD16D097368A1015CF99E966281C110C12D64B289C0A1B8A25.
+- Browser fixtures use temporary storage; normal local campaign data is untouched.
+- Evidence: ../SA-ATB Local Development Files/outputs/playtest-oct24/ (final suite, browser logs, screenshots and QA scripts).
+
+OPEN / DEFERRED
+- Four-mount progress 1/4 through 4/4: scope remains ambiguous between Land Wheels, Decent Hover, or both. No guessed change applied.
+- Larger custom-graphics/station work remains a separate plan: first define saved asset ownership and validation; then map-specific station representation and orbit state; then docking eligibility; then station shop/script entry points. Reuse existing file metadata, map markers, shops and Story Console. Confirm mechanics before implementation; no new station gameplay added in this repair release.
+
+PUBLICATION
+Commit/push and notification results are reported in the completion message, not assumed by this file. No manual Render deployment is initiated.

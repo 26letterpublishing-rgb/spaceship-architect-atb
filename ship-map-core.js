@@ -937,11 +937,14 @@
   for(let tier=1;tier<=4;tier++)exteriorArtBounds['antenna-'+tier]=[.5,0,0,1,1];
   exteriorArtBounds['ion-disruptor']=[.5,0,0,1,1];
   exteriorArtBounds['black-hole-gun']=[.4,0,0,1,1];
+  // Tight derivatives of the existing tier atlases prevent adjacent SVG views bleeding into EXT footprints.
+  for(const [type,sprite] of Object.entries({"beam-laser-1":"weapon-floorplan-beam-laser-1.webp","beam-laser-2":"weapon-floorplan-beam-laser-2.webp","beam-laser-3":"weapon-floorplan-beam-laser-3.webp","beam-laser-4":"weapon-floorplan-beam-laser-4.webp","beam-laser-5":"weapon-floorplan-beam-laser-5.webp","beam-laser-6":"weapon-floorplan-beam-laser-6.webp","beam-laser-7":"weapon-floorplan-beam-laser-7.webp","beam-laser-8":"weapon-floorplan-beam-laser-8.webp","ripple-cannon-1":"weapon-floorplan-ripple-cannon-1.webp","ripple-cannon-2":"weapon-floorplan-ripple-cannon-2.webp","ripple-cannon-3":"weapon-floorplan-ripple-cannon-3.webp","ripple-cannon-4":"weapon-floorplan-ripple-cannon-4.webp","ripple-cannon-5":"weapon-floorplan-ripple-cannon-5.webp","ripple-cannon-6":"weapon-floorplan-ripple-cannon-6.webp","ripple-cannon-7":"weapon-floorplan-ripple-cannon-7.webp","ripple-cannon-8":"weapon-floorplan-ripple-cannon-8.webp","ion-pulse-cannon-1":"weapon-floorplan-ion-pulse-cannon-1.webp","ion-pulse-cannon-2":"weapon-floorplan-ion-pulse-cannon-2.webp","ion-pulse-cannon-3":"weapon-floorplan-ion-pulse-cannon-3.webp","ion-pulse-cannon-4":"weapon-floorplan-ion-pulse-cannon-4.webp","ion-pulse-cannon-5":"weapon-floorplan-ion-pulse-cannon-5.webp"})){catalog[type].sprite=sprite;exteriorArtBounds[type]=[1,0,0,1,1];}
   function exteriorShift(sic, angle, facing, lowResolution=false) {
     const data=definition(sic.type),[aspect,x0,y0,x1,y1]=exteriorArtBounds[sic.type]||[1,0,0,1,1];
     const sideways=angle%180!==0,w=sideways?sic.height:sic.width,h=sideways?sic.width:sic.height;
     let box;
     if(data.thruster)box=lowResolution?[.08*w,0,.92*w,.7*h]:[(.08+.84*x0)*w,(-.02+.76*y0)*h,(.08+.84*x1)*w,(-.02+.76*y1)*h];
+    else if(data.weapon)box=[0,0,w,h];
     else { const iw=Math.min(w,h*aspect),ih=iw/aspect;box=[(w-iw)/2+iw*x0,(h-ih)/2+ih*y0,(w-iw)/2+iw*x1,(h-ih)/2+ih*y1]; }
     const radians=(angle+(data.weapon?180:0))*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians);
     const corners=[[box[0],box[1]],[box[2],box[1]],[box[0],box[3]],[box[2],box[3]]].map(([x,y])=>[sic.width/2+(x-w/2)*c-(y-h/2)*s,sic.height/2+(x-w/2)*s+(y-h/2)*c]);
@@ -1016,8 +1019,13 @@
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
     const facing=exteriorFacing(layout,square),shift=exteriorShift(sic,angle,facing),low=exteriorShift(sic,angle,facing,true);
     const shiftStyle=`--art-shift-x:${shift[0]}%;--art-shift-y:${shift[1]}%;--shape-shift-x:${low[0]}%;--shape-shift-y:${low[1]}%;`;
-    if(data.multiMount)return mount+`<span class="sa-hover-pod ${active?'online':''}" aria-hidden="true"><img src="${data.sprite}" alt="" draggable="false"><i></i></span>`;
-    if (data.weapon||data.fieldUtility||data.blackHoleGun) return mount+`<span class="sa-exterior-weapon" style="${shiftStyle}position:absolute;left:0;top:0;width:${sic.width*100}%;height:${sic.height*100}%;opacity:${active ? 1 : .35}" aria-hidden="true"><span style="position:absolute;left:50%;top:50%;width:${sideways?sic.height/sic.width*100:100}%;height:${sideways?sic.width/sic.height*100:100}%;transform:translate(-50%,-50%) rotate(${angle+180}deg)"><img src="${data.sprite}" style="width:100%;height:100%;object-fit:contain" alt="" draggable="false"><i class="sa-weapon-silhouette" style="--weapon-color:${data.color};--weapon-mask:url('${data.sprite}')"></i></span></span>`;
+    if(data.multiMount)return mount+`<span class="sa-hover-pod ${sic.type==='land-wheels'?'sa-land-wheel':''} ${active?'online':''}" aria-hidden="true"><img src="${data.sprite}" alt="" draggable="false"><i></i></span>`;
+    if (data.weapon||data.fieldUtility||data.blackHoleGun) {
+      const [,x0,y0,x1,y1]=exteriorArtBounds[sic.type]||[1,0,0,1,1];
+      // Crop atlas padding, then map the canonical art to the actual EXT footprint.
+      const art=data.weapon?`position:absolute;left:${-x0/(x1-x0)*100}%;top:${-y0/(y1-y0)*100}%;width:${100/(x1-x0)}%;height:${100/(y1-y0)}%;object-fit:fill;mask-size:100% 100%`:'width:100%;height:100%;object-fit:contain';
+      return mount+`<span class="sa-exterior-weapon" style="${shiftStyle}position:absolute;left:0;top:0;width:${sic.width*100}%;height:${sic.height*100}%;opacity:${active ? 1 : .35}" aria-hidden="true"><span style="position:absolute;overflow:hidden;left:50%;top:50%;width:${sideways?sic.height/sic.width*100:100}%;height:${sideways?sic.width/sic.height*100:100}%;transform:translate(-50%,-50%) rotate(${angle+180}deg)"><img src="${data.sprite}" style="${art}" alt="" draggable="false"><i class="sa-weapon-silhouette" style="${art};--weapon-color:${data.color};--weapon-mask:url('${data.sprite}')"></i></span></span>`;
+    }
     const jetClass = data.ionic ? "sa-ion-pulse" : "sa-thruster-flame";
     // Emission points are measured in the sprite frame, then transformed with the complete assembly.
     const jets = (data.emitters || []).map(([x,y,width], index) => `<i class="${jetClass}" style="left:${8 + .84 * (x - width / 2)}%;top:${-2 + .76 * y}%;width:${.84 * width}%;animation-delay:${index * -.8}s"></i>`).join("");

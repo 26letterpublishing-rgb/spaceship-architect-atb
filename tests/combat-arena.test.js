@@ -12,3 +12,18 @@ test('mapped surface distance applies both attack and Defense range modifiers',(
 test('combat location migration preserves surface coordinates and walking route',()=>{const u=unit('pc',16);u.travelRoute=[{arenaId:'surface',square:17}];engine.migrateUnitCombat(u);assert.equal(u.location.arenaId,'surface');assert.equal(u.location.square,16);assert.equal(u.travelRoute[0].square,17);});
 test('arena files keep setup but exclude encounter progress, credentials, health damage and exploration memory',()=>{const arena=A.normalize(),result=files.create({mode:'surface',arena,fog:{enabled:true,explored:{surface:[1]},memory:{secret:true}},pcs:[{sourceId:'old-pc',name:'PC',token:'secret'}],npcs:[{id:'npc',name:'Guard',currentHp:2,maximumHp:30,timedAction:{kind:'move'}}]});assert.equal(result.fog.explored,undefined);assert.equal(result.pcs[0].token,undefined);assert.equal(result.npcs[0].currentHp,undefined);assert.equal(result.npcs[0].timedAction,undefined);assert.deepEqual(files.parse(result).arena,arena);const record=files.ship({id:'old-ship',accessKey:'secret',ship:{gridCells:[0],breachState:{holes:[1]},sicInventory:[{id:'x',type:'cockpit-1',impairmentPoints:4}],currentHullHp:2}});assert.equal(record.accessKey,undefined);assert.equal(record.ship.breachState,undefined);assert.equal(record.ship.currentHullHp,undefined);assert.equal(record.ship.sicInventory[0].impairmentPoints,undefined);});
 test('saving a running encounter produces fresh NPCs and PC slots, never pending combat or generated ship bots',()=>{const pc=unit('pc',16),npc={...unit('npc',17,'npc'),maximumHp:30,currentHp:2,heldWeaponId:'inventory-1',weapons:[{inventoryId:'inventory-1',weaponId:'standard-sidearm'}],speed:5},file=files.fromEncounter({arena:A.normalize(),units:[pc,npc,{...npc,id:'bot',securityDroid:true}],starships:[],fog:{enabled:true,explored:{surface:[16]}},shipPositions:[],spaceObjects:[]});assert.equal(file.npcs.length,1);assert.equal(file.npcs[0].heldWeaponId,'standard-sidearm');assert.equal(file.npcs[0].currentHp,undefined);assert.equal(file.arena.spawns.pc,16);assert.equal(file.arena.spawns.npc,17);assert.equal(file.pcs.length,1);assert.equal(file.fog.explored,undefined);});
+
+test('remembering an enemy never permits shooting through a newly closed ship door',()=>{
+ const ship={id:'ship',ship:{zoneColumns:20,gridCells:[0,1],sicInventory:[{id:'c',type:'cockpit-1'}],placements:[{sicId:'c',cell:0}],doorStates:{}}};
+ const pc={...unit('pc',0),location:{starshipId:'ship',square:0,mesh:5}},enemy={...unit('enemy',1,'npc'),location:{starshipId:'ship',square:1,mesh:3}};
+ const room={starships:[ship],units:[pc,enemy],fog:{enabled:true}},edge=require('../ship-map-core').buildLayout(ship.ship).edge(0,1);
+ ship.ship.doorStates[edge.key]='open';A.updateFog(room);assert.equal(A.canTarget(room,pc,enemy),true);
+ ship.ship.doorStates[edge.key]='closed';A.updateFog(room);assert.equal(A.canTarget(room,pc,enemy),false);
+});
+test('ship LOS geometry refreshes after a non-square room rotates in place',()=>{
+ const m=require('../ship-map-core'),ship={id:'s',ship:{zoneColumns:20,gridCells:m.rectangleCells({},0,4,4),sicInventory:[{id:'lab',type:'science-lab',rotation:0}],placements:[{sicId:'lab',cell:0}]}};
+ const before=A.shipGrid(ship);ship.ship.sicInventory[0].rotation=90;
+ const after=A.shipGrid(ship);assert.notEqual(after,before);
+ const fresh=A.shipGrid(structuredClone(ship));
+ for(const a of after.floor)for(const b of after.floor)assert.equal(A.sight(after,a,b),A.sight(fresh,a,b));
+});

@@ -363,7 +363,7 @@ function publicState(room) {
     }
   }
   if(destroyedActiveSource!==undefined)moveToNextTurnOrClock(room,destroyedActiveSource);
-  if(room.arena&&room.hasEngagedClock&&!room.encounterEndedAt){
+  if((room.arena||room.starships.length)&&room.hasEngagedClock&&!room.encounterEndedAt){
     const foes=room.units.filter(u=>u.team==='npc'&&!u.allyNpc);
     if(foes.length&&foes.every(u=>u.defeatedAt||Number(u.currentHp)<=0)&&room.units.some(u=>u.team==='pc'&&!u.defeatedAt&&Number(u.currentHp)>0)&&!room.surfaceVictoryAt){room.surfaceVictoryAt=new Date().toISOString();pushLog(room,'VICTORY: the opposition has been defeated.',{victory:true});}
   }

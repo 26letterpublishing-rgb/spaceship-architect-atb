@@ -778,9 +778,9 @@ function renderCharacters() {
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can join using this room code, then create or import a character.</p>";
-  const allies=campaignNpcRoster().filter(n=>n.allyNpc);
-  if(allies.length){dom.characterCount.textContent+=` · ${allies.length} Ally NPC${allies.length===1?'':'s'}`;if(!campaign.characters.length)dom.characterList.innerHTML='';}
-  for(const npc of allies){const ship=campaign.starships.find(s=>s.controlType==='pc'&&s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>Ally NPC · ${escapeHtml(ship?.title||'With the party')}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select,[data-npc-icon],[data-npc-recalculate]').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
+  const roster=campaignNpcRoster();
+  if(roster.length){dom.characterCount.textContent+=` · ${roster.length} NPC${roster.length===1?'':'s'}`;if(!campaign.characters.length)dom.characterList.innerHTML='';}
+  for(const npc of roster){const ship=campaign.starships.find(s=>s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>${npc.allyNpc?'Ally NPC':'NPC'} · ${escapeHtml(ship?.title||(npc.allyNpc?'With the party':'Unassigned'))}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select,[data-npc-icon],[data-npc-recalculate]').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
   const discard = campaign.dramaDeck?.discard || [];
   dom.dramaDiscardCount.textContent = `${discard.length} Card${discard.length === 1 ? "" : "s"}`;
   dom.dramaDiscardList.innerHTML = discard.length
@@ -2738,11 +2738,12 @@ dom.premadeNpcEditor.addEventListener("input", (event) => {
 bindNpcEditor(dom.premadeNpcEditor,()=>premadeNpcDraft);
 bindNpcEditor(dom.encounterNpcEditor,()=>encounterNpcDraft);
 
-dom.newPremadeNpc.addEventListener("click", () => {
+function startCampaignNpc() {
   premadeNpcDraft = stagedNpc(NPC_BLANK);
   renderPremadeNpcConsole();
   dom.premadeNpcEditor.querySelector('[data-npc-field="name"]')?.focus();
-});
+}
+dom.newPremadeNpc.addEventListener("click",startCampaignNpc);
 dom.savePremadeNpc.addEventListener("click", async () => {
   try {
     const saved = await saveNpcTemplate(premadeNpcDraft);
@@ -3174,3 +3175,20 @@ document.getElementById('restorePcResources')?.addEventListener('click',async fu
 });
 
 window.SAUniverseUI.setup({state:()=>campaign,send:body=>api('/api/campaign/universe',{code,token,...body}),receive:receiveCampaign,confirm:(title,message)=>confirmGm({title,message,acceptLabel:'Confirm'})});
+
+// Additional entry points reuse the existing campaign NPC editor and ship import API.
+document.getElementById('addCampaignNpc').onclick=()=>{startCampaignNpc();dom.premadeNpcEditor.scrollIntoView({block:'center'});};
+document.getElementById('loadCampaignStarship').onclick=()=>document.getElementById('campaignStarshipFile').click();
+document.getElementById('campaignStarshipFile').onchange=async event=>{
+ const input=event.target,file=input.files?.[0];if(!file)return;
+ const button=document.getElementById('loadCampaignStarship');button.disabled=true;
+ try{
+  const data=JSON.parse(await file.text()),source=data.format==='spaceship-architect-2e-starship'?data.starship:data;
+  if(!source?.confirmedOnce||!Array.isArray(source.gridCells))throw Error('Choose a confirmed Spaceship Architect starship file.');
+  if(!await confirmGm({title:'Load Starship?',message:`Add ${source.title||'this starship'} to this campaign as a GM-controlled ship? You can change its control and assign crew in the fleet.`,acceptLabel:'Load Starship'}))return;
+  const starship={...structuredClone(source),id:crypto.randomUUID(),campaignLink:null,crewCharacterIds:[],crewNpcUnitIds:[],crewmemberNames:[]};
+  await api('/api/campaign/starship/link',{code,token,controlType:'gm',starship});await refreshCampaign();
+  showMessage(dom.message,'Starship added to the campaign fleet.','success');
+ }catch(error){showMessage(dom.message,error.message,'error');}
+ finally{button.disabled=false;input.value='';}
+};

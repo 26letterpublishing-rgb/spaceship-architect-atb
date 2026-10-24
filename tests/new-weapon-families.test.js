@@ -35,7 +35,8 @@ test('SIC levels preserve their individual map atlas views and use equipment art
     const definitions=Array.from({length:max},(_,i)=>maps.definition(`${family}-${i+1}`));
     for(const d of definitions)assert.equal(d.cardArt,`card-${family}-equipment-v2.webp`);
     const art=definitions.map(d=>d.sprite||d.image);assert.equal(new Set(art).size,max);
-    for(const url of art){const [file,fragment]=url.split('#');assert.ok(fragment);assert.ok(fs.readFileSync(path.join(__dirname,'..',file.split('?')[0]),'utf8').includes(`id="${fragment}"`));}
+    for(const url of art){const [file,fragment]=url.split('#');const bytes=fs.readFileSync(path.join(__dirname,'..',file.split('?')[0]));if(fragment)assert.ok(bytes.toString().includes(`id="${fragment}"`));else{assert.match(file,/^weapon-floorplan-.*\.webp$/);assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');}}
+
   }
 });
 test('Darkveil impairment subtracts five per point; offline and duplicate installations handled',()=>{
