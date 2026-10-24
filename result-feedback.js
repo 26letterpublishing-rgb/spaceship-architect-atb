@@ -42,7 +42,7 @@
         const subtitle=doc.createElement('small');subtitle.textContent='---enter the combat tab immediately!---';text.append(subtitle);
       }
       let closed=false,timer;const close=()=>{if(closed)return;closed=true;clearTimeout(timer);banner.remove();critical.close=null;next();};
-      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.onclick=close;banner.append(track);if(item.type!=='combat-start')banner.append(button);doc.body.append(banner);banner.showPopover();
+      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.onclick=close;if(item.type==='combat-start'){button.setAttribute('aria-label','Dismiss All hands on deck');button.dataset.uiSound='none';}banner.append(track,button);doc.body.append(banner);banner.showPopover();
       const reduce=win.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const width=track.clientWidth,length=text.scrollWidth,ms=item.type==='combat-start'?10000:Math.max(7000,(width+length)/115*1000);
       if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,fill:'forwards'});}

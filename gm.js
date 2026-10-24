@@ -320,6 +320,8 @@ dom.confirmModal.addEventListener("keydown", (event) => {
   }
   if (event.key === "Enter" && (event.target === dom.confirmInput || event.target === dom.confirmAccept)) {
     event.preventDefault();
+    if(event.repeat)return;
+    if(event.isTrusted){const sound=window.SAAudioControls?.role(dom.confirmAccept)||'chunk';if(['chunk','robot','whoosh'].includes(sound))window.SAAudioMix.buttonSound(sound);}
     finishGmDialog(true);
   }
 });
@@ -1060,13 +1062,7 @@ function syncNpcCalculatedFields(host,npc,active=null){
 }
 
 function chooseNpcIcon(npc,changed){
-  const art=window.SATokenArt,dialog=document.createElement('dialog');dialog.className='npc-icon-dialog';dialog.setAttribute('aria-label','Choose NPC icon');
-  dialog.innerHTML='<h2>Choose NPC Icon</h2><p>Choose any available appearance. Icons do not change the NPC’s statistics.</p><label>Appearance<select></select></label><div class="npc-icon-options"></div><button type="button" data-close>Close</button>';
-  const select=dialog.querySelector('select'),options=dialog.querySelector('.npc-icon-options');
-  select.innerHTML=art.allRaces.map(r=>'<option value="'+r+'">'+escapeHtml(r.replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase()))+'</option>').join('');select.value=npc.iconRace||'human';
-  const render=()=>{options.innerHTML=art.options(select.value).map(o=>'<button type="button" data-variant="'+o.value+'" aria-pressed="'+(npc.iconRace===select.value&&npc.iconVariant===o.value)+'">'+art.figure(select.value,o.value)+'<span>'+o.label+'</span></button>').join('');};
-  select.onchange=render;options.onclick=e=>{const b=e.target.closest('[data-variant]');if(!b)return;npc.iconRace=select.value;npc.iconVariant=Number(b.dataset.variant);changed();dialog.close();};
-  dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.append(dialog);render();dialog.showModal();select.focus();
+  return window.SANpcIconPicker.open(npc,choice=>{npc.iconRace=choice.iconRace;npc.iconVariant=choice.iconVariant;changed();});
 }
 
 function bindNpcEditor(host,getNpc){
@@ -1611,6 +1607,8 @@ function renderCampaign() {
   window.SAInterfaceNotices?.setCombatActive(campaign?.combatActive);
   dom.saveCampaignBackup.disabled = SHOWCASE_MODE || Boolean(campaign?.showcase);
   dom.saveCampaignBackup.title = dom.saveCampaignBackup.disabled ? "Explore Features cannot be exported as a campaign." : "Save Campaign";
+  const settingsSaveButton=document.getElementById("settingsSaveCampaign");
+  if(settingsSaveButton){settingsSaveButton.disabled=dom.saveCampaignBackup.disabled;settingsSaveButton.title=dom.saveCampaignBackup.title;}
   if(campaign&&window.SARoomV03?.moveRoom(campaign))return;
   if (!campaign) return;
   window.SACampaignMapUI?.update(campaign,token);window.SARoomV03?.gmControls(campaign,token);window.SAQuickPrompts?.update(campaign,token);window.SACrewLogs?.update(campaign,token);
@@ -2813,15 +2811,17 @@ dom.brand.addEventListener("click", async () => {
   clearAtbBrowserIdentity();
   location.href = "index.html";
 });
+window.addEventListener("sa-audio-change",()=>{gmSoundsMuted=window.SAAudioMix.isMuted();updateSoundButton();});
 function updateSoundButton() {
+  gmSoundsMuted=window.SAAudioMix.isMuted();
   window.SAAudioMix.refreshMute();
   dom.soundToggle.classList.toggle("muted", gmSoundsMuted);
-  dom.soundToggle.setAttribute("aria-label", gmSoundsMuted ? "Unmute combat sounds" : "Mute combat sounds");
-  dom.soundToggle.title = gmSoundsMuted ? "Unmute combat sounds" : "Mute combat sounds";
+  dom.soundToggle.setAttribute("aria-label", gmSoundsMuted ? "Unmute sounds" : "Mute sounds");
+  dom.soundToggle.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
 }
 dom.soundToggle.addEventListener("click", () => {
-  gmSoundsMuted = !gmSoundsMuted;
-  localStorage.setItem("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  window.SAAudioMix.setMuted(!window.SAAudioMix.isMuted());
+  gmSoundsMuted = window.SAAudioMix.isMuted();
   updateSoundButton();
   dom.atbFrame.contentWindow?.postMessage({ type: "sa-gm-sound-muted", muted: gmSoundsMuted }, location.origin);
 });
@@ -2948,12 +2948,13 @@ async function downloadCampaignBackup() {
 }
 
 dom.saveCampaignBackup.addEventListener("click", downloadCampaignBackup);
+const settingsSave=document.getElementById("settingsSaveCampaign");settingsSave.className=dom.saveCampaignBackup.className;settingsSave.textContent=dom.saveCampaignBackup.textContent;settingsSave.addEventListener("click",downloadCampaignBackup);
 document.getElementById("loadCampaignSave").onclick=()=>dom.restoreOpenCampaignFile.click();
 
 dom.restoreOpenCampaignFile.addEventListener("change", async () => {
   try {
     const selectedFile=dom.restoreOpenCampaignFile.files?.[0];if(!selectedFile)return;const backup=JSON.parse(await selectedFile.text());if(!['spaceship-architect-campaign','spaceship-architect-adventure'].includes(backup.format))throw Error('Choose a Campaign or Adventure Module file.');
-    if (!await confirmGm({ title: "Load Campaign?", message: "Abandon the current game and load the selected campaign file? Save your current campaign first if you want a save file.", acceptLabel: "Load Campaign", danger: true })) return;
+    if (!await confirmGm({ title: "Load Campaign/Adventure?", message: "Leave the current game and open this Campaign Save or Adventure Module? Save your current campaign first if you want a backup.", acceptLabel: "Load Campaign/Adventure", danger: true })) return;
     // Validate/load the new file before closing the old room, so a bad file cannot strand players.
     if(backup.format==='spaceship-architect-adventure'&&backup.version===2)await window.SAModuleCache.put(backup);
     const payload = await window.SARoomV03.api('load', {backup,choice:'replace'});

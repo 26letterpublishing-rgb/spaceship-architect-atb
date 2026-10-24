@@ -31,3 +31,8 @@ test('Draco Prime appearance accepts humanoid races only without changing identi
 });
 
 test('each subtype resolves its own existing atlas through the shared walk renderer',async()=>{const {RACE_DEFS}=await import('../character-data.js');for(const race of RACE_DEFS)for(const subtype of race.types||[]){const resolved=art.character({identity:{raceId:race.id,raceType:subtype.id}}).race;assert.equal(resolved,race.id+'-'+subtype.id);assert.ok(fs.existsSync(require('path').join(__dirname,'..',art.atlas(resolved))));assert.equal(art.options(resolved).length,2);assert.match(art.figure(resolved),/crew-sprite-step/);}});
+
+
+test('all twenty-one NPC appearances have safe atlas files and preserve PC identity rules',()=>{assert.equal(art.npcIcons.length,21);const defaults=JSON.parse(fs.readFileSync(require.resolve('../data/npc-templates.json'),'utf8'));for(const id of art.npcIcons){assert.ok(fs.existsSync(require('path').join(__dirname,'..',art.atlas(id))));assert.deepEqual(art.character({team:'npc',iconRace:id}),{race:id,variant:0});assert.equal(art.options(id).length,1);assert.match(art.figure(id),/width="512" height="256"/);assert.equal(art.character({identity:{raceId:'draco-prime'},presentation:{iconRace:id}}).race,'draco-prime');}for(const row of defaults)assert.ok(art.npcIcons.includes(row.iconRace));});
+
+test('map markers clip a single standing frame without nested SVG sizing',()=>{for(const id of [...art.npcIcons,...art.allRaces])for(const {value} of art.options(id)){const marker=art.marker(id,value,'sample');assert.match(marker,/clip-path="url\(#sample\)"/);assert.match(marker,/<image /);assert.doesNotMatch(marker,/<svg/);assert.match(marker,/width="32" height="32"/);}});

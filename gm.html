@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="browser-storage.js"></script>
-    <script src="audio-mix.js"></script>
+    <script src="audio-mix.js"></script><script src="audio-controls.js" defer></script><link rel="stylesheet" href="audio-controls.css">
 <script src="drama-notices.js"></script>
     <script src="explore-session.js"></script>
   <script src="token-art.js"></script><script src="npc-statistics.js"></script><link rel="stylesheet" href="token-art.css"><link rel="stylesheet" href="crew-tokens.css"><script src="crew-tokens.js" defer></script>
@@ -47,9 +47,10 @@
 <link rel="stylesheet" href="character-lifecycle-ui.css">
 <script src="dialog-chrome.js" defer></script>
 <script src="movement-controls.js" defer></script><link rel="stylesheet" href="movement-controls.css">
-<link rel="stylesheet" href="dialog-chrome.css">
+<link rel="stylesheet" href="dialog-chrome.css"><link rel="stylesheet" href="popup-theme.css">
 <script src="universe-clock.js"></script><script src="module-conditions.js"></script><script src="universe-ui.js" defer></script><link rel="stylesheet" href="universe-ui.css">
 <script src="module-author-ui.js" defer></script>
+<script src="npc-icon-picker.js" defer></script>
 </head>
   <body>
     <main class="gm-shell">
@@ -353,10 +354,12 @@
           <div class="tab-heading"><div><span>CAMPAIGN ADMINISTRATION</span><h2>Settings</h2></div><button id="gmSettingsHelp" type="button" aria-label="Settings Help">Help</button></div>
           <div class="settings-grid">
             <section class="settings-card">
-              <h3>Kick Player</h3>
-              <p>Remove a character from this campaign. They must request approval again to return.</p>
-              <label>Character<select id="kickCharacter"></select></label>
-              <button id="kickCharacterButton" class="danger" type="button">Kick Player</button>
+              <h3>Campaign/Adventure Files</h3>
+              <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
+              <div class="campaign-backup-actions">
+
+                <div id="adventureModuleInfo" hidden></div><div class="campaign-file-group" data-file-group="save"><button id="settingsSaveCampaign" class="campaign-export-button" type="button">Save Campaign</button><button id="loadCampaignSave" type="button">Load Campaign/Adventure</button></div><div class="campaign-file-group" data-file-group="module"><button id="exportAdventureModule" type="button">Export Adventure Module</button></div><div class="campaign-file-group" data-file-group="manage"></div><input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.sa2module,.json,application/json" hidden />
+              </div>
             </section>
             <section class="settings-card">
               <h3>Adjust Character</h3>
@@ -380,11 +383,6 @@
               <button id="setBanker" type="button">Save Banker Rule</button>
             </section>
             <section class="settings-card">
-              <h3>Banner Navigation</h3>
-              <p>When enabled, pressing the Spaceship Architect banner offers to exit the campaign.</p>
-              <label class="check-field"><input id="bannerExitEnabled" type="checkbox" checked /> Press banner to exit campaign</label>
-            </section>
-            <section class="settings-card">
               <h3>Interface Banner</h3>
               <p>Choose how the campaign header appears on this device. The main welcome screen remains unchanged.</p>
               <div id="gmBannerVisibilityToggle" class="gm-banner-visibility" role="radiogroup" aria-label="Interface banner visibility">
@@ -392,6 +390,11 @@
                 <button type="button" data-banner-mode="hide-code" role="radio" aria-checked="false">Hide Room Code</button>
                 <button type="button" data-banner-mode="hidden" role="radio" aria-checked="false">Hide Banner</button>
               </div>
+            </section>
+            <section class="settings-card">
+              <h3>Banner Navigation</h3>
+              <p>When enabled, pressing the Spaceship Architect banner offers to exit the campaign.</p>
+              <label class="check-field"><input id="bannerExitEnabled" type="checkbox" checked /> Press banner to exit campaign</label>
             </section>
             <section class="settings-card streaming-privacy-card">
               <h3>Streaming Privacy</h3>
@@ -401,12 +404,10 @@
               <p id="roomCodePrivacyMessage" class="tool-message" role="status"></p>
             </section>
             <section class="settings-card">
-              <h3>Campaign</h3>
-              <div><span>Storage</span><strong id="storageMode">Checking...</strong></div>
-              <div class="campaign-backup-actions">
-
-                <div id="adventureModuleInfo" hidden></div><button id="loadCampaignSave" type="button">Load Campaign</button><button id="exportAdventureModule" type="button">Export Adventure Module</button><input id="restoreOpenCampaignFile" type="file" accept=".sa2campaign,.sa2module,.json,application/json" hidden />
-              </div>
+              <h3>Kick Player</h3>
+              <p>Remove a character from this campaign. They must request approval again to return.</p>
+              <label>Character<select id="kickCharacter"></select></label>
+              <button id="kickCharacterButton" class="danger" type="button">Kick Player</button>
             </section>
             <section class="settings-card danger-settings">
               <h3>Campaign Access</h3><p>Close Room stops the session without deleting it. Delete Campaign permanently removes its hosted data; export a save file first.</p>

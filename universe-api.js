@@ -6,8 +6,9 @@ async function handle(api,{path,req,res,body,campaign,token,sendJson}){
  try{await api.updateCampaignAtomically(campaign,next=>{
   next.universeClock||={};next.settings||={};
   if(body.action==='settings'){
-   if(body.dated)next.universeClock.offsetSeconds=clock.dateSeconds(body)-clock.seconds(next);
-   next.universeClock.dated=!!body.dated;next.universeClock.monthNames=!!body.monthNames;next.universeClock.paused=!!body.paused;
+   next.universeClock.offsetSeconds=clock.dateSeconds({...body,second:0})-clock.seconds(next);
+   next.universeClock.dated=true;next.universeClock.decimals=!!body.decimals;
+   delete next.universeClock.monthNames;
   }else if(body.action==='session'){
    if(body.expectedSession!==next.sessionNumber)throw Error('This session changed. Refresh and try again.');
    if(body.operation==='begin'){

@@ -1,0 +1,33 @@
+October 23 approved release: home, settings, maps, audio and popup refinements (#commit)
+
+Includes the preceding completed local passes documented in:
+RELEASE-SETTINGS-MAPS-ICONS-20261023.txt
+RELEASE-HOME-GLASS-20261023.txt
+RELEASE-AUDIO-CONTROLS-20261023.txt
+RELEASE-POPUP-GLASS-AUDIO-20261023.txt
+The final behavior below supersedes earlier audio and frame descriptions.
+
+Final follow-up changes
+- Dimmed popup surfaces reuse home-panel-frame.svg, with no rectangular green surface over the angular frame. Live headings retain Orbitron. Frames remain attached while their contents scroll.
+- Close X controls remain at the visible panel corner and escape overflow clipping. The foreground dialog owns the X; underlying dialogs regain theirs when it closes, including native siblings opened in reverse DOM order.
+- Quick Prompt, notifications, announcement banners, nonmodal turn panels, full-screen animation/iframe hosts, tooltips, dropdowns and native browser dialogs retain their existing presentation. Interactive prompts inside animation hosts still receive the shared theme. Required acceptance/submission actions remain intact.
+- Chunk is the default button sound. Robot: Begin/End Session, PC Log Entry, Encounter Add NPC/PC, Save/Load and Begin Finalization. Show Save Character and Confirm Skill Packages use Chunk. Home Join Room and Master preview retain their explicit Robot assignments.
+- Whoosh: Help openers, Mail, Enlarge Map/Return to Campaign and opening title disclosures. Silent: X, Quick Check, checkboxes, tabs, maps, map camera controls and Help Previous/Next. Character Sheet drawer retains its feedback.
+- Receive Reward skips generic feedback so Reverence and other reward chimes are heard alone. Existing dice, purchase, recovery, alarm and combat-effect exclusions remain; Confirm Skill Packages uses only its requested Chunk instead of a second purchase chime.
+- GM-requested Open Roll works during Spend EXP, matches skill names without case/whitespace sensitivity, and explains pending-roll, editability or invalid-request blockers instead of silently stopping. Normal advancement guards remain.
+- Established hulls render live during drag by temporarily bypassing the floor snapshot and updating the changed cells. Stroke save/undo behavior remains intact.
+- Airlock controls appear below the ship map in desktop and mobile construction. Removed the stray legacy crew-sheet overlay from construction, where the crew sidebar already provides those controls.
+- Brief GM/PC audio Help and requested-roll guidance updated; Starship Help location/caption and actual Airlocks screenshot refreshed.
+
+Validation
+- Final full suite: 1313/1313 passed. An intermediate run hit the known rail-repeater HTTP timing failure; that case passed in isolation and in the final complete run.
+- Focused requested-roll, audio classification, dialog dismissal and Starship Help checks: 29/29 passed.
+- JavaScript syntax checks and Windows-aware whitespace check passed.
+- Real Chromium browser: home Create New, ammunition popup at desktop/390px, SIC inspector at 1440/768/390/320px, reachable Purchase, anchored X, reverse-order nested native dialogs, scrolling Help, Starship Guide, Airlocks placement, and hull updates before mouse release.
+- Requested GM roll exercised through the actual Open Roll button in a disposable character fixture with advancement enabled; request ID, skill, attribute and difficulty preserved. Desktop and narrow screenshots reviewed. No browser page errors in completed scenarios.
+- Existing earlier local passes cover remaining GM/PC settings, maps, NPC icons and home audio workflows; see their reports.
+- Local campaign data hash unchanged: 5666051D44B14CAD16D097368A1015CF99E966281C110C12D64B289C0A1B8A25.
+- Screenshots and test logs remain outside the repository in SA-ATB Local Development Files/outputs/commit-oct23. Unrelated QA/scripts and Gold Standard excluded. Normal local server remains available on 8790.
+
+Limits
+No listening-based audio quality claim, physical iPad/Safari validation, or Render deployment verification. Audio preference persistence remains browser-local. The user approved commit/push and completion ntfy; no new account synchronization or competing audio system was added.

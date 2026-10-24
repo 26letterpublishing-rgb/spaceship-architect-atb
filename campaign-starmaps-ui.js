@@ -27,7 +27,7 @@
     if(options.label)node.setAttribute('aria-label',options.label);
     if(options.disabled){node.disabled=true;node.title=options.disabled;}
     node.onclick=async event=>{
-      event.stopPropagation();if(node.disabled)return;window.SAAudioMix?.navigation?.(/Atmosphere|Descend|Land Here|Travel Here/.test(label)?'travel':/Map|System|Orbit|Region/.test(label)?'view':'click');node.disabled=true;
+      event.stopPropagation();if(node.disabled)return;node.disabled=true;
       try{await action();}
       catch(error){const alert=node.closest('dialog')?.querySelector('[role="alert"]');if(alert)alert.textContent=error.message;else status(error.message,true);}
       finally{if(node.isConnected)node.disabled=Boolean(options.disabled);}

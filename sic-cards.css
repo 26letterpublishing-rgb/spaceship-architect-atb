@@ -174,3 +174,10 @@
 .sic-picker-face>.sic-console-preview{font-size:20px}
 
 .inspection-card-stage{position:relative;flex:none;overflow:hidden}.inspection-card-stage>.sic-display-card{position:absolute;left:0;top:0}.shared-card-inspector .inspection-card-stage>.sic-purchase-button{position:absolute;top:13px;right:9px}
+/* Let the frame, padding, toolbar and scaled card determine the inspector width. */
+.shared-card-inspector.sic-inspection{width:max-content!important}
+@media(max-width:600px){
+ .shared-card-inspector.sic-inspection [data-sic-card-dialog-body]:has(.sic-inspector-tools:not(:empty)){flex-direction:column}
+ .shared-card-inspector .sic-inspector-tools{position:static;flex:0 0 auto;flex-direction:row;flex-wrap:wrap;width:100%;min-width:0}
+ .shared-card-inspector .sic-inspector-tools button{width:auto;flex:0 1 auto}
+}

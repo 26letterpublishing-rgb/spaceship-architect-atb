@@ -14,15 +14,15 @@ test('surface approval is GM-only, deduplicated, timed, reload-safe and boards o
 test('stale destinations cannot be approved; declines leave the party in place',()=>{
  const f=fixture();f.send('planetTravelRequest',{hex:'12'},false);const r=f.c.starmaps.travelRequests[0];f.send('planetMoveParty',{hex:'13'});assert.throws(()=>f.send('planetTravelDecision',{requestId:r.id,approve:true}),/party has moved/);f.send('planetTravelDecision',{requestId:r.id,approve:false});assert.equal(f.c.starmaps.party.hex,'13');assert.equal(r.status,'declined');
 });
-test('bounded surface path and regional speed are deterministic',()=>{
- assert.equal(travel.route('0','1289').distance,119);assert.equal(travel.route('0','14',true).distance,14);
+test('wrapping planet path and bounded regional speed are deterministic',()=>{
+ assert.equal(travel.route('0','1289').distance,1);assert.equal(travel.route('0','14',true).distance,14);
  const f=fixture();const base={...f.p,hex:'10'};f.c.starmaps.party=base;const j=travel.begin(f.c,{...base,hex:'12'});assert.equal(j.total,8);delete f.c.starmaps.partyJourney;f.c.starmaps.party={...base,regionId:'10',regionHex:'10'};assert.equal(travel.begin(f.c,{...f.c.starmaps.party,regionHex:'12'}).total,4);
 });
-test('travel across the full bounded planet survives reload and boards the saved ship at arrival',()=>{
+test('travel across the planet seam survives reload and boards the saved ship at arrival',()=>{
  const f=fixture();f.send('planetMoveParty',{hex:'1170'});f.c.starmaps.localPositions.pc.surfaceHex='4799';
  f.send('planetTravelRequest',{hex:'4799'},false);const request=f.c.starmaps.travelRequests[0];
  f.send('planetTravelDecision',{requestId:request.id,approve:true});
- assert.equal(f.c.starmaps.partyJourney.route.distance,119);assert.equal(f.c.starmaps.partyJourney.total,120);
+ assert.equal(f.c.starmaps.partyJourney.route.distance,1);assert.equal(f.c.starmaps.partyJourney.total,4);
  const saved=JSON.parse(JSON.stringify(f.c)),j=saved.starmaps.partyJourney;
  galaxy.tick(saved,j.clockAt+j.total*1000,false);
  assert.equal(saved.starmaps.party.hex,'4799');assert.equal(boarding.atShip(saved,saved.starships[0]),true);

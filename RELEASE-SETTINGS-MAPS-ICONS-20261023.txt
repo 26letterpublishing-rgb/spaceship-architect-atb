@@ -1,0 +1,40 @@
+LOCAL RELEASE — SETTINGS, CLOCK, NPC ICONS, MAPS AND HOME SCREEN
+October 23, 2026 — local only; no commit, push or deployment
+
+IMPLEMENTED
+- GM Settings uses three equal desktop columns, two on tablet widths and one on narrow screens. Campaign/Adventure Files and the clock lead; Kick Player and Delete Campaign are near the bottom.
+- Campaign file actions have thin dividers and muted navy, purple and teal groups, with no extra headings. Load Campaign/Adventure and the duplicate Save Campaign use the existing workflows. Save mirrors the header button's availability. Repeated content-row actions align.
+- Adjust Time is an inline five-field row: Year, Month, Day, Hour and Minute. It remembers current values and supports numbered or dotted dates. Year zero is omitted, seconds are not editable, and logs stop at hours. Saving resets seconds to zero and preserves elapsed adventure time and the session's pause state.
+- Added 20 original NPC appearance atlases: the ten default archetypes, three additional civilian variants, and seven creatures. Combined optimized size is 672,124 bytes (about 656 KiB). NPC selection is a visual popup with Default and PC Icons tabs; playable race identity restrictions are preserved.
+- GM can place named, cosmetic character markers on planet and region hexes, including occupied city hexes. Multiple markers can share a hex. Edit, move and remove controls preserve the location; PCs can view markers and their names but cannot edit them. Markers persist with map/campaign saves.
+- Enlarged Campaign map headers are compact in shared GM/PC interfaces at every map level, preserving navigation and controls.
+- Planet surface travel chooses a shorter east/west seam route where applicable and animates across the edge. Distance and travel time use that route. The map remains a single bounded display. Regions and all other maps do not wrap; north/south travel does not wrap.
+- Home artwork fills the viewport at 80% opacity. Join Active Room is horizontally centered and placed below the artwork's subtitle. Small blue-left/red-right stars move inward and fade over randomized 2–3 second journeys. Artwork and animation remain separate layers.
+- Permanent Rule #2 records efficient space use, readable text, proportionate controls and visual verification. Relevant GM/PC Help wording now covers the changed Settings controls, NPC picker/markers and planet edge travel.
+
+DECISIONS MADE WHILE YOU WERE AFK
+- Chose a floating jellyfish for the unspecified seventh creature, alongside crab, giant rat, tentacled humanoid, flying robot head, space/time anomaly and generic monster.
+- Kept markers cosmetic: placing one does not spawn a combatant, relocate a PC or change statistics.
+- Display up to six small markers on a hex, with an overflow indicator; Characters Here lists all names. A safety limit of 40 markers per hex prevents unbounded payloads.
+- Used shorter east/west planet routes only, without changing the map's camera boundaries or rendering duplicate planets.
+- Preserved elapsed module time separately from the displayed date, so adjusting the calendar does not accidentally advance adventure conditions.
+- Kept all home graphics separate pending your approval. Respected reduced-motion preferences and suspended star creation when the page is hidden.
+- Retained all controls on narrow screens. The broader mobile simplification remains a future project.
+- Updated affected Help text briefly; existing tutorial screenshot refreshes can follow once these layouts settle.
+
+VERIFICATION
+- Full automated suite: 1,289 passed, zero failed.
+- Final marker/icon regression run after the rendering refinement: 22 passed, zero failed.
+- JavaScript syntax: 23 changed/new files checked. Whitespace check passed.
+- HTTP checks: all 20 new icon atlases plus the three new public script/style assets returned 200.
+- Real browser checks used isolated disposable QA data: clock save/reload, grouped Settings, aligned content actions, Default and PC icon pickers, planet/region shared-hex markers, movement, editing, removal preserving the city, and PC read-only access.
+- Screenshots reviewed at desktop, tablet landscape/portrait and narrow Settings sizes. GM galaxy/system/planet/region expanded views and PC planet/region views were inspected. Home subtitle remained unobscured at tested desktop and tablet-landscape sizes.
+- Personal campaigns.json SHA-256 unchanged: 7B679E7F05595DFFB15F8ED08CC82DCD4961505088379330B38742D5D017E190.
+- Normal local server restarted successfully on port 8790 (PID 8812). Isolated QA server stopped. Render tab left untouched.
+- Physical iPad/Safari and production deployment were not tested in this local pass. Narrow-phone home artwork can crop horizontally because it fills the screen; full mobile design remains deferred.
+
+EVIDENCE
+Screenshots and test log:
+C:/Users/zombi/Desktop/Spaceship Architect 2026 Sorting/outputs/settings-map-qa-20261023/
+Notable files: home-local-final.png, home-desktop.png, home-tablet.png, settings-desktop.png, settings-tablet-portrait.png, settings-narrow.png, content-actions.png, npc-default-picker.png, npc-pc-picker.png, region-expanded-gm.png, region-expanded-pc.png, planet-expanded-pc.png, system-expanded-gm.png, galaxy-expanded-gm.png, full-tests-final.txt.
+Original image prompts and asset mapping: scripts/npc-icon-art-20261023.json.

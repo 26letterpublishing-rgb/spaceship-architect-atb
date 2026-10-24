@@ -1,13 +1,13 @@
 'use strict';
 const terrain=require('./planet-terrain'),maps=require('./ship-map-core'),{randomUUID}=require('node:crypto');
-const commands=new Set(['planetType','planetPosition','planetPaint','planetHex','planetRegion','planetStart','planetMoveParty','planetLand','planetShop','planetRegenerate']);
+const commands=new Set(['planetNpcMarker','planetType','planetPosition','planetPaint','planetHex','planetRegion','planetStart','planetMoveParty','planetLand','planetShop','planetRegenerate']);
 const text=(v,max=5000)=>String(v||'').trim().slice(0,max);
 const state=c=>require('./campaign-navigation').state(c);
 function context(c,b){const s=state(c),map=s.maps.find(m=>m.id===b.mapId),star=map?.stars.find(x=>x.id===b.starId),planet=star?.system?.find(p=>p.id===b.planetId&&p.kind==='planet'&&!p.destroyedAt);if(!planet)throw Error('Choose an intact planet.');return {s,map,star,planet};}
 function surface(star,planet){star.surfaces||={};return star.surfaces[planet.id]||={seed:planet.id,size:planet.size||'large',gridVersion:2,hexes:{},regions:{}};}
 function normalizeWorld(raw,seed,size='large',variant='temperate'){
  raw=raw?.gridVersion===2?raw:require('./planet-grid-migration').resize({...raw,seed:raw?.seed||seed},variant).world;size=raw.size||size;
- const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,...(source?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(source.arrivalContent)}:{}),hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region,size)).slice(0,terrain.count(region,size)).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(h.arrivalContent)}:{}),...(h?.attachments?{attachments:require('./planet-attachments').normalize(h.attachments)}:{}),...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
+ const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,...(source?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(source.arrivalContent)}:{}),hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region,size)).slice(0,terrain.count(region,size)).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.npcMarkers?{npcMarkers:require('./planet-npc-markers').normalize(h.npcMarkers)}:{}),...(h?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(h.arrivalContent)}:{}),...(h?.attachments?{attachments:require('./planet-attachments').normalize(h.attachments)}:{}),...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
  const world={...clean(raw),size,gridVersion:2,...(raw.legacyGrid?{legacyGrid:structuredClone(raw.legacyGrid)}:{}),...(raw.resizeBackup?{resizeBackup:structuredClone(raw.resizeBackup)}:{})};world.description=text(raw?.description);world.regions={};
  for(const [key,r]of Object.entries(raw?.regions||{}).filter(([k])=>terrain.validHex(k,false,size)).slice(0,terrain.count(false,size)))world.regions[String(Number(key))]={...clean(r,true),name:text(r?.name,80)||'Region',uniform:r?.uniform===true,type:terrain.types.includes(r?.type)?r.type:'temperate'};
  return world;
@@ -39,6 +39,7 @@ function command(c,b,auth){
  if(!gm&&b.kind!=='planetLand')throw Error('Only the GM may edit maps or move the party.');
  const {s,map,star,world,chart,region,planet}=target(c,b),size=planet.size;
  if(b.expectedSize&&b.expectedSize!==size)throw Error('This planet was resized. Reopen the map and try again.');
+ if(b.kind==='planetNpcMarker')require('./planet-npc-markers').command(chart,b,value=>hexKey(value,region,size));
  if(b.kind==='planetType'){
   if(!terrain.types.includes(b.terrain))throw Error('Choose a planet type.');
   if(b.size!==undefined&&!Object.hasOwn(terrain.sizes,b.size))throw Error('Choose a planet size.');
@@ -105,7 +106,7 @@ function project(s,gm){
   for(const [id,world]of Object.entries(star.surfaces||{})){
    delete world.arrivalContent;for(const r of Object.values(world.regions||{}))delete r.arrivalContent;
    if(!ids.has(id)){delete star.surfaces[id];continue;}
-   const clean=hexes=>Object.fromEntries(Object.entries(hexes||{}).map(([key,h])=>[key,Object.fromEntries(['terrain','label','description','city'].filter(k=>h[k]!==undefined).map(k=>[k,h[k]]))]));
+   const clean=hexes=>Object.fromEntries(Object.entries(hexes||{}).map(([key,h])=>[key,Object.fromEntries(['terrain','label','description','city','npcMarkers'].filter(k=>h[k]!==undefined).map(k=>[k,h[k]]))]));
    world.hexes=clean(world.hexes);
    for(const [key,r]of Object.entries(world.regions||{})){
     // Send the active region only; all other regions are small directory entries.

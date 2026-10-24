@@ -2808,6 +2808,7 @@ function startEngineCharge() {
 }
 
 function playGmSound(name = "tap") {
+  if(name === "tap") return; // Shared local button feedback owns ordinary clicks.
   if (gmSoundsMuted) return;
   try {
     if (name === "start") {
@@ -2891,13 +2892,7 @@ function playGmClockTick() {
 }
 
 function playTurnDing() {
-  try {
-    tone(880, 0, 0.22, 0.28, "sine");
-    tone(1320, 0.12, 0.28, 0.24, "sine");
-    tone(1760, 0.28, 0.2, 0.18, "triangle");
-  } catch {
-    // The visual turn banner still works if audio is blocked.
-  }
+  window.SAAudioMix.turnDing();
 }
 
 function playWarningDing(urgent = false) {
@@ -2958,8 +2953,8 @@ function playerAlertLabel() {
 }
 
 function enablePlayerAlerts({ testSound = false } = {}) {
-  alertsEnabled = true;
-  safeLocalStorageSet("sa-atb-alerts", "on");
+  if (testSound) window.SAAudioMix.setMuted(false);
+  alertsEnabled = !window.SAAudioMix.isMuted();
   window.SAAudioMix.refreshMute();
   ensureAudio();
   if (testSound) {
@@ -2970,7 +2965,7 @@ function enablePlayerAlerts({ testSound = false } = {}) {
 
 function disablePlayerAlerts() {
   alertsEnabled = false;
-  safeLocalStorageSet("sa-atb-alerts", "off");
+  window.SAAudioMix.setMuted(true);
   window.SAAudioMix.refreshMute();
   for (const node of activeGmAudioNodes) {
     try {
@@ -4029,14 +4024,14 @@ visualModeToggle.addEventListener("click", () => {
 stepTick.addEventListener("click", () => action({ action: "step" }, "tap"));
 resetAll.title="Close dialogs on every device and restore the preceding action when available";
 let encounterConfirmationPending=false;
-function confirmEncounterChange(title,message,acceptLabel,requiredText=null){
+function confirmEncounterChange(title,message,acceptLabel,requiredText=null,dedicatedSound=false){
   if(encounterConfirmationPending)return Promise.resolve(false);
   encounterConfirmationPending=true;
   const encounterId=state?.encounterId;
   let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
   return new Promise(resolve=>{
     const dialog=doc.createElement('dialog'),heading=doc.createElement('h2'),description=doc.createElement('p'),form=doc.createElement('form'),cancel=doc.createElement('button'),accept=doc.createElement('button');
-    dialog.className='combat-result-popup';dialog.setAttribute('aria-label',title);heading.textContent=title;description.textContent=message;cancel.type='button';cancel.textContent='Cancel';accept.type='submit';accept.textContent=acceptLabel;
+    dialog.className='combat-result-popup';dialog.setAttribute('aria-label',title);heading.textContent=title;description.textContent=message;cancel.type='button';cancel.textContent='Cancel';accept.type='submit';accept.textContent=acceptLabel;if(dedicatedSound)accept.dataset.uiSound='none';
     let field=null,accepted=false;
     if(requiredText!==null){const label=doc.createElement('label');label.textContent='Campaign name';field=doc.createElement('input');field.type='text';field.autocomplete='off';label.append(field);form.append(label);accept.disabled=true;field.addEventListener('input',()=>{accept.disabled=field.value!==requiredText;});}
     const controls=doc.createElement('div');controls.style.cssText='display:flex;gap:12px;justify-content:flex-end;margin-top:18px';controls.append(cancel,accept);form.append(controls);dialog.append(heading,description,form);
@@ -4046,7 +4041,7 @@ function confirmEncounterChange(title,message,acceptLabel,requiredText=null){
     doc.body.append(dialog);dialog.showModal();cancel.focus();
   });
 }
-resetAll.addEventListener("click", async () => {if(await confirmEncounterChange('Reset combat prompts?','Close open dialogs on every connected device and restore the previous action when one is available. A recovery checkpoint is saved first.','Reset'))await action({ action: "reset" }, "resolve");});
+resetAll.addEventListener("click", async () => {if(await confirmEncounterChange('Reset combat prompts?','Close open dialogs on every connected device and restore the previous action when one is available. A recovery checkpoint is saved first.','Reset',null,true))await action({ action: "reset" }, "resolve");});
 gmMuteSound.addEventListener("click", () => {
   if (mode === "player") {
     if (alertsEnabled) disablePlayerAlerts();
@@ -4055,8 +4050,8 @@ gmMuteSound.addEventListener("click", () => {
     if(!state?.practice)render();
     return;
   }
-  gmSoundsMuted = !gmSoundsMuted;
-  safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+  window.SAAudioMix.setMuted(!window.SAAudioMix.isMuted());
+  gmSoundsMuted=window.SAAudioMix.isMuted();
   window.SAAudioMix.refreshMute();
   if (gmSoundsMuted) stopGmAudio();
   playGmSound("tap");
@@ -4078,10 +4073,10 @@ restorePlayerTurn?.addEventListener("click", () => {
   renderPlayerCommand(state?.units.find((entry) => entry.id === myUnitId) || null);
 });
 clearEncounter.addEventListener("click", async () => {
-  const name=campaignState?.name;if(!name)return;if(await confirmEncounterChange('Clear encounter?',`Clear every character? A recovery checkpoint will be saved. Type ${name} to confirm.`,'Clear Encounter',name))await action({action:"clearEncounter",confirmCampaignName:name},"danger");
+  const name=campaignState?.name;if(!name)return;if(await confirmEncounterChange('Clear encounter?',`Clear every character? A recovery checkpoint will be saved. Type ${name} to confirm.`,'Clear Encounter',name,true))await action({action:"clearEncounter",confirmCampaignName:name},"danger");
 });
 exitCombat.addEventListener("click", async () => {
-  if (!await confirmEncounterChange('End combat?','End this combat for everyone and return to the campaign controls?','End Combat')) return;
+  if (!await confirmEncounterChange('End combat?','End this combat for everyone and return to the campaign controls?','End Combat',null,true)) return;
   void action({ action: "exitEncounter" }, "danger",{throwOnError:true}).then(() => {
     if (embeddedGm) window.parent.postMessage({ type: "sa-combat-ended" },window.location.origin);
     else returnToWelcome("Combat ended. Create or join a room when ready.");
@@ -4623,7 +4618,7 @@ window.addEventListener("message", (event) => {
   if (message.type === "sa-gm-sound-muted") {
     gmSoundsMuted = Boolean(message.muted);
     if (gmSoundsMuted) stopGmAudio();
-    safeLocalStorageSet("sa-atb-gm-muted", gmSoundsMuted ? "on" : "off");
+    window.SAAudioMix.setMuted(gmSoundsMuted);
     window.SAAudioMix.refreshMute();
     gmMuteSound.classList.toggle("muted", gmSoundsMuted);
     gmMuteSound.title = gmSoundsMuted ? "Unmute sounds" : "Mute sounds";
@@ -4631,7 +4626,7 @@ window.addEventListener("message", (event) => {
   }
   if (message.type === "sa-player-sound-enabled") {
     alertsEnabled = Boolean(message.enabled);
-    safeLocalStorageSet("sa-atb-alerts", alertsEnabled ? "on" : "off");
+    window.SAAudioMix.setMuted(!alertsEnabled);
     window.SAAudioMix.refreshMute();
     if (alertsEnabled) ensureAudio();
     render();
@@ -4830,5 +4825,7 @@ document.addEventListener('click',event=>{
  const ship=state.starships.find(s=>s.id===button.dataset.removeCombatShip);if(!ship)return;
  let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
  const d=doc.createElement('dialog');d.setAttribute('aria-label','Remove starship from combat');d.style.cssText='max-width:520px;padding:24px;background:#102630;color:#eef9ff;border:1px solid #ff9d94';
- const h=doc.createElement('h2'),p=doc.createElement('p'),yes=doc.createElement('button'),no=doc.createElement('button');h.textContent='Remove '+ship.title+'?';p.textContent='This removes the ship and everyone aboard from this encounter. The saved ship and crew assignments remain in the campaign.';yes.textContent='Remove from Combat';no.textContent='Cancel';yes.style.cssText='background:#923d41;color:white;margin-right:12px';no.style.cssText='background:#244c5d;color:white';no.onclick=()=>d.close();yes.onclick=async()=>{yes.disabled=true;try{await action({action:'removeStarship',starshipId:ship.id},'danger',{throwOnError:true});d.close();}catch(error){p.textContent=error.message;yes.disabled=false;}};d.append(h,p,yes,no);doc.body.append(d);d.onclose=()=>d.remove();d.showModal();
+ const h=doc.createElement('h2'),p=doc.createElement('p'),yes=doc.createElement('button'),no=doc.createElement('button');h.textContent='Remove '+ship.title+'?';p.textContent='This removes the ship and everyone aboard from this encounter. The saved ship and crew assignments remain in the campaign.';yes.textContent='Remove from Combat';yes.dataset.uiSound='none';no.textContent='Cancel';yes.style.cssText='background:#923d41;color:white;margin-right:12px';no.style.cssText='background:#244c5d;color:white';no.onclick=()=>d.close();yes.onclick=async()=>{yes.disabled=true;try{await action({action:'removeStarship',starshipId:ship.id},'danger',{throwOnError:true});d.close();}catch(error){p.textContent=error.message;yes.disabled=false;}};d.append(h,p,yes,no);doc.body.append(d);d.onclose=()=>d.remove();d.showModal();
 });
+
+window.addEventListener('sa-audio-change',()=>{gmSoundsMuted=window.SAAudioMix.isMuted();alertsEnabled=!gmSoundsMuted;gmMuteSound?.classList.toggle('muted',gmSoundsMuted);if(gmMuteSound){gmMuteSound.title=gmSoundsMuted?'Unmute sounds':'Mute sounds';gmMuteSound.setAttribute('aria-label',gmMuteSound.title);}if(gmSoundsMuted)stopGmAudio();});

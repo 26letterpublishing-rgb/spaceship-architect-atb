@@ -97,7 +97,21 @@ test('Explore keeps a GM result while hidden and shows it when that perspective 
 
 test('combat-start banner expires without an opacity fade and advances queued alerts',()=>{
  const e=environment();e.win.SAResultFeedback.critical('combat-start-test','ALL HANDS ON DECK','combat-start');const banner=e.doc.querySelector('.critical-flight-banner');let animated=false;banner.animate=()=>{animated=true;return {finished:Promise.resolve()};};
- assert.equal(e.timers[0].delay,10000);assert.equal(banner.querySelector('small').textContent,'---enter the combat tab immediately!---');assert.equal(banner.querySelector('button'),null);
+ assert.equal(e.timers[0].delay,10000);assert.equal(banner.querySelector('small').textContent,'---enter the combat tab immediately!---');assert.equal(banner.querySelector('button').getAttribute('aria-label'),'Dismiss All hands on deck');
  e.win.SAResultFeedback.critical('combat-start-test','All hands on deck','combat-start');assert.equal(banner.isConnected,true,'a repeated announcement cannot remove the ten-second banner');assert.equal(e.timers.length,1);
  e.win.SAResultFeedback.critical('next-alert','Next alert','warning');e.timers.shift()();assert.equal(animated,false);assert.equal(banner.isConnected,false);assert.match(e.doc.querySelector('.critical-flight-banner').textContent,/Next alert/);
+});
+
+
+test('combat-start X dismisses locally, preserves deduplication and safely advances the queue',()=>{
+ const e=environment(),other=environment();
+ for(const session of [e,other])session.win.SAResultFeedback.critical('start','All hands on deck','combat-start');
+ const banner=e.doc.querySelector('.critical-flight-banner'),timeout=e.timers[0];
+ e.win.SAResultFeedback.critical('next','Next alert','warning');
+ banner.querySelector('button').fire('click');
+ assert.equal(banner.isConnected,false);
+ const next=e.doc.querySelector('.critical-flight-banner');assert.match(next.textContent,/Next alert/);
+ assert.ok(other.doc.querySelector('.critical-flight-banner'),'another client remains unaffected');
+ timeout();assert.equal(e.doc.querySelector('.critical-flight-banner'),next,'stale timeout cannot close the next alert');
+ e.win.SAResultFeedback.critical('start','All hands on deck','combat-start');assert.equal(e.doc.querySelector('.critical-flight-banner'),next,'dismissed announcement does not reappear');
 });

@@ -1732,7 +1732,9 @@ function renderCharacterHeader() {
   dom.creatorTitle.title = !gm && !activeCampaignSession ? "Open Settings and join or reopen a campaign" : "";
 }
 
+window.addEventListener("sa-audio-change",()=>{playerSoundsEnabled=!window.SAAudioMix.isMuted();renderPlayerSoundSetting();});
 function renderPlayerSoundSetting() {
+  playerSoundsEnabled=!window.SAAudioMix.isMuted();
   window.SAAudioMix.refreshMute();
   const sound=document.getElementById('pcHeaderSound');if(sound){sound.classList.toggle('muted',!playerSoundsEnabled);sound.title=playerSoundsEnabled?'Mute sounds':'Unmute sounds';sound.setAttribute('aria-label',sound.title);sound.setAttribute('aria-pressed',String(!playerSoundsEnabled));}
   dom.playerSoundToggle?.querySelectorAll("[data-player-sounds]").forEach((button) => {
@@ -4313,7 +4315,7 @@ function renderSkillPackages() {
     for(const skill of character.customSkills){skill.tenths=0;skill.creationDecimal=null;}
     character.creation.skillPurchaseOrder=result.purchases.map(p=>({key:skillKeyForBase(p.name),cost:p.cost}));
     character.creation.packageBudget=result.budget;character.creation.packageGuidance=false;
-    playPurchaseSound();queueSave();renderWithoutViewportJump();
+    queueSave();renderWithoutViewportJump();
     const status=document.querySelector('#skillPackages [role="status"]');
     if(status)status.textContent=`Packages applied: ${result.spent} points spent. ${result.remaining ? `${result.remaining} points remain; use Custom Skill Allocation to spend them.` : "All points spent. Review your skills below before finalizing."}`;
   });
@@ -4794,8 +4796,8 @@ function openSkillDescription(skillKey) {
   dialog.addEventListener('close',()=>{ cleanup(); window.removeEventListener('pagehide', cleanup); },{once:true});
 }
 
-function openSkillCheck(skillKey, defaultAttribute = null) {
-  if ((campaignCode && !campaignEditable) || character.phase !== "finalized" || character.advancementOpen || character.pendingRoll || diceRoller.isActive()) return;
+function openSkillCheck(skillKey, defaultAttribute = null, requested = false) {
+  if ((campaignCode && !campaignEditable) || character.phase !== "finalized" || (!requested && character.advancementOpen) || character.pendingRoll || diceRoller.isActive()) return;
   const resolved = resolveSkill(character, skillKey);
   if (!resolved) return;
   skillCheck = {
@@ -6584,11 +6586,12 @@ function skillKeysForFinalization() {
   return keys;
 }
 
-function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false, previewHtml = "", singleAction = false }) {
+function askConfirmation({ title, message, acceptLabel, cancelLabel = "Cancel", danger = false, previewHtml = "", singleAction = false, dedicatedSound = false }) {
   if (confirmResolver) confirmResolver(false);
   dom.confirmTitle.textContent = title;
   dom.confirmMessage.textContent = message;
   dom.confirmAccept.textContent = acceptLabel || "Confirm";
+  dom.confirmAccept.dataset.uiSound = dedicatedSound ? "none" : "chunk";
   dom.confirmCancel.textContent = cancelLabel;
   dom.confirmAccept.hidden = singleAction;
   dom.confirmAccept.classList.toggle("danger", danger);
@@ -7025,7 +7028,8 @@ function showPostFinalizationGuide(){
 }
 
 function campaignSkillKey(skillName) {
-  if (character.skills[skillName]) return skillKeyForBase(skillName);
+  const base=Object.keys(character.skills).find(name=>name.trim().toLowerCase()===String(skillName).trim().toLowerCase());
+  if (base) return skillKeyForBase(base);
   const custom = character.customSkills.find((entry) => entry.name.trim().toLowerCase() === String(skillName).trim().toLowerCase());
   return custom ? skillKeyForCustom(custom.id) : "";
 }
@@ -7036,10 +7040,16 @@ function openRequestedCampaignRoll() {
   const skillKey = campaignSkillKey(request.skill);
   const attribute = ATTRIBUTE_DEFS.find((entry) => entry.label.toLowerCase() === String(request.attribute).toLowerCase());
   if (!skillKey || !attribute) {
-    notice("This GM request references a Skill or Attribute that is not on this character sheet.", "error");
+    dom.campaignRollPromptDifficulty.textContent="This request references a Skill or Attribute not on your sheet. Ask the GM to correct it.";
     return;
   }
-  openSkillCheck(skillKey);
+  if(character.pendingRoll||diceRoller.isActive()){
+    dom.campaignRollPromptDifficulty.textContent='Finish the current roll, then press Open Roll again.';return;
+  }
+  if((campaignCode&&!campaignEditable)||character.phase!=='finalized'){
+    dom.campaignRollPromptDifficulty.textContent='Open your editable, finalized character to answer this request.';return;
+  }
+  openSkillCheck(skillKey,null,true);
   if (!skillCheck) return;
   skillCheck.campaignRequestId = request.id;
   skillCheck.campaignSubmitted = false;
@@ -7266,8 +7276,8 @@ function presentAdvancementDecision() {
   diceRoller.subtitle.textContent='Keep this skill increase of +'+(pending.result/10).toFixed(1)+' or '+(freeReroll?'reroll for free.':('spend '+rerollCost+' XP to reroll. The new result replaces this roll.'));
   diceRoller.shell.hidden=activeCharacterTab!=='sheet';
   diceRoller.showChoices([
-    { label: freeReroll ? "Reroll Free" : `Reroll - ${rerollCost} XP`, className: "primary-action", action: () => rerollAdvancement(freeReroll ? 0 : rerollCost) },
-    { label: "Keep", action: () => acceptAdvancementResult() },
+    { label: freeReroll ? "Reroll Free" : `Reroll - ${rerollCost} XP`, className: "primary-action", uiSound: "none", action: () => rerollAdvancement(freeReroll ? 0 : rerollCost) },
+    { label: "Keep", uiSound: "none", action: () => acceptAdvancementResult() },
   ]);
 }
 
@@ -7436,6 +7446,7 @@ async function beginFubsRoll() {
     title: "Roll on the FUBS chart?",
     message: "Two D10s will create a percentile result and assign a permanent backstory prompt to this character.",
     acceptLabel: "Roll 2D10",
+    dedicatedSound: true,
     cancelLabel: "Not Yet",
   });
   if (accepted) performFubsRoll();
@@ -7453,6 +7464,7 @@ async function rerollFubs() {
     title: "Reroll FUBS?",
     message: "This permanently replaces the current FUBS result. This character may use this option only once.",
     acceptLabel: "Use One-Time Reroll",
+    dedicatedSound: true,
     cancelLabel: "Keep Current Result",
     danger: true,
   });
@@ -8551,10 +8563,10 @@ dom.playerSoundToggle?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-player-sounds]");
   if (!button) return;
   playerSoundsEnabled = button.dataset.playerSounds === "true";
-  localStorage.setItem(PLAYER_SOUND_KEY, playerSoundsEnabled ? "on" : "off");
+  window.SAAudioMix.setMuted(!playerSoundsEnabled);
   dom.playerAtbFrame?.contentWindow?.postMessage({ type: "sa-player-sound-enabled", enabled: playerSoundsEnabled }, window.location.origin);
   renderPlayerSoundSetting();
-  notice(playerSoundsEnabled ? "Player combat sounds enabled." : "All player combat sounds muted.", "success");
+  notice(playerSoundsEnabled ? "Sounds enabled." : "All sounds muted.", "success");
 });
 dom.characterBanner?.addEventListener("click", async () => {
   if (playerBannerMode !== "exit") return;
@@ -8809,9 +8821,9 @@ window.addEventListener("message", (event) => {
   }
   if (event.data?.type === "sa-player-sound-enabled") {
     playerSoundsEnabled = Boolean(event.data.enabled);
-    localStorage.setItem(PLAYER_SOUND_KEY, playerSoundsEnabled ? "on" : "off");
+    window.SAAudioMix.setMuted(!playerSoundsEnabled);
     renderPlayerSoundSetting();
-    notice(playerSoundsEnabled ? "Player combat sounds enabled." : "All player combat sounds muted.", "success");
+    notice(playerSoundsEnabled ? "Sounds enabled." : "All sounds muted.", "success");
     return;
   }
   if (event.data?.type === "sa-combat-defeat-sequence") {
@@ -9376,6 +9388,7 @@ dom.marineHeal.addEventListener("click", async () => {
     title: "Use Marine Recovery?",
     message: "Roll every Willpower die and heal the sum. This can be used once per session.",
     acceptLabel: "Roll Willpower",
+    dedicatedSound: true,
     cancelLabel: "Cancel",
   });
   if (!accepted) return;
@@ -9781,7 +9794,7 @@ window.addEventListener('message',event=>{
   }
   const preview=document.querySelector('[data-console-preview-frame]');
   if(preview?.contentWindow===event.source&&event.data?.type==='sa-request-campaign-state')preview.contentWindow.postMessage({type:'sa-campaign-state',campaign:campaignState},location.origin);
-  if(preview?.contentWindow===event.source&&event.data?.type==='sa-player-sound-enabled'){playerSoundsEnabled=Boolean(event.data.enabled);localStorage.setItem(PLAYER_SOUND_KEY,playerSoundsEnabled?'on':'off');renderPlayerSoundSetting();}
+  if(preview?.contentWindow===event.source&&event.data?.type==='sa-player-sound-enabled'){playerSoundsEnabled=Boolean(event.data.enabled);window.SAAudioMix.setMuted(!playerSoundsEnabled);renderPlayerSoundSetting();}
   if(preview?.contentWindow===event.source&&event.data?.type==='sa-close-console-preview'){
     preview.remove();if(event.data.error)notice(event.data.error,'error');
   }

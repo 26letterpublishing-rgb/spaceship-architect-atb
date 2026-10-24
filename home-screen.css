@@ -1,0 +1,45 @@
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+/* The title artwork is the only background image; the separate dots remain animated. */
+body.welcome-mode{background:#03080e}
+body.home-starting .v03-menu{visibility:hidden}
+body.welcome-mode::before{display:none}
+body.welcome-mode .shell{width:100%;max-width:none;margin:0;padding:0}
+body.welcome-mode .welcome-panel{min-height:100dvh;box-sizing:border-box;display:block;align-content:start;padding:var(--home-menu-top,40vh) 16px 24px;overflow:visible;isolation:isolate}
+body.welcome-mode .welcome-hero{position:fixed;inset:0;z-index:-1;border:0;box-shadow:none;background:#03080e;pointer-events:none}
+body.welcome-mode .welcome-banner{width:100%;height:100%;object-fit:cover;object-position:center top;opacity:1;filter:brightness(.8);cursor:default}
+body.welcome-mode .v03-menu{box-sizing:border-box;width:min(780px,100%);max-width:none;padding:0;margin:0 auto;gap:12px}
+body.welcome-mode .v03-join{position:relative;isolation:isolate;padding:36px 52px 30px;border:0;background:transparent;box-shadow:none;color:#f9f5df}
+body.welcome-mode .v03-join::before{content:'';position:absolute;inset:7px;z-index:-1;clip-path:polygon(4% 0,96% 0,100% 10%,100% 90%,96% 100%,4% 100%,0 90%,0 10%);background:linear-gradient(125deg,#bce6bc12,transparent 30%,#aee9bc0d 51%,transparent 68%),linear-gradient(#061b10c9,#04120cd9);backdrop-filter:blur(6px) saturate(.7);-webkit-backdrop-filter:blur(6px) saturate(.7)}
+.home-panel-frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+body.welcome-mode .v03-join h1{font-family:Orbitron,sans-serif;font-weight:600;font-size:clamp(24px,3.2vw,38px);letter-spacing:.055em;margin:0 0 24px;line-height:1.25;text-shadow:0 0 16px #f8ecc22b}
+body.welcome-mode .v03-join label{display:grid;gap:12px;max-width:460px;margin:0 auto 18px;color:#f4eedb;font:500 12px/1.3 Orbitron,sans-serif;letter-spacing:.18em;text-transform:uppercase}
+body.welcome-mode .v03-join input{width:100%;max-width:100%;min-height:48px;border:1px solid #83d9ab;border-radius:0;background:linear-gradient(115deg,#b8ecca13,transparent 55%),#081c13a6;color:#fff9e5;font:500 22px/1.2 Orbitron,sans-serif;letter-spacing:.2em;text-align:center;padding:10px 14px;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px)}
+body.welcome-mode .v03-join input:focus{outline:0;background-color:#123c29;box-shadow:inset 0 0 0 2px #d6ffe5}
+body.welcome-mode .v03-join input::placeholder{color:#b8c8ba}
+body.welcome-mode .v03-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+body.welcome-mode .v03-menu :is(button,a){--tone:#4bcd8a;--face:#0b4226;position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;min-width:0;min-height:66px;padding:15px 17px;border:0;border-radius:0;background:linear-gradient(145deg,var(--tone),#f7edc3 7%,var(--tone) 10%,#0b2017 35%,var(--tone) 70%,#dddcc3 90%,var(--tone));color:#fff6df;font:600 clamp(14px,1.2vw,15px)/1.4 Orbitron,sans-serif;letter-spacing:.07em;text-transform:uppercase;text-align:center;text-shadow:none;box-shadow:none;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% calc(100% - 16px),calc(100% - 16px) 100%,16px 100%,0 calc(100% - 16px),0 16px);cursor:pointer;transition:filter .15s}
+body.welcome-mode .v03-menu :is(button,a)::before{content:'';position:absolute;inset:3px;z-index:-1;clip-path:inherit;background:linear-gradient(130deg,#ffffff1b,transparent 27%,#ffffff09 55%,transparent 56%),linear-gradient(180deg,color-mix(in srgb,var(--face),#020704 12%),#030a07e8);box-shadow:inset 0 0 0 1px var(--tone),inset 0 0 18px color-mix(in srgb,var(--tone),transparent 83%)}
+body.welcome-mode .v03-menu :is(button,a)::after{content:'';position:absolute;inset:7px;pointer-events:none;border-top:1px solid color-mix(in srgb,var(--tone),white 40%);border-bottom:1px solid var(--tone);opacity:.5;clip-path:inherit;background:none;border-radius:0;height:auto;transform:none}
+body.welcome-mode .v03-menu [data-load]{--tone:#c783ff;--face:#44215c}
+body.welcome-mode .v03-menu a[href='showcase.html']{--tone:#f4ae43;--face:#643509;text-transform:none}
+body.welcome-mode .v03-join button{--join-angle:90deg;--tone:#dab4f6;display:flex;width:min(340px,100%);min-height:50px;margin:0 auto;padding:12px;font-size:17px;letter-spacing:.16em;background:linear-gradient(var(--join-angle),#ff7770,#b09cf6,#62b8ff)}
+body.welcome-mode .v03-join button::before{background:linear-gradient(135deg,#ffffff29,transparent 30%,#ffffff0d 60%,transparent),linear-gradient(var(--join-angle),#a8172b,#50246f 50%,#1255ab);inset:3px}
+.home-button-stars{position:absolute;inset:6px;overflow:hidden;pointer-events:none;z-index:-1}
+.home-button-stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fffce6;box-shadow:0 0 3px #fff;animation:homeButtonStar 3.8s ease-in-out infinite alternate;opacity:.3}
+@keyframes homeButtonStar{to{opacity:.8;transform:translate(8px,-3px)}}
+body.welcome-mode .v03-menu :is(button,a):hover{filter:brightness(1.2)}
+body.welcome-mode .v03-menu :is(button,a):focus-visible{outline:0;filter:brightness(1.45)}
+body.welcome-mode .v03-menu :is(button,a):focus-visible::after{border:3px solid #fff;opacity:1}
+body.welcome-mode .v03-menu :is(button,a).home-activating{animation:homePress .5s ease-in-out;cursor:wait}
+@keyframes homePress{0%{filter:brightness(1)}35%,70%{filter:brightness(1.9) drop-shadow(0 0 6px var(--tone))}100%{filter:brightness(1.2)}}
+body.welcome-mode .v03-status:empty{display:none}
+body.welcome-mode .v03-status:not(:empty){background:#07170fe8;border-left:2px solid #e9ce8c;margin:0;padding:10px 14px;font-size:14px}
+body.welcome-mode .welcome-zig-point{display:none}
+.home-star-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.home-star-layer i{position:absolute;top:0;left:0;border-radius:50%;box-shadow:0 0 4px currentColor}
+@media(max-width:620px){body.welcome-mode .welcome-panel{padding-inline:10px}body.welcome-mode .v03-join{padding:32px 22px 28px}body.welcome-mode .v03-join h1{font-size:clamp(21px,5vw,30px);margin-bottom:20px}body.welcome-mode .v03-actions{gap:6px}body.welcome-mode .v03-menu .v03-actions>*{font-size:11px;letter-spacing:.02em;padding:12px 8px;min-height:64px}body.welcome-mode .v03-join label{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.home-button-stars i{animation:none}body.welcome-mode .v03-menu :is(button,a).home-activating{animation:none;filter:brightness(1.4)}}
+/* Reset legacy glossy-button caps only inside the new home menu. */
+body.welcome-mode .v03-menu :is(button,a){max-width:none;width:100%}
+body.welcome-mode .v03-menu :is(button,a)::before{width:auto;height:auto;opacity:1;border-radius:0;transform:none}
+body.welcome-mode .v03-join button{width:min(340px,100%)}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 380" preserveAspectRatio="none">
+<defs>
+ <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#78d69a"/><stop offset=".12" stop-color="#136c40"/><stop offset=".58" stop-color="#074126"/><stop offset="1" stop-color="#143c28"/></linearGradient>
+ <linearGradient id="edge" x2="0" y2="1"><stop stop-color="#9fffd0"/><stop offset=".3" stop-color="#285f41"/><stop offset=".75" stop-color="#1d7548"/><stop offset="1" stop-color="#69d69a"/></linearGradient>
+</defs>
+<path d="M46 7H954L993 46V334L954 373H46L7 334V46Z" fill="none" stroke="#041b10" stroke-width="12"/>
+<path d="M46 7H954L993 46V334L954 373H46L7 334V46Z" fill="none" stroke="url(#edge)" stroke-width="3"/>
+<path d="M67 19H933L980 66V314L934 360H66L20 314V66Z" fill="none" stroke="#3c9c61" stroke-width="1"/>
+<path d="M157 18H205M363 18H637M795 18H843M20 100V125M20 255V310L68 358H167M832 358H932L980 310V255M980 125V100M390 361H610" fill="none" stroke="#eee7bc" stroke-width="5"/>
+<path d="M47 3H154V22L44 112L11 83V44Z" fill="url(#metal)" stroke="#7bdca4" stroke-width="2"/>
+<path d="M953 3H846V22L956 112L989 83V44Z" fill="url(#metal)" stroke="#7bdca4" stroke-width="2"/>
+<path d="M48 90L102 43L108 49L54 97Z M952 90L898 43L892 49L946 97Z" fill="#041b12"/>
+<path d="M33 292L94 344H136L80 290V273M967 292L906 344H864L920 290V273" fill="#0d2117" fill-opacity=".8" stroke="#426447"/>
+<path d="M215 9L227 21H340M660 21H773L785 9M171 370L186 355H347M653 355H814L829 370" fill="none" stroke="#4a9b63" stroke-width="2"/>
+</svg>

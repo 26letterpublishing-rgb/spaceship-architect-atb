@@ -6,7 +6,7 @@ async function fixture(){const records=new Map(),api=new CampaignApi({store:{get
  const move=hex=>galaxy.command(c,{kind:'planetMoveParty',mapId:party.mapId,starId:party.starId,planetId:party.planetId,hex,receipt:randomUUID()},{gm:true});
  return {api,call,room,c,ship,party,park,move};}
 test('Explore starts ashore five hexes from a stationary working ship; direct movement is rejected',async()=>{
- const f=await fixture();assert.equal(Math.abs(Number(f.party.hex)-Number(f.park.surfaceHex)),5);assert.equal(require('../campaign-planets').canLaunch(f.c,f.ship),true);
+ const f=await fixture();assert.equal(require('../planet-terrain').route(f.party.hex,f.park.surfaceHex).distance,5);assert.equal(require('../campaign-planets').canLaunch(f.c,f.ship),true);
  assert.equal(boarding.atShip(f.c,f.ship),false);assert.ok(f.room.players.every(p=>f.ship.characterLocations[p.id].environment==='surface'));
  const p=f.room.players[0];await f.call('starship/move-character',{code:f.room.code,token:p.token,starshipId:f.ship.id,characterId:p.id,square:f.ship.ship.airlocks[0].square,mesh:4},409);
  const copy=JSON.parse(JSON.stringify(f.c));assert.equal(boarding.atShip(copy,copy.starships.find(s=>s.id===f.ship.id)),false);

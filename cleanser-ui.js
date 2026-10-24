@@ -65,7 +65,7 @@
   if(access.controlled){const off=doc.createElement('button');off.textContent='Shut Down Captured SIC';off.onclick=async()=>{const session=b.state().units.find(u=>u.id===unit.id)?.hackingSessions?.find(s=>s.control&&s.connected&&s.targetId===access.ship.id&&s.sicId===sicId);if(!session){get('[data-error]').textContent='Return to Hacking to shut down the captured system.';return;}try{await b.action({action:'hackingCommand',id:unit.id,kind:'off',sessionId:session.id,sicId:session.moduleId,receipt:crypto.randomUUID()},'resolve',{throwOnError:true});v.close();}catch(error){get('[data-error]').textContent=error.message;}};get('[data-close]').before(off);}
   window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>v.close());const timer=setInterval(draw,60);draw();v.addEventListener('close',()=>{clearInterval(timer);v.remove();consoleView=null;},{once:true});opening=false;
  }
- function closeCinema(){music?.pause();music=null;impact?.pause();impact=null;frame=null;diceStarted=false;cinema?.remove();cinema=null;}
+ function closeCinema(){window.SAAudioMix.releaseMedia(music);music=null;window.SAAudioMix.releaseMedia(impact);impact=null;frame=null;diceStarted=false;cinema?.remove();cinema=null;}
  let rollView=null,rollFrame=null,rollKey='',rollReady=false,rollSignature='',rollError=null,rollTakeover=null,rollReload=null,loadDeadline=0,rollBusy=false,hiddenRoll='';
  function closeRoll(){rollView?.remove();rollView=rollFrame=null;rollReady=false;rollSignature='';rollBusy=false;}
  const canResolve=(b,e)=>b.mode()==='gm'?e.rollController==='gm'||!b.state().units.some(u=>u.id===e.operatorId&&u.team==='pc'):e.rollController!=='gm'&&b.myUnitId()===e.operatorId;
@@ -99,8 +99,8 @@
  function tick(){
   const b=window.SACombatBridge,s=b?.state();if(!s)return;const doc=host(),event=s.planetaryEvent,timeline=window.SACleanserTimeline.forEvent(event);
   const charging=s.starships?.some(ship=>ship.ship?.cleanserState?.phase==='charging');
-  if(charging&&!hum){hum=new Audio(new URL('cleanser-charge.wav',location.href));hum.loop=true;hum.volume=.5;}
-  if(hum){if(!charging){hum.pause();hum=null;}else if(b.soundEnabled()&&!doc.hidden&&s.running&&!s.hardPaused&&!s.pausedForTurn&&!s.holdPaused&&!s.rollPaused){if(hum.paused)hum.play().catch(()=>{});}else hum.pause();}
+  if(charging&&!hum){hum=new Audio(new URL('cleanser-charge.wav',location.href));hum.loop=true;window.SAAudioMix.trackMedia(hum,.5);}
+  if(hum){if(!charging){window.SAAudioMix.releaseMedia(hum);hum=null;}else if(b.soundEnabled()&&!doc.hidden&&s.running&&!s.hardPaused&&!s.pausedForTurn&&!s.holdPaused&&!s.rollPaused){if(hum.paused)hum.play().catch(()=>{});}else hum.pause();}
   damagePrompt(b,event,doc);
   if(event?.phase!=='firing'){closeCinema();return;}
   if(!cinema||eventId!==event.id){
@@ -110,8 +110,8 @@
    const fragments=scene.showFragments?Array.from({length:36},(_,i)=>`<i class="cleanser-fragment" style="--angle:${i*137.5}deg;--travel:${120+i%9*27}px;--fragment:${5+i%7*3}px;--spin:${i*47}deg"></i>`).join(''):'';
    cinema.innerHTML=`<div class="cleanser-stars"></div><div class="cleanser-vignette"></div><header><small>${esc(event.shipName)} / PLANETARY CLEANSER</small><h1>${esc(event.targetName)}</h1><p data-stage>FINAL CONTAINMENT RELEASE</p></header><div class="cleanser-stage"><div class="cleanser-muzzle"></div><div class="cleanser-beam"></div><div class="cleanser-impact"><img class="cleanser-world" src="${new URL(scene.art,location.href)}" alt="${esc(event.targetName)}"><div class="cleanser-fracture"></div><div class="cleanser-void"></div>${scene.outcome==='shielded'?'<div class="cleanser-shield-impact"></div>':''}<svg class="cleanser-wave" viewBox="-100 -100 200 200" aria-hidden="true"><circle r="48" vector-effect="non-scaling-stroke"/></svg><svg class="cleanser-wave cleanser-wave-delayed" viewBox="-100 -100 200 200" aria-hidden="true"><circle r="48" vector-effect="non-scaling-stroke"/></svg>${remains}${fragments}</div></div><div class="cleanser-flash"></div><div class="cleanser-damage"><small>DAMAGE / 20,000D12</small><strong>${Number(event.damage).toLocaleString()}</strong><span>${esc(scene.result)}</span></div><footer><span>Shared firing sequence · Combat paused</span><button type="button" data-mute>Mute sounds</button><span data-seconds></span></footer>`;
    cinema.addEventListener('cancel',e=>e.preventDefault());doc.body.append(cinema);cinema.showModal();cinema.querySelector('[data-mute]').onclick=()=>b.toggleSound();
-   music=new Audio(new URL(timeline.audio,location.href));music.volume=.85;music.preload='auto';music.hidden=true;music.dataset.cleanserAudio='';cinema.append(music);
-   if(timeline.impactAudio){impact=new Audio(new URL(timeline.impactAudio,location.href));impact.volume=.85;impact.preload='auto';impact.hidden=true;impact.dataset.cleanserImpactAudio='';cinema.append(impact);}
+   music=new Audio(new URL(timeline.audio,location.href));window.SAAudioMix.trackMedia(music,.85);music.preload='auto';music.hidden=true;music.dataset.cleanserAudio='';cinema.append(music);
+   if(timeline.impactAudio){impact=new Audio(new URL(timeline.impactAudio,location.href));window.SAAudioMix.trackMedia(impact,.85);impact.preload='auto';impact.hidden=true;impact.dataset.cleanserImpactAudio='';cinema.append(impact);}
   }
   const elapsed=Math.max(0,Math.min(timeline.duration,(Date.now()-event.startedAt)/1000));
   cinema.style.setProperty('--elapsed',elapsed+'s');cinema.dataset.stage=window.SACleanserTimeline.stage(timeline,elapsed);
@@ -139,6 +139,6 @@
   if(e.data?.type==='sa-automatic-dice-shown')setTimeout(()=>{if(frame?.isConnected)frame.remove();},700);
  }
  const doc=host();doc.defaultView.addEventListener('message',receive);const timer=setInterval(tick,100);
- window.addEventListener('pagehide',()=>{clearInterval(timer);doc.defaultView.removeEventListener('message',receive);closeCinema();closeRoll();hum?.pause();consoleView?.close();});
+ window.addEventListener('pagehide',()=>{clearInterval(timer);doc.defaultView.removeEventListener('message',receive);closeCinema();closeRoll();window.SAAudioMix.releaseMedia(hum);consoleView?.close();});
  window.SACleanserConsole={open,isOpen:()=>Boolean(consoleView||opening)};
 }());

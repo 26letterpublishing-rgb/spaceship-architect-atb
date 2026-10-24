@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-async function browser({ existing = false } = {}) {
+async function browser({ existing = false, rejected = false } = {}) {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.nodes = {}; this.handlers = {}; this.value = ''; this.textContent = ''; }
     append(...nodes) { this.children.push(...nodes); }
@@ -24,6 +24,7 @@ async function browser({ existing = false } = {}) {
   const window = { localStorage: storage, SABrowserStorage: {local:storage,ready:Promise.resolve(),flush:async()=>{}}, addEventListener() {} };
   const fetch = async (url, options) => {
     requests.push({ url, body: options?.body && JSON.parse(options.body) });
+    if(rejected&&url.endsWith('/join'))return {ok:false,json:async()=>({error:'Room unavailable'})};
     // Another room is genuinely still open: it must not prevent joining BBBB.
     if (url.includes('code=AAAA')) return { ok: true, json: async () => ({ roomOpen: true }) };
     return { ok: true, json: async () => url.endsWith('/join') ? { token: 'new-target-token' } : { roomOpen: true, interfaceVersion: '0.3' } };
@@ -75,4 +76,18 @@ test('room finalization ignores repeated clicks while choosing one password and 
 test('retrying a completed room finalization resumes the linked character without another password or approval',async()=>{
   const b=finalizationBrowser({linked:true});await b.finish();
   assert.equal(b.calls.passwords,0);assert.equal(b.calls.creates,0);assert.equal(b.calls.opened[0].state.ownCharacterId,'new-character');
+});
+
+test('entry waits for button feedback, blocks duplicate submits and confirms only accepted rooms',async()=>{
+ const b=await browser();const events=[];let release;
+ b.window.SAHomeFeedback={activate:()=>new Promise(resolve=>{events.push('press');release=resolve;}),accepted:async()=>events.push('accepted'),release:()=>events.push('release')};
+ const first=b.join();await b.join();assert.deepEqual(events,['press']);assert.equal(b.requests.length,0);
+ release();await first;assert.equal(b.requests.filter(r=>r.url.endsWith('/join')).length,1);assert.deepEqual(events,['press','accepted','release']);assert.equal(b.location.href,'room.html?campaign=BBBB');
+});
+
+
+test('rejected entry does not play acceptance and releases the menu for retry',async()=>{
+ const b=await browser({rejected:true}),events=[];
+ b.window.SAHomeFeedback={activate:async()=>events.push('press'),accepted:async()=>events.push('accepted'),release:()=>events.push('release')};
+ await b.join();await b.join();assert.deepEqual(events,['press','release','press','release']);assert.equal(b.location.href,'');assert.equal(b.host.querySelector('[role=status]').textContent,'Room unavailable');
 });

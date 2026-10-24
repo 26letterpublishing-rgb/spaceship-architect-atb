@@ -8,10 +8,18 @@
   if(o.purchase){const buy=action('Purchase',async()=>{if(await o.purchase())d.close();},!!o.disabled);buy.className='sic-purchase-button';stage.append(buy);}
   if(o.blueprint)action('Buy blueprint',o.blueprint,!!o.disabled).disabled=!!o.disabled;
   if(o.preview)action('Preview Console',()=>o.preview(d));
-  let zoom=1;const set=n=>{zoom=Math.max(.5,Math.min(3,n));card.style.transform='scale('+zoom+')';card.style.transformOrigin='top left';stage.style.width=(350*zoom)+'px';stage.style.height=(490*zoom)+'px';d.style.setProperty('--inspection-width',(350*zoom+190)+'px');};
-  const fit=()=>set(Math.min(1,(doc.defaultView.innerHeight-100)/520,(doc.defaultView.innerWidth-190)/350));
+  let zoom=1,fitted=true;const set=n=>{fitted=false;zoom=Math.max(.5,Math.min(3,n));card.style.transform='scale('+zoom+')';card.style.transformOrigin='top left';stage.style.width=(350*zoom)+'px';stage.style.height=(490*zoom)+'px';};
+  const fit=()=>{
+   const win=doc.defaultView,css=win.getComputedStyle(d),layout=win.getComputedStyle(body),stacked=layout.flexDirection==='column';
+   const px=value=>parseFloat(value)||0,gap=px(layout.gap),toolbar=tools.getBoundingClientRect();
+   const frameWidth=d.offsetWidth-body.clientWidth,frameHeight=d.offsetHeight-body.clientHeight;
+   const width=Math.min(win.innerWidth,px(css.maxWidth)||win.innerWidth)-frameWidth-(stacked?0:toolbar.width+gap);
+   const height=Math.min(win.innerHeight,px(css.maxHeight)||win.innerHeight)-frameHeight-(stacked?toolbar.height+gap:0);
+   set(Math.min(1,width/350,height/490));fitted=true;
+  };
+  const resize=()=>{if(fitted)fit();};
   action('−',()=>set(zoom-.15)).setAttribute('aria-label','Zoom out card');action('Fit Card',fit);action('+',()=>set(zoom+.15)).setAttribute('aria-label','Zoom in card');
-  body.onwheel=e=>{if(!e.target.closest('.sic-display-card'))return;e.preventDefault();set(zoom+(e.deltaY<0?.15:-.15));};d.querySelector('[data-close-sic-card]').onclick=()=>d.close();d.onclose=()=>{d.remove();o.trigger?.focus({preventScroll:true});};doc.body.append(d);d.showModal();fit();window.SACardFit.observe(d);return d;
+  body.onwheel=e=>{if(!e.target.closest('.sic-display-card'))return;e.preventDefault();set(zoom+(e.deltaY<0?.15:-.15));};d.querySelector('[data-close-sic-card]').onclick=()=>d.close();d.onclose=()=>{doc.defaultView.removeEventListener('resize',resize);d.remove();o.trigger?.focus({preventScroll:true});};doc.body.append(d);d.showModal();fit();doc.defaultView.addEventListener('resize',resize);doc.defaultView.requestAnimationFrame(()=>{if(d.open&&fitted)fit();});window.SACardFit.observe(d);return d;
  }
  function hasConsole(type){const d=window.SAShipMap.definition(type);return !!(d&&(d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking));}
  function consoleButton(type,doc=document,onError=()=>{}){

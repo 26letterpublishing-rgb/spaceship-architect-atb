@@ -560,6 +560,7 @@ function paintHullCell(index) {
     const cell = grid.querySelector(`[data-grid-index="${index}"]`);
     cell?.classList.toggle("is-selected", hullPaint.mode === "add");
     cell?.setAttribute("aria-pressed", String(hullPaint.mode === "add"));
+    if(cell){cell.replaceChildren();cell.insertAdjacentHTML("beforeend",window.SAShipMap.surfaceMarkup(window.SAShipMap.buildLayout(draft),index));}
   });
   totalSquareOutputs.forEach((output) => { output.value = String(hull.size); output.textContent = String(hull.size); });
 }
@@ -572,12 +573,14 @@ function beginHullPaint(index, event) {
   rememberForUndo();
   hullPaint = { pointerId: event.pointerId, mode: draft.gridCells.includes(index) ? "remove" : "add", visited: new Set() };
   suppressGridClick = true;
+  shipGrids.forEach(grid=>grid.classList.add("hull-painting"));
   paintHullCell(index);
 }
 
 function finishHullPaint() {
   if (!hullPaint) return;
   hullPaint = null;
+  shipGrids.forEach(grid=>grid.classList.remove("hull-painting"));
   setTimeout(() => { suppressGridClick = false; }, 0);
   validation = { errors: [], cells: new Set() };
   saveDraft();
@@ -1930,8 +1933,10 @@ function installTriangleControls(){
   if(VIEW_ONLY_MODE||document.body.classList.contains('ship-details-view'))return;
   for(const host of document.querySelectorAll('.construction-zone-controls')){
     if(host.querySelector('[data-triangle-hull]'))continue;
-    const tools=document.createElement('span');tools.className='airlock-builder-tools';tools.innerHTML='<strong>Airlocks</strong> <button type="button" data-airlock-action="add">Add</button> <button type="button" data-airlock-action="move">Reposition</button> <button type="button" data-airlock-action="remove">Remove</button> <button type="button" data-airlock-action="cancel">Done / Cancel</button>';host.append(tools);
+    const tools=document.createElement('span');tools.className='airlock-builder-tools';tools.innerHTML='<strong>Airlocks</strong> <button type="button" data-airlock-action="add">Add</button> <button type="button" data-airlock-action="move">Reposition</button> <button type="button" data-airlock-action="remove">Remove</button> <button type="button" data-airlock-action="cancel">Done / Cancel</button>';const sheet=document.querySelector('.desktop-sheet'),mobile=document.querySelector('.mobile-grid-panel');
+    if(sheet){let footer=sheet.querySelector('.construction-map-footer');if(!footer){footer=document.createElement('div');footer.className='construction-map-footer';sheet.querySelector('[data-grid-viewport]').after(footer);}footer.append(tools);}else if(mobile)mobile.append(tools);else host.append(tools);
     tools.onclick=e=>{const button=e.target.closest('[data-airlock-action]');if(!button)return;airlockOperation=button.dataset.airlockAction;airlockToMove=null;airlockBuildMode=airlockOperation!=='cancel';triangleHullMode=false;cancelPlacement();mapView.mode='build';renderAll();showMessage(airlockOperation==='move'?'Click the airlock to move, then a highlighted empty outer hull square.':airlockOperation==='remove'?'Click an airlock to remove it. Every ship must retain at least one.':airlockOperation==='add'?'Click a highlighted outer hull square to place an airlock.':'Airlock editing closed.');};
+    if(sheet&&mobile){const mobileTools=tools.cloneNode(true);mobileTools.onclick=tools.onclick;mobile.append(mobileTools);}
     const label=document.createElement('label');label.innerHTML='<input type="checkbox" data-triangle-hull> Triangle Hull — 300 credits';host.append(label);
     label.querySelector('input').onchange=e=>{triangleHullMode=e.target.checked;airlockBuildMode=false;document.querySelectorAll('[data-airlock-build]').forEach(n=>n.checked=false);cancelPlacement();mapView.mode='build';document.querySelectorAll('[data-triangle-hull]').forEach(i=>i.checked=triangleHullMode);renderAll();};
   }

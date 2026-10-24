@@ -1,0 +1,31 @@
+LOCAL RELEASE — GREEN GLASS HOME MENU
+October 23, 2026. Local only; no commit, push or deployment.
+
+Changes
+- Recreated the approved concept with a scalable decorative SVG frame, CSS glass and live Orbitron text. All labels remain accessible text. Orbitron is hosted locally with its SIL Open Font License.
+- Green-tinted translucent panel uses a restrained backdrop blur and reflective highlights. One title-screen background image replaces the overlapping old starfield/grid backgrounds. Its previous dimmed appearance is retained using brightness rather than image transparency.
+- Purple Load Campaign, green Create New, orange Tutorial / Explore Features, and red-to-blue Join Room. Background gradient smoothly rotates with gradually changing random angular velocity, easing through reversals. Small stars remain inside the Join Room button. Reduced-motion mode uses a static gradient and highlight.
+- Clicking or keyboard activation lights a control for 500 ms before its action. A shared pending lock prevents duplicate submissions/dialogs until that flow completes. Existing actions, file formats and room permissions are preserved.
+- Robot Click.m4a plays for Join Room; Whoosh Click.m4a (the supplied filename) plays only on accepted new or returning room entry; Chunk Click.m4a plays for the three secondary actions. Confirmation completes before navigation, with a three-second fail-safe if audio cannot finish. All sounds respect existing mute settings.
+- Added a completion promise to the shared audio clip handle without changing existing playback-start semantics. Muting, cancellation and load failure settle the completion correctly.
+
+Validation
+- 29 focused tests passed, covering audio completion/mute/failure, button timing, duplicate submission, room errors/retry, current room/session behavior, room API and public assets.
+- Syntax checks for the five changed/new scripts passed; whitespace check passed.
+- New font, frame, feedback script and all three sound files return HTTP 200.
+- Real browser: created disposable campaign, exported it, opened Load Campaign after its delay, reached current-room/file review, cancelled safely, rejected an invalid code, entered a valid room, reentered the same session, and opened Tutorial / Explore Features.
+- No browser console errors during those workflows. The physical loudness and Safari/iPad behavior still need device playtesting.
+- Desktop 1440x900, tablet 1024x768 and narrow 390x844 screenshots reviewed. All controls remain available with no horizontal overflow. The full-screen artwork still crops its title on tall narrow screens, consistent with the earlier cover layout; a broader mobile redesign remains deferred.
+- Personal campaigns.json hash unchanged: 7B679E7F05595DFFB15F8ED08CC82DCD4961505088379330B38742D5D017E190.
+- Local server restarted successfully on port 8790, PID 22136. Disposable QA server stopped. Render untouched.
+
+Decisions / Help
+- Used code-rendered framing and locally hosted live text instead of rasterizing the generated concept. Font source: https://fonts.google.com/specimen/Orbitron and https://github.com/google/fonts/tree/main/ofl/orbitron.
+- Used inexpensive translucent blur/highlights for glass rather than a refraction shader.
+- Preserved original sound files; app copies use safe lowercase filenames.
+- No Help wording changes were needed: this pass changes appearance and feedback, not the menu labels or tasks. Avoided adding instructions about cosmetic effects.
+- Unrelated prior local changes, QA folders and user assets remain untouched. Generated concept images remain previews.
+
+Evidence
+C:/Users/zombi/Desktop/Spaceship Architect 2026 Sorting/outputs/home-glass-qa-20261023/
+home-local-final.png, home-desktop.png, home-tablet.png, home-narrow.png, button-activation.png, tests.txt.

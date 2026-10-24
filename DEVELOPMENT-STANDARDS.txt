@@ -10,6 +10,10 @@
 
 #1 rule:  Do not apply changes to the code locally or on GitHub unless the hashtags are given.  #local means update local files, and #commit means to update local files, update GitHub, and send a nfty notification.
 
+#2 rule: Use space efficiently. Keep text readable and controls proportionate to their content. Avoid oversized boxes containing small text. Visually verify layouts at representative screen sizes.
+
+Help maintenance: Update affected Help text with workflow, control-name, or rule changes without waiting for a separate request. Keep explanations brief and conversational, and mention Help changes in completion reports. Refresh screenshots when layouts settle.
+
 # 2. Developer Responsibilities and Design Authority
 
 You are responsible for implementing, maintaining, and improving software according to the user's requirements.

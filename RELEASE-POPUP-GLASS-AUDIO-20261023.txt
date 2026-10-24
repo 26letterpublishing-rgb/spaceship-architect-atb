@@ -1,0 +1,70 @@
+October 23: popup glass / visual button roles / clock tones (#local)
+
+Delivered locally; no commit, push or deployment.
+
+UI
+- Shared green vector frame and subtle glass treatment for native and dimmed custom popup boxes. Live text uses the existing locally hosted Orbitron font for headings. Reuses one small SVG at every size.
+- Preserved action/confirmation semantics and existing button labels. Quick Prompt, nonmodal turn panels, toasts and full-screen cinematic/dice transport hosts retain their original presentation; inner interactive dice prompts receive the theme.
+- Close X uses top-layer chrome where supported to escape clipping while remaining anchored over the visible corner. Nested confirmations hide the underlying parent's X until dismissed. First Aid desktop, tablet and narrow views verified.
+- Green filled volume tracks with dark gray remainder and rounded right edge. Defaults remain Master100/Game100/Interface30; browser-local persistence and mute balance retained.
+- Startup uses welcome styling from the initial HTML and reveals the menu after font/image sizing, preventing the old layout/oversized-frame flash identified in odd.mp4.
+
+Audio
+- Visual tabs, map surfaces and card previews take precedence over tag names and stay silent. Includes Help, drawer tabs, location tabs, shop tabs and preview cards.
+- Section disclosures Whoosh only when opening. Character Sheet handle retains Chunk feedback. Pills use Robot; tabs remain silent even when pill-shaped.
+- Campaign pause uses a 330Hz sine tone; Play uses 660Hz. Both last 0.5s with short fades, through the existing Interface mixer bus. No additional button clip, audio delay, broadcast or competing sound system.
+- Brief GM and PC Help explains silent surfaces and drawer feedback.
+
+Artwork
+- Added Human to the Default NPC icon collection and shared map token selection. Plain red crew uniform, no franchise insignia. 512x256 transparent two-frame atlas, 25,072 bytes.
+- Built-in ImageGen prompt/source provenance: scripts/human-npc-art-20261023.json.
+- Integrated output: crew-atlas-npc-human-v1.webp.
+
+Validation
+- Full existing test suite: 1304/1304 passed. After final classifier/nested-close edits: 32/32 focused audio, dialog and token tests passed.
+- Eight changed JS syntax checks passed. Git whitespace check passed with cr-at-eol enabled for this Windows checkout.
+- Browser screenshots at desktop1280x720, tablet768x1024 and narrow390x844: Create New, First Aid selection/roll actions, Help with scrolling, GM settings, content manager, nested confirmation, and Human icon picker.
+- Real UI: corner X/cancel closes, nested X safely cancels without deleting, parent X returns, Help paging, clock Begin/Pause/Play, Human selection and reopen retained.
+- Unit coverage: silent tabs/maps, disclosure directions, drawer exception, pill roles, native/custom keyboard dedup, disabled/programmatic activation exclusion, tone pitch/duration/category/mute, volume multiplication/persistence/zeros, rapid-click replacement/failures, required dialogs and confirmation preservation.
+- Final console review caught an optional Crew Log gate observer receiving a missing element; guarded that observer. Ten relevant Crew Log checks passed and a fresh GM/PC browser run reported no console errors.
+- Browser QA used disposable localhost8793 data only. Screenshots: ../SA-ATB Local Development Files/outputs/popup-qa-20261023/. Full log: ../SA-ATB Local Development Files/popup-full-test-20261023.log.
+- Personal data/campaigns.json unchanged: 5666051D44B14CAD16D097368A1015CF99E966281C110C12D64B289C0A1B8A25.
+
+Limits
+- No listening-based validation or physical iPad/Safari testing. Sound quality/repetition remains for Jason to assess.
+- Shared popup coverage was audited in source; representative workflows were opened visually, not every possible combat branch. Cinematics were deliberately excluded from the popup frame.
+- Original launch video inspected; updated normal reload renders correctly. No high-frame-rate recording of the revised cold launch was made.
+- No account synchronization added. No changes to gameplay rules or notification styling.
+
+Local delivery: http://127.0.0.1:8790/ (existing normal server PID9456). Isolated QA8793 is stopped after checks. Explicit standing user request authorizes ntfy completion notification.
+
+Volume preview follow-up
+- Interface: Chunk Click; Game: the existing three-note combat turn chime; Master: Robot Click.
+- Preview on committed change (pointer release/keyboard adjustment), no repeated drag-input sounds. Previous preview is stopped, not queued. Current master/category/mute settings apply.
+- Reused actual turn-chime synthesis in SAAudioMix; notes, envelopes and effects bus preserved. No extra assets.
+- GM/PC Help adds one short sample instruction.
+- 22 relevant tests, five syntax and Windows-aware whitespace checks passed. No listening-based validation. Refresh localhost8790 for this follow-up. No commit/push/deployment.
+
+Dedicated-effect controls follow-up
+- No generic click for Engage Clock / combat pause-resume, Action Resolved, Undo, GM damage/roll submissions, PC dice/reroll controls, attribute/skill purchases, practice purchases, package application, and confirmed Drama Card use.
+- Reset/Clear/End encounter and Remove from Combat affirmative actions opt out while their opening/cancellation controls keep normal feedback. FUBS and Marine Recovery final confirmations opt out; reusable confirmations restore normal Robot feedback on other uses. Advancement reroll/keep choices opt out in favor of dice/purchase effects.
+- Silent submitters are respected by the keyboard/form fallback. Campaign clock Pause/Play keeps its dedicated tone. Actual alarms, dice and game effects are unchanged; no network-success behavior altered.
+- Brief GM/PC Help updated. 43 focused tests, six syntax checks and Windows-aware whitespace passed. No listening-based audition. Refresh local8790; no commit/push/deployment.
+
+Map zoom/Fit follow-up
+- Shared handler silences map zoom and Fit controls in GM/PC maps, enlarged maps, interiors, ship design and sensor/navigation panels, before pill styling or audio overrides. Unrelated increment buttons and opening Enlarge Map retain feedback.
+- Brief GM/PC Help updated. 18 focused audio tests, syntax and whitespace passed; no listening audition. Refresh local8790. No commit/push/deploy.
+
+Banner dismissal and zoom sizing follow-up
+- Plain small top-right X dismisses All Hands on Deck locally; retained ten-second timeout, queue progression and duplicate protection. Combat Help updated.
+- 13 notification tests, two syntax checks, whitespace and desktop/narrow screenshot/click verification passed. Screenshots banner-close-1440.png and banner-close-390.png in existing QA output folder.
+- Map minus/plus controls have matching dimensions, retaining compact Fit/Enlarge row. Screenshot and measurement checks passed at 1440px and 390px widths.
+- Local changes only; no commit/push/deploy.
+
+Chunk default follow-up
+- Removed automatic Robot classification for pills and confirmations; shared submissions and GM/PC confirmation paths now default to Chunk. Explicit Robot overrides still work, including keyboard form submissions. Retained requested home Join Room Robot and Master volume Robot preview, existing Whoosh navigation/disclosures, and silent/dedicated-effect exclusions.
+- GM/PC Help updated. 19 focused audio tests, five syntax checks and whitespace passed. No listening audition, commit, push or deployment.
+
+SIC inspector cropping follow-up
+- Reproduced the fixed 540px inspector width clipping 22px of the card after the glass frame increased border space. Shared card inspector now uses intrinsic content sizing and Fit calculates real frame/toolbar space; narrow screens put tools above the card. Resize listener is removed on close.
+- Actual starship card rendering checked at 1440/768/600/390/320px: initial and Fit card/action bounds, zoom-in then Fit, and Purchase callback reachability all passed without page errors. Stub purchase callback only; no campaign purchase. Screenshots sic-crop-before.png and sic-fit-{width}.png in QA output folder. Desktop/narrow screenshots reviewed. Syntax and whitespace passed. No Help change required for layout correction. No commit/push/deploy.

@@ -706,7 +706,7 @@ function normalizeCampaign(raw) {
     mentalSkill: boundedNumber(template?.mentalSkill, 0, 4),
     heldWeaponId: String(template?.heldWeaponId || "unarmed").slice(0, 100),
     color: /^#[0-9a-f]{6}$/i.test(String(template?.color || "")) ? String(template.color) : "#39e58f",
-    iconRace: require('./token-art').allRaces.includes(template?.iconRace) ? template.iconRace : '',
+    iconRace: require('./token-art').validIcon(template?.iconRace) ? template.iconRace : '',
     iconVariant: require('./token-art').variant(template?.iconVariant),
     statOverrides: require('./npc-statistics').overrides(template || {}),
     allyNpc: Boolean(template?.allyNpc ?? template?.ally),

@@ -784,6 +784,7 @@ export class PhysicalDiceRoller {
       button.type = "button";
       button.textContent = choice.label;
       button.className = choice.className || "";
+      if (choice.uiSound) button.dataset.uiSound = choice.uiSound;
       button.addEventListener("click", choice.action, { once: true });
       this.actions.append(button);
     }

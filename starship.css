@@ -427,3 +427,10 @@ body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-ac
 .live-crew-sheet{position:absolute;left:2.2%;top:32%;width:20.8%;height:15.1%;z-index:4;background:#080d12;border:2px solid #bbc5cc;padding:7px;overflow:auto}.live-crew-sheet h3{margin:0 0 5px;text-align:center;color:#e4dcbf;font-size:clamp(12px,1.3vw,22px)}.live-crew-sheet [data-assigned-crew]>div{padding:4px 0;border-top:1px solid #5d7480;font-size:clamp(12px,1.1vw,18px)}
 
 .live-crew-sheet{top:calc(26.8% + 142px);bottom:52.9%;height:auto}
+
+/* Construction already has its own crew sidebar; hide the legacy sheet overlay. */
+body:not(.ship-details-view) .desktop-sheet>.live-crew-sheet{display:none!important}
+.construction-map-footer{grid-column:2;grid-row:2;min-width:0;align-self:start}
+body:not(.ship-details-view) .desktop-construction-sidebar{grid-row:1 / span 2}
+.airlock-builder-tools{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:8px 0}
+.airlock-builder-tools strong{font-size:14px;margin-right:5px}.airlock-builder-tools button{font-size:12px;min-height:32px;padding:5px 10px}

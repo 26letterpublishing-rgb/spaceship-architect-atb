@@ -19,3 +19,10 @@
 .ship-icon-options {grid-template-columns:repeat(4,minmax(0,1fr))}
 .token-picker p {margin:4px;font-size:.85rem}
 @media(prefers-reduced-motion:reduce){.crew-walking .crew-sprite-frame{animation:none!important}.crew-walking .crew-sprite-standing{opacity:1}.crew-walking .crew-sprite-step{opacity:0}}
+
+.npc-icon-dialog{box-sizing:border-box;width:min(780px,94vw);max-height:88dvh;overflow:auto;border:1px solid #67cce2;color:#edf7ff;background:#0a1824;padding:20px}
+.npc-icon-dialog::backdrop{background:#000b}.npc-icon-tabs{display:flex;gap:0;margin:12px 0;position:sticky;top:0;background:#0a1824;z-index:2}.npc-icon-tabs button{flex:1;border-radius:0;font-size:16px}.npc-icon-tabs [aria-selected=true]{background:#1b6553;border-color:#75d3ae}
+.npc-icon-dialog .npc-icon-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin:12px 0}
+.npc-icon-dialog .npc-icon-options button{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:8px;border-radius:6px;min-width:0;white-space:normal;font-size:13px;line-height:1.2}
+.npc-icon-dialog .npc-icon-options svg{width:72px;height:72px;flex-shrink:0}.npc-icon-options [aria-pressed=true]{border-color:#68e6b0;box-shadow:inset 0 0 0 2px #68e6b0}
+.npc-icon-dialog footer{display:flex;justify-content:flex-end}

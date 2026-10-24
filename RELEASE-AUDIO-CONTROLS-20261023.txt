@@ -1,0 +1,29 @@
+October 23, 2026 — shared button audio and volume controls (#local)
+
+Implemented
+- Extended SAAudioMix rather than creating a second audio engine. Local activation feedback uses the existing supplied Chunk, Robot and Whoosh assets, already copied into the app. No runtime desktop-folder dependency.
+- Delegated feedback covers native buttons, links, toggles, custom tab/radio buttons and dynamically created dialogs in GM, PC, home, ship and practice screens. Explicit confirmation markers override label guesses. Programmatic clicks, disabled controls, typing, scrolling and slider adjustments are silent.
+- Confirmation > navigation > standard action. Nested targets and keyboard activation avoid duplicate playback. GM's custom Enter confirmation also uses the shared path. Rapid clicks throttle audio only (90ms) and replace the previous interface clip; no queued clicks or delayed gameplay input.
+- Master 100%, Game Sounds 100%, Interface Sounds 30% defaults. Compact percentage sliders in GM and PC Settings. Master multiplies each category once after the existing effects balancing bus. Cinematic HTML audio now joins that mixer too.
+- Browser-local preferences use the existing durable browser preference system, not campaign settings or account synchronization. The main menu and same-browser GM/PC views share them. Separate players/devices keep independent settings. Shared mute preserves levels; joining/rejoining no longer silently unmutes.
+- Top-right home mute uses the familiar speaker icon, green when enabled and blue when muted. Existing campaign mute colors are preserved.
+- Brief GM and PC Help text explains the sliders and browser scope.
+
+Decisions
+- Retained previously approved home exceptions: Join Room uses Robot; Load Campaign, Create New and Tutorial use Chunk. The first-name Continue step uses Whoosh. Removed the additional successful-entry sound/wait so completion does not duplicate activation feedback. Actual success/error notices remain separate and accurate.
+- Retained the approved 500ms home visual flash. Actions never wait for an audio clip to finish; all other button activation remains immediate.
+- Mute controls and volume sliders are intentionally silent. Native OS/browser dialogs, canvas-only gestures and non-button draggable map surfaces have no extra interface feedback. Most native and dynamically created app controls are covered; every individual control has not been manually auditioned.
+- Existing game event sounds remain game sounds. Removed the legacy synthesized ordinary tap and duplicate map navigation feedback.
+
+Validation
+- Full suite: 1,301 passed. Final focused audio/activation/home/navigation suite: 19 passed after follow-up fixes. Twelve JavaScript syntax checks and CRLF-aware git whitespace check passed.
+- Unit coverage includes category/master zero, live gain changes, single volume scaling for effects/clips/media, mute/unmute and reload balance, rapid clicks, disabled/programmatic clicks, nested targets, native/custom keyboard, missing audio, pending clip cancellation and shared embedded-context unlocking.
+- Real isolated browser checks: GM and PC Settings, default values, keyboard slider changes to zero and restoration, reload persistence, same-browser GM-to-PC values, home mute across navigation/reload, Save & Sync, GM Rename confirmation via Enter, PC exit confirmation cancellation, and home navigation. No captured browser errors at final home check.
+- Screenshots inspected at 1280x720 desktop, 768x1024 tablet and 390x844 narrow sizes. Corrected an inherited grayscale mute style discovered visually. Sliders and values remain legible without horizontal overflow in the checked panels.
+- Screenshots: ../SA-ATB Local Development Files/outputs/audio-qa-20261023/
+- Sound quality/loudness was not auditioned. Physical Safari/iPad, separate-device acoustic isolation and exhaustive click-by-click playback remain unverified. Code only plays button feedback locally and sends no click-audio network events.
+
+Delivery
+- Normal local server restarted on port 8790 (PID 9456). QA server 8793 stopped after checks; disposable data retained outside repository. Main menu refreshed for user testing.
+- Personal data/campaigns.json hash unchanged during this pass: 5666051D44B14CAD16D097368A1015CF99E966281C110C12D64B289C0A1B8A25.
+- Previous local changes, unrelated QA/scripts and Gold Standard preserved. No commit, push or deployment. Completion ntfy follows the user's standing explicit request.

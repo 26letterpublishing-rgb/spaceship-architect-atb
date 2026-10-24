@@ -15,7 +15,10 @@
 
 .critical-flight-banner[data-type="combat-start"]{font-size:clamp(26px,3.5vw,54px);background:#781324;opacity:1;animation:allHandsPulse 1.25s ease-in-out infinite}
 @keyframes allHandsPulse{0%,100%{background-color:#781324;box-shadow:0 0 12px #b53343;color:#fff}50%{background-color:#c12836;box-shadow:0 0 30px #ff7272;color:#fff6ad}}
-.critical-flight-banner[data-type="combat-start"] button{background:#45101b;border-color:#fff}
+.critical-flight-banner[data-type="combat-start"] button{position:absolute;top:3px;right:4px;z-index:1;pointer-events:auto;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;transform:none!important;font:20px/28px Arial,sans-serif!important}
+.critical-flight-banner[data-type="combat-start"] button::before,.critical-flight-banner[data-type="combat-start"] button::after{display:none!important}
+.critical-flight-banner[data-type="combat-start"] button:focus-visible{outline:2px solid white;outline-offset:-2px}
+.critical-flight-banner[data-type="combat-start"] .critical-flight-track{margin-right:28px}
 @media(prefers-reduced-motion:reduce){.critical-flight-banner[data-type="combat-start"]{animation:none}}
 
 .critical-flight-banner[data-type="combat-start"]{inset:50% 0 auto;transform:translateY(-50%);padding:18px 12px;pointer-events:none}
