@@ -1,0 +1,33 @@
+October 24 local follow-up
+
+Scope: completed #local follow-up, subsequently authorized for #commit publication by Jason at 2026-10-24 21:26:33 UTC, as relayed by Review ATB UI errors. Publish only this tested batch and send the configured final ntfy notification. No new features or manual deployment. Publication outcome is reported separately after remote verification.
+
+Changes
+- GM Characters separates PCs/ally NPCs from Other NPCs below the premade section. Each NPC has a confirmed Delete action. Deletion clears crew/location references, preserves reusable templates, survives normalization/reload, and refuses deletion of active encounter participants.
+- Fleet Unlink is now Remove, including confirmation and success wording.
+- SIC family purchasing shows available/max EN and current/max AU beside credits in matching typography. Hidden blueprint buttons remain hidden without an eligible printer.
+- GM system map uses click-to-select planets/ships, drag-to-pan and wheel zoom. Planets offer Edit Details, Zoom In and deliberate Reposition Planet. Add Planet starts one-shot placement. Planet orbital and surface inspection does not relocate the party. Ship selection, travel, repositioning and the planet directory remain available.
+- Starting Crew Positions uses existing miniature character artwork and caps room labels at 18 screen pixels. Tablet layout gives the map a full row.
+- Interior movement controls sit below the map, including enlarged views. Opening Move preserves enclosing scroll positions and the existing map camera.
+- Intruders Detected has one coordinator per owning document. Quiet embedded views cannot repeatedly hide an alert reported by another connected view; detached sources are discarded.
+- Updated affected GM/Starship Help and refreshed the system-map screenshot.
+
+Validation
+- Final full automated suite: 1320 passed, zero failed, skipped or cancelled. An earlier run had one timing-sensitive planet-travel failure; it passed isolated and in the final full run.
+- Added regression coverage for NPC authorization, active encounter protection, assignment cleanup, template retention and persistence; shared intruder alert stability and detached views.
+- Real Chrome checks with disposable campaigns: no-printer blueprint visibility, EN/AU display, roster grouping, confirmed NPC deletion/reload, planet selection, independent orbit/surface inspection, drag pan, Add Planet placement and double-click zoom. No browser page errors.
+- Real GM/PC combat checks: Move controls below the map at desktop/tablet widths and in enlarged view. Camera/scroll metrics remained stable across turn activation and opening Move. Screenshots inspected.
+- Crew deployment desktop/tablet screenshots inspected; labels measured at no more than 18px and real sprite images present.
+- Intruder reporter conflict reproduced in isolated browser frames; banner remained steadily open while active, and cleared when its source detached. User video sampled for context; exact original campaign sequence was not replayed.
+- Changed JavaScript syntax and Windows-aware whitespace checks passed.
+- Normal localhost:8790 restarted as PID 32224. Homepage and updated assets return HTTP 200; no startup errors. Personal campaigns backed up and SHA256 unchanged:
+  5666051D44B14CAD16D097368A1015CF99E966281C110C12D64B289C0A1B8A25
+
+Evidence: ../SA-ATB Local Development Files/outputs/followup-oct24/
+Final automated log: final-tests.txt. Browser log: final-browser.txt.
+
+Limits and pending work
+- Physical tablet/Safari, listening-based audio quality and hosted Render behavior were not tested in this local pass.
+- Combat fixture lacks Life Support; its existing oxygen notification appears over some screenshots. Movement controls themselves no longer cover the map.
+- Custom GM uploads (character, starship and space-object icons) and space stations remain requested, separately staged work. Stations include orbital/map icons, docking and city-like shop/script interactions. They are not implemented by this repair pass.
+- Preserve unrelated QA/scripts and frozen Gold Standard files.

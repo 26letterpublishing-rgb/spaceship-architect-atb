@@ -35,7 +35,7 @@ const market = document.querySelector(".sic-card-gallery");
 const purchaseFeedback = document.createElement("p"); purchaseFeedback.dataset.purchaseFeedback = "";
 purchaseFeedback.className = "sic-purchase-feedback"; purchaseFeedback.setAttribute("role", "alert"); market.before(purchaseFeedback);
 for (const overlay of document.querySelectorAll('.desktop-live-stats [data-propulsion-overlay]')) { const copy=overlay.cloneNode(true);copy.classList.add('mobile-live-stats');document.querySelector('.mobility-mobile svg')?.append(copy); }
-const sharedSicMarket=window.SASicMarket.create({market,catalog:SIC_CATALOG,credits:()=>draft.groupCredits-pendingCost(),purchase:purchaseSic,error:()=>purchaseFeedback.textContent,inspect:(source,trigger)=>openSicCard(source,trigger),blueprint:type=>openBlueprintPurchase(type),canBlueprint:()=>canBuyBlueprint()});
+const sharedSicMarket=window.SASicMarket.create({market,catalog:SIC_CATALOG,credits:()=>draft.groupCredits-pendingCost(),power:shoppingPower,purchase:purchaseSic,error:()=>purchaseFeedback.textContent,inspect:(source,trigger)=>openSicCard(source,trigger),blueprint:type=>openBlueprintPurchase(type),canBlueprint:()=>canBuyBlueprint()});
 sharedSicMarket.build();
 function sicCategoryHosts(items,container,typeFor,variant){return window.SASicMarket.categoryHosts(items,container,typeFor,variant,SIC_CATALOG);}
 
@@ -2059,6 +2059,11 @@ if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{
 
 if(pageParameters.get('roomCreate')){const back=backLink;if(back){back.href=pageParameters.get('returnCharacter')?'character.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'))+'&character='+encodeURIComponent(pageParameters.get('returnCharacter'))+'&tab=starships'+(pageParameters.get('showcase')==='1'?'&showcase=1':''):'room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
+function shoppingPower(){
+ const linked=linkedCampaignState?.starships?.find(s=>s.id===draft.id),record={...linked,id:draft.id,ship:draft};
+ const power=window.SAShipPower.output(record,window.SAShipPower.campaignUnits(record,linkedCampaignState?.characters));
+ return {en:`${power.en-window.SAShipPower.demand(record)} / ${power.en}`,au:`${Math.min(power.au,Number(linked?.auState?.current??power.au))} / ${power.au}`};
+}
 function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.starships||[]).some(s=>s.controlType==='pc'&&s.ship?.sicInventory?.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition)) : draft.sicInventory.some(i=>i.type==='3d-printer'&&!i.pendingPurchase&&!i.pendingDisposition);}
 function openBlueprintPurchase(type){
  if(!canBuyBlueprint()){showMessage('A PC ship must own a 3D Printer before buying blueprints.','error');return;}

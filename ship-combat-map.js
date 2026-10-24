@@ -1047,10 +1047,12 @@
       moveError = "";
       const host = document.querySelector(`[data-inline-ship-map="${CSS.escape(selectedShipId)}"]`);
       if (!host) { open({ interaction: "move", unitId: unit.id, starshipId: selectedShipId }); return; }
+      const scrollParents=[];for(let p=host.parentElement;p;p=p.parentElement)scrollParents.push([p,p.scrollTop,p.scrollLeft]);
       setInlineMoveSelecting(true);
       renderInlineMaps();
-      // Selecting a route does not recenter, resize or scroll the player's map.
+      // Preserve the camera and enclosing scroll positions when controls add a row.
       restoreInlineView(host);
+      for(const [p,top,left] of scrollParents){p.scrollTop=top;p.scrollLeft=left;}
     },
     isInlineMoveSelecting: () => interaction === "move",
     render,

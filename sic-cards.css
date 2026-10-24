@@ -71,7 +71,9 @@
 .sic-family-picker::backdrop{background:#000c;backdrop-filter:blur(5px)}
 .sic-family-picker>header{display:flex;align-items:center;gap:20px;flex:none;padding:0;background:none;border:0}
 .sic-family-picker h2{font:700 20px Arial,sans-serif;margin:0;flex:1;letter-spacing:0}
-.sic-family-picker>header>strong{font:700 14px Arial,sans-serif;color:#f1d26a}
+.sic-family-picker>header .sic-shopping-stats{display:flex;flex-wrap:wrap;gap:8px 16px;margin-left:auto}
+.sic-family-picker>header .sic-shopping-stats strong{white-space:nowrap}
+.sic-family-picker>header>strong,.sic-family-picker>header .sic-shopping-stats{font:700 14px Arial,sans-serif;color:#f1d26a}
 .sic-family-picker [data-family-back]{padding:9px 20px;border:1px solid #8ba3af;border-radius:4px;background:#17242d;color:#fff;font:700 14px Arial,sans-serif;cursor:pointer}
 .sic-family-picker [data-family-feedback]{margin:0;color:#ffa2b3;font-size:14px}
 .sic-family-picker [data-family-feedback]:empty{display:none}
@@ -140,6 +142,7 @@
 .sic-card-dialog.sic-inspection.is-zoomed .sic-display-card{flex:none;max-width:none!important;animation:none;transform:none}
 .sic-inspection>[data-close-sic-card]{position:sticky;display:block;margin:0 0 6px auto;top:0;z-index:20}
 
+.sic-buy-blueprint[hidden]{display:none!important}
 .sic-buy-blueprint{background:#075a91!important;color:#fff!important;border:1px solid #78caff!important;border-radius:4px;padding:5px 9px;font-size:12px;align-self:flex-start}.sic-poker-card>.sic-buy-blueprint{position:absolute;bottom:5px;left:5px;z-index:3}.blueprint-purchase{max-height:95vh;overflow:auto}.blueprint-purchase .sic-poker-card{width:350px;max-width:80vw}
 
 .sic-inspector-tools{position:sticky;top:16px;align-self:flex-start;display:flex;flex-direction:column;gap:8px;min-width:112px;z-index:5}.sic-inspector-tools button{width:112px;font-size:12px;padding:7px;zoom:1}.sic-inspector-tools:empty{display:none}

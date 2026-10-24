@@ -53,7 +53,7 @@ function openSicFamily(family, items, trigger) {
   if (activeFamilyDialog) return;
   const dialog = cardHost.createElement("dialog");
   dialog.className = "sic-family-picker" + (options.pickerClass ? " "+options.pickerClass : ""); dialog.setAttribute("aria-label", family);
-  dialog.innerHTML = `<header><button type="button" data-family-back>Back</button><h2>${escapeHtml(family)}</h2><strong>${formatCredits(options.credits())} Credits</strong></header><p role="alert" data-family-feedback></p><div class="sic-picker-grid"></div>`;
+  dialog.innerHTML = `<header><button type="button" data-family-back>Back</button><h2>${escapeHtml(family)}</h2><div class="sic-shopping-stats"><strong>${formatCredits(options.credits())} Credits</strong>${options.power?`<strong>EN ${escapeHtml(options.power().en)}</strong><strong>AU ${escapeHtml(options.power().au)}</strong>`:""}</div></header><p role="alert" data-family-feedback></p><div class="sic-picker-grid"></div>`;
   const grid = dialog.querySelector(".sic-picker-grid"), slots = [];
   const order=item=>{const type=item.querySelector('[data-sic-card]').dataset.sicCard,d=SIC_CATALOG[type];if(d.bridge)return (type.startsWith('cockpit')?0:2)+(d.tier||Number(type.match(/\d+$/)?.[0])||0);if(d.warp)return type==='warp-drive-x'?100:type==='ew-ftl-drive'?99:d.tier||0;return Number(type.match(/\d+$/)?.[0]||99);};
   const ascending=[...items].sort((a,b)=>options.compare?options.compare(a.querySelector('[data-sic-card]').dataset.sicCard,b.querySelector('[data-sic-card]').dataset.sicCard):order(a)-order(b));

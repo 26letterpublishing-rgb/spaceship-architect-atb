@@ -778,9 +778,11 @@ function renderCharacters() {
       </article>`;
     }).join("")
     : "<p>No characters yet. Players can join using this room code, then create or import a character.</p>";
-  const roster=campaignNpcRoster();
-  if(roster.length){dom.characterCount.textContent+=` · ${roster.length} NPC${roster.length===1?'':'s'}`;if(!campaign.characters.length)dom.characterList.innerHTML='';}
-  for(const npc of roster){const ship=campaign.starships.find(s=>s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>${npc.allyNpc?'Ally NPC':'NPC'} · ${escapeHtml(ship?.title||(npc.allyNpc?'With the party':'Unassigned'))}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select,[data-npc-icon],[data-npc-recalculate]').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};dom.characterList.append(card);}
+  const roster=campaignNpcRoster(),otherList=document.getElementById("gmOtherNpcList");
+  otherList.innerHTML="";
+  if(roster.length){dom.characterCount.textContent+=` · ${roster.length} NPC${roster.length===1?'':'s'}`;if(!campaign.characters.length&&roster.some(n=>n.allyNpc))dom.characterList.innerHTML='';}
+  for(const npc of roster){const ship=campaign.starships.find(s=>s.crewNpcUnitIds?.includes(npc.id));const card=document.createElement('article');card.className='gm-character-card';card.style.setProperty('--character-color',/^#[0-9a-f]{6}$/i.test(npc.color)?npc.color:'#39e58f');card.innerHTML=`<div class="character-card-head">${rosterIcon(npc)}<div><strong>${escapeHtml(npc.characterName||npc.name)}</strong><small>${npc.allyNpc?'Ally NPC':'NPC'} · ${escapeHtml(ship?.title||(npc.allyNpc?'With the party':'Unassigned'))}</small></div></div><div class="character-details"><div><span>Speed</span><strong>${Number(npc.speed)||0}</strong></div><div><span>HP</span><strong>${Number(npc.currentHp??npc.maximumHp)||0} / ${Number(npc.maximumHp)||0}</strong></div><div><span>Move</span><strong>${Number(npc.moveSpeed)||0}</strong></div></div><button type="button">View Sheet</button>`;card.querySelector('button').onclick=()=>{const dialog=document.createElement('dialog');dialog.className='combat-result-popup';dialog.innerHTML=`<h2>${escapeHtml(npc.characterName||npc.name)}</h2>${npcEditorMarkup({...stagedNpc(npc),name:npc.characterName||npc.name})}<button type="button" data-dismiss>Dismiss</button>`;dialog.querySelectorAll('input,select,[data-npc-icon],[data-npc-recalculate]').forEach(e=>e.disabled=true);dialog.querySelector('[data-dismiss]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();};const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Delete NPC';remove.onclick=()=>deleteCampaignNpc(npc,remove);const actions=document.createElement('div');actions.className='character-card-actions';actions.append(card.querySelector('button'),remove);card.append(actions);(npc.allyNpc?dom.characterList:otherList).append(card);}
+  if(!otherList.children.length)otherList.innerHTML='<p>No neutral or enemy NPCs.</p>';
   const discard = campaign.dramaDeck?.discard || [];
   dom.dramaDiscardCount.textContent = `${discard.length} Card${discard.length === 1 ? "" : "s"}`;
   dom.dramaDiscardList.innerHTML = discard.length
@@ -788,6 +790,13 @@ function renderCharacters() {
     : "<p>No Drama Cards have been played.</p>";
   dom.reshuffleDramaCards.disabled = discard.length === 0;
   renderDramaDeckCounts();
+}
+
+async function deleteCampaignNpc(npc,button){
+  if(!await confirmGm({title:'Delete NPC?',message:`Delete "${npc.characterName||npc.name}" from the campaign and clear its crew assignment? Any premade template remains available.`,acceptLabel:'Delete NPC',danger:true}))return;
+  button.disabled=true;
+  try{const result=await api('/api/campaign/npc/delete',{code,token,npcId:npc.id});stagedNpcs=stagedNpcs.filter(n=>n.rosterId!==npc.id);receiveCampaign(result.campaign);await refreshCampaign();}
+  catch(error){button.disabled=false;showMessage(dom.message,error.message,'error');}
 }
 
 function renderStarships() {
@@ -810,7 +819,7 @@ function renderStarships() {
         <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label class="pc-color-box" style="--character-color:${escapeHtml(/^#[0-9a-f]{6}$/i.test(character.character?.presentation?.atbColor||'')?character.character.presentation.atbColor:'#39e58f')}"><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
         <section><h4>NPC Crew</h4><div class="gm-starship-crew npc-crew">${npcUnits.length ? npcUnits.map((unit) => `<label><input type="checkbox" data-starship-npc-crew="${escapeHtml(unit.id)}" ${npcCrew.has(unit.id) ? "checked" : ""}/> <span>${escapeHtml(unit.characterName)}</span></label>`).join("") : "<small>Add NPCs to Combat before assigning them to a ship.</small>"}</div></section>
       </div>
-      <div class="gm-starship-actions"><button type="button" data-view-starship>View</button><button type="button" data-edit-starship>Edit Ship</button><button type="button" data-save-starship-crew>Save Assignments</button><button type="button" class="danger" data-unlink-starship>Unlink</button></div>
+      <div class="gm-starship-actions"><button type="button" data-view-starship>View</button><button type="button" data-edit-starship>Edit Ship</button><button type="button" data-save-starship-crew>Save Assignments</button><button type="button" class="danger" data-unlink-starship>Remove</button></div>
     </article>`;
   }).join("") : "<p>No starships are linked to this campaign yet. Link one from the Starship Creator with this campaign's Room Code.</p>");
   if (dom.showcaseNpcFleet) {
@@ -2344,16 +2353,16 @@ dom.starshipList?.addEventListener("click", async (event) => {
   if (!unlink) return;
   const record = campaign.starships.find((entry) => entry.id === starshipId);
   if (!await confirmGm({
-    title: "Unlink Starship?",
+    title: "Remove Starship?",
     message: `${record?.title || "This starship"} will be removed from the campaign. Its local saved copy will remain on the device that created it, and campaign crew assignments will be cleared.`,
-    acceptLabel: "Unlink Starship",
+    acceptLabel: "Remove Starship",
     danger: true,
   })) return;
   unlink.disabled = true;
   try {
     await api("/api/campaign/starship/unlink", { code, token, starshipId });
     await refreshCampaign();
-    showMessage(dom.message, "Starship unlinked. Its original local copy was not deleted.", "success");
+    showMessage(dom.message, "Starship removed. Its original local copy was not deleted.", "success");
   } catch (error) {
     unlink.disabled = false;
     showMessage(dom.message, error.message, "error");

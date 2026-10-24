@@ -712,7 +712,7 @@ function normalizeCampaign(raw) {
     allyNpc: Boolean(template?.allyNpc ?? template?.ally),
   }));
   campaign.npcRoster ||= [];
-  for(const template of campaign.npcTemplates){const id='roster-'+template.id;if(campaign.npcRoster.some(n=>n.templateId===template.id||n.id===id))continue;
+  for(const template of campaign.npcTemplates){if(campaign.removedNpcTemplateIds?.includes(template.id))continue;const id='roster-'+template.id;if(campaign.npcRoster.some(n=>n.templateId===template.id||n.id===id))continue;
     const unit={...clone(template),id,templateId:template.id,characterName:template.name,playerName:'GM',team:'npc',controlledBy:'gm',currentHp:template.maximumHp,location:{starshipId:'',square:null,mesh:4,stationed:false},weapons:[{inventoryId:id+'-weapon',weaponId:template.heldWeaponId}],heldWeaponId:id+'-weapon'};
     require('./combat-engine').migrateUnitCombat(unit);campaign.npcRoster.push(unit);
   }
@@ -3057,6 +3057,25 @@ class CampaignApi {
         campaign.characters=normalized.characters;campaign.npcTemplates=normalized.npcTemplates;campaign.npcRoster=normalized.npcRoster;
         await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token),added:records.length+templates.length});
       }catch(error){sendJson(res,400,{error:error.message});}return true;
+    }
+
+    if(path === '/api/campaign/npc/delete' && req.method === 'POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      const id=String(body.npcId||''),live=this.liveEncounter(code),active=live||campaign.encounter;
+      const npc=[...(campaign.npcRoster||[]),...(live?.units||[])].find(n=>n.id===id&&n.team==='npc');
+      if(!npc){sendJson(res,404,{error:'NPC not found.'});return true;}
+      if(active?.hasEngagedClock&&!active.encounterEndedAt&&active.units.some(n=>n.id===id)){
+        sendJson(res,409,{error:'End the encounter before deleting an NPC participating in it.'});return true;
+      }
+      campaign.npcRoster=(campaign.npcRoster||[]).filter(n=>n.id!==id);
+      if(npc.templateId)campaign.removedNpcTemplateIds=[...new Set([...(campaign.removedNpcTemplateIds||[]),npc.templateId])];
+      for(const room of [campaign.encounter,live])if(room){room.units=room.units.filter(n=>n.id!==id);for(const unit of room.units){if(unit.carryingId===id)unit.carryingId=null;if(unit.carriedBy===id)unit.carriedBy=null;}}
+      for(const ship of [...campaign.starships,...(campaign.encounter?.starships||[]),...(live?.starships||[])]){
+        ship.crewNpcUnitIds=(ship.crewNpcUnitIds||[]).filter(n=>n!==id);
+        if(ship.ship)ship.ship.crewNpcUnitIds=[...ship.crewNpcUnitIds];
+        if(ship.characterLocations)delete ship.characterLocations[id];
+      }
+      await this.save(campaign);sendJson(res,200,{campaign:this.state(campaign,token)});return true;
     }
 
     if (path === "/api/campaign/npc-templates" && req.method === "POST") {
