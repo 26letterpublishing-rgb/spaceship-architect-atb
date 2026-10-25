@@ -72,6 +72,23 @@ test('console exit is replaced by X and restored when reused as Console View',()
  button.textContent='Console View';e.flush();assert.equal(button.classList.contains('dialog-original-dismiss'),false);
 });
 
+test('immersive consoles and catalog snapshots retain authored styling and functional dismissal',()=>{
+ for(const name of ['cleanser-console','ship-navigation-dialog','weapon-console','shield-console-dialog','sensor-console','lock-console','utility-console','hacking-console','transporter-console']){
+  const e=fixture(true);e.dialog.className=name+' sci-fi-dialog-surface sci-fi-frame-static';e.dialog.setAttribute('data-catalog-snapshot','true');
+  let exits=0;e.button('Exit Console',{onclick:()=>exits++});e.run();
+  assert.ok(!e.dialog.classList.contains('sci-fi-dialog-surface'),name);assert.ok(!e.dialog.classList.contains('sci-fi-frame-static'),name);
+  e.x().click();assert.equal(exits,1,name);
+  const confirmation=new e.Element('dialog');confirmation.className='science-confirm';e.dialog.append(confirmation);e.run();
+  assert.ok(confirmation.classList.contains('sci-fi-dialog-surface'),'nested confirmation keeps its popup frame');
+ }
+});
+
+test('compact ship planner and ordinary popup menus still receive the new frame',()=>{
+ for(const name of ['sensor-console combat-order-dialog','ship-navigation-dialog navigation-planner','science-confirm','v03-dialog','sic-family-picker']){
+  const e=fixture(true);e.dialog.className=name;e.run();assert.ok(e.dialog.classList.contains('sci-fi-dialog-surface'),name);
+ }
+});
+
 test('backdrop dialogs place their close rail inside the visible content panel',()=>{const e=fixture();const panel=new e.Element('div');panel.className='combat-action-panel';e.dialog.append(panel);const close=e.button('Cancel');panel.append(close);e.run();assert.equal(e.x().parentElement.parentElement,panel);});
 
 test('server reset closes required overlays without submitting and allows class-based dialogs to reopen',()=>{

@@ -24,9 +24,15 @@
  function enhance(dialog){
   const panelClasses=['combat-action-panel','combat-map-panel','delay-dialog-panel','queued-effect-panel','backup-conflict-dialog'];
   const surface=[...dialog.children].find(n=>panelClasses.some(name=>n.classList.contains(name)))||dialog;
+  // Immersive consoles use dialog for modality, but retain their own authored UI.
+  // Match the view itself: a confirmation opened inside a console is still a popup.
+  // Catalog snapshots retain these classes after their live console owner is removed.
+  const consoleView=!dialog.classList.contains('combat-order-dialog')&&(['cleanser-console','weapon-console','shield-console-dialog','sensor-console','lock-console','utility-console','hacking-console','transporter-console'].some(name=>dialog.classList.contains(name))||
+    (dialog.classList.contains('ship-navigation-dialog')&&!dialog.classList.contains('navigation-planner')));
   // These are full-screen animation/iframe hosts, not popup boxes. Their inner prompts own the frame.
   const presentation=dialog.matches('.automatic-dice-dialog,.combat-effect-stage,.cleanser-cinema,.oxygen-roll,[aria-label="Ship action dice roll"]');
-  if(!presentation&&!dialog.closest('.quick-prompts,[data-popup-theme="none"]')){surface.classList.add('sci-fi-dialog-surface');if(typeof getComputedStyle==='function'&&getComputedStyle(surface).position==='static')surface.classList.add('sci-fi-frame-static');}
+  if(consoleView){surface.classList.remove('sci-fi-dialog-surface');surface.classList.remove('sci-fi-frame-static');}
+  else if(!presentation&&!dialog.closest('.quick-prompts,[data-popup-theme="none"]')){surface.classList.add('sci-fi-dialog-surface');if(typeof getComputedStyle==='function'&&getComputedStyle(surface).position==='static')surface.classList.add('sci-fi-frame-static');}
   let pair=controls.get(dialog);
   const buttons=[...dialog.querySelectorAll('button')].filter(b=>b.closest(selector)===dialog&&!b.classList.contains('dialog-circle-close'));
   const dismissals=buttons.filter(isDismissal),available=dismissals.filter(b=>!b.disabled&&!b.closest('[hidden]'));

@@ -1,0 +1,25 @@
+Console appearance restoration — October 24, 2026
+
+Jason authorized #commit and a dated code-backup folder after completion.
+
+Cause and correction
+The shared popup enhancer treated immersive console dialogs as ordinary popup menus. Its sci-fi-dialog-surface class overrode their original artwork, spacing, borders, typography and controls. Console-specific CSS itself had not changed since the pre-popup release (8787571).
+
+The enhancer now excludes the actual immersive console surfaces: pilot, weapons, shields, sensors/probes, lock-on, utility/crew rooms, hacking, Transporter and Planetary Cleanser. Static catalog snapshots receive the same protection. Existing console styles/artwork render directly; no old gameplay code was restored. Compact ship/action planners and genuine confirmation/menu popups retain their vector frames, including prompts opened from consoles. Existing dismissal behavior is preserved.
+
+Verification
+- Focused dialog tests: 15 passed, including added coverage for console/snapshot exclusions, functional dismissal, nested popups and compact planners.
+- Real Chrome sweep: 54 representative console families opened. No console retained the popup frame class. Sampled computed layout, typography, borders and colors matched with popup-theme.css enabled versus disabled.
+- Actual card-inspector -> console-preview -> close flow preserves the framed card beneath the console.
+- Live isolated GM and PC pilot consoles: original artwork, nested Hold confirmation, return to console, desktop/tablet presentation and exit passed; no page errors.
+- Reviewed screenshots of restored pilot, shield, Cleanser, live GM/PC and nested confirmation views.
+- Probe Launcher catalog preview reports an undefined kind error in probe-console.js. Reproduced with the previous committed dialog-chrome.js; it predates this correction and remains unresolved. Its frame exclusion passed; do not claim all preview functionality is error-free.
+- Final full suite: 1322 passed, zero failures/skips/cancellations. JavaScript syntax and Windows-aware whitespace checks passed. Publication and backup outcome are recorded in the final completion report.
+- No gameplay or Help workflow changed. Existing Help wording/screenshots already describe the original consoles; no Help content edit was needed.
+- Personal campaign data unchanged. Gold Standard and unrelated work preserved. No manual deployment or hosted validation.
+
+Evidence and reusable isolated QA scripts:
+../SA-ATB Local Development Files/outputs/console-restore-oct24/
+preview-qa.cjs, preview-results.json, preview-log.txt, live-qa.cjs, live-log.txt, full-tests.txt and screenshots.
+
+Standing distinction: console views are not popup menus. Protect their authored appearance from future shared popup styling. Nested confirmation dialogs are still popups.
