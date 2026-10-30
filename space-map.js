@@ -71,10 +71,13 @@
     return `<circle data-contact-halo="${escape(ship.id)}" transform="translate(${point.x} ${point.y})" r="${radius}" fill="#d6ac4914" stroke="#e9c777" stroke-width=".08" stroke-dasharray=".3 .3"><title>Unresolved contact within ${Number(ship.uncertainty)} Units</title></circle>`;
   }
   function sensorRange(svg,position,range) {
-    let ring=svg.querySelector('[data-sensor-range]');
-    if(!range||!position){ring?.remove();return;}
-    if(!ring){ring=svg.ownerDocument.createElementNS(svg.namespaceURI,'circle');ring.dataset.sensorRange='';ring.style.pointerEvents='none';ring.setAttribute('fill','#80cde908');ring.setAttribute('stroke','#88cde970');ring.setAttribute('stroke-width','.06');svg.append(ring);}
-    const p=xy(position);ring.setAttribute('cx',p.x);ring.setAttribute('cy',p.y);ring.setAttribute('r',range*Math.sqrt(3));
+    if(!range||!position){svg.querySelectorAll('[data-sensor-range]').forEach(ring=>ring.remove());return;}
+    const p=xy(position);
+    for(const [key,scale] of [['',1],['outer',2]]){
+      let ring=svg.querySelector(`[data-sensor-range="${key}"]`);
+      if(!ring){ring=svg.ownerDocument.createElementNS(svg.namespaceURI,'circle');ring.dataset.sensorRange=key;ring.style.pointerEvents='none';ring.setAttribute('fill',scale===1?'#80cde908':'#80cde90c');ring.setAttribute('stroke',scale===1?'#88cde970':'#88cde947');ring.setAttribute('stroke-width','.06');svg.append(ring);}
+      ring.setAttribute('cx',p.x);ring.setAttribute('cy',p.y);ring.setAttribute('r',range*Math.sqrt(3)*scale);
+    }
   }
   function conditionMarkup(ship,size,observer) {
     ship=window.SAHealthDisplay?.presentation(ship)||ship;

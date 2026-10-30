@@ -40,6 +40,23 @@ test('evasion expires after 20 combat seconds, collision requires same hex',()=>
   room.shipPositions[1].q=2;assert.equal(commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'ram-test'}).ok,false);
   room.shipPositions[1].q=0;assert.equal(commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'ram-test'}).ok,true);commands.resolveInput(room,pilot,()=>12);assert.equal(a.currentHullHp,0);assert.equal(b.currentHullHp,0);
 });
+for(const kind of ['ram','skim'])for(const phase of ['traveling','arrived','exited'])test(`queued ${kind} cannot damage a target after warp ${phase}`,()=>{
+  const {room,pilot,a,b}=fixture();
+  assert.equal(commands.queue(room,pilot,{kind,targetId:b.id,requestId:`escape-${kind}-${phase}`}).ok,true);
+  b.escapedAt='completed-warp';b.ship.warpState={phase};
+  const before=JSON.stringify([a.currentHullHp,b.currentHullHp,a.shieldSystems,b.shieldSystems]);
+  commands.resolveInput(room,pilot,()=>{throw Error('departed collision must not roll');});
+  assert.equal(JSON.stringify([a.currentHullHp,b.currentHullHp,a.shieldSystems,b.shieldSystems]),before);
+  assert.equal(pilot.delayedAction,null);assert.match(a.sensorState.reports[0].text,/escaped into warp/);
+  commands.resolveInput(room,pilot,()=>{throw Error('cancelled input must not repeat');});
+  assert.equal(JSON.stringify([a.currentHullHp,b.currentHullHp,a.shieldSystems,b.shieldSystems]),before);
+});
+for(const mode of ['windup','landed'])test(`queued ram retains ${mode} damage behavior`,()=>{
+  const {room,pilot,b}=fixture();assert.equal(commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'control-'+mode}).ok,true);
+  b.ship.warpState={phase:mode==='windup'?'activating':'arrived'};
+  if(mode==='landed'){b.escapedAt='completed-landing';b.ship.descentState={phase:'landed'};}
+  commands.resolveInput(room,pilot,()=>12);assert.equal(b.currentHullHp,0);
+});
 test('repair is local, removes one impairment and raises future difficulty',()=>{
   const {room,pilot,a}=fixture(),item=a.ship.sicInventory.find(i=>i.id==='en');item.impaired=true;item.impairmentPoints=2;
   assert.equal(maintenance.queue(room,pilot,{kind:'repair',sicId:'en',requestId:'repair-test'}).ok,false);
@@ -67,6 +84,19 @@ test('restarting a powered-down SIC stays offline until the bridge timer complet
   assert.equal(maintenance.queue(room,pilot,{kind:'off',sicId:'en',requestId:'power-off-test'}).ok,true);assert.equal(item.disabled,true);
   assert.equal(maintenance.queue(room,pilot,{kind:'on',sicId:'en',requestId:'power-on-test'}).ok,true);assert.ok(item.bootRemaining>0);
   const remaining=item.bootRemaining;maintenance.advance(a,remaining-.1);assert.equal(item.disabled,true);maintenance.advance(a,.1);assert.equal(item.disabled,false);
+});
+
+test('restoration snapshots its duration, rejects repeats and survives persisted replacement',()=>{
+  const {room,pilot,a}=fixture();pilot.location={starshipId:'a',square:43,mesh:1,stationed:true};const item=a.ship.sicInventory.find(i=>i.id==='en');
+  assert.equal(maintenance.queue(room,pilot,{kind:'off',sicId:'en',requestId:'duration-off'}).ok,true);
+  assert.equal(maintenance.queue(room,pilot,{kind:'on',sicId:'en',requestId:'duration-on'}).ok,true);
+  assert.equal(item.bootDuration,96);maintenance.advance(a,12);assert.equal(item.bootRemaining,84);
+  for(const kind of ['on','restart']){assert.equal(maintenance.queue(room,pilot,{kind,sicId:'en',requestId:'repeat-'+kind}).ok,false);assert.equal(item.bootRemaining,84);assert.equal(item.bootDuration,96);}
+  const record=structuredClone(a);delete record.ship.sicInventory.find(i=>i.id==='en').bootDuration;require('../ship-state').persist(record,a);
+  const loaded=JSON.parse(JSON.stringify(record)),replacement=fixture().a;require('../ship-state').apply(replacement,loaded);
+  const restored=replacement.ship.sicInventory.find(i=>i.id==='en');assert.equal(restored.bootRemaining,84);assert.equal(restored.bootDuration,96);
+  maintenance.advance(replacement,84);assert.equal(restored.bootRemaining,0);assert.equal(restored.disabled,false);assert.equal(restored.bootDuration,96);
+  assert.equal(maintenance.queue(room,pilot,{kind:'off',sicId:'en',requestId:'duration-stop'}).ok,true);assert.equal(item.bootRemaining,0);assert.equal(item.bootDuration,undefined);
 });
 
 test('within-range conditional order triggers when the observing ship approaches a stationary target',()=>{

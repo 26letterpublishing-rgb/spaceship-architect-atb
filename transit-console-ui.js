@@ -16,6 +16,7 @@
       <section class="lock-controls utility-controls"><h3>${warp?'Route':'Security Authorization'}</h3>${warp?'<label>Distance (light-years)<input data-utility-control data-distance type="number" min="0.001" step="any" value="3.26"></label><button data-utility-control data-plan type="button">Calculate Route</button><div data-fuel-plan></div><button data-utility-control data-start type="button" disabled>Engage Warp</button><button data-utility-control data-cancel type="button">Cancel Activation</button><button data-utility-control data-exit type="button">Exit Warp</button>':'<label>Countdown (seconds)<input data-utility-control data-delay type="number" min="0" max="86400" step="1" value="60"></label><p data-approvals></p><button data-utility-control data-approve type="button">Approve Self-Destruct</button><button data-utility-control data-abort type="button">Cancel Self-Destruct</button><div data-blast hidden><strong data-dice></strong><label>Damage total<input data-utility-control data-damage type="number" min="0" step="1"></label><button data-utility-control data-resolve type="button">Confirm Damage</button></div>'}<output data-status role="status"></output><button data-utility-control data-retry hidden type="button">Retry Command</button></section>
       <section class="lock-reports"><h3>${warp?'Journey Report':'Security Log'}</h3><div data-report></div></section><div class="utility-seat"><button data-hold type="button">Hold</button><button data-leave type="button">Leave Console</button></div>`;
     view.dataset.transitShip=initial.ship.id;doc.body.append(view);view.showModal();const get=s=>view.querySelector(s);let busy=false,pending=null,planned=null,lastPhase='';
+    const leave=get('[data-leave]');if(warp)leave.remove();
     const current=()=>{const state=b.state(),person=state?.units?.find(u=>u.id===unit.id);return{state,person,access:window.SAStationAccess.access(state,person,sicId)};};
     function redraw(){
       const {state,person,access}=current();if(!access){view.close();return;}const ship=access.ship;if(warp)window.SAWarpEffects?.update(ship,get(".warp-window"));const s=warp?ship.ship.warpState:ship.ship.destructState,phase=s?.phase||'standby';
@@ -40,7 +41,7 @@
         get('[data-resolve]').disabled=busy||!(b.mode()==='gm'||s?.unitId===person.id);
       }
       const report=s?.report;get('[data-report]').textContent=report?(warp?`${report.reason||report.phase} Distance: ${Number((report.traveledLY||0).toFixed(4))} light-years. Elapsed: ${duration(report.elapsedSeconds)}. Fuel used: ${Object.entries(report.fuelUsed||{}).filter(([,v])=>v).map(([g,v])=>`${v} Grade ${g}`).join(', ')||'none'}. Unused range discarded: ${Number((report.discardedLY||0).toFixed(4))} light-years.`:report.reason||report.text||(report.total!=null?`${report.total} blast damage rolled.`:report.phase)):warp?'No completed journey.':'Requires two registered crewmembers. Any registered crewmember can cancel.';
-      get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=state.practice||busy||(!ready&&!person.consoleHold);get('[data-leave]').disabled=!state.practice&&(busy||!ready);get('[data-leave]').textContent=state.practice?'Return to Ship':'Leave Console';
+      get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=state.practice||busy||(!ready&&!person.consoleHold);leave.disabled=!state.practice&&(busy||!ready);leave.textContent=state.practice?'Return to Ship':'Leave Console';
       if(lastPhase!==phase&&['activating','traveling','countdown','arrived','exited'].includes(phase))b.consoleTick();lastPhase=phase;
     }
     async function send(){if(busy||!pending)return;busy=true;get('[data-retry]').hidden=true;redraw();try{const result=await b.transitAction(pending);if(result.result?.ok===false)throw Error(result.result.error);if(pending.kind==='warpPlan'){planned=result.result;get('[data-fuel-plan]').textContent=`${Object.entries(planned.counts).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${g}`).join(' + ')} | ${duration(planned.travelSeconds)}`;}get('[data-status]').textContent='Confirmed.';pending=null;}catch(e){get('[data-status]').textContent=e.message;get('[data-retry]').hidden=false;}finally{busy=false;redraw();}}
@@ -66,8 +67,8 @@
     const close=()=>{window.SAShipNavigationUI.remember(current().person||unit);view.close();};
     get('[data-retry]').onclick=send;get('[data-close]').onclick=close;get('[data-sound]').onclick=()=>{b.toggleSound();window.SAConsoleCommon.updateSound(view);};
     get('[data-hold]').onclick=()=>window.SAShipNavigationUI.toggleHold(current().person).catch(e=>get('[data-status]').textContent=e.message);
-    get('[data-leave]').dataset.utilityControl='';
-    get('[data-leave]').onclick=()=>{const {state,person}=current();close();if(!state.practice)window.SACombatMap.openMove(person);};
+    leave.dataset.utilityControl='';
+    leave.onclick=()=>{const {state,person}=current();close();if(!state.practice)window.SACombatMap.openMove(person);};
     let timer;const unload=()=>view.close();
     view.addEventListener('close',()=>{if(warp)window.SAWarpEffects?.clear();clearInterval(timer);window.removeEventListener('pagehide',unload);view.remove();dialog=null;b.requestRender();},{once:true});window.addEventListener('pagehide',unload,{once:true});
     window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());

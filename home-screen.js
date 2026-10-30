@@ -2,6 +2,7 @@
  'use strict';
  const hero=document.querySelector('.welcome-hero'),welcome=document.getElementById('welcomePanel');
  if(!hero||!welcome)return;
+ const debug=document.createElement('a');debug.className='home-debug';debug.href='console-viewer.html';debug.textContent='Debug';debug.setAttribute('aria-label','Debug Console viewer');welcome.append(debug);
  const layer=document.createElement('div');layer.className='home-star-layer';layer.setAttribute('aria-hidden','true');hero.append(layer);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
  let joinButton;
@@ -33,9 +34,9 @@
  window.addEventListener('resize',layout);layout();
  function star(){if(document.hidden||reduced.matches||!document.body.classList.contains('welcome-mode'))return;
   const width=innerWidth,height=innerHeight,left=Math.random()<.5,scale=Math.max(width/1920,height/1080),center={x:width/2,y:1080*scale*.55};
-  const start={x:left?Math.random()*width*.12:width*(.88+Math.random()*.12),y:Math.random()*height};
-  const point=document.createElement('i');point.style.background=left?'#64b8ff':'#ff6960';point.style.color=left?'#64b8ff':'#ff6960';point.style.width=point.style.height=(1.8+Math.random()*1.8)+'px';layer.append(point);
-  const duration=2000+Math.random()*1000,end={x:start.x+(center.x-start.x)*.9,y:start.y+(center.y-start.y)*.9};
+  const end={x:left?Math.random()*width*.12:width*(.88+Math.random()*.12),y:Math.random()*height};
+  const point=document.createElement('i');point.style.background=left?'#64b8ff':'#ff6960';point.style.color=left?'#64b8ff':'#ff6960';point.style.width=point.style.height=(2.4+Math.random()*1.8)+'px';layer.append(point);
+  const duration=2000+Math.random()*1000,start={x:end.x+(center.x-end.x)*.9,y:end.y+(center.y-end.y)*.9};
   const motion=point.animate([{transform:`translate(${start.x}px,${start.y}px)`,opacity:0},{opacity:.9,offset:.15},{opacity:.7,offset:.65},{transform:`translate(${end.x}px,${end.y}px)`,opacity:0}],{duration,easing:'linear'});motion.onfinish=()=>point.remove();
  }
  setInterval(star,130/1.2); // 20% more stars per second; retain their existing travel time.

@@ -19,7 +19,7 @@ body[data-impact-presenting] dialog:not(.combat-effect-stage)::backdrop{backgrou
 
 .enemy-lock-log-entry{background:#870d20;color:white!important;padding:6px;animation:enemy-lock-log-pulse 1s ease-in-out infinite}@keyframes enemy-lock-log-pulse{50%{background:#e52b43}}@media(prefers-reduced-motion:reduce){.enemy-lock-log-entry{animation:none}}
 
-.combat-victory-banner{position:fixed;z-index:2147483646;top:24%;left:50%;transform:translateX(-50%);width:min(680px,90vw);box-sizing:border-box;padding:30px 24px;background:#162d23;border:3px solid #ffe479;border-radius:14px;box-shadow:0 0 30px #d5bd3f;color:#fff5bf;text-align:center;pointer-events:none;animation:victory-fly 5.6s ease-in-out forwards}
+.combat-victory-banner{position:fixed;inset:auto;margin:0;z-index:2147483646;top:24%;left:50%;transform:translateX(-50%);width:min(680px,90vw);box-sizing:border-box;padding:30px 24px;background:#124c2b;border:3px solid #72e8a4;border-radius:14px;box-shadow:0 0 24px #226b43;color:#edfff3;text-align:center;pointer-events:none;animation:victory-fade 6s linear forwards}
 .combat-victory-banner strong{display:block;font-size:clamp(40px,8vw,80px);line-height:1.1}.combat-victory-banner span{display:block;font-size:18px;margin-top:12px;color:white}
-@keyframes victory-fly{0%{transform:translateX(-50%) scale(.3)}7%,89%{transform:translateX(-50%) scale(1)}100%{transform:translate(150vw,-50vh) scale(.1)}}
+@keyframes victory-fade{0%,83%{opacity:1}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.combat-victory-banner{animation:none}}

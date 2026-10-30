@@ -17,7 +17,23 @@ test('four repeater shots keep normal manual roll ownership, retry safety, clock
  const frozen=s.units.map(u=>u.atb);await sleep(250);assert.deepEqual((await state()).units.map(u=>u.atb),frozen);
  const firstDamage={action:'rollShipAction',id:pilot.id,rollId:roll.id,diceResults:[2]};s=await act(firstDamage);roll=pending(s);assert.equal(roll.weaponOrder.burst.shot,2);assert.equal(roll.rollBeforeDelay,false);assert.equal(roll.consumeTurn,false);assert.equal(roll.awaitingRoll,true);assert.equal(roll.rollController,'gm');const secondId=roll.id;s=await act(firstDamage);assert.equal(pending(s).id,secondId);assert.equal(s.starships.find(s=>s.id===source.id).ship.minerals.Iron,4);
  s=await act({action:'rollShipAction',id:pilot.id,rollId:secondId,score:-100});assert.equal(pending(s).weaponOrder.burst.shot,3);assert.equal(pending(s).awaitingRoll,true);assert.equal(s.starships.find(s=>s.id===source.id).ship.minerals.Iron,3);
- for(let i=0;i<30;i++){const persisted=await get(`campaign/backup?code=${code}&token=${token}`);if(persisted.campaign.encounter.units.find(u=>u.id===pilot.id)?.delayedAction?.weaponOrder?.burst?.shot===3)break;if(i===29)throw Error('Third shot was not persisted');await sleep(50);}await stop();await start();token=(await post('campaign/open',{name:'Repeater test',gmCode:'repeater-test'})).token;s=await state();roll=pending(s);assert.equal(roll.weaponOrder.burst.shot,3);assert.equal(roll.rollBeforeDelay,false);assert.equal(roll.rollController,'gm');const pc=await post('campaign/character/unlock',{code,characterId:person.id,pcCode:person.pcCode});await post('action',{roomCode:code,characterId:person.id,characterToken:pc.token,action:'rollShipAction',id:pilot.id,rollId:roll.id,score:100},403);await act({action:'setHardPaused',paused:false});
+ // A live backup exports current memory; it is not an acknowledgement of the asynchronous disk save.
+ const persistenceSnapshot=encounter=>{const savedRoll=encounter?.units?.find(u=>u.id===pilot.id)?.delayedAction;return {
+  rollId:savedRoll?.id,burst:savedRoll?.weaponOrder?.burst,controller:savedRoll?.rollController,
+  awaitingRoll:savedRoll?.awaitingRoll,rollBeforeDelay:savedRoll?.rollBeforeDelay,consumeTurn:savedRoll?.consumeTurn,
+  iron:encounter?.starships?.find(ship=>ship.id===source.id)?.ship?.minerals?.Iron,
+  sourceHull:encounter?.starships?.find(ship=>ship.id===source.id)?.currentHullHp,
+  targetHull:encounter?.starships?.find(ship=>ship.id===target.id)?.currentHullHp
+ };};
+ const expectedPersistence=structuredClone(persistenceSnapshot(s)),persistedFile=path.join(directory,'campaigns.json'),deadline=Date.now()+5000;let observedPersistence;
+ for(;;){
+  const campaigns=JSON.parse(fs.readFileSync(persistedFile,'utf8'));assert.ok(Array.isArray(campaigns),'Owned campaign store must be an array');
+  observedPersistence=persistenceSnapshot(campaigns.find(campaign=>campaign.code===code)?.encounter);
+  if(JSON.stringify(observedPersistence)===JSON.stringify(expectedPersistence))break;
+  if(Date.now()>=deadline)assert.deepEqual(observedPersistence,expectedPersistence,`Timed out waiting for exact third-shot persistence in ${persistedFile}`);
+  await sleep(50);
+ }
+ await stop();await start();token=(await post('campaign/open',{name:'Repeater test',gmCode:'repeater-test'})).token;s=await state();roll=pending(s);assert.equal(roll.weaponOrder.burst.shot,3);assert.equal(roll.rollBeforeDelay,false);assert.equal(roll.rollController,'gm');const pc=await post('campaign/character/unlock',{code,characterId:person.id,pcCode:person.pcCode});await post('action',{roomCode:code,characterId:person.id,characterToken:pc.token,action:'rollShipAction',id:pilot.id,rollId:roll.id,score:100},403);await act({action:'setHardPaused',paused:false});
  for(const damage of [3,6]){s=await act({action:'rollShipAction',id:pilot.id,rollId:pending(await state()).id,score:100});roll=pending(s);assert.ok(roll.weaponDamage);assert.deepEqual(roll.rollSpec.sides,[10]);s=await act({action:'rollShipAction',id:pilot.id,rollId:roll.id,diceResults:[damage]});}
  assert.equal(pending(s),null);assert.equal(s.rollPaused,false);assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,69);assert.equal(s.starships.find(s=>s.id===source.id).ship.minerals.Iron,2);assert.equal(s.units.find(u=>u.id===pilot.id).atb,0);assert.equal(s.starships.find(s=>s.id===source.id).weaponState.reports.filter(r=>r.shot).length,4);
 });

@@ -11,6 +11,8 @@
   if (root) root.SAShipSensors = api;
 }(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, cooperation, targets, health) {
   const copy = value => JSON.parse(JSON.stringify(value));
+  // Match passive contacts: departure removes eligibility, not historical intel or wrecks.
+  const departed = ship => Boolean(ship?.escapedAt || ship?.ship?.warpState?.phase === 'traveling');
   function installed(ship) {
     const data = ship.ship || ship, ids = new Set((data.placements || []).map(p => p.sicId));
     const item = (data.sicInventory || []).find(i => ids.has(i.id) && stations.online(i) && maps.definition(i.type).sensor);
@@ -188,17 +190,17 @@
     if(typeof window==='undefined'&&require('./ship-illusions').scanned(room,order).length)return null;
     if(['life','lifeArea'].includes(order?.kind))return outsideHex(room,order)?null:[];
     if(!['area','hex','analysis'].includes(order?.kind))return null;
-    const ship=room.starships.find(s=>s.id===order.shipId),sensor=ship&&installed(ship);if(!sensor)return [];
+    const ship=room.starships.find(s=>s.id===order.shipId),sensor=ship&&installed(ship);if(!sensor||departed(ship))return [];
     const {minimum,maximum}=scanBounds(room,unit,order);
     if(order.kind==='analysis'){
       const target=room.starships.find(s=>s.id===order.targetId);
-      if(!target)return {success:false};
+      if(!target||departed(target))return {success:false};
       const required=defense(room,target);
       return required<=minimum?{success:true}:required>maximum?{success:false}:null;
     }
     const detected=[];
     for (const target of targets.all(room)) {
-      if(target.id===ship.id)continue;
+      if(target.id===ship.id||departed(target))continue;
       const distance=distances.hexDistance(point(room,ship.id),point(room,target.id)),range=order.kind==='area'?scanRangeAgainst(room,ship,target):rangeAgainst(room,ship,target);
       if(order.hex?distances.hexDistance(order.hex,point(room,target.id))>1:distance>range)continue;
       const difficulty=masking(room,target,ship)+(order.hex?-10+Math.ceil(distances.hexDistance(order.hex,point(room,target.id)))*2+(outsideHex(room,order)?5:0):-Math.floor(range-distance+1e-8));
@@ -210,10 +212,10 @@
   function outsideHex(room,order){const ship=room.starships.find(s=>s.id===order?.shipId);return Boolean(ship&&order.hex&&distances.hexDistance(point(room,ship.id),order.hex)>(installed(ship)?.range||0));}
   function scanChecks(room,order){
     if(typeof window==='undefined'&&require('./ship-illusions').scanned(room,order).length)return [];
-    const ship=room.starships.find(s=>s.id===order?.shipId);if(!ship)return [];
+    const ship=room.starships.find(s=>s.id===order?.shipId);if(!ship||departed(ship))return [];
     if(['life','lifeArea'].includes(order.kind))return outsideHex(room,order)?[{difficulty:15}]:[];
-    if(order.kind==='analysis'){const target=targets.find(room,order.targetId);return target?[{targetId:target.id,difficulty:defense(room,target)}]:[];}
-    return targets.all(room).filter(t=>t.id!==ship.id&&!t.escapedAt&&t.ship?.warpState?.phase!=='traveling').flatMap(t=>{
+    if(order.kind==='analysis'){const target=targets.find(room,order.targetId);return target&&!departed(target)?[{targetId:target.id,difficulty:defense(room,target)}]:[];}
+    return targets.all(room).filter(t=>t.id!==ship.id&&!departed(t)).flatMap(t=>{
       const distance=distances.hexDistance(point(room,ship.id),point(room,t.id)),range=scanRangeAgainst(room,ship,t),offset=order.hex?distances.hexDistance(order.hex,point(room,t.id)):0;
       if(order.hex?offset>1:distance>range)return [];
       return [{targetId:t.id,difficulty:masking(room,t)+(order.hex?-10+Math.ceil(offset)*2+(outsideHex(room,order)?5:0):-Math.floor(range-distance+1e-8))}];
@@ -222,7 +224,7 @@
   function timingDifficulty(room,order,total){const checks=scanChecks(room,order),success=checks.filter(c=>total>=c.difficulty);return success.length?Math.max(...success.map(c=>c.difficulty)):checks.length?Math.min(...checks.map(c=>c.difficulty)):null;}
   function queue(room, unit, body) {
     const access = stations.access(room,unit,body.sicId);
-    if (!access || access.blocked || access.kind !== 'sensor') return { ok:false,error:'Use Sensors from an available cockpit or bridge.' };
+    if (!access || access.blocked || access.kind !== 'sensor' || departed(access.ship)) return { ok:false,error:'Use Sensors from an available cockpit or bridge.' };
     const state = knowledge(access.ship), receipt = String(body.requestId || '');
     if (!/^[\w-]{8,100}$/.test(receipt)) return {ok:false,error:'Invalid sensor command receipt.'};
     if (state.receipts.includes(receipt)) return {ok:true,duplicate:true};
@@ -239,7 +241,7 @@
       const recipient = room.starships.find(s => s.id === id && s.id !== access.ship.id);
       return !recipient || state.contacts[id]?.level !== 'detected' || distances.hexDistance(point(room,access.ship.id),point(room,id)) > rangeAgainst(room,access.ship,recipient);
     }))) return {ok:false,error:'Choose recipients detected within sensor range.'};
-    if (body.kind==='analysis' && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    if (body.kind==='analysis' && (!target || departed(target) || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,access.ship.id),point(room,target.id)) > rangeAgainst(room,access.ship,target)))
       return {ok:false,error:'Select a detected ship within sensor range.'};
     if (['hex','life','lifeArea'].includes(body.kind) && (!body.hex || ![body.hex.q,body.hex.r].every(n=>Number.isInteger(n)&&Math.abs(n)<=10000))) return {ok:false,error:'Choose a valid hex.'};
@@ -263,13 +265,14 @@
     if (!order) return;
     unit.delayedAction = null;
     const access = stations.access(room,unit,order.sicId), observer = room.starships.find(s => s.id === order.shipId);
-    if (!access || access.blocked || access.ship.id !== order.shipId || access.seat.key !== order.station) {
+    if (!access || access.blocked || access.ship.id !== order.shipId || access.seat.key !== order.station || departed(observer)) {
+      if (departed(observer)) refresh(room);
       if (observer) report(observer,{text:'Sensor input interrupted: operator or system unavailable.'});
       return;
     }
     refresh(room);
     const sensor = installed(observer), state = knowledge(observer), target = room.starships.find(s => s.id === order.targetId);
-    if (order.kind==='analysis' && (!target || state.contacts[target.id]?.level !== 'detected' ||
+    if (order.kind==='analysis' && (!target || departed(target) || state.contacts[target.id]?.level !== 'detected' ||
       distances.hexDistance(point(room,observer.id),point(room,target.id)) > rangeAgainst(room,observer,target))) {
       report(observer,{text:'Contact lost before sensor input finished.'}); return;
     }
@@ -294,7 +297,7 @@
       if(!order.hex)return;
       if(outsideHex(room,order)){const result=cooperation.roll(room,observer,unit,order.kind,sensor.dice,skill(unit),rollDie,fusedTotal);if(result.total<15){report(observer,{text:'Life Scan failed: difficulty 15. Unit outside of sensor range. Scan results may fail.',total:result.total,values:result.values});return;}}
       const rounded=p=>{let q=Math.round(p.q),r=Math.round(p.r),s=Math.round(-p.q-p.r);const a=Math.abs(q-p.q),b=Math.abs(r-p.r),c=Math.abs(s+p.q+p.r);if(a>b&&a>c)q=-r-s;else if(b>c)r=-q-s;return {q,r};};
-      const targets=new Set(room.starships.filter(s=>s.id!==observer.id&&distances.hexDistance(rounded(point(room,s.id)),order.hex)<=1).map(s=>s.id));
+      const targets=new Set(room.starships.filter(s=>s.id!==observer.id&&!departed(s)&&distances.hexDistance(rounded(point(room,s.id)),order.hex)<=1).map(s=>s.id));
       state.lifeScans||={};for(const targetId of targets)state.lifeScans[targetId]={at:new Date().toISOString(),afterAnalysis:Boolean(state.analyses[targetId])};
       const count=room.units.filter(u=>targets.has(u.location?.starshipId)&&!u.shipAi&&String(u.raceId||u.race||'').toLowerCase()!=='android').length;
       report(observer,{text:`Life Scan at ${order.hex.q}, ${order.hex.r}: ${count} lifeform${count===1?'':'s'} detected. Scanning ship excluded.`,lifeScan:true,count,hex:copy(order.hex)});return;
@@ -328,7 +331,7 @@
       state.pulse={remaining:2,total:automatic===null?total:guaranteedMinimum};
     }
     for (const other of targets.all(room)) {
-      if (other.id === observer.id) continue;
+      if (other.id === observer.id || departed(other)) continue;
       const distance = distances.hexDistance(point(room,observer.id),point(room,other.id)), range = order.kind==='area'?scanRangeAgainst(room,observer,other):rangeAgainst(room,observer,other);
       if (!order.hex && distance > range) continue;
       const offset = order.hex ? distances.hexDistance(order.hex,point(room,other.id)) : 0;
@@ -348,6 +351,9 @@
     const order = effect.sensorReport, observer = room.starships.find(s => s.id === order.shipId), target = room.starships.find(s => s.id === order.targetId);
     unit.queuedEffects = unit.queuedEffects.filter(e => e.id !== effect.id);
     if (!observer || !target) return;
+    if (departed(observer) || departed(target)) {
+      report(observer,{text:'Contact lost before Systems Analysis report finished.'}); return;
+    }
     const ids = new Set(target.ship.placements.map(p => p.sicId));
     const layout={zoneColumns:maps.gridColumns(target.ship),zoneRows:maps.gridRows(target.ship),thrusterDirection:target.ship.thrusterDirection??null,gridCells:copy(target.ship.gridCells),placements:copy(target.ship.placements),doorStates:{},sicInventory:target.ship.sicInventory.filter(i=>ids.has(i.id)).map(i=>({id:i.id,type:i.type,rotation:i.rotation,exteriorRotation:i.exteriorRotation,stationLayout:i.stationLayout,disabled:Boolean(i.disabled),status:i.status,impaired:Boolean(i.impaired),impairmentPoints:Number(i.impairmentPoints)||0}))};
     const known=knowledge(observer),previous=known.analyses[target.id],hidden=new Set();

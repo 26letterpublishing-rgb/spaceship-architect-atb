@@ -9,6 +9,42 @@ test('personal effects use confirmed rolls, preserve clock pauses and survive ca
  const ids=initial.units.filter(u=>u.team==='npc').slice(0,2).map(u=>u.id);assert.equal(ids.length,2);
  async function restore(configure){const c=structuredClone(saved.campaign),s=c.encounter;s.units=s.units.filter(u=>ids.includes(u.id));s.starships=[];s.shipPositions=[];s.shipDistances=[];s.arena=require('../combat-arena').normalize({width:40,height:10,floors:Array.from({length:400},(_,i)=>i)});s.fog={enabled:false};Object.assign(s,{activeId:null,activeAction:null,attackResolution:null,itemResolution:null,pausedForTurn:false,hardPaused:true,running:false,resumeAfterTurn:false,areaEffects:[]});s.units.forEach((u,i)=>Object.assign(u,{speed:1,atb:0,location:{arenaId:'surface',starshipId:'',square:41+i,mesh:4},currentHp:200,maximumHp:200,damageReduction:0,items:[],raceId:'',statuses:{},timedAction:null,delayedAction:null,weaponTimers:[],personalEffects:[],burning:null,defeatedAt:null}));configure(s,c);await post('/api/campaign/restore',{...auth,backup:{...saved,campaign:c}});}
  const actor=ids[0],target=ids[1];
+ async function greenSetup({prior=false,immune=false,critical=false}={}){
+  await restore(s=>{s.activeId=actor;s.pausedForTurn=true;if(immune)s.units[1].raceId='android';if(prior)s.units[1].weaponTimers=[{kind:'poison',name:'Greentip poison',formula:'2D8',dice:2,remaining:4,interval:6,duration:3598,element:'Poison',ignoreDamageReduction:true,bypassSuit:true}];s.attackResolution={id:'green',phase:'damage',attackerId:actor,defenderId:target,attackerName:'Attacker',defenderName:'Target',weaponId:'greentip-v-x-101',weaponName:'Greentip',attackType:'ranged',plan:{damageFormula:'3D4',damageFormulaSupported:true,element:'Poison',ignoreDamageReduction:true},attackResult:{hit:true,critical}};});
+ }
+ await t.test('Greentip original faces drive poison, including default manual mode and critical/GM adjustments',async()=>{
+  for(const [faces,count] of [[[3,3,3],0],[[4,3,3],1],[[4,4,4],3]]){
+   await greenSetup({critical:true});let s=await gm({action:'submitAttackDamage',id:actor,attackId:'green',rolledDamage:faces.reduce((a,b)=>a+b,0),diceResults:faces});assert.equal(s.attackResolution.damageRoll.mode,'manual');
+   s=await gm({action:'confirmNpcDamage',attackId:'green',finalDamage:50});assert.equal(s.units.find(u=>u.id===target).weaponTimers[0]?.dice??0,count);
+  }
+  await greenSetup({immune:true});await gm({action:'submitAttackDamage',id:actor,attackId:'green',rolledDamage:12,diceResults:[4,4,4],mode:'automatic'});const s=await gm({action:'confirmNpcDamage',attackId:'green',finalDamage:12});assert.equal(s.units.find(u=>u.id===target).weaponTimers.length,0);
+ });
+ await t.test('Greentip manual totals preserve existing timer and explain manual handling',async()=>{
+  for(const prior of [false,true]){
+   await greenSetup({prior});await gm({action:'submitAttackDamage',id:actor,attackId:'green',rolledDamage:99});const s=await gm({action:'confirmNpcDamage',attackId:'green',finalDamage:1});const timers=s.units.find(u=>u.id===target).weaponTimers;
+   assert.equal(timers.length,prior?1:0);if(prior){assert.equal(timers[0].dice,2);assert.equal(timers[0].remaining,4);assert.equal(timers[0].duration,3598);}
+   assert.ok(s.log.some(e=>e.text.includes('managed manually')&&e.text.includes(prior?'remains active and unchanged':'No automatic poison timer')));
+  }
+ });
+ await t.test('Greentip rejects malformed original faces without consuming the pending damage',async()=>{
+  await greenSetup();for(const faces of [[4,4],[4,4,5],[4,4,1.5],[4,4,'4'],[4,4,null],[4,4,3],'444'])await post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,action:'submitAttackDamage',id:actor,attackId:'green',rolledDamage:12,diceResults:faces},400);
+  const s=await gm({action:'submitAttackDamage',id:actor,attackId:'green',rolledDamage:12,diceResults:[4,4,4]});assert.equal(s.attackResolution.phase,'gmDamage');
+ });
+ await t.test('Greentip accuracy D10 is discarded before original damage faces are counted',async()=>{
+  await restore(s=>{s.activeId=actor;s.pausedForTurn=true;s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'green',weaponId:'greentip-v-x-101'}]);s.units[0].heldWeaponId='green';});
+  let s=await gm({action:'playerCombatAction',id:actor,kind:'fire',targetId:target});let attackId=s.attackResolution.id;
+  s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:1});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:40});
+  assert.equal(s.attackResolution.followup.kind,'accuracy');
+  s=await gm({action:'submitAttackDamage',id:actor,attackId:s.attackResolution.id,rolledDamage:4,diceResults:[4]});
+  assert.equal(s.attackResolution.damageRoll,null);assert.equal(s.attackResolution.plan.damageFormula,'1D4');attackId=s.attackResolution.id;
+  s=await gm({action:'submitAttackDamage',id:actor,attackId,rolledDamage:3,diceResults:[3]});s=await gm({action:'confirmNpcDamage',attackId,finalDamage:6});
+  assert.equal(s.units.find(u=>u.id===target).weaponTimers.length,0);
+ });
+ await t.test('Greentip poison tick manual damage does not create another timer',async()=>{
+  let s;await restore(s=>{s.units[1].weaponTimers=[{kind:'poison',name:'Greentip poison',formula:'2D8',dice:2,remaining:1,interval:6,duration:3598,element:'Poison',ignoreDamageReduction:true,bypassSuit:true}];});
+  s=await gm({action:'step'});assert.equal(s.attackResolution.weaponId,'personal-effect');const attackId=s.attackResolution.id;
+  s=await gm({action:'submitAttackDamage',id:target,attackId,rolledDamage:8});s=await gm({action:'confirmNpcDamage',attackId,finalDamage:8});assert.equal(s.units.find(u=>u.id===target).weaponTimers.length,1);assert.equal(s.units.find(u=>u.id===target).weaponTimers[0].dice,2);
+ });
  await t.test('fire boundary waits for dice and confirmation, then grows exactly once',async()=>{
   await restore(s=>s.units[0].burning={intensity:2,maximum:5,remaining:8,source:'Fire'});
   let s;for(let i=0;i<7;i++)s=await gm({action:'step'});assert.equal(s.attackResolution,null);

@@ -26,4 +26,27 @@ test('GM-owned missile impact survives server restart, rejects other players and
  s=await act({action:'missileDamage',missileId:missile.id,score:2});assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,before-10);
  assert.equal(s.starships.find(s=>s.id===source.id).ship.missileAmmo[launcher.id]['missile-1'],1);
  await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});const value=(await state()).units[0].atb;await sleep(500);assert.ok((await state()).units[0].atb>value);
+ await t.test('paused mixed flights retain snapshotted profiles across a real server restart',async()=>{
+  await act({action:'setHardPaused',paused:true});
+  const saved=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());const encounter=saved.campaign.encounter;
+  Object.assign(encounter,{running:false,hardPaused:true,pausedForTurn:false,activeId:null,activeAction:null,attackResolution:null});encounter.shipPositions=[{id:source.id,q:0,r:0},{id:target.id,q:100,r:0}];
+  const owner=encounter.starships.find(s=>s.id===source.id),baseFlight={sourceId:source.id,targetId:target.id,phase:'flying',position:{q:0,r:0},age:9,speed:2,acceleration:1,dice:2,masking:8};
+  owner.ship.missileState.flights=[{...baseFlight,id:'profile',name:'Missile 1',speedProfile:{...require('../missile-ammunition').catalog['missile-1'].speedProfile}},{...baseFlight,id:'legacy',name:'Missile 5',speed:1},{...baseFlight,id:'special',name:'Spread Missiles 1',speed:1},{...baseFlight,id:'torpedo',torpedo:true,speed:8}];owner.ship.missileState.cooldowns={};
+  await post('campaign/restore',{code,token,backup:saved});
+  const flightState=async()=>{const b=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());return b.campaign.encounter.starships.find(s=>s.id===source.id).ship.missileState.flights;};
+  const before=await flightState();await sleep(250);assert.deepEqual(await flightState(),before);
+  await stop();await start();token=(await post('campaign/open',{name:'Missile HTTP',gmCode:'missile-http'})).token;assert.deepEqual(await flightState(),before);await sleep(250);assert.deepEqual(await flightState(),before);
+  async function advanceTo(age){
+   let flights=await flightState();
+   for(let i=0;i<20&&flights[0].age<age-1e-7;i++){
+    const prior=flights[0].age;await act({action:'step'});flights=await flightState();
+    assert.ok(flights[0].age>prior+1e-8,'manual step must make actual active-time progress');
+    assert.ok(flights[0].age-prior<=.200001,'preserve missile event-boundary stepping');
+   }
+   assert.ok(Math.abs(flights[0].age-age)<1e-6,`bounded steps reached ${flights[0].age}, expected ${age}`);return flights;
+  }
+  const after=await advanceTo(10);assert.equal(after[0].speed,3);assert.ok(Math.abs(after[0].position.q-.2)<1e-6);assert.equal(after[1].speed,1);assert.equal(after[1].speedProfile,undefined);assert.equal(after[2].speed,1);assert.equal(after[3].speed,8);
+  const beyond=await advanceTo(10.4);assert.equal(beyond[0].speed,3);assert.ok(Math.abs(beyond[0].position.q-.32)<1e-6);
+ });
+
 });

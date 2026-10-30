@@ -1,3 +1,66 @@
+## Current focused-change policy
+
+This policy supersedes conflicting historical workflow notes. Completed hashtag
+authorizations and release records are not authorization for new work.
+
+Jason supplies the backlog; the parent prioritizes it:
+1. Softlocks and crashes
+2. Codex-caused regressions
+3. Mechanics
+4. UI usability
+5. Aesthetics
+6. Optional features and visual additions
+
+Start with one issue. Up to three closely related issues is a later ceiling,
+only with explicit scope approval, never a bundling target.
+
+Use sa-diagnose-and-propose at .agents/skills/sa-diagnose-and-propose/SKILL.md
+before new implementation. Reproduce, inspect relevant code/history/assets,
+identify the smallest repair and exact proposed files and behaviors, then stop
+for plan approval. The parent may approve bounded implementation plans as Jason's
+designated intermediary within his authorized backlog and workflow. The parent
+cannot grant new-art or design permission on Jason's behalf. Later direct user
+instructions remain authoritative. #local alone does not bypass this plan gate.
+
+Use sa-implement-and-verify at .agents/skills/sa-implement-and-verify/SKILL.md
+after approval. Routine implementation choices inside the approved boundary may
+proceed. Changes outside it require explanation and approval. Record unrelated
+discoveries in the backlog; do not silently clean up.
+
+Preserve existing design, functionality, current 2e mechanics and intended artwork.
+The older rulebook is foundational context, not authority to overwrite current
+2e behavior. Investigate suspected bugs without assuming all code is intentional.
+
+Inspect existing assets and historical mappings before proposing artwork changes.
+Selecting an existing historically verified asset is allowed under an approved
+mapping-restoration plan. Creating, modifying or fabricating artwork in raster,
+SVG, vector, canvas or any other form requires Jason's explicit permission;
+new designs also require his approval before use. Do not invent replacements
+when assets appear missing. Preserve Gold Standard backups.
+
+No tablet or phone layout work until Jason explicitly opens that phase. No wholesale
+redesign or unrequested mechanics changes. Preserve personal data and unrelated
+local changes.
+
+Review the complete diff and perform regression checks and actual pixel inspection
+where relevant. Never weaken tests or replace baselines to bless defects. Parent
+independent verification and Jason's playtest precede acceptance.
+
+#local authorizes approved local implementation/testing only, with no publication
+or completion notification. #commit must be scoped to reviewed changes and follows
+the existing commit, push, remote-verification and final ntfy workflow. Never
+include unrelated work automatically. Manual deployment needs separate authority.
+
+Reconcile completed, interrupted, paused, deferred and unknown work at handoffs.
+Do not equate dirty files with unfinished tasks or priority with cancellation.
+
+### Temporary active-work hold
+
+The paused adventure session at port 8796, campaign 3QWC, tab 3 contains unfinished
+work. Do not use or refresh it. This temporary hold may be lifted by a later
+explicit parent or user instruction; these identifiers are not permanent project
+invariants.
+
 October 24 console restoration (#commit): see RELEASE-CONSOLE-RESTORATION-20261024.txt. Console views are NOT popup menus: shared popup styling must exclude immersive consoles and catalog snapshots while preserving genuine nested prompts and compact planners. Existing console CSS/art remains authoritative. 54-family Chrome styling sweep and live GM/PC desktop/tablet checks passed; Probe preview has a separately reproduced pre-existing undefined-kind error. Dated committed-code backup requested after publication. Preserve Gold Standard, personal data and unrelated work.
 
 October 24 follow-up release (#commit): see RELEASE-LOCAL-FOLLOWUP-20261024.txt. GM roster groups/deletion, Fleet Remove, matching purchase EN/AU, printer-button visibility, click/select/pan planet inspection and Add Planet, miniature deployment icons/capped labels, movement controls below maps with preserved camera/scroll, shared stable intruder banner. Help and system screenshot refreshed. Final1320/1320 plus isolated real GM/PC desktop/tablet browser checks. Normal8790 PID32224 refreshed; personal campaign hash unchanged. Custom uploads/stations remain requested separate work. Subsequent user #commit authorization relayed by Review ATB UI errors: publish this tested follow-up and send final ntfy; no manual deployment. Preserve unrelated QA/scripts and Gold Standard.

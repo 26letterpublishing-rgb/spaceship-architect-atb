@@ -1,0 +1,18 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const js=fs.readFileSync(path.join(__dirname,'../combat-feedback.js'),'utf8'),css=fs.readFileSync(path.join(__dirname,'../combat-feedback.css'),'utf8');
+function harness({muted=false,hidden=false,old=false}={}){
+ let tick,chimes=0,next=0;const timers=new Map(),events={},nodes=[];const state={starships:[],log:[],surfaceVictoryAt:old?new Date().toISOString():null};
+ const element=tag=>({tag,children:[],dataset:{},style:{},classList:{add(){}},setAttribute(k,v){this[k]=v;},append(...children){this.children.push(...children);},remove(){this.removed=true;},showPopover(){this.topLayer=true;},querySelectorAll:()=>[]});
+ const doc={hidden,defaultView:{frameElement:null},createElement:element,querySelector:()=>true,querySelectorAll:()=>[],head:element('head'),body:element('body')};doc.body.append=n=>nodes.push(n);
+ const window={SACombatBridge:{state:()=>state,soundEnabled:()=>!muted},SAAudioMix:{success:()=>chimes++},addEventListener:(k,v)=>events[k]=v};
+ vm.runInNewContext(js,{window,document:doc,location:{href:'http://localhost/'},URL,Date,CSS:{escape:x=>x},setInterval:fn=>{tick=fn;return 1;},clearInterval(){},setTimeout:(fn,ms)=>{timers.set(++next,{fn,ms});return next;},clearTimeout:id=>timers.delete(id)});
+ return {state,tick:()=>tick(),events,nodes,timers,get chimes(){return chimes;}};
+}
+for(const muted of [false,true])test('new victory is one stationary exact banner; muted='+muted,()=>{
+ const h=harness({muted});h.tick();h.state.surfaceVictoryAt=new Date().toISOString();h.tick();h.tick();assert.equal(h.nodes.length,1);assert.equal(h.nodes[0].children[0].textContent,'VICTORY!');assert.equal(h.nodes[0].children.length,1);assert.ok(h.nodes[0].topLayer);assert.equal(h.chimes,muted?0:1);const timer=[...h.timers.values()][0];assert.equal(timer.ms,6000);timer.fn();assert.ok(h.nodes[0].removed);
+});
+test('initial/reconnected victory and legacy ship victory do not replay',()=>{const h=harness({old:true});h.tick();h.tick();assert.equal(h.nodes.length,0);});
+test('reset and teardown remove outcome banner; stale timers cannot replay it',()=>{for(const event of ['sa-combat-reset','pagehide']){const h=harness();h.tick();h.state.surfaceVictoryAt=new Date().toISOString();h.tick();h.events[event]();assert.ok(h.nodes[0].removed);assert.equal(h.timers.size,0);}});
+test('enemy escape uses exact wording and separate identity without victory chime',()=>{const h=harness();h.tick();h.state.log=[{id:'escape',timestamp:new Date().toISOString(),enemyWarpEscape:true,shipTitle:'White Dwarf'}];h.tick();h.tick();assert.equal(h.nodes.length,1);assert.equal(h.nodes[0].children[0].textContent,'enemy has escaped into warp');assert.equal(h.nodes[0].children[1].textContent,'White Dwarf');assert.equal(h.chimes,0);});
+test('hidden page suppresses chime and old escape is not replayed',()=>{const h=harness({hidden:true});h.tick();h.state.surfaceVictoryAt=new Date().toISOString();h.tick();assert.equal(h.chimes,0);h.state.log=[{id:'old',enemyWarpEscape:true,timestamp:'2000-01-01T00:00:00Z'}];h.tick();assert.equal(h.nodes.length,1);});
+test('banner has opacity-only six-second fade, pointer transparency and reduced motion',()=>{assert.match(css,/animation:victory-fade 6s/);assert.match(css,/@keyframes victory-fade\{0%,83%\{opacity:1\}100%\{opacity:0\}\}/);assert.doesNotMatch(css,/victory-fly/);assert.match(css,/combat-victory-banner[^}]*pointer-events:none/);assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{\.combat-victory-banner\{animation:none\}\}/);});

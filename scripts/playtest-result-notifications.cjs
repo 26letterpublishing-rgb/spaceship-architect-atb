@@ -1,0 +1,18 @@
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
+const {startHarness}=require('./console-debug.cjs');
+const out=path.resolve(process.argv[2]||'../SA-ATB Local Development Files/outputs/result-notices-oct26');fs.mkdirSync(out,{recursive:true});
+let h;const result={rows:[],errors:[]};
+(async()=>{try{h=await startHarness({headless:true});const p=h.pc;await h.panel.close();await h.gm.close();const v=p.locator('.sensor-console[open]');await v.waitFor();await v.evaluate(async n=>Promise.all(n.ownerDocument.getAnimations().filter(a=>Number.isFinite(a.effect?.getTiming().iterations)).map(a=>a.finished.catch(()=>{}))));
+async function push(suffix){await p.evaluate(s=>{SAInterfaceNotices.setCombatActive(true);SAResultFeedback.push('scan-'+s,'Scan: no dice required','Difficulty too low to fail: guaranteed contacts will be detected. Any impossible contacts remain undetected.');SAResultFeedback.push('analysis-'+s,'Systems Analysis','Systems Analysis of White Dwarf: processing (10 combat seconds).');},suffix);}
+await push('baseline');const button=p.getByRole('button',{name:'Dismiss Scan: no dice required',exact:true});await button.waitFor();await p.screenshot({path:path.join(out,'before-click.png')});
+const geometry=await button.evaluate(n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML.slice(0,180),parent:n.closest('.interface-notice-rail').parentElement.tagName}});
+await p.mouse.click(geometry.x,geometry.y);const removed=await button.count()===0;result.rows.push({geometry,removed});
+if(process.argv.includes('--before')){await p.waitForTimeout(8500);result.after8500=await p.locator('.result-notifications article').count();return;}
+assert.ok(removed,'real pointer dismiss works in modal Console');
+const second=p.getByRole('button',{name:'Dismiss Systems Analysis',exact:true});await second.focus();await p.keyboard.press('Enter');await second.waitFor({state:'detached'});
+for(const [width,height]of [[1920,1080],[1366,768],[1280,720]]){await p.setViewportSize({width,height});await push('timer-'+width);const started=Date.now();await p.waitForTimeout(1000);await push('timer-'+width);assert.equal(await p.locator('.result-notifications article').count(),2,'repeat packet not duplicated');
+await p.screenshot({path:path.join(out,'notices-'+width+'.png')});await p.waitForFunction(()=>!!document.querySelector('.result-notifications article')?.getAnimations().length,{},{timeout:8500});const fading=Date.now()-started;await p.waitForFunction(()=>!document.querySelector('.result-notifications article'),{},{timeout:2000});result.rows.push({width,height,fading,removedAt:Date.now()-started});assert.ok(fading>=7700&&fading<9000);await push('timer-'+width);assert.equal(await p.locator('.result-notifications article').count(),0,'expired notice does not reappear');}
+await v.locator('[data-hold]').focus();await push('nested');await p.keyboard.press('Enter');const hold=p.getByRole('dialog',{name:'Hold at 99%',exact:true});await hold.waitFor();await p.getByRole('button',{name:'Dismiss Systems Analysis',exact:true}).click();assert.ok(await hold.isVisible());await p.keyboard.press('Escape');await hold.waitFor({state:'hidden'});await p.getByRole('button',{name:'Dismiss Scan: no dice required',exact:true}).click();
+await push('cleanup');await p.evaluate(()=>SAInterfaceNotices.setCombatActive(false));assert.equal(await p.locator('.result-notifications article').count(),0);
+result.pass=true;
+} catch(e){result.errors.push(e.stack);throw e;}finally{fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(result,null,2));await h?.stop();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -8292,6 +8292,7 @@ dom.spendOneExertion.addEventListener("click", async () => {
 function closeReverenceGift() {
   dom.reverenceGiftModal.hidden = true;
   dom.reverenceGiftError.textContent = "";
+  dom.giftReverence.focus({preventScroll:true});
 }
 
 dom.giftReverence.addEventListener("click", () => {
@@ -8302,6 +8303,7 @@ dom.giftReverence.addEventListener("click", () => {
   dom.reverenceGiftAmount.value = "1";
   dom.reverenceGiftError.textContent = "";
   dom.reverenceGiftModal.hidden = false;
+  dom.reverenceGiftTarget.focus({preventScroll:true});
 });
 
 dom.reverenceGiftCancel.addEventListener("click", closeReverenceGift);
@@ -9288,6 +9290,7 @@ dom.privateNotesList?.addEventListener("click", async (event) => {
 dom.openCampaignBank?.addEventListener("click", () => {
   renderCampaignBank();
   dom.campaignBankModal.hidden = false;
+  dom.bankOperation.focus({preventScroll:true});
 });
 dom.saveAndSyncCharacter?.addEventListener("click", async () => {
   if (!campaignEditable) return;
@@ -9300,7 +9303,7 @@ dom.saveAndSyncCharacter?.addEventListener("click", async () => {
   dom.saveAndSyncCharacter.textContent = "Save & Sync";
   notice(synced ? "Character saved locally and synchronized with the campaign." : "Saved locally. Server synchronization will retry automatically.", synced ? "success" : "error");
 });
-dom.bankCancel?.addEventListener("click", () => { dom.campaignBankModal.hidden = true; });
+dom.bankCancel?.addEventListener("click", () => { dom.campaignBankModal.hidden = true; dom.openCampaignBank.focus({preventScroll:true}); });
 dom.bankOperation?.addEventListener("change", renderCampaignBank);
 dom.bankConfirm?.addEventListener("click", async () => {
   if (!campaignEditable || dom.bankConfirm.disabled) return;

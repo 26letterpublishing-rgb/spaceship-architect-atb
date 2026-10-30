@@ -1,0 +1,10 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function prepare(kind,selector,required=false){
+ const node=()=>({dataset:{},textContent:'',hidden:false,disabled:false,attributes:{},querySelectorAll:()=>[],closest:()=>null,focus(){},click(){this.clicked=true;},setAttribute(k,v){this.attributes[k]=v;}});
+ const cancel=node(),button=node(),header=node();button.dataset.order=selector==='[data-order="hex"]'?'hex':'area';button.textContent='Scan Hex';let cancelled=0;cancel.onclick=()=>cancelled++;
+ const view={classList:{contains:c=>c===kind,add(){}},attributes:required?{'data-required-roll':''}:{},setAttribute(k,v){this.attributes[k]=v;},querySelector:s=>s==='[data-close]'?cancel:s===selector?button:s==='header h2'?header:null,querySelectorAll:()=>[button,cancel]};
+ const window={SAConsoleCommon:{mount(){cancel.hidden=true;}}};vm.runInNewContext(fs.readFileSync(require.resolve('../combat-order-ui.js'),'utf8'),{window});window.SACombatOrderUI.prepare(view,{},selector);return {view,cancel,button,cancelled:()=>cancelled};
+}
+test('optional compact Sensors Scan Hex restores explicit Cancel without executing it',()=>{const r=prepare('sensor-console','[data-order="hex"]');assert.equal(r.cancel.hidden,false);assert.equal(r.cancel.attributes['data-dialog-dismiss'],'');assert.equal(r.cancel.disabled,false);assert.equal(r.cancel.textContent,'Cancel');assert.equal(r.cancelled(),0);assert.equal(r.button.clicked,true);});
+test('other compact actions and families keep their existing dismissal state',()=>{for(const [kind,selector]of [['sensor-console','[data-order="area"]'],['weapon-console','[data-order="hex"]']]){const r=prepare(kind,selector);assert.equal(r.cancel.hidden,true);assert.equal(r.cancel.attributes['data-dialog-dismiss'],undefined);}});
+test('Scan Hex preparation never removes mandatory-roll protection',()=>{const r=prepare('sensor-console','[data-order="hex"]',true);assert.equal(r.view.attributes['data-required-roll'],'');});

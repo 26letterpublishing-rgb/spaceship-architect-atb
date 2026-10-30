@@ -2,6 +2,7 @@ const path = require("path");
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
+ 'console-viewer.js','tactical-ring-renderer.js',
  'audio-controls.js','home-screen.js','home-feedback.js','npc-icon-picker.js',
  'universe-clock.js','universe-ui.js','universe-ui.css','module-conditions.js','module-author-ui.js',
   'character-lifecycle-ui.js', 'character-lifecycle-ui.css', 'dialog-chrome.js', 'dialog-chrome.css',

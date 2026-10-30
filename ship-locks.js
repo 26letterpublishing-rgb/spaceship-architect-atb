@@ -8,6 +8,20 @@
   // Keep old saves readable while allowing several independently selected component locks.
   const components=lock=>[...new Set([...(lock?.sicIds||[]),...(lock?.sicId?[lock.sicId]:[])])];
   const hasComponent=(lock,id)=>Boolean(id&&components(lock).includes(id));
+  // Labels use only authorized, possibly stale Analysis intelligence, never live enemy inventory.
+  function componentLabel(analysis,id){
+    const known=analysis?.layout?.sicInventory||[],item=known.find(i=>i.id===id);if(!item)return null;
+    const identity=String(item.id),uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const short=uuid.test(identity)?identity.slice(0,8):identity;
+    const unique=known.every(i=>i.id===item.id||String(i.id).slice(0,8)!==short);
+    const tag=unique?short:identity;
+    const columns=maps.gridColumns(analysis.layout),cells=[...new Set((analysis.layout.placements||[]).filter(p=>p.sicId===id&&Number.isInteger(p.cell)&&p.cell>=0).map(p=>p.cell))].sort((a,b)=>a-b);
+    const location=cells.length?' / '+cells.map(cell=>`R${Math.floor(cell/columns)+1} C${cell%columns+1}`).join(', '):'';
+    const hasStatus=['impairmentPoints','impaired','status'].some(key=>Object.prototype.hasOwnProperty.call(item,key));
+    const count=Math.max(0,Math.floor(Number(item.impairmentPoints)||0),item.impaired||item.status==='impaired'?1:0);
+    const status=item.status==='destroyed'?'destroyed':hasStatus?`${count} impairment${count===1?'':'s'}`:'condition unknown';
+    return `${maps.definition(item.type).name||item.type} [${tag}]${location} — ${analysis.lastKnown?.includes(id)?'unconfirmed last scan':'last scan'}: ${status}`;
+  }
   const points=item=>Number(item.impairmentPoints)||(item.impaired||item.status==='impaired'?1:0);
   function installed(ship,id){return (ship?.ship.placements||[]).map(p=>ship.ship.sicInventory.find(i=>i.id===p.sicId)).filter(i=>stations.online(i)&&maps.definition(i.type).lockOn&&(!id||i.id===id)).sort((a,b)=>maps.definition(b.type).tier-maps.definition(a.type).tier)[0];}
   const definition=(ship,id)=>maps.definition(installed(ship,id)?.type||'lock-on-1');
@@ -140,5 +154,5 @@
     }else {const key=(order.kind==='sic'?'sic:':'')+target.id;data.failures[key]=(data.failures[key]||0)+1;}
     return report(ship,`${pending.label}: ${success?'SUCCESS':'FAILED'} (${Number(total.toFixed(2))} vs ${difficulty}).`,{lockResult:true,success,targetId:target.id,total,difficulty,operatorId:unit.id});
   }
-  return {configureSharing,shareLocks,state,components,hasComponent,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty};
+  return {configureSharing,shareLocks,state,components,hasComponent,componentLabel,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty};
 }));

@@ -38,7 +38,27 @@
   root.addEventListener?.('pageshow',()=>{if(sharedContext)void sharedContext.resume().catch(()=>{});});
   root.document?.addEventListener('visibilitychange',()=>{if(root.document.visibilityState==='visible'&&sharedContext)void sharedContext.resume().catch(()=>{});});
   const clips=new Map();
+  // Explicit opt-in for the isolated viewer, whose CSP forbids fetch. Normal
+  // application callers keep the existing decoded-buffer transport below.
+  const mediaClips=root.SAAudioMixOptions?.clipTransport==='media';
+  function mediaClip(url,volume,category){
+    let media,settle,done=false;
+    const ended=new Promise(resolve=>{settle=resolve;});
+    const handle={stop(){if(done)return;done=true;if(media){media.onended=null;media.onerror=null;releaseMedia(media);}activeClips.delete(handle);settle();},ended};
+    activeClips.add(handle);
+    const finished=(async()=>{
+      if(!level(category)){handle.stop();return;}
+      media=new root.Audio(new URL(url,root.location.href).href);
+      media.onended=media.onerror=()=>handle.stop();
+      trackMedia(media,volume,category);
+      // Start in the trusted activation turn; do not await loading or fetch.
+      await media.play();
+      if(done||!level(category))handle.stop();
+    })();
+    finished.catch(()=>handle.stop());handle.finished=finished;return handle;
+  }
   function clip(url,volume=1,category='game'){
+    if(mediaClips)return mediaClip(url,volume,category);
     let cancelled=false,source=null,settle;
     const ended=new Promise(resolve=>{settle=resolve;});
     const handle={stop(){cancelled=true;try{source?.stop();}catch{}activeClips.delete(handle);settle();},ended};
@@ -108,6 +128,10 @@
   }
   let interfaceClip,lastButtonAt=-Infinity;
   const buttonFiles={chunk:'home-chunk-click.m4a',robot:'home-robot-click.m4a',whoosh:'home-whoosh-click.m4a'};
+  function stopButtonSound(){
+    try{if(root.parent&&root.parent!==root&&root.parent.SAAudioMix)return root.parent.SAAudioMix.stopButtonSound();}catch{}
+    interfaceClip?.stop();interfaceClip=null;
+  }
   function clockTone(high){
     const c=context();if(!c)return;
     const oscillator=c.createOscillator(),gain=c.createGain(),at=c.currentTime;
@@ -124,6 +148,33 @@
     interfaceClip?.stop();try{interfaceClip=['pause-tone','play-tone'].includes(kind)?clockTone(kind==='play-tone'):clip(buttonFiles[kind]||buttonFiles.chunk,1,'interface');}catch{}return interfaceClip;
   }
   function navigation(kind='click'){return buttonSound(kind==='click'?'chunk':'whoosh');}
-  root.SAAudioMix={destination,profiles,success,navigation,context,unlock,clip,refreshMute,preferences,setPreferences,isMuted,setMuted,level,trackMedia,releaseMedia,buttonSound,turnDing,previewVolume};
+  // Existing Console tick waveform. Callers retain their gating and node ownership.
+  function consoleTick(audio,nodes){
+    const osc=audio.createOscillator(),gain=audio.createGain(),node={osc,gain};
+    nodes.add(node);osc.type='sine';
+    osc.frequency.setValueAtTime(1180,audio.currentTime);
+    gain.gain.setValueAtTime(0,audio.currentTime);
+    gain.gain.linearRampToValueAtTime(.012,audio.currentTime+.01);
+    gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.025);
+    osc.connect(gain);gain.connect(destination(audio,'effect'));
+    osc.onended=()=>{nodes.delete(node);try{osc.disconnect();gain.disconnect();}catch{}};
+    osc.start(audio.currentTime);osc.stop(audio.currentTime+.025+.02);
+  }
+  // Short local scan feedback; the existing Game bus applies volume exactly once.
+  function sensorPing(){
+    try{
+      if(!level('game')||root.navigator?.userActivation?.hasBeenActive===false)return;
+      const c=context();if(!c||c.state!=='running')return;
+      const osc=c.createOscillator(),gain=c.createGain(),at=c.currentTime;
+      let stopped=false;
+      const cleanup=()=>{osc.disconnect();gain.disconnect();activeClips.delete(handle);};
+      const handle={stop(){if(stopped)return;stopped=true;gain.gain.cancelScheduledValues(c.currentTime);gain.gain.setValueAtTime(0,c.currentTime);try{osc.stop();}catch{}cleanup();}};
+      osc.type='sine';osc.frequency.setValueAtTime(880,at);osc.frequency.exponentialRampToValueAtTime(660,at+.32);
+      gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.025,at+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+.42);
+      osc.connect(gain);gain.connect(destination(c,'effect'));osc.onended=()=>{stopped=true;cleanup();};
+      activeClips.add(handle);osc.start(at);osc.stop(at+.44);return handle;
+    }catch{} // Autoplay denial or a closed context must never affect a scan.
+  }
+  root.SAAudioMix={destination,profiles,success,navigation,context,unlock,clip,refreshMute,preferences,setPreferences,isMuted,setMuted,level,trackMedia,releaseMedia,buttonSound,stopButtonSound,turnDing,previewVolume,consoleTick,sensorPing};
   root.SABrowserStorage?.ready?.then(()=>{refreshMute();notify();});
 })(globalThis);

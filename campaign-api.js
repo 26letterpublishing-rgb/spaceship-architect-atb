@@ -992,7 +992,7 @@ class CampaignApi {
         finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
   }
 
-  async save(campaign, { broadcast = true, incrementRevision = true } = {}) {
+  async save(campaign, { broadcast = true, incrementRevision = true } = {}, ownsSaveQueue = false) {
     for(const record of campaign.characters||[])if(Number(record.character.health?.current)>0&&!campaign.privateNotes.some(n=>n.kind==='death-review'&&n.characterId===record.id&&n.requestStatus==='pending'))record.deathReviewPending=false;
     require('./character-lifecycle').sync(campaign);
     require('./content-arrivals').check(campaign);
@@ -1000,7 +1000,7 @@ class CampaignApi {
     const names=new Set();for(const record of campaign.starships||[]){const base=record.title||record.ship.title||"Starship";let title=base,n=1;while(names.has(title.toLowerCase()))title=base+" ("+(n++)+")";names.add(title.toLowerCase());record.title=record.ship.title=title;}
     trimPrivateNotes(campaign);
     if (incrementRevision) campaign.revision = Math.max(1, Math.round(Number(campaign.revision) || 1)) + 1;
-    this.campaignCache.set(campaign.code, campaign);
+    if (!ownsSaveQueue) this.campaignCache.set(campaign.code, campaign);
     if (campaign.showcase) {
       const record = this.showcases.get(campaign.code);
       if (record) {
@@ -1011,12 +1011,15 @@ class CampaignApi {
       if (broadcast) await this.broadcast(campaign.code, campaign);
       return;
     }
-    const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
-    const queued = previous.catch(() => {}).then(async () => {
+    const persist = async () => {
       campaign.updatedAt = new Date().toISOString();
       await this.store.save(campaign);
       if (broadcast) await this.broadcast(campaign.code, campaign);
-    });
+    };
+    // A transaction already holding this campaign's queue must not enqueue itself.
+    if (ownsSaveQueue) return persist();
+    const previous = this.saveQueues.get(campaign.code) || Promise.resolve();
+    const queued = previous.catch(() => {}).then(persist);
     this.saveQueues.set(campaign.code, queued);
     try {
       await queued;
@@ -1240,6 +1243,17 @@ class CampaignApi {
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
+      // Gameplay may have captured this snapshot while a preceding crew commit
+      // was pending. Campaign rosters are authoritative; keep runtime data intact.
+      for (const snapshotShip of next.encounter.starships || []) {
+        const saved = campaign.starships.find(ship => ship.id === snapshotShip.id);
+        if (!saved) continue;
+        for (const key of ['crewCharacterIds', 'crewNpcUnitIds']) {
+          if (!Array.isArray(saved[key])) continue;
+          snapshotShip[key] = clone(saved[key]);
+          if (snapshotShip.ship) snapshotShip.ship[key] = clone(saved[key]);
+        }
+      }
       require("./campaign-starmaps").saveSystem(next,encounter);
       const ending=encounter.encounterEndedAt&&!campaign.encounter?.encounterEndedAt;
       const authoritative=ending||encounter.hasEngagedClock&&!encounter.encounterEndedAt;
@@ -1856,28 +1870,43 @@ class CampaignApi {
     }
 
     if (path === "/api/campaign/starship/crew" && req.method === "POST") {
-      const record = campaign.starships.find((entry) => entry.id === String(body.starshipId || ""));
-      if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
-      const callerId = String(body.characterId || "");
-      const gmAccess = Boolean(this.gmSession(token, code));
-      const callerAccess = Boolean(callerId && this.characterSession(token, code, callerId));
-      if (!gmAccess && (!callerAccess || (record.crewCharacterIds.length && !record.crewCharacterIds.includes(callerId)))) {
-        sendJson(res, 403, { error: "Once a ship has crew, only assigned crewmembers or the GM may change its roster." }); return true;
-      }
-      const validIds = new Set(campaign.characters.map((entry) => entry.id));
-      record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
-      const liveNpcs=(this.liveEncounter(code)?.units||[]).filter(u=>u.team==='npc');
-      campaign.npcRoster=[...new Map([...(campaign.npcRoster||[]),...(campaign.encounter?.units||[]).filter(u=>u.team==='npc'),...liveNpcs].map(u=>[u.id,clone(u)])).values()];
-      const encounterNpcIds=new Set(campaign.npcRoster.map(u=>String(u.id)));
-      if(gmAccess&&Array.isArray(body.crewNpcUnitIds)){const ids=[...new Set(body.crewNpcUnitIds.map(String))];if(ids.some(id=>!encounterNpcIds.has(id))){sendJson(res,409,{error:'The NPC roster changed. Refresh and assign the current NPC.'});return true;}record.crewNpcUnitIds=ids;}
-      for(const list of [this.liveEncounter(code)?.starships,campaign.encounter?.starships]){const live=list?.find(s=>s.id===record.id);if(live){live.crewCharacterIds=clone(record.crewCharacterIds);live.crewNpcUnitIds=clone(record.crewNpcUnitIds||[]);}}
-      record.characterLocations ||= {};
-      for (const id of Object.keys(record.characterLocations)) if (!record.crewCharacterIds.includes(id)) delete record.characterLocations[id];
-      record.ship.crewCharacterIds = clone(record.crewCharacterIds);
-      record.ship.crewNpcUnitIds = clone(record.crewNpcUnitIds);
-      record.updatedAt = new Date().toISOString();
-      await this.save(campaign);
-      sendJson(res, 200, { starship: publicStarship(record) });
+      const previous = this.saveQueues.get(code) || Promise.resolve();
+      const queued = previous.catch(() => {}).then(async () => {
+        if (this.campaignCache.get(code) !== campaign) { sendJson(res, 409, { error: "The campaign changed. Refresh before assigning crew." }); return; }
+        // Read and validate only after older encounter snapshots have committed.
+        // Work on a draft so a failed write cannot publish a successful assignment.
+        const next = clone(campaign);
+        const record = next.starships.find((entry) => entry.id === String(body.starshipId || ""));
+        if (!record) { sendJson(res, 404, { error: "Linked starship not found." }); return true; }
+        const callerId = String(body.characterId || "");
+        const gmAccess = Boolean(this.gmSession(token, code));
+        const callerAccess = Boolean(callerId && this.characterSession(token, code, callerId));
+        if (!gmAccess && (!callerAccess || (record.crewCharacterIds.length && !record.crewCharacterIds.includes(callerId)))) {
+          sendJson(res, 403, { error: "Once a ship has crew, only assigned crewmembers or the GM may change its roster." }); return true;
+        }
+        const validIds = new Set(next.characters.map((entry) => entry.id));
+        record.crewCharacterIds = [...new Set((Array.isArray(body.crewCharacterIds) ? body.crewCharacterIds : []).map(String))].filter((id) => validIds.has(id));
+        const liveNpcs=(this.liveEncounter(code)?.units||[]).filter(u=>u.team==='npc');
+        next.npcRoster=[...new Map([...(next.npcRoster||[]),...(next.encounter?.units||[]).filter(u=>u.team==='npc'),...liveNpcs].map(u=>[u.id,clone(u)])).values()];
+        const encounterNpcIds=new Set(next.npcRoster.map(u=>String(u.id)));
+        if(gmAccess&&Array.isArray(body.crewNpcUnitIds)){const ids=[...new Set(body.crewNpcUnitIds.map(String))];if(ids.some(id=>!encounterNpcIds.has(id))){sendJson(res,409,{error:'The NPC roster changed. Refresh and assign the current NPC.'});return true;}record.crewNpcUnitIds=ids;}
+        const savedShip=next.encounter?.starships?.find(s=>s.id===record.id);
+        if(savedShip){for(const key of ['crewCharacterIds','crewNpcUnitIds']){savedShip[key]=clone(record[key]||[]);if(savedShip.ship)savedShip.ship[key]=clone(record[key]||[]);}}
+        record.characterLocations ||= {};
+        for (const id of Object.keys(record.characterLocations)) if (!record.crewCharacterIds.includes(id)) delete record.characterLocations[id];
+        record.ship.crewCharacterIds = clone(record.crewCharacterIds);
+        record.ship.crewNpcUnitIds = clone(record.crewNpcUnitIds);
+        record.updatedAt = new Date().toISOString();
+        await this.save(next, { broadcast: false }, true);
+        Object.assign(campaign, next);
+        const live=this.liveEncounter(code)?.starships?.find(s=>s.id===record.id);
+        if(live){for(const key of ['crewCharacterIds','crewNpcUnitIds']){live[key]=clone(record[key]||[]);if(live.ship)live.ship[key]=clone(record[key]||[]);}}
+        await this.broadcast(code, campaign);
+        sendJson(res, 200, { starship: publicStarship(record) });
+      });
+      this.saveQueues.set(code, queued);
+      try { await queued; }
+      finally { if (this.saveQueues.get(code) === queued) this.saveQueues.delete(code); }
       return true;
     }
 

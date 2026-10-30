@@ -1,9 +1,19 @@
 // Shared purchasing card inspector. Installed-card management remains in the builder.
 (function(){
+ function powerSummary(doc,provider,inspector=false){
+  if(typeof provider!=='function')return null;
+  const values=provider();if(!values||values.en==null||values.au==null)return null;
+  const bar=doc.createElement('div');bar.className='sic-inspector-power';bar.setAttribute('aria-label','Current / Max ship power');
+  const en=doc.createElement('strong'),au=doc.createElement('strong');bar.append(en,au);
+  const groups=inspector?[en,au].map((group,i)=>{const label=doc.createElement('span'),current=doc.createElement('span'),maximum=doc.createElement('span');label.textContent=i?'Current AU ':'Current EN ';current.className='sic-power-current';group.append(label,current,maximum);return {current,maximum};}):null;
+  if(inspector)bar.classList.add('sic-purchasing-power');
+  bar.refresh=()=>{const next=provider();bar.hidden=!next;if(next){if(groups){[next.en,next.au].forEach((value,i)=>{const match=String(value).match(/^(\s*[+-]?\d[\d,]*(?:\.\d+)?)(\s*\/[\s\S]*)$/);groups[i].current.textContent=match?match[1]:'';groups[i].maximum.textContent=match?match[2]:String(value);});}else{en.textContent='EN '+next.en;au.textContent='AU '+next.au;}}};bar.refresh();return bar;
+ }
  function open(source,o={}){
   const doc=o.document||document,d=doc.createElement('dialog');d.className='sic-card-dialog sic-inspection shared-card-inspector';d.setAttribute('aria-label',o.title||source.querySelector('h3')?.textContent||'Card details');
   d.innerHTML='<button data-close-sic-card aria-label="Back to cards">Back</button><div data-sic-card-dialog-body><aside class="sic-inspector-tools"></aside></div><p role="alert"></p>';
   const body=d.querySelector('[data-sic-card-dialog-body]'),tools=body.querySelector('aside'),card=window.SASicMarket.previewCard(source);const stage=doc.createElement('div');stage.className='inspection-card-stage sic-market-item';stage.append(card);body.append(stage);card.style.animation='none';card.style.transition='none';
+  const power=powerSummary(doc,o.power,true);if(power){body.before(power);d.classList.add('has-shopping-power');d.refreshPower=()=>power.refresh();}
   function action(label,fn,disabled=false){const b=doc.createElement('button');b.textContent=label;b.disabled=disabled;b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){d.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=disabled;}};tools.append(b);return b;}
   if(o.purchase){const buy=action('Purchase',async()=>{if(await o.purchase())d.close();},!!o.disabled);buy.className='sic-purchase-button';stage.append(buy);}
   if(o.blueprint)action('Buy blueprint',o.blueprint,!!o.disabled).disabled=!!o.disabled;
@@ -30,5 +40,5 @@
   await Promise.all(['ship-navigation-ui.css','space-map.css','health-display.css','combat-workspace.css','combat-actions.css','console-common.css'].map(name=>{if([...doc.styleSheets].some(s=>s.href?.split('?')[0]===new URL(name,location.href).href))return;return new Promise((resolve,reject)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=name;l.onload=resolve;l.onerror=reject;doc.head.append(l);});}));
   const f=doc.createElement('iframe');f.title='Static console preview';f.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none';f.src='index.html?catalogPreview='+encodeURIComponent(type);doc.body.append(f);const close=event=>{if(event.origin===location.origin&&event.source===f.contentWindow&&event.data?.type==='sa-close-console-preview'){f.remove();doc.defaultView.removeEventListener('message',close);}};doc.defaultView.addEventListener('message',close);
  }
- window.SACardInspector={open,previewConsole,hasConsole,consoleButton};
+ window.SACardInspector={open,previewConsole,hasConsole,consoleButton,powerSummary};
 })();

@@ -431,8 +431,40 @@ body:not(.ship-details-view) .desktop-construction-sidebar [data-construction-ac
 /* Construction already has its own crew sidebar; hide the legacy sheet overlay. */
 body:not(.ship-details-view) .desktop-sheet>.live-crew-sheet{display:none!important}
 .construction-map-footer{grid-column:2;grid-row:2;min-width:0;align-self:start}
+/* The authored sheet and its SVG overlays must share one 612:792 coordinate space.
+   Construction-only footer content otherwise increases the PC details sheet height. */
+.ship-details-view .desktop-sheet>.construction-map-footer{display:none}
+/* SVG field coordinates denote centers, not font baselines. Keep live values
+   centered in the original artwork even when their font size changes to fit. */
+.desktop-live-stats text:is([data-live-stat],[data-propulsion],[data-lock-dice],[data-break-lock],[data-sensor-range],[data-sensor-dice],[data-firewall-level]){dominant-baseline:central}
+.desktop-live-stats text[data-live-stat="hull"][x="179.5"]{font-size:8px}
+.desktop-reputation-chart .reputation-row>text{dominant-baseline:central}
+.desktop-reputation-chart .reputation-row g text{dominant-baseline:central;transform:translateY(-3px)}
+@media(min-width:1000px){
+ .desktop-grid-toolbar button,.desktop-grid-toolbar output{font-size:12px}
+ .desktop-grid-toolbar{max-width:calc(100% - 12px);min-width:0}
+ .desktop-grid-toolbar .grid-zoom-controls{flex-wrap:wrap}
+ .construction-mode-switch button{font-size:12px}
+ /* Inline and enlarged maps share screen-pixel typography and reserve
+    room for the existing oxygen badge instead of letting labels spill across rooms. */
+ .ship-grid .sic-grid-label{padding:calc(2px / var(--ship-view-zoom,1));padding-bottom:calc(14px / var(--ship-view-zoom,1));line-height:1!important;overflow-wrap:var(--room-label-wrap,normal)!important;font-size:calc(var(--room-label-font,10px) / var(--ship-view-zoom,1))!important}
+ .ship-grid .sa-room-oxygen{font-size:calc(10px / var(--ship-view-zoom,1));padding:calc(1px / var(--ship-view-zoom,1)) calc(2px / var(--ship-view-zoom,1))}
+ /* Keep the existing action buttons together; the full-width status line follows
+    them instead of splitting Move from the other controls into two rows. */
+ .enlarged-body .interior-actions .embedded-move-controls output{order:1}
+}
+/* Room names remain legible over the station squares; the square outlines and
+   their actual station positions are retained. Oxygen has a reserved bottom row,
+   so a lift measured before reparenting/resizing must not move it out of its room. */
+@media(min-width:1000px){
+ .ship-grid .sic-grid-label{z-index:13}
+ .ship-grid .sa-room-oxygen{--oxygen-lift:calc(2px / var(--ship-view-zoom,1))!important}
+}
 body:not(.ship-details-view) .desktop-construction-sidebar{grid-row:1 / span 2}
 .airlock-builder-tools{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:8px 0}
 .airlock-builder-tools strong{font-size:14px;margin-right:5px}.airlock-builder-tools button{font-size:12px;min-height:32px;padding:5px 10px}
 
 .rotation-preview{width:32px;height:28px;flex:0 0 32px;margin-left:6px;vertical-align:middle}.rotate-sic{display:inline-flex;align-items:center}
+
+/* Allow complete icon names to fit the construction sidebar. */
+.ship-icon-picker .ship-icon-options{grid-template-columns:repeat(auto-fit,minmax(90px,1fr))}

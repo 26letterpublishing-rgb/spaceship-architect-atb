@@ -1,7 +1,28 @@
 (function() {
   let dialog = null;
+  let lastCamera = null;
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function shipContacts(ship){return Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&!c.isMissile&&!c.isDrone&&!c.isProbe&&!['Probe','Repair Drone','Missile'].includes(c.nature));}
+  function rangePreviewShips(picture,observerId){
+    // Consume only the observer-filtered picture. Defense/detection alone never
+    // authorizes enemy equipment; analyzed ships contain the saved layout only.
+    return picture.starships.filter(s=>s.id===observerId||(s.analyzedContact&&s.contactLevel==='detected'))
+      .filter(s=>!s.destroyedAt&&!s.escapedAt&&!s.spaceObject&&!s.isProbe&&!s.isDrone&&!s.isMissile)
+      .map(s=>({id:s.id,range:window.SAShipMap.sensorStats(s).range,position:picture.shipPositions.find(p=>p.id===s.id)}))
+      .filter(s=>s.range>0&&s.position&&Number.isFinite(s.position.q)&&Number.isFinite(s.position.r));
+  }
+  function renderRangePreview(svg,picture,observerId){
+    const ships=rangePreviewShips(picture,observerId),signature=JSON.stringify(ships);
+    let group=svg.querySelector('[data-sensor-ranges]');if(group?.dataset.signature===signature)return;
+    if(!group){group=svg.ownerDocument.createElementNS(svg.namespaceURI,'g');group.dataset.sensorRanges='';group.style.pointerEvents='none';svg.insertBefore(group,svg.querySelector(':scope > [data-space-ship]'));}
+    group.replaceChildren();group.dataset.signature=signature;
+    for(const ship of ships)for(const scale of [2,1]){
+      const circle=svg.ownerDocument.createElementNS(svg.namespaceURI,'circle');circle.dataset.sensorRange=ship.id;circle.dataset.rangeScale=String(scale);
+      // Existing Explore range appearance; screen-space stroke remains legible at zoom.
+      for(const [key,value]of Object.entries({cx:Math.sqrt(3)*(ship.position.q+ship.position.r/2),cy:1.5*ship.position.r,r:ship.range*Math.sqrt(3)*scale,fill:scale===2?'#80cde90c':'#80cde91e',stroke:scale===2?'#88cde947':'#88cde980','stroke-width':1,'vector-effect':'non-scaling-stroke'}))circle.setAttribute(key,value);
+      group.append(circle);
+    }
+  }
   function open(unit,sicId) {
     if (dialog) return;
     const bridge = window.SACombatBridge, initial = window.SAStationAccess.access(bridge.state(),unit,sicId);
@@ -15,7 +36,7 @@
     view.dataset.operatorId=unit.id;view.dataset.sicId=sicId;
     view.innerHTML=`<header><div><small>REMOTE SENSOR LINK / ${esc(unit.characterName)}</small><h2>${esc(initial.ship.title)}</h2></div><div class="sensor-command"><strong data-turn role="status"></strong><progress data-command max="1" value="0" aria-label="Command window"></progress></div><div data-selector><button type="button" data-sound aria-label="Toggle sound">${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
       <main><section class="sensor-chart"><h3>Contact Plot <small data-range></small></h3><div data-map></div><div class="sensor-coordinates"><label>Hex Q<input data-q type="number" step="1" min="-10000" max="10000" value="0"></label><label>Hex R<input data-r type="number" step="1" min="-10000" max="10000" value="0"></label><output data-destination></output></div><div data-scan-planner hidden><strong data-scan-hint></strong><button type="button" data-confirm-scan disabled>Confirm Scan</button><button type="button" data-cancel-scan>Cancel Scan</button></div><div class="sensor-readout"><img src="${initial.item.type}-card.png" alt="${esc(initial.definition.name)}"><div><h3>${esc(initial.definition.name)}</h3><p data-dice></p><div data-factors></div><progress data-input max="100" value="0" aria-label="Sensor input"></progress><p data-input-text></p></div></div></section>
-      <section class="sensor-controls"><h3>Operations</h3><button type="button" data-order="area">Scan Area</button><button type="button" data-order="hex">Scan Hex</button><label>Detected Starship<select data-target aria-label="Detected contact"></select></label><button type="button" data-order="analysis">Systems Analysis</button><button type="button" data-order="life">Life Scan</button><button type="button" data-order="share">Share Data</button><p data-error role="alert"></p><div class="sensor-seat-actions"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div></section>
+      <section class="sensor-controls"><h3>Operations</h3><button type="button" data-order="area">Scan Area</button><button type="button" data-order="hex">Scan Hex</button><label>Detected Starship<select data-target aria-label="Detected contact"></select></label><button type="button" data-order="analysis">Systems Analysis</button><button type="button" data-order="life">Life Scan</button><button type="button" data-order="share">Share Data</button><p data-error role="alert"></p><div class="sensor-seat-actions"><button type="button" data-hold>Hold</button></div></section>
       <section class="sensor-reports"><h3>Intelligence Reports</h3><div data-reports></div></section><section class="sensor-timeline"><div class="pilot-rings" data-rings></div></section></main>`;
     view.querySelectorAll('[data-order]').forEach(button=>window.SAActionHelp.attach(button,button.dataset.order));
     const recipients=host.createElement('fieldset');recipients.className='sensor-share-recipients';recipients.innerHTML='<legend>Share Recipients</legend><div data-recipients></div>';
@@ -37,11 +58,12 @@
     const zoom=host.createElement('div');zoom.className='sensor-map-zoom';
     zoom.innerHTML='<button type="button" data-zoom="out" aria-label="Zoom out">-</button><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-auto-zoom>Fit Contacts</button><button type="button" data-map-focus>Enlarge Map</button>';
     const mapTools=host.createElement('div');mapTools.className='sensor-map-tools';get('[data-map]').after(mapTools);mapTools.append(zoom,get('.sensor-coordinates'));
-    let manualViewBox=null,fitAllContacts=false,selecting=null,scanPoint=null,hexSelected=false;
+    const cameraKey=JSON.stringify([bridge.state().roomCode,bridge.state().encounterId,unit.id,initial.ship.id,sicId]);
+    let manualViewBox=lastCamera?.key===cameraKey?lastCamera.viewBox:null,selecting=null,scanPoint=null,hexSelected=false;
     get('[data-map-focus]').onclick=()=>window.SASpaceMap.focusMap(view,get('[data-map-focus]'));
     zoom.onclick=event=>{
       const svg=get('[data-map] svg[data-space-canvas]');if(!svg)return;
-      if(event.target.closest('[data-auto-zoom]')){delete svg.dataset.userViewBox;manualViewBox=null;fitAllContacts=true;lastMap='';redraw();return;}
+      if(event.target.closest('[data-auto-zoom]')){window.SASpaceMap.fitRendered(svg);manualViewBox=svg.getAttribute('viewBox');return;}
       const button=event.target.closest('[data-zoom]');if(!button)return;
       window.SASpaceMap.zoom(svg,button.dataset.zoom==='in'?.8:1.25);
       manualViewBox=svg.getAttribute('viewBox');
@@ -60,6 +82,23 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       const alerting=ready&&!state.hardPaused&&!state.holdPaused&&!command?.expired&&!host.hidden,now=Math.floor(performance.now()/1000);
       view.dataset.flash=String(alerting&&performance.now()%1000<450);
       if(alerting&&now!==beat){beat=now;bridge.consoleTick();}
+      const pannedViewBox=get('[data-map] svg[data-space-canvas]')?.dataset?.userViewBox;
+      if(pannedViewBox)manualViewBox=pannedViewBox;
+      if(!sensor || access.offline){
+        get('[data-turn]').textContent='SENSORS UNAVAILABLE';
+        get('[data-range]').textContent='Sensors offline / range unavailable';
+        get('[data-dice]').textContent='Sensor statistics unavailable';
+        get('[data-input]').value=0;get('[data-input-text]').textContent='Restore sensor power to resume scanning.';
+        get('[data-factors]').textContent='';
+        selecting=null;scanPoint=null;hexSelected=false;view.dataset.selectHex='false';
+        get('[data-map]').style.cursor='';get('[data-map]').replaceChildren();lastMap='';
+        get('[data-scan-planner]').hidden=true;get('[data-confirm-scan]').disabled=true;
+        get('[data-destination]').textContent='Sensor plot unavailable';
+        for(const button of view.querySelectorAll('[data-order]'))button.disabled=true;
+        for(const note of view.querySelectorAll('[data-difficulty]'))note.textContent='Unavailable';
+        get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
+        return;
+      }
       const pulse=access.ship.sensorState?.pulse;
       get('[data-range]').textContent=pulse?.remaining>0?`Scan pulse ${window.SAShipSensors.pulseRange(access.ship)} Units / ${pulse.remaining.toFixed(1)} sec remaining`:`Sensor range ${sensor.range} Units / Scan Area pulse ${sensor.range*1.5} Units`;
       get('[data-order=area]').title='Scan at +50% range for two active ATB seconds after input. Input timing uses successful detections; each contact checks against its Masking.';
@@ -71,8 +110,19 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       // A GM operator uses the same contact picture as that crew; GM overview remains omniscient.
       const picture=window.SAShipSensors.view(state,access.ship.id);
       const mapKey=JSON.stringify([picture.starships.map(s=>[s.id,s.title,s.contactLevel,s.destroyedAt,s.missileHeading,s.missilePhase,s.missileEndedAt]),picture.shipPositions,bridge.state().spaceObjects]);
-      if(mapKey!==lastMap){window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});if(manualViewBox=get('[data-map] svg[data-space-canvas]')?.dataset.userViewBox||manualViewBox)get('[data-map] svg[data-space-canvas]')?.setAttribute('viewBox',manualViewBox);else if(fitAllContacts)window.SASpaceMap.fitRendered(get('[data-map] svg[data-space-canvas]'));else window.SASpaceMap.fitContacts(get('[data-map] svg[data-space-canvas]'),[...picture.starships,...(selecting&&scanPoint?[{id:'sensor-selected-hex'}]:[])],[...picture.shipPositions,...(selecting&&scanPoint?[{id:'sensor-selected-hex',...scanPoint}]:[])]);lastMap=mapKey;}
-      const mapSvg=get('[data-map] svg[data-space-canvas]');if(mapSvg&&manualViewBox)for(const rect of mapSvg.querySelectorAll(':scope > rect'))for(const key of ['x','y','width','height'])rect.setAttribute(key,mapSvg.viewBox.baseVal[key]);
+      if(mapKey!==lastMap){
+        const old=get('[data-map] svg[data-space-canvas]');manualViewBox=old?.dataset.userViewBox||manualViewBox;
+        const svg=window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});
+        if(!manualViewBox){
+          // First-open framing only. Subsequent scans, redraws, resize and map
+          // enlargement preserve this camera or the user's explicit pan/zoom/Fit.
+          const p=picture.shipPositions.find(p=>p.id===access.ship.id),radius=sensor.range*Math.sqrt(3)*2+1;
+          if(p){const ratio=(svg.clientWidth||600)/(svg.clientHeight||250),width=radius*2*Math.max(1,ratio),height=width/ratio;manualViewBox=`${Math.sqrt(3)*(p.q+p.r/2)-width/2} ${1.5*p.r-height/2} ${width} ${height}`;}
+          else{window.SASpaceMap.fitContacts(svg,picture.starships,picture.shipPositions);manualViewBox=svg.getAttribute('viewBox');}
+        }
+        svg.setAttribute('viewBox',manualViewBox);window.SASpaceMap.coverViewport(svg);lastMap=mapKey;
+      }
+      const mapSvg=get('[data-map] svg[data-space-canvas]');if(mapSvg)renderRangePreview(mapSvg,picture,access.ship.id);
       renderScanPlot(state,access.ship,sensor.range,ready);
       const contacts=shipContacts(access.ship);
       window.SAShipCommandUI.refreshConditional(view,contacts);
@@ -89,13 +139,19 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       contactInfo.textContent=selectedContact?[selectedContact.nature,`${selectedContact.size} hull squares`,selectedContact.faction].filter(Boolean).join(' / '):'';
       for(const button of view.querySelectorAll('[data-order]'))button.disabled=busy||!ready||(button.dataset.order==='analysis'&&!get('[data-target]').value)||(button.dataset.order==='share'&&!get('[data-target]').value&&!view.querySelector('[data-recipient]:checked'));
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!person.consoleHold&&!ready);
-      get('[data-leave]').disabled=busy||!ready;
       const processing=(person.queuedEffects||[]).filter(e=>e.sensorReport).map(e=>`<article><p>Systems Analysis processing</p><strong>${Math.max(0,(100-e.progress)/e.rate).toFixed(1)} sec remaining</strong><progress max="100" value="${e.progress}"></progress></article>`).join('');
       const reports=processing+(access.ship.sensorState?.reports||[]).map(entry=>`<article><time>${esc(new Date(entry.at).toLocaleTimeString())}</time><p>${window.SAHealthDisplay.logMarkup(entry,true)}</p>${entry.values?.length?`<small>Dice ${entry.values.join(' / ')} | Total ${entry.total}</small>`:''}${entry.analysis?`<div>${window.SAHealthDisplay.track('hull',entry.hull.current,entry.hull.maximum,true)}${window.SAHealthDisplay.shieldTracks(entry.shield.layers||[entry.shield],true)}</div><small>Snapshot at scan completion</small><ul>${entry.components.map(c=>`<li>${esc(c.name)}</li>`).join('')}</ul>`:''}${entry.pending&&bridge.mode()==='gm'?`<button type="button" data-reading="${esc(entry.at)}">Enter Biological Reading</button>`:''}${entry.sharedBy?`<small>Shared by ${esc(entry.sharedBy)}</small>`:''}</article>`).join('')||'<p>No completed scans.</p>';
       if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;
         [...get('[data-reports]').children].forEach((article,index)=>{const entry=access.ship.sensorState?.reports?.[index];article.classList.toggle('sensor-detection-alert',Boolean(entry?.detected&&Date.now()-Date.parse(entry.at)<30000));});
       }
-      const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
+      const rings=bridge.pilotRings();if(rings!==lastRings){
+        window.SALiveDOM.render(get('[data-rings]'),rings);
+        get('[data-rings]').querySelectorAll('.tactical-ring-empty').forEach(empty=>{empty.textContent='No combatants aboard.';});
+        get('[data-rings]').querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{
+          const fullName=heading.textContent;heading.title=fullName;heading.setAttribute('aria-label',fullName);
+        });
+        lastRings=rings;
+      }
     }
     function mapHex(event){
       const svg=event.target.closest('svg[data-space-canvas]');if(!svg)return null;
@@ -114,11 +170,8 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       get('[data-scan-hint]').textContent=hexSelected?'Selected hex and its six neighbors will be scanned.':'Point at a hex to preview its seven-hex scan area, then click to select.';
       get('[data-destination]').textContent=!validCoordinates?'Enter whole-number coordinates between −10000 and 10000.':`${selecting&&!hexSelected?'Preview':'Selected'}: ${target.q}, ${target.r}`+(outside?' / Unit outside of sensor range. Scan results may fail. (+5 difficulty)':'');
       if(!svg)return;
-      svg.querySelectorAll('[data-sensor-range],[data-scan-preview]').forEach(node=>node.remove());
+      svg.querySelectorAll('[data-scan-preview]').forEach(node=>node.remove());
       if(!selecting||!origin)return;
-      const circle=host.createElementNS(svg.namespaceURI,'circle');circle.dataset.sensorRange='';
-      for(const [key,value] of Object.entries({cx:Math.sqrt(3)*(origin.q+origin.r/2),cy:1.5*origin.r,r:range*Math.sqrt(3),fill:'#68dcdb08',stroke:'#68dcdb','stroke-opacity':'.4','stroke-width':'.08'}))circle.setAttribute(key,value);
-      circle.style.pointerEvents='none';svg.append(circle);
       if(!scanPoint)return;
       const group=host.createElementNS(svg.namespaceURI,'g');group.dataset.scanPreview=hexSelected?'selected':'preview';group.style.pointerEvents='none';
       for(const [dq,dr] of [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]]){
@@ -141,7 +194,11 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       redraw();
     }
     view.oninput=updateCoordinates;view.onchange=updateCoordinates;
-    view.addEventListener('mapfocuschange',()=>{if(!manualViewBox){lastMap='';redraw();}});
+    view.addEventListener('mapfocuschange',()=>{
+      // Reuse the same control, including its handler, name and pressed state.
+      (view.classList.contains('map-focus')?get('.sensor-chart>h3'):zoom).append(get('[data-map-focus]'));
+      if(!manualViewBox){lastMap='';redraw();}
+    });
     view.addEventListener('click',async event=>{
       const order=event.target.closest('[data-order]'),reading=event.target.closest('[data-reading]');
       if ((!order&&!reading)||busy||order?.disabled)return;
@@ -161,11 +218,10 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
     const dismiss=()=>window.SAShipNavigationUI.remember(bridge.state().units.find(u=>u.id===unit.id));
     get('[data-close]').onclick=()=>{dismiss();view.close();};
     get('[data-sound]').onclick=()=>bridge.toggleSound();
-    get('[data-leave]').onclick=()=>{const person=bridge.state().units.find(u=>u.id===unit.id);if(!bridge.confirmGmPlayerAction(person,'leaveStation'))return;view.close();window.SACombatMap.openMove(person);};
     get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(bridge.state().units.find(u=>u.id===unit.id));}catch(error){get('[data-error]').textContent=error.message;}};
     view.addEventListener('cancel',dismiss);view.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     const resize=new ResizeObserver(()=>{if(!manualViewBox){lastMap='';redraw();}});resize.observe(get('[data-map]'));
-    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);resize.disconnect();view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};
+    const timer=setInterval(redraw,200),cleanup=()=>{lastCamera={key:cameraKey,viewBox:get('[data-map] svg[data-space-canvas]')?.dataset.userViewBox||manualViewBox};clearInterval(timer);resize.disconnect();view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};
     view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();
   }
   window.SASensorConsoleUI={open,isOpen:()=>Boolean(dialog)};

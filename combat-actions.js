@@ -346,6 +346,7 @@
     pendingTurn = null;
     dialog?.classList.add("hidden");
     error.textContent = "";
+    refreshSubmitAvailability();
   }
 
   window.addEventListener('sa-combat-reset',()=>{closeDialog();actionSubmitting=false;});
@@ -421,6 +422,7 @@
     error.textContent = "";
     refreshFormAvailability();
     dialog.classList.remove("hidden");
+    refreshSubmitAvailability();
     const panel = dialog.querySelector(".combat-action-panel");
     if (panel) panel.scrollTop = 0;
   }
@@ -428,6 +430,12 @@
   function matchesTurn(turn) {
     return turn && currentState?.activeId === turn.id && currentUnit?.id === turn.id &&
       (currentUnit.turnSerial || 0) === turn.serial && currentState.roomCode === turn.room && currentState.stateEpoch === turn.epoch;
+  }
+  function refreshSubmitAvailability() {
+    // Eligibility belongs to the current dialog/turn, not the previous request's
+    // cleanup render. Native field validation remains the form's responsibility.
+    const submit = form?.querySelector('[type="submit"]');
+    if (submit) submit.disabled = !pendingKind || !matchesTurn(pendingTurn) || actionSubmitting;
   }
   async function send(kind, details = {}, expectedTurn = null) {
     if (actionSubmitting || !currentUnit || currentState?.activeId !== currentUnit.id) return false;
@@ -567,9 +575,9 @@
   function renderControls({ mine, state, isMyTurn, hasPendingDelayRequest }) {
     currentState = state;
     currentUnit = mine;
+    refreshSubmitAvailability();
     if (pendingTurn && !dialog.classList.contains('hidden')) {
       const stale = !matchesTurn(pendingTurn);
-      form.querySelector('[type="submit"]').disabled = stale || actionSubmitting;
       if (stale) error.textContent = 'This turn has ended. Cancel to return to the current turn.';
     }
     const current = held(mine);

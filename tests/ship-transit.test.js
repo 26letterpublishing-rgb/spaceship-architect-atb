@@ -214,6 +214,24 @@ test('blast waits for a manual roll, freezes victims at zero and resolves normal
   assert.equal(transit.resolveBlast(f.room,'a',40).ok,true); assert.equal(f.b.currentHullHp,60); assert.equal(f.c.currentHullHp,100); assert.equal(f.a.currentHullHp,0);
   assert.equal(transit.resolveBlast(f.room,'a',40).duplicate,true); assert.equal(f.b.currentHullHp,60);
 });
+for(const phase of ['traveling','arrived','exited'])test(`blast excludes warp ${phase} at collection and revalidates saved targets`,()=>{
+  const omitted=fixture();omitted.b.escapedAt='completed-warp';omitted.b.ship.warpState={phase};arm(omitted);
+  assert.deepEqual(omitted.a.ship.destructState.targetIds,[]);
+  // A later state change must not add an installation absent from the captured blast.
+  delete omitted.b.escapedAt;delete omitted.b.ship.warpState;
+  assert.equal(transit.resolveBlast(omitted.room,'a',40).ok,true);assert.equal(omitted.b.currentHullHp,100);
+  const f=fixture();arm(f);assert.deepEqual(f.a.ship.destructState.targetIds,['b']);
+  f.b.escapedAt='completed-warp';f.b.ship.warpState={phase};
+  const room=clone(f.room);assert.equal(transit.resolveBlast(room,'a',40).ok,true);
+  assert.equal(room.starships[1].currentHullHp,100);assert.equal(room.starships[2].currentHullHp,100);assert.equal(room.starships[0].currentHullHp,0);
+  assert.equal(transit.resolveBlast(room,'a',40).duplicate,true);assert.equal(room.starships[1].currentHullHp,100);
+});
+for(const mode of ['windup','landed'])test(`blast retains ${mode} vulnerability`,()=>{
+  const f=fixture();f.b.ship.warpState={phase:mode==='windup'?'activating':'arrived'};
+  if(mode==='landed'){f.b.escapedAt='completed-landing';f.b.ship.descentState={phase:'landed'};}
+  arm(f);assert.deepEqual(f.a.ship.destructState.targetIds,['b']);
+  assert.equal(transit.resolveBlast(f.room,'a',40).ok,true);assert.equal(f.b.currentHullHp,60);
+});
 test('blast damage reuses normal burst shields, including reduction and discarded overflow', () => {
   const f = fixture(); f.b.ship.sicInventory = [{id:'shield-b',type:'shield-1'}]; f.b.ship.placements = [{sicId:'shield-b',cell:42}];
   shields.refresh(f.room,{reset:true}); arm(f); assert.equal(transit.resolveBlast(f.room,'a',100).ok,true);

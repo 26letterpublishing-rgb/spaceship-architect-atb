@@ -1,5 +1,34 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
 const maps=require('../ship-map-core'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+test('HTTP scans exclude departures before queue and during input while retaining eligible PC contacts',{timeout:45000},async t=>{
+ const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-sensor-departure-'))},stdio:['ignore','pipe','pipe']});
+ t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
+ const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timed out')),8000);child.once('error',reject);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timer);resolve(u);}});});
+ const post=async(route,body)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.ok(r.ok,JSON.stringify(d));return d;};
+ const f=await require('../scripts/fixtures/console-debug-sensors.cjs').seed(post,3,'ready');
+ const state=(token=f.token)=>fetch(`${base}/api/state?room=${f.code}&token=${token}`).then(r=>r.json()),backup=()=>fetch(`${base}/api/campaign/backup?code=${f.code}&token=${f.token}`).then(r=>r.json()),restore=b=>post('campaign/restore',{code:f.code,token:f.token,backup:b});
+ const baseline=await backup(),actor=baseline.campaign.encounter.units[0].id;
+ Object.assign(baseline.campaign.encounter,{showcase:true,hasEngagedClock:true,activeId:actor,pausedForTurn:true,hardPaused:true,running:false});
+ Object.assign(baseline.campaign.encounter.units[0],{atb:100,speed:.1,sensorSkill:0});
+ for(const ships of [baseline.campaign.starships,baseline.campaign.encounter.starships]){const target=ships.find(s=>s.id==='debug-target');target.sensorScenarioMasking=1;const survivor=structuredClone(target);survivor.id='survivor';survivor.title='Eligible contact';survivor.ship.id='survivor';ships.push(survivor);}
+ baseline.campaign.encounter.shipPositions=[{id:'debug-ship',q:0,r:0},{id:'debug-target',q:7,r:0},{id:'survivor',q:7,r:0}];
+ const depart=b=>{for(const ships of [b.campaign.starships,b.campaign.encounter.starships]){const target=ships.find(s=>s.id==='debug-target');target.escapedAt='completed-warp';target.ship.warpState={phase:'arrived'};}};
+ for(const kind of ['area','hex'])for(const beforeQueue of [false,true]){
+  const prepared=structuredClone(baseline);if(beforeQueue)depart(prepared);await restore(prepared);
+  await f.act({action:'sensorCommand',id:actor,sicId:'sn',kind,hex:{q:7,r:0},requestId:`http-${kind}-${beforeQueue}`});
+  if(!beforeQueue){const pending=await backup();depart(pending);await restore(pending);}
+  let s=await state();for(let i=0;i<100&&s.units.find(u=>u.id===actor).delayedAction;i++){
+   const pending=s.units.find(u=>u.id===actor).delayedAction;
+   if(pending.awaitingRoll)await f.act({action:'rollShipAction',id:actor,rollId:pending.id,score:100});else await f.act({action:'step'});
+   s=await state();
+  }
+  assert.equal(s.units.find(u=>u.id===actor).delayedAction,null,'bounded scan completion');
+  const known=s.starships.find(v=>v.id==='debug-ship').sensorState;
+  assert.equal(known.contacts['debug-target'],undefined);assert.equal(known.contacts.survivor.level,'detected');assert.match(known.reports[0].text,/1 contact detected/);
+  assert.ok(s.starships.some(v=>v.id==='debug-target'),'GM encounter inventory retained');
+  const pc=await state(f.pcToken);assert.ok(!pc.starships.some(v=>v.id==='debug-target'));assert.ok(pc.starships.some(v=>v.id==='survivor'));
+ }
+});
 test('empty scans retain live timing without dice; uncertain scans freeze for manual input; relocation preserves stats',{timeout:30000},async t=>{
  const child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-sensor-outcome-'))},stdio:['ignore','pipe','pipe']});
  child.stderr.on('data',c=>process.stderr.write(c));t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});

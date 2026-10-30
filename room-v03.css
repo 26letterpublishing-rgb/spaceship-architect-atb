@@ -42,3 +42,6 @@ dialog button{background-color:#173b49;color:#f0fbff;border:1px solid #71a6b8}di
 .v03-lobby #roomActions{grid-auto-rows:1fr}.v03-lobby #roomActions>button{width:100%;max-width:none;min-height:64px}
 
 .campaign-export-button.session-end-button{background:linear-gradient(#247448,#123e29);border-color:#60c68c}
+.v03-lobby .v03-approval-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:12px 0;padding:12px 16px;border:1px solid #e4c467;border-radius:5px;background:#302b18;color:#fff0bc;line-height:1.4;overflow-wrap:anywhere}
+.v03-lobby .v03-approval-banner[hidden]{display:none}
+.v03-approval-banner strong{font-size:18px}.v03-approval-banner span{font-size:15px}

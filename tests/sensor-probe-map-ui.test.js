@@ -1,21 +1,31 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-function node(){return {dataset:{},style:{},attributes:{},children:[],namespaceURI:'http://www.w3.org/2000/svg',setAttribute(k,v){this.attributes[k]=String(v);},append(child){child.parent=this;this.children.push(child);},remove(){this.parent.children=this.parent.children.filter(c=>c!==this);},querySelectorAll(selector){const names=selector.match(/\[data-([\w-]+)\]/g).map(s=>s.slice(6,-1).replace(/-([a-z])/g,(_,c)=>c.toUpperCase()));return this.children.filter(c=>names.some(n=>n in c.dataset));},querySelector(selector){return this.querySelectorAll(selector)[0]||null;}};}
+function node(){return {dataset:{},style:{},attributes:{},children:[],ownerDocument:{createElementNS:()=>node()},namespaceURI:'http://www.w3.org/2000/svg',setAttribute(k,v){this.attributes[k]=String(v);},append(child){child.parent=this;this.children.push(child);},insertBefore(child,before){child.parent=this;const i=this.children.indexOf(before);if(i<0)this.children.push(child);else this.children.splice(i,0,child);},replaceChildren(...children){this.children=[];children.forEach(c=>this.append(c));},remove(){this.parent.children=this.parent.children.filter(c=>c!==this);},querySelectorAll(selector){const names=(selector.match(/\[data-([\w-]+)\]/g)||[]).map(s=>s.slice(6,-1).replace(/-([a-z])/g,(_,c)=>c.toUpperCase()));return this.children.flatMap(c=>[...(names.some(n=>n in c.dataset)?[c]:[]),...c.querySelectorAll(selector)]);},querySelector(selector){return this.querySelectorAll(selector)[0]||null;}};}
 function controls(){const entries=new Map();return s=>{if(!entries.has(s))entries.set(s,{value:'0',textContent:'',disabled:false,hidden:false});return entries.get(s);};}
 function scanFixture(){
  const source=fs.readFileSync(require.resolve('../sensor-console-ui.js'),'utf8'),get=controls(),svg=node();
  const context={get:s=>s==='[data-map] svg[data-space-canvas]'?svg:get(s),host:{createElementNS:()=>node()},selecting:{dataset:{order:'hex'}},scanPoint:{q:12,r:-3},hexSelected:true,q:{value:'12'},r:{value:'-3'},busy:false,window:{SAShipTargets:{point:()=>({q:0,r:0})},SAShipDistances:{hexDistance:(a,b)=>Math.max(Math.abs(a.q-b.q),Math.abs(a.r-b.r),Math.abs(a.q+a.r-b.q-b.r))}}};
- vm.createContext(context);vm.runInContext(source.slice(source.indexOf('    function renderScanPlot('),source.indexOf('    function selectScanHex(')),context);
- return {context,get,svg,draw:ready=>context.renderScanPlot({}, {id:'owner'},10,ready)};
+ context.window.SAShipMap={sensorStats:s=>({range:s.range||0})};
+ const picture={starships:[{id:'owner',range:10}],shipPositions:[{id:'owner',q:0,r:0}]};
+ vm.createContext(context);vm.runInContext(source.slice(source.indexOf('  function rangePreviewShips('),source.indexOf('  function open('))+source.slice(source.indexOf('    function renderScanPlot('),source.indexOf('    function selectScanHex(')),context);
+ return {context,get,svg,picture,draw:ready=>{context.renderRangePreview(svg,picture,'owner');context.renderScanPlot({}, {id:'owner'},10,ready);}};
 }
 test('sensor selection previews the seven actual scanned hexes, warns outside range, and requires a ready turn to confirm',()=>{
  const f=scanFixture();f.draw(true);assert.equal(f.get('[data-confirm-scan]').disabled,false);assert.match(f.get('[data-destination]').textContent,/outside of sensor range/);
  const preview=f.svg.querySelector('[data-scan-preview]');assert.equal(preview.children.length,7);assert.equal(preview.dataset.scanPreview,'selected');assert.equal(preview.children[0].attributes['vector-effect'],'non-scaling-stroke');
- f.draw(false);assert.equal(f.get('[data-confirm-scan]').disabled,true);assert.equal(f.svg.querySelectorAll('[data-scan-preview]').length,1);assert.equal(f.svg.querySelectorAll('[data-sensor-range]').length,1);
+ f.draw(false);assert.equal(f.get('[data-confirm-scan]').disabled,true);assert.equal(f.svg.querySelectorAll('[data-scan-preview]').length,1);assert.equal(f.svg.querySelectorAll('[data-sensor-range]').length,2);
 });
-test('scan range and locked selection restore on a rebuilt map; cancellation removes both without a command',()=>{
+test('rebuilt maps retain range and selection; cancellation removes selection but preserves the requested persistent pair',()=>{
  const f=scanFixture();f.draw(true);f.svg.children=[];f.context.selecting.dataset.order='life';f.draw(true);
  assert.equal(f.get('[data-confirm-scan]').textContent,'Confirm Life Scan');assert.equal(f.svg.children.length,2);
- f.context.selecting=null;f.context.scanPoint=null;f.context.hexSelected=false;f.draw(true);assert.equal(f.get('[data-scan-planner]').hidden,true);assert.equal(f.svg.children.length,0);
+ f.context.selecting=null;f.context.scanPoint=null;f.context.hexSelected=false;f.draw(true);assert.equal(f.get('[data-scan-planner]').hidden,true);assert.equal(f.svg.querySelectorAll('[data-scan-preview]').length,0);assert.equal(f.svg.querySelectorAll('[data-sensor-range]').length,2);
+});
+test('persistent range pairs require own ship or detected Analysis and update without duplicate nodes or hidden live data',()=>{
+ const f=scanFixture();f.context.selecting=null;f.picture.starships.push({id:'enemy',range:40,contactLevel:'detected',defenseScore:8});f.picture.shipPositions.push({id:'enemy',q:5,r:2});f.draw(true);
+ let rings=f.svg.querySelectorAll('[data-sensor-range]');assert.equal(rings.length,2,'known Defense/raw range cannot authorize enemy rings');assert.equal(Number(rings[0].attributes.r),2*Number(rings[1].attributes.r));assert.equal(rings[0].attributes['vector-effect'],'non-scaling-stroke');
+ const group=f.svg.querySelector('[data-sensor-ranges]'),first=rings[0];f.draw(true);assert.equal(f.svg.querySelector('[data-sensor-ranges]'),group);assert.equal(f.svg.querySelectorAll('[data-sensor-range]')[0],first,'unchanged data reuses nodes');
+ f.picture.starships[1].analyzedContact=true;f.picture.starships[1].range=6;f.draw(true);rings=f.svg.querySelectorAll('[data-sensor-range]');assert.equal(rings.length,4);assert.equal(Number(rings[2].attributes.r),12*Math.sqrt(3));assert.equal(Number(rings[2].attributes.cx),Math.sqrt(3)*6);assert.equal(Number(rings[2].attributes.cy),3);
+ f.picture.starships[1].contactLevel='last-known';f.picture.starships[0].range=4;f.draw(true);assert.equal(f.svg.querySelectorAll('[data-sensor-range]').length,2);assert.equal(Number(f.svg.querySelector('[data-sensor-range]').attributes.r),8*Math.sqrt(3));
+ f.picture.starships[0].range=0;f.draw(true);assert.equal(f.svg.querySelectorAll('[data-sensor-range]').length,0);
 });
 function probeFixture(){
  const source=fs.readFileSync(require.resolve('../probe-console.js'),'utf8'),get=controls(),svg=node();

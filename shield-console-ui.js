@@ -65,7 +65,7 @@ get('[data-turn]').textContent=person.shieldRestabilizing?'RESTABILIZING':person
       if(fleet!==lastFleet){get('[data-fleet]').innerHTML=fleet;lastFleet=fleet;}
       const log=(state.log||[]).slice(-20).reverse().map(e=>`<p><small>${esc(e.at)}</small>${window.SAHealthDisplay.logMarkup(e,bridge.mode()==='gm')}</p>`).join('');
       if(log!==lastLog){get('[data-log]').innerHTML=log;lastLog=log;}
-      const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
+      const rings=bridge.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);get('[data-rings]').querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});lastRings=rings;}
     }
     view.addEventListener('click',async event=>{
       const button=event.target.closest('[data-order]');if(!button||button.disabled||busy)return;

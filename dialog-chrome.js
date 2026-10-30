@@ -1,6 +1,6 @@
 // Only dismissal controls may be replaced by X. Labels/handlers can change between stages.
 (function(){
- const controls=new WeakMap(),modalOrder=new WeakMap();let modalSequence=0;
+ const controls=new WeakMap(),dismissalOwners=new WeakMap(),modalOrder=new WeakMap(),hiddenDismissals=new Set();let modalSequence=0;
  document.addEventListener?.('beforetoggle',event=>{if(event.target.tagName==='DIALOG'&&event.newState==='open')modalOrder.set(event.target,++modalSequence);},true);
  const selector='dialog,[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"],.combat-action-dialog[role="dialog"]';
  const dismissal=/^(close|dismiss|cancel|exit|keep going|not now|ok|got it|understood|back|later|combat view|close (dialog|window|sheet|room|console)|exit console|back to (fleet|roster|prepare combat|sic card)|keep current character)$/i;
@@ -15,13 +15,17 @@
  function restore(pair){
   if(!pair?.hiddenButton)return;
   const button=pair.hiddenButton;
-  button.classList.remove('dialog-original-dismiss');
+  if(!pair.originalDismissClass)button.classList.remove('dialog-original-dismiss');
   for(const [name,value]of Object.entries(pair.originalAttributes)){
+   // Do not overwrite a later change made by the control's own owner.
+   if(button.getAttribute(name)!==({'aria-hidden':'true',tabindex:'-1'})[name])continue;
    if(value===null)button.removeAttribute(name);else button.setAttribute(name,value);
   }
-  pair.hiddenButton=null;
+  if(dismissalOwners.get(button)===pair)dismissalOwners.delete(button);
+  hiddenDismissals.delete(pair);pair.hiddenButton=null;
  }
  function enhance(dialog){
+  if(!dialog.isConnected){restore(controls.get(dialog));return;}
   const panelClasses=['combat-action-panel','combat-map-panel','delay-dialog-panel','queued-effect-panel','backup-conflict-dialog'];
   const surface=[...dialog.children].find(n=>panelClasses.some(name=>n.classList.contains(name)))||dialog;
   // Immersive consoles use dialog for modality, but retain their own authored UI.
@@ -34,18 +38,28 @@
   if(consoleView){surface.classList.remove('sci-fi-dialog-surface');surface.classList.remove('sci-fi-frame-static');}
   else if(!presentation&&!dialog.closest('.quick-prompts,[data-popup-theme="none"]')){surface.classList.add('sci-fi-dialog-surface');if(typeof getComputedStyle==='function'&&getComputedStyle(surface).position==='static')surface.classList.add('sci-fi-frame-static');}
   let pair=controls.get(dialog);
+  // Only the mounted, outer Sensors Console owns its Exit Console control.
+  // Scan/Hold prompts and catalog screenshots retain their existing chrome.
+  if(dialog.tagName==='DIALOG'&&dialog.classList.contains('sensor-console')&&dialog.hasAttribute('data-console-owner')&&!dialog.classList.contains('combat-order-dialog')&&!dialog.hasAttribute('data-catalog-snapshot')){
+   if(pair){restore(pair);pair.bar.remove();positioned.delete(pair);controls.delete(dialog);}
+   // The shared bottom toggle can arrive still hidden by the previous Console.
+   for(const button of dialog.querySelectorAll('button'))if(button.closest(selector)===dialog)restore(dismissalOwners.get(button));
+   dialog.classList.remove('has-close-chrome');
+   return;
+  }
   const buttons=[...dialog.querySelectorAll('button')].filter(b=>b.closest(selector)===dialog&&!b.classList.contains('dialog-circle-close'));
   const dismissals=buttons.filter(isDismissal),available=dismissals.filter(b=>!b.disabled&&!b.closest('[hidden]'));
   const candidates=available.length?available:dismissals;
   const close=candidates.find(b=>b.hasAttribute('data-dialog-dismiss'))||candidates.find(b=>/^(close|dismiss|exit|combat view|back to)/i.test(b.textContent.trim()))||candidates[0];
-  if(pair?.hiddenButton&&(pair.hiddenButton!==close||!isDismissal(pair.hiddenButton)||pair.hiddenButton.hasAttribute('data-dialog-keep')))restore(pair);
+  const authoredConsoleExit=consoleView&&dialog.hasAttribute('data-console-owner')&&!dialog.hasAttribute('data-catalog-snapshot')&&!dialog.hasAttribute('data-required-roll')&&close?.hasAttribute('data-console-view');
+  if(pair?.hiddenButton&&(pair.hiddenButton!==close||!isDismissal(pair.hiddenButton)||pair.hiddenButton.hasAttribute('data-dialog-keep')||authoredConsoleExit))restore(pair);
   if(!pair&&!close&&dialog.tagName!=='DIALOG')return;
   if(!pair){
    const x=document.createElement('button');x.type='button';x.className='dialog-circle-close';x.textContent='\u00d7';x.setAttribute('aria-label','Close dialog');
    const bar=document.createElement('div');bar.className='dialog-close-rail';bar.append(x);
    // Top-layer chrome is not clipped by scrolling/filtered dialog contents.
    if(typeof bar.showPopover==='function')bar.setAttribute('popover','manual');
-   pair={x,bar,close:null,hiddenButton:null};controls.set(dialog,pair);
+   pair={x,bar,dialog,close:null,hiddenButton:null};controls.set(dialog,pair);
    dialog.classList.add('has-close-chrome');
    x.onclick=e=>{
     e.preventDefault();e.stopPropagation();
@@ -63,8 +77,12 @@
   pair.close=close;
   const disabled=dialog.hasAttribute('data-required-roll')||(close?close.disabled||!!close.closest('[hidden]'):dialog.tagName!=='DIALOG');
   if(pair.x.disabled!==disabled)pair.x.disabled=disabled;
-  if(close&&!close.hasAttribute('data-dialog-keep')&&!pair.hiddenButton){
+  if(close&&!close.hasAttribute('data-dialog-keep')&&!authoredConsoleExit&&!pair.hiddenButton){
+   // A shared control may arrive from another dialog before its mutation scan.
+   restore(dismissalOwners.get(close));
    pair.hiddenButton=close;
+   dismissalOwners.set(close,pair);
+   hiddenDismissals.add(pair);pair.originalDismissClass=close.classList.contains('dialog-original-dismiss');
    pair.originalAttributes={'aria-hidden':close.getAttribute('aria-hidden'),tabindex:close.getAttribute('tabindex')};
    close.classList.add('dialog-original-dismiss');close.setAttribute('aria-hidden','true');close.tabIndex=-1;
   }
@@ -131,6 +149,9 @@
  }
  function scan(root){if(root.nodeType!==1)return;if(root.matches(selector))enhance(root);root.querySelectorAll(selector).forEach(enhance);}
  const observer=new MutationObserver(records=>{
+  // Reparented controls may now be outside every dialog. Restore ownership before
+  // enhancing new owners, including when the former dialog was removed wholesale.
+  for(const pair of hiddenDismissals)if(!pair.dialog.isConnected||pair.hiddenButton.closest(selector)!==pair.dialog)restore(pair);
   const dialogs=new Set();
   for(const r of records){
    const element=r.target.nodeType===1?r.target:r.target.parentElement;

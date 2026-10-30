@@ -133,6 +133,7 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
     cooperation.state(target).calls = [{id:order.receipt,shipId:ship.id,title:ship.title,status:'incoming',disclosedPosition:order.disclosedPosition},...cooperation.state(target).calls].slice(0,20);
     return report(target,`Incoming hail from ${ship.title}.`);
   }
+  if (['ram','skim'].includes(order.kind) && (require('./ship-transit').escapedIntoWarp(ship) || require('./ship-transit').escapedIntoWarp(target))) return report(ship,'Collision cancelled: a ship has escaped into warp.');
   if (!navigation.access(room,unit,order.sicId)) return report(ship,'Ship maneuver cancelled: propulsion unavailable.');
   const propulsion = maps.propulsion(ship);
   const result = cooperation.roll(room,ship,unit,order.kind,Array(propulsion.evadeCount).fill(propulsion.evadeDie),skill(unit,order.kind),rollDie,sensors.fusedTotal);

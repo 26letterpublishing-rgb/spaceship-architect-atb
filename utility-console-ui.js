@@ -105,7 +105,7 @@
       const ready=state.practice||state.activeId===person.id&&!person.consoleHold&&!person.delayedAction&&!person.timedAction&&!state.rollPaused;
       dialog.querySelector('[data-turn]').textContent=state.practice?'CREW UTILITY':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
       const hold=dialog.querySelector('[data-hold]');hold.textContent=person.consoleHold?'Resume':'Hold';hold.disabled=state.practice||busy||(!ready&&!person.consoleHold)||Boolean(person.delayedAction||person.timedAction);
-      dialog.querySelector('[data-leave]').disabled=state.practice||busy||!ready;
+      if(!life)dialog.querySelector('[data-leave]').disabled=state.practice||busy||!ready;
       if(!b.soundEnabled())stopSound();
       if(life){
         const gravity=window.SAShipMap.gravityEnabled(access.ship),impaired=access.item.impaired||access.item.status==='impaired';
@@ -156,7 +156,7 @@
     dialog.querySelector('[data-close]').onclick=()=>{window.SAShipNavigationUI.remember(unit);close();};
     dialog.querySelector('[data-sound]').onclick=()=>{b.toggleSound();if(!b.soundEnabled())stopSound();window.SAConsoleCommon.updateSound(dialog);};
     dialog.querySelector('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(current().person);}catch(error){status.textContent=error.message;}};
-    dialog.querySelector('[data-leave]').onclick=()=>{const person=current().person;if(!b.confirmGmPlayerAction(person,'leaveStation'))return;close();window.SACombatMap.openMove(person);};
+    if(life)dialog.querySelector('[data-leave]').remove();else dialog.querySelector('[data-leave]').onclick=()=>{const person=current().person;if(!b.confirmGmPlayerAction(person,'leaveStation'))return;close();window.SACombatMap.openMove(person);};
     dialog.addEventListener('cancel',()=>window.SAShipNavigationUI.remember(unit));
     window.SAShipNavigationUI.mountSelector(dialog.querySelector('[data-selector]'),unit,sicId,close);
     redraw();const timer=setInterval(redraw,250);
@@ -164,5 +164,5 @@
     const teardown=()=>{clearInterval(timer);clearTimeout(pasteTimer);stopSound();doc.removeEventListener('visibilitychange',hideSound);dialog.remove();if(view===dialog)view=null;window.removeEventListener('pagehide',close);b.requestRender();};
     dialog.addEventListener('close',teardown,{once:true});window.addEventListener('pagehide',close,{once:true});
   }
-  window.SAUtilityConsoleUI={open,isOpen:()=>Boolean(view||opening||window.SACleanserConsole?.isOpen()||window.SATransitConsoleUI?.isOpen()||window.SACrewRoomConsole?.isOpen()||window.SAFieldUtilityConsole?.isOpen())};
+  window.SAUtilityConsoleUI={open,isOpen:()=>Boolean(view||opening||window.SAIllusionDroidConsole?.isOpen()||window.SACleanserConsole?.isOpen()||window.SATransitConsoleUI?.isOpen()||window.SACrewRoomConsole?.isOpen()||window.SAFieldUtilityConsole?.isOpen())};
 }());

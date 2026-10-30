@@ -25,6 +25,8 @@
 @media(max-width:500px){#promptTab #rollPromptForm{grid-template-columns:1fr}.campaign-character-card{flex-wrap:wrap}}
 .reputation-chart-copy .reputation-row>text{fill:#10141a;font:900 15px Arial,sans-serif;text-anchor:end;dominant-baseline:middle}.reputation-chart-copy .reputation-row>text:nth-of-type(2){text-anchor:start}
 .encounter-preparation-actions{grid-column:1/-1;position:sticky;bottom:8px;z-index:4;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:8px;background:#09131eee;border:1px solid #365264}.encounter-preparation-actions .begin-encounter{position:static;box-shadow:none}.encounter-preparation-actions button{min-height:42px}
+/* Desktop preparation actions stay in the form flow, clear of editable arena cells. */
+@media(min-width:1000px){.encounter-preparation-actions{position:static}}
 .roll-request-head>div{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:baseline}
 
 #scriptTab>.script-tools-column{grid-template-columns:1fr}#scriptTab .script-tools-column>*{grid-column:1;grid-row:auto}#scriptTab .story-column .script-live-editor{min-height:65vh;max-height:none}.gm-tool-section #gmDramaDiscardPanel h3{display:none}@media(max-width:900px){#scriptTab .story-column{grid-column:1}}

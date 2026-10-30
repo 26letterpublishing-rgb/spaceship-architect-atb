@@ -17,12 +17,13 @@
   }
   function popup(title,text){const doc=host(),d=doc.createElement('dialog');d.className='combat-result-popup';d.setAttribute('aria-label',title);const h=doc.createElement('h2'),p=doc.createElement('p'),ok=doc.createElement('button');h.textContent=title;p.textContent=text;ok.textContent='OK';ok.setAttribute('data-dialog-dismiss','');ok.setAttribute('data-dialog-keep','');ok.onclick=async()=>{const bridge=window.SACombatBridge;if(title==='VICTORY'&&bridge.mode()==='player'){ok.disabled=true;try{await bridge.action({action:'acknowledgeVictory',id:bridge.myUnitId()},'resolve',{throwOnError:true});}catch(error){console.warn('Victory acknowledgement:',error.message);}finally{ok.disabled=false;}}d.close();};d.append(h,p,ok);doc.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();ok.focus();}
   let victoryTimer=null,victoryElement=null;
-  function victoryBanner(message){
+  function victoryBanner(message,escape=false){
     const doc=host();victoryElement?.remove();clearTimeout(victoryTimer);
-    const banner=doc.createElement('div');banner.className='combat-victory-banner';banner.setAttribute('role','status');
-    const title=doc.createElement('strong'),detail=doc.createElement('span');title.textContent='Victory!';detail.textContent=message;banner.append(title,detail);doc.body.append(banner);victoryElement=banner;
-    if(window.SACombatBridge?.soundEnabled()&&!doc.hidden)window.SAAudioMix?.success();
-    victoryTimer=later(()=>{banner.remove();if(victoryElement===banner)victoryElement=null;},5600);
+    const banner=doc.createElement('div');banner.className='combat-victory-banner';banner.setAttribute('role','status');banner.setAttribute('popover','manual');
+    const title=doc.createElement('strong');title.textContent=escape?'enemy has escaped into warp':'VICTORY!';banner.append(title);if(escape){const detail=doc.createElement('span');detail.textContent=message;banner.append(detail);banner.classList.add('combat-escape-banner');}doc.body.append(banner);victoryElement=banner;
+    if(banner.showPopover)banner.showPopover();else [...doc.querySelectorAll('dialog[open]')].at(-1)?.append(banner);
+    if(!escape&&window.SACombatBridge?.soundEnabled()&&!doc.hidden)window.SAAudioMix?.success();
+    victoryTimer=later(()=>{banner.remove();if(victoryElement===banner)victoryElement=null;},6000);
   }
   window.addEventListener('sa-combat-reset',()=>{resetGeneration++;initialized=false;hp.clear();clearTimeout(victoryTimer);victoryElement?.remove();victoryElement=null;clearTimeout(stageTimer);stage?.remove();stage=null;for(const d of surfaces())delete d.body.dataset.impactPresenting;});
   function surfaces(){return [...new Set([document,host()])];}
@@ -82,6 +83,7 @@
     for(const d of surfaces())if(!d.querySelector('[data-combat-feedback-style]')){const link=d.createElement('link');link.rel='stylesheet';link.href=new URL('combat-feedback.css',location.href);link.dataset.combatFeedbackStyle='';d.head.append(link);}
     const surfaceVictory=state.surfaceVictoryAt;
     if(surfaceVictory&&!seen.has('surface:'+surfaceVictory)){seen.add('surface:'+surfaceVictory);if(initialized&&Date.now()-Date.parse(surfaceVictory)<15000)victoryBanner('The opposition has been defeated.');}
+    for(const entry of state.log||[]){if(!entry.enemyWarpEscape||seen.has('escape:'+entry.id))continue;seen.add('escape:'+entry.id);if(initialized&&Date.now()-Date.parse(entry.timestamp)<15000)victoryBanner(entry.shipTitle||'',true);}
     const damaged=new Set();
     const locks=new Set(state.starships.flatMap(ship=>(ship.lockState?.targets||[]).map(lock=>lock.targetId)));
     for(const surface of surfaces())for(const marker of surface.querySelectorAll('[data-space-ship]')){
@@ -103,11 +105,11 @@
     for(const ship of state.starships){
       const total=(ship.currentHullHp??0)+(ship.currentShieldHp??0),previous=hp.get(ship.id);if(initialized&&previous!==undefined&&total<previous&&!damaged.has(ship.id))impact(ship.id,Boolean(ship.destroyedAt));hp.set(ship.id,total);
       for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){const wreck=Boolean(ship.destroyedAt)&&Date.now()>=Math.max(Date.parse(ship.destroyedAt)+2400,debrisAfter.get(ship.id)||0);marker.classList.toggle('ship-wreck',wreck);if(!wreck)marker.querySelector('[data-debris]')?.remove();if(wreck){const label=marker.querySelector(':scope > text'),name=(ship.title||ship.ship?.title||'Starship').split(' — ')[0]+' [DESTROYED]';if(label&&label.textContent!==name)label.textContent=name;if(!marker.querySelector('[data-debris]')){const debris=d.createElementNS('http://www.w3.org/2000/svg','g'),radius=Number(marker.querySelector('circle')?.getAttribute('r'))||.3;debris.dataset.debris='';for(let n=0;n<18;n++){const pixel=d.createElementNS(debris.namespaceURI,'rect');pixel.setAttribute('x',Math.sin(n*13.37)*radius*1.5);pixel.setAttribute('y',Math.cos(n*4.91)*radius);pixel.setAttribute('width',radius*.22);pixel.setAttribute('height',radius*.22);pixel.setAttribute('fill','currentColor');debris.append(pixel);}marker.append(debris);}}}
-      const victory='victory:'+ship.victoryAt;if(ship.victoryAt&&!seen.has(victory)){seen.add(victory);if(initialized&&Date.now()-Date.parse(ship.victoryAt)<15000)later(()=>victoryBanner(`${ship.title} is the last surviving ship.`),2200);}
+      // Historical per-ship victoryAt is retained in saves, not replayed as a new outcome.
     }
     for(const d of surfaces())for(const p of d.querySelectorAll('[data-activity] p,.pilot-log p'))if(/Starship detected/.test(p.textContent))p.classList.add('detected-log-entry');else if(/ENEMY LOCK-ON/.test(p.textContent))p.classList.add('enemy-lock-log-entry');
     if(seen.size>3000){seen.clear();events.forEach(e=>seen.add(e.id));}
     initialized=true;
   }
-  const timer=setInterval(tick,180);window.addEventListener('pagehide',()=>{clearInterval(timer);clearTimeout(stageTimer);for(const d of surfaces())delete d.body.dataset.impactPresenting;stage?.remove();});window.SACombatFeedback={popup,sound,impact};
+  const timer=setInterval(tick,180);window.addEventListener('pagehide',()=>{clearInterval(timer);clearTimeout(stageTimer);clearTimeout(victoryTimer);victoryElement?.remove();for(const d of surfaces())delete d.body.dataset.impactPresenting;stage?.remove();});window.SACombatFeedback={popup,sound,impact};
 }());

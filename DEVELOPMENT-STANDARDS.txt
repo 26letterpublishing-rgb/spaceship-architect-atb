@@ -8,7 +8,11 @@
 
 ---
 
-#1 rule:  Do not apply changes to the code locally or on GitHub unless the hashtags are given.  #local means update local files, and #commit means to update local files, update GitHub, and send a nfty notification.
+#1 rule: Application changes require #local or #commit and the approved repair
+plan required by AGENTS.md. #local authorizes approved local implementation and
+testing only; no commit, push, deployment or completion notification. #commit
+additionally authorizes publication of its reviewed scope and final ntfy through
+the existing repository workflow. Historical authorizations are not reusable.
 
 #2 rule: Use space efficiently. Keep text readable and controls proportionate to their content. Avoid oversized boxes containing small text. Visually verify layouts at representative screen sizes.
 
@@ -410,7 +414,11 @@ Report which forms of verification were actually performed.
 
 Before implementing a request, distinguish between routine technical decisions and product-design decisions.
 
-### Proceed independently when
+For this project, every new issue first follows the diagnosis and plan-approval
+gate in AGENTS.md. The conditions below govern routine choices within that
+approved boundary, not permission to skip the gate.
+
+### Proceed independently within an approved plan when
 
 - The request is clear.
 - Existing behavior can be preserved.
@@ -456,7 +464,8 @@ Check for duplication, layout conflicts, state-management risks, and unintended 
 
 Choose the smallest coherent implementation that satisfies the request.
 
-Identify whether product-design approval is necessary.
+Present the proposed files, behavior changes, preserved behavior and verification
+plan, then stop for approval under AGENTS.md before implementation.
 
 ### Step 5 — Implement
 

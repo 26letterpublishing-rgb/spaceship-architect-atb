@@ -44,14 +44,14 @@ function queue(room, unit, body) {
     const crew=remoteBridge||(ship.crewCharacterIds||ship.ship.crewCharacterIds||[]).includes(unit.characterId)||(ship.crewNpcUnitIds||ship.ship.crewNpcUnitIds||[]).includes(unit.id);
     if(!crew)return {ok:false,error:'Registered ship crew administration rights are required.'};
     if(body.kind==='off'){
-      item.disabled=true;item.status='powered-down';item.bootRemaining=0;
+      item.disabled=true;item.status='powered-down';item.bootRemaining=0;delete item.bootDuration;
     }else{
       if((body.kind==='on'&&stations.online(item))||item.bootRemaining>0)return {ok:false,error:'This SIC is already online or restarting.'};
       const installed=new Set(ship.ship.placements.map(p=>p.sicId));
       const bridge=ship.ship.sicInventory.find(i=>installed.has(i.id)&&maps.definition(i.type).bridge);
       const seconds=maps.definition(bridge?.type).rebootSeconds;
       if(!Number.isFinite(seconds)||seconds<=0)return {ok:false,error:'Install a cockpit or bridge with a restart time.'};
-      item.bootRemaining=seconds;item.disabled=true;item.status='offline';
+      item.bootDuration=seconds;item.bootRemaining=seconds;item.disabled=true;item.status='offline';
     }
   }
   ship.maintenanceReceipts=[...ship.maintenanceReceipts,receipt].slice(-256);

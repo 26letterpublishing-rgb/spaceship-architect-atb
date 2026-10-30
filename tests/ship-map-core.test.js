@@ -2,6 +2,22 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const shipMap = require("../ship-map-core.js");
 
+test("CPU and Hacking floorplans select their intended SVG tier after the cache query", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  for (const [family, count] of [["cpu-security", 8], ["hacking-module", 5]]) {
+    const atlas = fs.readFileSync(path.join(__dirname, "..", `${family}-tiers.svg`), "utf8");
+    for (let tier = 1; tier <= count; tier++) {
+      const entry = shipMap.definition(`${family}-${tier}`);
+      const url = new URL(entry.image, "https://fixture.invalid/");
+      assert.equal(url.pathname, `/${family}-tiers.svg`);
+      assert.ok(url.searchParams.get("v"), "cache version remains a query parameter");
+      assert.equal(url.hash, `#tier-${tier}`);
+      assert.ok(atlas.includes(`id="tier-${tier}"`), "fragment names an existing atlas view");
+      assert.equal(entry.cardArt, `card-${family}-equipment-v2.webp`, "card role unchanged");
+    }
+  }
+});
+
 test("shared door presentation splits walls around the opening", () => {
   const layout = { boundary: (_, side) => ({ kind: side === "top" ? "door" : "none", key: "1:2" }) };
   const markup = shipMap.boundaryMarkup(layout, 1, {

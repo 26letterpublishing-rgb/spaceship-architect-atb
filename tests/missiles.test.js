@@ -10,9 +10,9 @@ function launch(f,ammunition='missile-1'){const r=weapons.queue(f.room,f.unit,{.
 function tick(room,seconds){let left=seconds;while(left>1e-7&&!missiles.pending(room)){const step=Math.min(left,Math.max(.000001,missiles.nextEvent(room)));missiles.advance(room,step);left-=step;}}
 test('all five launcher grades match capacity, placement and one-impairment rules',()=>{for(let n=1;n<=5;n++){const d=maps.definition('missile-launcher-'+n);assert.equal(d.capacity,[3,5,8,15,25][n-1]);assert.equal(d.energyCost,1);assert.equal(d.stations.length,1);assert.equal(d.destroyedOnImpairment,true);const parts=maps.placementParts({type:'missile-launcher-'+n},{cell:102,exteriorCell:100});assert.equal(parts[0].entry.width,1);assert.equal(parts[0].entry.height,2);assert.equal(parts[1].entry.width,n>=4?2:1);}});
 test('launch requires Lock-On, consumes a round once, and creates no accuracy dice',()=>{const f=fixture();locks.state(f.a).targets=[];assert.equal(weapons.queue(f.room,f.unit,order).ok,false);assert.equal(f.a.ship.missileAmmo.launcher['missile-1'],3);locks.state(f.a).targets=[{targetId:'b',systemId:'lock'}];assert.equal(weapons.queue(f.room,f.unit,order).ok,true);assert.equal(weapons.queue(f.room,f.unit,order).duplicate,true);assert.equal(f.a.ship.missileAmmo.launcher['missile-1'],3);assert.equal(f.unit.delayedAction.rollConfirmed,true);assert.equal(f.unit.delayedAction.rollSpec,undefined);});
-test('homing survives broken locks and a lost operator; acceleration caps on the fifth round',()=>{const f=fixture();f.room.shipPositions[1].q=100;f.a.ship.sicInventory.find(i=>i.id==='sn').type='sensors-9';f.room.shipPositions[1].q=20;launch(f);locks.state(f.a).targets=[];f.room.units=[];f.room.shipPositions[1].q=100;tick(f.room,60);const m=targets.flights(f.room)[0];assert.equal(m.phase,'flying');assert.ok(Math.abs(m.position.q-15)<1e-6);assert.equal(m.speed,5);tick(f.room,12);assert.ok(Math.abs(m.position.q-20)<1e-6);});
-test('launcher cooldown is shared by operators and cannot be bypassed with AU',()=>{const f=fixture();launch(f);assert.match(weapons.queue(f.room,f.unit,{...order,requestId:'missile-repeat'}).error,/once per 12/);tick(f.room,12);assert.equal(weapons.queue(f.room,f.unit,{...order,requestId:'missile-repeat'}).ok,true);});
-test('impact pauses independently, survives JSON restart and waits for manual damage',()=>{const f=fixture(),m=launch(f);tick(f.room,18);assert.equal(m.phase,'impact');assert.equal(f.b.currentHullHp,200);const room=JSON.parse(JSON.stringify(f.room));assert.equal(missiles.pending(room),true);missiles.advance(room,100);assert.ok(Math.abs(targets.flights(room)[0].age-18)<1e-6);assert.equal(missiles.resolveDamage(room,m.id,17).ok,false);assert.equal(missiles.resolveDamage(room,m.id,8).ok,true);assert.equal(room.starships[1].currentHullHp,160);assert.equal(missiles.resolveDamage(room,m.id,8).duplicate,true);assert.equal(missiles.pending(room),false);});
+test('normal homing survives broken locks and a lost operator; five increments reach cap at fifty seconds',()=>{const f=fixture();f.room.shipPositions[1].q=100;f.a.ship.sicInventory.find(i=>i.id==='sn').type='sensors-9';f.room.shipPositions[1].q=20;launch(f);locks.state(f.a).targets=[];f.room.units=[];f.room.shipPositions[1].q=100;tick(f.room,60);const m=targets.flights(f.room)[0];assert.equal(m.phase,'flying');assert.ok(Math.abs(m.position.q-27)<1e-6);assert.equal(m.speed,7);tick(f.room,10);assert.ok(Math.abs(m.position.q-34)<1e-6);});
+test('launcher cooldown is shared by operators and cannot be bypassed with AU',()=>{const f=fixture();launch(f);f.room.shipPositions[1].q=4;assert.match(weapons.queue(f.room,f.unit,{...order,requestId:'missile-repeat'}).error,/once per 12/);tick(f.room,12);assert.equal(weapons.queue(f.room,f.unit,{...order,requestId:'missile-repeat'}).ok,true);});
+test('impact pauses independently, survives JSON restart and waits for manual damage',()=>{const f=fixture(),m=launch(f);tick(f.room,18);assert.equal(m.phase,'impact');assert.equal(f.b.currentHullHp,200);const room=JSON.parse(JSON.stringify(f.room));assert.equal(missiles.pending(room),true);missiles.advance(room,100);assert.ok(Math.abs(targets.flights(room)[0].age-10)<1e-6);assert.equal(missiles.resolveDamage(room,m.id,17).ok,false);assert.equal(missiles.resolveDamage(room,m.id,8).ok,true);assert.equal(room.starships[1].currentHullHp,160);assert.equal(missiles.resolveDamage(room,m.id,8).duplicate,true);assert.equal(missiles.pending(room),false);});
 test('shield hit uses unmultiplied dice and discards overflow',()=>{const f=fixture();f.b.ship.sicInventory.push({id:'shield',type:'shield-1'});f.b.ship.placements.push({sicId:'shield',cell:123});shields.refresh(f.room);shields.entries(f.b)[0].state.hp=1;const m=launch(f);tick(f.room,18);assert.equal(missiles.resolveDamage(f.room,m.id,16).ok,true);assert.equal(f.b.currentHullHp,200);assert.equal(f.b.currentShieldHp,0);});
 test('spread launch creates four separately targetable projectiles and four damage requests',()=>{const f=fixture();launch(f,'spread-missiles-1');assert.equal(targets.flights(f.room).length,1);tick(f.room,11);assert.equal(targets.flights(f.room).length,1);tick(f.room,1);assert.equal(targets.flights(f.room).length,4);assert.equal(new Set(targets.flights(f.room).map(m=>m.id)).size,4);tick(f.room,18);for(const m of targets.flights(f.room)){assert.equal(m.dice,1);assert.equal(missiles.resolveDamage(f.room,m.id,1).ok,true);}assert.equal(f.b.currentHullHp,180);});
 test('missiles can be detected, locked and intercepted with manually confirmed weapon damage',()=>{const f=fixture(),m=launch(f);sensors.refresh(f.room);assert.equal(f.a.sensorState.contacts[m.id].defenseScore,8);assert.equal(f.a.sensorState.contacts[m.id].nature,'Missile');f.a.auState.current=f.a.auState.maximum=20;f.a.ship.sicInventory.push({id:'au2',type:'au-engine-1'});f.a.ship.placements.push({sicId:'au2',cell:122});power.refresh(f.room,{reset:true});const r=weapons.queue(f.room,f.unit,{sicId:'gun',targetId:m.id,requestId:'intercept-missile'});assert.equal(r.ok,true,r.error);const roll=()=>{throw Error('No automatic dice');};roll.submittedScore=50;weapons.resolveInput(f.room,f.unit,roll);assert.equal(m.phase,'flying');weapons.resolveDamage(f.room,f.unit,Array(f.unit.delayedAction.weaponDamage.count).fill(1));assert.equal(m.phase,'destroyed');tick(f.room,60);assert.equal(f.b.currentHullHp,200);});
@@ -42,7 +42,7 @@ test('all ammunition grades continuously steer toward moving targets across turn
  for(const spread of [false,true])for(let tier=1;tier<=5;tier++){
   let f=fixture();const kind=(spread?'spread-missiles-':'missile-')+tier;f.a.ship.missileAmmo.launcher[kind]=1;launch(f,kind);f.room.units=[];f.a.lockState.targets=[];
   for(let n=0;n<300;n++){
-   const target=f.room.shipPositions.find(p=>p.id==='b'),angle=n/40;target.q=20+Math.cos(angle)*10;target.r=Math.sin(angle)*12;
+   const target=f.room.shipPositions.find(p=>p.id==='b'),angle=n/40;target.q=200+Math.cos(angle)*10;target.r=Math.sin(angle)*12;
    for(const m of targets.flights(f.room)){
     const previous={...m.position};missiles.advance({starships:[{...f.a,ship:{...f.a.ship,missileState:{flights:[m],cooldowns:{}}}},f.b],shipPositions:f.room.shipPositions,units:[]},.1);
     assert.equal(m.phase,'flying');assert.ok(Number.isFinite(m.heading));
@@ -83,3 +83,43 @@ test('missile purchases fill launchers, keep surplus and work without a launcher
 test('reload requires a physical station, follows input delay and consumes only available stock',()=>{const f=fixture();f.a.ship.missileAmmo={};f.a.ship.missileStorage={'missile-1':7};const body={sicId:'launcher',kind:'reload-missiles',requestId:'reload-storage-test'};assert.match(weapons.queue(f.room,f.unit,body).error,/physically/);const layout=maps.buildLayout(f.a.ship);const station=[...layout.footprint.entries()].find(([,cell])=>cell.sicId==='launcher'&&cell.stations.some(p=>p.x===cell.column&&p.y===cell.row));assert.ok(station);const square=station[0],mesh=station[1].stations.find(p=>p.x===station[1].column&&p.y===station[1].row).mesh;Object.assign(f.unit.location,{sicId:'launcher',square,mesh});assert.equal(weapons.queue(f.room,f.unit,body).ok,true);assert.equal(f.a.ship.missileStorage['missile-1'],7);assert.equal(weapons.queue(f.room,f.unit,body).duplicate,true);missiles.resolveInput(f.room,f.unit);assert.equal(f.a.ship.missileStorage['missile-1'],4);assert.equal(f.a.ship.missileAmmo.launcher['missile-1'],3);});
 
 test('missile launch emits a sound event in the shared weapon report stream',()=>{const f=fixture();launch(f);const event=f.a.weaponState.reports.find(r=>r.missileLaunch);assert.ok(event);assert.equal(event.targetId,'b');assert.equal(event.operatorId,'u');});
+
+function farNormal(tier){const f=fixture(),kind='missile-'+tier;f.a.ship.missileAmmo.launcher[kind]=1;const m=launch(f,kind);f.room.shipPositions[1].q=10000;return {...f,m};}
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
+
+for(let tier=1;tier<=5;tier++)for(let interval=1;interval<=5;interval++)for(const offset of [-.001,0,.001])test(`normal tier ${tier} boundary ${interval*10}${offset<0?' before':offset>0?' after':' exact'}`,()=>{
+ const f=farNormal(tier),start=[2,2,3,4,5][tier-1],cap=[7,12,18,24,30][tier-1],age=interval*10+offset;
+ missiles.advance(f.room,age);near(f.m.age,age);
+ const steps=offset<0?interval-1:interval;near(f.m.speed,Math.min(cap,start+steps*tier));
+ let expected=0,remaining=age;
+ for(let step=0;remaining>0;step++){const duration=Math.min(10,remaining);expected+=Math.min(cap,start+step*tier)*duration/10;remaining-=duration;}
+ near(f.m.position.q,expected);
+});
+test('normal profiles snapshot exact tier table and integrate every boundary and fractional crossing',()=>{
+ for(let tier=1;tier<=5;tier++){
+  const start=[2,2,3,4,5][tier-1],cap=[7,12,18,24,30][tier-1],f=farNormal(tier);
+  assert.deepEqual(f.m.speedProfile,{version:1,kind:'normal',interval:10,start,increment:tier,cap});assert.equal(f.m.speed,start);
+  let distance=0;
+  for(let step=1;step<=6;step++){
+   const previous=Math.min(cap,start+(step-1)*tier);
+   missiles.advance(f.room,9.999);near(f.m.speed,previous);near(f.m.position.q,distance+previous*.9999);
+   missiles.advance(f.room,.001);distance+=previous;near(f.m.speed,Math.min(cap,start+step*tier));near(f.m.position.q,distance);
+  }
+  const g=farNormal(tier);missiles.advance(g.room,9.75);missiles.advance(g.room,40.5);let expected=Array.from({length:5},(_,i)=>start+i*tier).reduce((a,b)=>a+b,0)+cap*.025;near(g.m.position.q,expected);near(g.m.speed,cap);
+  const one=farNormal(tier);missiles.advance(one.room,50.25);near(one.m.position.q,g.m.position.q);
+  const saved=JSON.parse(JSON.stringify(g.room));missiles.advance(saved,10);near(targets.flights(saved)[0].position.q,expected+cap);
+  assert.equal(missiles.state(f.a).cooldowns.launcher,0);
+ }
+});
+test('normal arrival scheduler uses ten-second units and exact integrated time',()=>{
+ const f=farNormal(1);f.room.shipPositions[1].q=.02;near(missiles.nextEvent(f.room),.1);missiles.advance(f.room,.1);assert.equal(f.m.phase,'impact');near(f.m.age,.1);
+ const g=farNormal(1);g.room.shipPositions[1].q=3.5;missiles.advance(g.room,30);assert.equal(g.m.phase,'impact');near(g.m.age,15);near(g.m.position.q,3.5);
+});
+test('new normal, legacy, Spread and Phazon coexist without migration or name inference',()=>{
+ const f=farNormal(5),legacy={...structuredClone(f.m),id:'legacy',name:'Missile 5',speed:2,acceleration:2},spread={...structuredClone(legacy),id:'spread',name:'Spread Missiles 5'},torpedo={...structuredClone(legacy),id:'torpedo',torpedo:true,speed:8};delete legacy.speedProfile;delete spread.speedProfile;delete torpedo.speedProfile;
+ missiles.state(f.a).flights.push(legacy,spread,torpedo);missiles.advance(f.room,10);
+ near(f.m.position.q,5);near(legacy.position.q,20/12);near(spread.position.q,20/12);near(torpedo.position.q,80/12);assert.equal(legacy.speed,2);assert.equal(spread.speed,2);assert.equal(torpedo.speed,8);assert.equal(legacy.speedProfile,undefined);
+ missiles.advance(f.room,2);assert.equal(legacy.speed,4);assert.equal(spread.speed,4);assert.equal(torpedo.speed,8);
+ const ammo=require('../missile-ammunition');for(let i=1;i<=5;i++)assert.equal(ammo.catalog['spread-missiles-'+i].speedProfile,undefined);
+ const original=f.m.speedProfile.start;ammo.catalog['missile-5'].speedProfile.start=99;assert.equal(f.m.speedProfile.start,original);ammo.catalog['missile-5'].speedProfile.start=5;
+});

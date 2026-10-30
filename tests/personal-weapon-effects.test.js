@@ -24,7 +24,7 @@ test('Wet doubles electricity for the rest of the encounter, without duration de
 });
 test('delayed Dark Matter and poison retain six-second intervals',()=>{
  const u=unit('target',0),a=unit('attacker',1),r={units:[u,a]};
- effects.afterHit(r,a,u,{weaponId:'dark-matter-launcher'},23);effects.afterHit(r,a,u,{weaponId:'greentip-v-x-101'},8);
+ effects.afterHit(r,a,u,{weaponId:'dark-matter-launcher'},23);effects.afterHit(r,a,u,{weaponId:'greentip-v-x-101',plan:{damageFormula:'2D4'},damageRoll:{rolledDamage:8,diceResults:[4,4]}},8);
  effects.advance(u,5);assert.equal(u.personalEffects,undefined);effects.advance(u,1);
  assert.deepEqual(u.personalEffects.map(e=>e.formula),['4D8','2D8']);assert.equal(u.weaponTimers.length,1);
 });
@@ -119,4 +119,23 @@ test('thrown melee uses Coordination, half damage and retrieval range',()=>{
 });
 test('Gravity object rating affects accuracy as well as range and damage',()=>{
  const plan=rules.attackPlan(catalog.find(w=>w.id==='gravity-gun'),{options:{rating:8}});assert.equal(plan.attackModifier,8);assert.equal(plan.damageFormula,'8D12');assert.equal(plan.effectiveRange,32);assert.equal(plan.manualToHit,false);
+});
+
+function green(faces,total=faces?.reduce((a,b)=>a+b,0)??12){return {weaponId:'greentip-v-x-101',plan:{damageFormula:'3D4'},damageRoll:{rolledDamage:total,diceResults:faces},damageSummary:{rolled:99},attackResult:{critical:true}};}
+test('Greentip counts original fours, never adjusted damage or mode',()=>{
+ for(const [faces,count] of [[[3,3,3],0],[[4,3,3],1],[[4,4,4],3]]){
+  const u=unit('t',0);effects.afterHit({},unit('a',1),u,green(faces),200);
+  assert.equal(u.weaponTimers?.[0]?.dice??0,count);
+ }
+ for(const faces of [undefined,[],[4,4],[4,4,5],[4,4,1.5],[4,4,'4'],[4,4,NaN]])assert.equal(effects.greentipPoisonDice(green(faces,12)),null);
+ assert.equal(effects.greentipPoisonDice(green([4,4,4],11)),null);
+ assert.equal(effects.greentipPoisonDice({...green([4]),plan:{damageFormula:'1D10'}}),null);
+});
+test('Greentip manual, weaker and equal hits preserve timer; stronger replaces; immunity remains',()=>{
+ const u=unit('t',0),a=unit('a',1);
+ effects.afterHit({},a,u,green([4,3,3]),10);effects.advance(u,2);
+ const old=u.weaponTimers[0],snapshot=structuredClone(old);
+ for(const attack of [green(undefined),green([3,3,3]),green([4,3,3])]){effects.afterHit({},a,u,attack,999);assert.equal(u.weaponTimers[0],old);assert.deepEqual(old,snapshot);}
+ effects.afterHit({},a,u,green([4,4,4]),12);assert.equal(u.weaponTimers.length,1);assert.equal(u.weaponTimers[0].dice,3);assert.equal(u.weaponTimers[0].duration,3600);assert.equal(u.weaponTimers[0].remaining,6);
+ for(const flags of [{raceId:'android'},{shipAi:true},{securityDroid:true}]){const immune={...unit('i',0),...flags};effects.afterHit({},a,immune,green([4,4,4]),12);assert.equal(immune.weaponTimers,undefined);}
 });

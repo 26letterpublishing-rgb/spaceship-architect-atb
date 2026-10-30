@@ -1,6 +1,19 @@
 const maps=require('./ship-map-core'),stations=require('./station-access'),targets=require('./ship-targets'),ammo=require('./missile-ammunition');
 const sensors=require('./ship-sensors'),locks=require('./ship-locks'),power=require('./ship-power'),shields=require('./ship-shields'),distances=require('./ship-distances');
+// Launcher cooldown and legacy/special flight rounds remain twelve seconds.
 const ROUND=12,EPS=1e-7;
+const profile=m=>m.speedProfile?.version===1&&m.speedProfile.kind==='normal'?m.speedProfile:null;
+const profileSpeed=(p,age)=>Math.min(p.cap,p.start+p.increment*Math.min(5,Math.floor((age+EPS)/p.interval)));
+function profileTravel(p,age,seconds,limit=Infinity){
+  let elapsed=0,distance=0;
+  while(elapsed<seconds&&distance<limit){
+    const now=age+elapsed,step=Math.floor((now+EPS)/p.interval),speed=profileSpeed(p,now);
+    const duration=Math.min(seconds-elapsed,step>=5?Infinity:(step+1)*p.interval-now,(limit-distance)*p.interval/speed);
+    if(!(duration>0))break;
+    distance+=speed*duration/p.interval;elapsed+=duration;
+  }
+  return {distance,elapsed};
+}
 const torpedo={id:'phazon-torpedo',name:'Phazon Torpedo',count:1,dice:3,acceleration:8,masking:0};
 const impaired=item=>Boolean(item.impaired||item.impairmentPoints>0||item.status==='impaired');
 const torpedoReady=(room,ship,target)=>target&&!target.isMissile&&!target.isDrone&&!target.isProbe&&distances.hexDistance(targets.point(room,ship.id),targets.point(room,target.id))<=24+EPS;
@@ -72,7 +85,7 @@ function resolveInput(room,unit){
   const origin=targets.point(room,ship.id),destination=targets.point(room,target.id);
   const knownItem=sensors.analysis(access.controlSource||ship,target.id)?.layout?.sicInventory?.find(i=>i.id===order.targetSicId);
   room.missileSerial=Math.max(Number(room.missileSerial)||0,...targets.flights(room).map(m=>Number(m.serial)||0))+1;
-  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,speed:kind.acceleration,masking:kind.masking,dice:kind.dice,...(kind===torpedo?{torpedo:true,dieSides:impaired(access.item)?8:10,damageMultiplier:impaired(access.item)?1:2,maxRange:24,uninterceptable:true}:{}),heading:heading(origin,destination),launchedAt:Date.now()});
+  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,...(kind.speedProfile?{speedProfile:{...kind.speedProfile}}:{}),speed:kind.speedProfile?.start??kind.acceleration,masking:kind.masking,dice:kind.dice,...(kind===torpedo?{torpedo:true,dieSides:impaired(access.item)?8:10,damageMultiplier:impaired(access.item)?1:2,maxRange:24,uninterceptable:true}:{}),heading:heading(origin,destination),launchedAt:Date.now()});
   report(ship,`${kind.name} launched: ${kind.count} inbound projectile${kind.count===1?'':'s'}; pursuing ${target.title}.`,{operatorId:unit.id,missileLaunch:true,targetId:target.id});
 }
 function heading(a,b){return Math.atan2(1.5*(b.r-a.r),Math.sqrt(3)*((b.q-a.q)+(b.r-a.r)/2))*180/Math.PI;}
@@ -81,8 +94,9 @@ function nextEvent(room){
   for(const m of targets.flights(room).filter(m=>m.phase==='flying')){
     const target=m.targetId&&targets.find(room,m.targetId),p=target&&targets.point(room,target.id);
     if(m.targetId&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'))return 0;
-    time=Math.min(time,.2,ROUND-(m.age%ROUND));
-    if(p)time=Math.min(time,distances.hexDistance(m.position,p)*ROUND/m.speed);
+    const interval=profile(m)?.interval||ROUND;
+    time=Math.min(time,.2,interval-(m.age%interval));
+    if(p)time=Math.min(time,distances.hexDistance(m.position,p)*interval/(profile(m)?profileSpeed(profile(m),m.age):m.speed));
   }
   return time;
 }
@@ -92,11 +106,13 @@ function advance(room,seconds){
   for(const m of targets.flights(room).filter(m=>m.phase==='flying')){
     const target=m.targetId&&targets.find(room,m.targetId),p=target&&targets.point(room,target.id);
     if(m.targetId&&(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling')){m.phase='expired';m.endedAt=Date.now();continue;}
-    const delta=p?{q:p.q-m.position.q,r:p.r-m.position.r}:m.direction||{q:1,r:0},length=Math.max(Math.abs(delta.q),Math.abs(delta.r),Math.abs(delta.q+delta.r)),distance=Math.min(m.speed*seconds/ROUND,m.maxRange?Math.max(0,m.maxRange-(m.traveled||0)):Infinity);
+    const delta=p?{q:p.q-m.position.q,r:p.r-m.position.r}:m.direction||{q:1,r:0},length=Math.max(Math.abs(delta.q),Math.abs(delta.r),Math.abs(delta.q+delta.r));
+    const travel=profile(m)?profileTravel(profile(m),m.age,seconds,p?length:Infinity):null;
+    const distance=Math.min(travel?travel.distance:m.speed*seconds/ROUND,m.maxRange?Math.max(0,m.maxRange-(m.traveled||0)):Infinity);
     m.heading=heading({q:0,r:0},delta);
     if(p&&length<=distance+EPS){m.position={q:p.q,r:p.r};m.phase='impact';m.arrivedAt=Date.now();}
     else if(length>EPS){m.position.q+=delta.q/length*distance;m.position.r+=delta.r/length*distance;}
-    m.age+=seconds;m.speed=m.torpedo?8:m.acceleration*Math.min(5,1+Math.floor((m.age+EPS)/ROUND));
+    m.age+=travel?travel.elapsed:seconds;m.speed=profile(m)?profileSpeed(profile(m),m.age):m.torpedo?8:m.acceleration*Math.min(5,1+Math.floor((m.age+EPS)/ROUND));
     m.traveled=(m.traveled||0)+Math.min(distance,length);
     if(m.maxRange&&m.traveled>=m.maxRange-EPS&&m.phase==='flying'){m.phase='expired';m.endedAt=Date.now();}
     if(m.splitCount>1&&(m.traveled>=m.splitDistance||m.phase==='impact')){

@@ -3,6 +3,13 @@
   let slidePending=0;
   const combatViews=new Set();
   const selectedConsoles=new Map();
+  const skippedSensorHold=new Set();let holdIdentity=null,holdGeneration=0;
+  function observeHold(state){
+    const identity=state?.debugConsole?JSON.stringify(['debug',state.roomCode]):
+      state?.hasEngagedClock&&!state.encounterEndedAt?JSON.stringify([state.roomCode,state.encounterId,state.combatStartAt,state.stateEpoch]):null;
+    if(identity!==holdIdentity){skippedSensorHold.clear();holdIdentity=identity;holdGeneration++;}
+    return holdGeneration;
+  }
   const rememberedConsole=key=>{try{return sessionStorage.getItem('sa-console:'+key);}catch{return null;}};
   function remember(unit){combatViews.add(seatKey(unit));try{sessionStorage.setItem('sa-console-view:'+seatKey(unit),'combat');}catch{}}
   const rememberedView=key=>{try{return sessionStorage.getItem('sa-console-view:'+key);}catch{return null;}};
@@ -39,11 +46,16 @@
   async function toggleHold(unit){
     const bridge=window.SACombatBridge;
     if(!unit||!bridge.confirmGmPlayerAction(unit,unit.consoleHold?'resumeConsole':'holdConsole'))return;
+    const generation=observeHold(bridge.state()),operator=unit.id;let sensor=false;
     if(!unit.consoleHold){
       let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
-      const accepted=await new Promise(resolve=>{const dialog=doc.createElement('dialog');dialog.setAttribute('aria-label','Hold at 99%');dialog.style.cssText='max-width:480px;background:#102330;color:#ecf6ff;border:1px solid #63cfe2;padding:24px;border-radius:10px';dialog.innerHTML='<h2>Hold at 99%?</h2><p>Your ATB stays at 99% while combat and ship movement continue. Resume fills the final 1% normally.</p><p>Your remaining Command Window time is preserved. This does not interrupt another action or bypass a GM pause.</p><form method="dialog" style="display:flex;gap:12px;justify-content:flex-end"><button value="cancel">Cancel</button><button value="hold">Hold at 99%</button></form>';dialog.addEventListener('close',()=>{const approved=dialog.returnValue==='hold';dialog.remove();resolve(approved);},{once:true});doc.body.append(dialog);dialog.showModal();});
+      sensor=!!doc.querySelector('dialog.sensor-console[open][data-operator-id="'+CSS.escape(operator)+'"]');
+      if(!sensor||!skippedSensorHold.has(operator)){
+      const accepted=await new Promise(resolve=>{const dialog=doc.createElement('dialog');dialog.setAttribute('aria-label','Hold at 99%');dialog.style.cssText='max-width:480px;background:#102330;color:#ecf6ff;border:1px solid #63cfe2;padding:24px;border-radius:10px';dialog.innerHTML='<h2>Hold at 99%?</h2><p>Your ATB stays at 99% while combat and ship movement continue. Resume fills the final 1% normally.</p><p>Your remaining Command Window time is preserved. This does not interrupt another action or bypass a GM pause.</p><form method="dialog" style="display:flex;gap:12px;justify-content:flex-end"><button value="cancel">Cancel</button><button value="hold">Hold at 99%</button></form>';if(sensor&&holdIdentity!==null){const label=doc.createElement('label'),checkbox=doc.createElement('input');checkbox.type='checkbox';checkbox.setAttribute('data-sensor-hold-suppress','');label.style.cssText='display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:12px;font:12px Arial';label.append(checkbox,doc.createTextNode("don't show this popup again"));dialog.append(label);checkbox.addEventListener('change',()=>{if(observeHold(bridge.state())!==generation)return;if(checkbox.checked)skippedSensorHold.add(operator);else skippedSensorHold.delete(operator);});}dialog.addEventListener('close',()=>{const approved=dialog.returnValue==='hold';dialog.remove();resolve(approved);},{once:true});doc.body.append(dialog);dialog.showModal();});
       if(!accepted)return;
+      }
     }
+    if(sensor&&(observeHold(bridge.state())!==generation||!bridge.state()?.units.some(person=>person.id===operator)))return;
     await bridge.action({action:'playerCombatAction',id:unit.id,kind:unit.consoleHold?'resumeConsole':'holdConsole'},'resolve',{throwOnError:true});
   }
   const seatKey=unit=>`${window.SACombatBridge.state()?.roomCode}:${unit?.characterId||unit?.id}`;
@@ -86,7 +98,8 @@
     host.body.append(dialog);dialog.showModal();
     if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
-    const depart=host.createElement('button');depart.type='button';depart.textContent='Leave Atmosphere';depart.dataset.leaveAtmosphere='';depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);form.querySelector('[data-leave]').before(depart);
+    const leave=form.querySelector('[data-leave]');
+    const depart=host.createElement('button');depart.type='button';depart.textContent='Leave Atmosphere';depart.dataset.leaveAtmosphere='';depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);leave.before(depart);
     depart.onclick=async()=>{const confirmation=host.createElement('dialog');confirmation.className='galaxy-dialog';confirmation.innerHTML='<h2>Leave Atmosphere?</h2><p>The party departs together aboard this ship.</p><form method="dialog"><button value="cancel">Cancel</button><button value="depart">Leave Atmosphere</button></form>';host.body.append(confirmation);confirmation.showModal();confirmation.addEventListener('close',async()=>{const accepted=confirmation.returnValue==='depart';confirmation.remove();if(!accepted)return;depart.disabled=true;try{await bridge.leaveAtmosphere(shipId);remember(unit);dialog.close();}catch(e){error.textContent=e.message;depart.disabled=false;}},{once:true});};
     const departureTimer=setInterval(()=>{depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);},500);dialog.addEventListener('close',()=>clearInterval(departureTimer),{once:true});
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
@@ -94,7 +107,7 @@
     const begin=host.createElement('button'),cancel=host.createElement('button');begin.type=cancel.type='button';begin.textContent='Move Ship';cancel.textContent='Cancel Move';begin.dataset.beginMove='';cancel.dataset.cancelMove='';submit.before(begin,cancel);
     begin.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!svg.dataset.manualCamera)fitVisible();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
-    const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';form.querySelector('[data-leave]').after(hold);
+    const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';leave.after(hold);if(!compact)leave.remove();
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
     const boostPanel=form.querySelector('.pilot-power fieldset'),vectorPanel=form.querySelector('.pilot-vector-array'),boostMarker=host.createTextNode('');boostPanel.before(boostMarker);vectorPanel.replaceWith(boostPanel);boostMarker.replaceWith(vectorPanel);
     const orbitDot=form.querySelector('.vector-orbit circle');
@@ -119,8 +132,8 @@
       const access=window.SAShipNavigation.access(state,pilot,pilotSicId),delay=pilot.delayedAction,available=state.activeId===pilotId&&!pilot.consoleHold&&!delay&&!pilot.delayTimer&&!pilot.timedAction&&!state.delayRequest&&!submitting;
       dialog.dataset.input=delay?.shipOrder?'active':'idle';
       const offline=seat.cell.item.disabled||['offline','powered-down'].includes(seat.cell.item.status);
-      if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))b.disabled=!b.matches('[data-close],[data-sound],[data-console-maintenance],[data-local-recovery]');return;}
-      if(form.dataset.offline){delete form.dataset.offline;form.querySelectorAll('button,input,select').forEach(b=>b.disabled=false);}
+      if(offline){form.dataset.offline='1';chargeSound?.stop();chargeSound=null;form.querySelector('[data-turn-announcement]').textContent='CONSOLE OFFLINE';form.querySelector('[data-command-status]').textContent=seat.cell.item.bootRemaining>0?`Restarting: ${Math.ceil(seat.cell.item.bootRemaining)} combat seconds remaining`:'Powered off';for(const b of form.querySelectorAll('button,input,select'))if(!b.matches('[data-console-maintenance]'))b.disabled=!b.matches('[data-close],[data-sound],[data-local-recovery]');return;}
+      if(form.dataset.offline){delete form.dataset.offline;form.querySelectorAll('button,input,select').forEach(b=>{if(!b.matches('[data-console-maintenance]'))b.disabled=false;});}
       const ready=state.activeId===pilotId&&!delay&&!pilot.delayTimer&&!pilot.timedAction;
       const command=ready&&state.command?.unitId===pilotId?state.command:null;
       const fraction=command?.total>0&&!command.expired?Math.max(0,Math.min(1,command.remaining/command.total)):0;
@@ -168,8 +181,8 @@
       if(submit.hidden)submit.disabled=true;
       form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?(delay.shipOrder?'Coordinates are being entered.':`${delay.label||'Console action'} in progress.`):state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>(au.available??au.current)?`Boosts need ${cost} AU; ${au.available??au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
       submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Confirm Move';
-      form.querySelector('[data-leave]').hidden=Boolean(pilot?.shipAi);
-      form.querySelector('[data-leave]').disabled=!available||Boolean(pilot?.shipAi);
+      leave.hidden=Boolean(pilot?.shipAi);
+      leave.disabled=!available||Boolean(pilot?.shipAi);
       const settings=delay?.settings||window.SAShipNavigation.inputSettings(state,pilot,pilotSicId);
       const factors=Object.entries(factorNames).map(([name,label])=>`<div title="${name}: ${settings.factors[name]} of 4"><span class="pilot-factor" aria-label="${name} ${settings.factors[name]} of 4">${bridge.delayIcon(settings.factors[name])}</span><small>${label}</small></div>`).join('');
       if(factors!==lastFactors){form.querySelector('[data-factors]').innerHTML=factors;lastFactors=factors;}
@@ -231,7 +244,7 @@
     for(const control of form.querySelectorAll('[data-zoom]'))control.onclick=()=>{svg.dataset.manualCamera='true';auto.setAttribute('aria-pressed','false');window.SASpaceMap.zoom(svg,Number(control.dataset.zoom));redraw();};
     form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',sicId:pilotSicId,destination:{...destination},waypoints:routeMode==='custom'?waypoints:[],boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;destination=null;waypoints=[];planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
     const rememberDismissal=()=>remember(bridge.state().units.find(u=>u.id===pilotId));
-    form.querySelector('[data-leave]').onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;dialog.close();window.SACombatMap.openMove(pilot);};
+    leave.onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;dialog.close();window.SACombatMap.openMove(pilot);};
     form.querySelector('[data-close]').onclick=()=>{rememberDismissal();dialog.close();};
     form.querySelector('[data-sound]').onclick=()=>{bridge.toggleSound();redraw();};
     hold.onclick=async()=>{if(submitting)return;submitting=true;try{await toggleHold(bridge.state().units.find(u=>u.id===pilotId));}catch(err){error.textContent=err.message;}finally{submitting=false;redraw();}};
@@ -253,6 +266,7 @@
   }
   const previousSeats=new Map();
   const observe=state=>{
+    observeHold(state);
     for(const unit of state.units||[]){
       const key=seatKey(unit),loc=unit.location,seat=loc?.stationed?`${loc.starshipId}:${loc.sicId}:${loc.square}:${loc.mesh}`:null;
       if(previousSeats.has(key)&&previousSeats.get(key)!==seat){
@@ -300,6 +314,6 @@
   document.addEventListener('visibilitychange',restoreView);
   requestAnimationFrame(restoreView);
   const restoreTimer=setInterval(restoreView,500);
-  window.addEventListener('pagehide',()=>{clearInterval(restoreTimer);consoleButton?.remove();},{once:true});
+  window.addEventListener('pagehide',()=>{clearInterval(restoreTimer);consoleButton?.remove();skippedSensorHold.clear();holdIdentity=null;holdGeneration++;},{once:true});
   window.SAShipNavigationUI={toggle,open,sync,observe,toggleHold,mountSelector,remember,openAction};
 }());

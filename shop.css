@@ -51,3 +51,4 @@
 [data-equipment-reference]>summary{padding:12px;color:#80ddff;font-size:1.1rem;cursor:pointer}
 
 .shop-ship-picker{position:sticky;top:0;z-index:12;background:#09151c;padding:8px 10px;border:1px solid #37535a}.shop-power{font-size:14px;color:#bbd5ce}.shop-power strong{color:#e9fff6}
+.resource-hud-visible #playerShopPanel .shop-ship-picker{top:var(--character-hud-height,58px)}

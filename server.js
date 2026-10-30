@@ -35,6 +35,7 @@ const transitPending = room => shipCleanser.pending(room)|| crewRooms.pending(ro
 const transitBoundary = room => Math.min(shipCleanser.nextEvent(room),shipProbes.nextEvent(room),shipSensors.nextEvent(room),shipDrones.nextEvent(room),require('./ship-breach-drones').nextEvent(room),crewRooms.nextEvent(room),shipMissiles.nextEvent(room),...room.starships.flatMap(s=>[s.ship.warpState?.phase==='activating'&&!s.ship.warpState.campaignClock?s.ship.warpState.remaining:Infinity,s.ship.descentState?.phase==='descending'?s.ship.descentState.remaining:Infinity,s.ship.destructState?.phase==='countdown'?s.ship.destructState.remaining:Infinity]));
 
 function transitEvents(room, events) {
+  recordVictoryOpposition(room);
   for(const event of events||[]){
     const ship=room.starships.find(s=>s.id===event.shipId);if(!ship)continue;
     if(event.kind==='warpDeparted'||event.kind==='planetLanded'){
@@ -51,7 +52,8 @@ function transitEvents(room, events) {
         if(room.activeId===unit.id||affectedItem||affectedAction||affectedAttack){releaseSource=room.activeSource;room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);}
       }
       if(releaseSource!==undefined)moveToNextTurnOrClock(room,releaseSource);
-      pushLog(room,event.kind==='planetLanded'?`${ship.title} landed on ${ship.ship.descentState.planetName}. GM: approve ending the encounter when ready.`:`${ship.title} escaped into warp.`,{starshipId:ship.id});
+      const enemyEscape=event.kind==='warpDeparted'&&victoryHostileShip(room,ship);
+      pushLog(room,event.kind==='planetLanded'?`${ship.title} landed on ${ship.ship.descentState.planetName}. GM: approve ending the encounter when ready.`:enemyEscape?`${ship.title}: enemy has escaped into warp`:`${ship.title} escaped into warp.`,{starshipId:ship.id,...(enemyEscape?{enemyWarpEscape:true,shipTitle:ship.title}:{})});
     }else if(event.kind==='needsBlastRoll')pushLog(room,`${ship.title}: awaiting manual ${event.diceCount}D12 self-destruct damage.`,{starshipId:ship.id});
     else if(event.kind==='destructExploded'){
       for(const id of [ship.id,...event.targetIds]){
@@ -140,6 +142,7 @@ function normalizeEncounterStarships(value) {
       impairmentPoints: Math.max(0,Math.min(4,Number(entry?.impairmentPoints)||0)),
       repairDifficulty: Math.max(10,Number(entry?.repairDifficulty)||10),
       bootRemaining: Math.max(0,Number(entry?.bootRemaining)||0),
+      ...(Number.isFinite(entry?.bootDuration)&&entry.bootDuration>0?{bootDuration:entry.bootDuration}:{}),
       unstable: Boolean(entry?.unstable),
       disabled: Boolean(entry?.disabled),
       rotation: [0,90,180,270].includes(Number(entry?.rotation))?Number(entry.rotation):0,
@@ -205,6 +208,8 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     lastTick: Date.now(),
     delayRequest: null,
     hasEngagedClock: false,
+    surfaceVictoryAt: null,
+    victoryOpposition: null,
     threshold: 100,
     starships: [],
     hackingPrivate: {secrets:{},sessions:[],receipts:[]},
@@ -244,6 +249,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.hasEngagedClock = Boolean(snapshot.hasEngagedClock);
     room.combatStartAt = snapshot.combatStartAt;
     room.surfaceVictoryAt = snapshot.surfaceVictoryAt;
+    room.victoryOpposition = clone(snapshot.victoryOpposition || null);
     room.sensorMode = Boolean(snapshot.sensorMode);
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
     room.hackingPrivate = clone(snapshot.hackingPrivate || {secrets:{},sessions:[],receipts:[]});
@@ -290,6 +296,8 @@ async function ensureCampaignRoom(code) {
 
 function scheduleRoomPersist(room, delay = 250) {
   if (!campaignApi || !room?.roomCode || room.recoveryError || roomPreparations.has(room.roomCode)) return;
+  // A replaced room must not cancel the current room's code-keyed save timer.
+  if (rooms.get(room.roomCode) !== room) return;
   clearTimeout(roomPersistTimers.get(room.roomCode));
   roomPersistTimers.set(room.roomCode, setTimeout(async () => {
     if (getRoom(room.roomCode) !== room) return;
@@ -305,6 +313,45 @@ function scheduleRoomPersist(room, delay = 250) {
   }, delay));
 }
 
+// Private encounter history: absent records are never evidence of a kill.
+function victoryHostileShip(room,ship){
+  const friendly=room.starships.filter(s=>s.controlType==='pc');
+  if(ship.controlType==='pc'||ship.ship?.affiliation&&friendly.some(s=>s.ship?.affiliation===ship.ship.affiliation))return false;
+  const crew=room.units.filter(u=>ship.crewNpcUnitIds?.includes(u.id)||ship.crewCharacterIds?.includes(u.characterId)||u.location?.starshipId===ship.id);
+  if(crew.length&&crew.every(u=>u.team==='pc'||u.allyNpc))return false;
+  return ship.controlType==='gm';
+}
+function recordVictoryOpposition(room){
+  if(!room.hasEngagedClock||room.encounterEndedAt)return;
+  const history=room.victoryOpposition ||= {units:{},ships:{}};
+  for(const ship of room.starships){
+    if(!victoryHostileShip(room,ship)&&!history.ships[ship.id])continue;
+    const entry=history.ships[ship.id] ||= {outcome:'present'};
+    if(ship.escapedAt||ship.ship?.warpState?.phase==='traveling')entry.outcome='departed';
+    else if(entry.outcome!=='departed')entry.outcome=ship.destroyedAt||ship.currentHullHp<=0?'destroyed':'present';
+  }
+  for(const unit of room.units){
+    if((unit.team!=='npc'||unit.allyNpc)&&!history.units[unit.id])continue;
+    const entry=history.units[unit.id] ||= {outcome:'present'};
+    const ship=room.starships.find(s=>s.id===unit.location?.starshipId);
+    if(unit.escapedAt||ship?.escapedAt||ship?.ship?.warpState?.phase==='traveling')entry.outcome='departed';
+    else if(entry.outcome!=='departed')entry.outcome=unit.defeatedAt||(unit.currentHp!=null&&Number.isFinite(Number(unit.currentHp))&&Number(unit.currentHp)<=0)?'defeated':'present';
+  }
+}
+function resolveEncounterVictory(room){
+  recordVictoryOpposition(room);
+  if(!room.hasEngagedClock||room.encounterEndedAt||room.surfaceVictoryAt||shipTargets.flights(room).some(m=>['flying','impact'].includes(m.phase)))return;
+  const history=room.victoryOpposition,foes=Object.values(history?.units||{}),ships=Object.values(history?.ships||{});
+  if([...foes,...ships].some(e=>e.outcome==='departed'))return;
+  const alive=room.units.filter(u=>u.team==='pc'&&!u.defeatedAt&&!u.escapedAt&&Number(u.currentHp)>0);
+  if(!alive.length)return;
+  const crewWin=foes.length>0&&foes.every(e=>e.outcome==='defeated');
+  const hullWin=ships.length>0&&ships.every(e=>e.outcome==='destroyed')&&alive.some(u=>room.starships.some(s=>s.id===u.location?.starshipId&&!s.destroyedAt&&!s.escapedAt&&s.currentHullHp>0&&!victoryHostileShip(room,s)));
+  if(!crewWin&&!hullWin)return;
+  room.surfaceVictoryAt=new Date().toISOString();
+  if(hullWin)for(const ship of room.starships)if(!ship.destroyedAt&&!ship.escapedAt&&ship.currentHullHp>0&&!victoryHostileShip(room,ship)&&alive.some(u=>u.location?.starshipId===ship.id))ship.victoryAt=room.surfaceVictoryAt;
+  pushLog(room,'VICTORY: the opposition has been defeated.',{victory:true});
+}
 function publicState(room) {
   require('./combat-arena').updateFog(room);
   for(const message of require('./ship-breaches').reconcile(room,campaignApi?.campaignCache.get(room.roomCode)))pushLog(room,message);
@@ -363,12 +410,7 @@ function publicState(room) {
     }
   }
   if(destroyedActiveSource!==undefined)moveToNextTurnOrClock(room,destroyedActiveSource);
-  if((room.arena||room.starships.length)&&room.hasEngagedClock&&!room.encounterEndedAt){
-    const foes=room.units.filter(u=>u.team==='npc'&&!u.allyNpc);
-    if(foes.length&&foes.every(u=>u.defeatedAt||Number(u.currentHp)<=0)&&room.units.some(u=>u.team==='pc'&&!u.defeatedAt&&Number(u.currentHp)>0)&&!room.surfaceVictoryAt){room.surfaceVictoryAt=new Date().toISOString();pushLog(room,'VICTORY: the opposition has been defeated.',{victory:true});}
-  }
-  const survivors=room.starships.filter(s=>!s.destroyedAt&&!s.escapedAt&&s.currentHullHp>0);
-  if(!shipTargets.flights(room).some(m=>['flying','impact'].includes(m.phase))&&room.starships.length>1&&survivors.length===1&&room.units.some(u=>u.team==='pc'&&u.location?.starshipId===survivors[0].id)&&!survivors[0].victoryAt){survivors[0].victoryAt=new Date().toISOString();pushLog(room,`VICTORY: ${survivors[0].title} is the last surviving ship.`,{starshipId:survivors[0].id,victory:true});}
+  if(room.arena||room.starships.length)resolveEncounterVictory(room);
   recordShipReports(room,()=>shipSensors.refresh(room));
   shipHacking.refresh(room);
   if(require('./ship-surveillance').reconcile(room))scheduleRoomPersist(room,0);
@@ -675,6 +717,11 @@ function syncNpcDefeat(room, unit) {
 async function applyWeaponHitEffects(room,target,state,applied) {
   const attacker=room.units.find(u=>u.id===state.attackerId);if(!attacker)return;
   personalWeapons.afterHit(room,attacker,target,state,applied);
+  if(state.weaponId==='greentip-v-x-101'&&!state.personalEffect&&personalWeapons.greentipPoisonDice(state)===null){
+    const existing=(target.weaponTimers||[]).find(timer=>timer.kind==='poison');
+    pushLog(room,personalWeapons.electronic(target)?`${target.characterName} is immune to Greentip poison.`:
+      `Greentip poison for ${target.characterName} must be calculated and managed manually: no original D4 faces supplied. ${existing?`Existing automatic ${existing.formula} poison timer remains active and unchanged; account for it when managing manual poison.`:'No automatic poison timer was created.'}`);
+  }
   if(state.weaponId==='force-bazooka')for(const secondary of personalWeapons.lineBehind(room,attacker,target,10))await applyDamageToUnit(room,secondary,state.damageSummary.beforeReduction/2,'Force Bazooka backblast',{element:state.plan.element,attackerId:attacker.id,attackType:'ranged'});
 }
 
@@ -968,6 +1015,7 @@ function clearAttackCommand(room) {
   attack.defenderCommandHeldRemaining = null;
 }
 function snapshotRoom(room) {
+  recordVictoryOpposition(room);
   return {
     encounterId:room.encounterId,
     hackingPrivate: clone(room.hackingPrivate || null),
@@ -995,6 +1043,7 @@ function snapshotRoom(room) {
     hasEngagedClock: room.hasEngagedClock,
     combatStartAt: room.combatStartAt,
     surfaceVictoryAt: room.surfaceVictoryAt,
+    victoryOpposition: clone(room.victoryOpposition || null),
     threshold: room.threshold,
     starships: clone(room.starships || []),
     shipDistances: clone(room.shipDistances || []),
@@ -1038,6 +1087,7 @@ function restoreUndoSnapshot(room) {
   room.delayRequest = clone(snapshot.delayRequest);
   room.hasEngagedClock = snapshot.hasEngagedClock;
   room.surfaceVictoryAt = snapshot.surfaceVictoryAt;
+  room.victoryOpposition = clone(snapshot.victoryOpposition || null);
   room.sensorMode = Boolean(snapshot.sensorMode);
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
   room.threshold = snapshot.threshold;
@@ -1129,6 +1179,8 @@ function sendEvent(res, event, data, projections) {
 }
 
 function broadcast(room, clock = false) {
+  // Disconnect callbacks can outlive restore/delete and retain an obsolete room.
+  if (rooms.get(room.roomCode) !== room) return;
   const remaining = 200 - (Date.now() - (room.lastBroadcastAt || 0));
   if (clock && remaining > 0) {
     // Preserve the final update even when readiness stops the clock before
@@ -2229,6 +2281,7 @@ async function handleRoomAction(body, res, automated = false) {
   migrateRoomDelays(room);
 
   const action = body.action;
+  recordVictoryOpposition(room);
   const previousRolls=new Map(room.units.map(u=>[u.id,u.delayedAction?.id]));
   const previousAttack=room.attackResolution?.id,previousItem=room.itemResolution?.id;
   const gmAuthorized = automated || await campaignApi?.verifyGmAccess(room.roomCode, body.gmToken);
@@ -2455,7 +2508,7 @@ async function handleRoomAction(body, res, automated = false) {
     for(const ship of room.starships)if(gravity.has(ship.id)){ship.ship.gravityEnabled=gravity.get(ship.id);const previousShip=previousEnvironment.get(ship.id);ship.ship.oxygenEnabled=previousShip?.oxygenEnabled!==false;ship.ship.oxygenState=clone(previousShip?.oxygenState||null);}
     for(const ship of room.starships)for(const item of ship.ship.sicInventory||[]){
       const old=conditions.get(ship.id)?.get(item.id);
-      if(old)for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable'])if(key in old)item[key]=old[key];
+      if(old)for(const key of ['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','bootDuration','unstable'])if(key in old)item[key]=old[key];
     }
     for(const ship of room.starships)if(previousEnvironment.has(ship.id))require('./ship-state').apply(ship,{ship:previousEnvironment.get(ship.id)},{restoreRuntime:false});
     shipShields.refresh(room);
@@ -3124,6 +3177,10 @@ async function handleRoomAction(body, res, automated = false) {
       sendJson(res, 409, { error: "The defender is no longer in this encounter." });
       return;
     }
+    if(state.weaponId==='greentip-v-x-101'&&!state.followup&&!state.personalEffect&&body.diceResults!==undefined
+      &&(!Array.isArray(body.diceResults)||(body.diceResults.length>0&&personalWeapons.greentipPoisonDice({plan:state.plan,damageRoll:{rolledDamage,diceResults:body.diceResults}})===null))){
+      sendJson(res,400,{error:'Supply the original D4 damage faces matching the damage formula and total, or enter a manual total without faces.'});return;
+    }
     state.damageRoll = {
       rolledDamage,
       mode: String(body.mode || "manual").slice(0, 20),
@@ -3503,6 +3560,7 @@ async function handleRoomAction(body, res, automated = false) {
     room.lastTick = Date.now();
     room.hasEngagedClock = false;
     room.surfaceVictoryAt = null;
+    room.victoryOpposition = null;
     room.encounterEndedAt = null;
     pushLog(room, "Encounter cleared.");
   }
@@ -3786,6 +3844,7 @@ const server = http.createServer(async (req, res) => {
       clearInterval(heartbeat);
       roomClients.delete(res);
       if (liveUnit) setTimeout(() => {
+        if (rooms.get(room.roomCode) !== room) return;
         const currentUnit = room.units.find(entry => entry.id === liveUnit.id);
         if (!currentUnit) return;
         currentUnit.liveConnections = Math.max(0, Number(currentUnit.liveConnections) || 0) - 1;

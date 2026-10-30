@@ -19,6 +19,10 @@ const alive = ship => ship && !ship.destroyedAt && (ship.currentHullHp == null |
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const isAI = unit => Boolean(unit?.isAI || unit?.ai || unit?.shipAI || unit?.type === 'ai' || unit?.classId === 'ai');
 const inWarp = ship => ['activating','traveling'].includes(data(ship).warpState?.phase);
+// escapedAt survives warp arrival/exit, but is also used for planetary landing.
+// Windup alone is not an escape; retain the existing landed-ship damage behavior.
+const escapedIntoWarp = ship => Boolean(ship && (data(ship).warpState?.phase === 'traveling' ||
+  (ship.escapedAt && data(ship).descentState?.phase !== 'landed')));
 const activeDestruct = ship => ['approvals','countdown','blastPending'].includes(data(ship).destructState?.phase);
 const moving = ship => ['powered','drift'].includes(ship.navigation?.phase) || (ship.navigation?.phase !== 'stopped' && Number(ship.navigation?.speed) > 0);
 const installed = (ship, id) => maps.installedItems(ship).find(item => item.id === id);
@@ -141,7 +145,7 @@ function blastPending(room, ship) {
   const state = data(ship).destructState;
   const positions = distances.positions(room.starships || [], room.shipPositions || []), origin = positions.find(p => p.id === ship.id);
   state.phase = 'blastPending'; state.remaining = 0;
-  state.targetIds = (room.starships || []).filter(s => s.id !== ship.id && alive(s) && data(s).warpState?.phase !== 'traveling' &&
+  state.targetIds = (room.starships || []).filter(s => s.id !== ship.id && alive(s) && !escapedIntoWarp(s) &&
     distances.hexDistance(origin, positions.find(p => p.id === s.id)) <= 2 + EPS).map(s => s.id);
   const hull = Number(ship.maximumHullHp ?? data(ship).maximumHullHp ?? new Set(data(ship).gridCells || []).size);
   state.diceCount = Math.floor(Math.max(0, Number.isFinite(hull) ? hull : 0) / 4);
@@ -314,10 +318,13 @@ function resolveBlast(room, shipId, total) {
   if (state?.phase === 'exploded') return { ok:true, duplicate:true, ship, events:[] };
   if (state?.phase !== 'blastPending') return fail('No manual blast roll is pending.');
   if (!Number.isSafeInteger(total) || total < state.diceCount || total > state.diceCount * 12) return fail('Enter a valid total for the pending D12 pool.');
-  for (const id of state.targetIds) if (room.starships.some(s => s.id === id)) shields.damage(room, id, total);
+  for (const id of state.targetIds) {
+    const target = room.starships.find(s => s.id === id);
+    if (target && !escapedIntoWarp(target)) shields.damage(room, id, total);
+  }
   ship.currentHullHp = 0; stop(ship);
   state.phase = 'exploded'; state.report = { phase:'exploded', total, diceCount:state.diceCount, targetIds:[...state.targetIds] };
   return { ok:true, ship, events:[{ kind:'destructExploded', shipId, id:state.id, targetIds:[...state.targetIds], total }] };
 }
 
-module.exports = { PARSEC_LY, ROUND_SECONDS, FUEL_PARSECS, plan, hardware, activationSeconds, command, advance, nextEvent, passTime, resolveBlast };
+module.exports = { PARSEC_LY, ROUND_SECONDS, FUEL_PARSECS, plan, hardware, activationSeconds, command, advance, nextEvent, passTime, resolveBlast, escapedIntoWarp };

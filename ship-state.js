@@ -2,7 +2,7 @@
 const clone=value=>value===undefined?undefined:structuredClone(value);
 const fields=['airlockDocking','boredWalls','descentState','illusionState','securityDroidState','remoteState','triangulatorState','airlocks','airlockStates','breachState','relaySignals','breachDroneState','extractionState','salvagedAt','blackHoleGunState','fabricationState','devastationState','cleanserState','atmosphereState','oxygenState','oxygenEnabled','gravityEnabled','cloakState','gravityFieldState','mapColor','mapHeading','warpState','destructState','warpFuel','minerals','transitReceipts','missileState','missileAmmo','missileStorage','crewRoomState','fieldState','droneState','probeState','surveillanceState','doorStates','doorDamage','transporterState','intruderState'];
 const runtime=['auState','navigation','shieldSystems','auCommands','shieldReceipts','sensorState','weaponState','lockState','destroyedAt','escapedAt','victoryAt','commandSystems','maintenanceReceipts','currentHullHp','currentShieldHp'];
-const condition=['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','unstable','printed','printedFor','salvaged','salvageSource'];
+const condition=['impaired','impairmentPoints','repairDifficulty','disabled','status','bootRemaining','bootDuration','unstable','printed','printedFor','salvaged','salvageSource'];
 function apply(target,source,{restoreRuntime=true}={}){
  if(!target?.ship||!source?.ship)return target;
  for(const key of fields)if(key in source.ship)target.ship[key]=clone(source.ship[key]);

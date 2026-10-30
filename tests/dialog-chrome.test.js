@@ -3,6 +3,7 @@ function fixture(native=false){
  let observer;
  class Element{
   constructor(tag){this.tagName=tag.toUpperCase();this.nodeType=1;this.children=[];this.attributes={};this.className='';this.textContent='';this.disabled=false;this.hidden=false;this.type='button';this.listeners={};this.classList={contains:n=>this.className.split(' ').includes(n),add:n=>{if(!this.classList.contains(n))this.className+=' '+n;},remove:n=>{this.className=this.className.split(' ').filter(x=>x!==n).join(' ');}};}
+  get isConnected(){return this.tagName==='HTML'||Boolean(this.parentElement?.isConnected);}
   setAttribute(k,v){this.attributes[k]=String(v);}getAttribute(k){return this.attributes[k]??null;}hasAttribute(k){return k in this.attributes;}removeAttribute(k){delete this.attributes[k];}
   set tabIndex(v){this.setAttribute('tabindex',v);}get tabIndex(){return Number(this.getAttribute('tabindex')||0);}
   matches(s){if(s.includes(','))return s.split(',').some(x=>this.matches(x));if(s==='[hidden]')return this.hidden;if(s==='[role="dialog"][aria-modal="true"]')return this.attributes.role==='dialog';return this.tagName===s.toUpperCase();}
@@ -18,7 +19,7 @@ function fixture(native=false){
  const button=(text,attrs={})=>{const b=new Element('button');b.textContent=text;Object.assign(b,attrs);dialog.append(b);return b;};
  const window={dispatchEvent(){}};
  const run=()=>vm.runInNewContext(fs.readFileSync(require.resolve('../dialog-chrome.js'),'utf8'),{window,document:{documentElement:root,createElement:t=>new Element(t),querySelectorAll:s=>root.querySelectorAll(s)},Event,CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}},MutationObserver:class{constructor(fn){observer=fn;}observe(){}}});
- const flush=()=>observer([{type:'childList',target:dialog,addedNodes:[]}]);
+ const flush=(target=dialog)=>observer([{type:'childList',target,addedNodes:[]}]);
  const x=()=>dialog.querySelectorAll('button').find(b=>b.classList.contains('dialog-circle-close'));
  return {Element,root,dialog,button,run,flush,x,window};
 }
@@ -116,4 +117,44 @@ test('all reviewed backdrop layouts anchor the X to the panel rather than the di
  for(const name of ['combat-map-panel','delay-dialog-panel','queued-effect-panel','backup-conflict-dialog']){
   const e=fixture(),panel=new e.Element('div');panel.className=name;e.dialog.append(panel);panel.append(e.button('Cancel'));e.run();assert.equal(e.x().parentElement.parentElement,panel,name);
  }
+});
+
+test('removed dialog restores its shared dismissal before it returns to the page',()=>{
+ const e=fixture(true),b=e.button('Exit Console');b.setAttribute('tabindex','4');b.setAttribute('aria-hidden','false');e.run();
+ e.dialog.remove();e.root.append(b);b.textContent='Console View';e.flush();
+ assert.equal(b.classList.contains('dialog-original-dismiss'),false);assert.equal(b.getAttribute('tabindex'),'4');assert.equal(b.getAttribute('aria-hidden'),'false');
+ for(let i=0;i<3;i++){e.root.append(e.dialog);e.dialog.append(b);b.textContent='Exit Console';e.flush();assert.ok(b.classList.contains('dialog-original-dismiss'));e.root.append(b);b.textContent='Console View';e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false);assert.equal(b.tabIndex,4);}
+});
+
+test('mounted weapon Console retains its actual bottom Exit while nested required dialogs remain guarded',()=>{
+ const e=fixture(true);e.dialog.className='weapon-console';e.dialog.setAttribute('data-console-owner','1');let closes=0;
+ const exit=e.button('Exit Console',{onclick:()=>closes++});exit.setAttribute('data-console-view','');e.run();
+ assert.equal(exit.classList.contains('dialog-original-dismiss'),false);assert.equal(exit.getAttribute('aria-hidden'),null);exit.click();assert.equal(closes,1);
+ e.x().click();assert.equal(closes,2,'existing X still delegates to same close operation');
+ const f=fixture(true);f.dialog.setAttribute('data-required-roll','');f.button('Confirm and Submit');f.run();assert.equal(f.x().disabled,true);
+});
+test('ownership transfer to nested dialog does not snapshot another owners hiding',()=>{
+ const e=fixture(true),b=e.button('Close');e.run();const nested=new e.Element('dialog');e.dialog.append(nested);nested.append(b);e.flush(nested);assert.ok(b.classList.contains('dialog-original-dismiss'));
+ nested.remove();e.root.append(b);e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false);assert.equal(b.getAttribute('aria-hidden'),null);assert.equal(b.getAttribute('tabindex'),null);
+});
+
+test('Bridge, Life Support and Warp retain owned Exit across mounting and ownership transfers',()=>{
+ for(const family of ['ship-navigation-dialog','utility-console lock-console','utility-console lock-console transit-console']){
+  const e=fixture(true);e.dialog.className=family;let closes=0;const b=e.button('Exit Console',{onclick:()=>closes++});b.setAttribute('data-console-view','');b.setAttribute('tabindex','3');
+  e.run();assert.ok(b.classList.contains('dialog-original-dismiss'),'unmounted dismissal initially managed');
+  e.dialog.setAttribute('data-console-owner','test');e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false,family);assert.equal(b.getAttribute('tabindex'),'3');assert.equal(b.getAttribute('aria-hidden'),null);
+  for(let i=0;i<3;i++){b.click();e.root.append(b);e.flush();e.dialog.append(b);e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false);}
+  assert.equal(closes,3);e.x().click();assert.equal(closes,4);
+ }
+});
+
+test('outer Console exception does not apply to planners, nested prompts, catalog or required rolls',()=>{
+ for(const [family,attribute]of [['ship-navigation-dialog navigation-planner',null],['sensor-console combat-order-dialog',null],['utility-console','data-catalog-snapshot'],['utility-console','data-required-roll']]){
+  const e=fixture(true);e.dialog.className=family;e.dialog.setAttribute('data-console-owner','test');if(attribute)e.dialog.setAttribute(attribute,'');const b=e.button('Exit Console');b.setAttribute('data-console-view','');e.run();assert.ok(b.classList.contains('dialog-original-dismiss'),family+' '+attribute);if(attribute==='data-required-roll')assert.equal(e.x().disabled,true);
+ }
+});
+test('cleanup preserves preexisting visibility, inert, styles and later owner attributes',()=>{
+ const e=fixture(true),b=e.button('Close',{hidden:true});b.classList.add('dialog-original-dismiss');b.setAttribute('inert','');b.setAttribute('style','display:none');b.setAttribute('aria-hidden','true');b.setAttribute('tabindex','7');e.run();e.dialog.remove();e.flush();
+ assert.equal(b.hidden,true);assert.ok(b.classList.contains('dialog-original-dismiss'));assert.equal(b.getAttribute('inert'),'');assert.equal(b.getAttribute('style'),'display:none');assert.equal(b.getAttribute('aria-hidden'),'true');assert.equal(b.getAttribute('tabindex'),'7');
+ const f=fixture(true),c=f.button('Close');f.run();c.setAttribute('aria-hidden','false');c.setAttribute('tabindex','2');f.root.append(c);f.flush();assert.equal(c.getAttribute('aria-hidden'),'false');assert.equal(c.tabIndex,2);
 });

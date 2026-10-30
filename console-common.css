@@ -1,3 +1,160 @@
+/* Phazon/Mine/Disruptor only: bottom-left timeline, full-height target map. */
+@media(min-width:901px){
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-plot{grid-row:2/4!important}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--weapon-ring-width:140px}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--weapon-ring-width:160px}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--weapon-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Phazon/Mine/Disruptor ring layout. */
+/* Rail/Devastation only: bottom-left timeline, full-height target map. */
+@media(min-width:901px){
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-plot{grid-row:2/4!important}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--weapon-ring-width:140px}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--weapon-ring-width:160px}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--weapon-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.weapon-console:is([data-weapon-family="ballistic-rail-cannon"],[data-weapon-family="ballistic-rail-repeater"],[data-weapon-family="devastation-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Rail/Devastation ring layout. */
+/* Ripple/Ion/Missile only: bottom-left timeline, full-height target map. */
+@media(min-width:901px){
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-plot{grid-row:2/4!important}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--weapon-ring-width:140px}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--weapon-ring-width:160px}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--weapon-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.weapon-console:is([data-weapon-family="ripple-cannon"],[data-weapon-family="ion-pulse-cannon"],[data-weapon-family="missile-launcher"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Ripple/Ion/Missile ring layout. */
+/* Beam/Rapid only: bottom-left timeline, full-height target map. */
+@media(min-width:901px){
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-plot{grid-row:2/4!important}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--weapon-ring-width:140px}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--weapon-ring-width:160px}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--weapon-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Beam/Rapid ring layout. */
+
+/* Hacking only: bottom-left timeline, full-height Password board. */
+@media(min-width:901px){
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .hacking-board{grid-row:2/4!important}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--hacking-ring-width:140px}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--hacking-ring-width:160px}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--hacking-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.hacking-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Hacking ring layout. */
+
+/* Shields only: bottom-left timeline, expanded existing Field Integrity. */
+@media(min-width:901px){
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-field{grid-row:2/4!important}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline>h3{margin:0;line-height:15px}
+
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--shield-ring-width:140px}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--shield-ring-width:160px}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .ring-stage{width:min(var(--shield-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Shields ring layout. */
+
+/* Lock-On only: bottom-left timeline, full-height central target map. */
+@media(min-width:901px){
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .lock-chart{grid-row:2/4!important}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>h3{margin:0;line-height:15px}
+
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline{grid-column:1!important;grid-row:3!important;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;padding:8px!important;align-items:stretch;overflow:visible!important}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings{container-type:size;display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--lock-ring-width:140px}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;border:0;background:transparent;box-shadow:none;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--lock-ring-width:160px}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(var(--lock-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>p{margin:0}
+}
+
+/* End Lock-On ring layout. */
 .console-swipe{position:absolute;top:42%;width:30px;height:88px;z-index:8;padding:0!important;border:1px solid #85d7dd;background:#14353cdd;color:#fff;font-size:34px!important;cursor:pointer;box-shadow:0 0 12px #66e8ff44}
 .console-swipe.previous{left:2px}.console-swipe.next{right:2px}.console-swipe:disabled{opacity:.3;cursor:wait}
 .console-defense{display:block;color:#ffde6a;font-size:18px;line-height:1.2;margin-top:3px;text-shadow:0 0 8px #eab84c55}
@@ -18,6 +175,8 @@ dialog.combat-order-dialog button{min-height:38px}
 dialog.combat-order-dialog [data-close]{background:#22383f!important;color:#fff!important}
 dialog.combat-order-dialog .pilot-chart{clip-path:none!important}
 .lock-action-row{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:6px;align-items:center;margin-bottom:8px}
+/* Fit only the live Lock-On inline map; enlarged maps retain their own sizing. */
+dialog.lock-console.shared-console-layout:not(.combat-order-dialog) .lock-scope .space-map svg{height:100%;min-height:0;max-height:100%}
 .shared-console-layout .lock-chart{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;gap:8px}.lock-chart .lock-scope{height:auto;min-height:0;overflow:hidden}.lock-scope img{position:absolute;inset:0}.lock-mode-tabs{display:flex;gap:4px;margin-bottom:12px}.lock-mode-tabs button{flex:1;padding:8px 3px!important}.lock-mode-tabs [aria-selected=true]{background:#b99a39!important;color:#080e13!important;text-shadow:none!important}.lock-mode-page>button,.lock-mode-page>select{width:100%;margin-bottom:8px}.lock-mode-page[hidden]{display:none!important}
 .lock-console{border:0;box-sizing:border-box;color:#e5f5f5;background:#080f14 url('pilot-console-art-web.webp') center/cover;font:14px Arial}.lock-console select,.lock-console button{background:#15353b;color:#fff;border:1px solid #75b5bd;border-radius:4px;padding:9px;font-weight:bold}.lock-console label{display:grid;gap:5px;margin-bottom:10px}.lock-console button:disabled{opacity:.4}.lock-controls p{font-size:12px;line-height:1.4}.lock-controls>button{width:100%}.lock-console progress{width:100%;accent-color:#edc568}.lock-scope{position:relative;height:70%;min-height:150px;display:grid;place-items:center}.lock-scope img{height:100%;width:100%;object-fit:contain}.lock-reticle{position:absolute;inset:20% 30%;border:3px dashed #ffcf65;border-radius:50%;box-shadow:0 0 20px #ffc34d66}.lock-console[data-acquiring=true] .lock-reticle{animation:lock-acquire 1.2s infinite}.lock-console[data-locked=true] .lock-reticle{border:3px solid #65ffc6;box-shadow:0 0 25px #56ffa466}.lock-console .success{color:#7dffb7}.lock-console .failure{color:#ff647b}@keyframes lock-acquire{50%{transform:rotate(90deg) scale(.7)}}
 .shared-console-layout{display:grid!important;grid-template-columns:minmax(150px,.8fr) minmax(300px,2.3fr) minmax(235px,1.15fr)!important;grid-template-rows:72px minmax(240px,1fr) 210px 55px!important;gap:12px!important;padding:16px 40px!important;height:100dvh!important;width:100vw!important;max-width:none!important;max-height:none!important;inset:0!important;margin:0!important;background-size:100% 100%;align-content:stretch}
@@ -111,6 +270,11 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
 .shared-console-layout .shared-power>*{flex-shrink:0}
 .shared-console-layout .shared-power .console-service-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;padding:6px!important;gap:5px}
 .console-service-panel button{min-width:0;min-height:34px;padding:7px 3px}
+.console-service-panel .console-restoration{grid-column:1/-1;flex-basis:100%;min-width:0;font:12px/1.35 Arial;color:#e0ffee;overflow-wrap:anywhere}
+.console-restoration[hidden]{display:none}
+.console-restoration progress{display:block;width:100%;height:10px;margin:4px 0;accent-color:#8cebb7}
+.console-restoration-notice:empty{display:none}
+.console-service-panel button[aria-disabled=true]{background:#253239;opacity:.6;color:#bac5c8;cursor:help}
 .shared-console-layout .shared-power [data-common-fleet]{max-height:24vh}
 
 [data-common-mounted] [data-close][hidden]{display:none!important}.catalog-console-exit{position:fixed;bottom:0;left:50%;translate:-50% 0;transform:none;transition:none;animation:none;width:300px;height:64px;border:0;background:linear-gradient(#ffaaa2,#da4545 55%,#8c1e27);color:white;font:900 20px Arial;clip-path:polygon(0 100%,13% 12%,17% 0,83% 0,87% 12%,100% 100%)}
@@ -118,3 +282,125 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
 /* Named console grid rows stay intact; reserve header space for the shared X. */
 .shared-console-layout.has-close-chrome>.dialog-close-rail{position:absolute;top:12px;right:12px;width:38px}
 .shared-console-layout.has-close-chrome>header{padding-right:48px!important}
+
+/* Sensors desktop side panels: retain one accessible scroll owner per panel.
+   Other Console families retain their authored layout. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power{gap:6px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power h3{margin:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power p{margin:6px 0;gap:4px;padding-bottom:6px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power [data-common-fleet]{max-height:none;overflow:visible;scrollbar-gutter:auto}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls{gap:6px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls h3,
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-error]{margin:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .pilot-rings{height:auto!important;min-height:150px;align-items:flex-start}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-group{padding:0!important;overflow:visible}
+}
+
+/* Sensors shell refinement: only difficulty typography changes size. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus){grid-template-rows:64px minmax(240px,1fr) 180px 55px!important;gap:8px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)>header{min-height:0;padding:4px 10px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)>header>div:first-child{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center;min-width:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)>header>div:first-child>small{grid-column:1/-1}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)>header h2{margin:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .console-defense{margin:0;white-space:nowrap}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) [data-selector]{flex:0 0 auto;flex-wrap:nowrap;max-width:none}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .station-console-select{min-width:0;width:220px;min-height:36px!important;padding:5px 28px 5px 8px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:max-content;grid-template-rows:max-content max-content minmax(0,1fr) max-content max-content max-content max-content minmax(0,1fr) max-content;align-content:start;gap:1px;padding:4px!important;line-height:1.25}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>*{grid-column:1/-1}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>h3:nth-of-type(2){grid-column:1;align-self:center}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-au]{grid-column:2;grid-row:3;white-space:nowrap}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power p{margin:0;gap:1px;padding-bottom:2px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-au-cells{height:24px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .console-service-panel{padding:2px!important;gap:2px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .console-service-panel button{min-height:28px;padding:4px 3px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline{padding:8px!important;display:flex;align-items:flex-end}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .pilot-rings{width:100%;grid-template-columns:minmax(0,1fr)}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-group{border:0;background:transparent;box-shadow:none}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-controls{grid-row:2/4!important;align-self:start;height:min(410px,calc(100% - 88px))!important;gap:1px;padding:4px!important;line-height:1.25}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) [data-difficulty]{font-size:14px!important;line-height:1.2}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls .sensor-action-row{grid-template-columns:minmax(0,1fr) minmax(max-content,calc((100% - 34px)*.67)) minmax(0,1fr);column-gap:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls .sensor-action-row>[data-order]{grid-column:2}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls .sensor-action-row>[data-action-help]{grid-column:3;justify-self:start!important;margin-left:6px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls button{min-height:28px;padding:4px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls select{padding:4px;min-height:28px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls label{gap:2px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-share-recipients{padding:3px 6px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .conditional-order-controls{padding:3px 0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls>div:has(>[data-view-snapshot]){display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,110px);gap:4px;align-items:end}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-reports{grid-row:2/4!important;align-self:end;height:max(80px,calc(100% - 418px))!important;padding:8px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-reports h3{margin:0 0 4px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-reports article{padding:2px 0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-reports article p{margin:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .conditional-order-controls>summary{padding-top:0;padding-bottom:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-seat{background:transparent;border:0;box-shadow:none;padding:0}
+}
+
+/* Offline Sensors warning occupies the unavailable chart, not an implicit footer row. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).is-powered-off>section.console-compromised{position:relative!important;inset:auto!important;grid-column:2!important;grid-row:2!important;align-self:start;margin:64px 12px 0;height:auto!important;max-height:none;padding:12px!important}
+}
+
+/* Keep related Fleet readouts together; spare height belongs between groups. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>h3:first-child{grid-row:1}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-fleet]{grid-row:2}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>h3:nth-of-type(2){grid-row:4}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-au]{grid-row:4}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>.shared-au-cells{grid-row:5}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-recharge]{grid-row:6}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-power-note]{grid-row:7}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>.console-service-panel{grid-row:9}
+}
+/* Reserve selection space only when the actual Console viewport has room for Reports. */
+@media(min-width:901px) and (min-height:704px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-controls{height:472px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-reports{height:calc(100% - 480px)!important;padding:4px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-scan-planner]{display:flex!important;box-sizing:border-box;height:80px;min-height:80px;align-content:start;background:#f3ce58;border-color:#ffe38a;color:#1d210b}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-scan-planner][hidden]{visibility:hidden;pointer-events:none}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-scan-hint]{color:#1d210b}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-scan-planner] button{background:#263b3e;color:#fff;border-color:#172a2d}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-confirm-scan]:disabled{opacity:1;background:#e2d7a3;color:#50513e;border-color:#77764f}
+}
+@media(min-width:1900px) and (min-height:704px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-controls{height:457px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-reports{height:calc(100% - 465px)!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console):not(.map-focus) .sensor-controls [data-scan-planner]{height:65px;min-height:65px}
+}
+
+/* Enlarged Sensors uses its own three-row layout, never the normal ring row. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus{grid-template-rows:64px minmax(0,1fr) 72px!important;gap:8px!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus .sensor-controls{grid-row:2!important;align-self:stretch;height:100%!important;gap:1px;padding:4px!important;line-height:1.25}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus .shared-seat{grid-row:3!important;align-self:start;height:72px;align-items:flex-start}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus.is-powered-off>section.console-compromised{grid-column:1!important}
+}
+
+/* Sensors approved control placement; normal map geometry and other families stay intact. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-seat{justify-content:center}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-seat [data-hold]:not(.resume-ready){background:linear-gradient(165deg,#c07a80 0%,#a84550 22%,#85323d 65%,#722934 100%)!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus .sensor-chart>h3{position:relative}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus .sensor-chart>h3>[data-map-focus]{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:34px;min-height:34px;padding:6px 10px;font:700 12px Arial;background:#216b40;border:1px solid #7ee6a1;color:#fff;white-space:nowrap}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-controls [data-confirm-scan]:not(:disabled){background:#216b40;border-color:#7ee6a1;color:#fff}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-seat [data-hold]:focus-visible{outline:2px solid #fff;outline-offset:-4px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console).map-focus [data-map-focus]:focus-visible{outline:2px solid #fff;outline-offset:2px}
+}
+
+/* Sensors ring geometry only: canonical SVG labels and 328:390 proportions. */
+@media(min-width:901px){
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline{container-type:size;align-items:stretch;overflow:visible!important}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline>.pilot-rings{display:flex!important;flex-wrap:nowrap;gap:8px;align-items:flex-start;justify-content:flex-start;width:100%;height:100%!important;min-height:0!important;overflow:visible;scrollbar-gutter:auto;--sensor-ring-width:140px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline>.pilot-rings:has(>.tactical-ring-group:nth-child(3)){overflow:auto}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline>.pilot-rings>.tactical-ring-group{flex:0 0 calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);min-width:0;padding:0!important;box-sizing:border-box;overflow:visible!important;display:grid!important;grid-template-rows:26px minmax(0,1fr);height:calc(100cqh - 18px)!important;min-height:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline>.pilot-rings>.tactical-ring-group:only-child{flex-basis:100%;max-width:100%;height:100%!important;--sensor-ring-width:160px}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-group>h3{font:11px/13px Arial!important;height:26px;min-height:26px;max-height:26px;margin:0;padding:0;overflow-wrap:anywhere;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-view{padding:0;border:0;background:transparent;overflow:visible;min-height:0;height:100%;width:100%;container-type:size}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .ring-stage{width:min(var(--sensor-ring-width),calc(100cqw - 8px),calc((100cqh - 2px)*.84102564));height:auto!important;aspect-ratio:328/390;min-height:0!important;margin:0 auto}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .ring-stage::before{height:60%;top:13%}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .ring-stage::after{height:54%;top:27%}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none;max-height:none;aspect-ratio:328/390}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-group>p{margin:0}
+}

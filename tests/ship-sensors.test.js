@@ -8,6 +8,57 @@ function fixture(tier=3){
   const room={showcase:true,activeId:'u',starships:[a,b],units:[unit,{id:'enemy',characterName:'Secret Crew',location:{starshipId:'b'}}],shipPositions:[{id:'a',q:0,r:0},{id:'b',q:10,r:0}],log:[],threshold:100};
   return {room,a,b,unit};
 }
+for(const kind of ['area','hex'])for(const manual of [false,true])for(const beforeQueue of [false,true])test(`${kind} ${manual?'manual':'automatic'} excludes warp departure ${beforeQueue?'before queue':'during input'}`,()=>{
+ const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;
+ const eligible=structuredClone(b);eligible.id='eligible';eligible.title='Surviving contact';room.starships.push(eligible);room.shipPositions.push({id:eligible.id,q:10,r:0});
+ const historical={text:'Previous report',analysis:true,targetId:b.id,layout:{sicInventory:[]}};sensors.report(a,historical);
+ const leave=()=>{b.escapedAt='warp-completed';b.ship.warpState={phase:'arrived'};};if(beforeQueue)leave();
+ for(let pass=0;pass<2;pass++){
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind,hex:{q:10,r:0},requestId:`depart-${kind}-${manual}-${pass}`}).ok,true);
+  if(!beforeQueue)leave();
+  assert.deepEqual(sensors.automaticScan(room,unit,unit.delayedAction.sensorOrder).map(s=>s.id),['eligible']);
+  assert.ok(!sensors.scanChecks(room,unit.delayedAction.sensorOrder).some(c=>c.targetId===b.id));
+  const roll=()=>{if(!manual)throw Error('guaranteed scan should not roll');return 6;};if(manual)roll.submittedScore=100;
+  sensors.resolveInput(room,unit,roll);assert.match(a.sensorState.reports[0].text,/1 contact detected/);
+  assert.equal(a.sensorState.contacts[b.id],undefined);assert.equal(a.sensorState.contacts.eligible.level,'detected');
+  sensors.advance(room,3);sensors.refresh(room);assert.equal(a.sensorState.contacts[b.id],undefined);
+  assert.ok(!sensors.view(room,a.id).starships.some(s=>s.id===b.id));assert.ok(a.sensorState.reports.some(r=>r.text==='Previous report'));assert.ok(sensors.analysis(a,b.id));
+ }
+});
+for(const kind of ['life','lifeArea'])test(`${kind} excludes departed crew and does not update their life-scan knowledge`,()=>{
+ const {room,a,b,unit}=fixture();room.shipPositions[1].q=2;b.escapedAt='warp';b.ship.warpState={phase:'traveling'};
+ const eligible=structuredClone(b);eligible.id='eligible';delete eligible.escapedAt;delete eligible.ship.warpState;room.starships.push(eligible);room.shipPositions.push({id:eligible.id,q:2,r:0});room.units.push({id:'survivor',location:{starshipId:'eligible'}});
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind,hex:{q:2,r:0},requestId:'life-departure-'+kind}).ok,true);sensors.resolveInput(room,unit,()=>6);
+ assert.equal(a.sensorState.reports[0].count,1);assert.equal(a.sensorState.lifeScans[b.id],undefined);assert.ok(a.sensorState.lifeScans.eligible);
+});
+test('wrecks remain eligible while a queued Analysis cannot snapshot a departed ship',()=>{
+ const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;sensors.refresh(room);
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:b.id,requestId:'analysis-departure'}).ok,true);sensors.resolveInput(room,unit,()=>6);
+ const effect=unit.queuedEffects[0];assert.ok(effect);b.escapedAt='warp';b.ship.warpState={phase:'traveling'};sensors.resolveReport(room,unit,effect);
+ assert.equal(unit.queuedEffects.length,0);assert.equal(sensors.analysis(a,b.id),null);assert.match(a.sensorState.reports[0].text,/Contact lost/);
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:b.id,requestId:'analysis-after-departure'}).ok,false);
+ delete b.escapedAt;delete b.ship.warpState;b.currentHullHp=0;b.destroyedAt='wreck';
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'wreck-still-visible'}).ok,true);sensors.resolveInput(room,unit,()=>6);
+ assert.equal(a.sensorState.contacts[b.id].level,'detected');
+});
+test('traveling-state eligibility and an observer departing during input cannot disclose new contacts',()=>{
+ const {room,a,b,unit}=fixture();b.sensorScenarioMasking=1;
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'observer-before-warp'}).ok,true);
+ b.ship.warpState={phase:'traveling'};
+ assert.deepEqual(sensors.automaticScan(room,unit,unit.delayedAction.sensorOrder),[]);assert.deepEqual(sensors.scanChecks(room,unit.delayedAction.sensorOrder),[]);
+ a.escapedAt='completed';sensors.resolveInput(room,unit,()=>{throw Error('departed observer must not roll');});
+ assert.equal(a.sensorState.contacts[b.id],undefined);assert.match(a.sensorState.reports[0].text,/interrupted/);
+ assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'observer-after-warp'}).ok,false);
+});
+test('sensor range presentation receives enemy equipment only from completed Analysis snapshots',()=>{
+ const {room,a,b,unit}=fixture(3);b.sensorScenarioMasking=1;sensors.refresh(room);
+ const projected=()=>sensors.view(room,a.id).starships.find(s=>s.id===b.id);
+ let target=projected();assert.equal(target.contactLevel,'detected');assert.ok(Number.isFinite(target.defenseScore));assert.equal(target.analyzedContact,false);assert.equal(maps.sensorStats(target).range,0);assert.deepEqual(target.ship.sicInventory,[]);
+ sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:b.id,requestId:'range-privacy'});sensors.resolveInput(room,unit,()=>6);assert.equal(projected().analyzedContact,false,'pending report is not completed Analysis');sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+ assert.equal(projected().analyzedContact,true);assert.equal(maps.sensorStats(projected()).range,12);
+ b.ship.sicInventory.find(i=>i.id==='sn').type='sensors-9';sensors.refresh(room);assert.equal(maps.sensorStats(b).range,24);assert.equal(maps.sensorStats(projected()).range,12,'hidden upgrade cannot change known range');
+ a.sensorState.contacts[b.id].level='last-known';assert.equal(projected().analyzedContact,false);assert.equal(maps.sensorStats(projected()).range,0);
+});
 test('all nine sensor tiers retain source dimensions and corrected impaired ranges',()=>{
   const ranges=[4,6,8,10,12,15,16,18,20];
   for(let i=1;i<=9;i++){const d=maps.definition(`sensors-${i}`);assert.equal(d.range,6+i*2);assert.equal(d.impairedRange,ranges[i-1]);assert.equal(d.stations.length,1);assert.equal(d.width,i<5?1:2);assert.equal(d.height,i<8?1:2);}

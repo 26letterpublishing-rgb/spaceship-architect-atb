@@ -98,6 +98,16 @@ function knockback(room,attacker,target,units) {
   }
   target.location=g.location(last);return false;
 }
+// null means no validated original damage faces; a total is not evidence of fours.
+function greentipPoisonDice(attack) {
+  const faces=attack.damageRoll?.diceResults;
+  const formula=String(attack.plan?.damageFormula||'').replace(/\s/g,'');
+  if(!Array.isArray(faces)||!faces.length||!/^\d+D4(?:\+\d+D4)*$/i.test(formula))return null;
+  const count=[...formula.matchAll(/(\d+)D4/gi)].reduce((sum,m)=>sum+Number(m[1]),0);
+  if(faces.length!==count||faces.some(face=>!Number.isInteger(face)||face<1||face>4)
+    ||faces.reduce((sum,face)=>sum+face,0)!==attack.damageRoll.rolledDamage)return null;
+  return faces.filter(face=>face===4).length;
+}
 function afterHit(room,attacker,target,attack,applied) {
   const id=attack.weaponId,charges=attack.chargeCount||0;
   target.statuses ||= {};
@@ -112,9 +122,9 @@ function afterHit(room,attacker,target,attack,applied) {
     if(attacker.raceId==='butchers-of-hellmouth'&&attacker.burning)ignite(target,attacker.burning.intensity);
     if(id==='unarmed'&&attacker.raceId==='yuhorn-symitron'&&attacker.raceType==='lava')ignite(target,attacker.willpowerDice?.length||1);
   }
-  const poisonBase=Number(attack.damageSummary?.rolled??applied);
-  if(id==='greentip-v-x-101'&&!electronic(target)&&poisonBase>=4) {
-    const dice=Math.floor(poisonBase/4),old=(target.weaponTimers||[]).find(t=>t.kind==='poison');
+  const dice=id==='greentip-v-x-101'?greentipPoisonDice(attack):null;
+  if(id==='greentip-v-x-101'&&!electronic(target)&&dice>0) {
+    const old=(target.weaponTimers||[]).find(t=>t.kind==='poison');
     if(!old||(old.dice||0)<dice){target.weaponTimers=(target.weaponTimers||[]).filter(t=>t.kind!=='poison');target.weaponTimers.push({kind:'poison',name:'Greentip poison',formula:`${dice}D8`,dice,element:'Poison',remaining:6,interval:6,duration:3600,ignoreDamageReduction:true,bypassSuit:true});}
   }
   if(id==='dark-matter-launcher'&&applied>=10)(target.weaponTimers||=[]).push({name:'Dark Matter delayed damage',formula:`${2*Math.floor(applied/10)}D8`,element:'Dark Matter',remaining:6,ignoreDamageReduction:true,bypassSuit:true});
@@ -142,4 +152,4 @@ function wallsNear(room,target,radius=6) {
   }
   return 2+blocked+edges.size;
 }
-module.exports={queue,ignite,extinguish,nextEvent,advance,damage,lineBehind,knockback,afterHit,blastTargets,electronic,explosive,wallsNear};
+module.exports={queue,ignite,extinguish,nextEvent,advance,damage,lineBehind,knockback,afterHit,greentipPoisonDice,blastTargets,electronic,explosive,wallsNear};

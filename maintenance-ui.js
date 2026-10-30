@@ -12,7 +12,7 @@
     const details=doc.createElement('p');details.textContent=`Repair takes 9 combat seconds. Roll Intellect + the SIC's associated skill against ${Math.max(10,Number(item.repairDifficulty)||10)}. Power Off and Restart can be remote. Repair and Power On require this SIC’s station. Reboot requires registered crew access.`;
     const error=doc.createElement('p');error.setAttribute('role','alert');
     view.append(heading,details);
-    if(isBridge){const selector=doc.createElement('select');selector.setAttribute('aria-label','System power target');for(const entry of window.SAShipMap.installedItems(ship)){const option=doc.createElement('option');option.value=entry.id;option.textContent=window.SAShipMap.definition(entry.type).name;selector.append(option);}selector.value=item.id;selector.onchange=()=>{item=ship.ship.sicInventory.find(i=>i.id===selector.value);heading.textContent=window.SAShipMap.definition(item.type).name;view.querySelectorAll('[data-maintenance-kind]').forEach(b=>b.disabled=unavailable(b.dataset.maintenanceKind));};view.append(selector);}
+    if(isBridge){const selector=doc.createElement('select');selector.setAttribute('aria-label','System power target');for(const entry of window.SAShipMap.installedItems(ship)){const option=doc.createElement('option');option.value=entry.id;option.textContent=window.SAShipMap.definition(entry.type).name;selector.append(option);}selector.value=item.id;selector.onchange=()=>{item=ship.ship.sicInventory.find(i=>i.id===selector.value);heading.textContent=window.SAShipMap.definition(item.type).name;refresh();};view.append(selector);}
     let busy=false;
     const unavailable=kind=>{
       const current=bridge.state(),person=current.units.find(u=>u.id===unit.id),live=current.starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id);
@@ -25,11 +25,15 @@
       const button=doc.createElement('button');button.type='button';button.textContent=label;button.style.cssText='display:block;width:100%;margin:8px 0;padding:10px;background:#123c48;color:#e8faff;border:1px solid #67a8b7';
       button.dataset.maintenanceKind=kind;button.hidden=!!initialKind&&initialKind!==kind;button.disabled=unavailable(kind);
       button.onclick=async()=>{
-        if(busy||!bridge.confirmGmPlayerAction(unit,kind))return;
+        if(busy)return;
+        const live=bridge.state().starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id),progress=window.SAConsoleCommon.restoration(live);
+        if(progress&&['on','restart'].includes(kind)){error.textContent=progress.message;return;}
+        if(unavailable(kind)){error.textContent='This operation is not currently available.';refresh();return;}
+        if(!bridge.confirmGmPlayerAction(bridge.state().units.find(u=>u.id===unit.id),kind))return;
         if(kind==='off'&&!doc.defaultView.confirm('Power off this SIC? Its functions will become unavailable immediately.'))return;
         busy=true;view.querySelectorAll('button').forEach(b=>b.disabled=true);
         try{await bridge.action({action:'shipMaintenance',id:unit.id,sicId:item.id,kind,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});view.close();}
-        catch(e){error.textContent=e.message;busy=false;view.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.maintenanceKind?unavailable(b.dataset.maintenanceKind):false);}
+        catch(e){error.textContent=e.message;busy=false;close.disabled=false;refresh();}
       };view.append(button);
     }
     const counter=doc.createElement('button');counter.type='button';counter.textContent='Counter-hack (1D6)';counter.dataset.maintenanceKind='counter';counter.hidden=!!initialKind;
@@ -42,8 +46,12 @@
     };view.append(counter);
     const close=doc.createElement('button');close.type='button';close.textContent='Back';close.onclick=()=>view.close();view.append(error,close);
     close.style.cssText='padding:10px 22px;background:#173641;color:#fff;border:1px solid #71b7cc;border-radius:4px;font-weight:bold';
-    const status=doc.createElement('p');status.setAttribute('role','status');view.insertBefore(status,error);
-    const timer=setInterval(()=>{const live=bridge.state().starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id);status.textContent=live?.bootRemaining>0?`Restarting: ${Math.ceil(live.bootRemaining)} combat seconds remaining`:window.SAStationAccess.online(live)?'Online':'Powered off';if(!busy)view.querySelectorAll('[data-maintenance-kind]').forEach(b=>b.disabled=unavailable(b.dataset.maintenanceKind));},200);
+    const status=doc.createElement('p');status.id='maintenance-status-'+crypto.randomUUID();view.insertBefore(status,error);
+    function refresh(){const live=bridge.state().starships.find(s=>s.id===ship.id)?.ship.sicInventory.find(i=>i.id===item.id),progress=window.SAConsoleCommon.restoration(live);
+      const text=progress?progress.message+' (combat time)':window.SAStationAccess.online(live)?'Online':'Powered off';if(status.textContent!==text)status.textContent=text;
+      if(!busy)view.querySelectorAll('[data-maintenance-kind]').forEach(button=>{const blocked=progress&&['on','restart'].includes(button.dataset.maintenanceKind);button.disabled=blocked?false:unavailable(button.dataset.maintenanceKind);if(blocked){button.setAttribute('aria-disabled','true');button.setAttribute('aria-describedby',status.id);}else{button.removeAttribute('aria-disabled');button.removeAttribute('aria-describedby');}});
+    }
+    refresh();const timer=setInterval(refresh,200);
     const cleanup=()=>{clearInterval(timer);view.remove();active=null;window.removeEventListener('pagehide',cleanup);};
     view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});doc.body.append(view);view.showModal();
   }

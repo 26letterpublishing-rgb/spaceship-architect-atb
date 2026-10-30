@@ -35,6 +35,8 @@ const market = document.querySelector(".sic-card-gallery");
 const purchaseFeedback = document.createElement("p"); purchaseFeedback.dataset.purchaseFeedback = "";
 purchaseFeedback.className = "sic-purchase-feedback"; purchaseFeedback.setAttribute("role", "alert"); market.before(purchaseFeedback);
 for (const overlay of document.querySelectorAll('.desktop-live-stats [data-propulsion-overlay]')) { const copy=overlay.cloneNode(true);copy.classList.add('mobile-live-stats');document.querySelector('.mobility-mobile svg')?.append(copy); }
+const shoppingDialogs=new Set();
+function trackShoppingDialog(dialog){shoppingDialogs.add(dialog);dialog.addEventListener('close',()=>shoppingDialogs.delete(dialog),{once:true});return dialog;}
 const sharedSicMarket=window.SASicMarket.create({market,catalog:SIC_CATALOG,credits:()=>draft.groupCredits-pendingCost(),power:shoppingPower,purchase:purchaseSic,error:()=>purchaseFeedback.textContent,inspect:(source,trigger)=>openSicCard(source,trigger),blueprint:type=>openBlueprintPurchase(type),canBlueprint:()=>canBuyBlueprint()});
 sharedSicMarket.build();
 function sicCategoryHosts(items,container,typeFor,variant){return window.SASicMarket.categoryHosts(items,container,typeFor,variant,SIC_CATALOG);}
@@ -643,6 +645,7 @@ function renderGridCells() {
         label.className = "sic-grid-label";
         label.textContent = definition.name;
         label.style.setProperty("--sic-longest",Math.max(...definition.name.split(/\s+/).map(word=>word.length)));
+        label.style.setProperty("--sic-words",definition.name.trim().split(/\s+/).length);
         label.style.setProperty("--sic-width", String(occupied.width));
         label.style.setProperty("--sic-height", String(occupied.height));
         cell.append(label);
@@ -681,10 +684,42 @@ function renderMapViewControls() {
 function applyGridTransform() {
   shipGrids.forEach((grid) => {
     grid.style.setProperty("--cell-size",(grid.clientWidth/GRID_SIZE)+"px");
+    grid.style.setProperty("--ship-view-zoom",String(mapView.zoom));
     grid.style.transform = `scale(${mapView.zoom}) translate(${mapView.panX}%, ${mapView.panY}%)`;
     grid.classList.toggle("is-zoomed", mapView.zoom > 1.001);
   });
   gridZoomOutputs.forEach((output) => { output.textContent = `${Math.round(mapView.zoom * 100)}%`; });
+  queueShipRoomLabels();
+}
+var roomLabelFrame=0;
+const roomLabelSizes=new WeakMap();
+const roomLabelResizeObserver=new ResizeObserver(queueShipRoomLabels);
+shipGrids.forEach(grid=>roomLabelResizeObserver.observe(grid));
+function queueShipRoomLabels(){
+  if(roomLabelFrame)cancelAnimationFrame(roomLabelFrame);
+  roomLabelFrame=requestAnimationFrame(()=>{
+    roomLabelFrame=0;
+    for(const grid of shipGrids){
+    if(!grid.getClientRects().length||!grid.ownerDocument.defaultView.matchMedia('(min-width:1000px)').matches)continue;
+    const screenRatio=new DOMMatrix(getComputedStyle(grid).transform).a/mapView.zoom;
+    // Measure actual wrapping, not a word-count estimate. Reserve the oxygen row
+    // and use screen pixels so resizing/zooming cannot shrink names indefinitely.
+    for(const label of grid.querySelectorAll('.sic-grid-label')){
+      const style=getComputedStyle(label),size=[style.width,style.height,mapView.zoom,label.textContent].join(':');
+      if(roomLabelSizes.get(label)===size)continue;
+      roomLabelSizes.set(label,size);
+      const range=label.ownerDocument.createRange();range.selectNodeContents(label);
+      label.style.setProperty('--room-label-wrap','normal');
+      let fits=false;
+      for(let font=18;font>=10;font-=.5){
+        label.style.setProperty('--room-label-font',font+'px');
+        const room=label.getBoundingClientRect(),text=range.getBoundingClientRect();
+        if(text.left>=room.left+screenRatio&&text.right<=room.right-screenRatio&&text.top>=room.top+screenRatio&&text.bottom<=room.bottom-13*screenRatio){fits=true;break;}
+      }
+      if(!fits)label.style.setProperty('--room-label-wrap','anywhere');
+    }
+    }
+  });
 }
 function renderGridNavigation() {
   gridModeButtons.forEach((button) => {
@@ -1031,6 +1066,7 @@ function renderShipIconPicker(){
 }
 document.addEventListener('click',event=>{const button=event.target.closest('[data-ship-icon]');if(!button||button.disabled)return;draft.mapIcon=Number(button.dataset.shipIcon);saveDraft();renderShipIconPicker();renderConstructionControls();});
 function renderAll() {
+  for(const dialog of shoppingDialogs)dialog.refreshPower?.();
   renderShipIconPicker();
   syncAddonPositions();
 
@@ -1605,7 +1641,7 @@ function openSicCard(sicCard, trigger = sicCard) {
   inspectedTrigger = trigger;
   const cloneCard = previewSicCard(sicCard);
   const installedItem = draft.sicInventory.find(item => item.id === trigger?.dataset.openSicId);
-  if(!installedItem){const type=sicCard.dataset.sicCard||sicCard.dataset.sicPreview,d=SIC_CATALOG[type];return window.SACardInspector.open(sicCard,{document:cardHost,trigger,title:d?.name,purchase:VIEW_ONLY_MODE?null:()=>{const ok=purchaseSic(type);if(ok)sharedSicMarket.dispose();return ok;},blueprint:canBuyBlueprint()&&!VIEW_ONLY_MODE&&window.SAFabrication.recipe(type)?()=>openBlueprintPurchase(type):null,preview:d&&(d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking)?()=>window.SACardInspector.previewConsole(type,cardHost):null});}
+  if(!installedItem){const type=sicCard.dataset.sicCard||sicCard.dataset.sicPreview,d=SIC_CATALOG[type];return trackShoppingDialog(window.SACardInspector.open(sicCard,{document:cardHost,trigger,title:d?.name,power:VIEW_ONLY_MODE?null:shoppingPower,purchase:VIEW_ONLY_MODE?null:()=>{const ok=purchaseSic(type);if(ok)sharedSicMarket.dispose();return ok;},blueprint:canBuyBlueprint()&&!VIEW_ONLY_MODE&&window.SAFabrication.recipe(type)?()=>openBlueprintPurchase(type):null,preview:d&&(d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking)?()=>window.SACardInspector.previewConsole(type,cardHost):null}));}
 
   if(canBuyBlueprint()&&!installedItem&&window.SAFabrication.recipe(cloneCard.dataset.sicPreview)&&!VIEW_ONLY_MODE){const buy=cardHost.createElement("button");buy.className="sic-buy-blueprint";buy.textContent="Buy blueprint";buy.onclick=()=>openBlueprintPurchase(cloneCard.dataset.sicPreview);sicCardDialog._blueprintAction=buy;}
   if (installedItem) {
@@ -2000,6 +2036,7 @@ function resizeEnlargedShipInterior(){
   if(!(tile>0))return;
   for(const [key,value]of Object.entries({width:GRID_SIZE*tile,height:rows*tile,left:(box.width-GRID_SIZE*tile)/2,top:(box.height-rows*tile)/2}))view.grid.style.setProperty(key,value+'px','important');
   view.grid.style.setProperty('--cell-size',tile+'px');
+  queueShipRoomLabels();
 }
 async function enlargeShipInterior(viewport,source){
   if(enlargedShipInterior)return;
@@ -2068,7 +2105,7 @@ function canBuyBlueprint(){return linkedCampaignState?(linkedCampaignState.stars
 function openBlueprintPurchase(type){
  if(!canBuyBlueprint()){showMessage('A PC ship must own a 3D Printer before buying blueprints.','error');return;}
 
- const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(!canBuyBlueprint()){message.textContent='A PC ship must own a 3D Printer before buying blueprints.';return;}if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
+ const recipe=window.SAFabrication.recipe(type);if(!recipe)return;const dialog=cardHost.createElement('dialog');dialog.className='ship-print-options blueprint-purchase';dialog.setAttribute('aria-label','Blueprint ('+recipe.name+')');const source=document.querySelector('[data-sic-card="blueprint"]'),card=previewSicCard(source);card.querySelector('h3').textContent='Blueprint ('+recipe.name+')';const powerBar=window.SACardInspector.powerSummary(cardHost,shoppingPower);if(powerBar){dialog.append(powerBar);dialog.refreshPower=()=>powerBar.refresh();}trackShoppingDialog(dialog);dialog.append(card);const message=cardHost.createElement('p');message.setAttribute('role','alert');dialog.append(message);const buy=cardHost.createElement('button');buy.textContent='Buy Blueprint — 1,000 credits';const cancel=cardHost.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();buy.onclick=()=>{if(!canBuyBlueprint()){message.textContent='A PC ship must own a 3D Printer before buying blueprints.';return;}if(draft.sicInventory.some(i=>i.type==='blueprint'&&i.blueprintType===type&&!i.pendingDisposition)){message.textContent='This ship already owns that blueprint.';return;}if(!draft.allowCreditDebt&&pendingCost()+1000>draft.groupCredits){message.textContent='Not enough Group Credits.';return;}rememberForUndo();draft.sicInventory.push({id:uid('blueprint'),type:'blueprint',blueprintType:type,pendingPurchase:true,storage:true});saveDraft();renderAll();showSicPurchaseFeedback('Blueprint ('+recipe.name+') purchased. Confirm Changes to finish.','success');dialog.close();};dialog.append(buy,cancel);dialog.onclose=()=>dialog.remove();cardHost.body.append(dialog);dialog.showModal();
 }
 for(const item of market.querySelectorAll('.sic-market-item')){const type=item.querySelector('[data-sic-card]')?.dataset.sicCard;if(!window.SAFabrication.recipe(type))continue;const buy=document.createElement('button');buy.className='sic-buy-blueprint';buy.hidden=!canBuyBlueprint();buy.textContent='Buy blueprint';buy.type='button';buy.onclick=e=>{e.stopPropagation();openBlueprintPurchase(type);};item.append(buy);}
 

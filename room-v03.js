@@ -45,10 +45,29 @@
     host.querySelector('[data-load]').addEventListener('click',run(async()=>{const backup=await file();if(backup)await loadFile(backup);},'robot'));
     host.querySelector('[data-new]').addEventListener('click',run(async()=>{const dialog=document.createElement('dialog');dialog.className='v03-dialog';dialog.innerHTML='<h2>Create New</h2><form method="dialog"><button value="campaign">Campaign</button><button value="character">Character</button><button value="ship">Starship</button><button value="cancel">Cancel</button></form>';document.body.append(dialog);dialog.showModal();const kind=await new Promise(resolve=>dialog.addEventListener('close',()=>resolve(dialog.returnValue),{once:true}));dialog.remove();if(kind==='campaign'){const name=await input('Create Campaign','Campaign name');if(name!==null)await gmOpen(await api('create',{name}));}else if(kind==='character')location.href='character.html?library=1&new=1';else if(kind==='ship')location.href='starship.html?new=1';}));
   }
-  async function lobby(){const title=document.getElementById('roomTitle');if(!title)return;const code=new URLSearchParams(location.search).get('campaign')||'';const token=localStorage.getItem(roomKey(code))||'';const status=document.getElementById('roomStatus');let state,events,lastRoster='';
+  function approvalBanner(anchor){
+    const banner=document.createElement('section');banner.className='v03-approval-banner';banner.hidden=true;
+    banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');banner.setAttribute('aria-atomic','true');
+    const heading=document.createElement('strong'),detail=document.createElement('span');heading.textContent='Awaiting GM Approval';banner.append(heading,detail);anchor.after(banner);
+    let pending=false,tone=null;
+    return next=>{
+      const count=next.roomOpen!==false&&!next.ownCharacterId?(next.imports||[]).filter(r=>r.kind==='character'&&r.status==='pending').length:0;
+      banner.hidden=!count;
+      if(count)detail.textContent=count===1?'Your character submission is waiting in the GM’s Inbox.':`${count} character submissions are waiting in the GM’s Inbox.`;
+      if(count&&!pending){
+        // Reuse the existing short notification chime and mixer. Never queue a blocked
+        // autoplay tone to surprise the player on a later unrelated gesture.
+        const mix=window.SAAudioMix;
+        try{if(window.navigator?.userActivation?.hasBeenActive&&mix?.level('game')>0&&mix.context()?.state==='running')tone=mix.turnDing();}catch{}
+      }
+      if(!count){tone?.stop();tone=null;}
+      pending=!!count;
+    };
+  }
+  async function lobby(){const title=document.getElementById('roomTitle');if(!title)return;const code=new URLSearchParams(location.search).get('campaign')||'';const token=localStorage.getItem(roomKey(code))||'';const status=document.getElementById('roomStatus');const updateApproval=approvalBanner(title);let state,events,lastRoster='';
     const run=fn=>async()=>{try{await fn();}catch(error){status.textContent=error.message;}};
     async function action(kind,body={}){const result=await api(kind,{code,token,...body});render(result.campaign);return result;}
-    function render(next){state=next;if(moveRoom(state))return;if(state.roomOpen===false){status.textContent='The GM has closed this room.';events?.close();document.getElementById('roomActions').replaceChildren();document.querySelector('#v03SpectatorFrame')?.remove();return;}
+    function render(next){state=next;updateApproval(state);if(moveRoom(state))return;if(state.roomOpen===false){status.textContent='The GM has closed this room.';events?.close();document.getElementById('roomActions').replaceChildren();document.querySelector('#v03SpectatorFrame')?.remove();return;}
       if(state.ownCharacterId){void openCharacter(state,token);return;}
       title.textContent=`${state.name} — ${code}`;const actions=document.getElementById('roomActions');actions.replaceChildren();const button=(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=run(fn);b.dataset.action=label.toLowerCase().replace(/\s+/g,'-');actions.append(b);};
       if(state.ownCharacterId){button('Open My Character',()=>openCharacter(state,token));button('Abandon Character',()=>action('abandon'));}

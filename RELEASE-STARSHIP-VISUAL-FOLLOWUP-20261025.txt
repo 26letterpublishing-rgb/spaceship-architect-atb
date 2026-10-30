@@ -1,0 +1,57 @@
+Starship visual follow-up — LOCAL ONLY, October 25
+
+This supersedes the visual-acceptance claim in RELEASE-STARSHIP-RESTORATION-20261025.txt. The independent reviewer correctly found defects that the original containment/max-font checks missed. Original screenshots and failed/intermediate evidence remain intact.
+
+WHY THE FIRST REVIEW MISSED IT
+The checks bounded label text and capped large fonts, but did not test minimum font size, station paint order, oxygen/text collisions, or badge containment. Separate fresh-page checks at each viewport did not exercise retained state through the reviewer's resize/enlarge sequence. I gave those checks too much weight when inspecting images. This follow-up inspected the reviewer's pixels, reproduced the exact transition, measured each rendered label/badge, and inspected new screenshots. Passing geometry alone is not final visual approval.
+
+CONFIRMED CAUSES / SCOPED REPAIRS
+1. Opaque station squares painted at z12 over room names at z5. Desktop Starship names now paint at z13, below walls at z14. Actual station positions, markers, artwork, and controls are retained. Some outlines remain behind text; no station relocation or gameplay change.
+2. crew-tokens.js saves --oxygen-lift in pre-transform grid pixels. Reparenting the live grid into the enlarged shadow dialog and resizing changes its dimensions, while the saved lift survives and the document-level placer cannot see the shadow subtree. The same-context test reproduced outside-room badges in both roles. Desktop Starship maps now anchor badges at a screen-scaled bottom inset rather than inheriting that stale lift. Enlarged labels reserve a separate bottom row. Shared combat-map behavior is untouched.
+3. The previous longest-word/word-count font estimate produced 6.46px PC names at 1280. Enlarged names now use measured rendered wrapping, prefer whole words, and choose 10–18 screen pixels within room bounds and the reserved oxygen row. Very long words may wrap at the 10px floor. Measurements are cached by label dimensions/zoom/text and scheduled once per animation frame; panning does not repeatedly refit unchanged labels. Transform-animation scaling is accounted for.
+4. The enlarged PC full-width status output separated Move from the remaining buttons into two button rows. It now follows the existing buttons, retaining every action and message, and freeing one row for the map. Desktop enlarged view only.
+
+FILES CHANGED IN THIS FOLLOW-UP
+ starship.css
+ starship.js
+ tests/enlarged-interior-refresh.test.js
+ scripts/playtest-starship-transitions.cjs (new)
+ RELEASE-STARSHIP-VISUAL-FOLLOWUP-20261025.txt (this report)
+Previous starship.html numeric/Reputation fixes remain untouched. Earlier unrelated local changes, console restoration, Gold Standard, and personal campaign storage were not modified by this follow-up. No Help wording change: names/actions/semantics are unchanged.
+
+REPRODUCTION / INDEPENDENT REVIEW
+Isolated existing server: http://127.0.0.1:51111 ; disposable campaign 6GFK.
+Evidence root:
+C:/Users/zombi/Desktop/Spaceship Architect 2026 Sorting/SA-ATB Local Development Files/outputs/starship-restoration-oct25
+Use root/open-review.cjs to launch fresh authenticated review pages; credentials stay in local setup.json. Or run from repo:
+ node scripts/playtest-starship-transitions.cjs review-UNIQUE-NAME
+This refuses to overwrite an existing evidence directory. Uses fresh muted Chrome, one page/context retained through each ship's entire size sequence, 100% zoom, deviceScaleFactor1. GM Protos, GM White Dwarf, PC Protos. Each: 1920x1080 ->1366x768 ->1280x720, zoom/Fit/Enlarge/Fit/Close, no navigation between sizes. Actual laptop configuration unknown. No phone testing.
+
+EVIDENCE / ACCEPTANCE
+ independent-review/ : reviewer's original findings and images, inspected directly.
+ transition-before/ : own pre-fix reproduction; GM outside-badge counts 0/4/2; PC 2/5/3. PC smallest label 6.46px at1280.
+ transition-final-closed/ : final nine enlarged screenshots, nine closed-view screenshots, results.json and acceptance.json. PASS: font10–18px, text inside reserved room area, labels above station markers, stable badge counts/no duplicate room badges, no oxygen/text intersection, horizontal/vertical badge containment both enlarged and after closing; no page errors.
+ followup-sheets/ : nine fresh sheet captures and results.json; prior field/Reputation/toolbar geometry assertions still pass; no page errors.
+Representative final pixels inspected: GM1920, GM1366, second-ship1280/1366, PC1366/1280, and PC1280 after Close. Additional intermediate candidates were inspected and rejected/refined before final capture. The test checks paint order, not an assertion that text and station rectangles never geometrically intersect.
+ followup-tests-final.txt : final full suite: 1322 passed, zero failures/skips/cancellations.
+Syntax and CRLF-aware diff checks passed. First suite launch was restricted from loopback connections; subsequent unrestricted run exposed the isolated resize test's missing new callback. Updated that fixture and added callback lifecycle assertions without removing existing geometry assertions, then reran the full suite.
+
+REMAINING LIMITS
+The smallest PC Fit names still reach 10px at laptop sizes; Nut Supplement may split its long word. This is improved but still compact. It needs independent visual judgment; do not claim universal readability or all visual defects fixed. Zoom remains available. Different hulls, long/custom names, browser/OS scaling, other browsers and physical devices are not exhaustively covered. This follow-up did not replay combat actions or the full application workflow suite. Numeric alignment and current rules preserved; no rule changes made. No performance benchmark was performed for text measurement.
+No protected adventure tab, port8796 or campaign3QWC was used. No commit, push, deployment, or ntfy notification.
+
+SECOND REVIEW FOLLOW-UP: INLINE COLLISION (October 25, local only)
+The second independent review confirmed enlarged repairs but found Lock-On System 3 overlapping oxygen in the ordinary PC map at 134% Fit, 1366x768 and 1280x720. I inspected its screenshots and reproduced the failure with the strengthened test before changing application code. The mismatch was real: oxygen anchoring applied to both views; reserved padding and measured fitting applied only to enlarged views. The earlier test loop applied intersection checks to enlarged results but only badge containment to inlineResults. That was an acceptance coverage error, not evidence that inline text was safe.
+
+Repair: both desktop inline and enlarged .ship-grid labels and oxygen badges now share the same padding, typography, measured fitting and reserved oxygen row. queueShipRoomLabels replaces the enlarged-only function and processes visible desktop grids. A ResizeObserver schedules refitting when inline grid dimensions change, including before the user clicks Fit. Existing caching, station paint order, locations, artwork, rules, numeric fields and console work remain intact. No further Supplement/phone redesign was attempted.
+
+This second follow-up changes starship.css, starship.js, scripts/playtest-starship-transitions.cjs, tests/enlarged-interior-refresh.test.js (callback rename only), and this report. Other preceding changes are preserved.
+
+New evidence beneath the same root:
+ inline-collision-before/ : strengthened checks FAIL against pre-repair code, including the reported PC oxygen/text intersections.
+ inline-collision-final/ : final 27 screenshots and results.json/acceptance.json. Nine enlarged cases plus 18 inline cases (immediately after resize BEFORE Fit, and after Close) across GM Protos, GM White Dwarf and PC Protos at1920x1080,1366x768,1280x720. All receive the same text/badge-intersection, reserved-text-area, font, station paint-order, duplicate/count and containment checks. No failures or browser errors. Same page retained across viewport changes, Chrome100%zoom/deviceScaleFactor1.
+ Key final pixels inspected: pc-1280-resized.png, pc-1366-closed.png; also pc-1280-closed.png, pc-1366-closed.png and pc-1280.png in the preceding inline-collision-after run. Lock-On final numeral is separated from the oxygen percentage.
+ inline-collision-sheets/ : nine sheet geometry cases pass, no page errors; accepted numeric/Reputation alignment remains.
+ inline-collision-tests.txt : 1322 passed, zero failures/skips/cancellations. Syntax and whitespace checks passed.
+
+Review instance remains http://127.0.0.1:51111, disposable campaign6GFK; existing open-review.cjs/setup.json instructions above apply. Ready for final independent recheck. Actual laptop configuration remains unknown; compact 10px Fit text and Supplement wrapping retain the reviewer's qualified-pass status. No publication or protected-session interaction.

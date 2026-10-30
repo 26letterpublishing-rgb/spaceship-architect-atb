@@ -216,7 +216,7 @@
   for (let tier=1;tier<=8;tier++) {
     const n=tier-1,art=`cpu-security-tiers.svg#tier-${tier}`;
     catalog[`cpu-security-${tier}`]={name:`CPU Security System ${tier}`,label:`CPU ${tier}`,tier,firewall:tier,
-      width:tier<5?1:2,height:tier===8?2:1,color:'#478b6d',image:image(art),cardArt:art,output:0,stations:[],
+      width:tier<5?1:2,height:tier===8?2:1,color:'#478b6d',image:`${image('cpu-security-tiers.svg')}#tier-${tier}`,cardArt:art,output:0,stations:[],
       energyCost:[1,2,3,4,5,6,8,10][n],security:null,threshold:9+tier*3,price:[100,800,3600,11200,27500,57600,107800,192000][n],
       crafting:['Argol, 5 hrs','Mirium, 8 hrs','Drakkonite, 16 hrs','Phazon, 16 hrs','Necronium, 2 days','Endernium, 2 days','Dark Phazon, 2 days','Carmot, 3 days'][n],
       cardNumber:tier<=6?`A-${44+tier}`:`B-${27+tier}`};
@@ -224,7 +224,7 @@
   for (let tier=1;tier<=5;tier++) {
     const n=tier-1,art=`hacking-module-tiers.svg#tier-${tier}`;
     catalog[`hacking-module-${tier}`]={name:`Hacking Module ${tier}`,label:`HACK ${tier}`,tier,hacking:true,hackingMinimum:Math.max(0,tier-1),hackingReduction:tier-1,
-      width:1,height:tier<4?1:2,color:'#967eae',image:image(art),cardArt:art,output:0,stations:[],
+      width:1,height:tier<4?1:2,color:'#967eae',image:`${image('hacking-module-tiers.svg')}#tier-${tier}`,cardArt:art,output:0,stations:[],
       energyCost:[1,1,2,2,3][n],security:tier,threshold:6+tier*2,price:[500,2900,8100,16000,25000][n],
       crafting:['Crystilium, 4 hrs','Argol, 10 hrs','Endernium, 2 days','Endernium, 2 days','Dark Phazon, 3 days'][n],
       cardNumber:tier<=3?`A-${67+tier}`:`B-${45+tier}`};
@@ -438,6 +438,8 @@
     const single={"ballistic-rail-cannon":"rail-cannon","ew-ftl-drive":"ew-ftl-drive","cloaking-device":"cloaking-device","probe-launcher":"probe-launcher","backup-generator":"backup-generator","manipulation-arm":"manipulation-arm","tractor-beam":"tractor-beam","escape-pods":"escape-pods","ripple-reflector":"ripple-reflector","bar":"bar","brig":"brig","scramble-box":"scramble-box","ship-ai":"ship-ai","holographic-projector":"holographic-projector","decent-hover":"decent-hover","transporter":"transporter"}[type];
     if(family||single)data.cardArt=`card-${family||single}-equipment-v2.webp`;
   }
+  // Jason-approved tier illustrations; map and Console assets remain independent.
+  for(let tier=1;tier<=5;tier++)catalog[`rapid-laser-${tier}`].cardArt=`sic-rapid-laser-${tier}-approved.png`;
   function installedItems(record) {
     const ship=record.ship||record,ids=new Set((ship.placements||[]).map(p=>p.sicId));
     return (ship.sicInventory||[]).filter(i=>ids.has(i.id));

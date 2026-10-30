@@ -1,0 +1,118 @@
+STARSHIP TAB RESTORATION - LOCAL ONLY - 2026-10-25
+
+Base: main 5d66801, plus the already-present desktop stabilization changes.
+No commit, push, deployment or ntfy. No phone testing. Actual laptop configuration unknown.
+ATB system #2 was verified idle before changes; its completed console restoration remains intact.
+No earlier user screenshots were requested or retrieved. Discovery used newly captured populated GM/PC views, source geometry and rendered Git history.
+
+FINDINGS AND REPAIRS
+
+1. PC Ship Details had a 48px coordinate-space error at all three viewports.
+   A construction-only Airlock footer was created before the embedded PC page switched to details mode. The footer remained in normal flow and increased the sheet height, while the original background artwork kept its proportions. Live SVG values, masks, inventory overlays and reputation then drifted relative to the artwork. The printed zero placeholders became visible above the displaced live values.
+   starship.css now hides .desktop-sheet > .construction-map-footer only in .ship-details-view. Construction retains these tools. Switching Details -> Construction restores their visibility. No map, Airlock or movement feature was removed.
+   Measured height minus width*792/612, PC at 1920 / 1366 / 1280:
+     historical 27ff2a6: 0 / 0 / 0 px
+     pre-repair current: 48 / 48 / 48 px
+     final local: 0 / 0 / 0 px (within browser rounding)
+
+2. Several live fields used baseline coordinates inconsistent with their printed rectangles.
+   starship.html aligns the desktop Hull, sensor range/dice, Lock-On, Break Lock-On, Darkveil, propulsion, HSM, EN and AU values with the existing artwork geometry. Example: Darkveil was x338 despite a field center of x332.975; sensor range was y140 versus field center y135.573. The Lock-On overlay now matches the original rectangle rather than introducing a second displaced border.
+   starship.css applies central SVG baselines specifically to live numeric fields. Fuel/mineral text keeps its own alignment. Maximum Hull uses the same smaller type scale as maximum Shield. No stat calculation or template artwork changed.
+
+3. Desktop Firewall Level had no live field at all.
+   Its updater only found the mobile field, leaving the desktop printed zero permanently visible. Added the missing desktop overlay inside the original field. It uses the existing SAShipMap.firewallStats calculation. Tested a nonzero temporary in-memory fixture: expected 1, displayed 1, then restored the original draft. No campaign mutation or rule change was needed.
+
+4. Reputation labels sat below their marker rows, cramping the last row against the panel edge.
+   Desktop labels now align with marker centers; numeric marker text is centered too. The original panel shape, tracks, colors, values and interaction remain. Screen-space label/marker center checks pass for all nine GM/PC cases.
+
+5. Desktop map-control text was too small; enlarged map text scaled out of its rooms.
+   Map toolbar and construction-mode buttons use 12px text at desktop widths >=1000px, wrapping within the existing toolbar if necessary.
+   Live Enlarge Map use reproduced oversized room names and oxygen badges: grid zoom magnified their typography, letting Beam Laser 6 cross room boundaries. starship.js now exposes zoom and word count as CSS variables. Desktop enlarged-map CSS bounds label text by screen size and available room width/height, reserving space for oxygen; badges retain a 10px screen font. Names, values, room geometry, zoom, controls and rules are unchanged. Actual text-range bounds remain inside their rooms and fonts remain <=18.1px in the tested enlarged views.
+
+HISTORY COMPARED (RENDERED, NOT JUST READ)
+
+- 27ff2a6: full GM and PC Starship pages rendered with the same two-ship disposable campaign at 1920x1080, 1366x768 and 1280x720. Nine ship-sheet cases, zero page errors. Correct original sheet proportions verified. Git history identifies f3f1d81 as introducing construction-map-footer.
+- ff123da: historical standalone GM details frontend rendered with the same Protos campaign fixture at 1320x768 (comparable to the embedded desktop content width). Some smaller text defects already existed; this was not treated as a universally correct version.
+- 39f2fb3 (Refine starship field alignment): rendered the older sheet at 1320x768. This version uses static sample numbers and predates the current construction/data model; it was useful only for artwork/field alignment, NOT current rule or live-data acceptance.
+- 3607c5d and 17b7fbf: source diffs inspected for earlier alignment intent, not claimed as separately browser-tested builds.
+
+Historical rendering intercepted static frontend requests with exact Git blob contents; API responses came from the current isolated server and the same fixture. This compared presentation without running old server migrations or replacing current campaign data. No whole-file reversion was used.
+
+FINAL COVERAGE
+
+Chrome 156, fresh contexts, 100% browser zoom, deviceScaleFactor 1.
+All requested viewports: 1920x1080, 1366x768, 1280x720 CSS pixels.
+GM: populated Protos (38 hull cells) and White Dwarf (34 cells, including triangular geometry), fleet and both information sheets.
+PC: Nova Vale's full Protos Starships tab, embedded sheet, crew, stats, inventory and controls. The GM-controlled White Dwarf remains hidden from this PC as intended.
+Additional historical standalone comparison: 1320x768.
+
+Passed at all three requested sizes:
+- Sheet aspect ratio, original field centers and Reputation label/marker alignment.
+- Visible map-toolbar font minimum; no page errors in nine final layout captures.
+- GM and PC Ship Capabilities open/close, Labels off/on, zoom/Fit, Enlarge/Fit/Close, visible Reputation panel.
+- GM Back to Fleet -> Edit Ship -> Construction/Details/Construction; Airlock controls retained only where appropriate.
+- Enlarged label text containment and screen-font cap; nonzero Firewall display.
+
+Final existing suite: 1322 passed, zero failures/skips/cancellations. Syntax and Windows-aware diff whitespace checks passed. Early harness failures were incorrect selectors (styled checkbox versus its visible label, renamed Back versus Close dialog, generic div versus shadow-root host) and an older frontend's localStorage token convention; final scripts use actual current controls and retain the same behavior assertions.
+
+LIMITS
+
+This is presentation restoration, not full gameplay acceptance. The showcase party is ashore, so PC Move is intentionally disabled with its existing boarding explanation. Movement submission, combat operation of every console, purchases/refits, extreme inventory counts, unusually long custom names, all accessibility modes and physical-device scaling are not certified here. The parent PC HUD is fixed at the viewport top and can appear across tall element screenshots; viewport captures show the actual scrolled controls separately. No unrelated HUD redesign was made. Small-room labels remain space-constrained; zoom/enlarge and existing Labels/High Resolution controls remain available.
+No Help wording changed because control names, workflows and rules did not change. New settled screenshots were captured without replacing the original baseline images. Existing Help assets were not rewritten.
+Custom graphics, stations, four-mount scope and full multi-ship acceptance remain requested and unchanged.
+
+EXACT FILES FOR THIS PASS
+
+Modified application files:
+  starship.css
+  starship.html
+  starship.js
+Added regression/report files:
+  scripts/playtest-starship-layout.cjs
+  scripts/playtest-starship-controls.cjs
+  RELEASE-STARSHIP-RESTORATION-20261025.txt
+Earlier local edits to combat-help-content.js, planet-surfaces-ui.js, probe-console.js and ui-reputation-pass.css are from the previous pass and were preserved. Unrelated untracked QA/scripts and Gold Standard files were untouched.
+
+INDEPENDENT REVIEW / REPRODUCTION
+
+Separate server: http://127.0.0.1:51111 ; PID 33316 at verification.
+Campaign: 6GFK (disposable Explore Features fixture).
+GM URL: http://127.0.0.1:51111/gm.html?campaign=6GFK
+PC URL: http://127.0.0.1:51111/character.html?campaign=6GFK&character=showcase-nova&showcase=1
+Fresh browsers need the disposable session tokens stored in setup.json; do not use a personal session.
+
+Evidence root (absolute):
+ C:/Users/zombi/Desktop/Spaceship Architect 2026 Sorting/SA-ATB Local Development Files/outputs/starship-restoration-oct25/
+
+Run open-review.cjs in that directory with the installed Node runtime to open BOTH pages, already authenticated, in a NEW visible Chrome browser at 1366x768. It never attaches to existing tabs. Close that browser when done. The isolated server is intentionally left running for review.
+Node runtime:
+ C:/Users/zombi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe
+
+From repository root, repeat:
+ node scripts/playtest-starship-layout.cjs
+ node scripts/playtest-starship-controls.cjs 1920
+ node scripts/playtest-starship-controls.cjs 1366
+ node scripts/playtest-starship-controls.cjs 1280
+The layout check defaults to a timestamped verify directory and refuses to replace an existing completed capture set. Both scripts read the evidence root's setup.json. Control reruns refresh only their controls-WIDTH verification outputs, not baseline directories.
+
+If the server has stopped, restart server.js from the repository with PORT=51111, DATABASE_URL empty, and SA_LOCAL_DATA_DIR set to the evidence root's data directory. Check the port is free first. Existing fixture data persists there. Do not restart or use port8796 / campaign3QWC / browser tab3.
+
+KEY EVIDENCE PATHS RELATIVE TO EVIDENCE ROOT
+
+ before/pc-sheet-0-1280.png                         displaced values and exposed placeholders
+ historical-27ff2a6/pc-sheet-0-1280.png              working pre-footer proportions
+ verify-acceptance/pc-sheet-0-1280.png               repaired sheet
+ verify-acceptance/sheet-showcase-pc-ship-1366.png   GM populated Protos
+ verify-acceptance/sheet-showcase-npc-ship-1920.png  GM different-size White Dwarf
+ verify-acceptance/results.json                     field geometry and all nine cases
+ enlarged-before/gm-enlarged-viewport.png            reconstructed committed CSS/JS comparison
+ controls-1280/gm-enlarged-viewport.png              repaired enlarged room text
+ controls-1366/pc-enlarged-viewport.png              PC controls and boarding explanation
+ controls-1920/controls-results.json                wide control results
+ controls-1366/controls-results.json                laptop control results
+ controls-1280/controls-results.json                smaller laptop control results
+ final-tests.txt                                   final suite output
+ setup.json, ships.json, data/                      reproducible disposable fixture
+ open-review.cjs                                   fresh-browser review launcher
+
+Intermediate after/ and geometry-fix/ directories are iteration evidence. verify-acceptance/ and controls-WIDTH/ are the final acceptance captures. history-current-* means the pre-repair current frontend, not the final result. Original before/ and historical captures remain preserved.

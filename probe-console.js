@@ -18,7 +18,7 @@
   function plot(){
    const {state,access,p}=selected(),svg=get('[data-map] svg[data-space-canvas]');if(!access)return;
    const origin=window.SAShipTargets.point(state,access.ship.id),pending=person()?.delayedAction?.probeOrder;
-   const destination=planning?.destination||(pending?.probeId===p?.id&&['launch','move'].includes(pending.kind)?pending.destination:null);
+   const destination=planning?.destination||(pending&&p&&pending.probeId===p.id&&['launch','move'].includes(pending.kind)?pending.destination:null);
    const error=planning?window.SAShipProbes.destinationError(state,access.ship,planning.destination):'';
    get('[data-q]').disabled=get('[data-r]').disabled=!planning;
    get('[data-planner]').hidden=!planning;

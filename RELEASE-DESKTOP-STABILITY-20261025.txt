@@ -1,0 +1,68 @@
+Desktop stabilization - local only, October 25, 2026
+
+Baseline: main at 5d66801 (Restore authored console appearance while preserving popup frames).
+ATB system #2 was checked before overlapping edits: idle, latest console work completed. Its console restoration is preserved. No commit, push, deployment or ntfy was performed. No phone layouts were tested or changed. The protected adventure session on port 8796 / campaign 3QWC / tab 3 was not opened, refreshed or used. Personal campaigns were not used as fixtures; servers used PORT=0 and separate SA_LOCAL_DATA_DIR directories. Existing unrelated files remain untouched.
+
+CONFIRMED LOCAL REPAIRS
+
+1. Encounter preparation actions covered the editable arena.
+   Reproduction: open GM Combat preparation and scroll to the Surface Arena at 1920x1080, 1366x768 or 1280x720. The sticky action bar intersected the map at all three sizes (at 1280, footer y=652..712; arena y=2..720).
+   Cause: shared .encounter-preparation-actions position:sticky/bottom:8px in ui-reputation-pass.css.
+   Repair: normal document flow on desktop widths >=1000px. Both preparation modes share this action bar; no control was removed. Save Preparation remains reachable by scrolling and actually returns to Campaign. Browser assertions cover map non-overlap and unobstructed hit-testing at all three dimensions. GM Combat Help now explains where to find these actions. Existing Help screenshot crops show other controls and were retained; new before/after screenshots are in the evidence directory.
+
+2. Paint Terrain and Undo rebuilt the full planet surface twice per successful operation.
+   Cause: the successful send already renders returned campaign state; each handler then called c.draw again solely to refresh Undo availability.
+   Repair in planet-surfaces-ui.js: update the current Undo button after recording/removing its history, without the second reconstruction. This also applies to Apply to all. Error redraw paths, terrain data, visibility, camera behavior and server validation are unchanged.
+   Real mouse stroke changed 54 hexes, then Undo restored every changed terrain value. Baseline paint had two render calls (65.1 and 62.7 ms); Undo added two (55.3 and 49.1 ms). Final verification: paint one call (58.3 ms), Undo one additional call (49.1 ms); both requests returned HTTP 200. This removes duplicate work, not all surface lag. These are individual local runs, not a statistical speedup estimate. Apply to all shares the repaired path but was not separately completed in this browser run.
+
+3. Empty Probe Launcher console threw while plotting.
+   Cause in probe-console.js: pending?.probeId === p?.id was true when both were undefined, then pending.kind was accessed.
+   Repair: require both pending order and selected probe before comparing their IDs. Reproduced during the console sweep; all 54 representative console families now open without page errors. No console CSS/layout was changed. Computed styles match with the generic popup stylesheet enabled and disabled; consoles do not acquire its green vector frame. Ordinary card popups retain their frame, and closing a nested console returns to the open card inspector.
+
+VERIFICATION AND COVERAGE
+
+Chrome 156.0.8078.47, fresh headless browser contexts, 100% browser zoom, default deviceScaleFactor=1. Main inventory: 1920x1080, 1366x768, 1280x720 CSS pixels. Surface measurements and console sweep: 1440x1000; one console check also 1280x720. Multi-ship: 1600x1000 and 1280x720. These are representative desktop/laptop viewports, not Jason's unidentified physical laptop configuration.
+
+Area                         Coverage in this pass
+Main Menu / campaign files   Actual Create New Campaign, Save Campaign download, Load Campaign and Update Room from File succeeded at 1366x768.
+GM major screens             Script, Campaign, Characters, Starships, Prompt/Give, Shop, Combat, Settings, Manage Content and Help captured at all three inventory sizes. No horizontal document overflow or page errors in inventory. Sampling is not exhaustive operation testing.
+Content / Help               Content dialog open/close; Help Next, Escape and focus restoration completed. Full content import/export matrix not exercised.
+Construction / shopping      Four hull cells selected and confirmed; Power Engine 2 bought through the actual SIC picker, placed and confirmed. Inventory also captured construction and SIC picker at all three sizes. Other purchase families and refitting combinations not exhaustively exercised.
+Surface navigation/editing   GM system -> Browse Planets -> View Surface, Fit, real terrain stroke and Undo, live/controlled updates; before/after captures and render counts. Orbit/region/travel completion not newly covered through the browser in this pass.
+Combat / PC / multi-ship     Two differently sized hulls (28 and 35 cells), PC aboard GM-controlled ship, separate GM/PC contexts, clock engagement then pause, turn nudge, Move activation, inline/enlarged maps and GM Move. Camera/scroll readings stayed identical across activation and opening Move. Controls below maps passed. This is not full move submission or extended multi-ship acceptance.
+Consoles                     54 family previews and nested card/console close behavior passed. Actual operations of all 54 consoles were not played through.
+Recovery                     First Aid dialog delivery while parent sheet was open and Combat hidden passed in a temporary current-UI adaptation. Older recovery/restoration scripts did not complete: obsolete Resume/Starting Location selectors, obsolete pre-Defense attack fixture, required-roll cancellation assumptions, and stale/epoch readiness waits. No app assertions were weakened to manufacture passes. Full combat/reconnection/recovery acceptance remains unverified.
+
+Node suite: 1322 passed, 0 failed/skipped/cancelled. After Help wording change: combat-help.test.js 5 passed. Changed JavaScript/new browser script syntax checks and Windows-aware git diff --check passed. No physical-device, audio listening or hosted Render validation.
+
+REPEATABLE BROWSER CHECKS
+
+Run from repository root using the installed Node runtime:
+  node scripts/playtest-desktop-stability.cjs --verify
+  node scripts/playtest-desktop-workflows.cjs
+  node scripts/playtest-desktop-consoles.cjs
+  node scripts/playtest-desktop-multiship.cjs
+These use the existing local Playwright install, fresh browser processes and disposable data. Baseline mode for the stability script uses a timestamped directory; original screenshots were preserved. After directories are refreshed by reruns. Existing recovery scripts were not modified; attempted adaptations remain in Temp for diagnosis.
+
+REMAINING FINDINGS / LIMITS
+
+- Unrelated star-description updates still reconstruct the visible surface: final controlled test ~56.9 ms, with 55.5 ms in rendering. Identical updates reused it. Narrow render invalidation needs separate verification of visible state, markers, fog, travel and permissions before changing its dependencies.
+- Prior patterned-SVG pan cost remains unresolved; removing duplicate paint redraws does not establish smooth continuous panning. A small pattern/cache experiment should precede any canvas rewrite, with GM/PC visibility and editing equivalence checks.
+- Construction toolbar typography is a code-supported readability concern: starship.css uses clamp(.42rem,.56vw,.62rem) on map buttons and smaller mode labels. Captured desktop images warrant a dedicated measured typography/reachability check across creator and embedded ship views. Not changed here.
+- The enlarged Move capture shows the dismissible Room Oxygen warning over some lower controls. This fixture deliberately lacks Life Support; distinguish the valid warning from its placement. Occlusion behavior deserves a separate alert-stacking check. No oxygen rules changed.
+- Travel approval, complete character creation, full attack/Defense/To-Hit/damage/victory, reconnect recovery, repeated updates and ship/crew additions/removals remain incomplete end-to-end coverage. Unit-test success is not proof of zero softlocks.
+- Still requested: custom graphics for characters, starships AND space objects; stations with orbit/docking/shop/script behavior; four-mount increments with numbers disappearing after completion (equipment scope unresolved); full multi-ship acceptance. None cancelled or implemented in this pass.
+
+EVIDENCE
+
+Durable directory, sibling to repository:
+  ../SA-ATB Local Development Files/outputs/desktop-stability-oct25/
+  sa-desktop-before/                  desktop inventory screenshots and results
+  sa-desktop-stability-before/        original overlapping arena, paint/Undo timings
+  sa-desktop-stability-after/         unobscured arena, paint/Undo, Probe, final results
+  sa-desktop-workflows/               completed workflow results and disposable save
+  sa-desktop-consoles-after/          54-family results and console captures
+  sa-desktop-multiship/               PC/GM inline, enlarged and turn-update captures
+  sa-desktop-full-tests.txt           full suite output
+
+Screenshots inspected directly include before/after 1280px preparation, Probe Launcher, enlarged PC Move, GM Campaign, combat, construction and SIC picker. Capturing a screen alone is not claimed as completing its workflows. The pass has three verified repairs and explicit remaining acceptance gaps; it does not certify the entire app stable.

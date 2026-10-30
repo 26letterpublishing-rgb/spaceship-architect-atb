@@ -50,6 +50,10 @@
     for(const node of view.querySelectorAll('*'))if(!keep.has(node))node.dataset.orderHidden='';
     view.querySelector('header h2').textContent=title;
     view.querySelector('[data-close]').textContent='Cancel';
+    // The optional Scan Hex prompt owns its cancellation, unlike outer Console chrome.
+    if(view.classList.contains('sensor-console')&&selector==='[data-order="hex"]'){
+      const cancel=view.querySelector('[data-close]');cancel.hidden=false;cancel.setAttribute('data-dialog-dismiss','');
+    }
     button?.focus();
     if(['hex','life'].includes(action))button?.click();
   }

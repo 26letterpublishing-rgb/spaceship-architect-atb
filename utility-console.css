@@ -32,3 +32,11 @@
 .utility-console .utility-controls .utility-switch{gap:8px;min-width:0;overflow-wrap:anywhere}
 .utility-console .utility-controls .utility-switch input{min-width:50px;max-width:50px;box-sizing:border-box;flex:0 0 50px}
 .utility-console .life-radials span{display:flex;align-items:center;justify-content:center;text-align:center;width:66px;height:auto;max-height:100%;flex:0 1 66px;font-size:14px;line-height:1.1;padding:3px}
+/* Life Support only: unobscured machine image above live instruments. */
+@media(min-width:901px){
+ dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .utility-scene{display:grid!important;grid-template-rows:minmax(0,1fr) auto;align-items:stretch;justify-content:stretch;gap:8px;overflow:auto!important}
+ dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .life-machine{display:grid;grid-template-columns:minmax(0,1fr) 64px;grid-template-rows:minmax(96px,1fr) auto;gap:8px;place-items:stretch;min-height:0;height:100%}
+ dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .life-machine>img{position:static;inset:auto;grid-column:1/-1;grid-row:1;width:100%;height:100%;min-height:0;object-fit:contain;opacity:1}
+ dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .life-instruments{position:static;inset:auto;grid-column:1;grid-row:2;width:auto;height:auto;padding:0;gap:5px;grid-template-rows:66px 24px auto auto auto;background:transparent;border:0;box-shadow:none;overflow:visible}
+ dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .gravity-chamber{position:relative;inset:auto;grid-column:2;grid-row:2;width:auto;height:auto;min-height:0;box-sizing:border-box;align-self:stretch}
+}

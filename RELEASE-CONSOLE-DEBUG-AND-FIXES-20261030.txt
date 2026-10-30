@@ -1,0 +1,66 @@
+SA accumulated approved fixes and all-Console Debug release — 2026-10-30
+
+Scope: approved local application, regression-test and developer-workflow changes
+since main5d6680155dfd843b1d454f582420e1c4c11e3e1a, including the preceding
+October25 desktop/Starship reports. No personal adventure or QA campaign data.
+
+LATEST MILESTONES
+- Main Menu Debug exposes all131 Console-capable catalog variants through real
+  production renderers and existing assets. New routes are explicitly visual-only
+  with memory fixtures; existing functional Sensors/Lock On simulations retained.
+  Exit/Restore/Reopen/family switching remain accessible. No campaign API writes.
+- CPU Security1–8 and Hacking Module1–5 floorplan URL query/fragment order corrected
+  to select their13 existing intended SVG views. Card/sprite/Console roles unchanged.
+
+ACCUMULATED APPROVED SCOPES
+- Sensors layout, ranges/privacy, controls, typing/sonar, audio, Hold preference;
+  scoped Ring layouts for Sensors, Lock On, Shields, Life Support, Hacking and
+  shared weapon branches; utility lifecycle ownership/cleanup.
+- Shared Console Exit/offline recovery, dialog ownership and Scan Hex dismissal;
+  repeated combat Confirm, routine notice dismissal/eight-second fading;
+  pending-character approval banner, stationary timed victory and escape distinction.
+- SIC restoration countdown/progress and duplicate-attempt feedback; stale-room
+  callback guards; serialized crew persistence and authoritative roster reconciliation.
+- Stable component identity and last-scanned status with invalid-target reselection;
+  escaped-ship scan filtering and delayed ram/self-destruct damage protections.
+- Greentip poison uses validated original D4 fours; manual poison remains manual.
+  New normal missiles use approved versioned10-second profiles; legacy/special
+  flights and12-second launcher cooldown preserved.
+- Surface unchanged-update retention, Sector grid continuity, Shop picker lifecycle,
+  pinned purchasing power summaries/current labels, desktop sheet/map/dialog repairs.
+- Previously approved Rapid Laser card illustrations preserved, separate from
+  floorplan/Console art. Developer glossary and focused workflow references included.
+
+VERIFICATION
+Final unchanged functional tree:1721/1721 tests passed, zero failures/skips.
+The first sandbox aggregate encountered localhost EACCES; that evidence is retained.
+Supported approved execution reran the suite successfully on disposable fixtures.
+Release syntax:123 changed/new JS/CJS files passed. Whitespace passed after removing
+trailing blank whitespace from CSS and13 test/harness files; no behavior changed.
+Debug:131 renderer-open/Escape/reopen cases at1366x768;36 representative checks
+at1920x1080,1366x768,1280x720; existing Sensors/Lock simulated actions passed;
+zero script errors/non-GET/API requests. These are not all-variant combat tests.
+Artwork:12focused tests, before/after tier sheets inspected, exact catalog diff
+confirms only13 image values changed. Other approved scopes retain their original
+focused/browser reports and failure evidence outside the repository.
+
+LIMITATIONS / PARKED ITEMS
+Manipulation Arm and Tractor Beam each use identical file bytes for their interior
+and exterior; no verified replacement interior was found, so both remain unchanged.
+The other35 mixed pairs use different files, not a blanket artistic-approval claim.
+Probe's approved shared role remains intact. Unverified Darkveil card alternatives
+remain parked. No new artwork generated in the latest milestones.
+Compact Ring readability remains Jason's judgement; some small-height Debug,
+offline-warning/footer and extreme-heading constraints remain documented. No
+claim of all Console layouts polished or exhaustive combat/animation coverage.
+Subjective audio audition remains for Jason. Historical victory-opposition and
+ambiguous autonomous/neutral ship limitations remain; no new allegiance policy.
+
+PUBLICATION / ACTIVATION
+User authorized scoped commit/push and usual ntfy after the two milestones.
+No manual deployment or shared-server restart is included. Local8790 activation
+remains separate; protected8796/campaign3QWC and user tabs were not touched.
+A GitHub push alone does not verify hosted deployment. Remote SHA and notification
+acceptance are recorded in the external publication handoff after publication.
+QA outputs, temporary fixtures/data, adventure files and old migration scripts
+remain untracked and excluded. Do not treat this release as cancelling backlog.

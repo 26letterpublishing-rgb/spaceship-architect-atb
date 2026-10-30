@@ -27,6 +27,27 @@ test('corner notice dismissal consumes clicks without reserving page space',()=>
  e.win.SAResultFeedback.notice('Another result');e.flush();assert.equal(rail.popoverOpen,true);
 });
 
+test('routine result lifetime is eight wall-clock seconds and duplicate packets do not renew it',()=>{
+ const e=environment();e.win.SAResultFeedback.push('scan','Scan: no dice required','Guaranteed contacts.');e.flush();
+ const card=e.doc.querySelector('.result-notifications').children[0];assert.equal(e.timers.length,1);assert.equal(e.timers[0].delay,8000);
+ e.win.SAResultFeedback.push('scan','Scan: no dice required','Guaranteed contacts.');assert.equal(e.timers.length,1);
+ e.timers[0]();assert.equal(card.isConnected,false);assert.equal(e.store.get('sa-result:scan'),'1');
+ e.win.SAResultFeedback.push('scan','Scan: no dice required','Guaranteed contacts.');assert.equal(e.doc.querySelector('.result-notifications').children.length,0);
+});
+test('stacked result timers are independent and manual dismissal is idempotent',()=>{
+ const e=environment();e.win.SAResultFeedback.push('a','Scan','Done');e.win.SAResultFeedback.push('b','Analysis','Processing');e.flush();
+ const tray=e.doc.querySelector('.result-notifications');tray.children[0].querySelector('button').fire('click');e.timers[0]();assert.equal(tray.children.length,1);assert.match(tray.textContent,/Analysis/);e.timers[1]();assert.equal(tray.children.length,0);
+});
+test('notice rail follows the active modal without moving or resizing the Console',()=>{
+ const e=environment(),modal=e.doc.createElement('dialog');modal.open=true;const matches=modal.matches.bind(modal);modal.matches=s=>s===':modal'||matches(s);e.doc.body.append(modal);
+ e.win.SAResultFeedback.push('modal','Scan','Done');e.flush();const rail=e.doc.querySelector('.interface-notice-rail');assert.equal(rail.parentElement,modal);assert.equal(modal.parentElement,e.doc.body);
+ modal.open=false;e.win.SAInterfaceNotices.host().refresh();assert.equal(rail.parentElement,e.doc.body);
+});
+test('ending combat disposes result lifecycle without clearing persistent waiting semantics early',()=>{
+ const e=environment();e.win.SAResultFeedback.waiting('Required roll');e.win.SAResultFeedback.push('routine','Scan','Done');e.flush();e.timers[0]();assert.match(e.doc.querySelector('.combat-waiting-notice').textContent,/Required roll/);
+ e.win.SAResultFeedback.push('pending','Analysis','Processing');e.win.SAInterfaceNotices.setCombatActive(false);e.timers[1]();assert.equal(e.doc.querySelector('.result-notifications').children.length,0);
+});
+
 test('notices never resize or reparent native consoles',()=>{
  const e=environment(),dialog=e.doc.createElement('dialog');dialog.className='shared-console-layout';dialog.open=true;dialog.style.setProperty('height','100dvh','important');e.doc.body.append(dialog);
  e.win.SAResultFeedback.notice('Saved');e.flush();const rail=e.doc.querySelector('.interface-notice-rail');assert.equal(rail.parentElement,e.doc.body);assert.equal(dialog.style.getPropertyValue('top'),'');assert.equal(dialog.style.getPropertyValue('height'),'100dvh');rail.querySelector('button').fire('click');assert.equal(dialog.style.getPropertyValue('height'),'100dvh');
