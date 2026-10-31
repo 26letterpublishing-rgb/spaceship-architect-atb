@@ -147,7 +147,7 @@ const dom = {
   resumeEncounter: $("#resumeEncounter"),
   prepareNewEncounter: $("#prepareNewEncounter"),
   returnToEncounterSetup: $("#returnToEncounterSetup"),
-  liveEncounterCode: $("#liveEncounterCode"),
+  combatSaveStatus: $("#combatSaveStatus"),
   storageMode: $("#storageMode"),
   saveCampaignBackup: $("#saveCampaignBackup"),
   restoreOpenCampaignFile: $("#restoreOpenCampaignFile"),
@@ -1376,9 +1376,8 @@ function showEncounterLive() {
   encounterSetupRequested = false;
   dom.atbSetup.hidden = true;
   dom.returnToEncounterSetup.hidden = false;
-  dom.liveEncounterCode.hidden = false;
   dom.atbLive.hidden = false;
-  dom.liveEncounterCode.textContent = campaign?.settings?.hideRoomCode ? "\u2022\u2022\u2022\u2022" : code;
+  window.SACombatRecoveryLayout?.mount(dom.atbFrame.contentDocument?.querySelector(".paired-combat-recovery"));
   const expected = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}`;
   if (!dom.atbFrame.getAttribute("src")) dom.atbFrame.src = expected;
   updateExitEncounterVisibility();
@@ -1391,9 +1390,9 @@ function showEncounterSetup({ forceBuilder = false, explicit = false } = {}) {
     refreshEncounterState().catch((error) => showMessage(dom.message, error.message, "error"));
     return;
   }
+  globalThis.SACombatRecoveryLayout?.restore();
   dom.atbLive.hidden = true;
   dom.returnToEncounterSetup.hidden = true;
-  dom.liveEncounterCode.hidden = true;
   dom.atbSetup.hidden = false;
   if (forceBuilder) {
     forceEncounterBuilder = true;
@@ -1706,6 +1705,8 @@ function openWorkspace(nextCampaign, nextToken) {
   campaign = nextCampaign;
   code = campaign.code;
   token = nextToken;
+  dom.combatSaveStatus.textContent = 'Checking combat saves...';
+  void refreshCombatSaveStatus();
   (SHOWCASE_MODE ? sessionStorage : localStorage).setItem(tokenKey(code), token);
   if (!SHOWCASE_MODE) localStorage.setItem("sa-current-campaign-code", code);
   dom.gateway.hidden = true;
@@ -3069,6 +3070,17 @@ recoverEncounterButton.onclick=async()=>{try{
  }catch(e){showMessage(dom.message,e.message,'error');}};
 
 const recoveryGroup=document.querySelector('.arena-file-actions');recoveryGroup?.prepend(recoverEncounterButton);document.getElementById('restoreLastCombat').textContent='Restore Latest';
+const recoveryOrigin=document.createComment('GM recovery toolbar origin');recoveryGroup.before(recoveryOrigin);
+function mountCombatRecovery(target){
+  if(!target||dom.atbLive.hidden||target.ownerDocument!==dom.atbFrame.contentDocument||!target.matches('.paired-combat-recovery'))return;
+  if(recoveryGroup.parentElement!==target)target.append(recoveryGroup);
+}
+function restoreCombatRecovery(ownerDocument){
+  if(ownerDocument&&recoveryGroup.ownerDocument!==ownerDocument)return;
+  recoveryOrigin.after(recoveryGroup);
+}
+window.SACombatRecoveryLayout={mount:mountCombatRecovery,restore:restoreCombatRecovery};
+
 
 // Loading a saved system is an explicit replacement of the preparation map, not a draft merge.
 window.addEventListener("sa-open-system",event=>{if(!event.detail||event.detail.code!==code)return;receiveCampaign(event.detail);encounterObjects=structuredClone(event.detail.spaceObjects||[]);encounterObjectBaseline=structuredClone(encounterObjects);encounterPositions=[];encounterPositionDraft=[];encounterDistances=[];saveEncounterMapDraft();renderEncounterBuilder();});
@@ -3116,13 +3128,16 @@ document.querySelector('#arenaFileInput').addEventListener('change',async event=
 async function loadArenaData(file){return window.SAContentUI.load(file,{fileName:'Encounter.sa2arena'});}
 
 async function refreshCombatSaveStatus(){
-  if(!code||!token)return null;
-  const label=document.getElementById('combatSaveStatus');
+  const label=dom.combatSaveStatus;
+  if(!code||!token){label.hidden=true;return null;}
+  label.hidden=false;
+  const requestedCode=code,requestedToken=token;
   try{const result=await api(`/api/campaign/checkpoints?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}&latestOnly=1`,null,'GET');
+    if(code!==requestedCode||token!==requestedToken)return null;
     const latest=result.checkpoints[0];label.textContent=latest?'Last combat save: '+new Date(latest.at).toLocaleString():'No combat save yet. Saves begin when combat is prepared.';return latest;
-  }catch{label.textContent='Unable to check combat saves. Retry when the connection returns.';return null;}
+  }catch{if(code===requestedCode&&token===requestedToken)label.textContent='Unable to check combat saves. Retry when the connection returns.';return null;}
 }
-setInterval(()=>{if(!document.hidden&&!document.getElementById('atbTab')?.hidden)void refreshCombatSaveStatus();},15000);
+setInterval(()=>{if(!document.hidden&&campaign)void refreshCombatSaveStatus();},15000);
 document.getElementById('restoreLastCombat').onclick=async function(){
   if(this.disabled)return;this.disabled=true;
   try{const latest=await refreshCombatSaveStatus();if(!latest)return;

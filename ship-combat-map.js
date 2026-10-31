@@ -371,7 +371,7 @@
     stats.innerHTML = fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.hull(record, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.shields(record, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
-  function statsMarkup(record) {
+  function statsMarkup(record, summary = false) {
     const ship = record?.ship || {};
     const hullMax = Number(statValue(record, "maximumHullHp")) || ship.gridCells?.length || 0;
     const hull = Number(record.currentHullHp ?? ship.currentHullHp ?? ship.confirmed?.currentHullHp ?? hullMax);
@@ -384,7 +384,7 @@
       ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)],
       ["EN", power.en], ["AU", record.auState ? `${record.auState.current}/${record.auState.maximum}` : power.au], ["Scale", statValue(record, "scaleRank", "scale")],
     ];
-    return fields.map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.hull(record, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.shields(record, mode === "gm") : esc(value)}</strong></span>`).join("");
+    return fields.filter(([label])=>!summary||!["Shield","Hull","Defense","AU"].includes(label)).map(([label, value]) => `<span><small>${label}</small><strong>${label === "Hull" ? window.SAHealthDisplay.hull(record, mode === "gm") : label === "Shield" ? window.SAHealthDisplay.shields(record, mode === "gm") : esc(value)}</strong></span>`).join("");
   }
 
   function stationChoiceMarkup(record, unit) {
@@ -402,8 +402,21 @@
     return choices.length?`<label class="interior-station-choice">Go to station <select data-interior-station aria-label="Choose a station"><option value="">Choose a station…</option>${choices.join('')}</select></label>`:'';
   }
 
-  function inlineMapMarkup(record) {
+  // Saved control assignment owns the visual column; never use alternating indices.
+  function interiorRotation(record) {
+    return window.SAShipMap.displayRotation(record,record.controlType==='gm'?270:90);
+  }
+  function orientedGridPoint(grid,x,y,inverse=false){
+    return window.SAShipMap.orientPoint(x,y,Number(grid.style.getPropertyValue('--inline-cols')),Number(grid.style.getPropertyValue('--inline-rows')),Number(grid.dataset.displayRotation),inverse);
+  }
+  function setInlineSize(grid,size){
+    grid.style.setProperty('--preview-cell-size',size+'px');
+    grid.parentElement.style.setProperty('--preview-cell-size',size+'px');
+  }
+
+  function inlineMapMarkup(record, expanded = false) {
     const ship = record.ship || {};
+    const rotation=interiorRotation(record),sideways=rotation%180!==0;
     const columns=window.SAShipMap.gridColumns(record);
     const cells = [...new Set([...(ship.gridCells || []), ...window.SAShipMap.triangleCells(ship), ...layoutFor(ship).footprint.keys()])];
     if (!cells.length) return '<p class="inline-map-empty">This starship has no confirmed floorplan.</p>';
@@ -472,8 +485,8 @@
       ? moveSubmitting ? "Starting movement..." : moveError || (activePreview?.locked ? `${activePreview.path?.length || 0} unit route selected.` : "Point to preview a route; click to select. Or choose a station below.")
       : "Live interior view";
     return `<div class="combat-map-stats">${statsMarkup(record)}</div><div class="inline-map-toolbar"><span>${esc(prompt)}</span></div>
-      <div class="inline-map-stage"><div class="inline-map-viewport"><div class="${classes}" data-origin-column="${minCol}" data-origin-row="${minRow}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div>
-      ${isSelected && interaction === "move" ? `<div class="inline-map-move-controls">${stationChoiceMarkup(record,selected)}<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div><div class="inline-map-footer"><div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
+      <div class="inline-map-stage"><div class="inline-map-viewport"><div class="inline-map-orientation" style="--display-cols:${sideways?rowCount:colCount};--display-rows:${sideways?colCount:rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px"><div class="${classes}" data-display-rotation="${rotation}" data-origin-column="${minCol}" data-origin-row="${minRow}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div></div>
+      ${isSelected && interaction === "move" ? `<div class="inline-map-move-controls">${stationChoiceMarkup(record,selected)}<div class="inline-map-actions">${routeControls()}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div><div class="inline-map-footer"><div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,expanded?'data-shared-interior-view':'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -484,7 +497,7 @@
     // AU/ATB/gravity clocks must not rebuild thousands of unchanged map cells.
     const atmosphere=Object.entries(ship.atmosphereState?.cells||{}).map(([cell,o2])=>[cell,Math.ceil(o2-1e-7)]);
     const crew=(combatState?.units||[]).filter(u=>u.location?.starshipId===record.id).map(u=>[u.id,u.characterName,u.color,u.raceId,u.raceType,u.iconRace,u.iconVariant,u.shipAi,u.location,u.timedAction?{...u.timedAction,remaining:0}:null,u.travelRoute,u.defeatedAt]);
-    return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
+    return JSON.stringify([ship.gridCells,ship.triangleCells,ship.zoneColumns,ship.zoneRows,ship.placements,ship.sicInventory,ship.doorStates,ship.airlocks,ship.airlockStates,ship.breachState,ship.shipDirection,ship.shipRotation,ship.unifiedShipFacing,interiorRotation(record),ship.thrusterDirection,atmosphere,ship.fieldState?.systems,ship.fieldState?.docking,record.characterLocations,crew,mode,mapView,selectedShipId,selectedUnitId,myUnitId,interaction,preview,inlineZoom.get(record.id),moveSubmitting,moveError]);
   }
   const inlineZoom = new Map();
   const fitObservers=new Map();
@@ -498,16 +511,18 @@
     const size=host===expandedMap?.host?expandedMap.cellSize:inlineZoom.get(host.dataset.inlineShipMap);
     if(!size)return;
     const v=viewport.getBoundingClientRect(),g=grid.getBoundingClientRect();
-    interiorCameras.set(cameraKey(host),{size,x:Number(grid.dataset.originColumn||0)+(v.left+viewport.clientWidth/2-g.left)/size,y:Number(grid.dataset.originRow||0)+(v.top+viewport.clientHeight/2-g.top)/size});
+    const point=orientedGridPoint(grid,(v.left+viewport.clientWidth/2-g.left)/size,(v.top+viewport.clientHeight/2-g.top)/size,true);
+    interiorCameras.set(cameraKey(host),{size,x:Number(grid.dataset.originColumn||0)+point.x,y:Number(grid.dataset.originRow||0)+point.y});
   }
   function restoreInlineView(host){
     const saved=interiorCameras.get(cameraKey(host)),viewport=host.querySelector('.inline-map-viewport'),grid=host.querySelector('.inline-combat-map-grid');
     if(!saved||!viewport?.clientWidth||!grid)return false;
     if(host===expandedMap?.host){expandedMap.cellSize=saved.size;expandedMap.dialog.style.setProperty('--expanded-cell-size',saved.size+'px');}
-    else{inlineZoom.set(host.dataset.inlineShipMap,saved.size);grid.style.setProperty('--preview-cell-size',saved.size+'px');}
+    else{inlineZoom.set(host.dataset.inlineShipMap,saved.size);setInlineSize(grid,saved.size);}
     const v=viewport.getBoundingClientRect(),g=grid.getBoundingClientRect();
-    viewport.scrollLeft+=g.left-v.left+(saved.x-Number(grid.dataset.originColumn||0))*saved.size-viewport.clientWidth/2;
-    viewport.scrollTop+=g.top-v.top+(saved.y-Number(grid.dataset.originRow||0))*saved.size-viewport.clientHeight/2;
+    const point=orientedGridPoint(grid,saved.x-Number(grid.dataset.originColumn||0),saved.y-Number(grid.dataset.originRow||0));
+    viewport.scrollLeft+=g.left-v.left+point.x*saved.size-viewport.clientWidth/2;
+    viewport.scrollTop+=g.top-v.top+point.y*saved.size-viewport.clientHeight/2;
     return true;
   }
 
@@ -518,14 +533,16 @@
     const moving=interaction==='move'&&selectedShipId===host.dataset.inlineShipMap;
     const cols=Number(moving&&grid.dataset.hullColumns||grid.style.getPropertyValue('--inline-cols')),
       rows=Number(moving&&grid.dataset.hullRows||grid.style.getPropertyValue('--inline-rows'));
-    const size=Math.max(1,Math.min(96,(viewport.clientWidth-32)/cols,(viewport.clientHeight-32)/rows));
+    const sideways=Number(grid.dataset.displayRotation)%180!==0;
+    const size=Math.max(1,Math.min(96,(viewport.clientWidth-32)/(sideways?rows:cols),(viewport.clientHeight-32)/(sideways?cols:rows)));
     if(host===expandedMap?.host){expandedMap.cellSize=size;expandedMap.dialog.style.setProperty('--expanded-cell-size',size+'px');}
-    else{inlineZoom.set(host.dataset.inlineShipMap,size);grid.style.setProperty('--preview-cell-size',size+'px');}
+    else{inlineZoom.set(host.dataset.inlineShipMap,size);setInlineSize(grid,size);}
     manualInlineViews.delete(host);viewport.scrollLeft=0;viewport.scrollTop=0;
     if(moving){
       const gridRect=grid.getBoundingClientRect(),viewRect=viewport.getBoundingClientRect();
-      viewport.scrollLeft=Math.max(0,gridRect.left-viewRect.left+(Number(grid.dataset.hullColumn||0)+cols/2)*size-viewport.clientWidth/2);
-      viewport.scrollTop=Math.max(0,gridRect.top-viewRect.top+(Number(grid.dataset.hullRow||0)+rows/2)*size-viewport.clientHeight/2);
+      const point=orientedGridPoint(grid,Number(grid.dataset.hullColumn||0)+cols/2,Number(grid.dataset.hullRow||0)+rows/2);
+      viewport.scrollLeft=Math.max(0,gridRect.left-viewRect.left+point.x*size-viewport.clientWidth/2);
+      viewport.scrollTop=Math.max(0,gridRect.top-viewRect.top+point.y*size-viewport.clientHeight/2);
     }
     rememberInlineView(host);
   }
@@ -579,6 +596,7 @@
     if (!expandedMap) return;
     const previous = expandedMap;
     expandedMap = null;
+      previous.removeDashboardListener?.();
     previous.dialog.close();
     previous.dialog.remove();
     previous.source?.focus({ preventScroll: true });
@@ -604,7 +622,7 @@
     const size=Math.max(6,Math.min(viewport.clientWidth/4,focus?viewport.clientWidth/15:old*factor));
     manualInlineViews.add(host);
     if(host===expandedMap?.host){expandedMap.cellSize=size;expandedMap.dialog.style.setProperty('--expanded-cell-size',size+'px');}
-    else{inlineZoom.set(host.dataset.inlineShipMap,size);grid.style.setProperty('--preview-cell-size',size+'px');}
+    else{inlineZoom.set(host.dataset.inlineShipMap,size);setInlineSize(grid,size);}
     viewport.scrollLeft=x*size-viewport.clientWidth/2;viewport.scrollTop=y*size-viewport.clientHeight/2;
     if(focus)centerInterior(host);
     rememberInlineView(host);
@@ -641,6 +659,25 @@
     shell.innerHTML = `<header><strong>${esc(record?.title || "Starship Interior")}</strong><button type="button" data-interior-back>Back</button></header><section data-inline-ship-map="${esc(host.dataset.inlineShipMap)}"></section>`;
     const mapHost = shell.querySelector("[data-inline-ship-map]");
     expandedMap = { dialog: shell, host: mapHost, source, cellSize: 96 };
+    shell.addEventListener('close',()=>{if(expandedMap?.dialog===shell)closeExpandedMap();});
+    if(record?.ship?.gridCells?.length){
+      const frame=doc.createElement('iframe');frame.title='Live ship dashboard';
+      frame.className='combat-ship-dashboard';
+      frame.src=new URL('starship.html?embeddedRecord=1&details=1&view=1&combatDashboard=1',location.href).href;
+      const receive=event=>{
+        if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+        if(event.data?.type==='sa-ship-detail-ready'){
+          const value=bridge()?.shipDashboardData?.(record.id);
+          if(value)frame.contentWindow.postMessage({type:'sa-ship-detail-data',...value},location.origin);
+        }
+        if(event.data?.type==='sa-character-sheet-height')frame.style.height=Math.max(180,Number(event.data.height)||180)+'px';
+      };
+      owner.addEventListener('message',receive);
+      expandedMap.dashboard=frame;
+      expandedMap.removeDashboardListener=()=>owner.removeEventListener('message',receive);
+      const currentStats=doc.createElement('section');currentStats.className='combat-dashboard-live construction-summary';currentStats.setAttribute('aria-label','Current ship statistics');currentStats.innerHTML=statsMarkup(record);shell.append(currentStats);
+      shell.append(frame);
+    }
     shell.addEventListener("cancel", (event) => { event.preventDefault(); closeExpandedMap(); });
     shell.addEventListener("click", (event) => {
       if (event.target.closest("[data-interior-back]")) return closeExpandedMap();
@@ -649,6 +686,7 @@
     if (doc !== document) {
       shell.addEventListener("click",handleRouteControls,true);
       shell.addEventListener("click", handleInlineClick, true);
+      shell.addEventListener("change",handleSharedInteriorView);
       shell.addEventListener("pointerover", handleInlineHover);
       shell.addEventListener("click", handleInlinePointer, true);
     }
@@ -662,13 +700,35 @@
   window.addEventListener("pagehide", closeExpandedMap);
 
   function renderInlineMaps(root = document, force = false) {
-    if (root === document && expandedMap) renderInlineMaps(expandedMap.dialog, force);
+    const shared = document.querySelector('.shared-interior-controls');
+    if (shared) {
+      if (!shared.children.length) {
+        shared.innerHTML = window.SAShipMap.viewControls(mapView,'data-shared-interior-view');
+        shared.querySelector('[data-shared-interior-view="highResolution"]').parentElement.querySelector('span').textContent='High Resolution';
+      }
+      for (const input of shared.querySelectorAll('input')) {
+        const key=input.dataset.sharedInteriorView;
+        input.disabled=window.SAShipMap.viewDisabled(mapView,key);
+        input.checked=!!mapView[key]&&!input.disabled;
+      }
+    }
+    if (root === document && expandedMap) {
+      const value=bridge()?.shipDashboardData?.(expandedMap.host.dataset.inlineShipMap);
+      if(!value){closeExpandedMap();return;}
+      const currentStats=expandedMap.dialog.querySelector('.combat-dashboard-live'),markup=statsMarkup(value.record);
+      if(currentStats&&currentStats.innerHTML!==markup)currentStats.innerHTML=markup;
+      if(value&&expandedMap.dashboard)expandedMap.dashboard.contentWindow?.postMessage({type:'sa-ship-detail-update',record:value.record,characters:value.campaign.characters,partyCredits:value.campaign.shipCredits},location.origin);
+      renderInlineMaps(expandedMap.dialog, force);
+    }
     root.querySelectorAll?.("[data-inline-ship-map]").forEach((host) => {
       const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
       const lane = host.closest(".ship-combat-lane");
       const target = interaction === "move" && selectedShipId === record?.id;
       lane?.classList.toggle("inline-move-target", target);
       if (!record) return;
+      const summary=lane?.querySelector('.ship-summary-stats');
+      const liveStats=statsMarkup(record,true);
+      if(summary&&summary.innerHTML!==liveStats)summary.innerHTML=liveStats;
 
       watchFit(host);
       const stateKey=interiorStateKey(record);
@@ -680,10 +740,12 @@
         window.SADroneMap?.update(host.querySelectorAll('.inline-combat-map-grid'),record.ship,window.SAShipTargets.drones(combatState).filter(d=>d.targetId===record.id));
         return;
       }
-      const markup = inlineMapMarkup(record);
+      const markup = inlineMapMarkup(record, Boolean(host.closest('.expanded-interior-dialog')));
       if (inlineMarkupCache.get(host) !== markup) {
         if(!interiorCameras.has(cameraKey(host)))rememberInlineView(host);
         host.innerHTML = markup;
+        const highResolution=host.querySelector('[data-shared-interior-view=highResolution]');
+        if(highResolution)highResolution.parentElement.querySelector('span').textContent='High Resolution';
         restoreInlineView(host);
         host.querySelector('.inline-map-viewport')?.addEventListener('scroll',()=>rememberInlineView(host),{passive:true});
         inlineMarkupCache.set(host, markup);
@@ -914,6 +976,13 @@
     }
     open();
   }); closeButton.addEventListener("click", close); cancel.addEventListener("click", close);
+  function handleSharedInteriorView(event){
+    const input=event.target.closest?.('[data-shared-interior-view]');
+    if(!input)return;
+    mapView[input.dataset.sharedInteriorView]=input.checked;
+    window.SAShipMap.saveViewPreferences(mapView);
+    renderInlineMaps(document,true);
+  }
   function handleInlineClick(event) {
     const inlineHost = event.target.closest?.("[data-inline-ship-map]");
     if (inlineHost) {
@@ -959,6 +1028,7 @@
   }
   document.addEventListener('click',handleRouteControls,true);
   document.addEventListener("click", handleInlineClick, true);
+  document.addEventListener("change",handleSharedInteriorView);
   function handleInteriorStation(event){
     const select=event.target.closest?.('[data-interior-station]'),host=select?.closest('[data-inline-ship-map]');
     if(!select?.value||interaction!=='move'||host.dataset.inlineShipMap!==selectedShipId)return;
@@ -1053,6 +1123,11 @@
       // Preserve the camera and enclosing scroll positions when controls add a row.
       restoreInlineView(host);
       for(const [p,top,left] of scrollParents){p.scrollTop=top;p.scrollLeft=left;}
+      // Move uses the same enlarged floorplan as the existing Enlarge control.
+      // Reuse a matching open view instead of replacing its camera or listeners.
+      if (expandedMap?.host.dataset.inlineShipMap === selectedShipId) return;
+      const expand = host.querySelector('[data-expand-interior]');
+      if (expand) return expandInterior(host, expand);
     },
     isInlineMoveSelecting: () => interaction === "move",
     render,

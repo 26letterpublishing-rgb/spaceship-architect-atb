@@ -4,7 +4,7 @@ test('two walking crew update their sprites without rebuilding the ship map each
  const source=fs.readFileSync(path.join(__dirname,'../ship-combat-map.js'),'utf8');
  const fn=source.slice(source.indexOf('  function interiorStateKey('),source.indexOf('  const inlineZoom ='));
  const scope={combatState:{units:[1,2].map(id=>({id,location:{starshipId:'ship',square:id},timedAction:{kind:'move',total:10,remaining:9,routeSegment:[{square:3}]}}))},mode:'gm',mapView:{},selectedShipId:'ship',selectedUnitId:1,myUnitId:'',interaction:'view',preview:null,inlineZoom:new Map(),moveSubmitting:false,moveError:''};
- const vm=require('node:vm');vm.createContext(scope);vm.runInContext(fn,scope);
+ const vm=require('node:vm');scope.window={SAShipMap:require('../ship-map-core')};scope.ships=()=>scope.combatState.starships||[];vm.createContext(scope);vm.runInContext(source.slice(source.indexOf('  function interiorRotation('),source.indexOf('  function orientedGridPoint(')),scope);vm.runInContext(fn,scope);
  const record={id:'ship',ship:{gridCells:[1,2,3],doorStates:{}}},initial=scope.interiorStateKey(record);
  scope.combatState.units.forEach(u=>u.timedAction.remaining-=.1);assert.equal(scope.interiorStateKey(record),initial);
  record.ship.doorStates.entry={open:true};assert.notEqual(scope.interiorStateKey(record),initial);

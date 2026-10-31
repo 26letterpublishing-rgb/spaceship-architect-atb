@@ -331,3 +331,8 @@ select option,select optgroup{color:#edf7ff;background:#0b1925}
 .atb-live>#atbFrame{height:100%}
 
 .campaign-backup-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:0}.campaign-file-group{display:flex;flex-wrap:wrap;gap:7px;padding:10px 8px;background:#112737}.campaign-file-group+.campaign-file-group{border-top:1px solid #476074}.campaign-file-group[data-file-group=module]{background:#251e36}.campaign-file-group[data-file-group=manage]{background:#112f30}.campaign-file-group button{min-width:0;flex:1 1 145px;font-size:14px;white-space:normal;padding:6px 10px}.settings-card{min-width:0}.settings-card button{white-space:normal}.settings-card label{min-width:0}@media(max-width:620px){.settings-grid{grid-template-columns:1fr}}
+
+/* Reuse the live checkpoint timestamp immediately beside the universe clock. */
+body .gm-header:has(#universeClock:not([hidden])){grid-template-columns:minmax(0,1fr) minmax(135px,180px) minmax(145px,220px) minmax(0,1fr);grid-template-areas:"identity save clock actions";gap:8px}
+.gm-header>#combatSaveStatus{grid-area:save;min-width:0;font-size:11px;line-height:1.3;color:#b8cbd8;overflow-wrap:anywhere}
+.gm-header>#combatSaveStatus[hidden],.gm-header:not(:has(#universeClock:not([hidden])))>#combatSaveStatus{display:none}

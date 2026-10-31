@@ -12,6 +12,10 @@
     warmed={view,frame,ready:false};doc.defaultView.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===frame.contentWindow&&event.data?.type==='sa-ship-skill-ready'&&warmed?.frame===frame)warmed.ready=true;});
     view.append(frame);doc.body.append(view);return warmed;
   }
+  function preparationNoticeHost(doc,text){
+    if(text!=='Encounter prepared and paused. Engage the clock when ready.'||doc.querySelector('dialog[open]'))return null;
+    return document.querySelector('.paired-combat-clock');
+  }
   function poll(){
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;
     const doc=host();if(!warmed&&!state.practice&&performance.now()>2500&&!doc.hidden)prepareDice(doc);const gm=bridge.mode()==='gm',mine=state.units.find(u=>u.id===bridge.myUnitId()),waiting=state.units.filter(request);
@@ -26,7 +30,9 @@
     const receiver=(gm?state.units.filter(u=>u.team==='npc'):[mine]).find(u=>{const seat=window.SAStationAccess.station(state,u);return seat&&window.SAShipMap.definition(seat.cell.type).bridge&&seat.ship.commandSystems?.calls?.some(c=>c.status==='incoming');});
     if(!relevant.length&&receiver)notice.textContent+=' | Accept incoming call';
     notice.hidden=!notice.textContent;notice.onclick=async()=>{const u=relevant[0];if(u&&(!gm||u.team==='npc'||doc.defaultView.confirm('Act for '+u.characterName+'?'))){forced=u.id;}else if(receiver){const ship=state.starships.find(s=>s.id===receiver.location.starshipId),call=ship.commandSystems.calls.find(c=>c.status==='incoming');try{await bridge.action({action:'shipCommand',id:receiver.id,kind:'accept',callId:call.id,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});}catch(e){result=e.message;until=Date.now()+7000;}}};
-    const parent=[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
+    const preparationHost=preparationNoticeHost(doc,notice.textContent);
+    const parent=preparationHost||[...doc.querySelectorAll('dialog[open]')].at(-1)||doc.body;if(notice.parentElement!==parent)parent.append(notice);
+    notice.toggleAttribute('data-preparation-notice',!!preparationHost);
     notice.classList.toggle('console-status-toast',parent.matches?.('.ship-navigation-dialog,.shared-console-layout'));
     if(dialog){if(!waiting.some(u=>request(u).id===dialog.dataset.rollId))dialog.close();return;}
     const unit=waiting.find(u=>(gm?u.team==='npc'||request(u).rollController==='gm'||u.id===forced:u.id===mine?.id&&request(u).rollController!=='gm'));if(!unit)return;

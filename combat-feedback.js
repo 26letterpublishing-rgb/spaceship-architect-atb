@@ -1,6 +1,23 @@
 (function(){
   const seen=new Set(),hp=new Map(),debrisAfter=new Map(),impactShakes=new WeakMap();let initialized=false,audio=null;
   let resetGeneration=0;
+  function healthSnapshot(ship){
+    const layers=ship.shieldSystems,keys=Object.keys(layers||{}).sort();
+    return {total:(ship.currentHullHp??0)+(ship.currentShieldHp??0),hull:ship.currentHullHp,shield:ship.currentShieldHp,
+      gravity:Boolean(window.SAShipMap?.gravityFieldActive?.(ship)),
+      layers:keys.length&&keys.every(k=>Number.isFinite(layers[k]?.hp))?Object.fromEntries(keys.map(k=>[k,layers[k].hp])):null};
+  }
+  function healthDamage(previous,next){
+    if(!previous)return false;
+    const transition=previous.gravity!==next.gravity;
+    const hullKnown=Number.isFinite(previous.hull)&&Number.isFinite(next.hull);
+    const layerLoss=previous.layers&&next.layers&&Object.keys(previous.layers).some(k=>Number.isFinite(next.layers[k])&&next.layers[k]<previous.layers[k]);
+    if(transition&&(hullKnown&&next.hull<previous.hull||layerLoss))return true;
+    // Field activation suspends effective protection, without damaging the
+    // physical layers. Incomplete or changed layer data keeps the old fallback.
+    const suspension=transition&&next.gravity&&hullKnown&&next.hull===previous.hull&&previous.shield>0&&next.shield===0&&previous.layers&&next.layers&&JSON.stringify(previous.layers)===JSON.stringify(next.layers);
+    return next.total<previous.total&&!suspension;
+  }
   const later=(fn,ms)=>{const generation=resetGeneration;return setTimeout(()=>{if(generation===resetGeneration)fn();},ms);};
   const host=()=>{let d=document;try{while(d.defaultView.frameElement&&!d.defaultView.frameElement.hasAttribute('data-explore-perspective'))d=d.defaultView.parent.document;}catch{}return d;};
   function sound(kind){
@@ -103,7 +120,7 @@
       if(e.incomingLock||e.lockResult&&e.success)sound('lock');
     }
     for(const ship of state.starships){
-      const total=(ship.currentHullHp??0)+(ship.currentShieldHp??0),previous=hp.get(ship.id);if(initialized&&previous!==undefined&&total<previous&&!damaged.has(ship.id))impact(ship.id,Boolean(ship.destroyedAt));hp.set(ship.id,total);
+      const health=healthSnapshot(ship),previous=hp.get(ship.id);if(initialized&&healthDamage(previous,health)&&!damaged.has(ship.id))impact(ship.id,Boolean(ship.destroyedAt));hp.set(ship.id,health);
       for(const d of surfaces())for(const marker of d.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){const wreck=Boolean(ship.destroyedAt)&&Date.now()>=Math.max(Date.parse(ship.destroyedAt)+2400,debrisAfter.get(ship.id)||0);marker.classList.toggle('ship-wreck',wreck);if(!wreck)marker.querySelector('[data-debris]')?.remove();if(wreck){const label=marker.querySelector(':scope > text'),name=(ship.title||ship.ship?.title||'Starship').split(' — ')[0]+' [DESTROYED]';if(label&&label.textContent!==name)label.textContent=name;if(!marker.querySelector('[data-debris]')){const debris=d.createElementNS('http://www.w3.org/2000/svg','g'),radius=Number(marker.querySelector('circle')?.getAttribute('r'))||.3;debris.dataset.debris='';for(let n=0;n<18;n++){const pixel=d.createElementNS(debris.namespaceURI,'rect');pixel.setAttribute('x',Math.sin(n*13.37)*radius*1.5);pixel.setAttribute('y',Math.cos(n*4.91)*radius);pixel.setAttribute('width',radius*.22);pixel.setAttribute('height',radius*.22);pixel.setAttribute('fill','currentColor');debris.append(pixel);}marker.append(debris);}}}
       // Historical per-ship victoryAt is retained in saves, not replayed as a new outcome.
     }

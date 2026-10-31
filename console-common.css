@@ -133,6 +133,12 @@
 
 /* End Shields ring layout. */
 
+/* Shields restoration purchase context; other Console families are unchanged. */
+dialog.shield-console-dialog .shield-purchase-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+dialog.shield-console-dialog .shield-purchase-summary label{flex:0 0 auto}
+dialog.shield-console-dialog .shield-purchase-summary input{width:4.5em;box-sizing:border-box}
+dialog.shield-console-dialog .shield-purchase-summary output{flex:1 1 130px;min-width:0;overflow-wrap:anywhere}
+
 /* Lock-On only: bottom-left timeline, full-height central target map. */
 @media(min-width:901px){
  dialog.lock-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}

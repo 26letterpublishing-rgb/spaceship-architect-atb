@@ -660,6 +660,7 @@ function normalizeCampaign(raw) {
   campaign.itemTransactions = Array.isArray(campaign.itemTransactions) ? campaign.itemTransactions.slice(-250) : [];
   campaign.privateNotes = (Array.isArray(campaign.privateNotes) ? campaign.privateNotes : []).filter((n,i,all)=>n.persistent||i>=all.length-1000).map((note) => ({
     id: String(note?.id || uid("note")),
+    ...(note?.kind === 'system' && typeof note.travelEventId === 'string' && /^[0-9a-f-]{36}$/i.test(note.travelEventId) ? {travelEventId: note.travelEventId} : {}),
     characterId: String(note?.characterId || ""),
     characterName: String(note?.characterName || "").slice(0, 80),
     senderCharacterId: String(note?.senderCharacterId || ""),
@@ -790,6 +791,14 @@ function campaignComparison(hosted, backup) {
     hosted: summarize(hosted),
     backup: summarize(backupCampaign, backup?.summary || { exportedAt: backup?.exportedAt }),
   };
+}
+
+function gmInboxNotes(notes) {
+  // Recipient copies remain stored and delivered to PCs. Only an explicitly
+  // linked copy with a canonical GM system notice is redundant in the GM view.
+  const events = new Set(notes.filter(n => n.kind === 'system' && n.direction === 'to-gm' && n.travelEventId).map(n => n.travelEventId));
+  const visible = notes.filter(n => !(n.kind === 'system' && n.direction === 'to-character' && n.travelEventId && events.has(n.travelEventId)));
+  return visible.filter((note,i,all) => note.persistent || note.kind === 'rest-request' && note.requestStatus === 'pending' || i >= all.length - GM_INBOX_LIMIT);
 }
 
 function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
@@ -1180,7 +1189,7 @@ class CampaignApi {
             }
           : undefined,
       joinRequests: gm ? clone(campaign.joinRequests.filter((request) => request.status === "pending")) : undefined,
-      inbox: gm ? clone(campaign.privateNotes.filter((note,i,all)=>note.persistent||note.kind==="rest-request"&&note.requestStatus==="pending"||i>=all.length-GM_INBOX_LIMIT)) : undefined,
+      inbox: gm ? clone(gmInboxNotes(campaign.privateNotes)) : undefined,
       characters: campaign.characters.map((record) => ({
         ...publicCharacter(record, {
           gm,

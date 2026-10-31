@@ -7,7 +7,7 @@
   const conscious = unit => Boolean(unit && (!unit.defeatedAt||unit.escapedAt) && !unit.oxygenUnconscious && (unit.currentHp == null || !Number.isFinite(Number(unit.currentHp)) || Number(unit.currentHp) > 0));
   const stationLayouts = new WeakMap();
   function stationCell(ship, square) {
-    const key=JSON.stringify([ship.zoneColumns,ship.zoneRows,ship.gridCells,ship.placements,ship.sicInventory,ship.thrusterDirection]);
+    const key=JSON.stringify([ship.zoneColumns,ship.zoneRows,ship.gridCells,ship.placements,ship.sicInventory,ship.shipDirection,ship.shipRotation,ship.unifiedShipFacing,ship.thrusterDirection]);
     let cached=stationLayouts.get(ship);
     if(cached?.key!==key){cached={key,layout:maps.buildLayout(ship)};stationLayouts.set(ship,cached);}
     const cell=cached.layout.footprint.get(Number(square));

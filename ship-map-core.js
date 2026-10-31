@@ -6,6 +6,32 @@
   const ASSET_VERSION = "20260911-pilot-web-assets-1";
   const GRID_SIZE = 20;
   const HULL_COST = 1000;
+  const cardinal = value => [0,90,180,270].includes(value);
+  // Legacy artwork is not rewritten. Only unanimous explicit legacy facing is
+  // used to orient its displayed floorplan; ambiguous old designs default UP.
+  function shipDirection(record) {
+    const ship=record?.ship||record||{};
+    if(cardinal(ship.shipDirection))return ship.shipDirection;
+    const directions=[ship.thrusterDirection,...(ship.sicInventory||[]).filter(i=>definition(i.type).weapon).map(i=>i.weaponFacing)].filter(cardinal);
+    return directions.length&&directions.every(n=>n===directions[0])?directions[0]:0;
+  }
+  function shipRotation(record) {const ship=record?.ship||record||{};return cardinal(ship.shipRotation)?ship.shipRotation:0;}
+  function shipViewKey(record,key) {
+    const arrows=['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'],letters=['w','d','s','a'];
+    const keys=arrows.includes(key)?arrows:letters,index=keys.indexOf(String(key).toLowerCase());
+    const selected=keys===arrows?arrows.indexOf(key):index;
+    return selected<0?key:keys[(selected-shipRotation(record)/90+4)%4];
+  }
+  function displayRotation(record, facing) { return ((cardinal(facing)?facing:0)-shipDirection(record)+shipRotation(record)+360)%360; }
+  // Coordinates are in canonical cell units. Rotation never changes saved cells.
+  function orientPoint(x,y,width,height,rotation,inverse=false) {
+    switch(rotation){
+      case 90:return inverse?{x:y,y:height-x}:{x:height-y,y:x};
+      case 180:return {x:width-x,y:height-y};
+      case 270:return inverse?{x:width-y,y:x}:{x:y,y:width-x};
+      default:return {x,y};
+    }
+  }
   const SIDES = Object.freeze([
     { name: "top", offset: -GRID_SIZE, valid: (square) => square >= GRID_SIZE },
     { name: "right", offset: 1, valid: (square) => square % GRID_SIZE < GRID_SIZE - 1 },
@@ -1017,7 +1043,7 @@
     const mount=impairmentMarkup(sic);
     if(definition(sic.type).mixed&&!sic.segment){const entry=componentDefinition(sic.item),xs=entry.exteriorCells.map(c=>c.x),ys=entry.exteriorCells.map(c=>c.y),minX=Math.min(...xs),minY=Math.min(...ys);if(sic.column!==minX||sic.row!==minY)return mount+'<span class="sa-exterior-tile" aria-hidden="true"></span>';sic={...sic,width:Math.max(...xs)-minX+1,height:Math.max(...ys)-minY+1,offset:0};}
     if (sic.offset) return mount+'<span class="sa-exterior-tile" aria-hidden="true"></span>';
-    const data = definition(sic.type), angle = data.weapon&&Number.isFinite(sic.item.weaponFacing)?(sic.item.weaponFacing+180)%360:sic.segment==="exterior"?(Number(sic.rotation)+180)%360:data.thruster&&layout.thrusterDirection!==null?layout.thrusterDirection:exteriorFacing(layout, square), sideways = angle % 180 !== 0;
+    const data = definition(sic.type), angle = layout.unifiedShipFacing&&(data.weapon||data.thruster)?((shipDirection(layout.ship)-shipRotation(layout.ship)+(data.weapon?180:0)+360)%360):data.weapon&&Number.isFinite(sic.item.weaponFacing)?(sic.item.weaponFacing+180)%360:sic.segment==="exterior"?(Number(sic.rotation)+180)%360:data.thruster&&layout.thrusterDirection!==null?layout.thrusterDirection:exteriorFacing(layout, square), sideways = angle % 180 !== 0;
     const active = !sic.item.disabled && !["destroyed", "offline", "powered-down"].includes(sic.item.status);
     const facing=exteriorFacing(layout,square),shift=exteriorShift(sic,angle,facing),low=exteriorShift(sic,angle,facing,true);
     const shiftStyle=`--art-shift-x:${shift[0]}%;--art-shift-y:${shift[1]}%;--shape-shift-x:${low[0]}%;--shape-shift-y:${low[1]}%;`;
@@ -1147,7 +1173,7 @@
       return { kind: "none", side: "", key: "" };
     }
 
-    return Object.freeze({ ship, hull, footprint, connectionDoors, boundary, edge, columns:GRID_SIZE, rows:gridRows(ship), sides:SIDES, aerofoil:installedItems(ship).some(i=>definition(i.type).landing==='aerofoil')&&hullSymmetry(ship).symmetric, thrusterDirection:[0,90,180,270].includes(ship.thrusterDirection)?ship.thrusterDirection:null });
+    return Object.freeze({ ship, hull, footprint, connectionDoors, boundary, edge, columns:GRID_SIZE, rows:gridRows(ship), sides:SIDES, aerofoil:installedItems(ship).some(i=>definition(i.type).landing==='aerofoil')&&hullSymmetry(ship).symmetric, unifiedShipFacing:ship.unifiedShipFacing===true, shipDirection:cardinal(ship.shipDirection)?ship.shipDirection:null, thrusterDirection:[0,90,180,270].includes(ship.thrusterDirection)?ship.thrusterDirection:null });
   }
 
   function meshStepAllowed(layout,from,to){
@@ -1264,5 +1290,5 @@
     const apply=()=>callback(loadViewPreferences());window.addEventListener('sa-map-view-changed',apply);
     window.addEventListener('storage',e=>{if(e.key===viewKey)apply();});
   }
-  return Object.freeze({ fortificationInstallPrices, airlockCandidates, ensureAirlocks, hazardMarkup, triangleCells, triangleOrientation, triangleError, triangleMarkup, hullSections, hullHp, hullUpgrade, hullDamage, hullUpgradeResizeCost, staticShieldActive, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, gravityFieldActive, cloaked, scaleRank, shipIconId, shipIcon, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
+  return Object.freeze({ shipDirection, shipRotation, shipViewKey, displayRotation, orientPoint, fortificationInstallPrices, airlockCandidates, ensureAirlocks, hazardMarkup, triangleCells, triangleOrientation, triangleError, triangleMarkup, hullSections, hullHp, hullUpgrade, hullDamage, hullUpgradeResizeCost, staticShieldActive, addonHost, attachments, effectiveThreshold, engineClearance, sicPrice, scramblePenalty, equipmentBonus, loadViewPreferences, saveViewPreferences, onViewPreferences, ASSET_VERSION, GRID_SIZE, HULL_COST, SIDES, fuelCatalog, resourceCounts, bridgeAddonPlacement, gridColumns, gridRows, gridSides, rectangleCells, outerSpace, segmentDefinition, placementParts, placementSquares, remapSquare, resizeZone, walkingMilliseconds, playWalkingAnimation, multiMountPlacement, hullSymmetry, installedItems, operational, oxygenEnabled, gravityEnabled, updateMovementGravity, capabilities, capabilityMarkup, catalog: Object.freeze(catalog), definition, componentDefinition, floorplanStyle, doorKey, blocksMovement, buildLayout, meshStepAllowed, meshRoute, boundaryMarkup, image, exteriorPlacement, mixedPlacement, exteriorError, edgePlacement, componentAtEdge, propulsion, masking, gravityFieldActive, cloaked, scaleRank, shipIconId, shipIcon, shipColor, shipHeading, sensorStats, firewallStats, exteriorFacing, surfaceMarkup, roomOxygen, viewDisabled, viewControls });
 }));

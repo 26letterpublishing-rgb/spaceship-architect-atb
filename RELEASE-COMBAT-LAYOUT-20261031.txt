@@ -1,0 +1,44 @@
+COMBAT LAYOUT AND APPROVED LOCAL FIXES - OCTOBER 31, 2026
+
+Scoped publication authorized by Jason. Includes the four previously approved
+local repairs: Purchased SIC disclosures retain the inspector; Shields restore
+quantity shows purchase AU cost/current/max; travel-event identity removes new
+redundant GM recipient copies without deleting history; Gravity shield suspension
+no longer produces false damage feedback while genuine damage remains visible.
+
+Ship Direction sets directional weapon/thruster artwork independently of rigid
+whole-ship rotation. Rotation preserves canonical build coordinates and upright
+labels; saved facing supports inward Combat views. Construction controls share
+one compact row; permitted direction/rotation controls also work enlarged.
+Legacy designs remain loadable without bulk migration.
+
+Combat layout preserves actual renderers, permissions and actions, PC-left/NPC-
+right including unmatched slots, shared interior toggles, per-ship rings and
+summaries, enlarged floorplans/dashboard, on-map controls, compact lower utility
+and Encounter sections. Holding/Resume overlays its ring; NPC automation remains
+ship-specific. Move opens the moving character's enlarged floorplan for multiple
+ships. Live combat-save timestamp is left of universal clock; primary room code
+and checkpoint controls retained. Space-map viewport balanced to300px desktop /
+240px laptop, full width preserved. Human visual comfort remains Jason's review;
+laptop floorplans still require scrolling. No new artwork or combat rules.
+
+FINAL CHECKS
+1763/1763 full aggregate passed on the authorized final retry;31JS/CJS syntax
+checks passed. Earlier1762/1763 stale-DOM assertion failure was corrected under
+explicit test-scope approval. Subsequent1762/1763 Cloak HTTP ECONNRESET is retained;
+one isolated Cloak rerun and final full suite passed. No assertion removed to
+hide a gameplay failure. Final layout/header focused25/25 passed. Owned headless
+GM/PC captures at1920,1366,1280 and actual movement/toolbar/header lifecycle
+checks recorded in external outputs/combat-status-summary-oct31. Detailed prior
+scope reports and failed evidence retained externally; no exhaustive gameplay
+or physical-device acceptance claim. Screenshots supplied to Jason via Library.
+
+PUBLICATION AND ACTIVATION
+Explicit selected source/tests and five relevant browser harnesses only. Exclude
+QA campaign data, personal adventures, screenshots, transient outputs and old
+migration scripts. Preserve unrelated untracked work and Gold Standard.
+No shared server restart, manual deployment, or protected8796/3QWC interaction.
+Backend normalization and event-identity changes need separately authorized
+activation on an already running server. Remote SHA/notification receipt recorded
+in external outputs/publication-oct31 after publication; push alone does not
+establish hosted deployment. Layout editor and later backlog remain unstarted.

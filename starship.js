@@ -76,6 +76,8 @@ function constructionState(source) {
     zoneColumns: window.SAShipMap.gridColumns(source||{}),
     zoneRows: window.SAShipMap.gridRows(source||{}),
     originX: Number(source?.originX)||0, originY: Number(source?.originY)||0,
+    shipDirection: [0,90,180,270].includes(source?.shipDirection)?source.shipDirection:null,
+    shipRotation: window.SAShipMap.shipRotation(source), unifiedShipFacing:source?.unifiedShipFacing===true,
     thrusterDirection: [0,90,180,270].includes(source?.thrusterDirection)?source.thrusterDirection:null,
     gravityEnabled: source?.gravityEnabled!==false,
     warpFuel: window.SAShipMap.resourceCounts(source?.warpFuel,['F','D','C','B','A','S']),
@@ -123,7 +125,7 @@ function constructionState(source) {
 }
 
 function defaultDraft() {
-  const initial = constructionState({});
+  const initial = constructionState({shipDirection:0,shipRotation:0,unifiedShipFacing:true});
   return {
     id: uid(), buildVersion: BUILD_VERSION, confirmedOnce: false,
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -236,7 +238,7 @@ function getWorkingState() { return {...constructionState(draft),doorStates:clon
 function restoreWorkingState(state) {
   const restored = constructionState(state);
   draft.doorStates=state.doorStates?clone(state.doorStates):Object.fromEntries(Object.entries(draft.doorStates||{}).map(([key,value])=>[key.split(':').map(n=>window.SAShipMap.remapSquare(Number(n),draft,restored)).sort((a,b)=>a-b).join(':'),value]));
-  for(const key of ['originOffset','originX','originY','zoneColumns','thrusterDirection'])draft[key]=restored[key];
+  for(const key of ['originOffset','originX','originY','zoneColumns','shipDirection','shipRotation','unifiedShipFacing','thrusterDirection'])draft[key]=restored[key];
   GRID_SIZE=window.SAShipMap.gridColumns(restored);splitPlacement=null;
   draft.groupCredits = restored.groupCredits;
   draft.zoneRows = restored.zoneRows;
@@ -648,6 +650,12 @@ function renderGridCells() {
         label.style.setProperty("--sic-words",definition.name.trim().split(/\s+/).length);
         label.style.setProperty("--sic-width", String(occupied.width));
         label.style.setProperty("--sic-height", String(occupied.height));
+        // Only text stays upright; the room artwork and footprint turn with the grid.
+        const rotation=window.SAShipMap.shipRotation(draft),sideways=rotation%180!==0;
+        label.style.left=`${occupied.width*50}%`;label.style.top=`${occupied.height*50}%`;
+        label.style.width=`${(sideways?occupied.height:occupied.width)*100}%`;
+        label.style.height=`${(sideways?occupied.width:occupied.height)*100}%`;
+        label.style.transform=`translate(-50%,-50%) rotate(${-rotation}deg)`;
         cell.append(label);
       }
       if (placement && mapView.stations && definition?.stations?.length) {
@@ -685,7 +693,10 @@ function applyGridTransform() {
   shipGrids.forEach((grid) => {
     grid.style.setProperty("--cell-size",(grid.clientWidth/GRID_SIZE)+"px");
     grid.style.setProperty("--ship-view-zoom",String(mapView.zoom));
-    grid.style.transform = `scale(${mapView.zoom}) translate(${mapView.panX}%, ${mapView.panY}%)`;
+    grid.style.transform = `scale(${mapView.zoom}) translate(${mapView.panX}%, ${mapView.panY}%) rotate(${window.SAShipMap.shipRotation(draft)}deg)`;
+    for(const label of grid.querySelectorAll('.sa-room-oxygen,.sa-reboot-status')){
+      label.style.transform=`${label.classList.contains('sa-room-oxygen')?'translate(-50%,-100%) ':''}rotate(${-window.SAShipMap.shipRotation(draft)}deg)`;
+    }
     grid.classList.toggle("is-zoomed", mapView.zoom > 1.001);
   });
   gridZoomOutputs.forEach((output) => { output.textContent = `${Math.round(mapView.zoom * 100)}%`; });
@@ -701,11 +712,11 @@ function queueShipRoomLabels(){
     roomLabelFrame=0;
     for(const grid of shipGrids){
     if(!grid.getClientRects().length||!grid.ownerDocument.defaultView.matchMedia('(min-width:1000px)').matches)continue;
-    const screenRatio=new DOMMatrix(getComputedStyle(grid).transform).a/mapView.zoom;
+    const matrix=new DOMMatrix(getComputedStyle(grid).transform),screenRatio=Math.hypot(matrix.a,matrix.b)/mapView.zoom;
     // Measure actual wrapping, not a word-count estimate. Reserve the oxygen row
     // and use screen pixels so resizing/zooming cannot shrink names indefinitely.
     for(const label of grid.querySelectorAll('.sic-grid-label')){
-      const style=getComputedStyle(label),size=[style.width,style.height,mapView.zoom,label.textContent].join(':');
+      const style=getComputedStyle(label),size=[style.width,style.height,mapView.zoom,window.SAShipMap.shipRotation(draft),label.textContent].join(':');
       if(roomLabelSizes.get(label)===size)continue;
       roomLabelSizes.set(label,size);
       const range=label.ownerDocument.createRange();range.selectNodeContents(label);
@@ -729,11 +740,18 @@ function renderGridNavigation() {
   });
   applyGridTransform();
 }
-function fittedInteriorView(cells, columns, rows, viewport, detailed=false) {
+function fittedInteriorView(cells, columns, rows, viewport, detailed=false, rotation=0) {
   if(!cells.length)return {zoom:1,panX:0,panY:0};
   const xs=cells.map(n=>n%columns),ys=cells.map(n=>Math.floor(n/columns));
   const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
   const padding=detailed?1:3;
+  if(rotation){
+    const tile=viewport?.squareTiles?Math.min(viewport.width,viewport.height)/20:(viewport?.width||600)/20;
+    const w=columns*tile,h=rows*tile,cx=((left+right+1)/2-columns/2)*tile,cy=((top+bottom+1)/2-rows/2)*tile;
+    const point=rotation===90?{x:-cy,y:cx}:rotation===180?{x:-cx,y:-cy}:{x:cy,y:-cx};
+    const sideways=rotation%180!==0,fw=(sideways?bottom-top:right-left)+padding,fh=(sideways?right-left:bottom-top)+padding;
+    return {zoom:Math.max(.2,Math.min(6,96/tile,.94*(viewport?.width||w)/(fw*tile),.88*(viewport?.height||h)/(fh*tile))),panX:-point.x/w*100,panY:-point.y/h*100};
+  }
   // The grid's base tile is 5% of its viewport, including expanded 20–60-cell zones.
   const tileLimit=viewport?.width&&viewport?.height?96*20/(viewport.squareTiles?Math.min(viewport.width,viewport.height):Math.max(viewport.width,viewport.height)):6;
   if(viewport?.squareTiles){const tile=Math.min(viewport.width,viewport.height)/20;return {zoom:Math.max(.2,Math.min(6,tileLimit,.94*viewport.width/((right-left+padding)*tile),.88*viewport.height/((bottom-top+padding)*tile))),panX:50-((left+right+1)/2)/columns*100,panY:50-((top+bottom+1)/2)/rows*100};}
@@ -744,18 +762,18 @@ function zoomShipGrid(factor){
  const grid=enlargedShipInterior?.grid||shipGrids.find(g=>g.getClientRects().length),viewport=grid?.parentElement;if(!grid||!viewport)return;
  const box=viewport.getBoundingClientRect(),before=grid.getBoundingClientRect(),x=(box.left+box.width/2-before.left)/before.width,y=(box.top+box.height/2-before.top)/before.height;
  grid.style.transition='none';mapView.zoom=Math.max(.2,Math.min(5,mapView.zoom*factor));applyGridTransform();
- const after=grid.getBoundingClientRect();mapView.panX+=(box.left+box.width/2-after.left-x*after.width)/after.width*100;mapView.panY+=(box.top+box.height/2-after.top-y*after.height)/after.height*100;
+ const after=grid.getBoundingClientRect();mapView.panX+=(box.left+box.width/2-after.left-x*after.width)/(grid.clientWidth*mapView.zoom)*100;mapView.panY+=(box.top+box.height/2-after.top-y*after.height)/(grid.clientHeight*mapView.zoom)*100;
  applyGridTransform();saveMapView();requestAnimationFrame(()=>grid.style.transition='');
 }
 function focusShipCharacter(){
   const own=linkedCampaignState?.ownCharacterId||pageParameters.get('character'),record=linkedCampaignState?.starships.find(s=>s.id===draft.id),loc=record?.characterLocations?.[own];
   if(!loc){fitShipToViewport();return;}
-  Object.assign(mapView,{zoom:20/15,panX:50-(loc.square%GRID_SIZE+.5)/GRID_SIZE*100,panY:50-(Math.floor(loc.square/GRID_SIZE)+.5)/(draft.zoneRows||20)*100});saveMapView();applyGridTransform();
+  Object.assign(mapView,{zoom:20/15,panX:0,panY:0});applyGridTransform();const grid=enlargedShipInterior?.grid||shipGrids.find(g=>g.getClientRects().length),cell=grid?.querySelector(`[data-grid-index="${loc.square}"]`);if(grid&&cell){const v=grid.parentElement.getBoundingClientRect(),r=cell.getBoundingClientRect();mapView.panX+=(v.left+v.width/2-r.left-r.width/2)/(grid.clientWidth*mapView.zoom)*100;mapView.panY+=(v.top+v.height/2-r.top-r.height/2)/(grid.clientHeight*mapView.zoom)*100;}saveMapView();applyGridTransform();
 }
 function fitShipToViewport() {
   const visible=[...new Set([...draft.gridCells,...window.SAShipMap.triangleCells(draft),...window.SAShipMap.buildLayout(draft).footprint.keys()])];
   const viewport=(enlargedShipInterior?.viewport||shipGrids.find(grid=>grid.getClientRects().length)?.parentElement)?.getBoundingClientRect();
-  Object.assign(mapView,fittedInteriorView(visible,GRID_SIZE,draft.zoneRows||20,enlargedShipInterior&&viewport?{width:viewport.width,height:viewport.height,squareTiles:true}:viewport,Boolean(embeddedMove)||document.body.classList.contains('ship-details-view')));
+  Object.assign(mapView,fittedInteriorView(visible,GRID_SIZE,draft.zoneRows||20,enlargedShipInterior&&viewport?{width:viewport.width,height:viewport.height,squareTiles:true}:viewport,Boolean(embeddedMove)||document.body.classList.contains('ship-details-view'),window.SAShipMap.shipRotation(draft)));
   saveMapView();applyGridTransform();
 }
 function renderMobilePlacement() {
@@ -1023,6 +1041,11 @@ function renderLiveStats() {
   });
   document.querySelectorAll('[data-live-stat="hsm"]').forEach((element) => { element.textContent = String(scale.hsm); });
   document.querySelectorAll('[data-live-stat="credits"], [data-group-credits]').forEach((element) => { element.textContent = formatCredits(confirmed.groupCredits); });
+  if(pageParameters.has('combatDashboard')){
+    // Party funds are not an enemy-ship statistic. Never fall back to the
+    // builder's default credits when the combat client has no party value.
+    document.querySelectorAll('[data-live-stat="credits"],[data-group-credits]').forEach(e=>e.textContent=Number.isFinite(linkedCampaignState?.shipCredits)?formatCredits(linkedCampaignState.shipCredits):'—');
+  }
   document.querySelectorAll("[data-confirmed-scale]").forEach((element) => { element.value = String(scale.scale); element.textContent = String(scale.scale); });
   document.querySelectorAll('[data-live-stat]').forEach(e=>{const k=e.dataset.liveStat,old=k==='en'&&e.dataset.enPart==='available'?baselinePower.en-window.SAShipPower.demand(baselineRecord):baselineStats[k];e.classList.toggle('pending-construction-value',!document.body.classList.contains('ship-details-view')&&String(e.textContent)!==String(old));});
   const pending=!document.body.classList.contains('ship-details-view');
@@ -1072,7 +1095,7 @@ function renderAll() {
 
   if(splitPlacement&&(selectedSicId!==splitPlacement.id||!selectedSic()||selectedSic().storage||selectedSic().pendingDisposition))splitPlacement=null;
   buildConstructionZone();installTriangleControls();
-  document.querySelectorAll('[data-thruster-direction]').forEach(e=>e.value=draft.thrusterDirection===null||draft.thrusterDirection===undefined?'':String(draft.thrusterDirection));
+  [...document.querySelectorAll('[data-ship-direction]'),...(enlargedShipInterior?.directionControls||[]).flatMap(({node})=>[...node.querySelectorAll('[data-ship-direction]')])].forEach(e=>e.value=String(window.SAShipMap.shipDirection(draft)));
   renderGridCells();
   if(splitPlacement){const item=selectedSic(),part=window.SAShipMap.segmentDefinition(item,'interior'),cells=splitPlacement.cells||window.SAShipMap.rectangleCells(draft,splitPlacement.cell,part.width,part.height);for(const n of cells)for(const grid of shipGrids)grid.querySelector(`[data-grid-index="${n}"]`)?.classList.add('split-interior-preview');}
   renderMapViewControls(); renderGridNavigation(); renderInventory(); renderLiveStats(); renderMobilePlacement(); renderConstructionControls();
@@ -1219,36 +1242,38 @@ function resizeConstruction(columns,rows,dx,dy){
   if(linkedCampaignState?.combatActive){showMessage('Resize or center the construction zone outside combat.','error');return;}
   rememberForUndo();draft=window.SAShipMap.resizeZone(draft,columns,rows,dx,dy);GRID_SIZE=columns;splitPlacement=null;saveDraft();renderAll();fitShipToViewport();
 }
+function setShipDirection(direction){
+  if(VIEW_ONLY_MODE||document.body.classList.contains('ship-details-view')||![0,90,180,270].includes(direction))return;
+  rememberForUndo();
+  draft.shipDirection=direction;draft.unifiedShipFacing=true;
+  saveDraft();renderAll();
+}
+function rotateShipClockwise(){
+  if(VIEW_ONLY_MODE||document.body.classList.contains('ship-details-view'))return;
+  rememberForUndo();
+  draft.shipDirection=(window.SAShipMap.shipDirection(draft)+90)%360;
+  draft.shipRotation=(window.SAShipMap.shipRotation(draft)+90)%360;
+  saveDraft();renderAll();fitShipToViewport();
+}
 for(const toolbar of document.querySelectorAll('.construction-summary')){
   const expand=document.createElement('button'),center=document.createElement('button');
-  expand.type=center.type='button';expand.textContent='Expand Zone +2 Each Side';center.textContent='Center Ship in Construction Zone';
+  expand.type=center.type='button';expand.textContent='Expand +2';center.textContent='Center Ship';
+  expand.title='Expand Zone +2 Each Side';expand.setAttribute('aria-label',expand.title);center.title='Center Ship in Construction Zone';center.setAttribute('aria-label',center.title);
   expand.onclick=()=>{const cols=window.SAShipMap.gridColumns(draft),rows=window.SAShipMap.gridRows(draft);if(cols+4>60||rows+4>60){showMessage('Maximum construction zone: 60 columns by 60 rows.');return;}resizeConstruction(cols+4,rows+4,2,2);};
   center.onclick=()=>{
     const cells=[...new Set([...draft.gridCells,...window.SAShipMap.buildLayout(draft).footprint.keys()])];if(!cells.length)return;
     const cols=window.SAShipMap.gridColumns(draft),rows=window.SAShipMap.gridRows(draft),xs=cells.map(n=>n%cols),ys=cells.map(n=>Math.floor(n/cols));
     resizeConstruction(cols,rows,Math.floor((cols-Math.max(...xs)-Math.min(...xs)-1)/2),Math.floor((rows-Math.max(...ys)-Math.min(...ys)-1)/2));
   };
-  const direction=document.createElement('label');direction.textContent='All Thrusters ';
-  const select=document.createElement('select');select.dataset.thrusterDirection='';select.setAttribute('aria-label','All thrusters direction');
-  select.innerHTML='<option value="">Follow hull edge</option><option value="90">Exhaust left</option><option value="270">Exhaust right</option><option value="180">Exhaust up</option><option value="0">Exhaust down</option>';
-  select.onchange=()=>{rememberForUndo();draft.thrusterDirection=select.value===''?null:Number(select.value);saveDraft();renderAll();};direction.append(select);
-  const controls=document.createElement('div');controls.className='construction-zone-controls';const weapons=document.createElement('label');weapons.textContent='All Weapons ';const facing=document.createElement('select');facing.setAttribute('aria-label','All weapons direction');facing.innerHTML='<option value="">Choose facing</option><option value="0">Up</option><option value="90">Right</option><option value="180">Down</option><option value="270">Left</option>';weapons.append(facing);
-  facing.onchange=()=>{
-    if(facing.value==='')return;rememberForUndo();const skipped=[];
-    for(const item of draft.sicInventory.filter(i=>window.SAShipMap.definition(i.type).weapon)){
-      const d=window.SAShipMap.definition(item.type),placement=placementForSic(item.id),key=d.mixed?'exteriorRotation':'rotation',old=item[key],originalPlacement=placement?{...placement}:null;
-      const restore=()=>{if(old===undefined)delete item[key];else item[key]=old;if(placement){for(const name of Object.keys(placement))delete placement[name];Object.assign(placement,originalPlacement);}};
-      if(d.mixed&&placement&&!Number.isInteger(placement.exteriorCell)){
-        const cells=[...window.SAShipMap.buildLayout(draft).footprint].filter(([,c])=>c.sicId===item.id),inside=cells.filter(([,c])=>!c.exterior),outside=cells.filter(([,c])=>c.exterior);
-        const signature=entries=>JSON.stringify(entries.map(([square,c])=>[square,c.stations.filter(s=>s.x===c.column&&s.y===c.row).map(s=>s.mesh)]).sort((a,b)=>a[0]-b[0]));
-        placement.cell=Math.min(...inside.map(([n])=>n));placement.exteriorCell=Math.min(...outside.map(([n])=>n));
-        if(signature(inside)!==signature([...window.SAShipMap.buildLayout(draft).footprint].filter(([,c])=>c.sicId===item.id&&!c.exterior))){restore();skipped.push(d.name);continue;}
-      }
-      item[key]=Number(facing.value);const result=placement&&validateSicPlacement(item.id,placement.cell,placement.exteriorCell);
-      if(result&&!result.legal){restore();skipped.push(d.name);}else if(!d.mixed)item.weaponFacing=Number(facing.value);
-    }
-    saveDraft();renderAll();showMessage(skipped.length?'Kept original facing: '+skipped.join(', '):'Weapon facing updated.');facing.value='';
-  };controls.append(expand,center,direction,weapons);toolbar.append(controls);
+  const direction=document.createElement('label');direction.textContent='Ship Direction ';
+  const select=document.createElement('select');select.dataset.shipDirection='';select.setAttribute('aria-label','Ship Direction');
+  select.innerHTML='<option value="0">UP</option><option value="90">RIGHT</option><option value="180">DOWN</option><option value="270">LEFT</option>';
+  select.value=String(window.SAShipMap.shipDirection(draft));
+  select.onchange=()=>setShipDirection(Number(select.value));direction.append(select);
+  const rotate=document.createElement('button');rotate.type='button';rotate.textContent='Rotate 90\u00b0';rotate.title='Rotate Ship Clockwise 90 Degrees';rotate.setAttribute('aria-label',rotate.title);rotate.dataset.rotateShip='';rotate.onclick=rotateShipClockwise;
+  const controls=document.createElement('div');controls.className='construction-zone-controls';controls.append(expand,center,direction,rotate);toolbar.append(controls);
+  const mapToolbar=document.querySelector('.desktop-grid-toolbar'),desktop=window.matchMedia('(min-width:821px)');
+  if(mapToolbar){const place=()=>{(desktop.matches?mapToolbar:toolbar).append(controls);mapToolbar.classList.toggle('has-construction-controls',desktop.matches);};desktop.addEventListener('change',place);place();}
 }
 window.addEventListener("pointerup", finishHullPaint);
 window.addEventListener("pointercancel", finishHullPaint);
@@ -1293,8 +1318,8 @@ shipGrids.forEach((grid) => {
     if(!panGesture.moved){grid.setPointerCapture?.(event.pointerId);grid.classList.add("is-panning");}
     panGesture.moved=true;suppressPanClick=true;
     const rect = grid.getBoundingClientRect();
-    mapView.panX = panGesture.panX + ((event.clientX - panGesture.x) / rect.width * 100);
-    mapView.panY = panGesture.panY + ((event.clientY - panGesture.y) / rect.height * 100);
+    mapView.panX = panGesture.panX + ((event.clientX - panGesture.x) / (grid.clientWidth*mapView.zoom) * 100);
+    mapView.panY = panGesture.panY + ((event.clientY - panGesture.y) / (grid.clientHeight*mapView.zoom) * 100);
     applyGridTransform();
   });
   const finishPan = () => {
@@ -1477,7 +1502,7 @@ async function importStarship(file) {
     const imported = payload?.format === "spaceship-architect-2e-starship" ? payload.starship : payload;
     if (!imported?.confirmedOnce || !Array.isArray(imported.gridCells)) throw new Error("That file is not a confirmed Spaceship Architect starship.");
     const fresh = defaultDraft();
-    draft = { ...fresh, ...clone(imported), id: uid(), campaignLink: null, title: `${imported.title || "Imported Starship"}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    draft = { ...fresh, ...clone(imported), shipDirection:constructionState(imported).shipDirection,shipRotation:window.SAShipMap.shipRotation(imported),unifiedShipFacing:imported.unifiedShipFacing===true, id: uid(), campaignLink: null, title: `${imported.title || "Imported Starship"}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     saveDraft(); applyDraftToUi();
   } catch (error) { window.alert(error.message || "The starship file could not be imported."); }
   importStarshipFile.value = "";
@@ -1685,7 +1710,7 @@ function openSicCard(sicCard, trigger = sicCard) {
     sicCardDialog.classList.add("is-zoomed");
     sicCardDialog.style.setProperty("--inspection-width",`${350*cardZoom+(tools.childElementCount?170:46)}px`);
   };
-  if(installedItem&&!VIEW_ONLY_MODE&&!document.body.classList.contains("ship-details-view")){const panel=cardHost.createElement("aside");panel.className="sic-context-actions";const kind=Object.keys(inventoryHeadings).find(k=>inventoryGroup(k).some(i=>i.id===installedItem.id));if(kind){renderInventoryList(panel,kind,installedItem.id);panel.addEventListener("click",e=>{if(e.target.closest("button"))closeSicCard();});body.append(panel);}}
+  if(installedItem&&!VIEW_ONLY_MODE&&!document.body.classList.contains("ship-details-view")){const panel=cardHost.createElement("aside");panel.className="sic-context-actions";const kind=Object.keys(inventoryHeadings).find(k=>inventoryGroup(k).some(i=>i.id===installedItem.id));if(kind){renderInventoryList(panel,kind,installedItem.id);panel.addEventListener("click",e=>{if(e.target.closest(".inventory-sic-actions button"))closeSicCard();});body.append(panel);}}
   sicCardDialog.showModal();
   if (!cardHost.defaultView.matchMedia("(prefers-reduced-motion: reduce)").matches) sicCardDialog.animate([{ opacity: 0, transform: "translateY(35px) scale(.72) rotate(-4deg)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
 }
@@ -1763,6 +1788,15 @@ popularityInputs.forEach((input) => {
 });
 
 renderReputationSelections();
+function embeddedShipMessageSource(event){
+  if(event.origin!==location.origin)return false;
+  if(event.source===parent)return true;
+  // Enlarged Combat dialogs live in the outer document, while their live
+  // state owner remains its existing Combat iframe. Accept that owner only
+  // for the explicitly read-only dashboard, never for an editor.
+  if(!pageParameters.has('combatDashboard')||!VIEW_ONLY_MODE)return false;
+  try{return ['atbFrame','playerAtbFrame'].some(id=>parent.document.getElementById(id)?.contentWindow===event.source);}catch{return false;}
+}
 async function initializeStarshipPage() {
   const parameters = new URLSearchParams(location.search);
   const requestedShipId = parameters.get("ship") || "";
@@ -1770,10 +1804,10 @@ async function initializeStarshipPage() {
   if(parameters.has('embeddedRecord')){
     const value=await new Promise((resolve,reject)=>{
       let attempts=0;const request=()=>{if(++attempts>20){clearInterval(timer);window.removeEventListener('message',receive);reject(Error('Ship details could not be loaded. Reopen the Starships tab.'));return;}parent.postMessage({type:'sa-ship-detail-ready'},location.origin);};
-      const receive=event=>{if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-detail-data')return;clearInterval(timer);window.removeEventListener('message',receive);resolve(event.data);};
+      const receive=event=>{if(!embeddedShipMessageSource(event)||event.data?.type!=='sa-ship-detail-data')return;clearInterval(timer);window.removeEventListener('message',receive);resolve(event.data);};
       window.addEventListener('message',receive);const timer=setInterval(request,500);request();
     });
-    draft={...defaultDraft(),...clone(value.record.ship),id:value.record.id,title:value.record.title,confirmed:constructionState(value.record.ship),confirmedOnce:true,campaignLink:null};linkedCampaignState=value.campaign;const index=linkedCampaignState.starships.findIndex(s=>s.id===value.record.id);if(index>=0)linkedCampaignState.starships[index]=value.record;
+    draft={...defaultDraft(),...clone(value.record.ship), shipDirection:constructionState(value.record.ship).shipDirection,shipRotation:window.SAShipMap.shipRotation(value.record.ship),unifiedShipFacing:value.record.ship.unifiedShipFacing===true,id:value.record.id,title:value.record.title,confirmed:constructionState(value.record.ship),confirmedOnce:true,campaignLink:null};linkedCampaignState=value.campaign;const index=linkedCampaignState.starships.findIndex(s=>s.id===value.record.id);if(index>=0)linkedCampaignState.starships[index]=value.record;
   } else if (NEW_SHIP_REQUEST) {
     resetNewShipMapView();
     if (campaignCode) document.querySelectorAll("[data-starship-campaign-code]").forEach((input) => { input.value = campaignCode; });
@@ -1786,7 +1820,7 @@ async function initializeStarshipPage() {
       const record = (state.starships || []).find((entry) => entry.id === requestedShipId);
       if (record) {
         draft = {
-          ...defaultDraft(), ...clone(record.ship), id: record.id, title: record.title || record.ship.title,
+          ...defaultDraft(), ...clone(record.ship), shipDirection:constructionState(record.ship).shipDirection,shipRotation:window.SAShipMap.shipRotation(record.ship),unifiedShipFacing:record.ship.unifiedShipFacing===true, id: record.id, title: record.title || record.ship.title,
           confirmed: constructionState(record.ship),
           confirmedOnce: true, crewCharacterIds: clone(record.crewCharacterIds || []),
           campaignLink: { buildRevision:record.buildRevision||0, roomCode: campaignCode, campaignName: state.name, controlType: record.controlType, accessKey: draft.campaignLink?.accessKey || "" },
@@ -1808,6 +1842,12 @@ async function initializeStarshipPage() {
     document.querySelectorAll('[data-starship-tab]').forEach(b=>b.hidden=true);
     document.querySelectorAll('input,textarea,select').forEach(e=>{if(!e.matches('[data-map-toggle],[data-map-display]')&&!(canEditReputation()&&e.matches('[data-reputation-popularity]')))e.disabled=true;});
     document.body.classList.add('ship-details-only');
+    if(parameters.has('combatDashboard')){
+      document.body.classList.add('combat-dashboard-only');
+      const style=document.createElement('style');
+      style.textContent='body.combat-dashboard-only{margin:0;min-height:0;background:#06121a}body.combat-dashboard-only>header,body.combat-dashboard-only main>:not([data-starship-panel="sheet"]):not(.construction-stat-preview),body.combat-dashboard-only [data-starship-panel="sheet"]>:not(.construction-stat-preview){display:none!important}body.combat-dashboard-only main,body.combat-dashboard-only [data-starship-panel="sheet"]{display:block!important;width:100%;max-width:none;margin:0;padding:0}body.combat-dashboard-only .construction-stat-preview{display:block!important;margin:0}';
+      document.head.append(style);
+    }
     const readOnlyStyle=document.createElement('style');readOnlyStyle.textContent='.ship-details-only .starship-tabs,.ship-details-only .starship-library{display:none!important}';document.head.append(readOnlyStyle);
     const notify=()=>parent.postMessage({type:'sa-character-sheet-height',height:Math.ceil(document.querySelector('main').getBoundingClientRect().bottom+scrollY)+48},location.origin);
     new ResizeObserver(notify).observe(document.body);notify();
@@ -1841,8 +1881,9 @@ function drawDetailsCrew(){
   for(const grid of shipGrids)window.SACrewTokens?.decorate(grid);
 }
 window.addEventListener('message',event=>{
-  if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='sa-ship-detail-update'||!pageParameters.has('embeddedRecord'))return;
+  if(!embeddedShipMessageSource(event)||event.data?.type!=='sa-ship-detail-update'||!pageParameters.has('embeddedRecord'))return;
   const record=event.data.record;if(!linkedCampaignState||!record||record.id!==draft.id)return;
+  if(pageParameters.has('combatDashboard'))linkedCampaignState.shipCredits=event.data.partyCredits;
   const rosterChanged=JSON.stringify(linkedCampaignState.characters)!==JSON.stringify(event.data.characters||linkedCampaignState.characters)||JSON.stringify(linkedCampaignState.starships.find(s=>s.id===draft.id)?.crewCharacterIds)!==JSON.stringify(record.crewCharacterIds)||JSON.stringify(linkedCampaignState.npcRoster)!==JSON.stringify(event.data.npcRoster||linkedCampaignState.npcRoster);
   if(Array.isArray(event.data.characters))linkedCampaignState.characters=event.data.characters;
   if(Array.isArray(event.data.npcRoster))linkedCampaignState.npcRoster=event.data.npcRoster;
@@ -1850,9 +1891,9 @@ window.addEventListener('message',event=>{
   const index=linkedCampaignState.starships.findIndex(s=>s.id===draft.id),previous=linkedCampaignState.starships[index];
   if(index>=0)linkedCampaignState.starships[index]=record;
   if(JSON.stringify(previous?.ship)!==JSON.stringify(record.ship)){
-    draft={...draft,...clone(record.ship),title:record.title,confirmed:constructionState(record.ship),campaignLink:null};
+    draft={...draft,...clone(record.ship), shipDirection:constructionState(record.ship).shipDirection,shipRotation:window.SAShipMap.shipRotation(record.ship),unifiedShipFacing:record.ship.unifiedShipFacing===true,title:record.title,confirmed:constructionState(record.ship),campaignLink:null};
     shipFields.forEach(field=>{field.value=draft[field.dataset.shipField]||(field.type==='color'?window.SAShipMap.shipColor(draft):'');});renderAll();
-  }else{if(rosterChanged)renderCampaignLink();drawDetailsCrew();renderEmbeddedMovement();}
+  }else{if(rosterChanged)renderCampaignLink();drawDetailsCrew();renderEmbeddedMovement();if(pageParameters.has('combatDashboard'))renderLiveStats();}
 });
 function renderVisibleMapControls(){
   for(const grid of shipGrids){
@@ -1883,10 +1924,10 @@ function renderEmbeddedMovement(){
         const cell=e.target.closest('[data-grid-index]');if(!cell)return;
         const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);
         if(!draft.gridCells.includes(square))return;
-        const mesh=Math.max(0,Math.min(2,Math.floor((e.clientY-r.top)/r.height*3)))*3+Math.max(0,Math.min(2,Math.floor((e.clientX-r.left)/r.width*3)));
+        const point=window.SAShipMap.orientPoint((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,1,1,window.SAShipMap.shipRotation(draft),true),mesh=Math.max(0,Math.min(2,Math.floor(point.y*3)))*3+Math.max(0,Math.min(2,Math.floor(point.x*3)));
         parent.postMessage({type:'sa-ship-map-destination',square,mesh,preview:true},location.origin);
       });
-      grid.addEventListener('click',e=>{if(!embeddedMove||embeddedMove.submitting)return;const cell=e.target.closest('[data-grid-index]');if(!cell)return;const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);if(!draft.gridCells.includes(square))return;const x=Math.max(0,Math.min(2,Math.floor((e.clientX-r.left)/r.width*3))),y=Math.max(0,Math.min(2,Math.floor((e.clientY-r.top)/r.height*3)));e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'sa-ship-map-destination',square,mesh:y*3+x},location.origin);},true);
+      grid.addEventListener('click',e=>{if(!embeddedMove||embeddedMove.submitting)return;const cell=e.target.closest('[data-grid-index]');if(!cell)return;const r=cell.getBoundingClientRect(),square=Number(cell.dataset.gridIndex);if(!draft.gridCells.includes(square))return;const point=window.SAShipMap.orientPoint((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,1,1,window.SAShipMap.shipRotation(draft),true),x=Math.max(0,Math.min(2,Math.floor(point.x*3))),y=Math.max(0,Math.min(2,Math.floor(point.y*3)));e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'sa-ship-map-destination',square,mesh:y*3+x},location.origin);},true);
     }
 
     if(!controls.querySelector('[data-action=console]')){
@@ -1988,7 +2029,7 @@ function installTriangleControls(){
     if(sheet){let footer=sheet.querySelector('.construction-map-footer');if(!footer){footer=document.createElement('div');footer.className='construction-map-footer';sheet.querySelector('[data-grid-viewport]').after(footer);}footer.append(tools);}else if(mobile)mobile.append(tools);else host.append(tools);
     tools.onclick=e=>{const button=e.target.closest('[data-airlock-action]');if(!button)return;airlockOperation=button.dataset.airlockAction;airlockToMove=null;airlockBuildMode=airlockOperation!=='cancel';triangleHullMode=false;cancelPlacement();mapView.mode='build';renderAll();showMessage(airlockOperation==='move'?'Click the airlock to move, then a highlighted empty outer hull square.':airlockOperation==='remove'?'Click an airlock to remove it. Every ship must retain at least one.':airlockOperation==='add'?'Click a highlighted outer hull square to place an airlock.':'Airlock editing closed.');};
     if(sheet&&mobile){const mobileTools=tools.cloneNode(true);mobileTools.onclick=tools.onclick;mobile.append(mobileTools);}
-    const label=document.createElement('label');label.innerHTML='<input type="checkbox" data-triangle-hull> Triangle Hull — 300 credits';host.append(label);
+    const label=document.createElement('label');label.innerHTML='<input type="checkbox" data-triangle-hull aria-label="Triangle Hull - 300 credits"> Triangle Hull \u00b7 300 cr';label.title='Triangle Hull - 300 credits';host.append(label);
     label.querySelector('input').onchange=e=>{triangleHullMode=e.target.checked;airlockBuildMode=false;document.querySelectorAll('[data-airlock-build]').forEach(n=>n.checked=false);cancelPlacement();mapView.mode='build';document.querySelectorAll('[data-triangle-hull]').forEach(i=>i.checked=triangleHullMode);renderAll();};
   }
   for(const grid of shipGrids){if(grid.dataset.trianglePreview)return;grid.dataset.trianglePreview='true';
@@ -2050,7 +2091,7 @@ async function enlargeShipInterior(viewport,source){
   const loading=links.map(link=>new Promise(resolve=>{const copy=doc.createElement('link');copy.rel='stylesheet';copy.href=link.href;copy.onload=resolve;copy.onerror=resolve;shadow.append(copy);}));
   const style=doc.createElement('style');style.textContent=`
     :host{display:block;height:100%;font:14px Arial;color:#eefaff}.enlarged-body{margin:0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#06151e;color:#eefaff}
-    .interior-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px;border-bottom:1px solid #407787}.interior-header strong{font:700 16px Arial}.interior-header nav{display:flex;gap:8px;flex-wrap:wrap}
+    .interior-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px;border-bottom:1px solid #407787}.interior-header strong{font:700 16px Arial}.interior-header nav{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}.interior-header label{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap;font:14px Arial}.interior-header select{font:14px Arial;min-height:36px}.interior-header button{white-space:nowrap}
     .interior-header button{min-height:36px;padding:7px 12px;border:1px solid #76bbcb;border-radius:4px;background:#14313f;color:#f0fbff;font:700 13px Arial}
     .interior-stage{display:grid;place-items:stretch;min-height:0;overflow:hidden;padding:6px}.interior-stage>[data-grid-viewport]{display:block!important;position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;height:100%!important;min-height:0!important;aspect-ratio:auto;border:1px solid #486b7c;overflow:hidden}
     .interior-stage .ship-grid{position:absolute}.interior-stage .grid-toolbar{display:none!important}.interior-stage .sic-grid-label{font:700 11px Arial;white-space:normal;text-align:center}
@@ -2064,11 +2105,21 @@ async function enlargeShipInterior(viewport,source){
   const marker=document.createComment('interior viewport'),controlMarker=document.createComment('interior actions');
   viewport.before(marker);if(controls)controls.before(controlMarker);
   enlargedShipInterior={shell,viewport,grid,controlHost,controls,source,marker,controlMarker,geometry:Object.fromEntries(['width','height','left','top'].map(k=>[k,grid.style.getPropertyValue(k)])),view:{zoom:mapView.zoom,panX:mapView.panX,panY:mapView.panY}};
+  const directionNodes=[document.querySelector('[data-ship-direction]')?.closest('label'),document.querySelector('[data-rotate-ship]')].filter(Boolean);
   body.querySelector('.interior-stage').append(viewport);if(controls)body.querySelector('.interior-actions').append(controls);
+  // Reparent existing edit controls so their state and handlers have one owner.
+  enlargedShipInterior.directionControls=[];
+  if(!VIEW_ONLY_MODE&&!document.body.classList.contains('ship-details-view')){
+    for(const node of directionNodes){
+      const marker=document.createComment('ship direction control');node.before(marker);
+      enlargedShipInterior.directionControls.push({node,marker});body.querySelector('.interior-header nav').append(node);
+    }
+  }
+
   const resize=resizeEnlargedShipInterior;
   const observer=new ResizeObserver(resize);observer.observe(body.querySelector('.interior-stage'));enlargedShipInterior.observer=observer;
   shell.addEventListener('cancel',e=>{e.preventDefault();closeEnlargedShipInterior();});
-  shell.addEventListener('keydown',e=>{if(embeddedKeyboardMode&&!e.target.closest('input,select,textarea')&&['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
+  shell.addEventListener('keydown',e=>{if(embeddedKeyboardMode&&!e.target.closest('input,select,textarea')&&['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:window.SAShipMap.shipViewKey(draft,e.key)},location.origin);}});
   shell.addEventListener('pointerup',finishHullPaint);shell.addEventListener('pointercancel',finishHullPaint);
   body.querySelectorAll('[data-large-zoom]').forEach(button=>button.onclick=()=>{const action=button.dataset.largeZoom;if(action==='fit')fitShipToViewport();else if(action==='focus')focusShipCharacter();else zoomShipGrid(action==='in'?1.25:.8);});
   shell.showModal();resize();
@@ -2078,6 +2129,7 @@ async function enlargeShipInterior(viewport,source){
 function closeEnlargedShipInterior(){
   const value=enlargedShipInterior;if(!value)return;enlargedShipInterior=null;
   value.observer.disconnect();value.marker.replaceWith(value.viewport);if(value.controls)value.controlMarker.replaceWith(value.controls);
+  for(const {node,marker} of value.directionControls||[])marker.replaceWith(node);
   for(const [key,v]of Object.entries(value.geometry))value.grid.style.setProperty(key,v,'important');Object.assign(mapView,value.view);saveMapView();applyGridTransform();value.shell.close();value.shell.remove();value.source?.focus({preventScroll:true});
 }
 for(const viewport of document.querySelectorAll('[data-grid-viewport]')){
@@ -2089,10 +2141,10 @@ window.addEventListener('pagehide',closeEnlargedShipInterior);
 // Poll only linked editors; confirmed changes invalidate another open draft.
 setInterval(()=>{if(draft.campaignLink&&!confirmingConstruction&&!document.hidden)refreshLinkedCampaign();},3000);
 
-if(pageParameters.get("campaign")&&pageParameters.get("details")!=="1"&&!VIEW_ONLY_MODE){const cancel=document.createElement("button");cancel.textContent="Cancel Upgrade";cancel.className="cancel-upgrade";cancel.onclick=async()=>{cancel.disabled=true;try{await refreshLinkedCampaign();const saved=linkedCampaignState?.starships.find(s=>s.id===draft.id);if(!saved){showMessage("Cannot reload the confirmed ship while disconnected. Reconnect and cancel again.","error");return;}draft={...defaultDraft(),...clone(saved.ship),id:saved.id,title:saved.title,confirmed:constructionState(saved.ship),confirmedOnce:true,campaignLink:{...draft.campaignLink,buildRevision:saved.buildRevision||0}};selectedSicId=null;undoState=null;splitPlacement=null;saveDraft();document.body.classList.add("ship-details-view");applyDraftToUi();showMessage("Upgrade canceled. No pending purchases were spent.");if(parent!==window)parent.postMessage({type:"sa-ship-editor-exit",message:"Upgrade canceled. No pending purchases were spent."},location.origin);}finally{cancel.disabled=false;}};document.querySelector("main")?.prepend(cancel);}
+if(pageParameters.get("campaign")&&pageParameters.get("details")!=="1"&&!VIEW_ONLY_MODE){const cancel=document.createElement("button");cancel.textContent="Cancel Upgrade";cancel.className="cancel-upgrade";cancel.onclick=async()=>{cancel.disabled=true;try{await refreshLinkedCampaign();const saved=linkedCampaignState?.starships.find(s=>s.id===draft.id);if(!saved){showMessage("Cannot reload the confirmed ship while disconnected. Reconnect and cancel again.","error");return;}draft={...defaultDraft(),...clone(saved.ship), shipDirection:constructionState(saved.ship).shipDirection,shipRotation:window.SAShipMap.shipRotation(saved.ship),unifiedShipFacing:saved.ship.unifiedShipFacing===true,id:saved.id,title:saved.title,confirmed:constructionState(saved.ship),confirmedOnce:true,campaignLink:{...draft.campaignLink,buildRevision:saved.buildRevision||0}};selectedSicId=null;undoState=null;splitPlacement=null;saveDraft();document.body.classList.add("ship-details-view");applyDraftToUi();showMessage("Upgrade canceled. No pending purchases were spent.");if(parent!==window)parent.postMessage({type:"sa-ship-editor-exit",message:"Upgrade canceled. No pending purchases were spent."},location.origin);}finally{cancel.disabled=false;}};document.querySelector("main")?.prepend(cancel);}
 
 var embeddedKeyboardMode=false,embeddedStationState=null;window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===parent&&e.data?.type==='sa-keyboard-mode'){embeddedKeyboardMode=!!e.data.enabled;embeddedStationState=e.data;renderEmbeddedMovement();document.body.classList.toggle('keyboard-movement-active',embeddedKeyboardMode);}});
-if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(embeddedKeyboardMode)e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:e.key},location.origin);}});
+if(pageParameters.has('embeddedRecord'))document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey||e.target.closest('input,select,textarea,[contenteditable=true]'))return;if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key)){if(embeddedKeyboardMode)e.preventDefault();parent.postMessage({type:'sa-ship-map-key',key:window.SAShipMap.shipViewKey(draft,e.key)},location.origin);}});
 
 if(pageParameters.get('roomCreate')){const back=backLink;if(back){back.href=pageParameters.get('returnCharacter')?'character.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'))+'&character='+encodeURIComponent(pageParameters.get('returnCharacter'))+'&tab=starships'+(pageParameters.get('showcase')==='1'?'&showcase=1':''):'room.html?campaign='+encodeURIComponent(pageParameters.get('roomCreate'));back.textContent='Back to Campaign';}for(const form of linkStarshipForms){const input=form.querySelector('input');if(input)input.value=pageParameters.get('roomCreate');}}
 
@@ -2126,4 +2178,4 @@ document.addEventListener('change',event=>{
 // Interpolate saved walking routes without rebuilding the ship or sending frame updates.
 setInterval(()=>{if(window.SAExploreSession?.active()===false||document.hidden||!window.frameElement?.getClientRects().length)return;const record=linkedCampaignState?.starships?.find(s=>s.id===draft.id);if(Object.keys(record?.characterWalks||{}).length)drawDetailsCrew();},33);
 
-if(pageParameters.has('embeddedRecord')){document.addEventListener('keyup',e=>parent.postMessage({type:'sa-ship-map-key',key:e.key,release:true},location.origin));window.addEventListener('blur',()=>['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(key=>parent.postMessage({type:'sa-ship-map-key',key,release:true},location.origin)));}
+if(pageParameters.has('embeddedRecord')){document.addEventListener('keyup',e=>parent.postMessage({type:'sa-ship-map-key',key:window.SAShipMap.shipViewKey(draft,e.key),release:true},location.origin));window.addEventListener('blur',()=>['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(key=>parent.postMessage({type:'sa-ship-map-key',key:window.SAShipMap.shipViewKey(draft,key),release:true},location.origin)));}

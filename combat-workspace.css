@@ -162,3 +162,214 @@ body.embedded-gm #turnDialog{
 .station-action-choice>[data-disabled-reason]{grid-column:1/-1}
 .station-action-choice>[data-station-order]{width:100%!important}
 button [data-action-reason]{display:block;font:11px/1.35 Arial;text-transform:none;color:#edd8ad;margin-top:4px}
+
+/* SA-039: paired interiors. Surface encounters retain their existing workspace. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #initiativePanel{position:relative!important;inset:auto!important;width:100%!important;max-height:none!important;overflow:visible!important;margin:0!important;display:flex!important;flex-direction:column}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #surfaceArenaLive{order:2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #unitList{width:100%;min-width:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:12px;align-items:start}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-lane{display:contents!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .shared-interior-controls{grid-column:1/-1;grid-row:1;display:flex;justify-content:center;gap:6px;padding:2px 0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-clock{grid-column:5/span 4;grid-row:2;display:flex;flex-direction:column;gap:8px;min-width:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-clock #activePanel{order:-1;display:block;width:auto;min-height:0;margin:0;padding:12px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-clock #activeTitle{font-size:18px;line-height:1.25}
+.paired-clock-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.paired-clock-actions button{min-height:36px;padding:6px 10px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause{position:relative!important;inset:auto!important;transform:none!important;width:100%;height:auto;min-height:42px;white-space:normal}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause.first-combat-engagement{min-height:68px;background:#23844c;color:white;border:2px solid #84ed9e;animation:combat-begin-pulse 2.4s ease-in-out infinite}
+@keyframes combat-begin-pulse{50%{box-shadow:0 0 16px #70e89888;background:#2d9658}}
+@media(prefers-reduced-motion:reduce){body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause.first-combat-engagement{animation:none}}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-ship-summary{grid-column:1/span 2;grid-row:var(--pair-row)/span 2;min-width:0;border:1px solid #385263;background:#081925;padding:10px;align-self:stretch;display:flex;flex-direction:column;gap:8px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-ship-side=right]>.paired-ship-summary{grid-column:11/span 2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-title{display:block;padding:0;border:0;background:none}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-title h2{font-size:20px;overflow-wrap:anywhere}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-title button{max-width:100%;margin:3px 0;white-space:normal}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:0;border:0;background:none}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats span{min-width:0;overflow-wrap:anywhere}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats small{display:block;font-size:11px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats strong{font-size:13px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-au-panel{margin-top:auto;padding:6px 0 0;background:none;border:0;display:block}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-au-panel>div{display:flex;flex-wrap:wrap;gap:6px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-au-panel progress{width:100%;accent-color:#f0ce3e}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-au-panel progress::-webkit-progress-value{background:#f0ce3e}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-au-panel select{max-width:100%}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb{grid-column:3/span 2!important;grid-row:var(--pair-row)!important;min-width:0;overflow:visible;height:auto;max-height:none}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-ship-side=right]>.ship-lane-atb{grid-column:9/span 2!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb .ring-stage{height:auto!important;min-height:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb .tactical-ring-svg{width:100%!important;height:auto!important;max-height:none!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map{grid-column:3/span 8!important;grid-row:3;order:0!important;min-width:0;height:auto!important;pointer-events:auto;align-self:end}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-map{grid-column:1/span 6!important;grid-row:var(--map-row)!important;margin:0!important;min-width:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-ship-side=right]>.ship-lane-map{grid-column:7/span 6!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-log{grid-column:1/span 6!important;grid-row:var(--log-row)!important;min-width:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-ship-side=right]>.ship-lane-log{grid-column:7/span 6!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .empty-contact-activity{grid-column:1/-1;grid-row:6}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true]>.paired-combat-clock{grid-column:3/span 2;grid-row:3}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true]>.combat-space-map{grid-column:5/span 8!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:2fr 3fr 2fr;align-items:center}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-summary-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-combat-title{grid-column:1;grid-row:1;text-align:left}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-summary-stats{grid-column:2/span 2;grid-row:1}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-au-panel{grid-column:1/-1;grid-row:2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-atb{grid-column:1/span 2!important;grid-row:3!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-map,body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-log{grid-column:1/-1!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{width:100%!important;max-width:none!important;height:220px!important;min-height:0!important;aspect-ratio:auto!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map svg{width:100%!important;height:100%!important;min-height:0!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .shell>.topbar{grid-row:auto!important;grid-column:1/-1!important;order:10}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .inline-map-footer .move-map-navigation{margin:0;display:flex;flex-wrap:wrap;width:auto}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .inline-map-footer .move-map-navigation button:is([data-preview-zoom]){width:38px!important;flex:none}
+
+/* SA-039 review corrections: compact setup and visible, side-owned action panels. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause{align-self:center;display:flex;align-items:center;justify-content:center;text-align:center;margin:0 auto!important;max-width:100%;font-size:14px;line-height:1.25}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause.first-combat-engagement{min-height:54px;padding:8px 12px}
+body.paired-combat-layout #gmPanel{padding:12px;min-height:0}
+body.paired-combat-layout #gmPanel .section-head{margin-bottom:8px}
+body.paired-combat-layout #gmPanel .section-head h2{font-size:20px;margin:0}
+body.paired-combat-layout #gmPanel .add-grid{display:flex;flex-wrap:wrap;align-items:end;justify-content:flex-start;gap:8px 12px;margin-top:8px}
+body.paired-combat-layout #gmPanel .add-grid>label{flex:0 1 170px;min-width:90px;gap:4px;font-size:12px}
+body.paired-combat-layout #gmPanel .add-grid>label:has(#gmSpeedRating,#gmCommandWindow,#gmColor,#gmTeam){flex-basis:110px}
+body.paired-combat-layout #gmPanel .add-grid input,body.paired-combat-layout #gmPanel .add-grid select{width:100%;min-height:32px;padding:5px 7px;font-size:14px}
+body.paired-combat-layout #gmPanel .add-grid>button{flex:0 0 auto;width:auto;min-width:64px;min-height:32px;padding:6px 12px;font-size:13px}
+body.paired-combat-layout #gmPanel .gm-timing-controls:empty{display:none!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #myTurnBanner.turn-banner,body.paired-combat-layout.paired-combat-layout.paired-combat-layout #turnDialog{box-sizing:border-box;left:12px!important;right:auto!important;top:max(12px,var(--embedded-visible-top,12px))!important;bottom:auto!important;width:calc(50% - 24px)!important;max-width:620px!important;height:auto!important;min-height:0!important;max-height:var(--embedded-modal-max-height,calc(100dvh - 24px))!important;overflow:auto!important;padding:10px 12px 18px!important;align-content:start!important;scroll-padding:12px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #turnDialog:not(.pc-turn-dialog){left:auto!important;right:12px!important}
+body.paired-combat-layout.paired-combat-layout #myTurnBanner>#playerTurnTitle,body.paired-combat-layout.paired-combat-layout #turnDialog h2{font-size:22px!important;line-height:1.15!important;margin:0 0 4px!important}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) .combat-action-grid{width:100%!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;max-height:none!important;overflow:visible!important}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) .combat-action-grid button{box-sizing:border-box;min-width:0!important;min-height:34px!important;height:auto!important;padding:6px 8px!important;font-size:13px!important;line-height:1.2!important}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) .combat-action-group-label{font-size:12px;padding:6px 0 3px}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) .station-action-groups{gap:8px}
+body.paired-combat-layout .combat-space-map>.space-map>header{right:20%;top:12px;z-index:3}
+
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) [data-station-shortcuts] details{padding:5px 0}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) [data-station-shortcuts] summary{font-size:14px;line-height:1.2;padding:6px 4px;margin-bottom:5px}
+body.paired-combat-layout.paired-combat-layout :is(#myTurnBanner,#turnDialog) [data-station-shortcuts] button[data-station-order]{font:700 13px/1.2 Arial,sans-serif!important;min-height:36px!important;height:auto!important;padding:7px 8px!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb{grid-row:var(--pair-row)!important;align-self:start}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb .tactical-ring-svg{max-width:150px!important;display:block;margin-inline:auto}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-ship-summary{padding:6px;gap:4px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-title h2{font-size:17px}
+body.paired-combat-layout .ship-lane-atb .ship-hold-control{font-size:12px;gap:4px;padding:3px;flex-wrap:wrap}
+body.paired-combat-layout .ship-lane-atb .ship-hold-control button{font-size:12px;min-height:26px;padding:3px 6px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-atb{grid-row:3!important}
+
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause{flex-direction:column;gap:3px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats>span{min-height:28px;padding:3px;gap:2px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats{gap:3px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats small{font-size:10px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats strong{font-size:12px}
+
+/* Latest review: compact unique summary rows; original vitals and bottom AU are not duplicated. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns{grid-template-columns:repeat(2,minmax(0,.85fr)) repeat(2,75px) repeat(4,minmax(0,1.6fr)) repeat(2,75px) repeat(2,minmax(0,.85fr))!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats{grid-template-columns:1fr;gap:2px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats>span{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:20px;padding:2px 0;border:0;background:none}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats strong{display:inline-flex;align-items:center;gap:2px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats .sa-health-track{display:inline-flex;align-items:center;min-height:0;padding:0;border:0;background:none;white-space:nowrap}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb{grid-row:var(--pair-row)/span 2!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map{grid-column:5/span 4!important;align-self:stretch}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-clock-actions button{width:auto!important;min-width:0!important;min-height:32px;padding:5px 8px;font-size:13px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-clock-actions{gap:5px}
+body.paired-combat-layout .crew-automation-controls{font-size:12px;line-height:1.25;gap:4px;padding:3px}
+body.paired-combat-layout .crew-automation-controls button{font-size:12px;min-height:26px;padding:3px 5px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true]>.combat-space-map{grid-column:5/span 8!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-summary-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 12px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-atb{grid-row:3!important}
+
+body.paired-combat-layout .ship-crew-status{box-sizing:border-box;height:76px;max-height:76px;overflow:auto;font-size:12px;line-height:1.25;margin-bottom:6px;scrollbar-gutter:stable}
+body.paired-combat-layout .ship-crew-status:focus-visible{outline:2px solid #65def4;outline-offset:1px}
+
+/* Phone review follow-up: remove the empty header lane, reclaim width below the rings. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #initiativePanel>.section-head:not(:has(#playerTopControls:not(.hidden))){position:absolute;right:10px;top:12px;height:20px;z-index:1}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #unitList{margin-top:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb{grid-row:var(--pair-row)!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true])>.combat-space-map{grid-column:3/span 8!important}
+
+body.paired-combat-layout #starshipStatusList[hidden]{display:none!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns{grid-template-columns:repeat(2,minmax(0,.85fr)) repeat(2,95px) repeat(4,minmax(0,1.6fr)) repeat(2,95px) repeat(2,minmax(0,.85fr))!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-lane-atb .tactical-ring-svg{max-width:190px!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause{width:min(100%,420px)}
+
+/* Approved lower controls: visibility/recovery left, encounter form right. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-utilities{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;grid-column:1/-1;align-items:start}
+.paired-combat-utility-left{display:flex;flex-direction:column;gap:8px;min-width:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-utilities>#gmPanel{grid-column:2;min-width:0;margin:0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-utility-left #surfaceArenaLive{order:0;margin:0;padding:8px;min-height:0}
+.paired-combat-utility-left .arena-error:empty{display:none}
+.paired-combat-recovery .combat-recovery-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border:1px solid #385263;background:#081925}
+.paired-combat-recovery button{width:auto;min-height:32px;font-size:13px;padding:5px 9px}
+.paired-combat-recovery #combatSaveStatus{font-size:12px;flex:1 1 100%}
+.paired-combat-recovery #liveEncounterCode{font-size:12px}
+body.embedded-gm.paired-combat-layout.paired-combat-layout .shell>.topbar:not(:has(.gm-top-controls > *)):not(:has(#gmMuteSound:not(.hidden))){display:none!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats{gap:1px;align-content:start}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats>span{min-height:22px;padding:1px 0}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats small{font-size:13px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats strong{font-size:16px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-ship-summary{padding:4px}
+
+/* SA-039: narrow clock, larger rings with their existing legends inward. */
+body.paired-combat-layout .ship-combat-columns{container-type:inline-size;--compact-clock-width:clamp(240px,calc(100cqw - 1000px),420px)}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true])>.paired-combat-clock{width:var(--compact-clock-width);max-width:100%;justify-self:center}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb{grid-column:3/span 4!important;width:calc(100% - var(--compact-clock-width)/2 - 6px);justify-self:start}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) [data-ship-side=right]>.ship-lane-atb{grid-column:7/span 4!important;justify-self:end}
+body.paired-combat-layout .ship-lane-atb .tactical-ring-view{grid-template-columns:minmax(0,1fr) 108px;column-gap:6px;align-items:center}
+body.paired-combat-layout .ship-lane-atb .ring-stage{grid-column:1;grid-row:1}
+body.paired-combat-layout .ship-lane-atb .ring-legend{grid-column:2;grid-row:1;display:flex!important;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;width:108px;line-height:1.35;text-align:left}
+body.paired-combat-layout .ship-lane-atb .ring-legend span{white-space:normal;overflow-wrap:normal}
+body.paired-combat-layout .ship-lane-atb .ring-legend i{flex:0 0 12px}
+body.paired-combat-layout [data-ship-side=right]>.ship-lane-atb .tactical-ring-view{grid-template-columns:108px minmax(0,1fr)}
+body.paired-combat-layout [data-ship-side=right]>.ship-lane-atb .ring-stage{grid-column:2}
+body.paired-combat-layout [data-ship-side=right]>.ship-lane-atb .ring-legend{grid-column:1}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb .tactical-ring-svg{max-width:280px!important}
+body.paired-combat-layout .ship-lane-atb .ring-legend span{display:block;width:100%}
+body.paired-combat-layout .ship-lane-atb .ring-legend i{width:12px;margin-right:4px}
+/* Keep unique stat values beside their labels, with quiet row separators. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats>span{display:grid;grid-template-columns:88px minmax(0,1fr);justify-content:start;column-gap:8px;border-bottom:1px solid #38526370}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-summary-stats>span:last-child{border-bottom:0}/* One visible PC ship keeps the wide map; clock and ring share its narrow left stack. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true]>.paired-combat-clock{grid-column:1/span 4;grid-row:3;width:min(100%,300px);justify-self:center}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-atb{grid-column:1/span 4!important;grid-row:4!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true]>.combat-space-map{grid-row:3/span 2;align-self:center}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-map{grid-row:5!important}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-log{grid-row:6!important}
+body.paired-combat-layout [data-single-pc=true] .ship-lane-atb .tactical-ring-view{grid-template-columns:minmax(0,1fr) 108px}
+body.paired-combat-layout [data-single-pc=true] .ship-lane-atb .ring-stage{grid-column:1}
+body.paired-combat-layout [data-single-pc=true] .ship-lane-atb .ring-legend{grid-column:2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .ship-lane-atb .tactical-ring-svg{max-width:280px!important}
+
+/* Routine preparation feedback follows Begin; required roll/call notices retain their host. */
+body.paired-combat-layout .paired-combat-clock>[data-preparation-notice]{position:static!important;inset:auto!important;transform:none!important;max-width:100%!important;width:100%;margin:0;white-space:normal;line-height:1.35!important;flex:none;order:2}
+
+/* Ship-specific live status occupies summary space above bottom AU. */
+body.paired-combat-layout .paired-ship-summary>.ship-crew-status{height:auto;max-height:180px;min-height:0;overflow:auto;margin:6px 0 0;flex:0 1 auto;scrollbar-gutter:stable}
+body.paired-combat-layout .paired-ship-summary>.ship-crew-status:empty{display:none}
+body.paired-combat-layout .paired-ship-summary .crew-automation-controls{display:flex;flex-wrap:wrap;align-items:center}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-crew-status{grid-column:1/-1;grid-row:2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-au-panel{grid-row:3}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:440px!important}
+body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb>.tactical-ring-group{transform:translateY(-14.5%)}
+
+/* Existing space-map actions stay reachable at the viewport's bottom center. */
+body.paired-combat-layout .combat-space-map>.space-map>header{top:auto;bottom:12px;left:50%;right:auto;transform:translateX(-50%);display:flex;gap:5px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:3}
+body.paired-combat-layout .combat-space-map .combat-inline-space-controls{display:flex!important;gap:5px}
+body.paired-combat-layout .combat-space-map>.space-map>header button{min-height:32px;min-width:32px;width:auto;padding:4px 10px;font-size:13px;white-space:nowrap}
+.space-map-dialog .combat-inline-space-controls{display:none}
+body.paired-combat-layout .paired-combat-clock #readyCount{align-self:center;margin:0;order:1}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true])>.shared-interior-controls{grid-column:3/span 8}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true])>[data-ship-row="0"]>.paired-ship-summary{grid-row:1/span 3}
+
+body.paired-combat-layout .paired-ship-summary>.ship-summary-stats{flex:0 0 auto}
+
+/* Held-character controls sit above their own ring without reserving a row. */
+body.paired-combat-layout .ship-lane-atb{position:relative}
+body.paired-combat-layout .ship-ring-holds{position:absolute;top:0;left:calc((100% - 114px)/2);transform:translateX(-50%);z-index:4;max-width:calc(100% - 114px);width:max-content;max-height:44px;overflow:auto;display:flex;flex-direction:column;gap:2px;text-align:center;background:#081925ed;border-radius:5px}
+body.paired-combat-layout [data-ship-side=right]>.ship-lane-atb .ship-ring-holds{left:calc((100% + 114px)/2)}
+body.paired-combat-layout .ship-ring-holds:empty{display:none}
+body.paired-combat-layout .ship-ring-holds .ship-hold-control{font-size:11px;line-height:1.2;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:3px;padding:2px 4px}
+body.paired-combat-layout .ship-ring-holds button{font-size:11px;min-height:23px;padding:2px 6px}
+
+/* Balance the complete composition: floorplans follow a compact upper section. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-clock{gap:4px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-combat-clock #activePanel{padding:6px;line-height:1.2}
+body.paired-combat-layout .paired-combat-clock #activePanel h2{margin:0 0 3px}
+body.paired-combat-layout .paired-combat-clock #activeName{font-size:16px;line-height:1.2}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-clock-actions{gap:3px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-clock-actions button{min-height:28px;padding:3px 6px;font-size:12px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause.first-combat-engagement{min-height:44px;padding:4px 8px}
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:300px!important}
+@media(max-width:1440px){body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:240px!important}}

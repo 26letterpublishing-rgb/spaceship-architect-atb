@@ -20,6 +20,7 @@ let alertsEnabled = localStorage.getItem("sa-atb-alerts") !== "off";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
 let visualMode = "bars";
+let surfaceVisualMode = "bars";
 let lastStarshipEncounterKey = "";
 let selectedCharacterIcon = "";
 let actionLogTimeout = null;
@@ -1321,20 +1322,63 @@ function shipScopedLogEntries(shipId, units) {
   });
 }
 
+// Move existing controls, never clone their handlers or clock state. Markers
+// restore the surface-combat layout when the encounter has no ships.
+const pairedControlOrigins = new Map();
+function moveCombatControl(node, destination) {
+  if (!node || !destination) return;
+  if (!pairedControlOrigins.has(node)) {
+    const marker = node.ownerDocument.createComment('combat control origin');
+    node.before(marker); pairedControlOrigins.set(node, marker);
+  }
+  if (node.parentElement !== destination) destination.append(node);
+}
+function restoreCombatControls() {
+  try { window.parent.SACombatRecoveryLayout?.restore(document); } catch {}
+  for (const [node, marker] of pairedControlOrigins) marker.after(node);
+  document.querySelector('.paired-combat-utilities')?.remove();
+}
+window.addEventListener('pagehide',()=>{try{window.parent.SACombatRecoveryLayout?.restore(document);}catch{}});
+function mountPairedCombatControls() {
+  const columns = unitList.querySelector('.ship-combat-columns');
+  if (!columns) return;
+  const clock = columns.querySelector('.paired-combat-clock');
+  moveCombatControl(activePanel, clock);
+  moveCombatControl(readyCount, activePanel);
+  const actions = clock.querySelector('.paired-clock-actions');
+  for (const id of ['undoLastTiming','stepTick','resetAll','clearEncounter','exitCombat']) {
+    const node = document.getElementById(id);
+    if (mode === 'gm') moveCombatControl(node, actions);
+    else if (pairedControlOrigins.has(node)) pairedControlOrigins.get(node).after(node);
+  }
+  if (mode === 'gm') moveCombatControl(gmPanicPause, clock);
+  if(mode==='gm'){
+    let utility=document.querySelector('.paired-combat-utilities');
+    if(!utility){utility=document.createElement('section');utility.className='paired-combat-utilities';utility.innerHTML='<div class="paired-combat-utility-left"><div class="paired-combat-recovery"></div></div>';document.getElementById('initiativePanel').after(utility);}
+    const left=utility.querySelector('.paired-combat-utility-left'),recovery=utility.querySelector('.paired-combat-recovery');
+    const visibility=document.getElementById('surfaceArenaLive');moveCombatControl(visibility,left);if(visibility)left.prepend(visibility);
+    moveCombatControl(document.getElementById('gmPanel'),utility);
+    try{window.parent.SACombatRecoveryLayout?.mount(recovery);}catch{}
+  }
+}
+
 function shipCombatColumnsMarkup(units, includeMap=true) {
   const ships = (state?.starships || []).filter(s=>!s.escapedAt&&s.ship?.warpState?.phase!=='traveling').sort((a,b)=>Number(a.controlType==='gm')-Number(b.controlType==='gm'));
+  const sideRows={left:0,right:0};
   const emptyActivity=ships.filter(s=>!s.contactOnly).length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode==='gm')}</p>`).join('')}</article>`:'';
-  return `<div class="ship-combat-columns" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="combat-space-map" style="grid-column:1/-1">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${ships.filter(s=>!s.contactOnly).map((ship) => {
+  return `<div class="ship-combat-columns" data-single-pc="${mode==='player'&&ships.filter(s=>!s.contactOnly).length===1}" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="shared-interior-controls" aria-label="Shared interior display"></div><div class="paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="combat-space-map">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${ships.filter(s=>!s.contactOnly).map((ship,index) => {
+    const side=ship.controlType==='gm'?'right':'left';
+    const row=sideRows[side]++;
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
     const logs = shipScopedLogEntries(ship.id, shipUnits).slice(-18).reverse();
     const title = ship.title || ship.ship?.title || "Unnamed Starship";
     const atb = visualMode === "ring"
       ? tacticalRingSingleMarkup(shipUnits, ship.id)
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
-    return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}">
+    return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}" data-ship-side="${side}" data-ship-row="${row}" style="--pair-row:${row*4+2};--map-row:${row*4+4};--log-row:${row*4+5}"><div class="paired-ship-summary">
       <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button><button type="button" class="mini danger" data-remove-combat-ship="${escapeHtml(ship.id)}">Remove from Combat</button>`:''}</header>
-      <section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section>
-      <div class="ship-lane-atb">${mode==='gm'&&visualMode==='ring'?shipUnits.filter(u=>u.team==='npc').map(u=>`<div class="crew-automation-controls"><strong>${escapeHtml(u.characterName)}</strong> ${automationControlsMarkup(u,true)}</div>`).join(''):''}${shipUnits.filter(u=>u.consoleHold).map(u=>`<div class="ship-hold-control">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</div>`).join('')}${atb}</div>
+      <div class="ship-summary-stats combat-map-stats"></div><div class="ship-crew-status" role="region" tabindex="0" aria-label="Character combat status aboard ${escapeHtml(title)}">${mode==='gm'&&visualMode==='ring'?shipUnits.filter(u=>u.team==='npc').map(u=>`<div class="crew-automation-controls"><strong>${escapeHtml(u.characterName)}</strong> ${automationControlsMarkup(u,true)}</div>`).join(''):''}</div><section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section></div>
+      <div class="ship-lane-atb"><div class="ship-ring-holds">${shipUnits.filter(u=>u.consoleHold).map(u=>`<div class="ship-hold-control">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</div>`).join('')}</div>${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode === "gm")}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
     </article>`;
@@ -1352,29 +1396,42 @@ function renderShipCombatColumns() {
   const current = unitList.querySelector(".ship-combat-columns");
   const keys = (element) => [...element.children].map((lane) => lane.dataset.shipCombatLane).join("|");
   if (!current || keys(current) !== keys(next)) {
+    restoreCombatControls();
     unitList.replaceChildren(next);
   } else {
     // Keep map controls mounted while live ATB updates arrive.
     [...current.children].forEach((lane, index) => {
       const replacement = next.children[index];
-      if (lane.classList.contains("combat-space-map")) {
+      if (lane.matches('.combat-space-map,.shared-interior-controls,.paired-combat-clock')) {
         return;
       }
       if(lane.classList.contains('empty-contact-activity')){window.SALiveDOM.render(lane,replacement.innerHTML);return;}
-      for (const selector of [".ship-lane-atb", ".ship-lane-log"]) {
+      lane.dataset.shipSide=replacement.dataset.shipSide;
+      lane.dataset.shipRow=replacement.dataset.shipRow;
+      lane.style.cssText=replacement.style.cssText;
+      for (const selector of [".ship-lane-atb", ".ship-lane-log", ".ship-crew-status"]) {
         const target = lane.querySelector(selector);
         const source = replacement.querySelector(selector);
         if (target.innerHTML !== source.innerHTML) {
-          const scroller = target.querySelector(":scope > div");
+          const scroller = selector === ".ship-crew-status" ? target : target.querySelector(":scope > div");
           const scrollTop = scroller?.scrollTop || 0;
           window.SALiveDOM.render(target, source.innerHTML);
-          const updatedScroller = target.querySelector(":scope > div");
+          const updatedScroller = selector === ".ship-crew-status" ? target : target.querySelector(":scope > div");
           if (updatedScroller) updatedScroller.scrollTop = scrollTop;
         }
       }
     });
   }
+  mountPairedCombatControls();
   window.SASpaceMap.update(unitList.querySelector(".combat-space-map"),state.starships,state.shipPositions);
+  const spaceHeader = unitList.querySelector('.combat-space-map .space-map>header');
+  if (spaceHeader && !spaceHeader.querySelector('.combat-inline-space-controls')) {
+    const controls = document.createElement('span');
+    controls.className = 'combat-inline-space-controls';
+    controls.style.display = 'none'; // Cloned enlarged maps keep their own existing toolbar.
+    controls.innerHTML = '<button type="button" data-combat-space-zoom=".7" aria-label="Zoom in space map">+</button><button type="button" data-combat-space-zoom="1.4" aria-label="Zoom out space map">-</button><button type="button" data-combat-space-fit>Fit Ships</button>';
+    spaceHeader.prepend(controls);
+  }
   updateShipAuMeters();
   updateShipHeaders();
   window.SACombatMap?.renderInlineMaps?.(unitList);
@@ -1655,6 +1712,12 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 }
 
 window.SACombatBridge = {
+  // The dashboard receives only this viewer's already-filtered combat record.
+  shipDashboardData: id => {
+    const record=state?.starships?.find(s=>s.id===id&&!s.contactOnly&&!s.escapedAt);
+    if(!record)return null;
+    return {record,campaign:{starships:[record],characters:campaignState?.characters||[],shipCredits:campaignState?.shipCredits}};
+  },
   canLeaveAtmosphere:shipId=>Boolean(state?.practice&&campaignState?.starmaps?.party&&!campaignState.starmaps.party.transport&&campaignState.starmaps.launchableShipIds?.includes(shipId)&&campaignState.starmaps.localPositions?.[shipId]?.phase==='surface'&&!campaignState.starmaps.localJourneys?.[shipId]),
   leaveAtmosphere:async shipId=>{const p=campaignState?.starmaps?.localPositions?.[shipId];if(!p)throw Error('The ship is no longer on this planet.');const response=await campaignRequest('/api/campaign/v03/starmap',{method:'POST',body:JSON.stringify({code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,kind:'leavePlanet',receipt:crypto.randomUUID(),mapId:p.mapId,starId:p.starId,planetId:p.planetId,shipId})});if(response.campaign)receiveCampaignUpdate(response.campaign);return response;},
   crewLogRequest:body=>campaignRequest('/api/campaign/crew-log',{method:'POST',body:JSON.stringify({...body,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken})}),
@@ -1723,7 +1786,8 @@ function setMode(next) {
 }
 
 function setVisualMode(next) {
-  visualMode = next === "ring" ? "ring" : "bars";
+  surfaceVisualMode = next === "ring" ? "ring" : "bars";
+  visualMode = state?.starships?.length ? "ring" : surfaceVisualMode;
   render();
 }
 
@@ -2769,7 +2833,9 @@ function updateGmClockButton() {
   const showEngage = shouldShowEngageClock();
   const isPaused = Boolean(state?.hardPaused);
   const clockAction = npcActionLocked ? "npc" : isPaused ? "resume" : showEngage ? "start" : "pause";
-  const label = clockAction === "npc" ? "NPC Action" : clockAction === "pause" ? "Pause Everything" : "Engage Clock";
+  const firstEngagement = Boolean(state?.starships?.length && !state.hasEngagedClock && clockAction === 'start');
+  const label = firstEngagement ? 'Begin Combat, and Engage Clock!!' : clockAction === "npc" ? "NPC Action" : clockAction === "pause" ? "Pause Everything" : "Engage Clock";
+  gmPanicPause.classList.toggle('first-combat-engagement', firstEngagement);
   const footer = state?.pausedForTurn && !state?.hardPaused
     ? active?.team === "npc" ? "NPC turn active" : "Turn is active"
     : state?.pausedForTurn && state?.hardPaused
@@ -2780,7 +2846,7 @@ function updateGmClockButton() {
   gmPanicPause.classList.toggle("engage", showEngage || isPaused);
   gmPanicPause.classList.toggle("paused", !showEngage && !isPaused);
   gmPanicPause.disabled = npcActionLocked;
-  if (gmPanicPause.dataset.clockAction !== clockAction || gmPanicPause.dataset.footer !== footer) {
+  if (gmPanicPause.dataset.clockAction !== clockAction || gmPanicPause.dataset.footer !== footer || gmPanicPause.getAttribute('aria-label') !== label) {
     gmPanicPause.dataset.clockAction = clockAction;
     gmPanicPause.dataset.footer = footer;
     gmPanicPause.innerHTML = `<span>${label}</span>${footer ? `<small>${footer}</small>` : ""}`;
@@ -3182,9 +3248,12 @@ function render() {
 
   const starshipCombat = Boolean(state.starships?.length);
   const starshipEncounterKey = starshipCombat ? state.starships.filter(ship=>!ship.isMissile).map((ship) => ship.id).join("|") : "";
-  if (state.starships?.length >= 2 && starshipEncounterKey !== lastStarshipEncounterKey) visualMode = "ring";
+  visualMode = starshipCombat ? "ring" : surfaceVisualMode;
+  document.body.classList.toggle("ring-view-mode", visualMode === "ring");
   lastStarshipEncounterKey = starshipEncounterKey;
   document.body.classList.toggle("starship-combat-mode", starshipCombat);
+  document.body.classList.toggle('paired-combat-layout', starshipCombat);
+  if (!starshipCombat) restoreCombatControls();
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || starshipCombat);
 
   roomCode.textContent = state.roomCode;
@@ -3202,7 +3271,7 @@ function render() {
   gmMuteSound.classList.toggle("muted", soundsMuted);
   gmMuteSound.title = soundsMuted ? "Unmute sounds" : "Mute sounds";
   gmMuteSound.setAttribute("aria-label", gmMuteSound.title);
-  visualModeToggle.classList.toggle("hidden", !!state.arena || ((mode !== "gm" && mode !== "player") || embeddedCombat));
+  visualModeToggle.classList.toggle("hidden", starshipCombat || (mode !== "gm" && mode !== "player"));
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   undoLastTiming.disabled = !state.undoAvailable;
@@ -3265,7 +3334,7 @@ function render() {
     stopPlayerPreviewAnimation();
     if (starshipCombat) {
       renderShipCombatColumns();
-    } else if (!state.arena && visualMode === "ring" && !(mode === "player" && showMineOverlay)) {
+    } else if (visualMode === "ring") {
       window.SALiveDOM.render(unitList, tacticalRingMarkup(state.units));
     } else {
       renderUnitList(sorted);
@@ -4240,6 +4309,14 @@ function handleUnitActionButton(button, event = null) {
 unitList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.hasAttribute('data-combat-space-zoom') || button.hasAttribute('data-combat-space-fit')) {
+    const svg = button.closest('.space-map')?.querySelector('[data-space-canvas]');
+    if (svg) {
+      if (button.hasAttribute('data-combat-space-fit')) window.SASpaceMap.fitRendered(svg);
+      else window.SASpaceMap.zoom(svg, Number(button.dataset.combatSpaceZoom));
+    }
+    return;
+  }
   if(button.dataset.sensorReading&&mode==='gm'){
     const reading = prompt('Approximate biological life reading (artificial life is excluded):');
     if (reading?.trim()) action({action:'sensorLifeReading',starshipId:button.dataset.sensorShip,reportAt:button.dataset.sensorReading,reading},'resolve');

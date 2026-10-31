@@ -33,7 +33,7 @@ async function startHarness({headless=false}={}){
    gm=await context.newPage();await gm.goto(`${base}/gm.html?campaign=${fixture.code}`);
    await gm.evaluate(f=>{sessionStorage.setItem('sa-gm-token-'+f.code,f.token);localStorage.setItem('sa-gm-token-'+f.code,f.token);},JSON.parse(JSON.stringify(fixture)));await gm.reload();
    await gm.getByRole('button',{name:'Combat',exact:true}).click();const resume=gm.getByRole('button',{name:'Resume Encounter',exact:true});if(await resume.isVisible())await resume.click();
-   const engage=gm.frameLocator('#atbFrame').getByRole('button',{name:'Engage Clock',exact:true});await engage.click();
+   const engage=gm.frameLocator('#atbFrame').getByRole('button',{name:/^(Engage Clock|Begin Combat, and Engage Clock!!)$/});await engage.click({timeout:15000});
    await fixture.act({action:'setHardPaused',paused:true});const operator=(await state()).units.find(u=>u.characterId===fixture.characterId);await fixture.act({action:'nudge',id:operator.id,amount:100});
    await openConsole();
    await panel.evaluate(({tier,scenario,code})=>{document.querySelector('#status').textContent=`Ready: Sensors ${tier}, ${scenario}, disposable room ${code}. Combat is paused; use the GM tab to run/step time. Reset discards this scenario.`;},JSON.parse(JSON.stringify(fixture)));

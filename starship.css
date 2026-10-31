@@ -468,3 +468,24 @@ body:not(.ship-details-view) .desktop-construction-sidebar{grid-row:1 / span 2}
 
 /* Allow complete icon names to fit the construction sidebar. */
 .ship-icon-picker .ship-icon-options{grid-template-columns:repeat(auto-fit,minmax(90px,1fr))}
+
+/* Compact construction and camera controls share one desktop map toolbar. */
+@media(min-width:821px){
+ .desktop-grid-toolbar.has-construction-controls{width:calc(100% - 12px);box-sizing:border-box;flex-wrap:nowrap;gap:4px;padding:4px}
+ .desktop-grid-toolbar.has-construction-controls .grid-zoom-controls{width:auto;flex:0 0 auto;flex-wrap:nowrap;gap:2px}
+ .desktop-grid-toolbar .construction-zone-controls{display:flex;flex:0 0 auto;align-items:center;flex-wrap:nowrap;gap:4px;font-size:12px}
+ .desktop-grid-toolbar .construction-zone-controls label{display:inline-flex;align-items:center;gap:3px;margin:0;white-space:nowrap;font-size:12px}
+ .desktop-grid-toolbar.has-construction-controls button{font-size:12px;white-space:nowrap;padding:3px 4px}
+ .desktop-grid-toolbar .construction-zone-controls select{font-size:12px;padding:3px;min-width:0;width:auto}
+ .desktop-grid-toolbar .construction-zone-controls input[type=checkbox]{margin:0;width:13px;height:13px}
+ .ship-details-view .desktop-grid-toolbar .construction-zone-controls,.view-only-starship .desktop-grid-toolbar .construction-zone-controls{display:none}
+ .ship-details-view .desktop-grid-toolbar.has-construction-controls,.view-only-starship .desktop-grid-toolbar.has-construction-controls{width:auto}
+}
+
+@media(min-width:821px) and (max-width:1366px){
+ .desktop-grid-toolbar.has-construction-controls{width:calc(100% - 4px);max-width:calc(100% - 4px);gap:2px;padding:3px}
+ .desktop-grid-toolbar.has-construction-controls button{padding:3px 1px;min-width:24px}
+ .desktop-grid-toolbar.has-construction-controls .grid-zoom-controls button[data-grid-zoom=fit]{min-width:0}
+ .desktop-grid-toolbar.has-construction-controls .grid-zoom-controls output{min-width:36px}
+ .desktop-grid-toolbar .construction-zone-controls{gap:2px}
+}

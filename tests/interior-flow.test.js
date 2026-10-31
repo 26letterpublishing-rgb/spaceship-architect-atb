@@ -2,6 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 function functionFrom(file,name,next,context={}){
  const source=fs.readFileSync(require.resolve('../'+file),'utf8');
  const start=source.indexOf('function '+name+'('),end=source.indexOf('function '+next+'(',start);
+ if(file==='ship-combat-map.js'){context.window??={};context.window.SAShipMap=require('../ship-map-core');vm.runInNewContext(source.slice(source.indexOf('  function orientedGridPoint('),source.indexOf('  function inlineMapMarkup(')),context);}
  vm.runInNewContext(source.slice(start,end),context);return context[name];
 }
 const fit=functionFrom('starship.js','fittedInteriorView','fitShipToViewport');
@@ -42,7 +43,8 @@ test('Combat tab does not demand attention from inactive or deliberately held ch
 });
 test('inline fit uses available vertical room and resets scrolling, including expanded view',()=>{
  const style=new Map(),viewport={clientWidth:1500,clientHeight:600,scrollLeft:60,scrollTop:200};
- const grid={style:{getPropertyValue:k=>k==='--inline-cols'?14:18,setProperty:(k,v)=>style.set(k,v)}};
+ const grid={dataset:{displayRotation:'0'},style:{getPropertyValue:k=>k==='--inline-cols'?14:18,setProperty:(k,v)=>style.set(k,v)}};
+ grid.parentElement={style:grid.style};
  const host={dataset:{inlineShipMap:'ship'},querySelector:s=>s==='.inline-map-viewport'?viewport:grid};
  const views=new Map(),expanded={host,dialog:{style:grid.style},cellSize:96};
  const fitting=functionFrom('ship-combat-map.js','fitInline','watchFit',{rememberInlineView(){},inlineZoom:views,expandedMap:expanded,manualInlineViews:new WeakSet([host]),interaction:'view',selectedShipId:''});
@@ -53,6 +55,7 @@ test('inline fit uses available vertical room and resets scrolling, including ex
 test('crew movement fits every walkable hull row while leaving exterior equipment scrollable',()=>{
  const styles=new Map(),viewport={clientWidth:1200,clientHeight:420,scrollLeft:0,scrollTop:0,getBoundingClientRect:()=>({left:0,top:0})};
  const grid={dataset:{hullColumn:'2',hullRow:'4',hullColumns:'14',hullRows:'14'},style:{getPropertyValue:k=>k==='--inline-cols'?18:20,setProperty:(k,v)=>styles.set(k,v)},getBoundingClientRect:()=>({left:12,top:12})};
+ grid.parentElement={style:grid.style};
  const host={dataset:{inlineShipMap:'ship'},querySelector:s=>s==='.inline-map-viewport'?viewport:grid};
  const views=new Map();
  const fitting=functionFrom('ship-combat-map.js','fitInline','watchFit',{rememberInlineView(){},inlineZoom:views,expandedMap:null,manualInlineViews:new WeakSet(),interaction:'move',selectedShipId:'ship'});
@@ -86,11 +89,13 @@ test('movement framing translates through nested iframe offsets and reserves the
 
 test('interior cameras survive remount and resize, with independent ship, encounter and expanded views',()=>{
  const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');
- const context={combatState:{encounterId:'battle'},expandedMap:null,inlineZoom:new Map([['ship',80],['other',40]])};
+ const context={window:{SAShipMap:require('../ship-map-core')},combatState:{encounterId:'battle'},expandedMap:null,inlineZoom:new Map([['ship',80],['other',40]])};
+ vm.runInNewContext(source.slice(source.indexOf('  function orientedGridPoint('),source.indexOf('  function inlineMapMarkup(')),context);
  vm.runInNewContext(source.slice(source.indexOf('  const interiorCameras='),source.indexOf('  function fitInline(')),context);
  function host(id,width=400){
   const viewport={clientWidth:width,clientHeight:300,scrollLeft:160,scrollTop:80,getBoundingClientRect:()=>({left:10,top:20})};
-  const grid={dataset:{originColumn:'4',originRow:'3'},style:{setProperty(){}},getBoundingClientRect:()=>({left:22-viewport.scrollLeft,top:32-viewport.scrollTop})};
+  const grid={dataset:{originColumn:'4',originRow:'3'},style:{getPropertyValue:()=>20,setProperty(){}},getBoundingClientRect:()=>({left:22-viewport.scrollLeft,top:32-viewport.scrollTop})};
+  grid.parentElement={style:grid.style};
   return {dataset:{inlineShipMap:id},querySelector:s=>s==='.inline-map-viewport'?viewport:grid,viewport,grid};
  }
  const original=host('ship');context.rememberInlineView(original);

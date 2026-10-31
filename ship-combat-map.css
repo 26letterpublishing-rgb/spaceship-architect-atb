@@ -148,3 +148,56 @@ body .combat-map-panel>header,body .expanded-interior-dialog>header{padding-righ
 .inline-map-move-controls{position:relative;padding:6px;background:#07131ff2;border:1px solid #54dced;min-width:0;margin-top:6px}
 .inline-map-move-controls .inline-map-actions{border:0;padding:4px 0 0;flex-wrap:wrap}
 .inline-map-stage>.inline-moving-status{position:absolute;bottom:8px;left:8px;right:8px;background:#07131fe8;padding:5px;pointer-events:none}
+
+/* Saved build facing rotates the whole interior, including hit targets/overlays.
+   The wrapper reserves its rotated bounds; canonical square IDs never change. */
+.inline-map-orientation{--cell-size:var(--preview-cell-size,72px);position:relative;flex:none;width:calc(var(--display-cols)*var(--cell-size));height:calc(var(--display-rows)*var(--cell-size));margin:12px}
+.inline-map-orientation>.inline-combat-map-grid{position:absolute;left:0;top:0;margin:0;transform-origin:0 0}
+.inline-map-orientation>[data-display-rotation="90"]{transform:rotate(90deg) translateY(-100%)}
+.inline-map-orientation>[data-display-rotation="180"]{transform:rotate(180deg) translate(-100%,-100%)}
+.inline-map-orientation>[data-display-rotation="270"]{transform:rotate(270deg) translateX(-100%)}
+.expanded-interior-dialog .inline-map-orientation{--cell-size:var(--expanded-cell-size,96px)}
+
+body.paired-combat-layout .ship-lane-map{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto clamp(360px,42vw,600px)}
+body.paired-combat-layout .ship-lane-map>.combat-map-stats,body.paired-combat-layout .ship-lane-map .inline-map-view-controls{display:none}
+body.paired-combat-layout .ship-lane-map>.inline-map-footer{grid-row:1;display:flex;justify-content:flex-start}
+body.paired-combat-layout [data-ship-side=right]>.ship-lane-map>.inline-map-footer{justify-content:flex-end}
+body.paired-combat-layout .ship-lane-map .inline-map-zoom{display:flex;flex-wrap:wrap;gap:6px;margin:0;width:auto}
+body.paired-combat-layout .ship-lane-map .inline-map-zoom button{margin:0;min-width:36px}
+body.paired-combat-layout .ship-lane-map>.inline-map-toolbar{grid-row:2}
+body.paired-combat-layout .ship-lane-map>.inline-map-stage{grid-row:3;height:100%}
+body.paired-combat-layout .ship-lane-map .inline-map-viewport{height:100%;min-height:0;overflow:auto;place-items:safe center}
+body.paired-combat-layout .inline-map-stage>.inline-map-move-controls,.expanded-interior-dialog .inline-map-stage>.inline-map-move-controls{position:absolute;z-index:40;bottom:12px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;margin:0;pointer-events:auto}
+.inline-map-move-controls .interior-station-choice{flex-wrap:wrap}
+.inline-map-move-controls select{min-width:0;max-width:100%}
+.expanded-interior-dialog:has(.combat-ship-dashboard)[open]{display:block;overflow:auto}
+body .expanded-interior-dialog:has(.combat-ship-dashboard)>[data-inline-ship-map]{height:calc(100dvh - 100px)!important;min-height:420px;grid-template-rows:auto minmax(0,1fr) auto}
+.combat-ship-dashboard{display:block;width:100%;min-height:180px;border:0;margin-top:16px;background:#06121a}
+/* Counter-rotate text only, centered on its rigidly rotated room footprint. */
+.inline-map-orientation>[data-display-rotation] .combat-map-label{left:calc(var(--sic-width)*50%)!important;top:calc(var(--sic-height)*50%)!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%) rotate(var(--label-rotation,0deg))}
+.inline-map-orientation>[data-display-rotation="90"]{--label-rotation:-90deg}
+.inline-map-orientation>[data-display-rotation="180"]{--label-rotation:-180deg}
+.inline-map-orientation>[data-display-rotation="270"]{--label-rotation:-270deg}
+.inline-map-orientation>[data-display-rotation="90"] .combat-map-label,.inline-map-orientation>[data-display-rotation="270"] .combat-map-label{width:calc(var(--sic-height)*100%)!important;height:calc(var(--sic-width)*100%)!important}
+.inline-map-orientation>[data-display-rotation] .sa-room-oxygen{transform:translate(-50%,-100%) rotate(var(--label-rotation,0deg))}
+.inline-map-orientation>[data-display-rotation] .sa-reboot-status,.inline-map-orientation>[data-display-rotation] .combat-token>span,.inline-map-orientation>[data-display-rotation] .combat-station-marker>span{transform:rotate(var(--label-rotation,0deg))}
+.inline-map-orientation>[data-display-rotation] .combat-token.stationed>span,.inline-map-orientation>[data-display-rotation] .combat-station-marker.occupied>span{transform:rotate(calc(var(--label-rotation,0deg) - 45deg))}
+
+/* Reuse the construction map's original pill tile, rather than native checkbox art. */
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label{position:relative;box-sizing:border-box;display:grid;flex:0 0 123px;grid-template-columns:1fr;align-content:center;justify-items:center;gap:3px;height:44px;padding:4px 2px;border:1px solid #334b60;color:#a8bacb;background:#0a1825;cursor:pointer;line-height:1.2;text-transform:uppercase}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) input{position:absolute;opacity:0;pointer-events:none}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label::before{content:"";width:24px;height:12px;border:1px solid #526b80;border-radius:8px;background:#111d27;box-shadow:inset 0 0 0 2px #071018}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label:has(input:checked){color:#eaffff;border-color:#45d3ec;background:#0d2733}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label:has(input:checked)::before{border-color:#6ceaff;background:linear-gradient(90deg,#2ce19a 0 50%,#163442 50%)}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label:focus-within{outline:2px solid #9bf2ff;outline-offset:1px}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) label:has(input:disabled){opacity:.5;cursor:default}
+:is(.shared-interior-controls.shared-interior-controls,.expanded-interior-dialog .inline-map-view-controls) span{font-size:11px;font-weight:900;text-align:center;text-transform:uppercase;white-space:nowrap}
+
+.expanded-interior-dialog .inline-map-view-controls{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
+.expanded-interior-dialog .inline-map-footer{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* Existing Ship Stats construction-summary presentation: content-sized groups, no cards. */
+.expanded-interior-dialog>.combat-dashboard-live{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;padding:8px 12px;color:#91a5b9}
+.expanded-interior-dialog>.combat-dashboard-live>span{display:flex;align-items:center;gap:6px;flex:0 0 auto;min-height:0;padding:0;border:0;background:none}
+.expanded-interior-dialog>.combat-dashboard-live>span>small{font-size:12px;text-transform:uppercase}
+.expanded-interior-dialog>.combat-dashboard-live>span>strong{display:inline-flex;align-items:center;font-size:16px;color:#f7fbff}
+.expanded-interior-dialog>.combat-dashboard-live .sa-health-track{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
